@@ -41,8 +41,11 @@ są izolowane per tenant. Walidacja: Ruff, brak dryfu migracji i 122 testy backe
 
 ### W5.2 — centralna autoryzacja planowa
 
-**Stan:** w toku. Lokalne, wyjaśnialne decyzje `can()` i `limit()` oraz kompozycja
-z RBAC są wdrożone; pozostały atomowe liczniki/rezerwacje quota.
+**Stan:** zakończone lokalnie 2026-08-10. Lokalne, wyjaśnialne decyzje `can()`
+i `limit()` są niezależnie komponowane z RBAC. Okresowe liczniki i idempotentne
+rezerwacje quota są blokowane transakcyjnie; test współbieżny dowodzi, że tylko
+jedno żądanie może zużyć ostatnią jednostkę. Walidacja: Ruff, import-linter,
+punktowy mypy, brak dryfu migracji i 137 testów backendu.
 
 > **FINDING W5.2-01 — rozwiązane 2026-08-10:** kontrakt modułu i dokumentacja
 > używają teraz wdrożonego klucza `organization.billing.manage`. Profile

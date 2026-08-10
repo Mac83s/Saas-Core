@@ -57,6 +57,12 @@ class AccessMode(models.TextChoices):
     BLOCKED = "blocked", "Zablokowany"
 
 
+class QuotaReservationState(models.TextChoices):
+    RESERVED = "reserved", "Zarezerwowana"
+    COMMITTED = "committed", "Rozliczona"
+    RELEASED = "released", "Zwolniona"
+
+
 class Feature(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     key = models.CharField(max_length=100, unique=True, validators=[CATALOG_KEY_VALIDATOR])
@@ -339,3 +345,80 @@ class EntitlementSnapshot(TenantScopedModel):
             errors["sources"] = "Źródła snapshotu muszą być mapą."
         if errors:
             raise ValidationError(errors)
+
+
+class QuotaUsage(TenantScopedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    quota_definition = models.ForeignKey(
+        QuotaDefinition,
+        on_delete=models.PROTECT,
+        related_name="usage_periods",
+    )
+    period_start = models.DateField()
+    period_end = models.DateField(null=True, blank=True)
+    used = models.PositiveBigIntegerField(default=0)
+    reserved = models.PositiveBigIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "quota_definition_id", "period_start")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "quota_definition", "period_start", "period_end"],
+                name="billing_quota_usage_period_uq",
+                nulls_distinct=False,
+            ),
+            models.CheckConstraint(
+                condition=models.Q(period_end__isnull=True)
+                | models.Q(period_end__gt=models.F("period_start")),
+                name="billing_quota_usage_window_ck",
+            ),
+        ]
+
+
+class QuotaReservation(TenantScopedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    usage = models.ForeignKey(
+        QuotaUsage,
+        on_delete=models.PROTECT,
+        related_name="reservations",
+    )
+    idempotency_key = models.CharField(max_length=120)
+    amount = models.PositiveBigIntegerField()
+    state = models.CharField(
+        max_length=16,
+        choices=QuotaReservationState,
+        default=QuotaReservationState.RESERVED,
+    )
+    expires_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "created_at")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "idempotency_key"],
+                name="billing_quota_reservation_key_uq",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(amount__gt=0),
+                name="billing_quota_reservation_amount_ck",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["organization", "state", "expires_at"],
+                name="bill_reservation_state_idx",
+            )
+        ]
+
+    def clean(self) -> None:
+        super().clean()
+        if self.usage_id and self.usage.organization_id != self.organization_id:
+            raise ValidationError({"usage": "Licznik quota należy do innej organizacji."})

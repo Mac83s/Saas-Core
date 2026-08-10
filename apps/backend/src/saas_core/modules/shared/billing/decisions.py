@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, cast
 
 from django.utils import timezone
 
@@ -77,7 +77,7 @@ def decide_feature(
     at: datetime | None = None,
 ) -> FeatureDecision:
     require_tenant_context()
-    snapshot = EntitlementSnapshot.objects.first()
+    snapshot = cast(EntitlementSnapshot | None, EntitlementSnapshot.objects.first())
     evidence = _evidence(snapshot, feature_key)
     if snapshot is None:
         return FeatureDecision(
@@ -117,7 +117,7 @@ def decide_feature(
 
 def decide_quota(quota_key: str, *, at: datetime | None = None) -> QuotaDecision:
     require_tenant_context()
-    snapshot = EntitlementSnapshot.objects.first()
+    snapshot = cast(EntitlementSnapshot | None, EntitlementSnapshot.objects.first())
     evidence = _evidence(snapshot, quota_key)
     if snapshot is None:
         return QuotaDecision(
