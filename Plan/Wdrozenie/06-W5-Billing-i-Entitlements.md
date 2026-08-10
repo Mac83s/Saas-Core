@@ -105,6 +105,13 @@ i 170 testów backendu.
 
 #### W5.4.2 — zegar lifecycle i ostrzeżenia
 
+> **FINDING W5.4-02 — otwarte 2026-08-11:** bieżący processor mapuje
+> `customer.subscription.deleted` bezpośrednio na `read_only`, mimo że ADR-026
+> zachowuje pełny dostęp do końca opłaconego okresu. Dodatkowo `past_due` z
+> eventu subskrypcji nie wyznacza jawnego siedmiodniowego grace period. W5.4.2
+> wprowadza `grace_period_end` i trwałe, idempotentne akcje czasowe dla obu
+> przejść.
+
 - dodać idempotentne harmonogramy ostrzeżeń przed końcem triala i grace period;
 - przełączać wygasły grace period do `read_only` bez usuwania danych;
 - zachować pełny dostęp przy anulowaniu do końca opłaconego okresu;
