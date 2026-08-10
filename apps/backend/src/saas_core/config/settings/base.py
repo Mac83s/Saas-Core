@@ -45,6 +45,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "saas_core.modules.core.identity.middleware.ManagedUserSessionMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -115,9 +116,18 @@ CACHES = {
     }
 }
 SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
+SESSION_COOKIE_NAME = os.environ.get(
+    "SESSION_COOKIE_NAME",
+    f"saas_core_{os.environ.get('DEPLOYMENT', 'core-only').replace('-', '_')}_session",
+)
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_PATH = "/"
+SESSION_IDLE_TIMEOUT_SECONDS = int(os.environ.get("SESSION_IDLE_TIMEOUT_SECONDS", "1800"))
+SESSION_MAX_LIFETIME_SECONDS = int(os.environ.get("SESSION_MAX_LIFETIME_SECONDS", "86400"))
+if SESSION_IDLE_TIMEOUT_SECONDS <= 0 or SESSION_MAX_LIFETIME_SECONDS <= 0:
+    raise ImproperlyConfigured("Limity czasu sesji muszą być dodatnie")
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SECURE = True
@@ -175,10 +185,14 @@ if LOG_DIRECTORY:
     LOGGING["root"]["handlers"].append("file")  # type: ignore[index]
 
 REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+    ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "saas_core.http.exceptions.problem_details_exception_handler",
     "NUM_PROXIES": int(os.environ.get("TRUSTED_PROXY_COUNT", "1")),
     "DEFAULT_THROTTLE_RATES": {
+        "identity_login": "5/min",
         "identity_register": "5/min",
         "identity_verification_resend": "5/min",
         "identity_verification_confirm": "10/min",

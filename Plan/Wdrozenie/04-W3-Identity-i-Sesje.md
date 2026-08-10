@@ -31,11 +31,12 @@ Operator loguje się osobnym kanałem z obowiązkowym 2FA.
 
 ### W3.3 — sesja panelu
 
-- wdrożyć kontrakt cookie, CSRF i CORS zatwierdzony w W0;
-- dodać login, logout, `me`, listę sesji i unieważnienie sesji;
-- rotować identyfikator sesji po logowaniu i zmianie uprawnień;
-- egzekwować timeout bezczynności i maksymalny czas życia;
-- nie umieszczać tokenów uwierzytelniających w localStorage.
+- [x] wdrożyć kontrakt cookie, CSRF i CORS zatwierdzony w W0;
+- [x] dodać login, logout, `me`, listę sesji i unieważnienie sesji;
+- [x] rotować identyfikator sesji po logowaniu; zmiany uprawnień użyją tej samej
+  granicy rotacji po dodaniu membership w W4;
+- [x] egzekwować timeout bezczynności i maksymalny czas życia;
+- [x] nie umieszczać tokenów uwierzytelniających w localStorage.
 
 ### W3.4 — reset hasła i zabezpieczenia
 
@@ -66,10 +67,10 @@ Operator loguje się osobnym kanałem z obowiązkowym 2FA.
 ## 4. Bramka wyjścia
 
 - [ ] pełna ścieżka rejestracja → weryfikacja → login działa na stagingu;
-- [ ] wszystkie tokeny są jednorazowe, wygasające i hashowane;
-- [ ] użytkownik może zobaczyć i unieważnić swoje sesje;
+- [x] wszystkie zaimplementowane tokeny są jednorazowe, wygasające i hashowane;
+- [x] użytkownik może zobaczyć i unieważnić swoje sesje;
 - [ ] operator ma obowiązkowe 2FA oraz oddzielny dostęp administracyjny;
-- [ ] testy CSRF, rate limiting i session fixation przechodzą;
+- [x] testy CSRF, rate limiting i session fixation przechodzą;
 - [ ] frontend nie przechowuje sekretów sesji w JavaScript storage;
 - [ ] zdarzenia Identity są gotowe do podłączenia W8.
 
@@ -112,3 +113,23 @@ Operator loguje się osobnym kanałem z obowiązkowym 2FA.
   CSRF kodem `403`, a następnie zakończył ścieżkę kodami `202`, `200` i odrzucił
   ponowne użycie tokenu kodem `400`;
 - weryfikacja staging/VPS pozostaje odroczoną bramką i nie jest uznana za wykonaną.
+
+### W3.3 — 2026-08-10
+
+- Django `cached_db` wydaje host-only cookie o nazwie zależnej od deploymentu,
+  z `HttpOnly`, `SameSite=Lax`, `Secure` poza local/test i bez atrybutu `Domain`;
+- endpointy login, logout, `me`, lista aktywnych sesji i revocation urządzenia
+  działają pod `/api/v1/auth/` oraz używają sesji Django i CSRF, bez JWT;
+- login jawnie rotuje klucz nawet dla istniejącej sesji; domenowy `UserSession`
+  przechowuje wyłącznie HMAC klucza, identyfikator rekordu jest częścią podpisanej
+  sesji Django, a middleware odrzuca mismatch, revocation i wygaśnięcie;
+- bezczynność ma domyślnie 30 minut, maksymalne życie 24 godziny, a oba limity są
+  konfigurowalne i dodatnie; wygaśnięta sesja jest oznaczana jako unieważniona;
+- `LoginAttempt` zapisuje tylko HMAC identyfikatora i IP oraz wynik próby; logi
+  smoke testu nie zawierały e-maila, hasła, tokenu, cookie ani klucza sesji;
+- 35 testów backendu przeszło, w tym session fixation, CSRF loginu, równoważna
+  odpowiedź dla nieaktywnego i brakującego konta, logout, revocation innego
+  urządzenia oraz oba limity czasu;
+- smoke w finalnym runtime przeszedł rejestrację i weryfikację, login, `me`, listę
+  sesji, logout oraz odrzucenie ponownie użytego cookie kodem `403`;
+- klient TypeScript został odtworzony z OpenAPI i kontrola driftu przeszła.

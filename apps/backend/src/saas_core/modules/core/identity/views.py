@@ -1,19 +1,29 @@
+from typing import cast
+from uuid import UUID
+
+from django.http import HttpRequest
 from django.middleware.csrf import get_token
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect, ensure_csrf_cookie
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+from .middleware import MANAGED_SESSION_KEY
+from .models import User, UserSession
 from .serializers import (
     CsrfTokenSerializer,
     GenericMessageSerializer,
+    LoginSerializer,
     ProblemDetailsSerializer,
     RegistrationSerializer,
+    SessionSummarySerializer,
+    UserSummarySerializer,
     VerificationConfirmSerializer,
     VerificationRequestSerializer,
     VerificationResultSerializer,
@@ -24,12 +34,17 @@ from .services import (
     register_user,
     request_email_verification,
 )
+from .sessions import login_user, logout_user, revoke_user_session
 
 
 class PublicIdentityView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
     throttle_classes = [ScopedRateThrottle]
+
+
+class ProtectedIdentityView(APIView):
+    permission_classes = [IsAuthenticated]
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
@@ -62,6 +77,29 @@ class RegistrationView(PublicIdentityView):
             {"detail": GENERIC_VERIFICATION_MESSAGE},
             status=status.HTTP_202_ACCEPTED,
         )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class LoginView(PublicIdentityView):
+    throttle_scope = "identity_login"
+
+    @extend_schema(
+        request=LoginSerializer,
+        responses={
+            200: UserSummarySerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            429: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = login_user(
+            request=cast(HttpRequest, request),
+            **serializer.validated_data,
+        )
+        return Response(_user_summary(user))
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -105,3 +143,72 @@ class VerificationConfirmView(PublicIdentityView):
         serializer.is_valid(raise_exception=True)
         confirm_email_verification(**serializer.validated_data)
         return Response({"status": "verified"})
+
+
+class CurrentUserView(ProtectedIdentityView):
+    @extend_schema(responses={200: UserSummarySerializer, 403: ProblemDetailsSerializer})
+    def get(self, request: Request) -> Response:
+        return Response(_user_summary(cast(User, request.user)))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class LogoutView(ProtectedIdentityView):
+    @extend_schema(
+        request=None,
+        responses={204: None, 403: ProblemDetailsSerializer},
+    )
+    def post(self, request: Request) -> Response:
+        logout_user(request=cast(HttpRequest, request))
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class SessionListView(ProtectedIdentityView):
+    @extend_schema(responses={200: SessionSummarySerializer(many=True)})
+    def get(self, request: Request) -> Response:
+        user = cast(User, request.user)
+        current_id = request.session.get(MANAGED_SESSION_KEY)
+        sessions = UserSession.objects.filter(
+            user=user,
+            revoked_at__isnull=True,
+            expires_at__gt=timezone.now(),
+        )
+        return Response(
+            [
+                {
+                    "id": tracking.id,
+                    "device_label": tracking.device_label,
+                    "created_at": tracking.created_at,
+                    "last_seen_at": tracking.last_seen_at,
+                    "expires_at": tracking.expires_at,
+                    "current": str(tracking.id) == current_id,
+                }
+                for tracking in sessions
+            ]
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SessionRevokeView(ProtectedIdentityView):
+    @extend_schema(
+        responses={
+            204: None,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        }
+    )
+    def delete(self, request: Request, session_id: UUID) -> Response:
+        revoke_user_session(
+            request=cast(HttpRequest, request),
+            session_id=session_id,
+        )
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def _user_summary(user: User) -> dict[str, str]:
+    return {
+        "id": str(user.id),
+        "email": user.email,
+        "status": user.status,
+        "locale": user.locale,
+        "timezone": user.timezone,
+    }

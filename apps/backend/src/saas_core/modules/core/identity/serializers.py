@@ -46,3 +46,25 @@ class ProblemDetailsSerializer(serializers.Serializer[dict[str, Any]]):
     code = serializers.CharField()
     detail = serializers.JSONField()
     correlation_id = serializers.CharField(allow_null=True)
+
+
+class LoginSerializer(serializers.Serializer[dict[str, Any]]):
+    email = serializers.EmailField(max_length=254)
+    password = serializers.CharField(write_only=True, max_length=128)
+
+
+class UserSummarySerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    email = serializers.EmailField()
+    status = serializers.CharField()
+    locale = serializers.CharField()
+    timezone = serializers.CharField()
+
+
+class SessionSummarySerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    device_label = serializers.CharField()
+    created_at = serializers.DateTimeField()
+    last_seen_at = serializers.DateTimeField()
+    expires_at = serializers.DateTimeField()
+    current = serializers.BooleanField()
