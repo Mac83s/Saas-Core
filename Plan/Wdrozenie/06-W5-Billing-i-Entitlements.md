@@ -61,7 +61,9 @@ punktowy mypy, brak dryfu migracji i 137 testów backendu.
 
 **Stan:** w toku. Lokalny model Customer (przez `BillingProfile`), mapowanie
 Stripe Price → `PlanVersion`, historia subskrypcji i trwały inbox eventów są
-wdrożone. Pozostały podpis, asynchroniczne przetwarzanie oraz Checkout/Portal.
+wdrożone. Endpoint zapisuje event dopiero po poprawnej weryfikacji podpisu na
+surowym body, przypiętej wersji API i trybu test/live; dostawy są deduplikowane
+po Stripe event ID. Pozostały asynchroniczny processor oraz Checkout/Portal.
 
 - tworzyć Customer i Checkout wyłącznie dla uprawnionego Ownera;
 - mapować Price do wewnętrznego `PlanVersion`, bez traktowania Stripe jako SSOT;

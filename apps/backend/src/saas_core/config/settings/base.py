@@ -149,9 +149,7 @@ CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SECURE = True
 CSRF_FAILURE_VIEW = "saas_core.http.csrf.csrf_failure"
 
-EMAIL_BACKEND = os.environ.get(
-    "EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend"
-)
+EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "localhost")
 EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "25"))
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
@@ -168,6 +166,18 @@ PASSWORD_RESET_TTL_SECONDS = int(os.environ.get("PASSWORD_RESET_TTL_SECONDS", "3
 PASSWORD_RESET_RESEND_COOLDOWN_SECONDS = int(
     os.environ.get("PASSWORD_RESET_RESEND_COOLDOWN_SECONDS", "60")
 )
+STRIPE_SECRET_KEY = secret_setting("STRIPE_SECRET_KEY")
+STRIPE_WEBHOOK_SECRET = secret_setting("STRIPE_WEBHOOK_SECRET")
+STRIPE_API_VERSION = os.environ.get("STRIPE_API_VERSION", "2026-07-29.dahlia")
+STRIPE_LIVEMODE = os.environ.get("STRIPE_LIVEMODE", "false").lower() in {
+    "1",
+    "true",
+    "yes",
+}
+STRIPE_WEBHOOK_TOLERANCE_SECONDS = int(os.environ.get("STRIPE_WEBHOOK_TOLERANCE_SECONDS", "300"))
+STRIPE_WEBHOOK_MAX_BYTES = int(os.environ.get("STRIPE_WEBHOOK_MAX_BYTES", "262144"))
+if STRIPE_WEBHOOK_TOLERANCE_SECONDS <= 0 or STRIPE_WEBHOOK_MAX_BYTES <= 0:
+    raise ImproperlyConfigured("Limity webhooka Stripe muszą być dodatnie")
 
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL

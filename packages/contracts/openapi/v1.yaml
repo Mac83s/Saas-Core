@@ -503,6 +503,48 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/billing/webhooks/stripe/:
+    post:
+      operationId: billing_stripe_webhook
+      tags:
+      - billing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StripeWebhookReceipt'
+          description: ''
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StripeWebhookReceipt'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StripeWebhookReceipt'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StripeWebhookReceipt'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StripeWebhookReceipt'
+          description: ''
   /api/v1/health/:
     get:
       operationId: api_v1_health_retrieve
@@ -1472,6 +1514,13 @@ components:
       - expires_at
       - id
       - last_seen_at
+    StripeWebhookReceipt:
+      type: object
+      properties:
+        received:
+          type: boolean
+      required:
+      - received
     TotpConfirmResult:
       type: object
       properties:
