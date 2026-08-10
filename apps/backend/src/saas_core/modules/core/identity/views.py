@@ -14,6 +14,7 @@ from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
+from .mfa import begin_totp_enrollment, confirm_totp_enrollment
 from .middleware import MANAGED_SESSION_KEY
 from .models import User, UserSession
 from .password_reset import (
@@ -25,12 +26,16 @@ from .serializers import (
     CsrfTokenSerializer,
     GenericMessageSerializer,
     LoginSerializer,
+    MfaChallengeSerializer,
+    MfaCodeSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     PasswordResetResultSerializer,
     ProblemDetailsSerializer,
     RegistrationSerializer,
     SessionSummarySerializer,
+    TotpConfirmResultSerializer,
+    TotpSetupSerializer,
     UserSummarySerializer,
     VerificationConfirmSerializer,
     VerificationRequestSerializer,
@@ -42,11 +47,23 @@ from .services import (
     register_user,
     request_email_verification,
 )
-from .sessions import login_user, logout_user, revoke_user_session
+from .sessions import (
+    complete_mfa_enrollment_login,
+    complete_mfa_login,
+    login_user,
+    logout_user,
+    mfa_enrollment_user,
+    revoke_user_session,
+)
 
 
 class PublicIdentityView(APIView):
     authentication_classes = []
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+
+
+class OptionalIdentityView(APIView):
     permission_classes = [AllowAny]
     throttle_classes = [ScopedRateThrottle]
 
@@ -95,6 +112,7 @@ class LoginView(PublicIdentityView):
         request=LoginSerializer,
         responses={
             200: UserSummarySerializer,
+            202: MfaChallengeSerializer,
             400: ProblemDetailsSerializer,
             403: ProblemDetailsSerializer,
             429: ProblemDetailsSerializer,
@@ -103,11 +121,90 @@ class LoginView(PublicIdentityView):
     def post(self, request: Request) -> Response:
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        user = login_user(
+        result = login_user(
+            request=cast(HttpRequest, request),
+            **serializer.validated_data,
+        )
+        if result.mfa_required:
+            return Response(
+                {"status": "mfa_required"},
+                status=status.HTTP_202_ACCEPTED,
+            )
+        assert result.user is not None
+        return Response(_user_summary(result.user))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class MfaLoginView(PublicIdentityView):
+    throttle_scope = "identity_mfa_challenge"
+
+    @extend_schema(
+        request=MfaCodeSerializer,
+        responses={
+            200: UserSummarySerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            429: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = MfaCodeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = complete_mfa_login(
             request=cast(HttpRequest, request),
             **serializer.validated_data,
         )
         return Response(_user_summary(user))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class TotpSetupView(OptionalIdentityView):
+    throttle_scope = "identity_mfa_enrollment"
+
+    @extend_schema(
+        request=None,
+        responses={
+            200: TotpSetupSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+            429: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request) -> Response:
+        user, _ = mfa_enrollment_user(request=cast(HttpRequest, request))
+        enrollment = begin_totp_enrollment(user=user)
+        return Response({
+            "secret": enrollment.secret,
+            "provisioning_uri": enrollment.provisioning_uri,
+        })
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class TotpConfirmView(OptionalIdentityView):
+    throttle_scope = "identity_mfa_enrollment"
+
+    @extend_schema(
+        request=MfaCodeSerializer,
+        responses={
+            200: TotpConfirmResultSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            429: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = MfaCodeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        http_request = cast(HttpRequest, request)
+        user, preauthenticated = mfa_enrollment_user(request=http_request)
+        recovery_codes = confirm_totp_enrollment(
+            user=user,
+            **serializer.validated_data,
+        )
+        if preauthenticated:
+            complete_mfa_enrollment_login(request=http_request, user=user)
+        return Response({"status": "mfa_enabled", "recovery_codes": recovery_codes})
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -223,19 +320,17 @@ class SessionListView(ProtectedIdentityView):
             revoked_at__isnull=True,
             expires_at__gt=timezone.now(),
         )
-        return Response(
-            [
-                {
-                    "id": tracking.id,
-                    "device_label": tracking.device_label,
-                    "created_at": tracking.created_at,
-                    "last_seen_at": tracking.last_seen_at,
-                    "expires_at": tracking.expires_at,
-                    "current": str(tracking.id) == current_id,
-                }
-                for tracking in sessions
-            ]
-        )
+        return Response([
+            {
+                "id": tracking.id,
+                "device_label": tracking.device_label,
+                "created_at": tracking.created_at,
+                "last_seen_at": tracking.last_seen_at,
+                "expires_at": tracking.expires_at,
+                "current": str(tracking.id) == current_id,
+            }
+            for tracking in sessions
+        ])
 
 
 @method_decorator(csrf_protect, name="dispatch")

@@ -1,6 +1,7 @@
 from .base import *  # noqa: F403
 
 SECRET_KEY = "test-only-key"
+MFA_ENCRYPTION_KEY = "test-mfa-encryption-key"
 ALLOWED_HOSTS = ["testserver"]
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 MIDDLEWARE = [  # noqa: F405

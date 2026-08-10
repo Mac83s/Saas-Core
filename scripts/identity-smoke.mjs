@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
@@ -130,6 +130,53 @@ if (
 }
 console.log("OK me i lista aktywnych sesji");
 
+const setupResponse = await fetch(
+  new URL("/api/v1/auth/mfa/totp/setup/", baseUrl),
+  {
+    method: "POST",
+    headers: {
+      Cookie: authenticatedCookie,
+      "X-CSRFToken": authenticatedCsrf,
+    },
+    signal: AbortSignal.timeout(5_000),
+  },
+);
+const setupPayload = await setupResponse.json();
+if (
+  setupResponse.status !== 200 ||
+  !setupPayload.secret ||
+  !setupPayload.provisioning_uri
+) {
+  throw new Error(
+    `Konfiguracja TOTP nie przeszła: HTTP ${setupResponse.status}`,
+  );
+}
+const confirmMfaResponse = await fetch(
+  new URL("/api/v1/auth/mfa/totp/confirm/", baseUrl),
+  {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Cookie: authenticatedCookie,
+      "X-CSRFToken": authenticatedCsrf,
+    },
+    body: JSON.stringify({ code: totp(setupPayload.secret) }),
+    signal: AbortSignal.timeout(5_000),
+  },
+);
+const confirmMfaPayload = await confirmMfaResponse.json();
+if (
+  confirmMfaResponse.status !== 200 ||
+  confirmMfaPayload.status !== "mfa_enabled" ||
+  confirmMfaPayload.recovery_codes?.length !== 8
+) {
+  throw new Error(
+    `Potwierdzenie TOTP nie przeszło: HTTP ${confirmMfaResponse.status}`,
+  );
+}
+console.log("OK konfiguracja TOTP i jednorazowe kody odzyskiwania");
+
 const logoutResponse = await fetch(new URL("/api/v1/auth/logout/", baseUrl), {
   method: "POST",
   headers: {
@@ -151,6 +198,62 @@ if (stolenCookieReplay.status !== 403) {
   );
 }
 console.log("OK logout i odrzucenie unieważnionego cookie");
+
+const mfaFirstFactor = await fetch(new URL("/api/v1/auth/login/", baseUrl), {
+  method: "POST",
+  headers: {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    Cookie: csrfCookie,
+    "X-CSRFToken": csrfPayload.csrf_token,
+  },
+  body: JSON.stringify({ email, password: "Identity-Smoke-2026!" }),
+  signal: AbortSignal.timeout(5_000),
+});
+const mfaFirstFactorPayload = await mfaFirstFactor.json();
+if (
+  mfaFirstFactor.status !== 202 ||
+  mfaFirstFactorPayload.status !== "mfa_required"
+) {
+  throw new Error(`Login nie wymaga MFA: HTTP ${mfaFirstFactor.status}`);
+}
+const challengeCookies = responseCookies(
+  mfaFirstFactor,
+  new Map([["csrftoken", csrfCookie.split("=")[1]]]),
+);
+const challengeCookie = serializeCookies(challengeCookies);
+const mfaSecondFactor = await fetch(
+  new URL("/api/v1/auth/login/mfa/", baseUrl),
+  {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      Cookie: challengeCookie,
+      "X-CSRFToken": challengeCookies.get("csrftoken"),
+    },
+    body: JSON.stringify({
+      code: totp(setupPayload.secret, Date.now() + 30_000),
+    }),
+    signal: AbortSignal.timeout(5_000),
+  },
+);
+const mfaSecondFactorPayload = await mfaSecondFactor.json();
+if (mfaSecondFactor.status !== 200 || mfaSecondFactorPayload.email !== email) {
+  throw new Error(
+    `Drugi składnik nie zalogował: HTTP ${mfaSecondFactor.status}`,
+  );
+}
+const mfaCookies = responseCookies(mfaSecondFactor, challengeCookies);
+const mfaAuthenticatedCookie = serializeCookies(mfaCookies);
+const mfaMeResponse = await fetch(new URL("/api/v1/auth/me/", baseUrl), {
+  headers: { Accept: "application/json", Cookie: mfaAuthenticatedCookie },
+  signal: AbortSignal.timeout(5_000),
+});
+if (mfaMeResponse.status !== 200) {
+  throw new Error(`Sesja po MFA nie działa: HTTP ${mfaMeResponse.status}`);
+}
+console.log("OK challenge MFA i sesja dopiero po drugim składniku");
 console.log(`Smoke Identity zakończony: ${baseUrl}`);
 
 async function postJson(path, payload) {
@@ -183,4 +286,38 @@ async function waitForVerificationToken(recipient) {
   throw new Error(
     `Worker nie zapisał wiadomości dla ${recipient} w ciągu 30 sekund`,
   );
+}
+
+function responseCookies(response, initial = new Map()) {
+  const cookies = new Map(initial);
+  for (const setCookie of response.headers.getSetCookie()) {
+    const [pair] = setCookie.split(";", 1);
+    const separator = pair.indexOf("=");
+    cookies.set(pair.slice(0, separator), pair.slice(separator + 1));
+  }
+  return cookies;
+}
+
+function serializeCookies(cookies) {
+  return [...cookies].map(([name, value]) => `${name}=${value}`).join("; ");
+}
+
+function totp(secret, timestamp = Date.now()) {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  let bits = "";
+  for (const character of secret.replace(/=+$/, "").toUpperCase()) {
+    bits += alphabet.indexOf(character).toString(2).padStart(5, "0");
+  }
+  const bytes = [];
+  for (let index = 0; index + 8 <= bits.length; index += 8) {
+    bytes.push(Number.parseInt(bits.slice(index, index + 8), 2));
+  }
+  const counter = Buffer.alloc(8);
+  counter.writeBigUInt64BE(BigInt(Math.floor(timestamp / 1000 / 30)));
+  const digest = createHmac("sha1", Buffer.from(bytes))
+    .update(counter)
+    .digest();
+  const offset = digest.at(-1) & 0x0f;
+  const binary = digest.readUInt32BE(offset) & 0x7fffffff;
+  return String(binary % 1_000_000).padStart(6, "0");
 }

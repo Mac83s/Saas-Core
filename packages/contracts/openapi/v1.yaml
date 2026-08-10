@@ -138,6 +138,56 @@ paths:
               schema:
                 $ref: '#/components/schemas/UserSummary'
           description: ''
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MfaChallenge'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/auth/login/mfa/:
+    post:
+      operationId: api_v1_auth_login_mfa_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaCode'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MfaCode'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MfaCode'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSummary'
+          description: ''
         '400':
           content:
             application/json:
@@ -187,6 +237,90 @@ paths:
                 $ref: '#/components/schemas/UserSummary'
           description: ''
         '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/auth/mfa/totp/confirm/:
+    post:
+      operationId: api_v1_auth_mfa_totp_confirm_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MfaCode'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MfaCode'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MfaCode'
+        required: true
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TotpConfirmResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/auth/mfa/totp/setup/:
+    post:
+      operationId: api_v1_auth_mfa_totp_setup_create
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TotpSetup'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '429':
           content:
             application/json:
               schema:
@@ -471,6 +605,28 @@ components:
       required:
       - email
       - password
+    MfaChallenge:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/MfaChallengeStatusEnum'
+      required:
+      - status
+    MfaChallengeStatusEnum:
+      enum:
+      - mfa_required
+      type: string
+      description: '* `mfa_required` - mfa_required'
+    MfaCode:
+      type: object
+      properties:
+        code:
+          type: string
+          writeOnly: true
+          maxLength: 32
+          minLength: 6
+      required:
+      - code
     PasswordResetConfirm:
       type: object
       properties:
@@ -576,6 +732,33 @@ components:
       - expires_at
       - id
       - last_seen_at
+    TotpConfirmResult:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/TotpConfirmResultStatusEnum'
+        recovery_codes:
+          type: array
+          items:
+            type: string
+      required:
+      - recovery_codes
+      - status
+    TotpConfirmResultStatusEnum:
+      enum:
+      - mfa_enabled
+      type: string
+      description: '* `mfa_enabled` - mfa_enabled'
+    TotpSetup:
+      type: object
+      properties:
+        secret:
+          type: string
+        provisioning_uri:
+          type: string
+      required:
+      - provisioning_uri
+      - secret
     UserSummary:
       type: object
       properties:

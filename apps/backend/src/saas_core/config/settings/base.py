@@ -21,6 +21,11 @@ def secret_setting(name: str, default: str = "") -> str:
 
 
 SECRET_KEY = secret_setting("DJANGO_SECRET_KEY")
+MFA_ENCRYPTION_KEY = secret_setting("MFA_ENCRYPTION_KEY")
+MFA_ISSUER_NAME = os.environ.get("MFA_ISSUER_NAME", "SaaS Core")
+MFA_CHALLENGE_TTL_SECONDS = int(os.environ.get("MFA_CHALLENGE_TTL_SECONDS", "300"))
+if MFA_CHALLENGE_TTL_SECONDS <= 0:
+    raise ImproperlyConfigured("Czas ważności wyzwania MFA musi być dodatni")
 DEBUG = False
 ALLOWED_HOSTS = [host for host in os.environ.get("ALLOWED_HOSTS", "").split(",") if host]
 
@@ -197,6 +202,8 @@ REST_FRAMEWORK = {
     "NUM_PROXIES": int(os.environ.get("TRUSTED_PROXY_COUNT", "1")),
     "DEFAULT_THROTTLE_RATES": {
         "identity_login": "5/min",
+        "identity_mfa_challenge": "10/min",
+        "identity_mfa_enrollment": "10/min",
         "identity_password_reset_request": "5/min",
         "identity_password_reset_confirm": "10/min",
         "identity_register": "5/min",

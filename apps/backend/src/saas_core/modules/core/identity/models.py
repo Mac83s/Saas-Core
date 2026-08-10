@@ -173,6 +173,8 @@ class PasswordReset(OneTimeToken):
 
 class LoginOutcome(models.TextChoices):
     SUCCESS = "success", "Sukces"
+    MFA_REQUIRED = "mfa_required", "Wymagany drugi składnik"
+    MFA_SETUP_REQUIRED = "mfa_setup", "Wymagana konfiguracja MFA"
     INVALID = "invalid", "Nieprawidłowe dane"
     INACTIVE = "inactive", "Konto nieaktywne"
     RATE_LIMITED = "rate_limited", "Limit prób"
@@ -205,3 +207,56 @@ class LoginAttempt(models.Model):
 
     def __str__(self) -> str:
         return f"{self.outcome}:{self.id}"
+
+
+class MfaMethodType(models.TextChoices):
+    TOTP = "totp", "Aplikacja uwierzytelniająca"
+
+
+class UserMfaMethod(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="mfa_method")
+    method_type = models.CharField(
+        max_length=16,
+        choices=MfaMethodType,
+        default=MfaMethodType.TOTP,
+    )
+    secret_ciphertext = models.TextField()
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    last_used_counter = models.BigIntegerField(default=-1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("user_id",)
+
+    def __str__(self) -> str:
+        return f"{self.user_id}:{self.method_type}"
+
+    @property
+    def is_confirmed(self) -> bool:
+        return self.confirmed_at is not None
+
+
+class MfaRecoveryCode(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    method = models.ForeignKey(
+        UserMfaMethod,
+        on_delete=models.CASCADE,
+        related_name="recovery_codes",
+    )
+    code_hash = models.CharField(max_length=64, unique=True)
+    used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("created_at",)
+        indexes = [
+            models.Index(
+                fields=["method", "used_at"],
+                name="identity_mfa_recovery_idx",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return str(self.id)

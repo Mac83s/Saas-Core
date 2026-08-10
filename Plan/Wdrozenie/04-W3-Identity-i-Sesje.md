@@ -43,7 +43,7 @@ Operator loguje się osobnym kanałem z obowiązkowym 2FA.
 - [x] dodać żądanie i finalizację resetu bez ujawniania istnienia konta;
 - [x] unieważniać właściwe sesje po zmianie hasła;
 - [x] zastosować rate limiting dla loginu, rejestracji i resetu;
-- [ ] przygotować model MFA i wdrożyć 2FA dla operatorów;
+- [x] przygotować model MFA i wdrożyć 2FA dla operatorów;
 - [ ] dodać audit event dla zmian krytycznych ustawień konta.
 
 ### W3.5 — frontend
@@ -133,3 +133,26 @@ Operator loguje się osobnym kanałem z obowiązkowym 2FA.
 - smoke w finalnym runtime przeszedł rejestrację i weryfikację, login, `me`, listę
   sesji, logout oraz odrzucenie ponownie użytego cookie kodem `403`;
 - klient TypeScript został odtworzony z OpenAPI i kontrola driftu przeszła.
+
+### W3.4 — 2026-08-10
+
+- reset hasła ma równoważną odpowiedź dla istniejącego i brakującego konta,
+  jednorazowy token HMAC z TTL, limit ponowień oraz unieważnia wszystkie sesje po
+  zmianie hasła; worker otrzymuje wyłącznie UUID rekordu i correlation ID;
+- TOTP używa zaszyfrowanego sekretu, tolerancji jednego kroku zegara i blokady
+  ponownego użycia licznika; osiem kodów odzyskiwania jest przechowywanych tylko
+  jako HMAC i każdy można zużyć dokładnie raz;
+- poprawne hasło użytkownika z MFA tworzy wyłącznie pięciominutowe wyzwanie w
+  sesji anonimowej; zarządzana sesja użytkownika powstaje dopiero po drugim
+  składniku;
+- konto `is_staff` bez MFA otrzymuje wyłącznie ograniczony bootstrap konfiguracji
+  TOTP, a pełną sesję dopiero po potwierdzeniu kodu; osobna bramka Django Admin
+  nadal pozostaje elementem niewykonanej bramki wyjścia;
+- endpointy konfiguracji i logowania MFA wymagają CSRF i mają osobne limity;
+  zdarzenia rozpoczęcia konfiguracji, włączenia MFA, challenge oraz powodzenia są
+  emitowane do strukturalnego loggera bezpieczeństwa bez sekretów;
+- 48 testów backendu, Ruff, mypy, kontrola migracji i granic importów przeszły;
+  OpenAPI oraz klient TypeScript są zsynchronizowane;
+- przebudowany runtime zastosował migrację, a smoke przez Caddy potwierdził pełną
+  ścieżkę rejestracja → weryfikacja → login → konfiguracja TOTP → logout → login
+  hasłem i TOTP, bez sesji użytkownika pomiędzy pierwszym i drugim składnikiem.

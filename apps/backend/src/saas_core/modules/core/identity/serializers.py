@@ -53,6 +53,27 @@ class LoginSerializer(serializers.Serializer[dict[str, Any]]):
     password = serializers.CharField(write_only=True, max_length=128)
 
 
+class MfaChallengeSerializer(serializers.Serializer[dict[str, Any]]):
+    status = serializers.ChoiceField(choices=["mfa_required"])
+
+
+class MfaCodeSerializer(serializers.Serializer[dict[str, Any]]):
+    code = serializers.CharField(write_only=True, min_length=6, max_length=32)
+
+    def validate_code(self, value: str) -> str:
+        return value.strip()
+
+
+class TotpSetupSerializer(serializers.Serializer[dict[str, Any]]):
+    secret = serializers.CharField()
+    provisioning_uri = serializers.CharField()
+
+
+class TotpConfirmResultSerializer(serializers.Serializer[dict[str, Any]]):
+    status = serializers.ChoiceField(choices=["mfa_enabled"])
+    recovery_codes = serializers.ListField(child=serializers.CharField())
+
+
 class UserSummarySerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     email = serializers.EmailField()

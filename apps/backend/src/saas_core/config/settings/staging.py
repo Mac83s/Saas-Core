@@ -6,6 +6,7 @@ from .base import *  # noqa: F403
 
 if not SECRET_KEY:  # noqa: F405
     raise ImproperlyConfigured("DJANGO_SECRET_KEY jest wymagany")
+MFA_ENCRYPTION_KEY = MFA_ENCRYPTION_KEY or SECRET_KEY  # noqa: F405
 if not ALLOWED_HOSTS:  # noqa: F405
     raise ImproperlyConfigured("ALLOWED_HOSTS jest wymagany")
 
