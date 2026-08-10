@@ -20,6 +20,10 @@ await mkdir(resolve(runtimeDirectory, "logs"), {
   recursive: true,
   mode: 0o700,
 });
+await mkdir(resolve(runtimeDirectory, "emails"), {
+  recursive: true,
+  mode: 0o700,
+});
 await ensureSecret("django_secret_key", randomBytes(48).toString("base64url"));
 await ensureSecret("postgres_password", "saas_core");
 await ensureSecret("redis_password", randomBytes(32).toString("base64url"));

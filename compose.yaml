@@ -7,6 +7,9 @@ x-backend-environment: &backend-environment
   DEPLOYMENT: ${DEPLOYMENT:-core-only}
   DJANGO_SECRET_KEY_FILE: /run/secrets/django_secret_key
   DJANGO_SETTINGS_MODULE: saas_core.config.settings.container
+  EMAIL_BACKEND: django.core.mail.backends.filebased.EmailBackend
+  EMAIL_FILE_PATH: /var/lib/saas-core/emails
+  FRONTEND_BASE_URL: http://localhost:${SAAS_CORE_HTTP_PORT:-8080}
   LOG_DIRECTORY: /var/log/saas-core
   POSTGRES_DB: ${SAAS_CORE_POSTGRES_DB:-saas_core}
   POSTGRES_HOST: postgres
@@ -14,6 +17,7 @@ x-backend-environment: &backend-environment
   POSTGRES_PORT: "5432"
   POSTGRES_USER: saas_core
   REDIS_HOST: redis
+  TRUSTED_PROXY_COUNT: ${TRUSTED_PROXY_COUNT:-1}
 
 x-backend-service: &backend-service
   image: saas-core-backend:local
@@ -151,6 +155,9 @@ services:
         "--hostname=worker@%h",
         "--max-tasks-per-child=500",
       ]
+    volumes:
+      - ${SAAS_CORE_LOGS_DIR:-.runtime/logs}:/var/log/saas-core
+      - ${SAAS_CORE_EMAILS_DIR:-.runtime/emails}:/var/lib/saas-core/emails
     depends_on:
       migrate:
         condition: service_completed_successfully

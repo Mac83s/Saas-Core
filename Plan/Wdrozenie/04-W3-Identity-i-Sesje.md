@@ -23,11 +23,11 @@ Operator loguje się osobnym kanałem z obowiązkowym 2FA.
 
 ### W3.2 — rejestracja i weryfikacja
 
-- endpoint rejestracji z ochroną przed enumeracją i nadużyciem;
-- asynchroniczna wiadomość weryfikacyjna przez interfejs providera;
-- idempotentne ponowienie wiadomości i jednorazowa aktywacja tokenu;
-- bezpieczne zachowanie dla istniejącego oraz nieistniejącego adresu;
-- rejestrowanie zdarzeń bezpieczeństwa bez zapisu tokenów.
+- [x] endpoint rejestracji z ochroną przed enumeracją i nadużyciem;
+- [x] asynchroniczna wiadomość weryfikacyjna przez interfejs providera;
+- [x] idempotentne ponowienie wiadomości i jednorazowa aktywacja tokenu;
+- [x] bezpieczne zachowanie dla istniejącego oraz nieistniejącego adresu;
+- [x] rejestrowanie zdarzeń bezpieczeństwa bez zapisu tokenów.
 
 ### W3.3 — sesja panelu
 
@@ -92,3 +92,23 @@ Operator loguje się osobnym kanałem z obowiązkowym 2FA.
 - backup nowej bazy przeszedł kontrolę SHA-256, a restore drill odtworzył 19
   migracji i Django system check w 7 sekund;
 - smoke aplikacji i obserwowalności przeszedł po uruchomieniu nowej migracji.
+
+### W3.2 — 2026-08-10
+
+- publiczne endpointy `/api/v1/auth/` udostępniają CSRF, rejestrację, ponowienie
+  wiadomości oraz jednorazowe potwierdzenie adresu;
+- rejestracja i ponowienie zwracają tę samą odpowiedź dla kont istniejących i
+  nieistniejących, wykonują koszt hashowania hasła na obu ścieżkach i mają limity
+  per adres klienta za jednym zaufanym proxy;
+- worker otrzymuje wyłącznie UUID rekordu i correlation ID, rekonstruuje token z
+  HMAC, a w bazie pozostaje wyłącznie digest; hasło SMTP stagingu jest dostępne
+  tylko dla workera;
+- lokalny provider zapisuje wiadomości w ignorowanym `.runtime/emails`, do którego
+  kontener API nie ma montowania; logi smoke testu nie zawierały adresu, hasła ani
+  tokenu;
+- 28 testów backendu przeszło, w tym CSRF, throttle, awaria brokera, token użyty,
+  wygasły i zmodyfikowany; OpenAPI i klient TypeScript nie wykazują driftu;
+- smoke przez Caddy → API → Redis/Celery → plik e-mail → aktywacja odrzucił brak
+  CSRF kodem `403`, a następnie zakończył ścieżkę kodami `202`, `200` i odrzucił
+  ponowne użycie tokenu kodem `400`;
+- weryfikacja staging/VPS pozostaje odroczoną bramką i nie jest uznana za wykonaną.

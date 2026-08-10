@@ -12,12 +12,13 @@ def problem_details_exception_handler(exc: Exception, context: dict[str, Any]) -
     request = context.get("request")
     correlation_id = getattr(request, "correlation_id", None)
     original = response.data
+    detail = original.get("detail", original) if isinstance(original, dict) else original
     response.data = {
         "type": "about:blank",
         "title": "Żądanie nie może zostać obsłużone",
         "status": response.status_code,
         "code": getattr(exc, "default_code", "api_error"),
-        "detail": original.get("detail") if isinstance(original, dict) else original,
+        "detail": detail,
         "correlation_id": correlation_id,
     }
     response.content_type = "application/problem+json"

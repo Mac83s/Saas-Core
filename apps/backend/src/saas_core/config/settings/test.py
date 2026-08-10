@@ -9,6 +9,7 @@ MIDDLEWARE = [  # noqa: F405
     if middleware != "whitenoise.middleware.WhiteNoiseMiddleware"
 ]
 CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
+EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 CELERY_TASK_ALWAYS_EAGER = True
 SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False

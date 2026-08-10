@@ -14,8 +14,10 @@ class JsonFormatter(logging.Formatter):
         "http_method",
         "http_path",
         "http_status",
+        "security_event",
         "task_id",
         "task_name",
+        "user_id",
     )
 
     def format(self, record: logging.LogRecord) -> str:

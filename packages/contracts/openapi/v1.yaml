@@ -4,6 +4,158 @@ info:
   version: 1.0.0
   description: Wersjonowane API modularnej platformy SaaS Core.
 paths:
+  /api/v1/auth/csrf/:
+    get:
+      operationId: api_v1_auth_csrf_retrieve
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CsrfToken'
+          description: ''
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/auth/email-verifications/confirm/:
+    post:
+      operationId: api_v1_auth_email_verifications_confirm_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerificationConfirm'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VerificationConfirm'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VerificationConfirm'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VerificationResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/auth/email-verifications/resend/:
+    post:
+      operationId: api_v1_auth_email_verifications_resend_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerificationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VerificationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VerificationRequest'
+        required: true
+      security:
+      - {}
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericMessage'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/auth/register/:
+    post:
+      operationId: api_v1_auth_register_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Registration'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Registration'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Registration'
+        required: true
+      security:
+      - {}
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericMessage'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/health/:
     get:
       operationId: api_v1_health_retrieve
@@ -40,11 +192,25 @@ paths:
           description: ''
 components:
   schemas:
+    CsrfToken:
+      type: object
+      properties:
+        csrf_token:
+          type: string
+      required:
+      - csrf_token
+    GenericMessage:
+      type: object
+      properties:
+        detail:
+          type: string
+      required:
+      - detail
     Health:
       type: object
       properties:
         status:
-          $ref: '#/components/schemas/StatusEnum'
+          $ref: '#/components/schemas/HealthStatusEnum'
         deployment:
           type: string
         version:
@@ -62,7 +228,7 @@ components:
       - deployment
       - status
       - version
-    StatusEnum:
+    HealthStatusEnum:
       enum:
       - ok
       - degraded
@@ -70,3 +236,84 @@ components:
       description: |-
         * `ok` - ok
         * `degraded` - degraded
+    LocaleEnum:
+      enum:
+      - pl
+      - en
+      type: string
+      description: |-
+        * `pl` - pl
+        * `en` - en
+    ProblemDetails:
+      type: object
+      properties:
+        type:
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        code:
+          type: string
+        detail: {}
+        correlation_id:
+          type:
+          - string
+          - 'null'
+      required:
+      - code
+      - correlation_id
+      - detail
+      - status
+      - title
+      - type
+    Registration:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          writeOnly: true
+          maxLength: 128
+          minLength: 12
+        locale:
+          allOf:
+          - $ref: '#/components/schemas/LocaleEnum'
+          default: pl
+      required:
+      - email
+      - password
+    VerificationConfirm:
+      type: object
+      properties:
+        token:
+          type: string
+          writeOnly: true
+          maxLength: 160
+          minLength: 64
+      required:
+      - token
+    VerificationRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+      required:
+      - email
+    VerificationResult:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/VerificationResultStatusEnum'
+      required:
+      - status
+    VerificationResultStatusEnum:
+      enum:
+      - verified
+      type: string
+      description: '* `verified` - verified'

@@ -28,5 +28,11 @@ def issue_token() -> IssuedToken:
     return IssuedToken(value=value, digest=digest_secret(value))
 
 
+def issue_bound_token(*, purpose: str, identifier: str) -> IssuedToken:
+    signature = digest_secret(f"{purpose}:{identifier}")
+    value = f"{identifier}.{signature}"
+    return IssuedToken(value=value, digest=digest_secret(value))
+
+
 def digest_identifier(value: str) -> str:
     return digest_secret(value.strip().casefold())

@@ -32,6 +32,7 @@
     "runtime:down": "docker compose down",
     "runtime:logs": "docker compose logs --follow caddy frontend backend worker scheduler",
     "runtime:smoke": "node scripts/runtime-smoke.mjs",
+    "runtime:smoke:identity": "node scripts/identity-smoke.mjs",
     "runtime:smoke:failures": "node scripts/runtime-failure-smoke.mjs",
     "runtime:smoke:observability": "node scripts/observability-smoke.mjs",
     "runtime:backup": "sh infra/postgres/backup.sh",

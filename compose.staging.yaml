@@ -55,8 +55,19 @@ services:
     build: !reset null
     environment:
       <<: *staging-backend-environment
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:?DEFAULT_FROM_EMAIL jest wymagany}
+      EMAIL_BACKEND: ${EMAIL_BACKEND:-django.core.mail.backends.smtp.EmailBackend}
+      EMAIL_HOST: ${EMAIL_HOST:?EMAIL_HOST jest wymagany}
+      EMAIL_HOST_PASSWORD_FILE: /run/secrets/email_host_password
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:?EMAIL_HOST_USER jest wymagany}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_USE_TLS: ${EMAIL_USE_TLS:-true}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:?FRONTEND_BASE_URL jest wymagany}
     secrets:
+      - email_host_password
       - redis_password
+    volumes: !override
+      - ${SAAS_CORE_LOGS_DIR:-/opt/saas-core/logs}:/var/log/saas-core
 
   scheduler:
     image: ${SAAS_CORE_BACKEND_IMAGE:-${SAAS_CORE_IMAGE_PREFIX}/backend:${SAAS_CORE_IMAGE_TAG}}
@@ -101,5 +112,7 @@ services:
       - caddy-config:/config
 
 secrets:
+  email_host_password:
+    file: ${SAAS_CORE_SECRETS_DIR:?SAAS_CORE_SECRETS_DIR jest wymagany}/email_host_password
   redis_password:
     file: ${SAAS_CORE_SECRETS_DIR:?SAAS_CORE_SECRETS_DIR jest wymagany}/redis_password
