@@ -1,0 +1,69 @@
+from collections.abc import Callable
+from typing import Any, cast
+from uuid import UUID
+
+from django.db import transaction
+from django.db.models import F, Q
+from django.http import HttpRequest, HttpResponse
+
+from saas_core.modules.core.identity.models import User
+
+from .context import (
+    TenantContext,
+    activate_tenant_context,
+    context_from_membership,
+    set_local_organization_id,
+)
+from .models import Membership, MembershipStatus, OrganizationStatus
+
+ACTIVE_ORGANIZATION_SESSION_KEY = "organizations_active_organization_id"
+
+
+class TenantContextMiddleware:
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
+        self.get_response = get_response
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        if not request.path.startswith("/api/v1/") or not request.user.is_authenticated:
+            return self.get_response(request)
+
+        with transaction.atomic():
+            context = self._resolve_context(request)
+            if context is None:
+                return self.get_response(request)
+
+            cast(Any, request).tenant_context = context
+            with activate_tenant_context(context):
+                set_local_organization_id(context.organization_id)
+                return self.get_response(request)
+
+    def _resolve_context(self, request: HttpRequest) -> TenantContext | None:
+        raw_organization_id = request.session.get(ACTIVE_ORGANIZATION_SESSION_KEY)
+        try:
+            organization_id = UUID(raw_organization_id)
+        except (TypeError, ValueError, AttributeError):
+            request.session.pop(ACTIVE_ORGANIZATION_SESSION_KEY, None)
+            return None
+
+        user = cast(User, request.user)
+        membership = (
+            Membership.objects.select_for_update()
+            .select_related("organization", "role")
+            .filter(
+                organization_id=organization_id,
+                user_id=user.pk,
+                status=MembershipStatus.ACTIVE,
+                organization__status__in=[
+                    OrganizationStatus.ONBOARDING,
+                    OrganizationStatus.ACTIVE,
+                ],
+            )
+            .filter(
+                Q(role__organization__isnull=True) | Q(role__organization_id=F("organization_id"))
+            )
+            .first()
+        )
+        if membership is None:
+            request.session.pop(ACTIVE_ORGANIZATION_SESSION_KEY, None)
+            return None
+        return context_from_membership(membership)

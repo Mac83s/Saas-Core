@@ -52,6 +52,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "saas_core.modules.core.identity.middleware.ManagedUserSessionMiddleware",
+    "saas_core.modules.core.organizations.middleware.TenantContextMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -132,8 +133,11 @@ SESSION_COOKIE_SECURE = True
 SESSION_COOKIE_PATH = "/"
 SESSION_IDLE_TIMEOUT_SECONDS = int(os.environ.get("SESSION_IDLE_TIMEOUT_SECONDS", "1800"))
 SESSION_MAX_LIFETIME_SECONDS = int(os.environ.get("SESSION_MAX_LIFETIME_SECONDS", "86400"))
+TENANT_TASK_CONTEXT_TTL_SECONDS = int(os.environ.get("TENANT_TASK_CONTEXT_TTL_SECONDS", "86400"))
 if SESSION_IDLE_TIMEOUT_SECONDS <= 0 or SESSION_MAX_LIFETIME_SECONDS <= 0:
     raise ImproperlyConfigured("Limity czasu sesji muszą być dodatnie")
+if TENANT_TASK_CONTEXT_TTL_SECONDS <= 0:
+    raise ImproperlyConfigured("Czas ważności tenant task context musi być dodatni")
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SECURE = True

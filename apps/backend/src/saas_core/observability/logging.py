@@ -18,6 +18,7 @@ class JsonFormatter(logging.Formatter):
         "task_id",
         "task_name",
         "user_id",
+        "organization_id",
     )
 
     def format(self, record: logging.LogRecord) -> str:

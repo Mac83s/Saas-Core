@@ -25,6 +25,11 @@ tenanta kończy się odmową niezależnie od danych przesłanych przez frontend.
 
 ### W4.2 — tenant context
 
+**Stan:** zakończone lokalnie (2026-08-10). Aktywacja polityk RLS pozostaje
+odroczona do pierwszego modelu z zatwierdzonego zakresu (`MediaAsset` w W6 oraz
+`Customer`/`Appointment` w W9); test ochronny wymusza wtedy zastąpienie
+odroczenia właściwą polityką i testem bezpośredniego SQL.
+
 - rozwiązywać aktywną organizację z sesji i aktywnego membership;
 - nie ufać `organization_id` z body, query ani nagłówka bez autoryzacji;
 - wymagać tenant context w repozytoriach/QuerySetach danych tenantowych;
