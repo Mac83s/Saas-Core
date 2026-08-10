@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
+from uuid import UUID
 
 import stripe
 from django.conf import settings
@@ -11,7 +13,9 @@ from django.core.exceptions import ImproperlyConfigured
 from django.db import transaction
 from django.utils import timezone
 
-from .models import StripeWebhookEvent
+from .models import StripeWebhookEvent, WebhookProcessingStatus
+
+logger = logging.getLogger("saas_core.billing")
 
 
 class InvalidStripeWebhook(ValueError):
@@ -38,7 +42,7 @@ def ingest_stripe_webhook(*, payload: bytes, signature: str) -> WebhookReceipt:
         raise InvalidStripeWebhook("Nieprawidłowy rozmiar webhooka Stripe.")
 
     try:
-        stripe.Webhook.construct_event(
+        stripe.Webhook.construct_event(  # type: ignore[no-untyped-call]
             payload,
             signature,
             settings.STRIPE_WEBHOOK_SECRET,
@@ -89,6 +93,11 @@ def ingest_stripe_webhook(*, payload: bytes, signature: str) -> WebhookReceipt:
         or stored.payload != event
     ):
         raise StripeWebhookConflict("Event ID Stripe wskazuje inną treść.")
+    if stored.status not in {
+        WebhookProcessingStatus.PROCESSED,
+        WebhookProcessingStatus.IGNORED,
+    }:
+        transaction.on_commit(lambda: _enqueue_processing(stored.id))
     return WebhookReceipt(stored, created)
 
 
@@ -97,3 +106,15 @@ def _required_string(payload: dict[str, Any], key: str) -> str:
     if not isinstance(value, str) or not value:
         raise InvalidStripeWebhook(f"Webhook Stripe nie zawiera pola {key}.")
     return value
+
+
+def _enqueue_processing(event_id: UUID) -> None:
+    from .tasks import process_stripe_webhook
+
+    try:
+        process_stripe_webhook.delay(str(event_id))
+    except Exception:
+        logger.exception(
+            "stripe_webhook_enqueue_failed",
+            extra={"stripe_webhook_event_id": str(event_id)},
+        )

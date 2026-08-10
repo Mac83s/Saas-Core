@@ -1,0 +1,266 @@
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+from typing import Any
+
+import pytest
+
+from saas_core.modules.core.organizations.models import BillingProfile, Organization
+from saas_core.modules.shared.billing.models import (
+    AccessMode,
+    BillingSubscription,
+    EntitlementSnapshot,
+    PlanVersion,
+    StripePriceMapping,
+    StripeSubscriptionStatus,
+    StripeWebhookEvent,
+    SubscriptionState,
+    WebhookProcessingStatus,
+)
+from saas_core.modules.shared.billing.processor import (
+    StripeEventProcessingError,
+    process_stripe_event,
+)
+
+pytestmark = pytest.mark.django_db
+
+
+def organization(*, slug: str, customer_id: str = "") -> Organization:
+    tenant = Organization.objects.create(name=slug, slug=slug)
+    BillingProfile.objects.create(
+        organization=tenant,
+        external_customer_id=customer_id,
+    )
+    return tenant
+
+
+def price_mapping(*, price_id: str = "price_starter") -> StripePriceMapping:
+    return StripePriceMapping.objects.create(
+        plan_version=PlanVersion.objects.get(plan__key="starter", version=1),
+        stripe_product_id="prod_starter",
+        stripe_price_id=price_id,
+        livemode=False,
+    )
+
+
+def inbox_event(
+    *,
+    event_id: str,
+    event_type: str,
+    created: int,
+    data_object: dict[str, Any],
+) -> StripeWebhookEvent:
+    return StripeWebhookEvent.objects.create(
+        stripe_event_id=event_id,
+        event_type=event_type,
+        api_version="2026-07-29.dahlia",
+        livemode=False,
+        provider_created_at=datetime.fromtimestamp(created, tz=UTC),
+        payload={
+            "id": event_id,
+            "object": "event",
+            "api_version": "2026-07-29.dahlia",
+            "created": created,
+            "data": {"object": data_object},
+            "livemode": False,
+            "type": event_type,
+        },
+        signature_verified_at=datetime.fromtimestamp(created, tz=UTC),
+    )
+
+
+def subscription_object(
+    *,
+    status: str,
+    price_id: str = "price_starter",
+    subscription_id: str = "sub_local",
+    customer_id: str = "cus_local",
+    period_start: int = 1_786_000_000,
+    period_end: int = 1_788_592_000,
+) -> dict[str, Any]:
+    return {
+        "id": subscription_id,
+        "object": "subscription",
+        "customer": customer_id,
+        "status": status,
+        "items": {
+            "data": [
+                {
+                    "id": "si_local",
+                    "price": {"id": price_id, "object": "price"},
+                    "current_period_start": period_start,
+                    "current_period_end": period_end,
+                }
+            ]
+        },
+        "trial_start": period_start if status == StripeSubscriptionStatus.TRIALING else None,
+        "trial_end": period_end if status == StripeSubscriptionStatus.TRIALING else None,
+        "cancel_at_period_end": False,
+        "canceled_at": None,
+        "ended_at": None,
+    }
+
+
+def test_checkout_links_verified_customer_to_metadata_organization() -> None:
+    tenant = organization(slug="checkout-link")
+    event = inbox_event(
+        event_id="evt_checkout_link",
+        event_type="checkout.session.completed",
+        created=1_786_000_000,
+        data_object={
+            "id": "cs_local",
+            "object": "checkout.session",
+            "customer": "cus_checkout",
+            "metadata": {"saas_core_organization_id": str(tenant.id)},
+        },
+    )
+
+    processed = process_stripe_event(event.id)
+
+    assert processed is not None
+    assert processed.status == WebhookProcessingStatus.PROCESSED
+    assert processed.organization_id == tenant.id
+    assert BillingProfile.objects.get(organization=tenant).external_customer_id == "cus_checkout"
+
+
+def test_subscription_event_builds_local_subscription_and_snapshot() -> None:
+    tenant = organization(slug="subscription-trial", customer_id="cus_local")
+    mapping = price_mapping()
+    event = inbox_event(
+        event_id="evt_subscription_trial",
+        event_type="customer.subscription.created",
+        created=1_786_000_100,
+        data_object=subscription_object(status=StripeSubscriptionStatus.TRIALING),
+    )
+
+    processed = process_stripe_event(event.id)
+
+    subscription = BillingSubscription.all_objects.get(organization=tenant)
+    snapshot = EntitlementSnapshot.all_objects.get(organization=tenant)
+    assert processed is not None
+    assert processed.status == WebhookProcessingStatus.PROCESSED
+    assert processed.subscription_id == subscription.id
+    assert subscription.price_mapping == mapping
+    assert subscription.state == SubscriptionState.TRIALING
+    assert subscription.provider_status == StripeSubscriptionStatus.TRIALING
+    assert snapshot.plan_version == mapping.plan_version
+    assert snapshot.subscription_state == SubscriptionState.TRIALING
+    assert snapshot.access_mode == AccessMode.FULL
+    assert snapshot.features["booking.enabled"] is True
+    assert snapshot.quotas["appointments.monthly"] == 1_000
+
+
+def test_older_subscription_event_does_not_regress_local_state() -> None:
+    tenant = organization(slug="subscription-order", customer_id="cus_local")
+    price_mapping()
+    newer = inbox_event(
+        event_id="evt_subscription_newer",
+        event_type="customer.subscription.updated",
+        created=1_786_000_200,
+        data_object=subscription_object(status=StripeSubscriptionStatus.ACTIVE),
+    )
+    older = inbox_event(
+        event_id="evt_subscription_older",
+        event_type="customer.subscription.created",
+        created=1_786_000_100,
+        data_object=subscription_object(status=StripeSubscriptionStatus.TRIALING),
+    )
+
+    process_stripe_event(newer.id)
+    stale = process_stripe_event(older.id)
+
+    subscription = BillingSubscription.all_objects.get(organization=tenant)
+    assert stale is not None
+    assert stale.status == WebhookProcessingStatus.IGNORED
+    assert "Starszy event" in stale.processing_error
+    assert subscription.state == SubscriptionState.ACTIVE
+    assert subscription.last_event_id == "evt_subscription_newer"
+
+
+def test_payment_failure_starts_grace_and_later_paid_event_restores_access() -> None:
+    tenant = organization(slug="invoice-lifecycle", customer_id="cus_local")
+    price_mapping()
+    created = inbox_event(
+        event_id="evt_subscription_active",
+        event_type="customer.subscription.created",
+        created=1_786_000_100,
+        data_object=subscription_object(status=StripeSubscriptionStatus.ACTIVE),
+    )
+    process_stripe_event(created.id)
+    failed = inbox_event(
+        event_id="evt_invoice_failed",
+        event_type="invoice.payment_failed",
+        created=1_786_000_200,
+        data_object={
+            "id": "in_failed",
+            "object": "invoice",
+            "customer": "cus_local",
+            "subscription": "sub_local",
+        },
+    )
+
+    process_stripe_event(failed.id)
+
+    subscription = BillingSubscription.all_objects.get(organization=tenant)
+    snapshot = EntitlementSnapshot.all_objects.get(organization=tenant)
+    assert subscription.state == SubscriptionState.GRACE_PERIOD
+    assert snapshot.access_mode == AccessMode.FULL
+    assert snapshot.effective_until == failed.provider_created_at + timedelta(days=7)
+
+    paid = inbox_event(
+        event_id="evt_invoice_paid",
+        event_type="invoice.paid",
+        created=1_786_000_300,
+        data_object={
+            "id": "in_paid",
+            "object": "invoice",
+            "customer": "cus_local",
+            "parent": {"subscription_details": {"subscription": "sub_local"}},
+        },
+    )
+    process_stripe_event(paid.id)
+
+    subscription.refresh_from_db()
+    snapshot.refresh_from_db()
+    assert subscription.state == SubscriptionState.ACTIVE
+    assert snapshot.subscription_state == SubscriptionState.ACTIVE
+    assert snapshot.access_mode == AccessMode.FULL
+
+
+def test_unknown_price_is_a_persistent_retryable_failure() -> None:
+    organization(slug="unknown-price", customer_id="cus_local")
+    event = inbox_event(
+        event_id="evt_unknown_price",
+        event_type="customer.subscription.created",
+        created=1_786_000_100,
+        data_object=subscription_object(
+            status=StripeSubscriptionStatus.ACTIVE,
+            price_id="price_unknown",
+        ),
+    )
+
+    with pytest.raises(StripeEventProcessingError, match="nieznanego Stripe Price"):
+        process_stripe_event(event.id)
+
+    event.refresh_from_db()
+    assert event.status == WebhookProcessingStatus.FAILED
+    assert event.attempt_count == 1
+    assert "nieznanego Stripe Price" in event.processing_error
+    assert BillingSubscription.all_objects.count() == 0
+
+
+def test_unknown_event_is_ignored_once() -> None:
+    event = inbox_event(
+        event_id="evt_unhandled",
+        event_type="product.updated",
+        created=1_786_000_100,
+        data_object={"id": "prod_local", "object": "product"},
+    )
+
+    first = process_stripe_event(event.id)
+    second = process_stripe_event(event.id)
+
+    assert first is not None
+    assert second is not None
+    assert first.status == WebhookProcessingStatus.IGNORED
+    assert second.attempt_count == 1

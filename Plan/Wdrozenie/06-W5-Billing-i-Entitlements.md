@@ -63,7 +63,9 @@ punktowy mypy, brak dryfu migracji i 137 testów backendu.
 Stripe Price → `PlanVersion`, historia subskrypcji i trwały inbox eventów są
 wdrożone. Endpoint zapisuje event dopiero po poprawnej weryfikacji podpisu na
 surowym body, przypiętej wersji API i trybu test/live; dostawy są deduplikowane
-po Stripe event ID. Pozostały asynchroniczny processor oraz Checkout/Portal.
+po Stripe event ID. Asynchroniczny processor wiąże Customer i Price z tenantem,
+aktualizuje subskrypcję i snapshot, ignoruje starsze eventy oraz utrwala błędy
+do retry. Pozostały Checkout i Customer Portal dla Ownera.
 
 - tworzyć Customer i Checkout wyłącznie dla uprawnionego Ownera;
 - mapować Price do wewnętrznego `PlanVersion`, bez traktowania Stripe jako SSOT;

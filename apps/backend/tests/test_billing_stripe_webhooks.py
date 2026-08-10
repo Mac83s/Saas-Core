@@ -11,6 +11,7 @@ from django.test import Client, override_settings
 from django.urls import reverse
 
 from saas_core.modules.shared.billing.models import StripeWebhookEvent
+from saas_core.modules.shared.billing.tasks import process_stripe_webhook
 
 pytestmark = pytest.mark.django_db
 
@@ -191,3 +192,27 @@ def test_missing_server_webhook_secret_is_service_unavailable(client: Client) ->
 
     assert response.status_code == 503
     assert StripeWebhookEvent.objects.count() == 0
+
+
+@override_settings(
+    STRIPE_WEBHOOK_SECRET=WEBHOOK_SECRET,
+    STRIPE_API_VERSION=API_VERSION,
+    STRIPE_LIVEMODE=False,
+    STRIPE_WEBHOOK_TOLERANCE_SECONDS=300,
+    STRIPE_WEBHOOK_MAX_BYTES=262_144,
+)
+def test_persisted_event_is_enqueued_only_after_commit(
+    client: Client,
+    django_capture_on_commit_callbacks,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    scheduled: list[str] = []
+    monkeypatch.setattr(process_stripe_webhook, "delay", scheduled.append)
+    payload = event_payload(event_id="evt_scheduled")
+
+    with django_capture_on_commit_callbacks(execute=True):
+        response = post_webhook(client, payload, header=signature(payload))
+
+    stored = StripeWebhookEvent.objects.get(stripe_event_id="evt_scheduled")
+    assert response.status_code == 202
+    assert scheduled == [str(stored.id)]
