@@ -1,0 +1,18 @@
+{
+  "name": "@saas-core/contracts",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    "./deployment.schema.json": "./deployment.schema.json",
+    "./module.schema.json": "./module.schema.json"
+  },
+  "scripts": {
+    "lint": "node scripts/deployment-check.mjs --profile core-only && node scripts/deployment-check.mjs --profile medplano",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1"
+  }
+}

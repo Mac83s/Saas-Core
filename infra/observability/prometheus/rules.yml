@@ -1,0 +1,28 @@
+groups:
+  - name: saas-core
+    rules:
+      - alert: SaasCoreTargetDown
+        expr: up{job=~"django|celery|caddy|postgres|redis"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Target {{ $labels.job }} jest niedostępny"
+
+      - alert: SaasCoreCeleryWorkerMissing
+        expr: saas_core_celery_workers < 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Brak odpowiadającego workera Celery"
+
+      - alert: SaasCoreHttpErrorRate
+        expr: >-
+          sum(rate(saas_core_http_requests_total{status=~"5.."}[5m]))
+          / clamp_min(sum(rate(saas_core_http_requests_total[5m])), 0.001) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Odsetek błędów HTTP przekracza 5%"

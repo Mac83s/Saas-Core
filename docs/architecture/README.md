@@ -1,0 +1,18 @@
+# Kontrakty architektoniczne
+
+Ten katalog opisuje reguły, które muszą być egzekwowane przez kod i CI. ADR-y
+wyjaśniają podjęte decyzje, a poniższe dokumenty definiują ich wykonywalny
+kontrakt.
+
+| Kontrakt | Zakres |
+| --- | --- |
+| [module-contract.md](module-contract.md) | manifesty modułów, zależności i aktywacja |
+| [deployment-profile.md](deployment-profile.md) | profil produktu, walidacja i sekrety |
+| [data-model-and-tenancy.md](data-model-and-tenancy.md) | encje bazowe, tenant context i RLS |
+| [auth-and-tenant-context.md](auth-and-tenant-context.md) | sesja, CSRF i zmiana organizacji |
+| [api-and-events.md](api-and-events.md) | REST, błędy, OpenAPI, outbox i webhooki |
+| [testing-strategy.md](testing-strategy.md) | poziomy testów oraz bramki CI |
+
+Źródłem prawdy dla wersji technologii pozostaje
+[ADR-019](../adr/ADR-019-Baseline-Technologiczny.md), a dla systemu UI
+[ADR-020](../adr/ADR-020-Frontend-i-System-UI.md).

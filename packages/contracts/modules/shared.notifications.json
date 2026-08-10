@@ -1,0 +1,18 @@
+{
+  "id": "shared.notifications",
+  "layer": "shared",
+  "version": 1,
+  "dependsOn": ["core.organizations", "core.audit"],
+  "backend": {
+    "djangoApp": "saas_core.modules.shared.notifications",
+    "urlPrefix": "/api/v1/notifications",
+    "permissions": ["notifications.manage"],
+    "entitlements": ["notifications.enabled"],
+    "eventSchemas": ["notifications.message.queued.v1"]
+  },
+  "frontend": {
+    "routes": ["/settings/notifications"],
+    "navigation": [],
+    "translationNamespaces": ["notifications"]
+  }
+}

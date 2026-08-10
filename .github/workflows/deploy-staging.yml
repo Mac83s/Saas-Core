@@ -1,0 +1,94 @@
+name: Deploy staging
+
+on:
+  workflow_run:
+    workflows: [Images]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: ${{ vars.STAGING_URL }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Sprawdź konfigurację workflow
+        env:
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          STAGING_URL: ${{ vars.STAGING_URL }}
+          STAGING_USER: ${{ secrets.STAGING_USER }}
+          STAGING_KNOWN_HOSTS: ${{ secrets.STAGING_KNOWN_HOSTS }}
+        run: |
+          test -n "${DEPLOY_PATH}"
+          test -n "${STAGING_HOST}"
+          test -n "${STAGING_SSH_KEY}"
+          test -n "${STAGING_URL}"
+          test -n "${STAGING_USER}"
+          test -n "${STAGING_KNOWN_HOSTS}"
+
+      - name: Skonfiguruj SSH
+        env:
+          STAGING_SSH_KEY: ${{ secrets.STAGING_SSH_KEY }}
+          STAGING_KNOWN_HOSTS: ${{ secrets.STAGING_KNOWN_HOSTS }}
+        run: |
+          install -d -m 0700 "${HOME}/.ssh"
+          printf '%s\n' "${STAGING_SSH_KEY}" > "${HOME}/.ssh/id_ed25519"
+          chmod 0600 "${HOME}/.ssh/id_ed25519"
+          printf '%s\n' "${STAGING_KNOWN_HOSTS}" > "${HOME}/.ssh/known_hosts"
+          chmod 0600 "${HOME}/.ssh/known_hosts"
+
+      - name: Spakuj definicję release
+        env:
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          tar -czf "/tmp/saas-core-${RELEASE_SHA}.tgz" \
+            compose.yaml compose.staging.yaml infra/caddy infra/deploy infra/observability infra/postgres
+
+      - name: Prześlij release
+        env:
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_USER: ${{ secrets.STAGING_USER }}
+        run: |
+          scp "/tmp/saas-core-${RELEASE_SHA}.tgz" \
+            "${STAGING_USER}@${STAGING_HOST}:/tmp/saas-core-${RELEASE_SHA}.tgz"
+          scp infra/deploy/staging-deploy.sh \
+            "${STAGING_USER}@${STAGING_HOST}:/tmp/staging-deploy-bootstrap.sh"
+
+      - name: Migracja, rollout i smoke
+        env:
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+          STAGING_HOST: ${{ secrets.STAGING_HOST }}
+          STAGING_URL: ${{ vars.STAGING_URL }}
+          STAGING_USER: ${{ secrets.STAGING_USER }}
+        run: |
+          ssh "${STAGING_USER}@${STAGING_HOST}" \
+            "DEPLOY_PATH='${DEPLOY_PATH}' RELEASE_SHA='${RELEASE_SHA}' STAGING_URL='${STAGING_URL}' sh /tmp/staging-deploy-bootstrap.sh"
+
+      - name: Podsumowanie
+        env:
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha }}
+          STAGING_URL: ${{ vars.STAGING_URL }}
+        run: |
+          echo "### Staging" >> "${GITHUB_STEP_SUMMARY}"
+          echo "Commit: ${RELEASE_SHA}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "Tag: sha-${RELEASE_SHA}" >> "${GITHUB_STEP_SUMMARY}"
+          echo "Smoke: ${STAGING_URL%/}/api/v1/health/" >> "${GITHUB_STEP_SUMMARY}"

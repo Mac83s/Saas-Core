@@ -1,0 +1,11 @@
+[importlinter]
+root_package = saas_core
+
+[importlinter:contract:module-layers]
+name = Kierunek warstw modułów
+type = layers
+layers =
+    saas_core.modules.config
+    saas_core.modules.vertical
+    saas_core.modules.shared
+    saas_core.modules.core

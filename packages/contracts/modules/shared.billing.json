@@ -1,0 +1,18 @@
+{
+  "id": "shared.billing",
+  "layer": "shared",
+  "version": 1,
+  "dependsOn": ["core.organizations", "core.audit"],
+  "backend": {
+    "djangoApp": "saas_core.modules.shared.billing",
+    "urlPrefix": "/api/v1/billing",
+    "permissions": ["billing.manage"],
+    "entitlements": [],
+    "eventSchemas": ["billing.subscription.changed.v1"]
+  },
+  "frontend": {
+    "routes": ["/settings/billing"],
+    "navigation": ["billing"],
+    "translationNamespaces": ["billing"]
+  }
+}

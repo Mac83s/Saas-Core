@@ -1,0 +1,40 @@
+loki.source.file "saas_core" {
+  targets = [
+    {
+      __path__ = "/var/log/saas-core/*.jsonl",
+      job      = "saas-core",
+    },
+  ]
+  forward_to = [loki.process.saas_core.receiver]
+
+  file_match {
+    enabled     = true
+    sync_period = "10s"
+  }
+}
+
+loki.process "saas_core" {
+  stage.json {
+    expressions = {
+      correlation_id = "correlation_id",
+      level          = "level",
+      service        = "logger",
+    }
+  }
+
+  stage.labels {
+    values = {
+      level   = "",
+      service = "",
+    }
+  }
+
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
+

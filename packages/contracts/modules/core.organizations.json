@@ -1,0 +1,18 @@
+{
+  "id": "core.organizations",
+  "layer": "core",
+  "version": 1,
+  "dependsOn": ["core.identity"],
+  "backend": {
+    "djangoApp": "saas_core.modules.core.organizations",
+    "urlPrefix": "/api/v1/organizations",
+    "permissions": ["organization.read", "organization.members.manage"],
+    "entitlements": [],
+    "eventSchemas": ["organizations.organization.created.v1"]
+  },
+  "frontend": {
+    "routes": ["/organizations"],
+    "navigation": ["organizations"],
+    "translationNamespaces": ["organizations"]
+  }
+}

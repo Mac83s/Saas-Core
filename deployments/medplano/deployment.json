@@ -1,0 +1,27 @@
+{
+  "$schema": "../../packages/contracts/deployment.schema.json",
+  "schemaVersion": 1,
+  "id": "medplano",
+  "product": {
+    "name": "MedPlano",
+    "defaultLocale": "pl",
+    "supportedLocales": ["pl", "en"],
+    "platformDomain": "medplano.pl"
+  },
+  "modules": [
+    "core.identity",
+    "core.organizations",
+    "core.audit",
+    "shared.billing",
+    "shared.sites",
+    "shared.media",
+    "shared.notifications",
+    "shared.booking",
+    "vertical.medical",
+    "config.medplano"
+  ],
+  "features": {
+    "customDomains": true,
+    "publicBooking": true
+  }
+}

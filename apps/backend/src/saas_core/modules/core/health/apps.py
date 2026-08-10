@@ -1,0 +1,7 @@
+from django.apps import AppConfig
+
+
+class HealthConfig(AppConfig):
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "saas_core.modules.core.health"
+    verbose_name = "Health"

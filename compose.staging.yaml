@@ -1,0 +1,105 @@
+x-staging-backend-environment: &staging-backend-environment
+  ALLOWED_HOSTS: ${ALLOWED_HOSTS:?ALLOWED_HOSTS jest wymagany}
+  APP_ENV: staging
+  CSRF_TRUSTED_ORIGINS: ${CSRF_TRUSTED_ORIGINS:?CSRF_TRUSTED_ORIGINS jest wymagany}
+  DEPLOYMENT: ${DEPLOYMENT:?DEPLOYMENT jest wymagany}
+  DJANGO_SETTINGS_MODULE: saas_core.config.settings.container
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  REDIS_HOST: redis
+  REDIS_PASSWORD_FILE: /run/secrets/redis_password
+
+services:
+  postgres:
+    ports: !reset []
+    networks: !override
+      - data
+
+  redis:
+    image: ${SAAS_CORE_REDIS_IMAGE:-${SAAS_CORE_IMAGE_PREFIX:?SAAS_CORE_IMAGE_PREFIX jest wymagany}/redis:${SAAS_CORE_IMAGE_TAG:?SAAS_CORE_IMAGE_TAG jest wymagany}}
+    build: !reset null
+    environment:
+      REDIS_PASSWORD_FILE: /run/secrets/redis_password
+    secrets:
+      - redis_password
+    ports: !reset []
+    networks: !override
+      - data
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "REDISCLI_AUTH=$$(cat /run/secrets/redis_password) redis-cli ping | grep --quiet PONG",
+        ]
+
+  migrate:
+    image: ${SAAS_CORE_BACKEND_IMAGE:-${SAAS_CORE_IMAGE_PREFIX}/backend:${SAAS_CORE_IMAGE_TAG}}
+    build: !reset null
+    environment:
+      <<: *staging-backend-environment
+    secrets:
+      - redis_password
+
+  backend:
+    image: ${SAAS_CORE_BACKEND_IMAGE:-${SAAS_CORE_IMAGE_PREFIX}/backend:${SAAS_CORE_IMAGE_TAG}}
+    build: !reset null
+    environment:
+      <<: *staging-backend-environment
+    secrets:
+      - redis_password
+
+  worker:
+    image: ${SAAS_CORE_BACKEND_IMAGE:-${SAAS_CORE_IMAGE_PREFIX}/backend:${SAAS_CORE_IMAGE_TAG}}
+    build: !reset null
+    environment:
+      <<: *staging-backend-environment
+    secrets:
+      - redis_password
+
+  scheduler:
+    image: ${SAAS_CORE_BACKEND_IMAGE:-${SAAS_CORE_IMAGE_PREFIX}/backend:${SAAS_CORE_IMAGE_TAG}}
+    build: !reset null
+    environment:
+      <<: *staging-backend-environment
+    secrets:
+      - redis_password
+
+  celery-exporter:
+    image: ${SAAS_CORE_BACKEND_IMAGE:-${SAAS_CORE_IMAGE_PREFIX}/backend:${SAAS_CORE_IMAGE_TAG}}
+    build: !reset null
+    environment:
+      <<: *staging-backend-environment
+      LOG_SERVICE: celery-exporter
+    secrets:
+      - redis_password
+
+  redis-exporter:
+    image: ${SAAS_CORE_REDIS_IMAGE:-${SAAS_CORE_IMAGE_PREFIX}/redis:${SAAS_CORE_IMAGE_TAG}}
+    environment:
+      REDIS_PASSWORD_FILE: /run/secrets/redis_password
+    secrets:
+      - redis_password
+
+  frontend:
+    image: ${SAAS_CORE_FRONTEND_IMAGE:-${SAAS_CORE_IMAGE_PREFIX}/frontend:${SAAS_CORE_IMAGE_TAG}}
+    build: !reset null
+
+  caddy:
+    image: ${SAAS_CORE_CADDY_IMAGE:-${SAAS_CORE_IMAGE_PREFIX}/caddy:${SAAS_CORE_IMAGE_TAG}}
+    build: !reset null
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL jest wymagany}
+      STAGING_HOST: ${STAGING_HOST:?STAGING_HOST jest wymagany}
+    ports: !override
+      - "80:8080"
+      - "443:8443"
+    volumes: !override
+      - ./infra/caddy/Caddyfile.staging:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+secrets:
+  redis_password:
+    file: ${SAAS_CORE_SECRETS_DIR:?SAAS_CORE_SECRETS_DIR jest wymagany}/redis_password

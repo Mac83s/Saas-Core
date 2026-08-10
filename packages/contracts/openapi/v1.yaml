@@ -1,0 +1,72 @@
+openapi: 3.1.0
+info:
+  title: SaaS Core API
+  version: 1.0.0
+  description: Wersjonowane API modularnej platformy SaaS Core.
+paths:
+  /api/v1/health/:
+    get:
+      operationId: api_v1_health_retrieve
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+          description: ''
+  /api/v1/health/live/:
+    get:
+      operationId: api_v1_health_live_retrieve
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+          description: ''
+components:
+  schemas:
+    Health:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/StatusEnum'
+        deployment:
+          type: string
+        version:
+          type: string
+        correlation_id:
+          type: string
+          format: uuid
+        checks:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+      - checks
+      - correlation_id
+      - deployment
+      - status
+      - version
+    StatusEnum:
+      enum:
+      - ok
+      - degraded
+      type: string
+      description: |-
+        * `ok` - ok
+        * `degraded` - degraded

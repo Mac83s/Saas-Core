@@ -1,0 +1,18 @@
+{
+  "id": "shared.sites",
+  "layer": "shared",
+  "version": 1,
+  "dependsOn": ["core.organizations", "core.audit"],
+  "backend": {
+    "djangoApp": "saas_core.modules.shared.sites",
+    "urlPrefix": "/api/v1/sites",
+    "permissions": ["site.content.edit", "site.publish"],
+    "entitlements": ["sites.enabled"],
+    "eventSchemas": ["sites.site.published.v1"]
+  },
+  "frontend": {
+    "routes": ["/sites"],
+    "navigation": ["sites"],
+    "translationNamespaces": ["sites"]
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "id": "shared.booking",
+  "layer": "shared",
+  "version": 1,
+  "dependsOn": ["core.organizations", "shared.notifications"],
+  "backend": {
+    "djangoApp": "saas_core.modules.shared.booking",
+    "urlPrefix": "/api/v1/booking",
+    "permissions": ["booking.appointment.read", "booking.appointment.manage"],
+    "entitlements": ["booking.enabled"],
+    "eventSchemas": ["booking.appointment.created.v1"]
+  },
+  "frontend": {
+    "routes": ["/calendar"],
+    "navigation": ["calendar"],
+    "translationNamespaces": ["booking"]
+  }
+}

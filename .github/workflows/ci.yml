@@ -1,0 +1,110 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  javascript:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.0.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm deployment:check:all
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: saas_core
+          POSTGRES_USER: saas_core
+          POSTGRES_PASSWORD: saas_core
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U saas_core -d saas_core"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:8.2-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.14"
+          enable-cache: true
+      - run: uv sync --project apps/backend --frozen
+      - run: uv run --project apps/backend ruff check apps/backend/src apps/backend/tests
+      - run: uv run --project apps/backend lint-imports --config apps/backend/.importlinter
+      - run: uv run --project apps/backend python apps/backend/manage.py makemigrations --check --dry-run --settings=saas_core.config.settings.test
+      - run: uv run --project apps/backend mypy --config-file apps/backend/pyproject.toml apps/backend/src
+      - run: uv run --project apps/backend pytest apps/backend/tests
+
+  contracts:
+    needs: [javascript, backend]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.0.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.14"
+      - run: pnpm install --frozen-lockfile
+      - run: uv sync --project apps/backend --frozen
+      - run: pnpm api:check
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Scan sekretów
+        uses: gitleaks/gitleaks-action@v2
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.0.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Audit JavaScript
+        run: pnpm audit --audit-level high
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.14"
+      - name: Eksport przypiętych zależności Python
+        run: uv export --project apps/backend --frozen --no-dev --format requirements-txt --output-file /tmp/saas-core-requirements.txt
+      - name: Audit Python
+        run: uvx pip-audit --require-hashes -r /tmp/saas-core-requirements.txt

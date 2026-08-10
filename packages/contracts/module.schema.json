@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://saas-core.local/schemas/module.schema.json",
+  "title": "SaaS Core module descriptor",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "layer", "version", "dependsOn", "backend", "frontend"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^(core|shared|vertical|config)\\.[a-z][a-z0-9-]*$"
+    },
+    "layer": { "enum": ["core", "shared", "vertical", "config"] },
+    "version": { "type": "integer", "minimum": 1 },
+    "dependsOn": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(core|shared|vertical|config)\\.[a-z][a-z0-9-]*$"
+      }
+    },
+    "backend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "djangoApp",
+        "urlPrefix",
+        "permissions",
+        "entitlements",
+        "eventSchemas"
+      ],
+      "properties": {
+        "djangoApp": { "type": ["string", "null"] },
+        "urlPrefix": { "type": ["string", "null"] },
+        "permissions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "entitlements": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "eventSchemas": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "frontend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["routes", "navigation", "translationNamespaces"],
+      "properties": {
+        "routes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "navigation": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        },
+        "translationNamespaces": {
+          "type": "array",
+          "items": { "type": "string" },
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

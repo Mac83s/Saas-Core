@@ -1,0 +1,49 @@
+{
+	auto_https off
+	admin off
+	metrics
+}
+
+:8080 {
+	encode zstd gzip
+
+	request_body {
+		max_size 10MB
+	}
+
+	header {
+		-Server
+		Permissions-Policy "camera=(), geolocation=(), microphone=()"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+	}
+
+	@api path /api/* /internal/* /static/*
+	handle @api {
+		reverse_proxy backend:8000 {
+			health_uri /api/v1/health/live/
+			health_interval 10s
+			health_timeout 2s
+			lb_try_duration 2s
+		}
+	}
+
+	handle {
+		reverse_proxy frontend:3000 {
+			health_uri /healthz
+			health_interval 10s
+			health_timeout 2s
+			lb_try_duration 2s
+		}
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
+
+:2019 {
+	metrics
+}

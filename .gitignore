@@ -1,0 +1,31 @@
+# JavaScript
+node_modules/
+.next/
+coverage/
+*.tsbuildinfo
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.import_linter_cache/
+.coverage
+htmlcov/
+
+# Runtime
+.runtime/
+.env
+.env.*
+!.env.example
+*.log
+media/
+staticfiles/
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

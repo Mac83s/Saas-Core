@@ -1,0 +1,72 @@
+[project]
+name = "saas-core-backend"
+version = "0.1.0"
+description = "Modularny backend SaaS Core"
+requires-python = ">=3.14,<3.15"
+dependencies = [
+  "celery>=5.6.3,<5.7",
+  "django>=5.2.8,<5.3",
+  "djangorestframework>=3.17.2,<3.18",
+  "drf-spectacular==0.30.0",
+  "gunicorn>=23.0.0,<24",
+  "prometheus-client>=0.25.0,<0.26",
+  "psycopg[binary]>=3.2.9,<3.3",
+  "redis>=6.4.0,<7",
+  "whitenoise>=6.9.0,<7",
+]
+
+[dependency-groups]
+dev = [
+  "coverage[toml]>=7.10.0,<8",
+  "django-stubs>=5.2.2,<5.3",
+  "djangorestframework-stubs>=3.16.5,<3.18",
+  "import-linter>=2.7,<3",
+  "mypy>=1.17.1,<2",
+  "pytest>=8.4.1,<9",
+  "pytest-django>=4.11.1,<5",
+  "ruff>=0.12.11,<0.13",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/saas_core"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "saas_core.config.settings.test"
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "--strict-markers --strict-config --capture=sys"
+
+[tool.ruff]
+target-version = "py314"
+preview = true
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "DJ"]
+
+[tool.mypy]
+python_version = "3.14"
+plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
+strict = true
+mypy_path = "src"
+
+[tool.django-stubs]
+django_settings_module = "saas_core.config.settings.test"
+
+[[tool.mypy.overrides]]
+module = ["celery", "celery.*"]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+branch = true
+source = ["saas_core"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+fail_under = 85

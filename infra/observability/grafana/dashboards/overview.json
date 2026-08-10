@@ -1,0 +1,48 @@
+{
+  "annotations": { "list": [] },
+  "editable": false,
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "percentunit" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {},
+      "targets": [
+        {
+          "expr": "sum(rate(saas_core_http_requests_total{status=~\"5..\"}[5m])) / clamp_min(sum(rate(saas_core_http_requests_total[5m])), 0.001)",
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP 5xx ratio",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "id": 2,
+      "options": {},
+      "targets": [{ "expr": "saas_core_celery_workers", "refId": "A" }],
+      "title": "Celery workers",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 8 },
+      "id": 3,
+      "options": { "showTime": true, "wrapLogMessage": true },
+      "targets": [{ "expr": "{job=\"saas-core\"} | json", "refId": "A" }],
+      "title": "Structured logs",
+      "type": "logs"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": ["saas-core"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "title": "SaaS Core overview",
+  "uid": "saas-core-overview",
+  "version": 1
+}

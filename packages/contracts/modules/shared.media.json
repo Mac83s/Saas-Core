@@ -1,0 +1,18 @@
+{
+  "id": "shared.media",
+  "layer": "shared",
+  "version": 1,
+  "dependsOn": ["core.organizations"],
+  "backend": {
+    "djangoApp": "saas_core.modules.shared.media",
+    "urlPrefix": "/api/v1/media",
+    "permissions": ["media.read", "media.manage"],
+    "entitlements": ["storage.enabled"],
+    "eventSchemas": []
+  },
+  "frontend": {
+    "routes": ["/media"],
+    "navigation": ["media"],
+    "translationNamespaces": ["media"]
+  }
+}

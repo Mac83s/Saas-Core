@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://saas-core.local/schemas/deployment.schema.json",
+  "title": "SaaS Core deployment profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "product", "modules", "features"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "product": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "defaultLocale",
+        "supportedLocales",
+        "platformDomain"
+      ],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "defaultLocale": {
+          "type": "string",
+          "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+        },
+        "supportedLocales": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z]{2}(-[A-Z]{2})?$" }
+        },
+        "platformDomain": { "type": "string", "minLength": 3 }
+      }
+    },
+    "modules": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(core|shared|vertical|config)\\.[a-z][a-z0-9-]*$"
+      }
+    },
+    "features": {
+      "type": "object",
+      "additionalProperties": { "type": ["boolean", "string", "number"] }
+    }
+  }
+}

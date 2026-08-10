@@ -1,0 +1,18 @@
+{
+  "id": "core.identity",
+  "layer": "core",
+  "version": 1,
+  "dependsOn": [],
+  "backend": {
+    "djangoApp": "saas_core.modules.core.identity",
+    "urlPrefix": "/api/v1/auth",
+    "permissions": [],
+    "entitlements": [],
+    "eventSchemas": ["identity.user.created.v1"]
+  },
+  "frontend": {
+    "routes": ["/login"],
+    "navigation": [],
+    "translationNamespaces": ["identity"]
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "name": "saas-core",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@11.0.0",
+  "engines": {
+    "node": ">=24 <25",
+    "pnpm": ">=11 <12"
+  },
+  "scripts": {
+    "bootstrap": "node scripts/bootstrap.mjs",
+    "build": "pnpm -r --if-present build",
+    "dev": "pnpm --filter @saas-core/frontend dev",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "pnpm deployment:check:all && pnpm -r --if-present lint",
+    "test": "pnpm -r --if-present test",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "backend:lint": "uv run --project apps/backend ruff check apps/backend/src apps/backend/tests",
+    "backend:imports": "uv run --project apps/backend lint-imports --config apps/backend/.importlinter",
+    "backend:migrations": "uv run --project apps/backend python apps/backend/manage.py makemigrations --check --dry-run --settings=saas_core.config.settings.test",
+    "backend:typecheck": "uv run --project apps/backend mypy --config-file apps/backend/pyproject.toml apps/backend/src",
+    "backend:test": "uv run --project apps/backend pytest apps/backend/tests",
+    "backend:check": "pnpm backend:lint && pnpm backend:imports && pnpm backend:migrations && pnpm backend:typecheck && pnpm backend:test",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "deployment:check": "node packages/contracts/scripts/deployment-check.mjs",
+    "deployment:check:all": "pnpm deployment:check --profile core-only && pnpm deployment:check --profile medplano",
+    "deployment:render": "node packages/contracts/scripts/deployment-render.mjs",
+    "module-catalog:check": "node packages/contracts/scripts/deployment-check.mjs",
+    "runtime:prepare": "node scripts/runtime-secrets.mjs",
+    "runtime:up": "pnpm runtime:prepare && docker compose up --build -d",
+    "runtime:down": "docker compose down",
+    "runtime:logs": "docker compose logs --follow caddy frontend backend worker scheduler",
+    "runtime:smoke": "node scripts/runtime-smoke.mjs",
+    "runtime:smoke:failures": "node scripts/runtime-failure-smoke.mjs",
+    "runtime:smoke:observability": "node scripts/observability-smoke.mjs",
+    "runtime:backup": "sh infra/postgres/backup.sh",
+    "runtime:restore-drill": "sh infra/postgres/restore-drill.sh",
+    "runtime:status": "docker compose ps",
+    "api:schema": "uv run --project apps/backend python apps/backend/manage.py spectacular --file packages/contracts/openapi/v1.yaml --validate",
+    "api:client": "openapi-typescript packages/contracts/openapi/v1.yaml -o packages/api-client/src/schema.d.ts",
+    "api:check": "node packages/contracts/scripts/api-drift-check.mjs",
+    "quality": "pnpm check && pnpm backend:check && pnpm api:check"
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.10.1",
+    "prettier": "^3.6.2"
+  }
+}

@@ -1,0 +1,96 @@
+name: Images
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
+jobs:
+  build:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: backend
+            dockerfile: apps/backend/Dockerfile
+            build_args: ""
+          - name: frontend
+            dockerfile: apps/frontend/Dockerfile
+            build_args: DEPLOYMENT=medplano
+          - name: caddy
+            dockerfile: infra/caddy/Dockerfile
+            build_args: ""
+          - name: redis
+            dockerfile: infra/redis/Dockerfile
+            build_args: ""
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Ustal nazwę i tag obrazu
+        id: image
+        shell: bash
+        run: |
+          image_name="ghcr.io/${GITHUB_REPOSITORY,,}/${{ matrix.name }}"
+          echo "name=${image_name}" >> "${GITHUB_OUTPUT}"
+          echo "tag=${image_name}:sha-${{ github.event.workflow_run.head_sha }}" >> "${GITHUB_OUTPUT}"
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Zbuduj i opublikuj
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64
+          build-args: ${{ matrix.build_args }}
+          push: true
+          tags: ${{ steps.image.outputs.tag }}
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+
+      - name: Skan podatności obrazu
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ steps.image.outputs.tag }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+
+      - name: GitHub attestation dla repozytorium publicznego
+        if: github.event.repository.visibility == 'public'
+        uses: actions/attest@v4
+        with:
+          subject-name: ${{ steps.image.outputs.name }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Podsumowanie digestu
+        run: |
+          echo '### ${{ matrix.name }}' >> "${GITHUB_STEP_SUMMARY}"
+          echo '${{ steps.image.outputs.tag }}' >> "${GITHUB_STEP_SUMMARY}"
+          echo '${{ steps.build.outputs.digest }}' >> "${GITHUB_STEP_SUMMARY}"

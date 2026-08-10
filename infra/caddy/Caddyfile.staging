@@ -1,0 +1,55 @@
+{
+	admin off
+	email {$ACME_EMAIL}
+	http_port 8080
+	https_port 8443
+	metrics
+}
+
+{$STAGING_HOST} {
+	encode zstd gzip
+
+	request_body {
+		max_size 10MB
+	}
+
+	header {
+		-Server
+		Permissions-Policy "camera=(), geolocation=(), microphone=()"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+	}
+
+	@private_metrics path /internal/metrics/
+	respond @private_metrics 404
+
+	@api path /api/* /internal/* /static/*
+	handle @api {
+		reverse_proxy backend:8000 {
+			health_uri /api/v1/health/live/
+			health_interval 10s
+			health_timeout 2s
+			lb_try_duration 2s
+		}
+	}
+
+	handle {
+		reverse_proxy frontend:3000 {
+			health_uri /healthz
+			health_interval 10s
+			health_timeout 2s
+			lb_try_duration 2s
+		}
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
+
+:2019 {
+	metrics
+}
