@@ -134,10 +134,15 @@ SESSION_COOKIE_PATH = "/"
 SESSION_IDLE_TIMEOUT_SECONDS = int(os.environ.get("SESSION_IDLE_TIMEOUT_SECONDS", "1800"))
 SESSION_MAX_LIFETIME_SECONDS = int(os.environ.get("SESSION_MAX_LIFETIME_SECONDS", "86400"))
 TENANT_TASK_CONTEXT_TTL_SECONDS = int(os.environ.get("TENANT_TASK_CONTEXT_TTL_SECONDS", "86400"))
+ORGANIZATION_INVITATION_TTL_SECONDS = int(
+    os.environ.get("ORGANIZATION_INVITATION_TTL_SECONDS", "604800")
+)
 if SESSION_IDLE_TIMEOUT_SECONDS <= 0 or SESSION_MAX_LIFETIME_SECONDS <= 0:
     raise ImproperlyConfigured("Limity czasu sesji muszą być dodatnie")
 if TENANT_TASK_CONTEXT_TTL_SECONDS <= 0:
     raise ImproperlyConfigured("Czas ważności tenant task context musi być dodatni")
+if ORGANIZATION_INVITATION_TTL_SECONDS <= 0:
+    raise ImproperlyConfigured("Czas ważności zaproszenia musi być dodatni")
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SECURE = True

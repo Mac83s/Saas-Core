@@ -5,8 +5,10 @@ x-staging-backend-environment: &staging-backend-environment
   DEPLOYMENT: ${DEPLOYMENT:?DEPLOYMENT jest wymagany}
   DJANGO_SETTINGS_MODULE: saas_core.config.settings.container
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  ORGANIZATION_INVITATION_TTL_SECONDS: ${ORGANIZATION_INVITATION_TTL_SECONDS:-604800}
   REDIS_HOST: redis
   REDIS_PASSWORD_FILE: /run/secrets/redis_password
+  TENANT_TASK_CONTEXT_TTL_SECONDS: ${TENANT_TASK_CONTEXT_TTL_SECONDS:-86400}
 
 services:
   postgres:

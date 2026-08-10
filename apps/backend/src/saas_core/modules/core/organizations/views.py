@@ -13,15 +13,32 @@ from rest_framework.views import APIView
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
 from .authorization import authorize
-from .models import Membership, Organization
+from .lifecycle import (
+    accept_invitation,
+    create_invitation,
+    leave_organization,
+    list_invitations,
+    list_memberships,
+    revoke_invitation,
+    transfer_ownership,
+    update_membership,
+)
+from .models import Invitation, InvitationStatus, Membership, Organization
 from .permissions import ORGANIZATION_READ
 from .serializers import (
     ActiveOrganizationResultSerializer,
     ActiveOrganizationSerializer,
+    InvitationAcceptSerializer,
+    InvitationCreateSerializer,
+    InvitationSummarySerializer,
+    LifecycleResultSerializer,
+    MembershipSummarySerializer,
+    MembershipUpdateSerializer,
     OrganizationArchivedSerializer,
     OrganizationCreateSerializer,
     OrganizationSummarySerializer,
     OrganizationUpdateSerializer,
+    OwnershipTransferSerializer,
 )
 from .services import (
     OrganizationAccess,
@@ -137,6 +154,154 @@ class ActiveOrganizationView(ProtectedOrganizationView):
         return Response({"organization": _organization_summary(access)})
 
 
+@method_decorator(csrf_protect, name="dispatch")
+class InvitationListCreateView(ProtectedOrganizationView):
+    @extend_schema(
+        responses={
+            200: InvitationSummarySerializer(many=True),
+            403: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        }
+    )
+    def get(self, _request: Request) -> Response:
+        return Response([_invitation_summary(item) for item in list_invitations()])
+
+    @extend_schema(
+        request=InvitationCreateSerializer,
+        responses={
+            201: InvitationSummarySerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = InvitationCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        invitation = create_invitation(
+            request=cast(HttpRequest, request),
+            email=serializer.validated_data["email"],
+            role_key=serializer.validated_data["role"],
+        )
+        return Response(
+            _invitation_summary(invitation),
+            status=status.HTTP_201_CREATED,
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class InvitationRevokeView(ProtectedOrganizationView):
+    @extend_schema(
+        request=None,
+        responses={
+            200: InvitationSummarySerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def delete(self, request: Request, invitation_id) -> Response:
+        invitation = revoke_invitation(
+            request=cast(HttpRequest, request),
+            invitation_id=invitation_id,
+        )
+        return Response(_invitation_summary(invitation))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class InvitationAcceptView(ProtectedOrganizationView):
+    @extend_schema(
+        request=InvitationAcceptSerializer,
+        responses={
+            200: MembershipSummarySerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = InvitationAcceptSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        membership = accept_invitation(
+            request=cast(HttpRequest, request),
+            **serializer.validated_data,
+        )
+        return Response(_membership_summary(membership))
+
+
+class MembershipListView(ProtectedOrganizationView):
+    @extend_schema(
+        responses={
+            200: MembershipSummarySerializer(many=True),
+            403: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        }
+    )
+    def get(self, _request: Request) -> Response:
+        return Response([_membership_summary(item) for item in list_memberships()])
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class MembershipUpdateView(ProtectedOrganizationView):
+    @extend_schema(
+        request=MembershipUpdateSerializer,
+        responses={
+            200: MembershipSummarySerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def patch(self, request: Request, membership_id) -> Response:
+        serializer = MembershipUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        change = update_membership(
+            request=cast(HttpRequest, request),
+            membership_id=membership_id,
+            role_key=serializer.validated_data.get("role"),
+            membership_status=serializer.validated_data.get("status"),
+        )
+        return Response(_membership_summary(change.membership))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class MembershipLeaveView(ProtectedOrganizationView):
+    @extend_schema(
+        request=None,
+        responses={
+            200: LifecycleResultSerializer,
+            403: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request) -> Response:
+        leave_organization(request=cast(HttpRequest, request))
+        return Response({"status": "left"})
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class OwnershipTransferView(ProtectedOrganizationView):
+    @extend_schema(
+        request=OwnershipTransferSerializer,
+        responses={
+            200: LifecycleResultSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = OwnershipTransferSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        transfer_ownership(
+            request=cast(HttpRequest, request),
+            **serializer.validated_data,
+        )
+        return Response({"status": "transferred"})
+
+
 def _organization_summary(access: OrganizationAccess) -> dict[str, object]:
     organization = access.organization
     membership = access.membership
@@ -153,4 +318,29 @@ def _organization_summary(access: OrganizationAccess) -> dict[str, object]:
         "membership_status": membership.status,
         "role": membership.role.key,
         "active": access.active,
+    }
+
+
+def _invitation_summary(invitation: Invitation) -> dict[str, object]:
+    effective_status = invitation.status
+    if invitation.status == InvitationStatus.PENDING and not invitation.is_usable():
+        effective_status = "expired"
+    return {
+        "id": str(invitation.id),
+        "email": invitation.email,
+        "role": invitation.role.key,
+        "status": effective_status,
+        "expires_at": invitation.expires_at,
+        "created_at": invitation.created_at,
+    }
+
+
+def _membership_summary(membership: Membership) -> dict[str, object]:
+    return {
+        "id": str(membership.id),
+        "user_id": str(membership.user_id),
+        "email": membership.user.email,
+        "role": membership.role.key,
+        "status": membership.status,
+        "joined_at": membership.joined_at,
     }

@@ -50,6 +50,8 @@ realizowany razem z endpointami lifecycle w W4.4.
 
 ### W4.4 — zaproszenia i lifecycle membership
 
+**Stan:** zakończone lokalnie (2026-08-10)
+
 - tworzyć jednorazowe, wygasające zaproszenia z ograniczoną rolą;
 - obsłużyć zaproszenie dla istniejącego i nowego użytkownika;
 - uniemożliwić przyjęcie po wycofaniu, wygaśnięciu lub wcześniejszym użyciu;

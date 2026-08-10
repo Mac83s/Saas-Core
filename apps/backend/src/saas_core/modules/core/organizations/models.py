@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -262,3 +263,160 @@ class BillingProfile(models.Model):
 
     def __str__(self) -> str:
         return str(self.organization_id)
+
+
+class InvitationStatus(models.TextChoices):
+    PENDING = "pending", "Oczekuje"
+    ACCEPTED = "accepted", "Przyjęte"
+    REVOKED = "revoked", "Wycofane"
+
+
+class Invitation(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.PROTECT,
+        related_name="invitations",
+    )
+    email = models.EmailField(max_length=254)
+    role = models.ForeignKey(Role, on_delete=models.PROTECT, related_name="invitations")
+    status = models.CharField(
+        max_length=16,
+        choices=InvitationStatus,
+        default=InvitationStatus.PENDING,
+    )
+    token_hash = models.CharField(max_length=64, unique=True)
+    invited_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="sent_organization_invitations",
+    )
+    accepted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="accepted_organization_invitations",
+        null=True,
+        blank=True,
+    )
+    expires_at = models.DateTimeField()
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+        constraints = [
+            models.UniqueConstraint(
+                Lower("email"),
+                "organization",
+                condition=models.Q(status=InvitationStatus.PENDING),
+                name="org_invite_pending_email_uq",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(
+                        status=InvitationStatus.PENDING,
+                        accepted_at__isnull=True,
+                        accepted_by__isnull=True,
+                        revoked_at__isnull=True,
+                    )
+                    | models.Q(
+                        status=InvitationStatus.ACCEPTED,
+                        accepted_at__isnull=False,
+                        accepted_by__isnull=False,
+                        revoked_at__isnull=True,
+                    )
+                    | models.Q(
+                        status=InvitationStatus.REVOKED,
+                        accepted_at__isnull=True,
+                        accepted_by__isnull=True,
+                        revoked_at__isnull=False,
+                    )
+                ),
+                name="org_invite_terminal_state_ck",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["organization", "status", "expires_at"],
+                name="org_invite_status_idx",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.organization_id}:{self.email}:{self.status}"
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        self.email = self.email.strip().casefold()
+        super().save(*args, **kwargs)
+
+    def clean(self) -> None:
+        super().clean()
+        self.email = self.email.strip().casefold()
+        if self.role_id and self.role.organization_id not in (None, self.organization_id):
+            raise ValidationError({"role": "Rola należy do innej organizacji."})
+
+    def is_usable(self, *, at: datetime | None = None) -> bool:
+        checked_at = at or timezone.now()
+        return self.status == InvitationStatus.PENDING and self.expires_at > checked_at
+
+
+class OrganizationAuditAction(models.TextChoices):
+    ORGANIZATION_CREATED = "organization.created", "Utworzono organizację"
+    ORGANIZATION_UPDATED = "organization.updated", "Zmieniono organizację"
+    ORGANIZATION_ARCHIVED = "organization.archived", "Zarchiwizowano organizację"
+    INVITATION_CREATED = "invitation.created", "Utworzono zaproszenie"
+    INVITATION_REVOKED = "invitation.revoked", "Wycofano zaproszenie"
+    INVITATION_ACCEPTED = "invitation.accepted", "Przyjęto zaproszenie"
+    MEMBERSHIP_ROLE_CHANGED = "membership.role_changed", "Zmieniono rolę członka"
+    MEMBERSHIP_SUSPENDED = "membership.suspended", "Zawieszono członka"
+    MEMBERSHIP_RESUMED = "membership.resumed", "Wznowiono członka"
+    MEMBERSHIP_REVOKED = "membership.revoked", "Odebrano dostęp członkowi"
+    MEMBERSHIP_LEFT = "membership.left", "Członek opuścił organizację"
+    OWNERSHIP_TRANSFERRED = "ownership.transferred", "Przeniesiono własność"
+
+
+class OrganizationAuditEntry(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.PROTECT,
+        related_name="audit_entries",
+    )
+    actor_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="organization_audit_entries",
+        null=True,
+        blank=True,
+    )
+    action = models.CharField(max_length=64, choices=OrganizationAuditAction)
+    target_type = models.CharField(max_length=64, blank=True)
+    target_id = models.UUIDField(null=True, blank=True)
+    metadata = models.JSONField(default=dict)
+    correlation_id = models.UUIDField(null=True, blank=True)
+    occurred_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-occurred_at",)
+        indexes = [
+            models.Index(
+                fields=["organization", "occurred_at"],
+                name="org_audit_occurred_idx",
+            ),
+            models.Index(
+                fields=["organization", "action", "occurred_at"],
+                name="org_audit_action_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.organization_id}:{self.action}:{self.id}"
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        if not self._state.adding:
+            raise ValidationError("Wpis audytu jest append-only.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
+        raise ValidationError("Wpis audytu jest append-only.")

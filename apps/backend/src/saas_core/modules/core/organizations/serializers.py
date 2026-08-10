@@ -41,6 +41,11 @@ class OrganizationUpdateSerializer(serializers.Serializer[dict[str, Any]]):
             raise serializers.ValidationError("Nieznana strefa czasowa.") from error
         return value
 
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        if set(attrs) == {"version"}:
+            raise serializers.ValidationError("Podaj co najmniej jedno pole do zmiany.")
+        return attrs
+
 
 class ActiveOrganizationSerializer(serializers.Serializer[dict[str, Any]]):
     organization_id = serializers.UUIDField()
@@ -67,3 +72,51 @@ class ActiveOrganizationResultSerializer(serializers.Serializer[dict[str, Any]])
 
 class OrganizationArchivedSerializer(serializers.Serializer[dict[str, Any]]):
     status = serializers.ChoiceField(choices=["archived"])
+
+
+class InvitationCreateSerializer(serializers.Serializer[dict[str, Any]]):
+    email = serializers.EmailField(max_length=254)
+    role = serializers.SlugField(max_length=64)
+
+
+class InvitationAcceptSerializer(serializers.Serializer[dict[str, Any]]):
+    token = serializers.CharField(write_only=True, min_length=64, max_length=160)
+
+
+class InvitationSummarySerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    email = serializers.EmailField()
+    role = serializers.CharField()
+    status = serializers.CharField()
+    expires_at = serializers.DateTimeField()
+    created_at = serializers.DateTimeField()
+
+
+class MembershipSummarySerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    user_id = serializers.UUIDField()
+    email = serializers.EmailField()
+    role = serializers.CharField()
+    status = serializers.CharField()
+    joined_at = serializers.DateTimeField()
+
+
+class MembershipUpdateSerializer(serializers.Serializer[dict[str, Any]]):
+    role = serializers.SlugField(max_length=64, required=False)
+    status = serializers.ChoiceField(
+        choices=["active", "suspended", "revoked"],
+        required=False,
+    )
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        if not attrs:
+            raise serializers.ValidationError("Podaj rolę albo status do zmiany.")
+        return attrs
+
+
+class OwnershipTransferSerializer(serializers.Serializer[dict[str, Any]]):
+    membership_id = serializers.UUIDField()
+
+
+class LifecycleResultSerializer(serializers.Serializer[dict[str, Any]]):
+    status = serializers.CharField()

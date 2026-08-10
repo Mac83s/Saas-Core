@@ -2,7 +2,7 @@ from datetime import timedelta
 
 import pytest
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError, transaction
+from django.db import DatabaseError, IntegrityError, transaction
 from django.utils import timezone
 
 from saas_core.modules.core.identity.models import User
@@ -36,6 +36,35 @@ def test_system_roles_are_seeded_with_stable_permissions() -> None:
         assert roles[key].organization_id is None
         assert roles[key].is_immutable
         assert roles[key].permissions == list(permissions)
+
+
+def test_system_roles_are_immutable_at_database_boundary() -> None:
+    owner = Role.objects.get(key="owner", organization=None)
+
+    with pytest.raises(DatabaseError), transaction.atomic():
+        Role.objects.filter(pk=owner.pk).update(name="Tampered")
+    with pytest.raises(DatabaseError), transaction.atomic():
+        Role.objects.filter(pk=owner.pk).delete()
+
+    owner.refresh_from_db()
+    assert owner.name == "Owner"
+
+
+def test_custom_roles_remain_mutable_and_deletable() -> None:
+    organization = create_organization()
+    role = Role.objects.create(
+        organization=organization,
+        key="editor",
+        name="Editor",
+        scope=RoleScope.ORGANIZATION,
+        permissions=["organization.read"],
+    )
+
+    Role.objects.filter(pk=role.pk).update(name="Content editor")
+    deleted, _ = Role.objects.filter(pk=role.pk).delete()
+
+    assert deleted == 1
+    assert not Role.objects.filter(pk=role.pk).exists()
 
 
 def test_organization_normalizes_slug_and_currency_and_uses_uuidv7() -> None:

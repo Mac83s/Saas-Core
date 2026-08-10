@@ -11,6 +11,7 @@ x-backend-environment: &backend-environment
   EMAIL_FILE_PATH: /var/lib/saas-core/emails
   FRONTEND_BASE_URL: http://localhost:${SAAS_CORE_HTTP_PORT:-8080}
   LOG_DIRECTORY: /var/log/saas-core
+  ORGANIZATION_INVITATION_TTL_SECONDS: ${ORGANIZATION_INVITATION_TTL_SECONDS:-604800}
   POSTGRES_DB: ${SAAS_CORE_POSTGRES_DB:-saas_core}
   POSTGRES_HOST: postgres
   POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
@@ -20,6 +21,7 @@ x-backend-environment: &backend-environment
   SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-saas_core_local_session}
   SESSION_IDLE_TIMEOUT_SECONDS: ${SESSION_IDLE_TIMEOUT_SECONDS:-1800}
   SESSION_MAX_LIFETIME_SECONDS: ${SESSION_MAX_LIFETIME_SECONDS:-86400}
+  TENANT_TASK_CONTEXT_TTL_SECONDS: ${TENANT_TASK_CONTEXT_TTL_SECONDS:-86400}
   TRUSTED_PROXY_COUNT: ${TRUSTED_PROXY_COUNT:-1}
 
 x-backend-service: &backend-service

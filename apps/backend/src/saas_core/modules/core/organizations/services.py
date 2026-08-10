@@ -13,6 +13,7 @@ from rest_framework.exceptions import APIException, NotFound, ValidationError
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.identity.sessions import rotate_managed_session
 
+from .audit import record_audit
 from .authorization import authorize
 from .middleware import ACTIVE_ORGANIZATION_SESSION_KEY
 from .models import (
@@ -20,6 +21,7 @@ from .models import (
     Membership,
     MembershipStatus,
     Organization,
+    OrganizationAuditAction,
     OrganizationStatus,
     Role,
 )
@@ -112,6 +114,13 @@ def create_organization(
         user=user,
         role=owner_role,
     )
+    record_audit(
+        organization=organization,
+        action=OrganizationAuditAction.ORGANIZATION_CREATED,
+        actor=user,
+        target_type="organization",
+        target_id=organization.id,
+    )
     request.session[ACTIVE_ORGANIZATION_SESSION_KEY] = str(organization.id)
     rotate_managed_session(request=request)
     return OrganizationAccess(organization, membership, active=True)
@@ -150,6 +159,7 @@ def set_active_organization(
 def update_current_organization(*, changes: dict[str, Any]) -> OrganizationAccess:
     context = authorize(SETTINGS_MANAGE)
     expected_version = changes.pop("version")
+    changed_fields = sorted(changes)
     organization = Organization.objects.select_for_update().get(pk=context.organization_id)
     if organization.version != expected_version:
         raise OrganizationVersionConflict
@@ -159,6 +169,14 @@ def update_current_organization(*, changes: dict[str, Any]) -> OrganizationAcces
     _validate_model(organization)
     organization.save()
     membership = Membership.objects.select_related("role").get(pk=context.membership_id)
+    record_audit(
+        organization=organization,
+        action=OrganizationAuditAction.ORGANIZATION_UPDATED,
+        actor=membership.user,
+        target_type="organization",
+        target_id=organization.id,
+        metadata={"fields": changed_fields},
+    )
     return OrganizationAccess(organization, membership, active=True)
 
 
@@ -167,6 +185,14 @@ def archive_current_organization(*, request: HttpRequest) -> None:
     context = authorize(ORGANIZATION_ARCHIVE, owner_only=True)
     organization = Organization.objects.select_for_update().get(pk=context.organization_id)
     organization.archive()
+    actor = cast(User, request.user)
+    record_audit(
+        organization=organization,
+        action=OrganizationAuditAction.ORGANIZATION_ARCHIVED,
+        actor=actor,
+        target_type="organization",
+        target_id=organization.id,
+    )
     request.session.pop(ACTIVE_ORGANIZATION_SESSION_KEY, None)
     rotate_managed_session(request=request)
 

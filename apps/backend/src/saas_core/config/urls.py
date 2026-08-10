@@ -16,6 +16,10 @@ urlpatterns = [
         "api/v1/session/",
         include("saas_core.modules.core.organizations.session_urls"),
     ),
+    path(
+        "api/v1/invitations/",
+        include("saas_core.modules.core.organizations.invitation_urls"),
+    ),
     path("api/v1/", include("saas_core.modules.core.health.urls")),
     path("api/schema/", SpectacularAPIView.as_view(), name="openapi-schema"),
     path(

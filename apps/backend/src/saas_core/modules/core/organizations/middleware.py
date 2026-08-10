@@ -19,6 +19,7 @@ from .models import Membership, MembershipStatus, OrganizationStatus
 ACTIVE_ORGANIZATION_SESSION_KEY = "organizations_active_organization_id"
 TENANT_CONTEXT_EXEMPT_PATHS = {
     "/api/v1/organizations/",
+    "/api/v1/invitations/accept/",
     "/api/v1/session/active-organization/",
 }
 

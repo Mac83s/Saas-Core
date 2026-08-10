@@ -1,16 +1,19 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from typing import Any
 from uuid import UUID, uuid7
 
+from celery import shared_task
 from django.conf import settings
 from django.core import signing
 from django.db import transaction
 from django.db.models import F, Q
 
+from saas_core.modules.core.identity.tokens import issue_bound_token
 from saas_core.observability import correlation_id
 
 from .context import (
@@ -20,9 +23,11 @@ from .context import (
     require_tenant_context,
     set_local_organization_id,
 )
-from .models import Membership, MembershipStatus, OrganizationStatus
+from .email import InvitationEmailDeliveryError, get_invitation_email_sender
+from .models import Invitation, Membership, MembershipStatus, OrganizationStatus
 
 TENANT_TASK_CONTEXT_SALT = "saas-core.tenant-task-context.v1"
+logger = logging.getLogger("saas_core.security")
 
 
 class InvalidTenantTaskContext(RuntimeError):
@@ -131,3 +136,42 @@ def _contract_fields(payload: dict[str, Any]) -> dict[str, Any]:
     if set(payload) != expected:
         raise ValueError
     return {field: payload[field] for field in expected}
+
+
+@shared_task(  # type: ignore[untyped-decorator]
+    autoretry_for=(InvitationEmailDeliveryError,),
+    retry_backoff=True,
+    retry_jitter=True,
+    retry_kwargs={"max_retries": 5},
+)
+def send_organization_invitation(
+    invitation_id: str,
+    signed_tenant_context: str,
+) -> None:
+    try:
+        with tenant_task_context(signed_tenant_context) as context:
+            invitation = (
+                Invitation.objects.select_related("organization", "role")
+                .filter(pk=invitation_id, organization_id=context.organization_id)
+                .first()
+            )
+            if invitation is None or not invitation.is_usable():
+                return
+            issued = issue_bound_token(
+                purpose="organization-invitation",
+                identifier=str(invitation.id),
+            )
+            if issued.digest != invitation.token_hash:
+                return
+            get_invitation_email_sender().send(
+                email=invitation.email,
+                locale=invitation.organization.default_locale,
+                organization_name=invitation.organization.name,
+                role_name=invitation.role.name,
+                token=issued.value,
+            )
+    except InvalidTenantTaskContext:
+        logger.warning(
+            "organization_invitation_context_rejected",
+            extra={"security_event": "organization.invitation_context_rejected"},
+        )
