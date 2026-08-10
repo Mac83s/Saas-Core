@@ -14,10 +14,11 @@ export type PasswordResetRequestInput =
 export type PasswordResetConfirmInput =
   components["schemas"]["PasswordResetConfirm"];
 export type ProblemDetails = components["schemas"]["ProblemDetails"];
+export type TotpSetup = components["schemas"]["TotpSetup"];
+export type TotpConfirmResult = components["schemas"]["TotpConfirmResult"];
 
 export type LoginResult =
-  | { kind: "authenticated"; user: UserSummary }
-  | { kind: "mfa_required" };
+  { kind: "authenticated"; user: UserSummary } | { kind: "mfa_required" };
 
 export class ApiProblemError extends Error {
   constructor(public readonly problem: ProblemDetails) {
@@ -75,6 +76,35 @@ export async function completeMfaLogin(code: string): Promise<UserSummary> {
   const csrfToken = await getCsrfToken();
   const { data, error, response } = await client.POST(
     "/api/v1/auth/login/mfa/",
+    {
+      body: { code },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function beginTotpSetup(): Promise<TotpSetup> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/auth/mfa/totp/setup/",
+    {
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function confirmTotpSetup(
+  code: string,
+): Promise<TotpConfirmResult> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/auth/mfa/totp/confirm/",
     {
       body: { code },
       credentials: "same-origin",
@@ -153,10 +183,10 @@ export async function confirmPasswordReset(
 }
 
 export async function listSessions(): Promise<SessionSummary[]> {
-  const { data, error, response } = await client.GET(
-    "/api/v1/auth/sessions/",
-    { credentials: "same-origin", cache: "no-store" },
-  );
+  const { data, error, response } = await client.GET("/api/v1/auth/sessions/", {
+    credentials: "same-origin",
+    cache: "no-store",
+  });
   if (error || !data) throwProblem(error, response);
   return data;
 }

@@ -27,8 +27,8 @@ if (!panelResponse.ok) {
   throw new Error(`panel zwrócił HTTP ${panelResponse.status}`);
 }
 const panel = await panelResponse.text();
-if (!panel.includes("Lokalny runtime platformy działa")) {
-  throw new Error("panel nie zawiera oczekiwanego znacznika W2");
+if (!panel.includes("Bezpieczny fundament Twojego produktu SaaS")) {
+  throw new Error("panel nie zawiera oczekiwanego znacznika W3");
 }
 console.log(`OK panel: ${panelResponse.status}`);
 

@@ -48,11 +48,11 @@ Operator loguje się osobnym kanałem z obowiązkowym 2FA.
 
 ### W3.5 — frontend
 
-- przygotować formularze rejestracji, logowania, weryfikacji i resetu;
-- dodać centralną obsługę sesji i błędów API;
-- zapewnić ochronę routingu panelu po stronie serwera;
-- obsłużyć wygaśnięcie sesji bez pętli przekierowań;
-- dodać ekran aktywnych urządzeń i wylogowania.
+- [x] przygotować formularze rejestracji, logowania, weryfikacji i resetu;
+- [x] dodać centralną obsługę sesji i błędów API;
+- [x] zapewnić ochronę routingu panelu po stronie serwera;
+- [x] obsłużyć wygaśnięcie sesji bez pętli przekierowań;
+- [x] dodać ekran aktywnych urządzeń i wylogowania.
 
 ## 3. Testy bezpieczeństwa
 
@@ -71,7 +71,7 @@ Operator loguje się osobnym kanałem z obowiązkowym 2FA.
 - [x] użytkownik może zobaczyć i unieważnić swoje sesje;
 - [ ] operator ma obowiązkowe 2FA oraz oddzielny dostęp administracyjny;
 - [x] testy CSRF, rate limiting i session fixation przechodzą;
-- [ ] frontend nie przechowuje sekretów sesji w JavaScript storage;
+- [x] frontend nie przechowuje sekretów sesji w JavaScript storage;
 - [ ] zdarzenia Identity są gotowe do podłączenia W8.
 
 ## 5. Poza zakresem
@@ -160,3 +160,24 @@ Operator loguje się osobnym kanałem z obowiązkowym 2FA.
 - przebudowany runtime zastosował migrację, a smoke przez Caddy potwierdził pełną
   ścieżkę rejestracja → weryfikacja → login → konfiguracja TOTP → logout → login
   hasłem i TOTP, bez sesji użytkownika pomiędzy pierwszym i drugim składnikiem.
+
+### W3.5 — 2026-08-10
+
+- typed client wygenerowany z OpenAPI obsługuje CSRF, Problem Details, rejestrację,
+  weryfikację, login, challenge MFA, bootstrap TOTP operatora, reset hasła,
+  logout oraz listowanie i unieważnianie sesji;
+- formularze używają React Hook Form, Zod i wspólnych komponentów shadcn/Base UI
+  z `packages/ui`; zamknięty wybór języka korzysta ze wspólnego `Select`;
+- `/panel` jest chroniony w Server Component przez no-store fetch do zaufanego
+  backendu wewnętrznego z przekazaniem cookie; brak sesji daje redirect do
+  `/login`, a autoryzacja nadal pozostaje po stronie Django;
+- komponenty przeglądarkowe używają wyłącznie `credentials: same-origin`, token
+  CSRF jest pobierany przed każdą mutacją, a kod nie używa `localStorage` ani
+  `sessionStorage` do uwierzytelniania;
+- ekran panelu pokazuje urządzenia i pozwala unieważnić sesję bieżącą lub inną;
+  wygaśnięcie i odpowiedź `403` kierują do logowania bez automatycznego retry;
+- lint, TypeScript, trzy testy komponentów i produkcyjny build Next.js na Node 24
+  przeszły; obraz zawiera 10 tras, w tym dynamiczne `/login`, `/panel`,
+  `/verify-email` i `/reset-password`;
+- smoke przez Caddy potwierdził redirect anonimowego `/panel`, pełny Identity/MFA
+  oraz render chronionego panelu SSR po zalogowaniu.

@@ -10,6 +10,20 @@ const emailDirectory = resolve(
 );
 const email = `identity-smoke-${randomUUID()}@example.test`;
 
+const anonymousPanel = await fetch(new URL("/panel", baseUrl), {
+  redirect: "manual",
+  signal: AbortSignal.timeout(5_000),
+});
+if (
+  ![303, 307, 308].includes(anonymousPanel.status) ||
+  !anonymousPanel.headers.get("location")?.includes("/login")
+) {
+  throw new Error(
+    `Panel bez sesji nie przekierował do logowania: HTTP ${anonymousPanel.status}`,
+  );
+}
+console.log("OK ochrona routingu panelu bez sesji");
+
 const rejectedWithoutCsrf = await fetch(
   new URL("/api/v1/auth/register/", baseUrl),
   {
@@ -253,7 +267,18 @@ const mfaMeResponse = await fetch(new URL("/api/v1/auth/me/", baseUrl), {
 if (mfaMeResponse.status !== 200) {
   throw new Error(`Sesja po MFA nie działa: HTTP ${mfaMeResponse.status}`);
 }
+const panelResponse = await fetch(new URL("/panel", baseUrl), {
+  headers: { Cookie: mfaAuthenticatedCookie },
+  signal: AbortSignal.timeout(5_000),
+});
+const panelHtml = await panelResponse.text();
+if (panelResponse.status !== 200 || !panelHtml.includes("Aktywne urządzenia")) {
+  throw new Error(
+    `Chroniony panel nie wyrenderował sesji: HTTP ${panelResponse.status}`,
+  );
+}
 console.log("OK challenge MFA i sesja dopiero po drugim składniku");
+console.log("OK chroniony frontend SSR przekazał sesję do backendu");
 console.log(`Smoke Identity zakończony: ${baseUrl}`);
 
 async function postJson(path, payload) {

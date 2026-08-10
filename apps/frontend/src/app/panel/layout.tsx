@@ -1,0 +1,38 @@
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import type { ReactNode } from "react";
+import { ShieldCheckIcon } from "lucide-react";
+
+import { getServerUser } from "#lib/server-auth";
+import { LogoutButton } from "../../modules/core/identity";
+
+export default async function PanelLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  const user = await getServerUser();
+  if (!user) redirect("/login");
+  return (
+    <div className="min-h-screen bg-muted/30">
+      <header className="border-b bg-background">
+        <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-5">
+          <Link className="flex items-center gap-2 font-semibold" href="/panel">
+            <ShieldCheckIcon
+              aria-hidden="true"
+              className="size-5 text-primary"
+            />
+            SaaS Core
+          </Link>
+          <div className="ml-auto flex items-center gap-3">
+            <span className="hidden text-sm text-muted-foreground sm:inline">
+              {user.email}
+            </span>
+            <LogoutButton />
+          </div>
+        </div>
+      </header>
+      {children}
+    </div>
+  );
+}
