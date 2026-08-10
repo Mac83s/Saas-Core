@@ -1,11 +1,13 @@
 # W5 — Billing i Entitlements
 
-**Status:** blocked by W4 and product decisions  
+**Status:** in progress — decyzje wejściowe zamknięte w ADR-026; staging odłożony
 **Szacunek:** 2–3 tygodnie  
 **Poprzednik:** W4  
 **Rezultat:** audytowalny dostęp organizacji zsynchronizowany ze Stripe
 
 ## 1. Decyzje wejściowe
+
+**Stan:** zatwierdzone w [ADR-026](../../docs/adr/ADR-026-Billing-Entitlements-i-Trial.md).
 
 Przed rozpoczęciem trzeba zatwierdzić:
 
@@ -85,4 +87,3 @@ przez grace period do trybu read-only bez usunięcia danych.
 - [ ] override ma autora, przyczynę, zakres i opcjonalne wygaśnięcie;
 - [ ] support potrafi wyjaśnić wynik `can()` i `limit()`;
 - [ ] testy dowodzą niezależności RBAC i entitlementów.
-

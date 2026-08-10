@@ -162,26 +162,26 @@ wynosi 24 godziny, a RTO 4 godziny.
 
 ### ADR-015 - trial uruchamiany po aktywacji produktu
 
-**Status:** Proposed
+**Status:** Accepted przez ADR-026
 
 Konfigurowalny trial, początkowo 3 dni, zaczyna się po przygotowaniu/aktywacji strony, a nie w chwili pustej rejestracji.
 
 ### ADR-016 - karta wymagana dla triala zarządzanego
 
-**Status:** Proposed
+**Status:** Accepted przez ADR-026
 
 Dla managed SaaS metoda płatności jest zbierana przed rozpoczęciem triala. Data pierwszego obciążenia jest jasno pokazana.
 
 ## 4. Otwarte decyzje produktowe
 
-- [ ] Czy pierwsza sprzedaż jest wyłącznie B2B, czy również B2C?
-- [ ] Czy 3 dni triala wystarczą po aktywacji strony?
-- [ ] Czy trial wymaga karty od pierwszej wersji?
-- [ ] Jakie plany i limity mają znaleźć się w pilocie?
-- [ ] Czy abonament obejmuje jedną stronę, organizację czy lokalizację?
+- [x] Pierwsza sprzedaż jest B2B — ADR-026.
+- [x] Trial trwa początkowo 3 dni po aktywacji produktu — ADR-026.
+- [x] Trial managed SaaS wymaga karty — ADR-026.
+- [x] Pilot ma plany Starter i Pro z kontrolowanymi limitami — ADR-026.
+- [x] Abonament obejmuje organizację, a strony i lokalizacje są quota — ADR-026.
 - [ ] Kiedy uruchamiamy plan roczny?
-- [ ] Czy subdomena platformy jest dostępna we wszystkich planach?
-- [ ] Czy custom domain jest funkcją płatną?
+- [x] Subdomena platformy jest dostępna we wszystkich planach — ADR-026.
+- [x] Custom domain jest funkcją planu Pro — ADR-026.
 
 ## 5. Otwarte decyzje techniczne
 
