@@ -6,7 +6,8 @@
   "imports": {
     "#components/*": "./src/components/*.tsx",
     "#lib/*": "./src/lib/*.ts",
-    "#hooks/*": "./src/hooks/*.ts"
+    "#hooks/*": "./src/hooks/*.ts",
+    "#i18n/*": "./src/i18n/*.ts"
   },
   "scripts": {
     "dev": "next dev",

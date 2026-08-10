@@ -1,6 +1,9 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { NextIntlClientProvider } from "next-intl";
+import type { ReactElement } from "react";
 import { beforeEach, expect, test, vi } from "vitest";
 
+import messages from "../../../../messages/pl.json";
 import { LoginForm, RegistrationForm } from "./auth-forms";
 
 const { replace, refresh, loginAccount, completeMfaLogin, registerAccount } =
@@ -12,7 +15,8 @@ const { replace, refresh, loginAccount, completeMfaLogin, registerAccount } =
     registerAccount: vi.fn(),
   }));
 
-vi.mock("next/navigation", () => ({
+vi.mock("#i18n/navigation", () => ({
+  Link: "a",
   useRouter: () => ({ replace, refresh }),
 }));
 
@@ -26,10 +30,18 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
 
 beforeEach(() => vi.clearAllMocks());
 
+function renderWithMessages(element: ReactElement) {
+  return render(
+    <NextIntlClientProvider locale="pl" messages={messages}>
+      {element}
+    </NextIntlClientProvider>,
+  );
+}
+
 test("nie tworzy sesji w UI przed zakończeniem challenge MFA", async () => {
   loginAccount.mockResolvedValue({ kind: "mfa_required" });
   completeMfaLogin.mockResolvedValue({ email: "user@example.com" });
-  render(<LoginForm />);
+  renderWithMessages(<LoginForm />);
 
   fireEvent.change(screen.getByLabelText("E-mail"), {
     target: { value: "user@example.com" },
@@ -57,7 +69,7 @@ test("pokazuje równoważny komunikat rejestracji zwrócony przez API", async ()
   registerAccount.mockResolvedValue(
     "Jeżeli konto może zostać utworzone, wysłaliśmy instrukcję.",
   );
-  render(<RegistrationForm />);
+  renderWithMessages(<RegistrationForm />);
 
   fireEvent.change(screen.getByLabelText("E-mail"), {
     target: { value: "new@example.com" },

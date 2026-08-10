@@ -1,21 +1,29 @@
 import { ApiProblemError } from "@saas-core/api-client";
 
-export function identityErrorMessage(error: unknown): string {
+export type IdentityProblemMessages = {
+  invalidCredentials: string;
+  invalidMfaCode: string;
+  mfaSetupRequired: string;
+  apiUnavailable: string;
+};
+
+export function identityErrorMessage(
+  error: unknown,
+  messages: IdentityProblemMessages,
+): string {
   if (error instanceof ApiProblemError) {
     if (error.problem.code === "invalid_credentials") {
-      return "Nieprawidłowy e-mail lub hasło.";
+      return messages.invalidCredentials;
     }
     if (error.problem.code === "invalid_mfa_code") {
-      return "Kod uwierzytelniający jest nieprawidłowy.";
+      return messages.invalidMfaCode;
     }
     if (error.problem.code === "mfa_setup_required") {
-      return "Przed zalogowaniem skonfiguruj uwierzytelnianie dwuskładnikowe.";
+      return messages.mfaSetupRequired;
     }
     return error.message;
   }
-  return error instanceof Error
-    ? error.message
-    : "Nie udało się połączyć z API.";
+  return error instanceof Error ? error.message : messages.apiUnavailable;
 }
 
 export function identityFieldError(

@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { ComponentProps, ReactNode } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Controller,
@@ -42,42 +41,52 @@ import {
   SelectValue,
 } from "@saas-core/ui/components/select";
 
+import { Link, useRouter } from "#i18n/navigation";
 import { identityErrorMessage, identityFieldError } from "./problem";
 
-const email = z.string().email("Podaj prawidłowy adres e-mail.");
-const password = z.string().min(12, "Hasło musi mieć co najmniej 12 znaków.");
-const loginSchema = z.object({
-  email,
-  password: z.string().min(1, "Podaj hasło."),
-});
-const registrationSchema = z.object({
-  email,
-  password,
-  locale: z.enum(["pl", "en"]),
-});
-const codeSchema = z.object({
-  code: z.string().min(6, "Podaj kod z aplikacji lub kod odzyskiwania."),
-});
-const emailSchema = z.object({ email });
-const resetSchema = z
-  .object({ password, passwordRepeat: password })
-  .refine((value) => value.password === value.passwordRepeat, {
-    message: "Hasła muszą być identyczne.",
-    path: ["passwordRepeat"],
-  });
+type LoginValues = { email: string; password: string };
+type RegistrationValues = LoginValues & { locale: "pl" | "en" };
+type CodeValues = { code: string };
+type EmailValues = { email: string };
+type ResetValues = { password: string; passwordRepeat: string };
+type IdentityTranslator = ReturnType<typeof useTranslations<"Identity">>;
 
-type LoginValues = z.infer<typeof loginSchema>;
-type RegistrationValues = z.infer<typeof registrationSchema>;
-type CodeValues = z.infer<typeof codeSchema>;
-type EmailValues = z.infer<typeof emailSchema>;
-type ResetValues = z.infer<typeof resetSchema>;
+function emailSchema(t: IdentityTranslator) {
+  return z.string().email(t("validationEmail"));
+}
 
-export function LoginForm() {
+function passwordSchema(t: IdentityTranslator) {
+  return z.string().min(12, t("validationPassword"));
+}
+
+function problemMessages(t: IdentityTranslator) {
+  return {
+    invalidCredentials: t("invalidCredentials"),
+    invalidMfaCode: t("invalidMfaCode"),
+    mfaSetupRequired: t("mfaSetupRequired"),
+    apiUnavailable: t("apiUnavailable"),
+  };
+}
+
+export function LoginForm({ returnTo = "/panel" }: { returnTo?: string }) {
+  const t = useTranslations("Identity");
   const router = useRouter();
   const [stage, setStage] = useState<"password" | "mfa" | "setup">("password");
   const [setup, setSetup] = useState<TotpSetup | null>(null);
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
   const [problem, setProblem] = useState<string>();
+  const loginSchema = useMemo(
+    () =>
+      z.object({
+        email: emailSchema(t),
+        password: z.string().min(1, t("validationPasswordRequired")),
+      }),
+    [t],
+  );
+  const codeSchema = useMemo(
+    () => z.object({ code: z.string().min(6, t("validationCode")) }),
+    [t],
+  );
   const form = useForm<LoginValues>({ resolver: zodResolver(loginSchema) });
   const codeForm = useForm<CodeValues>({ resolver: zodResolver(codeSchema) });
 
@@ -89,7 +98,7 @@ export function LoginForm() {
         setStage("mfa");
         return;
       }
-      router.replace("/panel");
+      router.replace(returnTo);
       router.refresh();
     } catch (error) {
       if (
@@ -101,7 +110,7 @@ export function LoginForm() {
           setStage("setup");
           return;
         } catch (setupError) {
-          setProblem(identityErrorMessage(setupError));
+          setProblem(identityErrorMessage(setupError, problemMessages(t)));
           return;
         }
       }
@@ -111,7 +120,7 @@ export function LoginForm() {
         form.setError("email", { type: "server", message: emailError });
       if (passwordError)
         form.setError("password", { type: "server", message: passwordError });
-      setProblem(identityErrorMessage(error));
+      setProblem(identityErrorMessage(error, problemMessages(t)));
     }
   }
 
@@ -124,27 +133,27 @@ export function LoginForm() {
         return;
       }
       await completeMfaLogin(values.code);
-      router.replace("/panel");
+      router.replace(returnTo);
       router.refresh();
     } catch (error) {
       const codeError = identityFieldError(error, "code");
       if (codeError)
         codeForm.setError("code", { type: "server", message: codeError });
-      setProblem(identityErrorMessage(error));
+      setProblem(identityErrorMessage(error, problemMessages(t)));
     }
   }
 
   if (recoveryCodes.length > 0) {
     return (
       <div className="space-y-4">
-        <Notice>Skopiuj kody odzyskiwania. Nie pokażemy ich ponownie.</Notice>
+        <Notice>{t("copyRecoveryCodes")}</Notice>
         <ul className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/40 p-3 font-mono text-xs">
           {recoveryCodes.map((code) => (
             <li key={code}>{code}</li>
           ))}
         </ul>
-        <Button className="w-full" onClick={() => router.replace("/panel")}>
-          Kody zapisane — przejdź do panelu
+        <Button className="w-full" onClick={() => router.replace(returnTo)}>
+          {t("codesSaved")}
         </Button>
       </div>
     );
@@ -155,11 +164,9 @@ export function LoginForm() {
       <form className="space-y-5" onSubmit={codeForm.handleSubmit(submitCode)}>
         {stage === "setup" && setup && (
           <div className="space-y-3">
-            <Notice>
-              Dodaj konto w aplikacji uwierzytelniającej, a następnie wpisz kod.
-            </Notice>
+            <Notice>{t("setupMfa")}</Notice>
             <div className="rounded-lg border bg-muted/40 p-3 text-xs break-all">
-              <p className="font-medium">Sekret ręczny</p>
+              <p className="font-medium">{t("manualSecret")}</p>
               <code>{setup.secret}</code>
               <p className="mt-2 text-muted-foreground">
                 {setup.provisioning_uri}
@@ -171,9 +178,7 @@ export function LoginForm() {
           autoComplete="one-time-code"
           error={codeForm.formState.errors.code?.message}
           label={
-            stage === "setup"
-              ? "Kod potwierdzający"
-              : "Kod MFA lub odzyskiwania"
+            stage === "setup" ? t("confirmationCode") : t("mfaOrRecoveryCode")
           }
           registration={codeForm.register("code")}
         />
@@ -184,8 +189,8 @@ export function LoginForm() {
           type="submit"
         >
           {codeForm.formState.isSubmitting
-            ? "Sprawdzanie…"
-            : "Potwierdź i zaloguj"}
+            ? t("checking")
+            : t("confirmAndSignIn")}
         </Button>
       </form>
     );
@@ -197,14 +202,14 @@ export function LoginForm() {
         <TextField
           autoComplete="email"
           error={form.formState.errors.email?.message}
-          label="E-mail"
+          label={t("email")}
           registration={form.register("email")}
           type="email"
         />
         <TextField
           autoComplete="current-password"
           error={form.formState.errors.password?.message}
-          label="Hasło"
+          label={t("password")}
           registration={form.register("password")}
           type="password"
         />
@@ -215,14 +220,14 @@ export function LoginForm() {
         disabled={form.formState.isSubmitting}
         type="submit"
       >
-        {form.formState.isSubmitting ? "Logowanie…" : "Zaloguj się"}
+        {form.formState.isSubmitting ? t("signingIn") : t("signIn")}
       </Button>
       <div className="flex justify-between text-sm">
         <Link className="text-primary hover:underline" href="/password-reset">
-          Nie pamiętam hasła
+          {t("forgotPassword")}
         </Link>
         <Link className="text-primary hover:underline" href="/register">
-          Utwórz konto
+          {t("createAccount")}
         </Link>
       </div>
     </form>
@@ -230,11 +235,22 @@ export function LoginForm() {
 }
 
 export function RegistrationForm() {
+  const t = useTranslations("Identity");
+  const locale = useLocale();
   const [message, setMessage] = useState<string>();
   const [problem, setProblem] = useState<string>();
+  const registrationSchema = useMemo(
+    () =>
+      z.object({
+        email: emailSchema(t),
+        password: passwordSchema(t),
+        locale: z.enum(["pl", "en"]),
+      }),
+    [t],
+  );
   const form = useForm<RegistrationValues>({
     resolver: zodResolver(registrationSchema),
-    defaultValues: { locale: "pl" },
+    defaultValues: { locale: locale === "en" ? "en" : "pl" },
   });
   async function submit(values: RegistrationValues) {
     setProblem(undefined);
@@ -247,7 +263,7 @@ export function RegistrationForm() {
         form.setError("email", { type: "server", message: emailError });
       if (passwordError)
         form.setError("password", { type: "server", message: passwordError });
-      setProblem(identityErrorMessage(error));
+      setProblem(identityErrorMessage(error, problemMessages(t)));
     }
   }
   if (message) return <Notice>{message}</Notice>;
@@ -257,15 +273,15 @@ export function RegistrationForm() {
         <TextField
           autoComplete="email"
           error={form.formState.errors.email?.message}
-          label="E-mail"
+          label={t("email")}
           registration={form.register("email")}
           type="email"
         />
         <TextField
           autoComplete="new-password"
-          description="Minimum 12 znaków; użyj unikalnego hasła."
+          description={t("passwordHint")}
           error={form.formState.errors.password?.message}
-          label="Hasło"
+          label={t("password")}
           registration={form.register("password")}
           type="password"
         />
@@ -274,7 +290,9 @@ export function RegistrationForm() {
           name="locale"
           render={({ field }) => (
             <Field>
-              <FieldLabel htmlFor="locale">Język komunikacji</FieldLabel>
+              <FieldLabel htmlFor="locale">
+                {t("communicationLanguage")}
+              </FieldLabel>
               <Select onValueChange={field.onChange} value={field.value}>
                 <SelectTrigger className="w-full" id="locale">
                   <SelectValue />
@@ -294,12 +312,12 @@ export function RegistrationForm() {
         disabled={form.formState.isSubmitting}
         type="submit"
       >
-        {form.formState.isSubmitting ? "Tworzenie…" : "Utwórz konto"}
+        {form.formState.isSubmitting ? t("creating") : t("createAccount")}
       </Button>
       <p className="text-center text-sm text-muted-foreground">
-        Masz konto?{" "}
+        {t("haveAccount")}{" "}
         <Link className="text-primary hover:underline" href="/login">
-          Zaloguj się
+          {t("signIn")}
         </Link>
       </p>
     </form>
@@ -307,21 +325,26 @@ export function RegistrationForm() {
 }
 
 export function VerificationForm({ token }: { token?: string }) {
+  const t = useTranslations("Identity");
   const [message, setMessage] = useState<string>();
   const [problem, setProblem] = useState<string>();
+  const validationSchema = useMemo(
+    () => z.object({ email: emailSchema(t) }),
+    [t],
+  );
   const tokenForm = useForm<{ token: string }>({
     defaultValues: { token: token ?? "" },
   });
   const emailForm = useForm<EmailValues>({
-    resolver: zodResolver(emailSchema),
+    resolver: zodResolver(validationSchema),
   });
   async function confirm(values: { token: string }) {
     setProblem(undefined);
     try {
       await confirmEmailVerification(values.token);
-      setMessage("Adres e-mail został potwierdzony. Możesz się zalogować.");
+      setMessage(t("emailConfirmed"));
     } catch (error) {
-      setProblem(identityErrorMessage(error));
+      setProblem(identityErrorMessage(error, problemMessages(t)));
     }
   }
   async function resend(values: EmailValues) {
@@ -329,7 +352,7 @@ export function VerificationForm({ token }: { token?: string }) {
     try {
       setMessage(await requestEmailVerification(values.email));
     } catch (error) {
-      setProblem(identityErrorMessage(error));
+      setProblem(identityErrorMessage(error, problemMessages(t)));
     }
   }
   return (
@@ -338,9 +361,9 @@ export function VerificationForm({ token }: { token?: string }) {
       <form className="space-y-4" onSubmit={tokenForm.handleSubmit(confirm)}>
         <TextField
           error={tokenForm.formState.errors.token?.message}
-          label="Token weryfikacyjny"
+          label={t("verificationToken")}
           registration={tokenForm.register("token", {
-            required: "Podaj token.",
+            required: t("validationToken"),
           })}
         />
         <Button
@@ -348,19 +371,19 @@ export function VerificationForm({ token }: { token?: string }) {
           disabled={tokenForm.formState.isSubmitting}
           type="submit"
         >
-          Potwierdź adres
+          {t("confirmAddress")}
         </Button>
       </form>
       <div className="border-t pt-5">
         <form className="space-y-4" onSubmit={emailForm.handleSubmit(resend)}>
           <TextField
             error={emailForm.formState.errors.email?.message}
-            label="Wyślij ponownie na e-mail"
+            label={t("resendToEmail")}
             registration={emailForm.register("email")}
             type="email"
           />
           <Button className="w-full" type="submit" variant="outline">
-            Wyślij ponownie
+            {t("resend")}
           </Button>
         </form>
       </div>
@@ -370,15 +393,22 @@ export function VerificationForm({ token }: { token?: string }) {
 }
 
 export function PasswordResetRequestForm() {
+  const t = useTranslations("Identity");
   const [message, setMessage] = useState<string>();
   const [problem, setProblem] = useState<string>();
-  const form = useForm<EmailValues>({ resolver: zodResolver(emailSchema) });
+  const validationSchema = useMemo(
+    () => z.object({ email: emailSchema(t) }),
+    [t],
+  );
+  const form = useForm<EmailValues>({
+    resolver: zodResolver(validationSchema),
+  });
   async function submit(values: EmailValues) {
     setProblem(undefined);
     try {
       setMessage(await requestPasswordReset(values));
     } catch (error) {
-      setProblem(identityErrorMessage(error));
+      setProblem(identityErrorMessage(error, problemMessages(t)));
     }
   }
   if (message) return <Notice>{message}</Notice>;
@@ -387,7 +417,7 @@ export function PasswordResetRequestForm() {
       <TextField
         autoComplete="email"
         error={form.formState.errors.email?.message}
-        label="E-mail"
+        label={t("email")}
         registration={form.register("email")}
         type="email"
       />
@@ -397,19 +427,29 @@ export function PasswordResetRequestForm() {
         disabled={form.formState.isSubmitting}
         type="submit"
       >
-        Wyślij instrukcję
+        {t("sendInstructions")}
       </Button>
     </form>
   );
 }
 
 export function PasswordResetConfirmForm({ token }: { token?: string }) {
+  const t = useTranslations("Identity");
   const [done, setDone] = useState(false);
   const [problem, setProblem] = useState<string>();
+  const resetSchema = useMemo(() => {
+    const password = passwordSchema(t);
+    return z
+      .object({ password, passwordRepeat: password })
+      .refine((value) => value.password === value.passwordRepeat, {
+        message: t("validationPasswordsMatch"),
+        path: ["passwordRepeat"],
+      });
+  }, [t]);
   const form = useForm<ResetValues>({ resolver: zodResolver(resetSchema) });
   async function submit(values: ResetValues) {
     if (!token) {
-      setProblem("Brakuje tokenu resetu w adresie strony.");
+      setProblem(t("missingResetToken"));
       return;
     }
     setProblem(undefined);
@@ -421,15 +461,15 @@ export function PasswordResetConfirmForm({ token }: { token?: string }) {
       if (passwordError) {
         form.setError("password", { type: "server", message: passwordError });
       }
-      setProblem(identityErrorMessage(error));
+      setProblem(identityErrorMessage(error, problemMessages(t)));
     }
   }
   if (done)
     return (
       <Notice>
-        Hasło zostało zmienione.{" "}
+        {t("passwordChanged")}{" "}
         <Link className="underline" href="/login">
-          Przejdź do logowania.
+          {t("goToLogin")}
         </Link>
       </Notice>
     );
@@ -438,14 +478,14 @@ export function PasswordResetConfirmForm({ token }: { token?: string }) {
       <TextField
         autoComplete="new-password"
         error={form.formState.errors.password?.message}
-        label="Nowe hasło"
+        label={t("newPassword")}
         registration={form.register("password")}
         type="password"
       />
       <TextField
         autoComplete="new-password"
         error={form.formState.errors.passwordRepeat?.message}
-        label="Powtórz hasło"
+        label={t("repeatPassword")}
         registration={form.register("passwordRepeat")}
         type="password"
       />
@@ -455,7 +495,7 @@ export function PasswordResetConfirmForm({ token }: { token?: string }) {
         disabled={form.formState.isSubmitting}
         type="submit"
       >
-        Ustaw nowe hasło
+        {t("setNewPassword")}
       </Button>
     </form>
   );

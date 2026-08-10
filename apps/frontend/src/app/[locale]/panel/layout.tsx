@@ -1,18 +1,21 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { ShieldCheckIcon } from "lucide-react";
 
+import { LocaleSwitcher } from "#components/locale-switcher";
+import { Link } from "#i18n/navigation";
 import { getServerUser } from "#lib/server-auth";
-import { LogoutButton } from "../../modules/core/identity";
+import { LogoutButton } from "../../../modules/core/identity";
 
 export default async function PanelLayout({
   children,
+  params,
 }: {
   children: ReactNode;
+  params: Promise<{ locale: string }>;
 }) {
-  const user = await getServerUser();
-  if (!user) redirect("/login");
+  const [{ locale }, user] = await Promise.all([params, getServerUser()]);
+  if (!user) redirect(locale === "pl" ? "/login" : `/${locale}/login`);
   return (
     <div className="min-h-screen bg-muted/30">
       <header className="border-b bg-background">
@@ -28,6 +31,7 @@ export default async function PanelLayout({
             <span className="hidden text-sm text-muted-foreground sm:inline">
               {user.email}
             </span>
+            <LocaleSwitcher />
             <LogoutButton />
           </div>
         </div>

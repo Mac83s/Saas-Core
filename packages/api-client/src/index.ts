@@ -16,6 +16,16 @@ export type PasswordResetConfirmInput =
 export type ProblemDetails = components["schemas"]["ProblemDetails"];
 export type TotpSetup = components["schemas"]["TotpSetup"];
 export type TotpConfirmResult = components["schemas"]["TotpConfirmResult"];
+export type OrganizationSummary = components["schemas"]["OrganizationSummary"];
+export type OrganizationCreateInput =
+  components["schemas"]["OrganizationCreate"];
+export type OrganizationUpdateInput =
+  components["schemas"]["PatchedOrganizationUpdate"];
+export type InvitationSummary = components["schemas"]["InvitationSummary"];
+export type InvitationCreateInput = components["schemas"]["InvitationCreate"];
+export type MembershipSummary = components["schemas"]["MembershipSummary"];
+export type MembershipUpdateInput =
+  components["schemas"]["PatchedMembershipUpdate"];
 
 export type LoginResult =
   { kind: "authenticated"; user: UserSummary } | { kind: "mfa_required" };
@@ -197,6 +207,190 @@ export async function revokeSession(sessionId: string): Promise<void> {
     "/api/v1/auth/sessions/{session_id}/",
     {
       params: { path: { session_id: sessionId } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !response.ok) throwProblem(error, response);
+}
+
+export async function listOrganizations(): Promise<OrganizationSummary[]> {
+  const { data, error, response } = await client.GET("/api/v1/organizations/", {
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function getCurrentOrganization(): Promise<OrganizationSummary> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/organizations/current/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createOrganization(
+  input: OrganizationCreateInput,
+): Promise<OrganizationSummary> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/organizations/",
+    {
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function selectActiveOrganization(
+  organizationId: string,
+): Promise<OrganizationSummary> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/session/active-organization/",
+    {
+      body: { organization_id: organizationId },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data.organization;
+}
+
+export async function updateCurrentOrganization(
+  input: OrganizationUpdateInput,
+): Promise<OrganizationSummary> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PATCH(
+    "/api/v1/organizations/current/",
+    {
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function archiveCurrentOrganization(): Promise<void> {
+  const csrfToken = await getCsrfToken();
+  const { error, response } = await client.DELETE(
+    "/api/v1/organizations/current/",
+    {
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !response.ok) throwProblem(error, response);
+}
+
+export async function listInvitations(): Promise<InvitationSummary[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/organizations/current/invitations/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createInvitation(
+  input: InvitationCreateInput,
+): Promise<InvitationSummary> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/organizations/current/invitations/",
+    {
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function revokeInvitation(invitationId: string): Promise<void> {
+  const csrfToken = await getCsrfToken();
+  const { error, response } = await client.DELETE(
+    "/api/v1/organizations/current/invitations/{invitation_id}/",
+    {
+      params: { path: { invitation_id: invitationId } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !response.ok) throwProblem(error, response);
+}
+
+export async function acceptInvitation(
+  token: string,
+): Promise<MembershipSummary> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/invitations/accept/",
+    {
+      body: { token },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function listMemberships(): Promise<MembershipSummary[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/organizations/current/members/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function updateMembership(
+  membershipId: string,
+  input: MembershipUpdateInput,
+): Promise<MembershipSummary> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PATCH(
+    "/api/v1/organizations/current/members/{membership_id}/",
+    {
+      params: { path: { membership_id: membershipId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function leaveCurrentOrganization(): Promise<void> {
+  const csrfToken = await getCsrfToken();
+  const { error, response } = await client.POST(
+    "/api/v1/organizations/current/members/me/leave/",
+    {
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !response.ok) throwProblem(error, response);
+}
+
+export async function transferOwnership(membershipId: string): Promise<void> {
+  const csrfToken = await getCsrfToken();
+  const { error, response } = await client.POST(
+    "/api/v1/organizations/current/ownership-transfer/",
+    {
+      body: { membership_id: membershipId },
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
     },

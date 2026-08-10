@@ -1,6 +1,8 @@
 import { render, screen } from "@testing-library/react";
+import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, expect, test, vi } from "vitest";
 
+import messages from "../../messages/pl.json";
 import { HealthPanel } from "./health-panel";
 
 vi.mock("@saas-core/api-client", () => ({
@@ -15,7 +17,11 @@ vi.mock("@saas-core/api-client", () => ({
 beforeEach(() => vi.clearAllMocks());
 
 test("pokazuje profil zwrócony przez health API", async () => {
-  render(<HealthPanel />);
+  render(
+    <NextIntlClientProvider locale="pl" messages={messages}>
+      <HealthPanel />
+    </NextIntlClientProvider>,
+  );
   expect(
     await screen.findByText("API ok; profil: core-only"),
   ).toBeInTheDocument();

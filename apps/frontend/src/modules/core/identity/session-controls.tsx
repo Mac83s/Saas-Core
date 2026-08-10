@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import {
   LaptopIcon,
   LogOutIcon,
@@ -26,9 +26,11 @@ import {
   CardTitle,
 } from "@saas-core/ui/components/card";
 
+import { useRouter } from "#i18n/navigation";
 import { identityErrorMessage } from "./problem";
 
 export function LogoutButton() {
+  const t = useTranslations("Panel");
   const router = useRouter();
   const [pending, setPending] = useState(false);
   return (
@@ -46,12 +48,15 @@ export function LogoutButton() {
       variant="outline"
     >
       <LogOutIcon aria-hidden="true" />
-      {pending ? "Wylogowanie…" : "Wyloguj"}
+      {pending ? t("loggingOut") : t("logout")}
     </Button>
   );
 }
 
 export function SessionManager() {
+  const t = useTranslations("Sessions");
+  const identity = useTranslations("Identity");
+  const locale = useLocale();
   const router = useRouter();
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [problem, setProblem] = useState<string>();
@@ -68,11 +73,11 @@ export function SessionManager() {
         router.replace("/login");
         return;
       }
-      setProblem(identityErrorMessage(error));
+      setProblem(identityErrorMessage(error, problemMessages(identity)));
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, [identity, router]);
 
   useEffect(() => {
     let active = true;
@@ -86,7 +91,7 @@ export function SessionManager() {
           router.replace("/login");
           return;
         }
-        setProblem(identityErrorMessage(error));
+        setProblem(identityErrorMessage(error, problemMessages(identity)));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -94,7 +99,7 @@ export function SessionManager() {
     return () => {
       active = false;
     };
-  }, [router]);
+  }, [identity, router]);
 
   async function revoke(session: SessionSummary) {
     setRevoking(session.id);
@@ -108,7 +113,7 @@ export function SessionManager() {
       }
       await load();
     } catch (error) {
-      setProblem(identityErrorMessage(error));
+      setProblem(identityErrorMessage(error, problemMessages(identity)));
     } finally {
       setRevoking(undefined);
     }
@@ -118,13 +123,11 @@ export function SessionManager() {
     <Card>
       <CardHeader className="flex-row items-start justify-between gap-4">
         <div>
-          <CardTitle>Aktywne urządzenia</CardTitle>
-          <CardDescription>
-            Unieważnienie natychmiast blokuje wskazane cookie sesji.
-          </CardDescription>
+          <CardTitle>{t("title")}</CardTitle>
+          <CardDescription>{t("description")}</CardDescription>
         </div>
         <Button
-          aria-label="Odśwież sesje"
+          aria-label={t("refresh")}
           onClick={() => void load()}
           size="icon"
           variant="outline"
@@ -145,7 +148,7 @@ export function SessionManager() {
           </div>
         )}
         {!loading && sessions.length === 0 && (
-          <p className="text-sm text-muted-foreground">Brak aktywnych sesji.</p>
+          <p className="text-sm text-muted-foreground">{t("empty")}</p>
         )}
         {sessions.map((session) => (
           <div
@@ -168,10 +171,12 @@ export function SessionManager() {
                 <p className="truncate text-sm font-medium">
                   {session.device_label}
                 </p>
-                {session.current && <Badge variant="secondary">Ta sesja</Badge>}
+                {session.current && (
+                  <Badge variant="secondary">{t("current")}</Badge>
+                )}
               </div>
               <p className="text-xs text-muted-foreground">
-                Ostatnia aktywność: {formatDate(session.last_seen_at)}
+                {t("lastActive")}: {formatDate(session.last_seen_at, locale)}
               </p>
             </div>
             <Button
@@ -180,7 +185,7 @@ export function SessionManager() {
               size="sm"
               variant={session.current ? "destructive" : "outline"}
             >
-              {revoking === session.id ? "Kończenie…" : "Wyloguj"}
+              {revoking === session.id ? t("ending") : t("logout")}
             </Button>
           </div>
         ))}
@@ -189,8 +194,19 @@ export function SessionManager() {
   );
 }
 
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("pl-PL", {
+type IdentityTranslator = ReturnType<typeof useTranslations<"Identity">>;
+
+function problemMessages(t: IdentityTranslator) {
+  return {
+    invalidCredentials: t("invalidCredentials"),
+    invalidMfaCode: t("invalidMfaCode"),
+    mfaSetupRequired: t("mfaSetupRequired"),
+    apiUnavailable: t("apiUnavailable"),
+  };
+}
+
+function formatDate(value: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));

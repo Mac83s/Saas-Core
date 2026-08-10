@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { ActivityIcon, RefreshCwIcon } from "lucide-react";
 
 import { getHealth, type HealthStatus } from "@saas-core/api-client";
@@ -20,6 +21,7 @@ type LoadState =
   | { kind: "error"; message: string };
 
 export function HealthPanel() {
+  const t = useTranslations("Health");
   const [state, setState] = useState<LoadState>({ kind: "loading" });
 
   const refresh = useCallback(async () => {
@@ -29,10 +31,10 @@ export function HealthPanel() {
     } catch (error) {
       setState({
         kind: "error",
-        message: error instanceof Error ? error.message : "Nieznany błąd API",
+        message: error instanceof Error ? error.message : t("unknownError"),
       });
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     let active = true;
@@ -45,14 +47,14 @@ export function HealthPanel() {
         if (!active) return;
         setState({
           kind: "error",
-          message: error instanceof Error ? error.message : "Nieznany błąd API",
+          message: error instanceof Error ? error.message : t("unknownError"),
         });
       });
 
     return () => {
       active = false;
     };
-  }, []);
+  }, [t]);
 
   return (
     <Card className="max-w-2xl">
@@ -60,34 +62,37 @@ export function HealthPanel() {
         <div className="flex flex-col gap-1.5">
           <CardTitle className="flex items-center gap-2">
             <ActivityIcon aria-hidden="true" className="size-5" />
-            Stan API
+            {t("title")}
           </CardTitle>
-          <CardDescription>
-            Endpoint /api/v1/health/ przez proxy same-origin.
-          </CardDescription>
+          <CardDescription>{t("description")}</CardDescription>
         </div>
-        <HealthBadge state={state} />
+        <HealthBadge state={state} t={t} />
       </CardHeader>
       <CardContent className="flex items-center justify-between gap-4">
         <p aria-live="polite" className="text-muted-foreground text-sm">
-          {state.kind === "loading" && "Sprawdzanie połączenia…"}
+          {state.kind === "loading" && t("checkingConnection")}
           {state.kind === "ready" &&
-            `API ${state.health.status}; profil: ${state.health.deployment}`}
+            t("ready", {
+              status: state.health.status,
+              deployment: state.health.deployment,
+            })}
           {state.kind === "error" && state.message}
         </p>
         <Button onClick={() => void refresh()} size="sm" variant="outline">
           <RefreshCwIcon aria-hidden="true" data-icon="inline-start" />
-          Odśwież
+          {t("refresh")}
         </Button>
       </CardContent>
     </Card>
   );
 }
 
-function HealthBadge({ state }: { state: LoadState }) {
+type HealthTranslator = ReturnType<typeof useTranslations<"Health">>;
+
+function HealthBadge({ state, t }: { state: LoadState; t: HealthTranslator }) {
   if (state.kind === "loading")
-    return <Badge variant="secondary">Sprawdzanie</Badge>;
+    return <Badge variant="secondary">{t("checking")}</Badge>;
   if (state.kind === "error")
-    return <Badge variant="destructive">Niedostępne</Badge>;
-  return <Badge>Połączono</Badge>;
+    return <Badge variant="destructive">{t("unavailable")}</Badge>;
+  return <Badge>{t("connected")}</Badge>;
 }

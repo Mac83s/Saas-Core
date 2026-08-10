@@ -1,7 +1,8 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { ShieldCheckIcon } from "lucide-react";
 
+import { Link } from "#i18n/navigation";
 import {
   Card,
   CardContent,
@@ -21,6 +22,7 @@ export function AuthShell({
   children: ReactNode;
   footer?: ReactNode;
 }) {
+  const t = useTranslations("Identity");
   return (
     <main className="grid min-h-screen lg:grid-cols-[minmax(20rem,0.8fr)_1.2fr]">
       <section className="bg-primary text-primary-foreground hidden flex-col justify-between p-10 lg:flex">
@@ -32,16 +34,15 @@ export function AuthShell({
           SaaS Core
         </Link>
         <div className="max-w-md space-y-4">
-          <p className="text-sm font-medium opacity-80">Bezpieczny panel</p>
+          <p className="text-sm font-medium opacity-80">{t("securePanel")}</p>
           <h1 className="text-4xl font-semibold tracking-tight">
-            Jedna sesja. Pełna kontrola urządzeń.
+            {t("heroTitle")}
           </h1>
-          <p className="text-sm leading-6 opacity-80">
-            Uwierzytelnianie same-origin, ochrona CSRF i MFA bez tokenów w
-            pamięci przeglądarki.
-          </p>
+          <p className="text-sm leading-6 opacity-80">{t("heroDescription")}</p>
         </div>
-        <p className="text-xs opacity-70">SaaS Core · lokalne środowisko</p>
+        <p className="text-xs opacity-70">
+          SaaS Core · {t("localEnvironment")}
+        </p>
       </section>
       <section className="flex items-center justify-center px-5 py-12 sm:px-8">
         <Card className="w-full max-w-md shadow-sm">

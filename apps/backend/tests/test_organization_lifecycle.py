@@ -352,11 +352,13 @@ def test_membership_read_and_invite_permission_matrix(
 def test_invitation_email_task_reconstructs_token_without_storing_it(
     django_capture_on_commit_callbacks,
 ) -> None:
-    _, _, owner_client = authenticated_member(
+    _, owner_membership, owner_client = authenticated_member(
         email="mail-owner@example.com",
         role_key="owner",
         slug="invite-mail",
     )
+    owner_membership.organization.default_locale = "en"
+    owner_membership.organization.save(update_fields=["default_locale", "updated_at"])
 
     with django_capture_on_commit_callbacks(execute=True):
         invitation = create_invitation_through_api(
@@ -367,6 +369,7 @@ def test_invitation_email_task_reconstructs_token_without_storing_it(
     token = invitation_token(invitation)
     assert len(mail.outbox) == 1
     assert token in mail.outbox[0].body
+    assert "/en/invitations/accept?" in mail.outbox[0].body
     assert token not in invitation.token_hash
     assert invitation.token_hash != token
 

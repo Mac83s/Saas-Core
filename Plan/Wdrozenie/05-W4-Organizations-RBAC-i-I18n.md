@@ -1,6 +1,10 @@
 # W4 — Organizations, RBAC i i18n
 
-**Status:** in progress — implementacja lokalna; staging odłożony
+**Status:** zakończone lokalnie (2026-08-10); staging odłożony
+**FINDING (2026-08-10):** wspólny runner Vitest nadpisywał wyłącznie `TMPDIR`,
+podczas gdy procesy robocze w WSL wybierały windowsowe `TMP`/`TEMP`. Zbieranie
+testów kończyło się błędem `ENOENT` przed wykonaniem przypadków; runner musi
+ustawiać wszystkie trzy zmienne na `/tmp`.
 **Szacunek:** 1,5–2 tygodnie  
 **Poprzednik:** W3  
 **Rezultat:** izolowane organizacje, członkostwa, uprawnienia i panel PL/EN
@@ -60,6 +64,11 @@ realizowany razem z endpointami lifecycle w W4.4.
 
 ### W4.5 — i18n i panel
 
+**Stan:** zakończone lokalnie (2026-08-10). Routing locale używa polskiego bez
+prefiksu i angielskiego pod `/en`; katalogi mają test identyczności kluczy, a
+panel używa komponentów shadcn/Base UI dla dialogów, list zamkniętych i
+wyszukiwalnych wyborów.
+
 - wdrożyć zatwierdzoną bibliotekę i routing locale;
 - dostarczyć PL i EN dla przepływów W3–W4;
 - oddzielić język użytkownika od domyślnego języka organizacji;
@@ -79,10 +88,15 @@ Każdy chroniony endpoint jest testowany co najmniej dla:
 
 ## 4. Bramka wyjścia
 
-- [ ] jeden użytkownik może bezpiecznie należeć do kilku organizacji;
-- [ ] zmiana aktywnej organizacji rotuje lub aktualizuje właściwy stan sesji;
-- [ ] testy próbują odczytu, zapisu i identyfikacji zasobu innego tenanta;
-- [ ] zaproszenie jest jednorazowe, wygasające i audytowane;
-- [ ] wszystkie permissions są egzekwowane w API;
-- [ ] panel W3–W4 działa w języku polskim i angielskim;
-- [ ] role i entitlementy pozostają osobnymi mechanizmami.
+- [x] jeden użytkownik może bezpiecznie należeć do kilku organizacji;
+- [x] zmiana aktywnej organizacji rotuje lub aktualizuje właściwy stan sesji;
+- [x] testy próbują odczytu, zapisu i identyfikacji zasobu innego tenanta;
+- [x] zaproszenie jest jednorazowe, wygasające i audytowane;
+- [x] wszystkie permissions są egzekwowane w API;
+- [x] panel W3–W4 działa w języku polskim i angielskim;
+- [x] role i entitlementy pozostają osobnymi mechanizmami.
+
+Walidacja lokalna: 115 testów backendu całego etapu W4, 6 testów frontendu,
+2 testy biblioteki UI, kontrola OpenAPI/klienta, lint, typecheck i produkcyjny
+build Next.js. Środowisko nadal zgłasza ostrzeżenie Node 22 wobec wymaganego
+Node 24; komendy zakończyły się kodem 0.

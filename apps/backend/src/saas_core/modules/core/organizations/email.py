@@ -33,8 +33,9 @@ class DjangoInvitationEmailSender:
         role_name: str,
         token: str,
     ) -> None:
+        locale_prefix = "/en" if locale == "en" else ""
         link = (
-            f"{settings.FRONTEND_BASE_URL.rstrip('/')}/invitations/accept?"
+            f"{settings.FRONTEND_BASE_URL.rstrip('/')}{locale_prefix}/invitations/accept?"
             f"{urlencode({'token': token})}"
         )
         if locale == "en":

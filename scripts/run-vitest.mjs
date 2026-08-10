@@ -4,6 +4,8 @@ import { spawnSync } from "node:child_process";
 const environment = { ...process.env };
 if (process.platform !== "win32") {
   environment.TMPDIR = "/tmp";
+  environment.TMP = "/tmp";
+  environment.TEMP = "/tmp";
 }
 
 const cli = path.join(process.cwd(), "node_modules/vitest/vitest.mjs");
