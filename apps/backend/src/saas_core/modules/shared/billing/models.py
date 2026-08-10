@@ -94,6 +94,25 @@ class TrialActivationStatus(models.TextChoices):
     FAILED = "failed", "Błąd"
 
 
+class LifecycleActionType(models.TextChoices):
+    TRIAL_ENDING_NOTICE = "trial_ending_notice", "Ostrzeżenie o końcu triala"
+    GRACE_ENDING_NOTICE = "grace_ending_notice", "Ostrzeżenie o końcu karencji"
+    GRACE_EXPIRED = "grace_expired", "Koniec karencji"
+    CANCELED_PERIOD_ENDED = "canceled_period_ended", "Koniec opłaconego okresu"
+
+
+class LifecycleActionStatus(models.TextChoices):
+    PENDING = "pending", "Oczekuje"
+    PROCESSED = "processed", "Przetworzona"
+    CANCELED = "canceled", "Anulowana"
+    FAILED = "failed", "Błąd"
+
+
+class BillingNoticeType(models.TextChoices):
+    TRIAL_ENDING = "trial_ending", "Koniec triala"
+    GRACE_ENDING = "grace_ending", "Koniec karencji"
+
+
 class Feature(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     key = models.CharField(max_length=100, unique=True, validators=[CATALOG_KEY_VALIDATOR])
@@ -424,6 +443,7 @@ class BillingSubscription(TenantScopedModel):
     current_period_end = models.DateTimeField(null=True, blank=True)
     trial_start = models.DateTimeField(null=True, blank=True)
     trial_end = models.DateTimeField(null=True, blank=True)
+    grace_period_end = models.DateTimeField(null=True, blank=True)
     cancel_at_period_end = models.BooleanField(default=False)
     canceled_at = models.DateTimeField(null=True, blank=True)
     ended_at = models.DateTimeField(null=True, blank=True)
@@ -567,6 +587,94 @@ class BillingTrialActivation(TenantScopedModel):
                 ),
                 name="billing_trial_activation_state_ck",
             ),
+        ]
+
+
+class BillingLifecycleAction(TenantScopedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    subscription = models.ForeignKey(
+        BillingSubscription,
+        on_delete=models.PROTECT,
+        related_name="lifecycle_actions",
+    )
+    action_type = models.CharField(max_length=32, choices=LifecycleActionType)
+    due_at = models.DateTimeField()
+    status = models.CharField(
+        max_length=16,
+        choices=LifecycleActionStatus,
+        default=LifecycleActionStatus.PENDING,
+    )
+    attempt_count = models.PositiveIntegerField(default=0)
+    last_error = models.TextField(blank=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("due_at", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["subscription", "action_type", "due_at"],
+                name="billing_lifecycle_action_uq",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(
+                        status__in=[
+                            LifecycleActionStatus.PROCESSED,
+                            LifecycleActionStatus.CANCELED,
+                        ],
+                        processed_at__isnull=False,
+                    )
+                    | (
+                        models.Q(
+                            status__in=[
+                                LifecycleActionStatus.PENDING,
+                                LifecycleActionStatus.FAILED,
+                            ]
+                        )
+                        & models.Q(processed_at__isnull=True)
+                    )
+                ),
+                name="billing_lifecycle_processed_ck",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["status", "due_at"],
+                name="bill_lifecycle_due_idx",
+            )
+        ]
+
+
+class BillingNotice(TenantScopedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    lifecycle_action = models.OneToOneField(
+        BillingLifecycleAction,
+        on_delete=models.PROTECT,
+        related_name="notice",
+    )
+    subscription = models.ForeignKey(
+        BillingSubscription,
+        on_delete=models.PROTECT,
+        related_name="notices",
+    )
+    notice_type = models.CharField(max_length=24, choices=BillingNoticeType)
+    payload = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("created_at",)
+        indexes = [
+            models.Index(
+                fields=["organization", "notice_type", "created_at"],
+                name="bill_notice_org_type_idx",
+            )
         ]
 
 

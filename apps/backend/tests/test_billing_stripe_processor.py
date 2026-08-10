@@ -6,12 +6,16 @@ from typing import Any
 import pytest
 
 from saas_core.modules.core.organizations.models import BillingProfile, Organization
+from saas_core.modules.shared.billing.lifecycle import process_due_lifecycle_actions
 from saas_core.modules.shared.billing.models import (
     AccessMode,
     BillingCheckout,
+    BillingLifecycleAction,
     BillingSubscription,
     CheckoutStatus,
     EntitlementSnapshot,
+    LifecycleActionStatus,
+    LifecycleActionType,
     PlanVersion,
     StripePriceMapping,
     StripeSubscriptionStatus,
@@ -222,8 +226,14 @@ def test_payment_failure_starts_grace_and_later_paid_event_restores_access() -> 
     subscription = BillingSubscription.all_objects.get(organization=tenant)
     snapshot = EntitlementSnapshot.all_objects.get(organization=tenant)
     assert subscription.state == SubscriptionState.GRACE_PERIOD
+    assert subscription.grace_period_end == failed.provider_created_at + timedelta(days=7)
     assert snapshot.access_mode == AccessMode.FULL
     assert snapshot.effective_until == failed.provider_created_at + timedelta(days=7)
+    assert BillingLifecycleAction.all_objects.filter(
+        subscription=subscription,
+        action_type=LifecycleActionType.GRACE_EXPIRED,
+        status=LifecycleActionStatus.PENDING,
+    ).exists()
 
     paid = inbox_event(
         event_id="evt_invoice_paid",
@@ -241,8 +251,89 @@ def test_payment_failure_starts_grace_and_later_paid_event_restores_access() -> 
     subscription.refresh_from_db()
     snapshot.refresh_from_db()
     assert subscription.state == SubscriptionState.ACTIVE
+    assert subscription.grace_period_end is None
     assert snapshot.subscription_state == SubscriptionState.ACTIVE
     assert snapshot.access_mode == AccessMode.FULL
+    assert not BillingLifecycleAction.all_objects.filter(
+        subscription=subscription,
+        status=LifecycleActionStatus.PENDING,
+    ).exists()
+
+
+def test_canceled_webhook_keeps_full_access_until_provider_period_end() -> None:
+    tenant = organization(slug="subscription-canceled", customer_id="cus_local")
+    price_mapping()
+    event = inbox_event(
+        event_id="evt_subscription_canceled",
+        event_type="customer.subscription.deleted",
+        created=1_786_000_100,
+        data_object=subscription_object(status=StripeSubscriptionStatus.CANCELED),
+    )
+
+    process_stripe_event(event.id)
+
+    subscription = BillingSubscription.all_objects.get(organization=tenant)
+    snapshot = EntitlementSnapshot.all_objects.get(organization=tenant)
+    assert subscription.state == SubscriptionState.CANCELED
+    assert snapshot.access_mode == AccessMode.FULL
+    assert snapshot.effective_until == subscription.current_period_end
+    action = BillingLifecycleAction.all_objects.get(
+        subscription=subscription,
+        action_type=LifecycleActionType.CANCELED_PERIOD_ENDED,
+    )
+
+    assert process_due_lifecycle_actions(at=action.due_at) == 1
+    snapshot.refresh_from_db()
+    assert snapshot.access_mode == AccessMode.READ_ONLY
+    assert snapshot.effective_until is None
+
+
+def test_late_payment_failure_does_not_reopen_expired_grace_period() -> None:
+    tenant = organization(slug="grace-no-reopen", customer_id="cus_local")
+    price_mapping()
+    created = inbox_event(
+        event_id="evt_grace_active",
+        event_type="customer.subscription.created",
+        created=1_786_000_100,
+        data_object=subscription_object(status=StripeSubscriptionStatus.ACTIVE),
+    )
+    process_stripe_event(created.id)
+    failed = inbox_event(
+        event_id="evt_grace_failed",
+        event_type="invoice.payment_failed",
+        created=1_786_000_200,
+        data_object={
+            "id": "in_grace_failed",
+            "object": "invoice",
+            "customer": "cus_local",
+            "subscription": "sub_local",
+        },
+    )
+    process_stripe_event(failed.id)
+    subscription = BillingSubscription.all_objects.get(organization=tenant)
+    grace_end = subscription.grace_period_end
+    assert grace_end is not None
+    assert process_due_lifecycle_actions(at=grace_end) == 2
+
+    repeated = inbox_event(
+        event_id="evt_grace_failed_late",
+        event_type="invoice.payment_failed",
+        created=int((grace_end + timedelta(hours=1)).timestamp()),
+        data_object={
+            "id": "in_grace_failed_late",
+            "object": "invoice",
+            "customer": "cus_local",
+            "subscription": "sub_local",
+        },
+    )
+    process_stripe_event(repeated.id)
+
+    subscription.refresh_from_db()
+    snapshot = EntitlementSnapshot.all_objects.get(organization=tenant)
+    assert subscription.state == SubscriptionState.READ_ONLY
+    assert subscription.grace_period_end == grace_end
+    assert snapshot.access_mode == AccessMode.READ_ONLY
+    assert snapshot.effective_until is None
 
 
 def test_unknown_price_is_a_persistent_retryable_failure() -> None:

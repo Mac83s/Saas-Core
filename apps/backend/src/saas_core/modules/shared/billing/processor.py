@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from saas_core.modules.core.organizations.models import BillingProfile
 
+from .lifecycle import sync_subscription_lifecycle
 from .models import (
     AccessMode,
     BillingCheckout,
@@ -177,6 +178,32 @@ def _handle_subscription(event: StripeWebhookEvent) -> None:
         data, item, "current_period_start", "current_period_end"
     )
     trial_start, trial_end = _timestamp_pair(data, {}, "trial_start", "trial_end")
+    grace_period_end = None
+    if provider_status == StripeSubscriptionStatus.PAST_DUE:
+        grace_period_end = (
+            subscription.grace_period_end
+            if subscription is not None
+            and subscription.grace_period_end is not None
+            else event.provider_created_at + timedelta(days=mapping.plan_version.grace_period_days)
+        )
+        if subscription is not None and subscription.state == SubscriptionState.READ_ONLY:
+            internal_state = SubscriptionState.READ_ONLY
+            access_mode = AccessMode.READ_ONLY
+            effective_until = None
+        else:
+            effective_until = grace_period_end
+    elif provider_status == StripeSubscriptionStatus.CANCELED:
+        if period_end is not None and period_end > event.provider_created_at:
+            access_mode = AccessMode.FULL
+            effective_until = period_end
+        else:
+            effective_until = None
+    elif internal_state == SubscriptionState.TRIALING:
+        effective_until = trial_end
+    elif access_mode == AccessMode.READ_ONLY:
+        effective_until = None
+    else:
+        effective_until = period_end
     defaults = {
         "organization_id": profile.organization_id,
         "price_mapping": mapping,
@@ -186,6 +213,7 @@ def _handle_subscription(event: StripeWebhookEvent) -> None:
         "current_period_end": period_end,
         "trial_start": trial_start,
         "trial_end": trial_end,
+        "grace_period_end": grace_period_end,
         "cancel_at_period_end": data.get("cancel_at_period_end") is True,
         "canceled_at": _optional_timestamp(data.get("canceled_at")),
         "ended_at": _optional_timestamp(data.get("ended_at")),
@@ -208,8 +236,9 @@ def _handle_subscription(event: StripeWebhookEvent) -> None:
         mapping,
         state=internal_state,
         access_mode=access_mode,
-        effective_until=trial_end if internal_state == SubscriptionState.TRIALING else period_end,
+        effective_until=effective_until,
     )
+    sync_subscription_lifecycle(subscription)
     event.organization_id = profile.organization_id
     event.subscription = subscription
 
@@ -241,13 +270,23 @@ def _handle_invoice(event: StripeWebhookEvent) -> None:
         access_mode = AccessMode.FULL
         subscription.provider_status = StripeSubscriptionStatus.ACTIVE
         effective_until = subscription.current_period_end
+        subscription.grace_period_end = None
     else:
-        state = SubscriptionState.GRACE_PERIOD
-        access_mode = AccessMode.FULL
         subscription.provider_status = StripeSubscriptionStatus.PAST_DUE
-        effective_until = event.provider_created_at + timedelta(
-            days=subscription.price_mapping.plan_version.grace_period_days
+        subscription.grace_period_end = (
+            subscription.grace_period_end
+            if subscription.grace_period_end is not None
+            else event.provider_created_at
+            + timedelta(days=subscription.price_mapping.plan_version.grace_period_days)
         )
+        if subscription.state == SubscriptionState.READ_ONLY:
+            state = SubscriptionState.READ_ONLY
+            access_mode = AccessMode.READ_ONLY
+            effective_until = None
+        else:
+            state = SubscriptionState.GRACE_PERIOD
+            access_mode = AccessMode.FULL
+            effective_until = subscription.grace_period_end
     subscription.state = state
     subscription.last_event_created_at = event.provider_created_at
     subscription.last_event_id = event.stripe_event_id
@@ -256,6 +295,7 @@ def _handle_invoice(event: StripeWebhookEvent) -> None:
         update_fields=[
             "state",
             "provider_status",
+            "grace_period_end",
             "last_event_created_at",
             "last_event_id",
             "version",
@@ -269,6 +309,7 @@ def _handle_invoice(event: StripeWebhookEvent) -> None:
         access_mode=access_mode,
         effective_until=effective_until,
     )
+    sync_subscription_lifecycle(subscription)
     event.organization_id = profile.organization_id
     event.subscription = subscription
 

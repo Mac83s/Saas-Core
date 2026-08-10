@@ -191,11 +191,25 @@ BILLING_PORTAL_RETURN_URL = os.environ.get(
     "BILLING_PORTAL_RETURN_URL",
     f"{FRONTEND_BASE_URL.rstrip('/')}/settings/billing",
 )
+BILLING_LIFECYCLE_WARNING_LEAD_SECONDS = int(
+    os.environ.get("BILLING_LIFECYCLE_WARNING_LEAD_SECONDS", "86400")
+)
+BILLING_LIFECYCLE_MAX_ATTEMPTS = int(
+    os.environ.get("BILLING_LIFECYCLE_MAX_ATTEMPTS", "5")
+)
+if BILLING_LIFECYCLE_WARNING_LEAD_SECONDS <= 0 or BILLING_LIFECYCLE_MAX_ATTEMPTS <= 0:
+    raise ImproperlyConfigured("Ustawienia lifecycle Billing muszą być dodatnie")
 
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_TASK_TRACK_STARTED = True
 CELERY_WORKER_HIJACK_ROOT_LOGGER = False
+CELERY_BEAT_SCHEDULE = {
+    "billing-process-lifecycle": {
+        "task": "saas_core.modules.shared.billing.tasks.process_billing_lifecycle",
+        "schedule": 60.0,
+    }
+}
 
 LOGGING = {
     "version": 1,

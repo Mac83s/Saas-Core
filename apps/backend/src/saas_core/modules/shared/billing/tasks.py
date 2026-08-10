@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from celery import shared_task
 
+from .lifecycle import process_due_lifecycle_actions
 from .processor import StripeEventProcessingError, process_stripe_event
 
 
@@ -13,3 +14,10 @@ from .processor import StripeEventProcessingError, process_stripe_event
 )
 def process_stripe_webhook(event_id: str) -> None:
     process_stripe_event(event_id)
+
+
+@shared_task(  # type: ignore[untyped-decorator]
+    name="saas_core.modules.shared.billing.tasks.process_billing_lifecycle"
+)
+def process_billing_lifecycle() -> int:
+    return process_due_lifecycle_actions()

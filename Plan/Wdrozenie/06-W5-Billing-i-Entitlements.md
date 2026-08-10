@@ -85,13 +85,14 @@ OpenAPI/klienta, poprawny Compose i 166 testów backendu.
 
 ### W5.4 — trial i lifecycle subskrypcji
 
-**Stan:** w toku. W5.4.1 zakończone lokalnie 2026-08-11: wewnętrzny kontrakt
+**Stan:** w toku. W5.4.1–W5.4.2 zakończone lokalnie 2026-08-11: wewnętrzny kontrakt
 `activate_trial_for_product()` trwale zapisuje pierwszy trigger produktu,
 wymaga zakończonego Setup Checkout i idempotentnie tworzy subskrypcję Stripe z
 trialem z bieżącej wersji planu. Lokalna subskrypcja, snapshot entitlementów i
-wpis audytu powstają bez oczekiwania na webhook; późniejszy webhook aktualizuje
-ten sam rekord. Walidacja: Ruff, mypy modułu, import-linter, brak dryfu migracji
-i 170 testów backendu.
+wpis audytu powstają bez oczekiwania na webhook. Minutowy zegar Celery obsługuje
+trwałe akcje ostrzeżeń i przejścia do `read_only`; notice outbox jest gotowy do
+podłączenia przez przyszły `shared.notifications`. Walidacja: Ruff, mypy modułu,
+import-linter, brak dryfu migracji, poprawny Compose i 176 testów backendu.
 
 #### W5.4.1 — rozpoczęcie triala przy pierwszej aktywacji
 
@@ -105,12 +106,12 @@ i 170 testów backendu.
 
 #### W5.4.2 — zegar lifecycle i ostrzeżenia
 
-> **FINDING W5.4-02 — otwarte 2026-08-11:** bieżący processor mapuje
+> **FINDING W5.4-02 — rozwiązane 2026-08-11:** wcześniejszy processor mapował
 > `customer.subscription.deleted` bezpośrednio na `read_only`, mimo że ADR-026
-> zachowuje pełny dostęp do końca opłaconego okresu. Dodatkowo `past_due` z
-> eventu subskrypcji nie wyznacza jawnego siedmiodniowego grace period. W5.4.2
-> wprowadza `grace_period_end` i trwałe, idempotentne akcje czasowe dla obu
-> przejść.
+> zachowuje pełny dostęp do końca opłaconego okresu, a `past_due` nie wyznaczał
+> jawnej karencji. Processor utrwala teraz nieprzesuwalny `grace_period_end`;
+> spóźnione błędy płatności nie otwierają karencji ponownie. Trwałe akcje Celery
+> zmieniają snapshot na `read_only` dopiero na właściwej granicy i zapisują audyt.
 
 - dodać idempotentne harmonogramy ostrzeżeń przed końcem triala i grace period;
 - przełączać wygasły grace period do `read_only` bez usuwania danych;
@@ -153,7 +154,7 @@ i 170 testów backendu.
 
 - [ ] lokalny stan wystarcza do decyzji dostępu bez zapytania do Stripe;
 - [ ] webhooki są podpisane, trwałe, idempotentne i rekoncyliowalne;
-- [ ] utrata płatności nie usuwa danych ani nie omija grace period;
+- [x] utrata płatności nie usuwa danych ani nie omija grace period;
 - [ ] katalog planów jest wersjonowany;
 - [ ] override ma autora, przyczynę, zakres i opcjonalne wygaśnięcie;
 - [ ] support potrafi wyjaśnić wynik `can()` i `limit()`;

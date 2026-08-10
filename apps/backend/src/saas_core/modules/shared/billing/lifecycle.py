@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from uuid import UUID
 
 from django.conf import settings
 from django.db import transaction
+from django.utils import timezone
 
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import record_audit
@@ -18,9 +21,14 @@ from saas_core.modules.core.organizations.models import (
 from .models import (
     AccessMode,
     BillingCheckout,
+    BillingLifecycleAction,
+    BillingNotice,
+    BillingNoticeType,
     BillingSubscription,
     BillingTrialActivation,
     CheckoutStatus,
+    LifecycleActionStatus,
+    LifecycleActionType,
     StripeSubscriptionStatus,
     SubscriptionState,
     TrialActivationStatus,
@@ -29,6 +37,7 @@ from .provider import BillingProviderError, ProviderSubscription, get_billing_pr
 from .snapshots import update_entitlement_snapshot
 
 SOURCE_TYPE_RE = re.compile(r"^[a-z][a-z0-9_.-]*$")
+logger = logging.getLogger(__name__)
 
 
 class TrialActivationError(RuntimeError):
@@ -114,9 +123,7 @@ def activate_trial_for_product(*, source_type: str, source_id: str) -> TrialActi
             idempotency_key=f"saas-core:trial:{activation.organization_id}",
         )
         if provider_subscription.status != StripeSubscriptionStatus.TRIALING:
-            raise BillingProviderError(
-                "Stripe nie utworzył subskrypcji w stanie trialing."
-            )
+            raise BillingProviderError("Stripe nie utworzył subskrypcji w stanie trialing.")
     except BillingProviderError as error:
         BillingTrialActivation.all_objects.filter(
             pk=activation.pk,
@@ -212,6 +219,7 @@ def _persist_trial_activation(
                 access_mode=AccessMode.FULL,
                 effective_until=provider_subscription.trial_end,
             )
+        sync_subscription_lifecycle(subscription)
 
         activation.subscription = subscription
         activation.status = TrialActivationStatus.ACTIVE
@@ -253,3 +261,266 @@ def _normalize_source(source_type: str, source_id: str) -> tuple[str, str]:
     if not normalized_id or len(normalized_id) > 160:
         raise TrialActivationConflict("Nieprawidłowy identyfikator źródła aktywacji.")
     return normalized_type, normalized_id
+
+
+def sync_subscription_lifecycle(subscription: BillingSubscription) -> None:
+    warning_lead = timedelta(seconds=settings.BILLING_LIFECYCLE_WARNING_LEAD_SECONDS)
+    desired: dict[str, datetime] = {}
+    if subscription.state == SubscriptionState.TRIALING and subscription.trial_end:
+        desired[LifecycleActionType.TRIAL_ENDING_NOTICE] = subscription.trial_end - warning_lead
+    if subscription.state == SubscriptionState.GRACE_PERIOD and subscription.grace_period_end:
+        desired[LifecycleActionType.GRACE_ENDING_NOTICE] = (
+            subscription.grace_period_end - warning_lead
+        )
+        desired[LifecycleActionType.GRACE_EXPIRED] = subscription.grace_period_end
+    if (
+        subscription.state == SubscriptionState.CANCELED or subscription.cancel_at_period_end
+    ) and subscription.current_period_end:
+        desired[LifecycleActionType.CANCELED_PERIOD_ENDED] = subscription.current_period_end
+
+    now = timezone.now()
+    pending = BillingLifecycleAction.all_objects.filter(
+        subscription=subscription,
+        status=LifecycleActionStatus.PENDING,
+    )
+    for action in pending:
+        if desired.get(action.action_type) != action.due_at:
+            action.status = LifecycleActionStatus.CANCELED
+            action.processed_at = now
+            action.save(update_fields=["status", "processed_at", "updated_at"])
+
+    for action_type, due_at in desired.items():
+        action, created = BillingLifecycleAction.all_objects.get_or_create(
+            organization_id=subscription.organization_id,
+            subscription=subscription,
+            action_type=action_type,
+            due_at=due_at,
+        )
+        if not created and action.status in {
+            LifecycleActionStatus.CANCELED,
+            LifecycleActionStatus.FAILED,
+        }:
+            action.status = LifecycleActionStatus.PENDING
+            action.attempt_count = 0
+            action.last_error = ""
+            action.processed_at = None
+            action.save(
+                update_fields=[
+                    "status",
+                    "attempt_count",
+                    "last_error",
+                    "processed_at",
+                    "updated_at",
+                ]
+            )
+
+
+def process_due_lifecycle_actions(
+    *,
+    at: datetime | None = None,
+    limit: int = 100,
+) -> int:
+    if limit <= 0:
+        raise ValueError("Limit akcji lifecycle musi być dodatni.")
+    checked_at = at or timezone.now()
+    action_ids = list(
+        BillingLifecycleAction.all_objects.filter(
+            status=LifecycleActionStatus.PENDING,
+            due_at__lte=checked_at,
+        )
+        .order_by("due_at", "id")
+        .values_list("id", flat=True)[:limit]
+    )
+    handled = 0
+    for action_id in action_ids:
+        try:
+            if _process_lifecycle_action(action_id, checked_at):
+                handled += 1
+        except Exception as error:
+            _record_lifecycle_failure(action_id, error)
+            logger.exception(
+                "billing_lifecycle_action_failed",
+                extra={"lifecycle_action_id": str(action_id)},
+            )
+    return handled
+
+
+def _process_lifecycle_action(action_id: UUID, checked_at: datetime) -> bool:
+    with transaction.atomic():
+        action = (
+            BillingLifecycleAction.all_objects.select_for_update()
+            .select_related(
+                "organization",
+                "subscription__price_mapping__plan_version__plan",
+            )
+            .filter(pk=action_id)
+            .first()
+        )
+        if (
+            action is None
+            or action.status != LifecycleActionStatus.PENDING
+            or action.due_at > checked_at
+        ):
+            return False
+        action.attempt_count += 1
+        action.status = _dispatch_lifecycle_action(action, checked_at)
+        action.processed_at = checked_at
+        action.last_error = ""
+        action.save(
+            update_fields=[
+                "status",
+                "attempt_count",
+                "processed_at",
+                "last_error",
+                "updated_at",
+            ]
+        )
+        return True
+
+
+def _dispatch_lifecycle_action(
+    action: BillingLifecycleAction,
+    checked_at: datetime,
+) -> str:
+    subscription = action.subscription
+    if action.action_type == LifecycleActionType.TRIAL_ENDING_NOTICE:
+        if subscription.state != SubscriptionState.TRIALING:
+            return LifecycleActionStatus.CANCELED
+        _create_notice(action, BillingNoticeType.TRIAL_ENDING, subscription.trial_end)
+        return LifecycleActionStatus.PROCESSED
+    if action.action_type == LifecycleActionType.GRACE_ENDING_NOTICE:
+        if subscription.state != SubscriptionState.GRACE_PERIOD:
+            return LifecycleActionStatus.CANCELED
+        _create_notice(
+            action,
+            BillingNoticeType.GRACE_ENDING,
+            subscription.grace_period_end,
+        )
+        return LifecycleActionStatus.PROCESSED
+    if action.action_type == LifecycleActionType.GRACE_EXPIRED:
+        if (
+            subscription.state != SubscriptionState.GRACE_PERIOD
+            or subscription.grace_period_end is None
+            or subscription.grace_period_end > checked_at
+        ):
+            return LifecycleActionStatus.CANCELED
+        _transition_to_read_only(
+            action,
+            state=SubscriptionState.READ_ONLY,
+            reason="grace_period_expired",
+            boundary=subscription.grace_period_end,
+        )
+        return LifecycleActionStatus.PROCESSED
+    if action.action_type == LifecycleActionType.CANCELED_PERIOD_ENDED:
+        if (
+            subscription.current_period_end is None
+            or subscription.current_period_end > checked_at
+            or (
+                subscription.state != SubscriptionState.CANCELED
+                and not subscription.cancel_at_period_end
+            )
+        ):
+            return LifecycleActionStatus.CANCELED
+        _transition_to_read_only(
+            action,
+            state=SubscriptionState.CANCELED,
+            reason="canceled_period_ended",
+            boundary=subscription.current_period_end,
+        )
+        return LifecycleActionStatus.PROCESSED
+    return LifecycleActionStatus.CANCELED
+
+
+def _create_notice(
+    action: BillingLifecycleAction,
+    notice_type: str,
+    ends_at: datetime | None,
+) -> None:
+    if ends_at is None:
+        raise ValueError("Ostrzeżenie lifecycle nie ma daty granicznej.")
+    BillingNotice.all_objects.get_or_create(
+        organization=action.organization,
+        lifecycle_action=action,
+        defaults={
+            "subscription": action.subscription,
+            "notice_type": notice_type,
+            "payload": {
+                "subscription_id": str(action.subscription_id),
+                "notice_type": notice_type,
+                "ends_at": ends_at.isoformat(),
+            },
+        },
+    )
+
+
+def _transition_to_read_only(
+    action: BillingLifecycleAction,
+    *,
+    state: str,
+    reason: str,
+    boundary: datetime,
+) -> None:
+    subscription = action.subscription
+    previous_state = subscription.state
+    subscription.state = state
+    subscription.cancel_at_period_end = False
+    subscription.version += 1
+    subscription.save(
+        update_fields=[
+            "state",
+            "cancel_at_period_end",
+            "version",
+            "updated_at",
+        ]
+    )
+    update_entitlement_snapshot(
+        action.organization,
+        subscription.price_mapping,
+        state=state,
+        access_mode=AccessMode.READ_ONLY,
+        effective_until=None,
+    )
+    BillingLifecycleAction.all_objects.filter(
+        subscription=subscription,
+        status=LifecycleActionStatus.PENDING,
+    ).exclude(pk=action.pk).update(
+        status=LifecycleActionStatus.CANCELED,
+        processed_at=timezone.now(),
+    )
+    record_audit(
+        organization=action.organization,
+        action=OrganizationAuditAction.BILLING_ACCESS_READ_ONLY,
+        actor=None,
+        target_type="billing_subscription",
+        target_id=subscription.id,
+        metadata={
+            "previous_state": previous_state,
+            "state": state,
+            "reason": reason,
+            "boundary": boundary.isoformat(),
+            "lifecycle_action_id": str(action.id),
+        },
+    )
+
+
+def _record_lifecycle_failure(action_id: UUID, error: Exception) -> None:
+    with transaction.atomic():
+        action = (
+            BillingLifecycleAction.all_objects.select_for_update()
+            .filter(pk=action_id, status=LifecycleActionStatus.PENDING)
+            .first()
+        )
+        if action is None:
+            return
+        action.attempt_count += 1
+        if action.attempt_count >= settings.BILLING_LIFECYCLE_MAX_ATTEMPTS:
+            action.status = LifecycleActionStatus.FAILED
+        action.last_error = str(error)[:2000]
+        action.save(
+            update_fields=[
+                "status",
+                "attempt_count",
+                "last_error",
+                "updated_at",
+            ]
+        )

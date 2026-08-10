@@ -386,6 +386,7 @@ class OrganizationAuditAction(models.TextChoices):
     BILLING_CHECKOUT_CREATED = "billing.checkout.created", "Utworzono Checkout"
     BILLING_PORTAL_CREATED = "billing.portal.created", "Utworzono sesję portalu"
     BILLING_TRIAL_STARTED = "billing.trial.started", "Rozpoczęto trial"
+    BILLING_ACCESS_READ_ONLY = "billing.access.read_only", "Włączono tryb tylko do odczytu"
 
 
 class OrganizationAuditEntry(models.Model):
