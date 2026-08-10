@@ -3,13 +3,14 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import cast
+from typing import Any, cast
 from uuid import UUID
 
 from django.conf import settings
 from django.contrib.auth import login as django_login
 from django.contrib.auth import logout as django_logout
 from django.contrib.auth.hashers import make_password
+from django.db import transaction
 from django.http import HttpRequest
 from django.utils import timezone
 from rest_framework.exceptions import APIException, NotFound
@@ -172,6 +173,7 @@ def _establish_user_session(*, request: HttpRequest, user: User) -> None:
         expires_at=now + timedelta(seconds=settings.SESSION_MAX_LIFETIME_SECONDS),
     )
     request.session[MANAGED_SESSION_KEY] = str(tracking.id)
+    _select_only_organization(request=request, user=user)
     request.session.set_expiry(
         min(settings.SESSION_IDLE_TIMEOUT_SECONDS, settings.SESSION_MAX_LIFETIME_SECONDS)
     )
@@ -182,6 +184,67 @@ def _establish_user_session(*, request: HttpRequest, user: User) -> None:
             "user_id": str(user.id),
         },
     )
+
+
+@transaction.atomic
+def rotate_managed_session(*, request: HttpRequest) -> UserSession:
+    user = cast(User, request.user)
+    assert user.pk is not None
+    tracking_id = request.session.get(MANAGED_SESSION_KEY)
+    if not isinstance(tracking_id, str):
+        raise ManagedSessionNotFound
+    tracking = (
+        UserSession.objects.select_for_update()
+        .filter(
+            pk=tracking_id,
+            user_id=user.pk,
+            revoked_at__isnull=True,
+            expires_at__gt=timezone.now(),
+        )
+        .first()
+    )
+    if tracking is None:
+        raise ManagedSessionNotFound
+
+    request.session.cycle_key()
+    if request.session.session_key is None:
+        request.session.save()
+    session_key = request.session.session_key
+    if session_key is None:
+        raise RuntimeError("Django nie utworzyło klucza sesji")
+    tracking.session_key_hash = digest_secret(session_key)
+    tracking.last_seen_at = timezone.now()
+    tracking.save(update_fields=["session_key_hash", "last_seen_at"])
+    cast(Any, request).identity_user_session = tracking
+    return tracking
+
+
+def _select_only_organization(*, request: HttpRequest, user: User) -> None:
+    from saas_core.modules.core.organizations.middleware import (  # noqa: PLC0415
+        ACTIVE_ORGANIZATION_SESSION_KEY,
+    )
+    from saas_core.modules.core.organizations.models import (  # noqa: PLC0415
+        Membership,
+        MembershipStatus,
+        OrganizationStatus,
+    )
+
+    organization_ids = list(
+        Membership.objects.filter(
+            user=user,
+            status=MembershipStatus.ACTIVE,
+            organization__status__in=[
+                OrganizationStatus.ONBOARDING,
+                OrganizationStatus.ACTIVE,
+            ],
+        )
+        .order_by("organization_id")
+        .values_list("organization_id", flat=True)[:2]
+    )
+    if len(organization_ids) == 1:
+        request.session[ACTIVE_ORGANIZATION_SESSION_KEY] = str(organization_ids[0])
+    else:
+        request.session.pop(ACTIVE_ORGANIZATION_SESSION_KEY, None)
 
 
 def _start_mfa_challenge(*, request: HttpRequest, user: User, purpose: str) -> None:

@@ -1,0 +1,69 @@
+from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from django.core.validators import RegexValidator
+from rest_framework import serializers
+
+
+class OrganizationCreateSerializer(serializers.Serializer[dict[str, Any]]):
+    name = serializers.CharField(max_length=160, trim_whitespace=True)
+    slug = serializers.CharField(
+        max_length=80,
+        validators=[RegexValidator(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")],
+    )
+    workspace_kind = serializers.ChoiceField(
+        choices=["personal", "business"],
+        default="business",
+    )
+    default_locale = serializers.ChoiceField(choices=["pl", "en"], default="pl")
+    timezone = serializers.CharField(max_length=64, default="Europe/Warsaw")
+    currency = serializers.RegexField(r"^[A-Z]{3}$", default="PLN")
+
+    def validate_timezone(self, value: str) -> str:
+        try:
+            ZoneInfo(value)
+        except ZoneInfoNotFoundError as error:
+            raise serializers.ValidationError("Nieznana strefa czasowa.") from error
+        return value
+
+
+class OrganizationUpdateSerializer(serializers.Serializer[dict[str, Any]]):
+    version = serializers.IntegerField(min_value=1)
+    name = serializers.CharField(max_length=160, trim_whitespace=True, required=False)
+    default_locale = serializers.ChoiceField(choices=["pl", "en"], required=False)
+    timezone = serializers.CharField(max_length=64, required=False)
+    currency = serializers.RegexField(r"^[A-Z]{3}$", required=False)
+
+    def validate_timezone(self, value: str) -> str:
+        try:
+            ZoneInfo(value)
+        except ZoneInfoNotFoundError as error:
+            raise serializers.ValidationError("Nieznana strefa czasowa.") from error
+        return value
+
+
+class ActiveOrganizationSerializer(serializers.Serializer[dict[str, Any]]):
+    organization_id = serializers.UUIDField()
+
+
+class OrganizationSummarySerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    slug = serializers.CharField()
+    workspace_kind = serializers.CharField()
+    status = serializers.CharField()
+    default_locale = serializers.CharField()
+    timezone = serializers.CharField()
+    currency = serializers.CharField()
+    version = serializers.IntegerField()
+    membership_status = serializers.CharField()
+    role = serializers.CharField()
+    active = serializers.BooleanField()
+
+
+class ActiveOrganizationResultSerializer(serializers.Serializer[dict[str, Any]]):
+    organization = OrganizationSummarySerializer()
+
+
+class OrganizationArchivedSerializer(serializers.Serializer[dict[str, Any]]):
+    status = serializers.ChoiceField(choices=["archived"])

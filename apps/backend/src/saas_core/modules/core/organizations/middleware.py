@@ -17,6 +17,10 @@ from .context import (
 from .models import Membership, MembershipStatus, OrganizationStatus
 
 ACTIVE_ORGANIZATION_SESSION_KEY = "organizations_active_organization_id"
+TENANT_CONTEXT_EXEMPT_PATHS = {
+    "/api/v1/organizations/",
+    "/api/v1/session/active-organization/",
+}
 
 
 class TenantContextMiddleware:
@@ -24,7 +28,11 @@ class TenantContextMiddleware:
         self.get_response = get_response
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
-        if not request.path.startswith("/api/v1/") or not request.user.is_authenticated:
+        if (
+            not request.path.startswith("/api/v1/")
+            or request.path in TENANT_CONTEXT_EXEMPT_PATHS
+            or not request.user.is_authenticated
+        ):
             return self.get_response(request)
 
         with transaction.atomic():

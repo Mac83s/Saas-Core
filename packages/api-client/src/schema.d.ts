@@ -260,10 +260,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organizations/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["api_v1_organizations_list"];
+        put?: never;
+        post: operations["api_v1_organizations_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/current/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["api_v1_organizations_current_retrieve"];
+        put?: never;
+        post?: never;
+        delete: operations["api_v1_organizations_current_destroy"];
+        options?: never;
+        head?: never;
+        patch: operations["api_v1_organizations_current_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/session/active-organization/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["api_v1_session_active_organization_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ActiveOrganization: {
+            /** Format: uuid */
+            organization_id: string;
+        };
+        ActiveOrganizationResult: {
+            organization: components["schemas"]["OrganizationSummary"];
+        };
         CsrfToken: {
             csrf_token: string;
         };
@@ -308,6 +363,41 @@ export interface components {
         MfaCode: {
             code: string;
         };
+        OrganizationArchived: {
+            status: components["schemas"]["OrganizationArchivedStatusEnum"];
+        };
+        /**
+         * @description * `archived` - archived
+         * @enum {string}
+         */
+        OrganizationArchivedStatusEnum: "archived";
+        OrganizationCreate: {
+            name: string;
+            slug: string;
+            /** @default business */
+            workspace_kind: components["schemas"]["WorkspaceKindEnum"];
+            /** @default pl */
+            default_locale: components["schemas"]["LocaleEnum"];
+            /** @default Europe/Warsaw */
+            timezone: string;
+            /** @default PLN */
+            currency: string;
+        };
+        OrganizationSummary: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            slug: string;
+            workspace_kind: string;
+            status: string;
+            default_locale: string;
+            timezone: string;
+            currency: string;
+            version: number;
+            membership_status: string;
+            role: string;
+            active: boolean;
+        };
         PasswordResetConfirm: {
             token: string;
             password: string;
@@ -324,6 +414,13 @@ export interface components {
          * @enum {string}
          */
         PasswordResetResultStatusEnum: "password_updated";
+        PatchedOrganizationUpdate: {
+            version?: number;
+            name?: string;
+            default_locale?: components["schemas"]["LocaleEnum"];
+            timezone?: string;
+            currency?: string;
+        };
         ProblemDetails: {
             type: string;
             title: string;
@@ -388,6 +485,12 @@ export interface components {
          * @enum {string}
          */
         VerificationResultStatusEnum: "verified";
+        /**
+         * @description * `personal` - personal
+         *     * `business` - business
+         * @enum {string}
+         */
+        WorkspaceKindEnum: "personal" | "business";
     };
     responses: never;
     parameters: never;
@@ -1025,6 +1128,250 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
+    };
+    api_v1_organizations_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationSummary"][];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_organizations_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrganizationCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["OrganizationCreate"];
+                "multipart/form-data": components["schemas"]["OrganizationCreate"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationSummary"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_organizations_current_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationSummary"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_organizations_current_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationArchived"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_organizations_current_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedOrganizationUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedOrganizationUpdate"];
+                "multipart/form-data": components["schemas"]["PatchedOrganizationUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationSummary"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_session_active_organization_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActiveOrganization"];
+                "application/x-www-form-urlencoded": components["schemas"]["ActiveOrganization"];
+                "multipart/form-data": components["schemas"]["ActiveOrganization"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActiveOrganizationResult"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };

@@ -8,6 +8,14 @@ urlpatterns = [
     path("internal/admin/", admin.site.urls),
     path("internal/metrics/", metrics_view, name="metrics"),
     path("api/v1/auth/", include("saas_core.modules.core.identity.urls")),
+    path(
+        "api/v1/organizations/",
+        include("saas_core.modules.core.organizations.urls"),
+    ),
+    path(
+        "api/v1/session/",
+        include("saas_core.modules.core.organizations.session_urls"),
+    ),
     path("api/v1/", include("saas_core.modules.core.health.urls")),
     path("api/schema/", SpectacularAPIView.as_view(), name="openapi-schema"),
     path(

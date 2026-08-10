@@ -39,6 +39,9 @@ odroczenia właściwą polityką i testem bezpośredniego SQL.
 
 ### W4.3 — role i permissions
 
+**Stan:** zakończone lokalnie (2026-08-10); audyt zmian membership i ról jest
+realizowany razem z endpointami lifecycle w W4.4.
+
 - zdefiniować stabilne klucze permissions i role domyślne;
 - wdrożyć centralną funkcję decyzji autoryzacyjnej po stronie API;
 - oddzielić kontrolę roli od przyszłej kontroli entitlementu;

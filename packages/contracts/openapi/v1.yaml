@@ -537,8 +537,225 @@ paths:
               schema:
                 $ref: '#/components/schemas/Health'
           description: ''
+  /api/v1/organizations/:
+    get:
+      operationId: api_v1_organizations_list
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrganizationSummary'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: api_v1_organizations_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OrganizationCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OrganizationCreate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationSummary'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/organizations/current/:
+    get:
+      operationId: api_v1_organizations_current_retrieve
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationSummary'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    patch:
+      operationId: api_v1_organizations_current_partial_update
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedOrganizationUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedOrganizationUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedOrganizationUpdate'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationSummary'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    delete:
+      operationId: api_v1_organizations_current_destroy
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationArchived'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/session/active-organization/:
+    put:
+      operationId: api_v1_session_active_organization_update
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActiveOrganization'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ActiveOrganization'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ActiveOrganization'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActiveOrganizationResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
 components:
   schemas:
+    ActiveOrganization:
+      type: object
+      properties:
+        organization_id:
+          type: string
+          format: uuid
+      required:
+      - organization_id
+    ActiveOrganizationResult:
+      type: object
+      properties:
+        organization:
+          $ref: '#/components/schemas/OrganizationSummary'
+      required:
+      - organization
     CsrfToken:
       type: object
       properties:
@@ -627,6 +844,88 @@ components:
           minLength: 6
       required:
       - code
+    OrganizationArchived:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/OrganizationArchivedStatusEnum'
+      required:
+      - status
+    OrganizationArchivedStatusEnum:
+      enum:
+      - archived
+      type: string
+      description: '* `archived` - archived'
+    OrganizationCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        slug:
+          type: string
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+          maxLength: 80
+        workspace_kind:
+          allOf:
+          - $ref: '#/components/schemas/WorkspaceKindEnum'
+          default: business
+        default_locale:
+          allOf:
+          - $ref: '#/components/schemas/LocaleEnum'
+          default: pl
+        timezone:
+          type: string
+          default: Europe/Warsaw
+          maxLength: 64
+        currency:
+          type: string
+          default: PLN
+          pattern: ^[A-Z]{3}$
+      required:
+      - name
+      - slug
+    OrganizationSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        workspace_kind:
+          type: string
+        status:
+          type: string
+        default_locale:
+          type: string
+        timezone:
+          type: string
+        currency:
+          type: string
+        version:
+          type: integer
+        membership_status:
+          type: string
+        role:
+          type: string
+        active:
+          type: boolean
+      required:
+      - active
+      - currency
+      - default_locale
+      - id
+      - membership_status
+      - name
+      - role
+      - slug
+      - status
+      - timezone
+      - version
+      - workspace_kind
     PasswordResetConfirm:
       type: object
       properties:
@@ -664,6 +963,23 @@ components:
       - password_updated
       type: string
       description: '* `password_updated` - password_updated'
+    PatchedOrganizationUpdate:
+      type: object
+      properties:
+        version:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+          maxLength: 160
+        default_locale:
+          $ref: '#/components/schemas/LocaleEnum'
+        timezone:
+          type: string
+          maxLength: 64
+        currency:
+          type: string
+          pattern: ^[A-Z]{3}$
     ProblemDetails:
       type: object
       properties:
@@ -811,6 +1127,14 @@ components:
       - verified
       type: string
       description: '* `verified` - verified'
+    WorkspaceKindEnum:
+      enum:
+      - personal
+      - business
+      type: string
+      description: |-
+        * `personal` - personal
+        * `business` - business
   securitySchemes:
     cookieAuth:
       type: apiKey
