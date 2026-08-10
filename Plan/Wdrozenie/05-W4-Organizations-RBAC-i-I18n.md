@@ -1,6 +1,6 @@
 # W4 — Organizations, RBAC i i18n
 
-**Status:** blocked by W3  
+**Status:** in progress — implementacja lokalna; staging odłożony
 **Szacunek:** 1,5–2 tygodnie  
 **Poprzednik:** W3  
 **Rezultat:** izolowane organizacje, członkostwa, uprawnienia i panel PL/EN
@@ -14,6 +14,8 @@ tenanta kończy się odmową niezależnie od danych przesłanych przez frontend.
 ## 2. Pakiety pracy
 
 ### W4.1 — modele organizacji
+
+**Stan:** zakończone lokalnie (2026-08-10)
 
 - wdrożyć `Organization`, `Membership`, `Role` i `BillingProfile`;
 - zapewnić jedną aktywną relację użytkownika z organizacją;
@@ -74,4 +76,3 @@ Każdy chroniony endpoint jest testowany co najmniej dla:
 - [ ] wszystkie permissions są egzekwowane w API;
 - [ ] panel W3–W4 działa w języku polskim i angielskim;
 - [ ] role i entitlementy pozostają osobnymi mechanizmami.
-

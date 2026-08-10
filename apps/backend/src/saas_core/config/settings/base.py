@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "saas_core.modules.core.health",
     "saas_core.modules.core.identity",
+    "saas_core.modules.core.organizations",
 ]
 
 MIDDLEWARE = [
