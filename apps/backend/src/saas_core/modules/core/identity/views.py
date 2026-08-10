@@ -16,10 +16,18 @@ from rest_framework.views import APIView
 
 from .middleware import MANAGED_SESSION_KEY
 from .models import User, UserSession
+from .password_reset import (
+    GENERIC_PASSWORD_RESET_MESSAGE,
+    confirm_password_reset,
+    request_password_reset,
+)
 from .serializers import (
     CsrfTokenSerializer,
     GenericMessageSerializer,
     LoginSerializer,
+    PasswordResetConfirmSerializer,
+    PasswordResetRequestSerializer,
+    PasswordResetResultSerializer,
     ProblemDetailsSerializer,
     RegistrationSerializer,
     SessionSummarySerializer,
@@ -143,6 +151,49 @@ class VerificationConfirmView(PublicIdentityView):
         serializer.is_valid(raise_exception=True)
         confirm_email_verification(**serializer.validated_data)
         return Response({"status": "verified"})
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class PasswordResetRequestView(PublicIdentityView):
+    throttle_scope = "identity_password_reset_request"
+
+    @extend_schema(
+        request=PasswordResetRequestSerializer,
+        responses={
+            202: GenericMessageSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            429: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        request_password_reset(**serializer.validated_data)
+        return Response(
+            {"detail": GENERIC_PASSWORD_RESET_MESSAGE},
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class PasswordResetConfirmView(PublicIdentityView):
+    throttle_scope = "identity_password_reset_confirm"
+
+    @extend_schema(
+        request=PasswordResetConfirmSerializer,
+        responses={
+            200: PasswordResetResultSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            429: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        confirm_password_reset(**serializer.validated_data)
+        return Response({"status": "password_updated"})
 
 
 class CurrentUserView(ProtectedIdentityView):

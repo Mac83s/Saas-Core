@@ -5,6 +5,8 @@ from .views import (
     CurrentUserView,
     LoginView,
     LogoutView,
+    PasswordResetConfirmView,
+    PasswordResetRequestView,
     RegistrationView,
     SessionListView,
     SessionRevokeView,
@@ -17,6 +19,16 @@ urlpatterns = [
     path("register/", RegistrationView.as_view(), name="identity-register"),
     path("login/", LoginView.as_view(), name="identity-login"),
     path("logout/", LogoutView.as_view(), name="identity-logout"),
+    path(
+        "password-resets/",
+        PasswordResetRequestView.as_view(),
+        name="identity-password-reset-request",
+    ),
+    path(
+        "password-resets/confirm/",
+        PasswordResetConfirmView.as_view(),
+        name="identity-password-reset-confirm",
+    ),
     path("me/", CurrentUserView.as_view(), name="identity-me"),
     path("sessions/", SessionListView.as_view(), name="identity-session-list"),
     path(

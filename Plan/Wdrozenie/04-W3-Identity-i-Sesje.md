@@ -40,11 +40,11 @@ Operator loguje się osobnym kanałem z obowiązkowym 2FA.
 
 ### W3.4 — reset hasła i zabezpieczenia
 
-- dodać żądanie i finalizację resetu bez ujawniania istnienia konta;
-- unieważniać właściwe sesje po zmianie hasła;
-- zastosować rate limiting dla loginu, rejestracji i resetu;
-- przygotować model MFA i wdrożyć 2FA dla operatorów;
-- dodać audit event dla zmian krytycznych ustawień konta.
+- [x] dodać żądanie i finalizację resetu bez ujawniania istnienia konta;
+- [x] unieważniać właściwe sesje po zmianie hasła;
+- [x] zastosować rate limiting dla loginu, rejestracji i resetu;
+- [ ] przygotować model MFA i wdrożyć 2FA dla operatorów;
+- [ ] dodać audit event dla zmian krytycznych ustawień konta.
 
 ### W3.5 — frontend
 

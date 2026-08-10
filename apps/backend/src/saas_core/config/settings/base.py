@@ -148,6 +148,10 @@ EMAIL_VERIFICATION_TTL_SECONDS = int(os.environ.get("EMAIL_VERIFICATION_TTL_SECO
 EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS = int(
     os.environ.get("EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS", "60")
 )
+PASSWORD_RESET_TTL_SECONDS = int(os.environ.get("PASSWORD_RESET_TTL_SECONDS", "3600"))
+PASSWORD_RESET_RESEND_COOLDOWN_SECONDS = int(
+    os.environ.get("PASSWORD_RESET_RESEND_COOLDOWN_SECONDS", "60")
+)
 
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
@@ -193,6 +197,8 @@ REST_FRAMEWORK = {
     "NUM_PROXIES": int(os.environ.get("TRUSTED_PROXY_COUNT", "1")),
     "DEFAULT_THROTTLE_RATES": {
         "identity_login": "5/min",
+        "identity_password_reset_request": "5/min",
+        "identity_password_reset_confirm": "10/min",
         "identity_register": "5/min",
         "identity_verification_resend": "5/min",
         "identity_verification_confirm": "10/min",

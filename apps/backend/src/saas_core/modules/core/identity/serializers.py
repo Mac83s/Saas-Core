@@ -68,3 +68,20 @@ class SessionSummarySerializer(serializers.Serializer[dict[str, Any]]):
     last_seen_at = serializers.DateTimeField()
     expires_at = serializers.DateTimeField()
     current = serializers.BooleanField()
+
+
+class PasswordResetRequestSerializer(serializers.Serializer[dict[str, Any]]):
+    email = serializers.EmailField(max_length=254)
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer[dict[str, Any]]):
+    token = serializers.CharField(write_only=True, min_length=64, max_length=160)
+    password = serializers.CharField(write_only=True, min_length=12, max_length=128)
+
+    def validate_password(self, value: str) -> str:
+        validate_password(value)
+        return value
+
+
+class PasswordResetResultSerializer(serializers.Serializer[dict[str, Any]]):
+    status = serializers.ChoiceField(choices=["password_updated"])
