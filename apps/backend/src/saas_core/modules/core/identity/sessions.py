@@ -16,7 +16,15 @@ from rest_framework.exceptions import APIException, NotFound
 
 from .mfa import has_confirmed_mfa, verify_mfa_code
 from .middleware import MANAGED_SESSION_KEY
-from .models import LoginAttempt, LoginOutcome, User, UserSession, UserStatus
+from .models import (
+    AccountAuditEvent,
+    AccountAuditEventType,
+    LoginAttempt,
+    LoginOutcome,
+    User,
+    UserSession,
+    UserStatus,
+)
 from .tokens import digest_identifier, digest_secret
 
 logger = logging.getLogger("saas_core.security")
@@ -263,6 +271,12 @@ def revoke_user_session(
     is_current = str(session_id) == request.session.get(MANAGED_SESSION_KEY)
     if is_current:
         django_logout(request)
+    AccountAuditEvent.objects.create(
+        event_type=AccountAuditEventType.SESSION_REVOKED,
+        subject_user=tracking.user,
+        actor_user=user,
+        correlation_id=getattr(request, "correlation_id", None),
+    )
     logger.info(
         "identity_session_revoked",
         extra={

@@ -10,6 +10,8 @@ from rest_framework.test import APIClient
 
 from saas_core.modules.core.identity.mfa import current_totp_code
 from saas_core.modules.core.identity.models import (
+    AccountAuditEvent,
+    AccountAuditEventType,
     LoginAttempt,
     LoginOutcome,
     MfaRecoveryCode,
@@ -93,6 +95,12 @@ def test_totp_enrollment_encrypts_secret_and_hashes_recovery_codes(caplog) -> No
     assert all(raw_code not in stored_codes for raw_code in recovery_codes)
     assert secret not in caplog.text
     assert all(raw_code not in caplog.text for raw_code in recovery_codes)
+    audit = AccountAuditEvent.objects.get(
+        subject_user=user,
+        event_type=AccountAuditEventType.MFA_ENABLED,
+    )
+    assert audit.actor_user == user
+    assert audit.correlation_id is not None
 
     replacement = client.post(
         MFA_SETUP_URL,

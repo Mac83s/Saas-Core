@@ -14,7 +14,7 @@ from rest_framework.exceptions import APIException
 
 from saas_core.observability import correlation_id
 
-from .models import EmailVerification, User, UserStatus
+from .models import AccountAuditEvent, AccountAuditEventType, EmailVerification, User, UserStatus
 from .tokens import digest_identifier, digest_secret, issue_bound_token
 
 logger = logging.getLogger("saas_core.security")
@@ -133,7 +133,7 @@ def schedule_email_verification(*, user: User) -> EmailVerification | None:
         raise
 
 
-def confirm_email_verification(*, token: str) -> User:
+def confirm_email_verification(*, token: str, correlation_id: uuid.UUID | None = None) -> User:
     now = timezone.now()
     with transaction.atomic():
         try:
@@ -156,6 +156,11 @@ def confirm_email_verification(*, token: str) -> User:
         ).update(used_at=now)
         user.status = UserStatus.ACTIVE
         user.save(update_fields=["status", "is_active", "updated_at"])
+        AccountAuditEvent.objects.create(
+            event_type=AccountAuditEventType.EMAIL_VERIFIED,
+            subject_user=user,
+            correlation_id=correlation_id,
+        )
 
     logger.info(
         "identity_email_verified",

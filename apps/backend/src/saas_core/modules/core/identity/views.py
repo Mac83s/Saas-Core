@@ -201,6 +201,7 @@ class TotpConfirmView(OptionalIdentityView):
         recovery_codes = confirm_totp_enrollment(
             user=user,
             **serializer.validated_data,
+            correlation_id=getattr(request, "correlation_id", None),
         )
         if preauthenticated:
             complete_mfa_enrollment_login(request=http_request, user=user)
@@ -246,7 +247,10 @@ class VerificationConfirmView(PublicIdentityView):
     def post(self, request: Request) -> Response:
         serializer = VerificationConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        confirm_email_verification(**serializer.validated_data)
+        confirm_email_verification(
+            **serializer.validated_data,
+            correlation_id=getattr(request, "correlation_id", None),
+        )
         return Response({"status": "verified"})
 
 
@@ -289,7 +293,10 @@ class PasswordResetConfirmView(PublicIdentityView):
     def post(self, request: Request) -> Response:
         serializer = PasswordResetConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        confirm_password_reset(**serializer.validated_data)
+        confirm_password_reset(
+            **serializer.validated_data,
+            correlation_id=getattr(request, "correlation_id", None),
+        )
         return Response({"status": "password_updated"})
 
 

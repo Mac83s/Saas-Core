@@ -7,7 +7,14 @@ from django.core.cache import cache
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from saas_core.modules.core.identity.models import PasswordReset, User, UserSession, UserStatus
+from saas_core.modules.core.identity.models import (
+    AccountAuditEvent,
+    AccountAuditEventType,
+    PasswordReset,
+    User,
+    UserSession,
+    UserStatus,
+)
 from saas_core.modules.core.identity.password_reset import (
     GENERIC_PASSWORD_RESET_MESSAGE,
     schedule_password_reset,
@@ -109,6 +116,12 @@ def test_confirm_reset_changes_password_and_revokes_existing_sessions() -> None:
     assert user.check_password(NEW_PASSWORD)
     assert not user.check_password(OLD_PASSWORD)
     assert UserSession.objects.get(user=user).revoked_at is not None
+    audit = AccountAuditEvent.objects.get(
+        subject_user=user,
+        event_type=AccountAuditEventType.PASSWORD_RESET,
+    )
+    assert audit.actor_user is None
+    assert audit.correlation_id is not None
     assert client.get(ME_URL).status_code == 403
 
 

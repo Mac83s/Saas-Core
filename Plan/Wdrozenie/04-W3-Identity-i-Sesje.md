@@ -44,7 +44,7 @@ Operator loguje się osobnym kanałem z obowiązkowym 2FA.
 - [x] unieważniać właściwe sesje po zmianie hasła;
 - [x] zastosować rate limiting dla loginu, rejestracji i resetu;
 - [x] przygotować model MFA i wdrożyć 2FA dla operatorów;
-- [ ] dodać audit event dla zmian krytycznych ustawień konta.
+- [x] dodać audit event dla zmian krytycznych ustawień konta.
 
 ### W3.5 — frontend
 
@@ -151,6 +151,10 @@ Operator loguje się osobnym kanałem z obowiązkowym 2FA.
 - endpointy konfiguracji i logowania MFA wymagają CSRF i mają osobne limity;
   zdarzenia rozpoczęcia konfiguracji, włączenia MFA, challenge oraz powodzenia są
   emitowane do strukturalnego loggera bezpieczeństwa bez sekretów;
+- trwały `AccountAuditEvent` zapisuje typ zdarzenia, podmiot, opcjonalnego aktora,
+  correlation ID i czas dla aktywacji adresu, resetu hasła, włączenia MFA oraz
+  unieważnienia sesji; celowo nie ma dowolnego pola metadata, do którego mogłyby
+  trafić tokeny albo inne sekrety;
 - 48 testów backendu, Ruff, mypy, kontrola migracji i granic importów przeszły;
   OpenAPI oraz klient TypeScript są zsynchronizowane;
 - przebudowany runtime zastosował migrację, a smoke przez Caddy potwierdził pełną

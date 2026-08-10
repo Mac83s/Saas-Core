@@ -8,6 +8,7 @@ import secrets
 import struct
 from dataclasses import dataclass
 from urllib.parse import quote, urlencode
+from uuid import UUID
 
 from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
@@ -15,7 +16,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import APIException
 
-from .models import MfaRecoveryCode, User, UserMfaMethod
+from .models import AccountAuditEvent, AccountAuditEventType, MfaRecoveryCode, User, UserMfaMethod
 from .tokens import digest_secret
 
 TOTP_PERIOD_SECONDS = 30
@@ -84,7 +85,9 @@ def begin_totp_enrollment(*, user: User) -> TotpEnrollment:
     return enrollment
 
 
-def confirm_totp_enrollment(*, user: User, code: str) -> list[str]:
+def confirm_totp_enrollment(
+    *, user: User, code: str, correlation_id: UUID | None = None
+) -> list[str]:
     now = timezone.now()
     with transaction.atomic():
         try:
@@ -106,6 +109,12 @@ def confirm_totp_enrollment(*, user: User, code: str) -> list[str]:
             )
             for raw_code in raw_codes
         ])
+        AccountAuditEvent.objects.create(
+            event_type=AccountAuditEventType.MFA_ENABLED,
+            subject_user=user,
+            actor_user=user,
+            correlation_id=correlation_id,
+        )
     logger.info(
         "identity_mfa_enabled",
         extra={"security_event": "identity.mfa_enabled", "user_id": str(user.id)},

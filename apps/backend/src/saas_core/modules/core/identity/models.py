@@ -260,3 +260,43 @@ class MfaRecoveryCode(models.Model):
 
     def __str__(self) -> str:
         return str(self.id)
+
+
+class AccountAuditEventType(models.TextChoices):
+    EMAIL_VERIFIED = "email_verified", "Potwierdzono adres e-mail"
+    PASSWORD_RESET = "password_reset", "Zmieniono hasło przez reset"
+    MFA_ENABLED = "mfa_enabled", "Włączono MFA"
+    SESSION_REVOKED = "session_revoked", "Unieważniono sesję"
+
+
+class AccountAuditEvent(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    event_type = models.CharField(max_length=32, choices=AccountAuditEventType)
+    subject_user = models.ForeignKey(
+        User, on_delete=models.PROTECT, related_name="account_audit_events"
+    )
+    actor_user = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name="initiated_account_audit_events",
+        null=True,
+        blank=True,
+    )
+    correlation_id = models.UUIDField(null=True, blank=True)
+    occurred_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-occurred_at",)
+        indexes = [
+            models.Index(
+                fields=["subject_user", "occurred_at"],
+                name="identity_audit_subject_idx",
+            ),
+            models.Index(
+                fields=["event_type", "occurred_at"],
+                name="identity_audit_type_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.event_type}:{self.subject_user_id}:{self.id}"

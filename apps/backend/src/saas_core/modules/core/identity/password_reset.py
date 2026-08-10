@@ -12,13 +12,18 @@ from rest_framework.exceptions import APIException
 
 from saas_core.observability import correlation_id
 
-from .models import PasswordReset, User, UserSession, UserStatus
+from .models import (
+    AccountAuditEvent,
+    AccountAuditEventType,
+    PasswordReset,
+    User,
+    UserSession,
+    UserStatus,
+)
 from .tokens import digest_identifier, digest_secret, issue_bound_token
 
 logger = logging.getLogger("saas_core.security")
-GENERIC_PASSWORD_RESET_MESSAGE = (
-    "Jeżeli konto może zresetować hasło, wysłaliśmy dalsze instrukcje."
-)
+GENERIC_PASSWORD_RESET_MESSAGE = "Jeżeli konto może zresetować hasło, wysłaliśmy dalsze instrukcje."
 
 
 class InvalidPasswordResetToken(APIException):
@@ -63,9 +68,7 @@ def schedule_password_reset(*, user: User) -> PasswordReset | None:
             if locked_user.status != UserStatus.ACTIVE:
                 return None
             now = timezone.now()
-            PasswordReset.objects.filter(user=locked_user, used_at__isnull=True).update(
-                used_at=now
-            )
+            PasswordReset.objects.filter(user=locked_user, used_at__isnull=True).update(used_at=now)
             reset_id = uuid.uuid7()
             issued = issue_bound_token(
                 purpose="password-reset",
@@ -93,14 +96,14 @@ def schedule_password_reset(*, user: User) -> PasswordReset | None:
         except Exception:
             logger.warning(
                 "identity_password_reset_cooldown_release_failed",
-                extra={
-                    "security_event": "identity.password_reset_cooldown_release_failed"
-                },
+                extra={"security_event": "identity.password_reset_cooldown_release_failed"},
             )
         raise
 
 
-def confirm_password_reset(*, token: str, password: str) -> User:
+def confirm_password_reset(
+    *, token: str, password: str, correlation_id: uuid.UUID | None = None
+) -> User:
     now = timezone.now()
     with transaction.atomic():
         try:
@@ -120,6 +123,11 @@ def confirm_password_reset(*, token: str, password: str) -> User:
         user.save(update_fields=["password", "updated_at"])
         PasswordReset.objects.filter(user=user, used_at__isnull=True).update(used_at=now)
         UserSession.objects.filter(user=user, revoked_at__isnull=True).update(revoked_at=now)
+        AccountAuditEvent.objects.create(
+            event_type=AccountAuditEventType.PASSWORD_RESET,
+            subject_user=user,
+            correlation_id=correlation_id,
+        )
 
     logger.info(
         "identity_password_reset_completed",
