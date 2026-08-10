@@ -29,6 +29,10 @@ przez grace period do trybu read-only bez usunięcia danych.
 
 ### W5.1 — katalog produktu
 
+**Stan:** zakończone lokalnie 2026-08-10. Katalog Starter/Pro jest seedowany,
+wersje planów są niemutowalne także na poziomie PostgreSQL, a granty i snapshoty
+są izolowane per tenant. Walidacja: Ruff, brak dryfu migracji i 122 testy backendu.
+
 - wdrożyć `Plan`, niemutowalny `PlanVersion`, `Feature` i `QuotaDefinition`;
 - reprezentować granty z planu, triala, promocji i override;
 - przechowywać efektywny, lokalny snapshot dostępu;
@@ -36,6 +40,11 @@ przez grace period do trybu read-only bez usunięcia danych.
 - przygotować seed katalogu pilota jako dane kontrolowane.
 
 ### W5.2 — centralna autoryzacja planowa
+
+> **FINDING W5.2-01:** kontrakt modułu używa `billing.manage`, natomiast wdrożony
+> RBAC i seed ról używają `organization.billing.manage`. Przed wystawieniem API
+> billingowego trzeba ujednolicić klucz do istniejącego kontraktu RBAC i objąć to
+> walidacją kontraktów wdrożeniowych.
 
 - wdrożyć `can(feature)` i `limit(quota)` dla organizacji;
 - łączyć wynik z permissions bez mieszania obu odpowiedzialności;
