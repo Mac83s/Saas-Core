@@ -21,6 +21,11 @@ x-backend-environment: &backend-environment
   SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-saas_core_local_session}
   SESSION_IDLE_TIMEOUT_SECONDS: ${SESSION_IDLE_TIMEOUT_SECONDS:-1800}
   SESSION_MAX_LIFETIME_SECONDS: ${SESSION_MAX_LIFETIME_SECONDS:-86400}
+  STRIPE_API_VERSION: ${STRIPE_API_VERSION:-2026-07-29.dahlia}
+  STRIPE_LIVEMODE: ${STRIPE_LIVEMODE:-false}
+  STRIPE_SECRET_KEY_FILE: /run/secrets/stripe_secret_key
+  STRIPE_WEBHOOK_SECRET_FILE: /run/secrets/stripe_webhook_secret
+  STRIPE_WEBHOOK_TOLERANCE_SECONDS: ${STRIPE_WEBHOOK_TOLERANCE_SECONDS:-300}
   TENANT_TASK_CONTEXT_TTL_SECONDS: ${TENANT_TASK_CONTEXT_TTL_SECONDS:-86400}
   TRUSTED_PROXY_COUNT: ${TRUSTED_PROXY_COUNT:-1}
 
@@ -33,6 +38,8 @@ x-backend-service: &backend-service
   secrets:
     - django_secret_key
     - postgres_password
+    - stripe_secret_key
+    - stripe_webhook_secret
   volumes:
     - ${SAAS_CORE_LOGS_DIR:-.runtime/logs}:/var/log/saas-core
   networks:
@@ -500,6 +507,10 @@ secrets:
     file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/postgres_password
   grafana_admin_password:
     file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/grafana_admin_password
+  stripe_secret_key:
+    file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/stripe_secret_key
+  stripe_webhook_secret:
+    file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/stripe_webhook_secret
 
 networks:
   edge:

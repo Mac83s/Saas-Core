@@ -2,16 +2,23 @@ from __future__ import annotations
 
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .serializers import StripeWebhookReceiptSerializer
+from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
+
+from .serializers import (
+    BillingSessionSerializer,
+    CheckoutCreateSerializer,
+    StripeWebhookReceiptSerializer,
+)
+from .services import create_customer_portal, create_setup_checkout
 from .webhooks import InvalidStripeWebhook, StripeWebhookConflict, ingest_stripe_webhook
 
 
@@ -52,3 +59,58 @@ class StripeWebhookView(APIView):
             {"received": True},
             status=(status.HTTP_202_ACCEPTED if receipt.created else status.HTTP_200_OK),
         )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class BillingCheckoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="billing_checkout_create",
+        tags=["billing"],
+        request=CheckoutCreateSerializer,
+        responses={
+            200: BillingSessionSerializer,
+            201: BillingSessionSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+            502: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = CheckoutCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = create_setup_checkout(
+            plan_key=serializer.validated_data["plan"],
+            idempotency_key=request.headers.get("Idempotency-Key", ""),
+        )
+        return Response(
+            {
+                "id": result.checkout.stripe_checkout_session_id,
+                "url": result.checkout.checkout_url,
+                "expires_at": result.checkout.expires_at,
+            },
+            status=(status.HTTP_201_CREATED if result.created else status.HTTP_200_OK),
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class BillingPortalView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="billing_portal_create",
+        tags=["billing"],
+        request=None,
+        responses={
+            200: BillingSessionSerializer,
+            403: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+            502: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, _request: Request) -> Response:
+        result = create_customer_portal()
+        return Response({"id": result.session_id, "url": result.url})

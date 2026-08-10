@@ -8,7 +8,9 @@ import pytest
 from saas_core.modules.core.organizations.models import BillingProfile, Organization
 from saas_core.modules.shared.billing.models import (
     AccessMode,
+    BillingCheckout,
     BillingSubscription,
+    CheckoutStatus,
     EntitlementSnapshot,
     PlanVersion,
     StripePriceMapping,
@@ -102,7 +104,15 @@ def subscription_object(
 
 
 def test_checkout_links_verified_customer_to_metadata_organization() -> None:
-    tenant = organization(slug="checkout-link")
+    tenant = organization(slug="checkout-link", customer_id="cus_checkout")
+    mapping = price_mapping()
+    checkout = BillingCheckout.all_objects.create(
+        organization=tenant,
+        price_mapping=mapping,
+        stripe_checkout_session_id="cs_local",
+        idempotency_key="checkout-link",
+        checkout_url="https://checkout.stripe.test/cs_local",
+    )
     event = inbox_event(
         event_id="evt_checkout_link",
         event_type="checkout.session.completed",
@@ -111,7 +121,12 @@ def test_checkout_links_verified_customer_to_metadata_organization() -> None:
             "id": "cs_local",
             "object": "checkout.session",
             "customer": "cus_checkout",
-            "metadata": {"saas_core_organization_id": str(tenant.id)},
+            "setup_intent": "seti_local",
+            "metadata": {
+                "saas_core_organization_id": str(tenant.id),
+                "saas_core_plan_version_id": str(mapping.plan_version_id),
+                "saas_core_price_mapping_id": str(mapping.id),
+            },
         },
     )
 
@@ -120,6 +135,9 @@ def test_checkout_links_verified_customer_to_metadata_organization() -> None:
     assert processed is not None
     assert processed.status == WebhookProcessingStatus.PROCESSED
     assert processed.organization_id == tenant.id
+    checkout.refresh_from_db()
+    assert checkout.status == CheckoutStatus.COMPLETE
+    assert checkout.setup_intent_id == "seti_local"
     assert BillingProfile.objects.get(organization=tenant).external_customer_id == "cus_checkout"
 
 

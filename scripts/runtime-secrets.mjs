@@ -31,6 +31,8 @@ await ensureSecret(
   "grafana_admin_password",
   randomBytes(24).toString("base64url"),
 );
+await ensureSecret("stripe_secret_key", "");
+await ensureSecret("stripe_webhook_secret", "");
 await chmod(secretsDirectory, 0o700);
 
 async function ensureSecret(name, value) {

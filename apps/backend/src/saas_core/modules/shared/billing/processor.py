@@ -11,7 +11,9 @@ from saas_core.modules.core.organizations.models import BillingProfile, Organiza
 
 from .models import (
     AccessMode,
+    BillingCheckout,
     BillingSubscription,
+    CheckoutStatus,
     EntitlementSnapshot,
     StripePriceMapping,
     StripeSubscriptionStatus,
@@ -103,38 +105,35 @@ def _dispatch(event: StripeWebhookEvent) -> None:
 
 def _handle_checkout(event: StripeWebhookEvent) -> None:
     data = _data_object(event)
+    checkout_id = _required_string(data, "id")
     customer_id = _stripe_id(data.get("customer"), "customer")
-    metadata = data.get("metadata")
-    if not isinstance(metadata, dict):
-        metadata = {}
-    raw_organization_id = metadata.get("saas_core_organization_id")
-
-    profile = (
-        BillingProfile.objects.select_for_update().filter(external_customer_id=customer_id).first()
+    checkout = (
+        BillingCheckout.all_objects.select_for_update()
+        .select_related("price_mapping")
+        .filter(stripe_checkout_session_id=checkout_id)
+        .first()
     )
-    if profile is None:
-        if not isinstance(raw_organization_id, str):
-            raise StripeEventProcessingError(
-                "Checkout nie wskazuje znanej organizacji ani Customer."
-            )
-        try:
-            organization_id = UUID(raw_organization_id)
-        except ValueError as error:
-            raise StripeEventProcessingError(
-                "Checkout zawiera nieprawidłowy identyfikator organizacji."
-            ) from error
-        profile = (
-            BillingProfile.objects.select_for_update()
-            .select_related("organization")
-            .filter(organization_id=organization_id)
-            .first()
-        )
-        if profile is None:
-            raise StripeEventProcessingError("Checkout dotyczy nieznanej organizacji.")
-        if profile.external_customer_id and profile.external_customer_id != customer_id:
-            raise StripeEventProcessingError("Organizacja ma już innego Stripe Customer.")
-        profile.external_customer_id = customer_id
-        profile.save(update_fields=["external_customer_id", "updated_at"])
+    if checkout is None:
+        raise StripeEventProcessingError("Checkout Stripe nie ma lokalnego intentu.")
+    profile = BillingProfile.objects.select_for_update().get(
+        organization_id=checkout.organization_id
+    )
+    if profile.external_customer_id != customer_id:
+        raise StripeEventProcessingError("Checkout wskazuje innego Stripe Customer.")
+    metadata = data.get("metadata")
+    expected_metadata = {
+        "saas_core_organization_id": str(checkout.organization_id),
+        "saas_core_plan_version_id": str(checkout.price_mapping.plan_version_id),
+        "saas_core_price_mapping_id": str(checkout.price_mapping_id),
+    }
+    if not isinstance(metadata, dict) or any(
+        metadata.get(key) != value for key, value in expected_metadata.items()
+    ):
+        raise StripeEventProcessingError("Checkout ma niespójne lokalne metadane.")
+    checkout.status = CheckoutStatus.COMPLETE
+    checkout.setup_intent_id = _stripe_id(data.get("setup_intent"), "setup_intent")
+    checkout.completed_at = event.provider_created_at
+    checkout.save(update_fields=["status", "setup_intent_id", "completed_at", "updated_at"])
     event.organization_id = profile.organization_id
 
 

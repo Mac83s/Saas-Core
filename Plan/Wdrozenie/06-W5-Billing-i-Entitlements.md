@@ -59,13 +59,22 @@ punktowy mypy, brak dryfu migracji i 137 testów backendu.
 
 ### W5.3 — Stripe
 
-**Stan:** w toku. Lokalny model Customer (przez `BillingProfile`), mapowanie
+**Stan:** zakończone lokalnie 2026-08-11. Lokalny model Customer (przez `BillingProfile`), mapowanie
 Stripe Price → `PlanVersion`, historia subskrypcji i trwały inbox eventów są
 wdrożone. Endpoint zapisuje event dopiero po poprawnej weryfikacji podpisu na
 surowym body, przypiętej wersji API i trybu test/live; dostawy są deduplikowane
 po Stripe event ID. Asynchroniczny processor wiąże Customer i Price z tenantem,
 aktualizuje subskrypcję i snapshot, ignoruje starsze eventy oraz utrwala błędy
-do retry. Pozostały Checkout i Customer Portal dla Ownera.
+do retry. Owner może idempotentnie utworzyć Customer i sesję Checkout oraz
+otworzyć Customer Portal z kontrolowanym po stronie serwera return URL.
+Walidacja: Ruff, mypy modułu, import-linter, brak dryfu migracji, zgodność
+OpenAPI/klienta, poprawny Compose i 166 testów backendu.
+
+> **FINDING W5.3-02 — rozwiązane 2026-08-11:** Stripe Checkout w trybie
+> `subscription` z `trial_period_days` rozpoczyna trial przy zakończeniu Checkout,
+> co narusza ADR-026. Checkout pilota używa więc trybu `setup`: zbiera metodę
+> płatności i zapisuje wybrany `PlanVersion`, a subskrypcja z trzydniowym trialem
+> powstaje dopiero podczas aktywacji pierwszego produktu w W5.4.
 
 - tworzyć Customer i Checkout wyłącznie dla uprawnionego Ownera;
 - mapować Price do wewnętrznego `PlanVersion`, bez traktowania Stripe jako SSOT;

@@ -178,6 +178,19 @@ STRIPE_WEBHOOK_TOLERANCE_SECONDS = int(os.environ.get("STRIPE_WEBHOOK_TOLERANCE_
 STRIPE_WEBHOOK_MAX_BYTES = int(os.environ.get("STRIPE_WEBHOOK_MAX_BYTES", "262144"))
 if STRIPE_WEBHOOK_TOLERANCE_SECONDS <= 0 or STRIPE_WEBHOOK_MAX_BYTES <= 0:
     raise ImproperlyConfigured("Limity webhooka Stripe muszą być dodatnie")
+BILLING_CHECKOUT_SUCCESS_URL = os.environ.get(
+    "BILLING_CHECKOUT_SUCCESS_URL",
+    f"{FRONTEND_BASE_URL.rstrip('/')}/settings/billing?checkout=success"
+    "&session_id={CHECKOUT_SESSION_ID}",
+)
+BILLING_CHECKOUT_CANCEL_URL = os.environ.get(
+    "BILLING_CHECKOUT_CANCEL_URL",
+    f"{FRONTEND_BASE_URL.rstrip('/')}/settings/billing?checkout=canceled",
+)
+BILLING_PORTAL_RETURN_URL = os.environ.get(
+    "BILLING_PORTAL_RETURN_URL",
+    f"{FRONTEND_BASE_URL.rstrip('/')}/settings/billing",
+)
 
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL

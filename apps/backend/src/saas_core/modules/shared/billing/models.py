@@ -82,6 +82,12 @@ class WebhookProcessingStatus(models.TextChoices):
     IGNORED = "ignored", "Pominięte"
 
 
+class CheckoutStatus(models.TextChoices):
+    OPEN = "open", "Otwarty"
+    COMPLETE = "complete", "Zakończony"
+    EXPIRED = "expired", "Wygasły"
+
+
 class Feature(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     key = models.CharField(max_length=100, unique=True, validators=[CATALOG_KEY_VALIDATOR])
@@ -460,6 +466,49 @@ class BillingSubscription(TenantScopedModel):
                 fields=["organization", "state"],
                 name="bill_sub_org_state_idx",
             )
+        ]
+
+
+class BillingCheckout(TenantScopedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    price_mapping = models.ForeignKey(
+        StripePriceMapping,
+        on_delete=models.PROTECT,
+        related_name="checkouts",
+    )
+    stripe_checkout_session_id = models.CharField(max_length=160, unique=True)
+    idempotency_key = models.CharField(max_length=120)
+    checkout_url = models.URLField(max_length=2048)
+    status = models.CharField(
+        max_length=16,
+        choices=CheckoutStatus,
+        default=CheckoutStatus.OPEN,
+    )
+    setup_intent_id = models.CharField(max_length=160, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "-created_at")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "idempotency_key"],
+                name="billing_checkout_idempotency_uq",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(status=CheckoutStatus.COMPLETE, completed_at__isnull=False)
+                    | (
+                        ~models.Q(status=CheckoutStatus.COMPLETE)
+                        & models.Q(completed_at__isnull=True)
+                    )
+                ),
+                name="billing_checkout_completed_ck",
+            ),
         ]
 
 

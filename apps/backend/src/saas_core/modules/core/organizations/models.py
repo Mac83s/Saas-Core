@@ -383,6 +383,8 @@ class OrganizationAuditAction(models.TextChoices):
     MEMBERSHIP_REVOKED = "membership.revoked", "Odebrano dostęp członkowi"
     MEMBERSHIP_LEFT = "membership.left", "Członek opuścił organizację"
     OWNERSHIP_TRANSFERRED = "ownership.transferred", "Przeniesiono własność"
+    BILLING_CHECKOUT_CREATED = "billing.checkout.created", "Utworzono Checkout"
+    BILLING_PORTAL_CREATED = "billing.portal.created", "Utworzono sesję portalu"
 
 
 class OrganizationAuditEntry(models.Model):

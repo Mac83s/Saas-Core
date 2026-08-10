@@ -1,3 +1,5 @@
+from typing import Any
+
 from django.db import migrations
 
 FEATURES = {
@@ -58,7 +60,7 @@ PLANS = {
 }
 
 
-def seed_pilot_catalog(apps, schema_editor):
+def seed_pilot_catalog(apps: Any, schema_editor: Any) -> None:
     feature_model = apps.get_model("billing", "Feature")
     quota_model = apps.get_model("billing", "QuotaDefinition")
     plan_model = apps.get_model("billing", "Plan")
