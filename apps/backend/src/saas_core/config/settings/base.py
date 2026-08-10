@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "drf_spectacular",
     "saas_core.modules.core.health",
+    "saas_core.modules.core.identity",
 ]
 
 MIDDLEWARE = [
@@ -97,6 +98,7 @@ STORAGES = {
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+AUTH_USER_MODEL = "identity.User"
 
 REDIS_URL = secret_setting("REDIS_URL")
 if not REDIS_URL:

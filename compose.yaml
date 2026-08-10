@@ -8,7 +8,7 @@ x-backend-environment: &backend-environment
   DJANGO_SECRET_KEY_FILE: /run/secrets/django_secret_key
   DJANGO_SETTINGS_MODULE: saas_core.config.settings.container
   LOG_DIRECTORY: /var/log/saas-core
-  POSTGRES_DB: saas_core
+  POSTGRES_DB: ${SAAS_CORE_POSTGRES_DB:-saas_core}
   POSTGRES_HOST: postgres
   POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
   POSTGRES_PORT: "5432"
@@ -42,7 +42,7 @@ services:
   postgres:
     image: postgres:18-alpine
     environment:
-      POSTGRES_DB: saas_core
+      POSTGRES_DB: ${SAAS_CORE_POSTGRES_DB:-saas_core}
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       POSTGRES_USER: saas_core
     secrets:
@@ -55,7 +55,7 @@ services:
       - data
       - host-access
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U saas_core -d saas_core"]
+      test: ["CMD-SHELL", "pg_isready -U saas_core -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -338,7 +338,7 @@ services:
     image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1
     environment:
       DATA_SOURCE_PASS_FILE: /run/secrets/postgres_password
-      DATA_SOURCE_URI: postgres:5432/saas_core?sslmode=disable
+      DATA_SOURCE_URI: postgres:5432/${SAAS_CORE_POSTGRES_DB:-saas_core}?sslmode=disable
       DATA_SOURCE_USER: saas_core
     secrets:
       - postgres_password

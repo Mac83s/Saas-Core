@@ -18,7 +18,7 @@ cleanup() {
 trap cleanup EXIT HUP INT TERM
 
 docker compose exec -T postgres sh -c \
-  'export PGPASSWORD="$(cat /run/secrets/postgres_password)"; exec pg_dump --host 127.0.0.1 --username saas_core --dbname saas_core --format custom' \
+  'export PGPASSWORD="$(cat /run/secrets/postgres_password)"; exec pg_dump --host 127.0.0.1 --username saas_core --dbname "$POSTGRES_DB" --format custom' \
   >"${partial_file}"
 
 test -s "${partial_file}"
@@ -34,4 +34,3 @@ printf '{"backup":"%s","sha256":"%s","bytes":%s,"duration_seconds":%s,"created_a
 
 trap - EXIT HUP INT TERM
 printf 'Backup: %s\nSHA-256: %s\nCzas: %ss\n' "${backup_file}" "${checksum}" "${duration}"
-

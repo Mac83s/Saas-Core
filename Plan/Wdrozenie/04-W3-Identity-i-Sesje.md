@@ -1,6 +1,6 @@
 # W3 — Identity i sesje
 
-**Status:** blocked by W1 and W2  
+**Status:** in progress — implementacja lokalna, bramka stagingu odroczona  
 **Szacunek:** 1,5–2 tygodnie  
 **Poprzednicy:** W1, W2  
 **Rezultat:** bezpieczne konto użytkownika i zarządzalna sesja
@@ -15,11 +15,11 @@ Operator loguje się osobnym kanałem z obowiązkowym 2FA.
 
 ### W3.1 — model Identity
 
-- utworzyć customowy `User` w pierwszej migracji domenowej;
-- wdrożyć normalizację i unikalność e-maila zgodnie z ADR;
-- dodać `UserSession`, `EmailVerification`, `PasswordReset` i `LoginAttempt`;
-- przechowywać jedynie hashe tokenów jednorazowych;
-- dodać daty wygaśnięcia, użycia oraz mechanizm unieważnienia.
+- [x] utworzyć customowy `User` w pierwszej migracji domenowej;
+- [x] wdrożyć normalizację i unikalność e-maila zgodnie z ADR;
+- [x] dodać `UserSession`, `EmailVerification`, `PasswordReset` i `LoginAttempt`;
+- [x] przechowywać jedynie hashe tokenów jednorazowych;
+- [x] dodać daty wygaśnięcia, użycia oraz mechanizm unieważnienia.
 
 ### W3.2 — rejestracja i weryfikacja
 
@@ -79,3 +79,16 @@ Operator loguje się osobnym kanałem z obowiązkowym 2FA.
 - konto portalu pacjenta (`CustomerPortalIdentity`);
 - role organizacyjne, które należą do W4.
 
+## 6. Dowody lokalne
+
+### W3.1 — 2026-08-10
+
+- migracja `identity.0001_initial` została zastosowana na czystej bazie
+  `saas_core_w3`, bez fałszowania historii starej bazy lokalnej;
+- modele korzystają z UUIDv7, constraintu unikalności `Lower(email)` i
+  constraintu spójności `status` z flagą Django `is_active`;
+- tokeny, identyfikatory logowania, adresy IP i klucze sesji są zapisywane jako
+  keyed HMAC-SHA-256, a reprezentacja wydanego tokenu nie ujawnia wartości;
+- backup nowej bazy przeszedł kontrolę SHA-256, a restore drill odtworzył 19
+  migracji i Django system check w 7 sekund;
+- smoke aplikacji i obserwowalności przeszedł po uruchomieniu nowej migracji.
