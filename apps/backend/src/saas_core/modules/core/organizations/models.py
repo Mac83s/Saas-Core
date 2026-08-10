@@ -385,6 +385,7 @@ class OrganizationAuditAction(models.TextChoices):
     OWNERSHIP_TRANSFERRED = "ownership.transferred", "Przeniesiono własność"
     BILLING_CHECKOUT_CREATED = "billing.checkout.created", "Utworzono Checkout"
     BILLING_PORTAL_CREATED = "billing.portal.created", "Utworzono sesję portalu"
+    BILLING_TRIAL_STARTED = "billing.trial.started", "Rozpoczęto trial"
 
 
 class OrganizationAuditEntry(models.Model):

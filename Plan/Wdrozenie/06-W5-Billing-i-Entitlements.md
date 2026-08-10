@@ -85,6 +85,39 @@ OpenAPI/klienta, poprawny Compose i 166 testów backendu.
 
 ### W5.4 — trial i lifecycle subskrypcji
 
+**Stan:** w toku. W5.4.1 zakończone lokalnie 2026-08-11: wewnętrzny kontrakt
+`activate_trial_for_product()` trwale zapisuje pierwszy trigger produktu,
+wymaga zakończonego Setup Checkout i idempotentnie tworzy subskrypcję Stripe z
+trialem z bieżącej wersji planu. Lokalna subskrypcja, snapshot entitlementów i
+wpis audytu powstają bez oczekiwania na webhook; późniejszy webhook aktualizuje
+ten sam rekord. Walidacja: Ruff, mypy modułu, import-linter, brak dryfu migracji
+i 170 testów backendu.
+
+#### W5.4.1 — rozpoczęcie triala przy pierwszej aktywacji
+
+- utrwalić dokładnie jeden pierwszy trigger produktu na organizację;
+- wymagać wcześniej zakończonego Checkout i powiązanego SetupIntent;
+- pobrać PaymentMethod po stronie serwera i utworzyć subskrypcję z trzydniowym
+  trialem oraz stałym kluczem idempotencji organizacji;
+- zapisać lokalną subskrypcję, snapshot i audyt przed zwróceniem sukcesu;
+- udostępnić serwis domenowy dla przyszłego `shared.sites`, bez publicznego
+  endpointu omijającego uprawnienie `site.publish`.
+
+#### W5.4.2 — zegar lifecycle i ostrzeżenia
+
+- dodać idempotentne harmonogramy ostrzeżeń przed końcem triala i grace period;
+- przełączać wygasły grace period do `read_only` bez usuwania danych;
+- zachować pełny dostęp przy anulowaniu do końca opłaconego okresu;
+- audytować każdą lokalną zmianę stanu wykonaną przez zegar.
+
+#### W5.4.3 — rekonsyliacja Stripe
+
+- cyklicznie pobierać bieżące subskrypcje wymagające potwierdzenia;
+- porównywać wersję lokalną z obiektem Stripe bez używania Stripe w ścieżce
+  autoryzacji;
+- naprawiać brakujące webhooki przez ten sam idempotentny mechanizm aktualizacji;
+- utrwalać wynik, retry i błąd rekonsyliacji do obsługi supportowej.
+
 - zaimplementować jawne stany wewnętrzne;
 - oddzielić datę rejestracji od aktywacji triala zgodnie z decyzją;
 - zaplanować ostrzeżenia przed końcem triala i grace period;

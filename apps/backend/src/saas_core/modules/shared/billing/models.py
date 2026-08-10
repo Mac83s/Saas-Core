@@ -88,6 +88,12 @@ class CheckoutStatus(models.TextChoices):
     EXPIRED = "expired", "Wygasły"
 
 
+class TrialActivationStatus(models.TextChoices):
+    PENDING = "pending", "Oczekuje"
+    ACTIVE = "active", "Aktywowana"
+    FAILED = "failed", "Błąd"
+
+
 class Feature(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     key = models.CharField(max_length=100, unique=True, validators=[CATALOG_KEY_VALIDATOR])
@@ -508,6 +514,58 @@ class BillingCheckout(TenantScopedModel):
                     )
                 ),
                 name="billing_checkout_completed_ck",
+            ),
+        ]
+
+
+class BillingTrialActivation(TenantScopedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    checkout = models.OneToOneField(
+        BillingCheckout,
+        on_delete=models.PROTECT,
+        related_name="trial_activation",
+    )
+    subscription = models.OneToOneField(
+        BillingSubscription,
+        on_delete=models.PROTECT,
+        related_name="trial_activation",
+        null=True,
+        blank=True,
+    )
+    source_type = models.CharField(max_length=64)
+    source_id = models.CharField(max_length=160)
+    status = models.CharField(
+        max_length=16,
+        choices=TrialActivationStatus,
+        default=TrialActivationStatus.PENDING,
+    )
+    activated_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization"],
+                name="billing_trial_activation_org_uq",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(
+                        status=TrialActivationStatus.ACTIVE,
+                        subscription__isnull=False,
+                        activated_at__isnull=False,
+                    )
+                    | (
+                        ~models.Q(status=TrialActivationStatus.ACTIVE)
+                        & models.Q(subscription__isnull=True, activated_at__isnull=True)
+                    )
+                ),
+                name="billing_trial_activation_state_ck",
             ),
         ]
 
