@@ -59,6 +59,10 @@ punktowy mypy, brak dryfu migracji i 137 testów backendu.
 
 ### W5.3 — Stripe
 
+**Stan:** w toku. Lokalny model Customer (przez `BillingProfile`), mapowanie
+Stripe Price → `PlanVersion`, historia subskrypcji i trwały inbox eventów są
+wdrożone. Pozostały podpis, asynchroniczne przetwarzanie oraz Checkout/Portal.
+
 - tworzyć Customer i Checkout wyłącznie dla uprawnionego Ownera;
 - mapować Price do wewnętrznego `PlanVersion`, bez traktowania Stripe jako SSOT;
 - weryfikować podpis webhooka przed zapisem do inboxu;

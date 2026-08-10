@@ -261,6 +261,15 @@ class BillingProfile(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["external_customer_id"],
+                condition=~models.Q(external_customer_id=""),
+                name="org_billing_external_customer_uq",
+            )
+        ]
+
     def __str__(self) -> str:
         return str(self.organization_id)
 

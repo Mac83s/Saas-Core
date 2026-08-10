@@ -63,6 +63,25 @@ class QuotaReservationState(models.TextChoices):
     RELEASED = "released", "Zwolniona"
 
 
+class StripeSubscriptionStatus(models.TextChoices):
+    INCOMPLETE = "incomplete", "Niekompletna"
+    INCOMPLETE_EXPIRED = "incomplete_expired", "Niekompletna i wygasła"
+    TRIALING = "trialing", "Trial"
+    ACTIVE = "active", "Aktywna"
+    PAST_DUE = "past_due", "Płatność zaległa"
+    CANCELED = "canceled", "Anulowana"
+    UNPAID = "unpaid", "Nieopłacona"
+    PAUSED = "paused", "Wstrzymana"
+
+
+class WebhookProcessingStatus(models.TextChoices):
+    RECEIVED = "received", "Odebrane"
+    PROCESSING = "processing", "Przetwarzane"
+    PROCESSED = "processed", "Przetworzone"
+    FAILED = "failed", "Błąd"
+    IGNORED = "ignored", "Pominięte"
+
+
 class Feature(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     key = models.CharField(max_length=100, unique=True, validators=[CATALOG_KEY_VALIDATOR])
@@ -194,6 +213,34 @@ class PlanVersion(models.Model):
                 errors["quotas"] = f"Nieznane limity: {', '.join(sorted(missing_quotas))}."
         if errors:
             raise ValidationError(errors)
+
+
+class StripePriceMapping(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    plan_version = models.ForeignKey(
+        PlanVersion,
+        on_delete=models.PROTECT,
+        related_name="stripe_prices",
+    )
+    stripe_product_id = models.CharField(max_length=160)
+    stripe_price_id = models.CharField(max_length=160, unique=True)
+    livemode = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("plan_version__plan__key", "plan_version__version", "livemode")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["plan_version", "livemode"],
+                condition=models.Q(is_active=True),
+                name="billing_active_price_plan_mode_uq",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return self.stripe_price_id
 
 
 class EntitlementGrant(TenantScopedModel):
@@ -345,6 +392,123 @@ class EntitlementSnapshot(TenantScopedModel):
             errors["sources"] = "Źródła snapshotu muszą być mapą."
         if errors:
             raise ValidationError(errors)
+
+
+class BillingSubscription(TenantScopedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    price_mapping = models.ForeignKey(
+        StripePriceMapping,
+        on_delete=models.PROTECT,
+        related_name="subscriptions",
+    )
+    stripe_subscription_id = models.CharField(max_length=160, unique=True)
+    state = models.CharField(
+        max_length=20,
+        choices=SubscriptionState,
+        default=SubscriptionState.UNCONFIGURED,
+    )
+    provider_status = models.CharField(max_length=24, choices=StripeSubscriptionStatus)
+    current_period_start = models.DateTimeField(null=True, blank=True)
+    current_period_end = models.DateTimeField(null=True, blank=True)
+    trial_start = models.DateTimeField(null=True, blank=True)
+    trial_end = models.DateTimeField(null=True, blank=True)
+    cancel_at_period_end = models.BooleanField(default=False)
+    canceled_at = models.DateTimeField(null=True, blank=True)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    last_event_created_at = models.DateTimeField(null=True, blank=True)
+    last_event_id = models.CharField(max_length=160, blank=True)
+    version = models.PositiveBigIntegerField(default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "-created_at")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization"],
+                condition=~models.Q(state=SubscriptionState.CANCELED),
+                name="billing_subscription_current_org_uq",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(current_period_start__isnull=True, current_period_end__isnull=True)
+                    | (
+                        models.Q(
+                            current_period_start__isnull=False,
+                            current_period_end__isnull=False,
+                        )
+                        & models.Q(current_period_end__gt=models.F("current_period_start"))
+                    )
+                ),
+                name="billing_subscription_period_ck",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(trial_start__isnull=True, trial_end__isnull=True)
+                    | (
+                        models.Q(trial_start__isnull=False, trial_end__isnull=False)
+                        & models.Q(trial_end__gt=models.F("trial_start"))
+                    )
+                ),
+                name="billing_subscription_trial_ck",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["organization", "state"],
+                name="bill_sub_org_state_idx",
+            )
+        ]
+
+
+class StripeWebhookEvent(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    stripe_event_id = models.CharField(max_length=160, unique=True)
+    event_type = models.CharField(max_length=120)
+    api_version = models.CharField(max_length=32, blank=True)
+    livemode = models.BooleanField()
+    provider_created_at = models.DateTimeField()
+    payload = models.JSONField()
+    status = models.CharField(
+        max_length=16,
+        choices=WebhookProcessingStatus,
+        default=WebhookProcessingStatus.RECEIVED,
+    )
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        on_delete=models.PROTECT,
+        related_name="stripe_webhook_events",
+        null=True,
+        blank=True,
+    )
+    subscription = models.ForeignKey(
+        BillingSubscription,
+        on_delete=models.PROTECT,
+        related_name="webhook_events",
+        null=True,
+        blank=True,
+    )
+    attempt_count = models.PositiveIntegerField(default=0)
+    processing_error = models.TextField(blank=True)
+    signature_verified_at = models.DateTimeField()
+    received_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("received_at",)
+        indexes = [
+            models.Index(fields=["status", "received_at"], name="bill_webhook_status_idx"),
+            models.Index(
+                fields=["event_type", "provider_created_at"],
+                name="bill_webhook_type_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.stripe_event_id
 
 
 class QuotaUsage(TenantScopedModel):
