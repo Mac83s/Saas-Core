@@ -41,10 +41,12 @@ są izolowane per tenant. Walidacja: Ruff, brak dryfu migracji i 122 testy backe
 
 ### W5.2 — centralna autoryzacja planowa
 
-> **FINDING W5.2-01:** kontrakt modułu używa `billing.manage`, natomiast wdrożony
-> RBAC i seed ról używają `organization.billing.manage`. Przed wystawieniem API
-> billingowego trzeba ujednolicić klucz do istniejącego kontraktu RBAC i objąć to
-> walidacją kontraktów wdrożeniowych.
+**Stan:** w toku. Lokalne, wyjaśnialne decyzje `can()` i `limit()` oraz kompozycja
+z RBAC są wdrożone; pozostały atomowe liczniki/rezerwacje quota.
+
+> **FINDING W5.2-01 — rozwiązane 2026-08-10:** kontrakt modułu i dokumentacja
+> używają teraz wdrożonego klucza `organization.billing.manage`. Profile
+> deploymentu i test kontraktowy przechodzą.
 
 - wdrożyć `can(feature)` i `limit(quota)` dla organizacji;
 - łączyć wynik z permissions bez mieszania obu odpowiedzialności;

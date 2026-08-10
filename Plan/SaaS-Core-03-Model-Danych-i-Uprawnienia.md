@@ -106,7 +106,7 @@ organization.members.manage
 site.content.edit
 site.publish
 domain.manage
-billing.manage
+organization.billing.manage
 booking.appointment.manage
 medical.doctor.manage
 ```

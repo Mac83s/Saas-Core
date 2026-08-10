@@ -6,7 +6,7 @@
   "backend": {
     "djangoApp": "saas_core.modules.shared.billing",
     "urlPrefix": "/api/v1/billing",
-    "permissions": ["billing.manage"],
+    "permissions": ["organization.billing.manage"],
     "entitlements": [],
     "eventSchemas": ["billing.subscription.changed.v1"]
   },
