@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "saas_core.modules.core.identity",
     "saas_core.modules.core.organizations",
     "saas_core.modules.shared.billing",
+    "saas_core.modules.shared.sites",
 ]
 
 MIDDLEWARE = [

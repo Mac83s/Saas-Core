@@ -1215,6 +1215,326 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/:
+    get:
+      operationId: sites_list
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: limit
+        schema:
+          type: integer
+        description: Liczba elementów od 1 do 100; domyślnie 50.
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteList'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: sites_create
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: Klucz bezpiecznego ponowienia mutacji w zakresie organizacji
+          i użytkownika.
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SiteCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SiteCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SiteCreate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteSummary'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteSummary'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/{site_id}/pages/:
+    get:
+      operationId: sites_pages_list
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: limit
+        schema:
+          type: integer
+        description: Liczba elementów od 1 do 100; domyślnie 50.
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageList'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: sites_pages_create
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: Klucz bezpiecznego ponowienia mutacji w zakresie organizacji
+          i użytkownika.
+        required: true
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PageCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PageCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PageCreate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageSummary'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageSummary'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/pages/{page_id}/draft/:
+    get:
+      operationId: sites_page_draft_retrieve
+      parameters:
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageDraft'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    put:
+      operationId: sites_page_draft_save
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: Klucz bezpiecznego ponowienia mutacji w zakresie organizacji
+          i użytkownika.
+        required: true
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DraftSave'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DraftSave'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DraftSave'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageDraft'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageDraft'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
 components:
   schemas:
     ActiveOrganization:
@@ -1264,6 +1584,19 @@ components:
           type: string
       required:
       - csrf_token
+    DraftSave:
+      type: object
+      properties:
+        expected_version:
+          type: integer
+          minimum: 0
+        blocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/PageBlockInput'
+      required:
+      - blocks
+      - expected_version
     EntitlementSupportItem:
       type: object
       properties:
@@ -1645,6 +1978,141 @@ components:
           format: uuid
       required:
       - membership_id
+    PageBlock:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        position:
+          type: integer
+        block_type:
+          type: string
+        schema_version:
+          type: integer
+        data: {}
+      required:
+      - block_type
+      - data
+      - id
+      - position
+      - schema_version
+    PageBlockInput:
+      type: object
+      properties:
+        block_type:
+          type: string
+          maxLength: 120
+          pattern: ^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$
+        schema_version:
+          type: integer
+          minimum: 1
+        data: {}
+      required:
+      - block_type
+      - data
+      - schema_version
+    PageCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        key:
+          type: string
+          maxLength: 80
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+      required:
+      - key
+      - name
+    PageDraft:
+      type: object
+      properties:
+        page_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        draft_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        content_hash:
+          type:
+          - string
+          - 'null'
+        created_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        blocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/PageBlock'
+      required:
+      - blocks
+      - content_hash
+      - created_at
+      - draft_id
+      - page_id
+      - version
+    PageList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PageSummary'
+        next_cursor:
+          type:
+          - string
+          - 'null'
+          format: uuid
+      required:
+      - items
+      - next_cursor
+    PageSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        site_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        key:
+          type: string
+        version:
+          type: integer
+        current_draft_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        current_draft_hash:
+          type:
+          - string
+          - 'null'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - created_at
+      - current_draft_hash
+      - current_draft_id
+      - id
+      - key
+      - name
+      - site_id
+      - updated_at
+      - version
     PasswordResetConfirm:
       type: object
       properties:
@@ -1776,6 +2244,69 @@ components:
       - expires_at
       - id
       - last_seen_at
+    SiteCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        slug:
+          type: string
+          maxLength: 80
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        default_locale:
+          allOf:
+          - $ref: '#/components/schemas/LocaleEnum'
+          default: pl
+      required:
+      - name
+      - slug
+    SiteList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SiteSummary'
+        next_cursor:
+          type:
+          - string
+          - 'null'
+          format: uuid
+      required:
+      - items
+      - next_cursor
+    SiteSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        default_locale:
+          type: string
+        current_publication_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - created_at
+      - current_publication_id
+      - default_locale
+      - id
+      - name
+      - slug
+      - updated_at
     StripeWebhookReceipt:
       type: object
       properties:

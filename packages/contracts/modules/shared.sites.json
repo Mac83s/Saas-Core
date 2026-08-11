@@ -2,7 +2,7 @@
   "id": "shared.sites",
   "layer": "shared",
   "version": 1,
-  "dependsOn": ["core.organizations", "core.audit"],
+  "dependsOn": ["core.organizations", "core.audit", "shared.billing"],
   "backend": {
     "djangoApp": "saas_core.modules.shared.sites",
     "urlPrefix": "/api/v1/sites",

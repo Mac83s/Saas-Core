@@ -43,16 +43,27 @@ OpenAPI/klientem oraz lokalnym buildem odpowiedniego profilu.
 
 ### W6.1 — model strony i treści
 
-- [ ] utworzyć moduł `shared.sites` i publiczne API zgodne z deskryptorem;
-- [ ] wdrożyć tenantowe `Site`, `Page`, niemutowalne `PageVersion` i
+**Stan:** zakończone lokalnie 2026-08-11. Moduł udostępnia cursorowe API Sites,
+Pages i draftów z Problem Details, idempotencją, optimistic lockiem, audytem,
+permissionami `site.content.edit`/`site.publish`, entitlementem `sites.enabled`
+i limitem `sites.max`. PostgreSQL pilnuje zgodności tenantowych relacji oraz
+append-only dla wersji, bloków i publikacji. Migracje są rozszerzające; rollback
+aplikacji pozostawia nowe tabele, a migracji nie cofamy po zapisaniu danych.
+Walidacja: migracja od pustej bazy, 201 testów backendu, pełny Mypy 0 błędów w
+126 plikach, Ruff, import-linter, brak dryfu migracji, aktualny OpenAPI i klient
+TypeScript, pełny `pnpm check`, build profilu `medplano`, zdrowy Compose oraz
+smoke aplikacji i object storage.
+
+- [x] utworzyć moduł `shared.sites` i publiczne API zgodne z deskryptorem;
+- [x] wdrożyć tenantowe `Site`, `Page`, niemutowalne `PageVersion` i
   `PageBlock` oraz append-only `Publication`;
-- [ ] zapisywać kolejną wersję draftu z optimistic lockiem zamiast aktualizować
+- [x] zapisywać kolejną wersję draftu z optimistic lockiem zamiast aktualizować
   istniejący snapshot;
-- [ ] zapewnić stabilne slug, kolejność bloków i constrainty rozpoczynające się
+- [x] zapewnić stabilne slug, kolejność bloków i constrainty rozpoczynające się
   od `organization_id`;
-- [ ] dodać API listy, utworzenia i zapisu draftu z Problem Details oraz
+- [x] dodać API listy, utworzenia i zapisu draftu z Problem Details oraz
   wygenerowanym klientem TypeScript;
-- [ ] pokryć brak tenant context, obcego tenanta, permission, entitlement,
+- [x] pokryć brak tenant context, obcego tenanta, permission, entitlement,
   konflikt wersji, idempotencję i audyt.
 
 ### W6.2 — tłumaczenia i SEO

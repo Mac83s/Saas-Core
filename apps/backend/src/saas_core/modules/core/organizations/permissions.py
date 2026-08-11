@@ -12,13 +12,20 @@ ORGANIZATION_ARCHIVE: Final = "organization.archive"
 SYSTEM_ROLE_PERMISSIONS: Final[dict[str, tuple[str, ...]]] = {
     "viewer": (ORGANIZATION_READ,),
     "staff": (ORGANIZATION_READ, MEMBERS_READ),
-    "manager": (ORGANIZATION_READ, MEMBERS_READ, MEMBERS_MANAGE_LIMITED),
+    "manager": (
+        ORGANIZATION_READ,
+        MEMBERS_READ,
+        MEMBERS_MANAGE_LIMITED,
+        "site.content.edit",
+    ),
     "admin": (
         ORGANIZATION_READ,
         MEMBERS_READ,
         MEMBERS_MANAGE_LIMITED,
         MEMBERS_MANAGE,
         SETTINGS_MANAGE,
+        "site.content.edit",
+        "site.publish",
     ),
     "owner": (
         ORGANIZATION_READ,
@@ -29,5 +36,7 @@ SYSTEM_ROLE_PERMISSIONS: Final[dict[str, tuple[str, ...]]] = {
         BILLING_MANAGE,
         OWNERSHIP_TRANSFER,
         ORGANIZATION_ARCHIVE,
+        "site.content.edit",
+        "site.publish",
     ),
 }
