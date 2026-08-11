@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/site-blocks/core.hero.v1.schema.json",
+  "title": "Core hero block v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["heading"],
+  "properties": {
+    "heading": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "body": { "type": "string", "maxLength": 600 },
+    "ctaLabel": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "ctaHref": {
+      "type": "string",
+      "maxLength": 500,
+      "pattern": "^(?:/|https://|mailto:|tel:)"
+    }
+  },
+  "dependentRequired": {
+    "ctaLabel": ["ctaHref"],
+    "ctaHref": ["ctaLabel"]
+  }
+}

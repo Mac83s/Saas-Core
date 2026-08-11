@@ -37,6 +37,12 @@ if (
     raise ImproperlyConfigured("Profil deploymentu zawiera nieobsługiwaną konfigurację locale")
 SITES_SUPPORTED_LOCALES = tuple(dict.fromkeys(_deployment_supported_locales))
 SITES_DEFAULT_LOCALE = _deployment_default_locale
+SITE_BLOCK_CONTRACTS_PATH = Path(
+    os.environ.get(
+        "SITE_BLOCK_CONTRACTS_PATH",
+        BASE_DIR.parent.parent / "packages" / "contracts" / "site-blocks",
+    )
+)
 
 
 def secret_setting(name: str, default: str = "") -> str:

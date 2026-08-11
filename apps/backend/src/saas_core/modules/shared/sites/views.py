@@ -32,9 +32,11 @@ from .serializers import (
     SiteSummarySerializer,
 )
 from .services import (
+    PageDraft,
     create_page,
     create_site,
     get_draft,
+    get_draft_preview,
     get_site_localization_report,
     list_page_translations,
     list_pages,
@@ -222,6 +224,25 @@ class PageDraftView(APIView):
         )
 
 
+class PageDraftPreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_page_draft_preview_retrieve",
+        tags=["sites"],
+        responses={
+            200: PageDraftSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, _request: Request, page_id: UUID, version_id: UUID) -> Response:
+        return Response(
+            _draft_payload(get_draft_preview(page_id=page_id, version_id=version_id))
+        )
+
+
 class PageTranslationListView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -330,10 +351,13 @@ def _page_summary(page: Page) -> dict[str, Any]:
 
 
 def _draft_summary(page_id: UUID) -> dict[str, Any]:
-    draft = get_draft(page_id=page_id)
+    return _draft_payload(get_draft(page_id=page_id))
+
+
+def _draft_payload(draft: PageDraft) -> dict[str, Any]:
     return {
         "page_id": draft.page.id,
-        "version": draft.page.version,
+        "version": draft.version.number if draft.version is not None else draft.page.version,
         "draft_id": draft.version.id if draft.version is not None else None,
         "content_hash": draft.version.content_hash if draft.version is not None else None,
         "created_at": draft.version.created_at if draft.version is not None else None,

@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     "./deployment.schema.json": "./deployment.schema.json",
-    "./module.schema.json": "./module.schema.json"
+    "./module.schema.json": "./module.schema.json",
+    "./site-blocks/*": "./site-blocks/*"
   },
   "scripts": {
     "lint": "node scripts/deployment-check.mjs --profile core-only && node scripts/deployment-check.mjs --profile medplano",

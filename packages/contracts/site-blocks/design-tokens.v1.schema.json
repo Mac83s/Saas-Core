@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/site-blocks/design-tokens.v1.schema.json",
+  "title": "Site design tokens v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "palette", "typography", "radius", "spacing"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "palette": { "enum": ["neutral", "blue", "emerald"] },
+    "typography": { "enum": ["sans", "serif"] },
+    "radius": { "enum": ["none", "small", "medium", "large"] },
+    "spacing": { "enum": ["compact", "comfortable", "spacious"] }
+  }
+}

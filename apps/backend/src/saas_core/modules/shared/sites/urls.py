@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    PageDraftPreviewView,
     PageDraftView,
     PageListCreateView,
     PageTranslationListView,
@@ -20,6 +21,11 @@ urlpatterns = [
         name="localization-report",
     ),
     path("pages/<uuid:page_id>/draft/", PageDraftView.as_view(), name="page-draft"),
+    path(
+        "pages/<uuid:page_id>/preview/<uuid:version_id>/",
+        PageDraftPreviewView.as_view(),
+        name="page-draft-preview",
+    ),
     path(
         "pages/<uuid:page_id>/translations/",
         PageTranslationListView.as_view(),

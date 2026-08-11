@@ -1,5 +1,11 @@
 """Public use-case API of the Sites module."""
 
+from .block_contracts import (
+    InvalidSiteBlockData,
+    UnknownSiteBlockType,
+    UnknownSiteBlockVersion,
+    validate_site_block,
+)
 from .services import (
     DraftVersionConflict,
     MutationResult,
@@ -7,6 +13,7 @@ from .services import (
     PageKeyConflict,
     PageNotFound,
     PageTranslations,
+    PageVersionNotFound,
     SiteNotFound,
     SitesIdempotencyConflict,
     SiteSlugConflict,
@@ -18,6 +25,7 @@ from .services import (
     create_page,
     create_site,
     get_draft,
+    get_draft_preview,
     get_site_localization_report,
     list_page_translations,
     list_pages,
@@ -28,10 +36,12 @@ from .services import (
 
 __all__ = [
     "DraftVersionConflict",
+    "InvalidSiteBlockData",
     "MutationResult",
     "PageDraft",
     "PageKeyConflict",
     "PageNotFound",
+    "PageVersionNotFound",
     "PageTranslations",
     "SiteNotFound",
     "SiteSlugConflict",
@@ -40,14 +50,18 @@ __all__ = [
     "TranslationSlugConflict",
     "TranslationSlugLocked",
     "TranslationVersionConflict",
+    "UnknownSiteBlockType",
+    "UnknownSiteBlockVersion",
     "UnsupportedSiteLocale",
     "create_page",
     "create_site",
     "get_draft",
+    "get_draft_preview",
     "get_site_localization_report",
     "list_page_translations",
     "list_pages",
     "list_sites",
     "save_draft",
     "save_page_translation",
+    "validate_site_block",
 ]

@@ -1,0 +1,10 @@
+{
+  "block_type": "core.hero",
+  "schema_version": 1,
+  "data": {
+    "heading": "Bezpieczna strona organizacji",
+    "body": "Treść zachowana ze starszej publikacji.",
+    "ctaLabel": "Dowiedz się więcej",
+    "ctaHref": "/oferta/"
+  }
+}

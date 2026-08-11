@@ -10,8 +10,20 @@
     "typecheck": "tsc --noEmit",
     "test": "node ../../scripts/run-vitest.mjs --passWithNoTests"
   },
+  "dependencies": {
+    "@saas-core/contracts": "workspace:*",
+    "ajv": "^8.17.1"
+  },
   "devDependencies": {
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
     "typescript": "catalog:",
     "vitest": "^3.2.4"
+  },
+  "peerDependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
   }
 }

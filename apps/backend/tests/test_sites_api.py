@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 import pytest
+from django.conf import settings
 from django.core.cache import cache
 from django.db import DatabaseError, transaction
 from rest_framework.test import APIClient
@@ -398,6 +400,120 @@ def test_page_and_draft_are_tenant_scoped_versioned_and_idempotent() -> None:
         ).count()
         == 2
     )
+
+
+def test_draft_uses_canonical_block_contracts_after_authorization() -> None:
+    client, _, _ = sites_client(slug="sites-block-contracts")
+    site = create_site(client)
+    page = create_page(client, site.data["id"])
+    url = f"/api/v1/sites/pages/{page.data['id']}/draft/"
+
+    def put_block(block: dict[str, Any], idempotency_key: str) -> Any:
+        return client.put(
+            url,
+            {"expected_version": 0, "blocks": [block]},
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_value(client),
+            HTTP_IDEMPOTENCY_KEY=idempotency_key,
+        )
+
+    unknown_type = put_block(
+        {"block_type": "custom.unknown", "schema_version": 1, "data": {}},
+        "unknown-type",
+    )
+    unknown_version = put_block(
+        {"block_type": "core.hero", "schema_version": 99, "data": {}},
+        "unknown-version",
+    )
+    hostile_control_field = put_block(
+        {
+            "block_type": "core.hero",
+            "schema_version": 2,
+            "data": {
+                "title": "Treść",
+                "dangerouslySetInnerHTML": {"__html": "<script>alert(1)</script>"},
+            },
+        },
+        "hostile-field",
+    )
+    javascript_url = put_block(
+        {
+            "block_type": "core.hero",
+            "schema_version": 2,
+            "data": {
+                "title": "Treść",
+                "action": {"label": "Kliknij", "href": "javascript:alert(1)"},
+            },
+        },
+        "javascript-url",
+    )
+
+    assert unknown_type.status_code == 400
+    assert unknown_type.data["code"] == "unknown_site_block_type"
+    assert unknown_version.status_code == 400
+    assert unknown_version.data["code"] == "unknown_site_block_version"
+    assert hostile_control_field.status_code == 400
+    assert hostile_control_field.data["code"] == "invalid_site_block_data"
+    assert javascript_url.status_code == 400
+    assert javascript_url.data["code"] == "invalid_site_block_data"
+    assert PageVersion.all_objects.filter(page_id=page.data["id"]).count() == 0
+
+    fixture_path = settings.SITE_BLOCK_CONTRACTS_PATH / "fixtures" / "core.hero.v1.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    legacy = put_block(fixture, "legacy-fixture")
+    assert legacy.status_code == 201
+    assert legacy.data["blocks"][0]["schema_version"] == 1
+
+    viewer, _, _ = sites_client(slug="sites-block-viewer", role_key="viewer")
+    denied = viewer.put(
+        url,
+        {
+            "expected_version": 0,
+            "blocks": [{"block_type": "custom.unknown", "schema_version": 1, "data": {}}],
+        },
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(viewer),
+        HTTP_IDEMPOTENCY_KEY="viewer-invalid",
+    )
+    assert denied.status_code == 403
+    assert denied.data["code"] == "organization_permission_denied"
+
+
+def test_preview_requires_session_and_explicit_tenant_scoped_version() -> None:
+    client, _, _ = sites_client(slug="sites-preview")
+    foreign_client, _, _ = sites_client(slug="sites-preview-foreign")
+    site = create_site(client)
+    page = create_page(client, site.data["id"])
+    first = save_draft(
+        client,
+        page.data["id"],
+        expected_version=0,
+        idempotency_key="preview-v1",
+        heading="Wersja pierwsza",
+    )
+    second = save_draft(
+        client,
+        page.data["id"],
+        expected_version=1,
+        idempotency_key="preview-v2",
+        heading="Wersja druga",
+    )
+    preview_url = (
+        f"/api/v1/sites/pages/{page.data['id']}/preview/{first.data['draft_id']}/"
+    )
+
+    anonymous = APIClient().get(preview_url)
+    preview = client.get(preview_url)
+    foreign = foreign_client.get(preview_url)
+
+    assert second.status_code == 201
+    assert anonymous.status_code == 403
+    assert preview.status_code == 200
+    assert preview.data["draft_id"] == first.data["draft_id"]
+    assert preview.data["version"] == 1
+    assert preview.data["blocks"][0]["data"]["heading"] == "Wersja pierwsza"
+    assert foreign.status_code == 404
+    assert foreign.data["code"] == "page_version_not_found"
 
 
 def test_database_guards_append_only_snapshots_and_cross_tenant_links() -> None:

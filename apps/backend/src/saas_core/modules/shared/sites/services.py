@@ -18,6 +18,7 @@ from saas_core.modules.shared.billing.api import (
     consume_quota,
 )
 
+from .block_contracts import validate_site_block
 from .localization import SiteLocalizationReport, build_localization_report
 from .models import (
     Page,
@@ -98,6 +99,11 @@ class SiteNotFound(NotFound):
 class PageNotFound(NotFound):
     default_detail = "Podstrona nie istnieje."
     default_code = "page_not_found"
+
+
+class PageVersionNotFound(NotFound):
+    default_detail = "Wersja draftu nie istnieje."
+    default_code = "page_version_not_found"
 
 
 @dataclass(frozen=True, slots=True)
@@ -314,6 +320,39 @@ def get_draft(*, page_id: UUID) -> PageDraft:
     return PageDraft(page, page.current_draft, blocks)
 
 
+def get_draft_preview(*, page_id: UUID, version_id: UUID) -> PageDraft:
+    context = authorize_entitled(
+        SITE_CONTENT_EDIT,
+        SITES_ENABLED,
+        operation=FeatureOperation.READ,
+    )
+    try:
+        page = Page.all_objects.get(
+            pk=page_id,
+            organization_id=context.organization_id,
+        )
+        version = PageVersion.all_objects.get(
+            pk=version_id,
+            page_id=page.id,
+            organization_id=context.organization_id,
+        )
+    except (Page.DoesNotExist, PageVersion.DoesNotExist) as error:
+        raise PageVersionNotFound from error
+    blocks = tuple(
+        PageBlock.all_objects.filter(
+            organization_id=context.organization_id,
+            page_version_id=version.id,
+        ).order_by("position")
+    )
+    for block in blocks:
+        validate_site_block(
+            block_type=block.block_type,
+            schema_version=block.schema_version,
+            data=block.data,
+        )
+    return PageDraft(page, version, blocks)
+
+
 @transaction.atomic
 def save_draft(
     *,
@@ -332,6 +371,12 @@ def save_draft(
         }
         for block in blocks
     ]
+    for block in normalized_blocks:
+        validate_site_block(
+            block_type=block["block_type"],
+            schema_version=block["schema_version"],
+            data=block["data"],
+        )
     content_hash = canonical_json_hash(normalized_blocks)
     request_hash = canonical_json_hash(
         {

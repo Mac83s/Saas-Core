@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "blocks": [
+    {
+      "type": "core.hero",
+      "latestVersion": 2,
+      "schemas": {
+        "1": "core.hero.v1.schema.json",
+        "2": "core.hero.v2.schema.json"
+      }
+    },
+    {
+      "type": "core.rich_text",
+      "latestVersion": 1,
+      "schemas": {
+        "1": "core.rich_text.v1.schema.json"
+      }
+    }
+  ],
+  "designTokens": "design-tokens.v1.schema.json"
+}

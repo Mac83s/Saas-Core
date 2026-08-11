@@ -91,16 +91,29 @@ storage i nowej trasy API.
 
 ### W6.3 — motyw i renderer
 
-- [ ] dodać kanoniczne JSON Schema bloków i design tokens do
+**Stan:** zakończone lokalnie 2026-08-11. Kanoniczny manifest udostępnia
+schematy `core.hero` v1/v2, `core.rich_text` v1 i allowlistowane design tokens;
+backend waliduje dokładnie te same artefakty przed zapisem. Registry przyjmuje
+statyczne manifesty aktywnych modułów, wykonuje wyłącznie liniowe migracje w
+pamięci i renderuje zaufane komponenty React bez HTML/CSS/JavaScriptu z danych.
+Chroniony preview wymaga jawnego `PageVersion`, natomiast publiczny interfejs
+renderera przyjmuje wyłącznie dokument publikacji z ID i hashem snapshotu;
+historyczne drafty nie są dostępne przez publiczne API.
+Walidacja: 209 testów backendu, pełny Mypy w 129 plikach, Ruff, import-linter,
+brak dryfu migracji, testy i typecheck workspace, aktualny OpenAPI i klient,
+build Next.js oraz obrazy backend/frontend na Node.js 24, poprawne profile
+`core-only`/`medplano`, zdrowy Compose i smoke aplikacji oraz storage.
+
+- [x] dodać kanoniczne JSON Schema bloków i design tokens do
   `packages/contracts/site-blocks`;
-- [ ] wdrożyć registry, typy i walidatory w `@saas-core/site-blocks`;
-- [ ] dodać liniowe migratory `vN -> vN+1` oraz fixture zgodności wstecznej;
-- [ ] renderować wyłącznie allowlistowane komponenty bez interpretacji
+- [x] wdrożyć registry, typy i walidatory w `@saas-core/site-blocks`;
+- [x] dodać liniowe migratory `vN -> vN+1` oraz fixture zgodności wstecznej;
+- [x] renderować wyłącznie allowlistowane komponenty bez interpretacji
   HTML/JavaScript/CSS z danych;
-- [ ] oddzielić renderer publiczny bieżącej publikacji od chronionego preview;
-- [ ] zapewnić deterministyczny render i rozszerzenia bloków przez manifest
+- [x] oddzielić renderer publiczny bieżącej publikacji od chronionego preview;
+- [x] zapewnić deterministyczny render i rozszerzenia bloków przez manifest
   modułu/verticala bez importu Shared -> Vertical;
-- [ ] przetestować złośliwe payloady, nieznany typ/wersję i identyczny wynik dla
+- [x] przetestować złośliwe payloady, nieznany typ/wersję i identyczny wynik dla
   tego samego snapshotu.
 
 ### W6.4 — Media

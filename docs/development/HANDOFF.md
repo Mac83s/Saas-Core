@@ -9,55 +9,65 @@
 ## Punkt wznowienia
 
 Kontynuuj lokalną falę W6 z
-`Plan/Wdrozenie/07-W6-Sites-Content-i-Media.md`. W6.0, W6.1 i W6.2 są
-ukończone i zatwierdzone commitami. Następnym pakietem jest **W6.3 - motyw i
-renderer**. Nie wracaj teraz do wdrożenia VPS: brakujące bramki stagingowe W2 i
-W3 są świadomie odłożone do osobnej sesji z dostępem do hosta, domeny, GHCR i
-GitHub Environment.
+`Plan/Wdrozenie/07-W6-Sites-Content-i-Media.md`. W6.0-W6.3 są ukończone
+lokalnie. Następnym pakietem jest **W6.4 — Media**. Nie wracaj teraz do
+wdrożenia VPS: brakujące bramki stagingowe W2 i W3 są świadomie odłożone do
+osobnej sesji z dostępem do hosta, domeny, GHCR i GitHub Environment.
 
-Ostatnie commity punktu bazowego:
+W6.3 dodało kanoniczne schema bloków i design tokens w
+`packages/contracts/site-blocks`, walidację tych samych artefaktów w backendzie,
+registry oraz bezpieczny renderer w `@saas-core/site-blocks`. `core.hero` ma
+liniową migrację v1 -> v2 i fixture wstecznej zgodności. Chroniony endpoint
+preview przyjmuje jawny `PageVersion`; publiczny interfejs renderera przyjmuje
+wyłącznie dokument publikacji z ID oraz hashem snapshotu, a historyczne drafty
+nie są dostępne przez publiczne API.
+
+Ostatnie commity punktu bazowego przed W6.3:
 
 - `68be486 chore(memex): refresh project integration`;
-- `bfbb4c7 feat(sites): add localized SEO metadata` - W6.2;
-- `606284e feat(sites): implement versioned content drafts` - W6.1;
-- `145295e feat(sites): establish W6 foundations` - W6.0.
+- `bfbb4c7 feat(sites): add localized SEO metadata` — W6.2;
+- `606284e feat(sites): implement versioned content drafts` — W6.1;
+- `145295e feat(sites): establish W6 foundations` — W6.0.
 
 ## Pierwszy cel wykonawczy
 
-Zrealizuj W6.3 jako jeden spójny, lokalnie zweryfikowany przyrost:
+Zrealizuj W6.4 jako jeden spójny, lokalnie zweryfikowany przyrost:
 
-1. Dodaj kanoniczne JSON Schema bloków i design tokens w
-   `packages/contracts/site-blocks`.
-2. Rozwiń `@saas-core/site-blocks` o registry, typy, walidatory oraz liniowe
-   migratory `vN -> vN+1` z fixture zgodności wstecznej.
-3. Zapewnij walidację tego samego kontraktu przez backend bez tworzenia
-   równoległego schematu.
-4. Dodaj allowlistowany, deterministyczny renderer. Dane nie mogą sterować
-   HTML-em, JavaScriptem, CSS-em ani dynamicznym importem.
-5. Oddziel chroniony preview jawnej wersji draftu od publicznego renderowania
-   wyłącznie bieżącej publikacji.
-6. Zachowaj kierunek zależności: Shared nie importuje Vertical; rozszerzenia
-   przechodzą przez publiczny manifest/registry.
-7. Dodaj testy nieznanego typu i wersji, złośliwych payloadów, migracji starego
-   schematu i deterministyczności snapshotu. Dopiero po dowodach zaznacz W6.3 w
-   checkliście.
+1. Utwórz moduł `shared.media`, adapter S3 i tenantowy `MediaAsset` z RLS od
+   pierwszej migracji.
+2. Wydawaj krótkotrwały signed upload z losowym kluczem zawierającym ID
+   organizacji; oryginalna nazwa pozostaje wyłącznie znormalizowaną metadaną.
+3. Waliduj rozmiar, deklarowany MIME, magic bytes i rzeczywiste dekodowanie;
+   blokuj HTML, JavaScript i SVG oraz usuwaj EXIF.
+4. Dodaj allowlistowane warianty obrazów i stany
+   `pending -> uploaded -> scanning -> ready` albo `rejected`.
+5. Dopuszczaj do publikacji wyłącznie assety `ready`, a `storage.bytes` naliczaj
+   idempotentnie dokładnie raz.
+6. Zaimplementuj tombstone i asynchroniczne usunięcie obiektu dopiero bez
+   referencji z publikacji.
+7. Przetestuj cross-tenant/RLS, fałszywy MIME, nadmierny rozmiar, złośliwą
+   nazwę, malware, quota oraz ponowienie callbacku.
 
-Kontrakty obowiązkowe przed implementacją: ADR-027, ADR-020 oraz
-`docs/architecture/module-contract.md`. `packages/site-blocks` istnieje, lecz
-obecnie eksportuje jedynie `SITE_BLOCK_SCHEMA_VERSION = 1`.
+Kontrakty obowiązkowe przed implementacją: ADR-027, ADR-022, ADR-025,
+`docs/architecture/module-contract.md` oraz `docs/architecture/api-and-events.md`.
+Lokalny SeaweedFS `4.41` jest zdrowym, uwierzytelnionym emulatorem S3 wyłącznie
+dla Compose local; staging i production nadal wymagają zewnętrznego S3.
 
-## Walidacja i środowisko
+## Walidacja W6.3
 
-Wymagane są Node.js 24, pnpm 11, `uv` i Docker Desktop/WSL. Na końcu uruchom co
-najmniej testy oraz typecheck `@saas-core/site-blocks`, testy dotkniętych
-modułów, `pnpm api:check`, `pnpm deployment:check:all` i pełne kontrole adekwatne
-do zakresu. Jeśli zmienia się backend, wymagane są także Ruff, Mypy,
-import-linter, kontrola migracji i testy backendu.
+- 209 testów backendu;
+- pełny Mypy: 0 błędów w 129 plikach;
+- Ruff, import-linter i brak dryfu migracji;
+- testy oraz typecheck całego workspace;
+- testy kontraktów i snapshot deterministycznego renderera;
+- aktualny OpenAPI i wygenerowany klient TypeScript;
+- poprawne profile `core-only` i `medplano`;
+- produkcyjny build Next.js oraz obrazy backend/frontend na Node.js 24;
+- zdrowy Compose, runtime smoke i podpisany smoke object storage.
 
-W chwili tworzenia handoffu lokalny Compose działał; backend, frontend, Caddy,
-worker, scheduler, PostgreSQL, Redis i object storage były healthy. Nie zakładaj
-jednak, że ten stan przetrwa restart - rozpocznij od `git status --short` oraz
-`docker compose ps`, a przed zmianami pobierz projektowy `memex_pack`.
+Lokalny `/usr/bin/node` ma wersję 22 i emituje ostrzeżenie `engines`; właściwy
+runtime Node.js 24 został potwierdzony buildem obrazu frontendowego. Przy pracy
+poza Dockerem wybierz Node.js 24.
 
 ## Niezmienne ograniczenia
 

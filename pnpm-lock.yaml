@@ -120,7 +120,26 @@ importers:
         version: 3.0.1(ajv@8.20.0)
 
   packages/site-blocks:
+    dependencies:
+      '@saas-core/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      ajv:
+        specifier: ^8.17.1
+        version: 8.20.0
     devDependencies:
+      '@types/react':
+        specifier: 'catalog:'
+        version: 19.2.18
+      '@types/react-dom':
+        specifier: 'catalog:'
+        version: 19.2.4(@types/react@19.2.18)
+      react:
+        specifier: 19.2.0
+        version: 19.2.0
+      react-dom:
+        specifier: 19.2.0
+        version: 19.2.0(react@19.2.0)
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
