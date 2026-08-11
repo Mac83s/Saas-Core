@@ -2,7 +2,7 @@
 
 from .authorization import EntitlementRequired, authorize_entitled
 from .decisions import FeatureOperation
-from .quotas import QuotaExceeded, QuotaUnavailable, consume_quota
+from .quotas import QuotaExceeded, QuotaUnavailable, consume_quota, reserve_quota
 
 __all__ = [
     "EntitlementRequired",
@@ -11,4 +11,5 @@ __all__ = [
     "QuotaUnavailable",
     "authorize_entitled",
     "consume_quota",
+    "reserve_quota",
 ]

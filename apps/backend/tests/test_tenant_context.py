@@ -4,7 +4,6 @@ from datetime import timedelta
 from uuid import UUID, uuid7
 
 import pytest
-from django.apps import apps as django_apps
 from django.contrib.sessions.backends.base import SessionBase
 from django.core.cache import cache
 from django.db import connection
@@ -295,11 +294,13 @@ def test_task_contract_contains_uuid_correlation_id_without_request_context() ->
         assert UUID(correlation_id.get() or "").version == 7
 
 
-def test_rls_deferment_ends_when_first_sensitive_tenant_model_is_added() -> None:
-    sensitive_model_names = {"Customer", "Appointment", "MediaAsset"}
-    installed_model_names = {model.__name__ for model in django_apps.get_models()}
-
-    assert sensitive_model_names.isdisjoint(installed_model_names), (
-        "Pierwszy wrażliwy model tenantowy już istnieje: zastąp ten test polityką RLS "
-        "i testem bezpośredniego SQL zgodnie z ADR-022."
-    )
+def test_first_sensitive_tenant_model_has_forced_rls() -> None:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT relrowsecurity, relforcerowsecurity
+            FROM pg_class
+            WHERE oid = 'media_mediaasset'::regclass
+            """
+        )
+        assert cursor.fetchone() == (True, True)

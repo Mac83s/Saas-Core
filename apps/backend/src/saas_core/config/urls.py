@@ -22,6 +22,7 @@ urlpatterns = [
     ),
     path("api/v1/billing/", include("saas_core.modules.shared.billing.urls")),
     path("api/v1/sites/", include("saas_core.modules.shared.sites.urls")),
+    path("api/v1/media/", include("saas_core.modules.shared.media.urls")),
     path("api/v1/", include("saas_core.modules.core.health.urls")),
     path("api/schema/", SpectacularAPIView.as_view(), name="openapi-schema"),
     path(

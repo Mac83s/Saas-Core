@@ -81,6 +81,7 @@ INSTALLED_APPS = [
     "saas_core.modules.core.organizations",
     "saas_core.modules.shared.billing",
     "saas_core.modules.shared.sites",
+    "saas_core.modules.shared.media",
 ]
 
 MIDDLEWARE = [
@@ -163,6 +164,12 @@ if OBJECT_STORAGE_ENDPOINT_URL and not (
     and OBJECT_STORAGE_SECRET_ACCESS_KEY
 ):
     raise ImproperlyConfigured("Lokalny object storage wymaga endpointu, bucketa i sekretów")
+MEDIA_UPLOAD_URL_TTL_SECONDS = int(os.environ.get("MEDIA_UPLOAD_URL_TTL_SECONDS", "900"))
+MEDIA_MAX_UPLOAD_BYTES = int(os.environ.get("MEDIA_MAX_UPLOAD_BYTES", str(10 * 1024**2)))
+if MEDIA_UPLOAD_URL_TTL_SECONDS <= 0 or MEDIA_UPLOAD_URL_TTL_SECONDS > 3600:
+    raise ImproperlyConfigured("Czas ważności signed upload musi mieścić się w 1..3600 s")
+if MEDIA_MAX_UPLOAD_BYTES <= 0:
+    raise ImproperlyConfigured("Maksymalny rozmiar uploadu musi być dodatni")
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "identity.User"
 

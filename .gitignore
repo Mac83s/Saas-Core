@@ -22,6 +22,10 @@ htmlcov/
 !.env.example
 *.log
 media/
+!apps/backend/src/saas_core/modules/shared/media/
+!apps/backend/src/saas_core/modules/shared/media/*.py
+!apps/backend/src/saas_core/modules/shared/media/migrations/
+!apps/backend/src/saas_core/modules/shared/media/migrations/*.py
 staticfiles/
 
 # Editors and OS

@@ -118,11 +118,26 @@ build Next.js oraz obrazy backend/frontend na Node.js 24, poprawne profile
 
 ### W6.4 — Media
 
+- **Stan:** w toku — W6.4.1 (inicjowanie uploadu) ukończone lokalnie
+  2026-08-11. `MediaAsset`, polityka `FORCE RLS`, uprawnienia, entitlement,
+  rezerwacja `storage.bytes`, losowy klucz tenantowy, signed PUT i list API mają
+  testy PostgreSQL oraz aktualny kontrakt OpenAPI. Przed zamknięciem pierwszego
+  punktu trzeba rozdzielić w Compose rolę aplikacyjną `NOBYPASSRLS` od roli
+  migracyjnej; obecna lokalna rola `saas_core` jest superuserem. Następny
+  przyrost obejmuje callback uploadu, walidację zawartości i pipeline skanera.
+
 - [ ] utworzyć moduł `shared.media`, adapter S3 i `MediaAsset` z RLS od pierwszej
   migracji;
-- [ ] wydawać krótkotrwały signed upload z losowym kluczem tenantowym;
+  - [x] dodać model, migrację `FORCE RLS` i bezpośrednie testy SQL pod rolą
+    `NOSUPERUSER NOBYPASSRLS`;
+  - [ ] uruchamiać backend/worker rolą aplikacyjną bez `BYPASSRLS`, a migracje
+    oddzielną rolą;
+- [x] wydawać krótkotrwały signed upload z losowym kluczem tenantowym;
 - [ ] walidować rozmiar, nazwę, deklarowany MIME, magic bytes i rzeczywiste
   dekodowanie;
+  - [x] walidować limit rozmiaru, bezpieczną nazwę-metadane i allowlistę
+    deklarowanego MIME przed wydaniem URL;
+  - [ ] po uploadzie sprawdzać rozmiar obiektu, magic bytes i dekodowanie;
 - [ ] usuwać EXIF, blokować HTML/JS/SVG i tworzyć allowlistowane warianty
   obrazów;
 - [ ] wdrożyć stany `pending/uploaded/scanning/ready/rejected` i skaner plików;
@@ -131,6 +146,8 @@ build Next.js oraz obrazy backend/frontend na Node.js 24, poprawne profile
 - [ ] dodać tombstone oraz asynchroniczne usunięcie obiektu bez referencji;
 - [ ] przetestować RLS, fałszywy MIME, przekroczenie quota, malware i
   idempotentne ponowienie callbacku.
+  - [x] przetestować RLS read/write, przekroczenie quota, złośliwą nazwę i
+    idempotentne inicjowanie uploadu;
 
 ### W6.5 — panel edycji i publikacja
 

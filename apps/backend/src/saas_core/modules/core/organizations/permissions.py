@@ -17,6 +17,8 @@ SYSTEM_ROLE_PERMISSIONS: Final[dict[str, tuple[str, ...]]] = {
         MEMBERS_READ,
         MEMBERS_MANAGE_LIMITED,
         "site.content.edit",
+        "media.read",
+        "media.manage",
     ),
     "admin": (
         ORGANIZATION_READ,
@@ -26,6 +28,8 @@ SYSTEM_ROLE_PERMISSIONS: Final[dict[str, tuple[str, ...]]] = {
         SETTINGS_MANAGE,
         "site.content.edit",
         "site.publish",
+        "media.read",
+        "media.manage",
     ),
     "owner": (
         ORGANIZATION_READ,
@@ -38,5 +42,7 @@ SYSTEM_ROLE_PERMISSIONS: Final[dict[str, tuple[str, ...]]] = {
         ORGANIZATION_ARCHIVE,
         "site.content.edit",
         "site.publish",
+        "media.read",
+        "media.manage",
     ),
 }

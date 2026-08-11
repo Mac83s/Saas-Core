@@ -340,6 +340,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/media/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["media_assets_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/media/uploads/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["media_uploads_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/": {
         parameters: {
             query?: never;
@@ -732,6 +764,37 @@ export interface components {
             /** Format: email */
             email: string;
             password: string;
+        };
+        MediaAsset: {
+            /** Format: uuid */
+            id: string;
+            original_filename: string;
+            declared_mime: string;
+            expected_size: number;
+            actual_size: number | null;
+            state: string;
+            /** Format: date-time */
+            upload_expires_at: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        MediaAssetList: {
+            items: components["schemas"]["MediaAsset"][];
+            /** Format: uuid */
+            next_cursor: string | null;
+        };
+        MediaUpload: {
+            asset: components["schemas"]["MediaAsset"];
+            /** Format: uri */
+            upload_url: string;
+            upload_headers: {
+                [key: string]: string;
+            };
+        };
+        MediaUploadCreate: {
+            filename: string;
+            content_type: string;
+            size: number;
         };
         MembershipSummary: {
             /** Format: uuid */
@@ -1915,6 +1978,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MembershipSummary"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    media_assets_list: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaAssetList"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    media_uploads_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia inicjowania uploadu. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MediaUploadCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["MediaUploadCreate"];
+                "multipart/form-data": components["schemas"]["MediaUploadCreate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaUpload"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaUpload"];
                 };
             };
             400: {

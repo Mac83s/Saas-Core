@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Modularny backend SaaS Core"
 requires-python = ">=3.14,<3.15"
 dependencies = [
+  "botocore>=1.40,<2",
   "celery>=5.6.3,<5.7",
   "cryptography>=46,<47",
   "django>=5.2.8,<5.3",
@@ -66,7 +67,7 @@ mypy_path = "src"
 django_settings_module = "saas_core.config.settings.test"
 
 [[tool.mypy.overrides]]
-module = ["celery", "celery.*"]
+module = ["botocore", "botocore.*", "celery", "celery.*"]
 ignore_missing_imports = true
 
 [tool.coverage.run]
