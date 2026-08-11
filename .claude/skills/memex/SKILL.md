@@ -16,7 +16,7 @@ accurate than rediscovering the same things from source.
 own priors, call:
 
 ```
-memex_pack(target: "<the task in your own words>", project: "<project>")
+memex_pack(target: "<the task in your own words>")
 ```
 
 One call returns a budgeted bundle: how the relevant part of the system works,
@@ -37,7 +37,8 @@ maintained by agents and is exactly as good as its last ingest.
 Watch two frontmatter fields:
 
 - `confidence: flagged` — this page is one side of an open contradiction. Read
-  `wiki/contradictions.md` before relying on it.
+  the visible project contradiction record before relying on it; if none is
+  available, ask the owner rather than reaching outside the project scope.
 - a page marked stale by `memex_doctor` was built from a source that has since
   changed.
 
@@ -63,8 +64,18 @@ Do not wait for “use memex”, “make a worklog”, or “update the task”.
 the work:
 
 - Treat the MCP connection's default project as the current scope. Do not file
-  work under another project unless the task explicitly crosses projects. A
-  vault may contain several projects, but it is one trust/sync boundary.
+  work under another project. The scope is fixed by the owner when connecting
+  this repository; a tool argument cannot widen it. Cross-project work belongs
+  in a separate owner-started `memex mcp --admin` session, never this project
+  session. A vault may contain several projects, but it is one trust/sync
+  boundary.
+
+- Every project follows Destylacja → Brief → Plan → Wdrożenie → Weryfikacja,
+  independently of task and plan status. When work produces observable evidence
+  for the current gate, record it with `memex_work(action: "process", text:
+  "<path, approval, test, measurement or result>")`. Set `advance: true` only
+  when that gate's expected outcomes genuinely hold; never skip a gate or use a
+  status assertion as evidence.
 
 - Add a task when a concrete action must survive this session. Link it to a plan
   when it advances a multi-step outcome. Move it through backlog → ready → doing
