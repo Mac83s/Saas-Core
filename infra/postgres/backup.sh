@@ -18,7 +18,7 @@ cleanup() {
 trap cleanup EXIT HUP INT TERM
 
 docker compose exec -T postgres sh -c \
-  'export PGPASSWORD="$(cat /run/secrets/postgres_password)"; exec pg_dump --host 127.0.0.1 --username saas_core --dbname "$POSTGRES_DB" --format custom' \
+  'export PGPASSWORD="$(cat /run/secrets/postgres_password)"; exec pg_dump --host 127.0.0.1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" --format custom' \
   >"${partial_file}"
 
 test -s "${partial_file}"

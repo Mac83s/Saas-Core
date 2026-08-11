@@ -26,6 +26,10 @@ await mkdir(resolve(runtimeDirectory, "emails"), {
 });
 await ensureSecret("django_secret_key", randomBytes(48).toString("base64url"));
 await ensureSecret("postgres_password", "saas_core");
+await ensureSecret(
+  "postgres_app_password",
+  randomBytes(32).toString("base64url"),
+);
 await ensureSecret("redis_password", randomBytes(32).toString("base64url"));
 await ensureSecret(
   "grafana_admin_password",

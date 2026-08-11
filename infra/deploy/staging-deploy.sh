@@ -21,6 +21,10 @@ if [ ! -d "${DEPLOY_PATH}/secrets" ]; then
   echo "Brak ${DEPLOY_PATH}/secrets na hoście staging" >&2
   exit 1
 fi
+if [ ! -s "${DEPLOY_PATH}/secrets/postgres_app_password" ]; then
+  echo "Brak niepustego sekretu postgres_app_password na hoście staging" >&2
+  exit 1
+fi
 
 set -a
 . "${DEPLOY_PATH}/staging.env"
@@ -48,6 +52,7 @@ fi
 compose config --quiet
 compose pull
 compose up -d postgres redis
+compose run --rm database-bootstrap
 compose run --rm migrate
 compose up -d --no-deps backend worker scheduler
 compose up -d --no-deps frontend
@@ -67,6 +72,10 @@ until curl --fail --silent --show-error --max-time 10 \
     exit 1
   fi
   sleep 5
+done
+
+for service in backend worker scheduler; do
+  compose exec -T "${service}" python manage.py check_database_role
 done
 
 compose ps

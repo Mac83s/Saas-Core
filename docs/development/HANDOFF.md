@@ -10,9 +10,10 @@
 
 Kontynuuj lokalną falę W6 z
 `Plan/Wdrozenie/07-W6-Sites-Content-i-Media.md`. W6.0-W6.3 są ukończone
-lokalnie, a **W6.4 — Media** jest w toku po ukończeniu przyrostu W6.4.1. Nie wracaj teraz do
-wdrożenia VPS: brakujące bramki stagingowe W2 i W3 są świadomie odłożone do
-osobnej sesji z dostępem do hosta, domeny, GHCR i GitHub Environment.
+lokalnie, a **W6.4 — Media** jest w toku po ukończeniu przyrostów W6.4.1 i
+W6.4.2. Nie wracaj teraz do wdrożenia VPS: brakujące bramki stagingowe W2 i W3
+są świadomie odłożone do osobnej sesji z dostępem do hosta, domeny, GHCR i
+GitHub Environment.
 
 W6.3 dodało kanoniczne schema bloków i design tokens w
 `packages/contracts/site-blocks`, walidację tych samych artefaktów w backendzie,
@@ -30,13 +31,21 @@ z prefiksem organizacji; oryginalna, znormalizowana nazwa nie trafia do klucza,
 URL ani audytu. `GET /api/v1/media/` jest tenantowo stronicowane. OpenAPI i klient
 TypeScript są aktualne.
 
+W6.4.2 rozdzieliło role PostgreSQL bez resetu istniejącego wolumenu. Idempotentny
+`database-bootstrap` utrzymuje `saas_core_app` jako
+`NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS`, przyznaje DML
+do istniejących tabel i ustawia default privileges dla kolejnych migracji.
+Backend, worker, scheduler i celery-exporter otrzymują wyłącznie sekret roli
+aplikacyjnej; `migrate` korzysta z osobnego sekretu roli migracyjnej. Start oraz
+runtime smoke wywołują `check_database_role` i kończą się błędem dla roli
+uprzywilejowanej. Rollback stagingu nie może wrócić przez tę granicę
+bezpieczeństwa.
+
 Test RLS używa prawdziwego PostgreSQL i tymczasowej roli
 `NOSUPERUSER NOBYPASSRLS`: brak `SET LOCAL` i obcy tenant zwracają zero, własny
-tenant widzi rekord, a cross-tenant `INSERT` jest odrzucany. Wykryty kontraktowy
-dług: lokalny Compose nadal łączy backend rolą `saas_core`, która ma
-`rolsuper=true` i `rolbypassrls=true`. Nie uznawaj RLS za operacyjnie domknięte,
-dopóki runtime/worker nie użyją osobnej roli aplikacyjnej, a `migrate` roli
-migracyjnej.
+tenant widzi rekord, a cross-tenant `INSERT` jest odrzucany. Ten sam kontrakt
+został potwierdzony na uruchomionym Compose dla backendu, workera i schedulera;
+negatywny smoke odrzucił rolę migracyjną z `SUPERUSER/BYPASSRLS`.
 
 Ostatnie commity punktu bazowego przed W6.3:
 
@@ -49,19 +58,17 @@ Ostatnie commity punktu bazowego przed W6.3:
 
 Kontynuuj W6.4 następującymi spójnymi przyrostami:
 
-1. Rozdziel w Compose rolę aplikacyjną PostgreSQL `NOBYPASSRLS` od roli
-   migracyjnej i dodaj smoke, który zatrzymuje runtime przy superuser/BYPASSRLS.
-2. Dodaj idempotentny callback ukończenia uploadu i adapter odczytu/head/delete
+1. Dodaj idempotentny callback ukończenia uploadu i adapter odczytu/head/delete
    obiektu; task otrzymuje podpisany tenant task contract.
-3. Waliduj rzeczywisty rozmiar, magic bytes i dekodowanie;
+2. Waliduj rzeczywisty rozmiar, magic bytes i dekodowanie;
    blokuj HTML, JavaScript i SVG oraz usuwaj EXIF.
-4. Dodaj allowlistowane warianty obrazów i stany
+3. Dodaj allowlistowane warianty obrazów i stany
    `pending -> uploaded -> scanning -> ready` albo `rejected`.
-5. Dopuszczaj do publikacji wyłącznie assety `ready`, a `storage.bytes` naliczaj
+4. Dopuszczaj do publikacji wyłącznie assety `ready`, a `storage.bytes` naliczaj
    idempotentnie dokładnie raz.
-6. Zaimplementuj tombstone i asynchroniczne usunięcie obiektu dopiero bez
+5. Zaimplementuj tombstone i asynchroniczne usunięcie obiektu dopiero bez
    referencji z publikacji.
-7. Rozszerz testy o fałszywy MIME, malware, warianty, rozliczenie quota dokładnie
+6. Rozszerz testy o fałszywy MIME, malware, warianty, rozliczenie quota dokładnie
    raz i ponowienie callbacku. Cross-tenant RLS, nadmierny rozmiar, złośliwa
    nazwa, quota przy rezerwacji i ponowienie inicjowania uploadu są już pokryte.
 
@@ -70,15 +77,18 @@ Kontrakty obowiązkowe przed implementacją: ADR-027, ADR-022, ADR-025,
 Lokalny SeaweedFS `4.41` jest zdrowym, uwierzytelnionym emulatorem S3 wyłącznie
 dla Compose local; staging i production nadal wymagają zewnętrznego S3.
 
-## Walidacja W6.4.1
+## Walidacja W6.4.2
 
-- 216 testów backendu;
-- pełny Mypy: 0 błędów w 142 plikach;
+- 222 testy backendu;
+- pełny Mypy: 0 błędów w 145 plikach;
 - Ruff, import-linter i brak dryfu migracji;
 - testy oraz typecheck całego workspace;
 - aktualny OpenAPI i wygenerowany klient TypeScript bez driftu;
 - poprawne profile `core-only` i `medplano`;
 - 21 celowanych testów media + tenant context, w tym bezpośredni SQL RLS.
+- dwukrotny bootstrap roli na istniejącym wolumenie i migracje bez resetu danych;
+- zdrowy Compose oraz runtime smoke roli dla backendu, workera i schedulera;
+- negatywny smoke odrzucający rolę migracyjną z `SUPERUSER/BYPASSRLS`.
 
 Lokalny `/usr/bin/node` ma wersję 22 i emituje ostrzeżenie `engines`; właściwy
 runtime Node.js 24 został potwierdzony buildem obrazu frontendowego. Przy pracy

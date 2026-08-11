@@ -1,6 +1,12 @@
+import { spawnSync } from "node:child_process";
+
 const baseUrl = new URL(
   process.env.SAAS_CORE_BASE_URL ?? "http://127.0.0.1:8080",
 );
+
+for (const service of ["backend", "worker", "scheduler"]) {
+  checkDatabaseRole(service);
+}
 
 await checkJson("frontend", "/healthz", (payload) => payload.status === "ok");
 await checkJson(
@@ -33,6 +39,26 @@ if (!panel.includes("Bezpieczny fundament Twojego produktu SaaS")) {
 console.log(`OK panel: ${panelResponse.status}`);
 
 console.log(`Smoke runtime zakończony: ${baseUrl}`);
+
+function checkDatabaseRole(service) {
+  const result = spawnSync(
+    "docker",
+    [
+      "compose",
+      "exec",
+      "-T",
+      service,
+      "python",
+      "manage.py",
+      "check_database_role",
+    ],
+    { stdio: "inherit" },
+  );
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error(`${service} używa uprzywilejowanej roli PostgreSQL`);
+  }
+}
 
 async function checkJson(label, path, predicate, correlationRequired = false) {
   const response = await fetch(new URL(path, baseUrl), {

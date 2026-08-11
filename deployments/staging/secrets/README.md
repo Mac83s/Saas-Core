@@ -5,7 +5,9 @@ stagingowym pliki znajdują się domyślnie w `/opt/saas-core/secrets`, poza
 checkoutem i z prawami `0600`:
 
 - `django_secret_key` — losowy klucz Django, co najmniej 48 bajtów entropii;
-- `postgres_password` — losowe hasło użytkownika bazy;
+- `postgres_password` — losowe hasło oddzielnej roli migracyjnej PostgreSQL;
+- `postgres_app_password` — niezależne losowe hasło roli aplikacyjnej
+  `NOSUPERUSER NOBYPASSRLS`;
 - `redis_password` — co najmniej 32 znaki alfabetu base64url;
 - `email_host_password` — hasło SMTP, udostępniane wyłącznie workerowi;
 - `grafana_admin_password` — losowe hasło administratora lokalnej Grafany;

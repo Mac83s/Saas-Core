@@ -32,9 +32,11 @@ Na stagingu katalog `/opt/saas-core/secrets`:
 5. Zapisz czas, operatora, zakres i wynik bez wartości sekretu.
 
 Rotacja `DJANGO_SECRET_KEY` unieważnia podpisane dane zależne od klucza i
-wymaga zaplanowanego okna lub przyszłego mechanizmu kluczy zapasowych. Hasło
-PostgreSQL należy zmienić po stronie bazy w tej samej kontrolowanej operacji co
-podmiana pliku aplikacji.
+wymaga zaplanowanego okna lub przyszłego mechanizmu kluczy zapasowych. Hasła
+`postgres_password` roli migracyjnej oraz `postgres_app_password` roli
+aplikacyjnej rotuje się niezależnie, po stronie bazy w tej samej kontrolowanej
+operacji co podmiana właściwego pliku. Backend, worker i scheduler nie otrzymują
+sekretu migratora.
 
 ## Awaryjne unieważnienie
 

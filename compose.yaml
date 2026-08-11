@@ -21,9 +21,9 @@ x-backend-environment: &backend-environment
   OBJECT_STORAGE_FORCE_PATH_STYLE: "true"
   POSTGRES_DB: ${SAAS_CORE_POSTGRES_DB:-saas_core}
   POSTGRES_HOST: postgres
-  POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+  POSTGRES_PASSWORD_FILE: /run/secrets/postgres_app_password
   POSTGRES_PORT: "5432"
-  POSTGRES_USER: saas_core
+  POSTGRES_USER: ${SAAS_CORE_POSTGRES_APP_USER:-saas_core_app}
   REDIS_HOST: redis
   SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-saas_core_local_session}
   SESSION_IDLE_TIMEOUT_SECONDS: ${SESSION_IDLE_TIMEOUT_SECONDS:-1800}
@@ -52,7 +52,7 @@ x-backend-service: &backend-service
   environment: *backend-environment
   secrets:
     - django_secret_key
-    - postgres_password
+    - postgres_app_password
     - stripe_secret_key
     - stripe_webhook_secret
     - object_storage_access_key_id
@@ -78,7 +78,7 @@ services:
     environment:
       POSTGRES_DB: ${SAAS_CORE_POSTGRES_DB:-saas_core}
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
-      POSTGRES_USER: saas_core
+      POSTGRES_USER: ${SAAS_CORE_POSTGRES_MIGRATION_USER:-saas_core}
     secrets:
       - postgres_password
     ports:
@@ -89,13 +89,44 @@ services:
       - data
       - host-access
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U saas_core -d $${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 10
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
+
+  database-bootstrap:
+    image: postgres:18-alpine
+    entrypoint: ["/usr/local/bin/bootstrap-app-role.sh"]
+    environment:
+      POSTGRES_APP_PASSWORD_FILE: /run/secrets/postgres_app_password
+      POSTGRES_APP_USER: ${SAAS_CORE_POSTGRES_APP_USER:-saas_core_app}
+      POSTGRES_DB: ${SAAS_CORE_POSTGRES_DB:-saas_core}
+      POSTGRES_HOST: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${SAAS_CORE_POSTGRES_MIGRATION_USER:-saas_core}
+    secrets:
+      - postgres_app_password
+      - postgres_password
+    volumes:
+      - ./infra/postgres/bootstrap-app-role.sh:/usr/local/bin/bootstrap-app-role.sh:ro
+    networks:
+      - data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: "no"
 
   redis:
     image: saas-core-redis:local
@@ -168,9 +199,18 @@ services:
     environment:
       <<: *backend-environment
       LOG_SERVICE: migrate
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_USER: ${SAAS_CORE_POSTGRES_MIGRATION_USER:-saas_core}
+    secrets:
+      - django_secret_key
+      - postgres_password
+      - stripe_secret_key
+      - stripe_webhook_secret
+      - object_storage_access_key_id
+      - object_storage_secret_access_key
     depends_on:
-      postgres:
-        condition: service_healthy
+      database-bootstrap:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
     restart: "no"
@@ -219,16 +259,12 @@ services:
       <<: *backend-environment
       LOG_SERVICE: worker
     command:
-      [
-        "celery",
-        "-A",
-        "saas_core.config.celery",
-        "worker",
-        "--loglevel=INFO",
-        "--concurrency=2",
-        "--hostname=worker@%h",
-        "--max-tasks-per-child=500",
-      ]
+      - sh
+      - -c
+      - >-
+        python manage.py check_database_role &&
+        exec celery -A saas_core.config.celery worker --loglevel=INFO
+        --concurrency=2 --hostname=worker@%h --max-tasks-per-child=500
     volumes:
       - ${SAAS_CORE_LOGS_DIR:-.runtime/logs}:/var/log/saas-core
       - ${SAAS_CORE_EMAILS_DIR:-.runtime/emails}:/var/lib/saas-core/emails
@@ -261,15 +297,12 @@ services:
       <<: *backend-environment
       LOG_SERVICE: scheduler
     command:
-      [
-        "celery",
-        "-A",
-        "saas_core.config.celery",
-        "beat",
-        "--loglevel=INFO",
-        "--pidfile=/tmp/celerybeat.pid",
-        "--schedule=/tmp/celerybeat-schedule",
-      ]
+      - sh
+      - -c
+      - >-
+        python manage.py check_database_role &&
+        exec celery -A saas_core.config.celery beat --loglevel=INFO
+        --pidfile=/tmp/celerybeat.pid --schedule=/tmp/celerybeat-schedule
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -389,7 +422,12 @@ services:
 
   celery-exporter:
     <<: *backend-service
-    command: ["python", "-m", "saas_core.observability.celery_exporter"]
+    command:
+      - sh
+      - -c
+      - >-
+        python manage.py check_database_role &&
+        exec python -m saas_core.observability.celery_exporter
     environment:
       <<: *backend-environment
       LOG_SERVICE: celery-exporter
@@ -420,7 +458,7 @@ services:
     environment:
       DATA_SOURCE_PASS_FILE: /run/secrets/postgres_password
       DATA_SOURCE_URI: postgres:5432/${SAAS_CORE_POSTGRES_DB:-saas_core}?sslmode=disable
-      DATA_SOURCE_USER: saas_core
+      DATA_SOURCE_USER: ${SAAS_CORE_POSTGRES_MIGRATION_USER:-saas_core}
     secrets:
       - postgres_password
     networks:
@@ -567,6 +605,8 @@ secrets:
     file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/django_secret_key
   postgres_password:
     file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/postgres_password
+  postgres_app_password:
+    file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/postgres_app_password
   grafana_admin_password:
     file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/grafana_admin_password
   stripe_secret_key:

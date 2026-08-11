@@ -34,18 +34,18 @@ restored=0
 cleanup() {
   if [ "${restored}" -eq 1 ]; then
     docker compose exec -T --env "RESTORE_DB=${restore_db}" postgres sh -c \
-      'export PGPASSWORD="$(cat /run/secrets/postgres_password)"; dropdb --if-exists --force --host 127.0.0.1 --username saas_core "$RESTORE_DB"' \
+      'export PGPASSWORD="$(cat /run/secrets/postgres_password)"; dropdb --if-exists --force --host 127.0.0.1 --username "$POSTGRES_USER" "$RESTORE_DB"' \
       >/dev/null
   fi
 }
 trap cleanup EXIT HUP INT TERM
 
 docker compose exec -T --env "RESTORE_DB=${restore_db}" postgres sh -c \
-  'export PGPASSWORD="$(cat /run/secrets/postgres_password)"; createdb --host 127.0.0.1 --username saas_core "$RESTORE_DB"'
+  'export PGPASSWORD="$(cat /run/secrets/postgres_password)"; createdb --host 127.0.0.1 --username "$POSTGRES_USER" "$RESTORE_DB"'
 restored=1
 
 docker compose exec -T --env "RESTORE_DB=${restore_db}" postgres sh -c \
-  'export PGPASSWORD="$(cat /run/secrets/postgres_password)"; pg_restore --exit-on-error --no-owner --host 127.0.0.1 --username saas_core --dbname "$RESTORE_DB"' \
+  'export PGPASSWORD="$(cat /run/secrets/postgres_password)"; pg_restore --exit-on-error --no-owner --host 127.0.0.1 --username "$POSTGRES_USER" --dbname "$RESTORE_DB"' \
   <"${backup_file}"
 
 docker compose run --rm --no-deps --env "POSTGRES_DB=${restore_db}" backend \
@@ -54,7 +54,7 @@ docker compose run --rm --no-deps --env "POSTGRES_DB=${restore_db}" backend \
   python manage.py check
 
 migration_count="$(docker compose exec -T --env "RESTORE_DB=${restore_db}" postgres sh -c \
-  'export PGPASSWORD="$(cat /run/secrets/postgres_password)"; psql --host 127.0.0.1 --username saas_core --dbname "$RESTORE_DB" --tuples-only --no-align --command "SELECT count(*) FROM django_migrations"')"
+  'export PGPASSWORD="$(cat /run/secrets/postgres_password)"; psql --host 127.0.0.1 --username "$POSTGRES_USER" --dbname "$RESTORE_DB" --tuples-only --no-align --command "SELECT count(*) FROM django_migrations"')"
 case "${migration_count}" in
   ''|*[!0-9]*) echo "Kontrola integralności zwróciła niepoprawny wynik" >&2; exit 1 ;;
 esac

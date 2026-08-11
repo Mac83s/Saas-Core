@@ -69,3 +69,7 @@ Skrypt odtwarza poprzedni release i obrazy po zapisanych digestach, nie przez
 `latest`, a następnie wykonuje readiness przez Caddy. Jeżeli poprzedni manifest
 nie istnieje (pierwszy deploy), skrypt kończy się bez zmiany usług.
 
+Rollback nie może przekroczyć granicy bezpieczeństwa sprzed rozdzielenia ról
+PostgreSQL. Skrypt odrzuca release, którego Compose nie używa osobnej roli
+aplikacyjnej `NOBYPASSRLS`; po rollbacku ponownie sprawdza backend, worker i
+scheduler poleceniem `check_database_role`.
