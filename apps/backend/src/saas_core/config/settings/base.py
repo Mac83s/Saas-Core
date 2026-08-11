@@ -232,6 +232,12 @@ CELERY_BEAT_SCHEDULE = {
         "task": "saas_core.modules.shared.billing.tasks.expire_billing_overrides",
         "schedule": 60.0,
     },
+    "billing-release-expired-reservations": {
+        "task": (
+            "saas_core.modules.shared.billing.tasks.release_expired_quota_reservations"
+        ),
+        "schedule": 60.0,
+    },
 }
 
 LOGGING = {

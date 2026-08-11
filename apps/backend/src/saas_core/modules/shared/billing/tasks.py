@@ -5,6 +5,7 @@ from celery import shared_task
 from .lifecycle import process_due_lifecycle_actions
 from .overrides import expire_entitlement_overrides
 from .processor import StripeEventProcessingError, process_stripe_event
+from .quotas import release_expired_quota_reservations
 from .reconciliation import run_reconciliation_batch
 
 
@@ -37,3 +38,10 @@ def reconcile_billing_subscriptions() -> int:
 )
 def expire_billing_overrides() -> int:
     return expire_entitlement_overrides()
+
+
+@shared_task(  # type: ignore[untyped-decorator]
+    name="saas_core.modules.shared.billing.tasks.release_expired_quota_reservations"
+)
+def release_expired_reservations() -> int:
+    return release_expired_quota_reservations()

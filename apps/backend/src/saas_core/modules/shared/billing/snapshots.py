@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any, cast
 
 from django.db import transaction
 from django.db.models import Q
@@ -8,7 +9,15 @@ from django.utils import timezone
 
 from saas_core.modules.core.organizations.models import Organization
 
-from .models import EntitlementGrant, EntitlementSnapshot, GrantSource, StripePriceMapping
+from .models import (
+    EntitlementGrant,
+    EntitlementSnapshot,
+    Feature,
+    GrantSource,
+    PlanVersion,
+    QuotaDefinition,
+    StripePriceMapping,
+)
 
 
 @transaction.atomic
@@ -67,7 +76,7 @@ def refresh_entitlement_snapshot(
 def _write_entitlement_snapshot(
     organization: Organization,
     *,
-    plan_version,
+    plan_version: PlanVersion,
     stripe_price_id: str | None,
     state: str,
     access_mode: str,
@@ -76,7 +85,7 @@ def _write_entitlement_snapshot(
     snapshot: EntitlementSnapshot | None = None,
 ) -> EntitlementSnapshot:
     checked_at = at or timezone.now()
-    source = {
+    source: dict[str, Any] = {
         "kind": "plan",
         "ref": f"{plan_version.plan.key}:v{plan_version.version}",
     }
@@ -84,7 +93,9 @@ def _write_entitlement_snapshot(
         source["stripe_price_id"] = stripe_price_id
     features = {key: True for key in plan_version.feature_keys}
     quotas = dict(plan_version.quotas)
-    sources = {key: source for key in [*plan_version.feature_keys, *plan_version.quotas]}
+    sources: dict[str, dict[str, Any]] = {
+        key: source for key in [*plan_version.feature_keys, *plan_version.quotas]
+    }
     overrides = (
         EntitlementGrant.all_objects.select_related("feature", "quota_definition", "granted_by")
         .filter(
@@ -97,13 +108,15 @@ def _write_entitlement_snapshot(
         .order_by("valid_from", "created_at", "id")
     )
     for grant in overrides:
-        target_key = grant.feature.key if grant.feature_id else grant.quota_definition.key
-        fallback_value = features.get(target_key) if grant.feature_id else quotas.get(target_key)
-        fallback_source = sources.get(target_key)
         if grant.feature_id:
-            features[target_key] = grant.enabled
+            target_key = cast(Feature, grant.feature).key
+            fallback_value = features.get(target_key)
+            features[target_key] = cast(bool, grant.enabled)
         else:
-            quotas[target_key] = grant.limit_value
+            target_key = cast(QuotaDefinition, grant.quota_definition).key
+            fallback_value = quotas.get(target_key)
+            quotas[target_key] = cast(int, grant.limit_value)
+        fallback_source = sources.get(target_key)
         sources[target_key] = {
             "kind": "override",
             "ref": str(grant.id),

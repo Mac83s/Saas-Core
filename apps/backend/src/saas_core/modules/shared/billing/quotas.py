@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
+from uuid import UUID
 
 from django.db import transaction
 from rest_framework.exceptions import APIException, PermissionDenied
@@ -38,6 +39,12 @@ class QuotaReservationConflict(APIException):
     status_code = 409
     default_detail = "Klucz idempotencji został użyty dla innej rezerwacji."
     default_code = "quota_reservation_conflict"
+
+
+class QuotaReservationExpired(APIException):
+    status_code = 409
+    default_detail = "Rezerwacja limitu wygasła przed rozliczeniem."
+    default_code = "quota_reservation_expired"
 
 
 @transaction.atomic
@@ -107,12 +114,35 @@ def reserve_quota(
 
 
 @transaction.atomic
-def commit_quota(idempotency_key: str) -> QuotaReservation:
+def consume_quota(
+    quota_key: str,
+    *,
+    amount: int,
+    idempotency_key: str,
+    at: datetime | None = None,
+) -> QuotaReservation:
+    reserve_quota(
+        quota_key,
+        amount=amount,
+        idempotency_key=idempotency_key,
+        at=at,
+    )
+    return commit_quota(idempotency_key, at=at)
+
+
+@transaction.atomic
+def commit_quota(
+    idempotency_key: str,
+    *,
+    at: datetime | None = None,
+) -> QuotaReservation:
     reservation, usage = _locked_reservation(idempotency_key)
     if reservation.state == QuotaReservationState.COMMITTED:
         return reservation
     if reservation.state == QuotaReservationState.RELEASED:
         raise QuotaReservationConflict
+    if reservation.expires_at is not None and reservation.expires_at <= (at or datetime.now(UTC)):
+        raise QuotaReservationExpired
     usage.reserved -= reservation.amount
     usage.used += reservation.amount
     usage.save(update_fields=["reserved", "used", "updated_at"])
@@ -133,6 +163,47 @@ def release_quota(idempotency_key: str) -> QuotaReservation:
     reservation.state = QuotaReservationState.RELEASED
     reservation.save(update_fields=["state", "updated_at"])
     return reservation
+
+
+def release_expired_quota_reservations(
+    *,
+    at: datetime | None = None,
+    batch_size: int = 100,
+) -> int:
+    checked_at = at or datetime.now(UTC)
+    ids = list(
+        QuotaReservation.all_objects.filter(
+            state=QuotaReservationState.RESERVED,
+            expires_at__lte=checked_at,
+        )
+        .order_by("expires_at", "id")
+        .values_list("id", flat=True)[:batch_size]
+    )
+    released = 0
+    for reservation_id in ids:
+        released += _release_expired_reservation(reservation_id=reservation_id, at=checked_at)
+    return released
+
+
+@transaction.atomic
+def _release_expired_reservation(*, reservation_id: UUID, at: datetime) -> int:
+    reservation = (
+        QuotaReservation.all_objects.select_for_update()
+        .filter(
+            pk=reservation_id,
+            state=QuotaReservationState.RESERVED,
+            expires_at__lte=at,
+        )
+        .first()
+    )
+    if reservation is None:
+        return 0
+    usage = QuotaUsage.all_objects.select_for_update().get(pk=reservation.usage_id)
+    usage.reserved -= reservation.amount
+    usage.save(update_fields=["reserved", "updated_at"])
+    reservation.state = QuotaReservationState.RELEASED
+    reservation.save(update_fields=["state", "updated_at"])
+    return 1
 
 
 def _locked_reservation(idempotency_key: str) -> tuple[QuotaReservation, QuotaUsage]:

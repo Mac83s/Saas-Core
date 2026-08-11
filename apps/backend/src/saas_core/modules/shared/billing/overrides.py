@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import cast
+from uuid import UUID
 
 from django.db import models, transaction
 from django.utils import timezone
@@ -133,7 +134,9 @@ def create_entitlement_override(
 
 
 @transaction.atomic
-def revoke_entitlement_override(*, actor: User, grant_id, reason: str) -> EntitlementGrant:
+def revoke_entitlement_override(
+    *, actor: User, grant_id: UUID, reason: str
+) -> EntitlementGrant:
     context = require_tenant_context()
     _authorize_operator(actor)
     normalized_reason = reason.strip()
@@ -178,7 +181,7 @@ def expire_entitlement_overrides(*, at: datetime | None = None, batch_size: int 
 
 
 @transaction.atomic
-def _expire_override(*, grant_id, at: datetime) -> None:
+def _expire_override(*, grant_id: UUID, at: datetime) -> None:
     grant = (
         EntitlementGrant.all_objects.select_for_update()
         .select_related("organization")
@@ -187,8 +190,11 @@ def _expire_override(*, grant_id, at: datetime) -> None:
     )
     if grant is None:
         return
+    expired_at = grant.expires_at
+    if expired_at is None:
+        return
     Organization.objects.select_for_update().get(pk=grant.organization_id)
-    grant.revoked_at = grant.expires_at
+    grant.revoked_at = expired_at
     grant.save(update_fields=["revoked_at", "updated_at"])
     refresh_entitlement_snapshot(grant.organization, at=at)
     record_audit(
@@ -197,7 +203,7 @@ def _expire_override(*, grant_id, at: datetime) -> None:
         actor=None,
         target_type="entitlement_grant",
         target_id=grant.id,
-        metadata={"expired_at": grant.expires_at.isoformat()},
+        metadata={"expired_at": expired_at.isoformat()},
     )
 
 
@@ -207,7 +213,13 @@ def _authorize_operator(actor: User) -> None:
         raise BillingOperatorRequired
 
 
-def _resolve_target(*, feature_key, enabled, quota_key, limit_value):
+def _resolve_target(
+    *,
+    feature_key: str | None,
+    enabled: bool | None,
+    quota_key: str | None,
+    limit_value: int | None,
+) -> tuple[Feature | None, QuotaDefinition | None]:
     feature_override = feature_key is not None and isinstance(enabled, bool)
     quota_override = (
         quota_key is not None
@@ -218,8 +230,8 @@ def _resolve_target(*, feature_key, enabled, quota_key, limit_value):
     if feature_override == quota_override:
         raise ValueError("Override wymaga dokładnie jednej poprawnej funkcji albo quota.")
     if feature_override:
-        return Feature.objects.get(key=feature_key, is_active=True), None
-    return None, QuotaDefinition.objects.get(key=quota_key, is_active=True)
+        return Feature.objects.get(key=cast(str, feature_key), is_active=True), None
+    return None, QuotaDefinition.objects.get(key=cast(str, quota_key), is_active=True)
 
 
 def _same_override(
