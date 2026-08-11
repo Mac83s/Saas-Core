@@ -1,4 +1,6 @@
+from django.apps.registry import Apps
 from django.db import migrations
+from django.db.backends.base.schema import BaseDatabaseSchemaEditor
 
 SYSTEM_ROLES = {
     "viewer": ("Viewer", ["organization.read"]),
@@ -38,7 +40,7 @@ SYSTEM_ROLES = {
 }
 
 
-def seed_system_roles(apps, schema_editor):
+def seed_system_roles(apps: Apps, _schema_editor: BaseDatabaseSchemaEditor) -> None:
     role_model = apps.get_model("organizations", "Role")
     for key, (name, permissions) in SYSTEM_ROLES.items():
         role_model.objects.update_or_create(

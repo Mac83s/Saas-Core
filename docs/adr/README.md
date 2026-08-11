@@ -22,6 +22,7 @@ rejestr z `Plan/SaaS-Core-06-Rejestr-Decyzji.md`.
 | [ADR-024](ADR-024-API-OpenAPI-i-Zdarzenia.md) | kontrakt API, klient i zdarzenia | Accepted |
 | [ADR-025](ADR-025-Runtime-Staging-Sekrety-i-Odtwarzanie.md) | runtime staging, sekrety i odtwarzanie | Accepted |
 | [ADR-026](ADR-026-Billing-Entitlements-i-Trial.md) | billing, entitlementy i trial pilota | Accepted |
+| [ADR-027](ADR-027-Sites-Tresc-Media-i-Publikacja.md) | sites, treść, media i atomowa publikacja | Accepted |
 
 Każda zmiana decyzji tworzy nowy ADR i oznacza poprzedni jako `Superseded`.
 Nie przepisujemy historii.

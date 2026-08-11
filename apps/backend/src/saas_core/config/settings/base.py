@@ -106,6 +106,24 @@ STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
+OBJECT_STORAGE_ENDPOINT_URL = os.environ.get("OBJECT_STORAGE_ENDPOINT_URL", "")
+OBJECT_STORAGE_PUBLIC_ENDPOINT_URL = os.environ.get("OBJECT_STORAGE_PUBLIC_ENDPOINT_URL", "")
+OBJECT_STORAGE_BUCKET = os.environ.get("OBJECT_STORAGE_BUCKET", "")
+OBJECT_STORAGE_REGION = os.environ.get("OBJECT_STORAGE_REGION", "us-east-1")
+OBJECT_STORAGE_FORCE_PATH_STYLE = os.environ.get(
+    "OBJECT_STORAGE_FORCE_PATH_STYLE", "false"
+).lower() in {"1", "true", "yes"}
+OBJECT_STORAGE_ACCESS_KEY_ID = secret_setting("OBJECT_STORAGE_ACCESS_KEY_ID")
+OBJECT_STORAGE_SECRET_ACCESS_KEY = secret_setting("OBJECT_STORAGE_SECRET_ACCESS_KEY")
+if bool(OBJECT_STORAGE_ACCESS_KEY_ID) != bool(OBJECT_STORAGE_SECRET_ACCESS_KEY):
+    raise ImproperlyConfigured("Ustaw oba sekrety object storage albo żaden")
+if OBJECT_STORAGE_ENDPOINT_URL and not (
+    OBJECT_STORAGE_PUBLIC_ENDPOINT_URL
+    and OBJECT_STORAGE_BUCKET
+    and OBJECT_STORAGE_ACCESS_KEY_ID
+    and OBJECT_STORAGE_SECRET_ACCESS_KEY
+):
+    raise ImproperlyConfigured("Lokalny object storage wymaga endpointu, bucketa i sekretów")
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "identity.User"
 

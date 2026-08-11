@@ -1,4 +1,5 @@
 from typing import cast
+from uuid import UUID
 
 from django.http import HttpRequest
 from django.utils.decorators import method_decorator
@@ -200,7 +201,7 @@ class InvitationRevokeView(ProtectedOrganizationView):
             409: ProblemDetailsSerializer,
         },
     )
-    def delete(self, request: Request, invitation_id) -> Response:
+    def delete(self, request: Request, invitation_id: UUID) -> Response:
         invitation = revoke_invitation(
             request=cast(HttpRequest, request),
             invitation_id=invitation_id,
@@ -253,7 +254,7 @@ class MembershipUpdateView(ProtectedOrganizationView):
             409: ProblemDetailsSerializer,
         },
     )
-    def patch(self, request: Request, membership_id) -> Response:
+    def patch(self, request: Request, membership_id: UUID) -> Response:
         serializer = MembershipUpdateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         change = update_membership(

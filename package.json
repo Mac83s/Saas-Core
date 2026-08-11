@@ -35,6 +35,7 @@
     "runtime:smoke:identity": "node scripts/identity-smoke.mjs",
     "runtime:smoke:failures": "node scripts/runtime-failure-smoke.mjs",
     "runtime:smoke:observability": "node scripts/observability-smoke.mjs",
+    "runtime:smoke:storage": "node scripts/object-storage-smoke.mjs",
     "runtime:backup": "sh infra/postgres/backup.sh",
     "runtime:restore-drill": "sh infra/postgres/restore-drill.sh",
     "runtime:status": "docker compose ps",

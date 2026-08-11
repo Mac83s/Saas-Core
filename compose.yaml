@@ -12,6 +12,13 @@ x-backend-environment: &backend-environment
   FRONTEND_BASE_URL: http://localhost:${SAAS_CORE_HTTP_PORT:-8080}
   LOG_DIRECTORY: /var/log/saas-core
   ORGANIZATION_INVITATION_TTL_SECONDS: ${ORGANIZATION_INVITATION_TTL_SECONDS:-604800}
+  OBJECT_STORAGE_ACCESS_KEY_ID_FILE: /run/secrets/object_storage_access_key_id
+  OBJECT_STORAGE_SECRET_ACCESS_KEY_FILE: /run/secrets/object_storage_secret_access_key
+  OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-saas-core-local}
+  OBJECT_STORAGE_ENDPOINT_URL: http://object-storage:8333
+  OBJECT_STORAGE_PUBLIC_ENDPOINT_URL: http://localhost:${SAAS_CORE_S3_PORT:-8333}
+  OBJECT_STORAGE_REGION: ${OBJECT_STORAGE_REGION:-us-east-1}
+  OBJECT_STORAGE_FORCE_PATH_STYLE: "true"
   POSTGRES_DB: ${SAAS_CORE_POSTGRES_DB:-saas_core}
   POSTGRES_HOST: postgres
   POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
@@ -46,11 +53,14 @@ x-backend-service: &backend-service
     - postgres_password
     - stripe_secret_key
     - stripe_webhook_secret
+    - object_storage_access_key_id
+    - object_storage_secret_access_key
   volumes:
     - ${SAAS_CORE_LOGS_DIR:-.runtime/logs}:/var/log/saas-core
   networks:
     - app
     - data
+    - storage
   read_only: true
   tmpfs:
     - /tmp:size=64m,mode=1777
@@ -107,6 +117,49 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  object-storage:
+    image: saas-core-object-storage:local
+    build:
+      context: .
+      dockerfile: infra/object-storage/Dockerfile
+    environment:
+      OBJECT_STORAGE_ACCESS_KEY_ID_FILE: /run/secrets/object_storage_access_key_id
+      OBJECT_STORAGE_SECRET_ACCESS_KEY_FILE: /run/secrets/object_storage_secret_access_key
+      OBJECT_STORAGE_BUCKET: ${OBJECT_STORAGE_BUCKET:-saas-core-local}
+      OBJECT_STORAGE_ALLOWED_ORIGINS: http://localhost:${SAAS_CORE_HTTP_PORT:-8080},http://127.0.0.1:${SAAS_CORE_HTTP_PORT:-8080}
+    secrets:
+      - object_storage_access_key_id
+      - object_storage_secret_access_key
+    ports:
+      - "127.0.0.1:${SAAS_CORE_S3_PORT:-8333}:8333"
+    volumes:
+      - object-storage-data:/data
+    networks:
+      - storage
+      - host-access
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--quiet",
+          "--spider",
+          "http://127.0.0.1:9333/cluster/status",
+        ]
+      interval: 10s
+      timeout: 3s
+      start_period: 20s
+      retries: 5
+    restart: unless-stopped
+
   migrate:
     <<: *backend-service
     command: ["python", "manage.py", "migrate", "--noinput"]
@@ -130,6 +183,7 @@ services:
       - app
       - data
       - monitoring
+      - storage
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -517,6 +571,10 @@ secrets:
     file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/stripe_secret_key
   stripe_webhook_secret:
     file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/stripe_webhook_secret
+  object_storage_access_key_id:
+    file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/object_storage_access_key_id
+  object_storage_secret_access_key:
+    file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/object_storage_secret_access_key
 
 networks:
   edge:
@@ -527,6 +585,8 @@ networks:
     internal: true
   monitoring:
     internal: true
+  storage:
+    internal: true
 
 volumes:
   caddy-config:
@@ -536,3 +596,4 @@ volumes:
   prometheus-data:
   loki-data:
   grafana-data:
+  object-storage-data:

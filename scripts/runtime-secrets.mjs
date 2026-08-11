@@ -33,6 +33,14 @@ await ensureSecret(
 );
 await ensureSecret("stripe_secret_key", "");
 await ensureSecret("stripe_webhook_secret", "");
+await ensureSecret(
+  "object_storage_access_key_id",
+  randomBytes(16).toString("hex").toUpperCase().slice(0, 20),
+);
+await ensureSecret(
+  "object_storage_secret_access_key",
+  randomBytes(32).toString("base64url"),
+);
 await chmod(secretsDirectory, 0o700);
 
 async function ensureSecret(name, value) {

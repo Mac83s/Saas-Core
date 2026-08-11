@@ -1,4 +1,6 @@
+from django.apps.registry import Apps
 from django.db import migrations
+from django.db.backends.base.schema import BaseDatabaseSchemaEditor
 
 ROLE_UPDATES = {
     "manager": [
@@ -26,7 +28,7 @@ ROLE_UPDATES = {
 }
 
 
-def refine_system_roles(apps, schema_editor):
+def refine_system_roles(apps: Apps, _schema_editor: BaseDatabaseSchemaEditor) -> None:
     role_model = apps.get_model("organizations", "Role")
     for key, permissions in ROLE_UPDATES.items():
         role_model.objects.filter(key=key, organization=None).update(

@@ -19,6 +19,7 @@ from saas_core.modules.core.identity.tokens import digest_secret, issue_bound_to
 
 from .audit import record_audit
 from .authorization import OrganizationPermissionDenied, authorize
+from .context import TenantContext
 from .middleware import ACTIVE_ORGANIZATION_SESSION_KEY
 from .models import (
     Invitation,
@@ -405,7 +406,7 @@ def transfer_ownership(*, request: HttpRequest, membership_id: UUID) -> None:
     _revoke_user_sessions(target.user)
 
 
-def _authorize_member_management():
+def _authorize_member_management() -> TenantContext:
     try:
         return authorize(MEMBERS_MANAGE)
     except OrganizationPermissionDenied:
@@ -436,8 +437,8 @@ def _ensure_limited_role_access(
         raise OrganizationPermissionDenied
 
 
-def _membership_status_action(status: str) -> str:
-    actions = {
+def _membership_status_action(status: str) -> OrganizationAuditAction:
+    actions: dict[str, OrganizationAuditAction] = {
         MembershipStatus.ACTIVE: OrganizationAuditAction.MEMBERSHIP_RESUMED,
         MembershipStatus.SUSPENDED: OrganizationAuditAction.MEMBERSHIP_SUSPENDED,
         MembershipStatus.REVOKED: OrganizationAuditAction.MEMBERSHIP_REVOKED,
