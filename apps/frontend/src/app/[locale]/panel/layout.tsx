@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
+import { getTranslations } from "next-intl/server";
 import { ShieldCheckIcon } from "lucide-react";
 
 import { LocaleSwitcher } from "#components/locale-switcher";
@@ -14,7 +15,11 @@ export default async function PanelLayout({
   children: ReactNode;
   params: Promise<{ locale: string }>;
 }) {
-  const [{ locale }, user] = await Promise.all([params, getServerUser()]);
+  const [{ locale }, user, t] = await Promise.all([
+    params,
+    getServerUser(),
+    getTranslations("BillingSupport"),
+  ]);
   if (!user) redirect(locale === "pl" ? "/login" : `/${locale}/login`);
   return (
     <div className="min-h-screen bg-muted/30">
@@ -26,6 +31,12 @@ export default async function PanelLayout({
               className="size-5 text-primary"
             />
             SaaS Core
+          </Link>
+          <Link
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            href="/panel/support/billing"
+          >
+            {t("navigation")}
           </Link>
           <div className="ml-auto flex items-center gap-3">
             <span className="hidden text-sm text-muted-foreground sm:inline">

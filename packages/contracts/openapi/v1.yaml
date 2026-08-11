@@ -597,6 +597,32 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/billing/support/entitlements/:
+    get:
+      operationId: billing_entitlement_support
+      tags:
+      - billing
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntitlementSupportReport'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/billing/webhooks/stripe/:
     post:
       operationId: billing_stripe_webhook
@@ -1238,6 +1264,115 @@ components:
           type: string
       required:
       - csrf_token
+    EntitlementSupportItem:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/KindEnum'
+        key:
+          type: string
+        available:
+          type: boolean
+        reason:
+          type: string
+        read_allowed:
+          type:
+          - boolean
+          - 'null'
+        read_reason:
+          type:
+          - string
+          - 'null'
+        value:
+          type:
+          - integer
+          - 'null'
+        used:
+          type:
+          - integer
+          - 'null'
+        reserved:
+          type:
+          - integer
+          - 'null'
+        period_start:
+          type:
+          - string
+          - 'null'
+          format: date
+        period_end:
+          type:
+          - string
+          - 'null'
+          format: date
+        evidence:
+          oneOf:
+          - {}
+          - type: 'null'
+      required:
+      - available
+      - evidence
+      - key
+      - kind
+      - period_end
+      - period_start
+      - read_allowed
+      - read_reason
+      - reason
+      - reserved
+      - used
+      - value
+    EntitlementSupportReport:
+      type: object
+      properties:
+        snapshot:
+          oneOf:
+          - $ref: '#/components/schemas/EntitlementSupportSnapshot'
+          - type: 'null'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/EntitlementSupportItem'
+      required:
+      - items
+      - snapshot
+    EntitlementSupportSnapshot:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        subscription_state:
+          type: string
+        access_mode:
+          type: string
+        plan_key:
+          type:
+          - string
+          - 'null'
+        plan_version:
+          type:
+          - integer
+          - 'null'
+        computed_at:
+          type: string
+          format: date-time
+        effective_until:
+          type:
+          - string
+          - 'null'
+          format: date-time
+      required:
+      - access_mode
+      - computed_at
+      - effective_until
+      - id
+      - plan_key
+      - plan_version
+      - subscription_state
+      - version
     GenericMessage:
       type: object
       properties:
@@ -1325,6 +1460,14 @@ components:
       - id
       - role
       - status
+    KindEnum:
+      enum:
+      - feature
+      - quota
+      type: string
+      description: |-
+        * `feature` - feature
+        * `quota` - quota
     LifecycleResult:
       type: object
       properties:

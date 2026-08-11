@@ -260,6 +260,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/billing/support/entitlements/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["billing_entitlement_support"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/billing/webhooks/stripe/": {
         parameters: {
             query?: never;
@@ -492,6 +508,39 @@ export interface components {
         CsrfToken: {
             csrf_token: string;
         };
+        EntitlementSupportItem: {
+            kind: components["schemas"]["KindEnum"];
+            key: string;
+            available: boolean;
+            reason: string;
+            read_allowed: boolean | null;
+            read_reason: string | null;
+            value: number | null;
+            used: number | null;
+            reserved: number | null;
+            /** Format: date */
+            period_start: string | null;
+            /** Format: date */
+            period_end: string | null;
+            evidence: unknown | null;
+        };
+        EntitlementSupportReport: {
+            snapshot: components["schemas"]["EntitlementSupportSnapshot"] | null;
+            items: components["schemas"]["EntitlementSupportItem"][];
+        };
+        EntitlementSupportSnapshot: {
+            /** Format: uuid */
+            id: string;
+            version: number;
+            subscription_state: string;
+            access_mode: string;
+            plan_key: string | null;
+            plan_version: number | null;
+            /** Format: date-time */
+            computed_at: string;
+            /** Format: date-time */
+            effective_until: string | null;
+        };
         GenericMessage: {
             detail: string;
         };
@@ -531,6 +580,12 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
+        /**
+         * @description * `feature` - feature
+         *     * `quota` - quota
+         * @enum {string}
+         */
+        KindEnum: "feature" | "quota";
         LifecycleResult: {
             status: string;
         };
@@ -1416,6 +1471,41 @@ export interface operations {
                 };
             };
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    billing_entitlement_support: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitlementSupportReport"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

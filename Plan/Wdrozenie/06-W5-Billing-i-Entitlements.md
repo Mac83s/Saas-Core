@@ -1,6 +1,7 @@
 # W5 — Billing i Entitlements
 
-**Status:** in progress — decyzje wejściowe zamknięte w ADR-026; staging odłożony
+**Status:** zakończone lokalnie 2026-08-11 — decyzje wejściowe zamknięte w ADR-026;
+staging odłożony
 **Szacunek:** 2–3 tygodnie  
 **Poprzednik:** W4  
 **Rezultat:** audytowalny dostęp organizacji zsynchronizowany ze Stripe
@@ -142,7 +143,7 @@ test/live i lokalne mapowanie Price; nie uczestniczy w ścieżce autoryzacji.
 
 ### W5.5 — override, usage i fakturowanie
 
-**Stan:** w toku. W5.5.1–W5.5.3 zakończone lokalnie 2026-08-11. Override wymaga
+**Stan:** zakończone lokalnie 2026-08-11. Override wymaga
 aktywnego operatora platformy i jawnego tenant context, ma przyczynę, zakres,
 opcjonalne wygaśnięcie oraz klucz idempotencji. Aktywna wartość jest składana do
 lokalnego snapshotu, decyzja potrafi bez Stripe bezpiecznie wrócić do planu na
@@ -155,9 +156,13 @@ obejmują rollover okresu i downgrade poniżej zużycia. `invoice.paid` zapisuje
 kanoniczne żądanie dokumentu z kopią danych nabywcy i pozycji, a konfigurowalny
 adapter działa asynchronicznie z trwałym statusem, wynikiem, błędem i retry.
 Adapter `internal` nie udaje integracji KSeF. Niekompletne dane lub błąd adaptera
-nie cofają potwierdzonej płatności ani dostępu. Walidacja: Ruff, mypy modułu,
-import-linter, brak dryfu migracji, 193 testy backendu oraz pełny Compose ze smoke
-testami runtime, Identity i observability.
+nie cofają potwierdzonej płatności ani dostępu. Panel supportu pobiera wyłącznie
+lokalny snapshot i wyjaśnia wynik `can()`/`limit()`, źródło decyzji, tryb dostępu
+oraz bieżące zużycie; endpoint wymaga `organization.billing.manage`, a UI używa
+wspólnego `Combobox` shadcn/ui i tłumaczeń PL/EN. Walidacja: Ruff, mypy modułu,
+import-linter, brak dryfu migracji, aktualne OpenAPI i klient TypeScript, 195 testów
+backendu, 7 testów frontendu, produkcyjny build Node 24 oraz zdrowy lokalny Compose
+ze smoke testem runtime.
 
 > **FINDING W5.5-01 — rozwiązane 2026-08-11:** middleware `next-intl`
 > przechwytuje `/healthz` i przepisuje go na lokalizowaną trasę, przez co
@@ -169,7 +174,7 @@ testami runtime, Identity i observability.
 - [x] wdrożyć okresowe `UsageCounter` i ochronę przed podwójnym naliczeniem;
 - [x] przygotować interfejs adaptera fakturowania;
 - [x] odseparować błędy fakturowania od potwierdzonej płatności;
-- [ ] dodać panel supportu pokazujący źródło efektywnego entitlementu.
+- [x] dodać panel supportu pokazujący źródło efektywnego entitlementu.
 
 ## 4. Testy obowiązkowe
 
@@ -188,5 +193,5 @@ testami runtime, Identity i observability.
 - [x] utrata płatności nie usuwa danych ani nie omija grace period;
 - [x] katalog planów jest wersjonowany;
 - [x] override ma autora, przyczynę, zakres i opcjonalne wygaśnięcie;
-- [ ] support potrafi wyjaśnić wynik `can()` i `limit()`;
+- [x] support potrafi wyjaśnić wynik `can()` i `limit()`;
 - [x] testy dowodzą niezależności RBAC i entitlementów.

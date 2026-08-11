@@ -17,12 +17,18 @@ from saas_core.modules.core.organizations.models import (
     Role,
 )
 from saas_core.modules.shared.billing import services
-from saas_core.modules.shared.billing.models import PlanVersion, StripePriceMapping
+from saas_core.modules.shared.billing.models import (
+    AccessMode,
+    PlanVersion,
+    StripePriceMapping,
+    SubscriptionState,
+)
 from saas_core.modules.shared.billing.provider import (
     ProviderCheckout,
     ProviderCustomer,
     ProviderPortal,
 )
+from saas_core.modules.shared.billing.snapshots import update_entitlement_snapshot
 
 pytestmark = pytest.mark.django_db
 
@@ -161,3 +167,41 @@ def test_non_owner_cannot_create_checkout_or_portal(
     assert portal.status_code == 403
     assert checkout.data["code"] == "organization_permission_denied"
     assert portal.data["code"] == "organization_permission_denied"
+
+
+def test_owner_can_explain_entitlements_from_local_snapshot() -> None:
+    client, organization = billing_client(role_key="owner", slug="billing-support-owner")
+    mapping = StripePriceMapping.objects.create(
+        plan_version=PlanVersion.objects.get(plan__key="starter", version=1),
+        stripe_product_id="prod_support",
+        stripe_price_id="price_support",
+    )
+    update_entitlement_snapshot(
+        organization,
+        mapping,
+        state=SubscriptionState.ACTIVE,
+        access_mode=AccessMode.FULL,
+        effective_until=None,
+    )
+
+    response = client.get("/api/v1/billing/support/entitlements/")
+
+    assert response.status_code == 200
+    assert response.data["snapshot"]["plan_key"] == "starter"
+    assert response.data["snapshot"]["plan_version"] == 1
+    items = {item["key"]: item for item in response.data["items"]}
+    assert items["booking.enabled"]["available"] is True
+    assert items["booking.enabled"]["reason"] == "allowed"
+    assert items["booking.enabled"]["evidence"]["kind"] == "plan"
+    assert items["appointments.monthly"]["value"] == 1_000
+    assert items["appointments.monthly"]["used"] == 0
+    assert items["appointments.monthly"]["reason"] == "quota_available"
+
+
+def test_support_report_requires_billing_permission_even_with_active_tenant() -> None:
+    client, _ = billing_client(role_key="viewer", slug="billing-support-viewer")
+
+    response = client.get("/api/v1/billing/support/entitlements/")
+
+    assert response.status_code == 403
+    assert response.data["code"] == "organization_permission_denied"

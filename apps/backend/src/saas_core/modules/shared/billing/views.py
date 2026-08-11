@@ -16,9 +16,11 @@ from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 from .serializers import (
     BillingSessionSerializer,
     CheckoutCreateSerializer,
+    EntitlementSupportReportSerializer,
     StripeWebhookReceiptSerializer,
 )
 from .services import create_customer_portal, create_setup_checkout
+from .support import entitlement_support_report
 from .webhooks import InvalidStripeWebhook, StripeWebhookConflict, ingest_stripe_webhook
 
 
@@ -114,3 +116,19 @@ class BillingPortalView(APIView):
     def post(self, _request: Request) -> Response:
         result = create_customer_portal()
         return Response({"id": result.session_id, "url": result.url})
+
+
+class BillingEntitlementSupportView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="billing_entitlement_support",
+        tags=["billing"],
+        responses={
+            200: EntitlementSupportReportSerializer,
+            403: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, _request: Request) -> Response:
+        return Response(entitlement_support_report())

@@ -26,6 +26,10 @@ export type InvitationCreateInput = components["schemas"]["InvitationCreate"];
 export type MembershipSummary = components["schemas"]["MembershipSummary"];
 export type MembershipUpdateInput =
   components["schemas"]["PatchedMembershipUpdate"];
+export type EntitlementSupportReport =
+  components["schemas"]["EntitlementSupportReport"];
+export type EntitlementSupportItem =
+  components["schemas"]["EntitlementSupportItem"];
 
 export type LoginResult =
   { kind: "authenticated"; user: UserSummary } | { kind: "mfa_required" };
@@ -219,6 +223,15 @@ export async function listOrganizations(): Promise<OrganizationSummary[]> {
     credentials: "same-origin",
     cache: "no-store",
   });
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function getEntitlementSupportReport(): Promise<EntitlementSupportReport> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/billing/support/entitlements/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
   if (error || !data) throwProblem(error, response);
   return data;
 }
