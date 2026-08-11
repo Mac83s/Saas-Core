@@ -3,7 +3,8 @@
 ## Źródła prawdy
 
 - mapa fal: `Plan/Wdrozenie/00-MAPA-WDROZENIA.md`;
-- bieżąca fala po ukończeniu W1: `Plan/Wdrozenie/03-W2-Runtime-Local-i-Staging.md`;
+- bieżąca lokalna fala: `Plan/Wdrozenie/07-W6-Sites-Content-i-Media.md`;
+- punkt wznowienia następnej sesji: `docs/development/HANDOFF.md`;
 - decyzje techniczne: `docs/adr/`;
 - wykonywalne kontrakty: `docs/architecture/`.
 
