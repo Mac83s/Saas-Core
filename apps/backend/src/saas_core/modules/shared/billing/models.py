@@ -113,6 +113,14 @@ class BillingNoticeType(models.TextChoices):
     GRACE_ENDING = "grace_ending", "Koniec karencji"
 
 
+class ReconciliationStatus(models.TextChoices):
+    PENDING = "pending", "Oczekuje"
+    SUCCEEDED = "succeeded", "Zsynchronizowana"
+    NO_CHANGE = "no_change", "Bez zmian"
+    CONFLICT = "conflict", "Konflikt wersji"
+    FAILED = "failed", "Błąd"
+
+
 class Feature(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     key = models.CharField(max_length=100, unique=True, validators=[CATALOG_KEY_VALIDATOR])
@@ -674,6 +682,55 @@ class BillingNotice(TenantScopedModel):
             models.Index(
                 fields=["organization", "notice_type", "created_at"],
                 name="bill_notice_org_type_idx",
+            )
+        ]
+
+
+class BillingReconciliation(TenantScopedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    subscription = models.ForeignKey(
+        BillingSubscription,
+        on_delete=models.PROTECT,
+        related_name="reconciliations",
+    )
+    scheduled_for = models.DateTimeField()
+    baseline_version = models.PositiveBigIntegerField()
+    status = models.CharField(
+        max_length=16,
+        choices=ReconciliationStatus,
+        default=ReconciliationStatus.PENDING,
+    )
+    attempt_count = models.PositiveIntegerField(default=0)
+    changes = models.JSONField(default=dict, blank=True)
+    last_error = models.TextField(blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("scheduled_for", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["subscription", "scheduled_for"],
+                name="billing_reconciliation_schedule_uq",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(status=ReconciliationStatus.PENDING, completed_at__isnull=True)
+                    | (
+                        ~models.Q(status=ReconciliationStatus.PENDING)
+                        & models.Q(completed_at__isnull=False)
+                    )
+                ),
+                name="billing_reconciliation_completed_ck",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["status", "scheduled_for"],
+                name="bill_reconcile_status_idx",
             )
         ]
 

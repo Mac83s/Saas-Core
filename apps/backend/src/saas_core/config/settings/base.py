@@ -197,8 +197,23 @@ BILLING_LIFECYCLE_WARNING_LEAD_SECONDS = int(
 BILLING_LIFECYCLE_MAX_ATTEMPTS = int(
     os.environ.get("BILLING_LIFECYCLE_MAX_ATTEMPTS", "5")
 )
+BILLING_RECONCILIATION_INTERVAL_SECONDS = int(
+    os.environ.get("BILLING_RECONCILIATION_INTERVAL_SECONDS", "3600")
+)
+BILLING_RECONCILIATION_MAX_ATTEMPTS = int(
+    os.environ.get("BILLING_RECONCILIATION_MAX_ATTEMPTS", "5")
+)
+BILLING_RECONCILIATION_BATCH_SIZE = int(
+    os.environ.get("BILLING_RECONCILIATION_BATCH_SIZE", "100")
+)
 if BILLING_LIFECYCLE_WARNING_LEAD_SECONDS <= 0 or BILLING_LIFECYCLE_MAX_ATTEMPTS <= 0:
     raise ImproperlyConfigured("Ustawienia lifecycle Billing muszą być dodatnie")
+if (
+    BILLING_RECONCILIATION_INTERVAL_SECONDS <= 0
+    or BILLING_RECONCILIATION_MAX_ATTEMPTS <= 0
+    or BILLING_RECONCILIATION_BATCH_SIZE <= 0
+):
+    raise ImproperlyConfigured("Ustawienia rekonsyliacji Billing muszą być dodatnie")
 
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
@@ -208,7 +223,11 @@ CELERY_BEAT_SCHEDULE = {
     "billing-process-lifecycle": {
         "task": "saas_core.modules.shared.billing.tasks.process_billing_lifecycle",
         "schedule": 60.0,
-    }
+    },
+    "billing-reconcile-subscriptions": {
+        "task": "saas_core.modules.shared.billing.tasks.reconcile_billing_subscriptions",
+        "schedule": 300.0,
+    },
 }
 
 LOGGING = {

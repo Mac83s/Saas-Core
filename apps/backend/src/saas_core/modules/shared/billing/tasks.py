@@ -4,6 +4,7 @@ from celery import shared_task
 
 from .lifecycle import process_due_lifecycle_actions
 from .processor import StripeEventProcessingError, process_stripe_event
+from .reconciliation import run_reconciliation_batch
 
 
 @shared_task(  # type: ignore[untyped-decorator]
@@ -21,3 +22,10 @@ def process_stripe_webhook(event_id: str) -> None:
 )
 def process_billing_lifecycle() -> int:
     return process_due_lifecycle_actions()
+
+
+@shared_task(  # type: ignore[untyped-decorator]
+    name="saas_core.modules.shared.billing.tasks.reconcile_billing_subscriptions"
+)
+def reconcile_billing_subscriptions() -> int:
+    return run_reconciliation_batch()

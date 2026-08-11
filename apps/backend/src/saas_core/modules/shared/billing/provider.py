@@ -41,6 +41,22 @@ class ProviderSubscription:
     current_period_end: datetime | None
 
 
+@dataclass(frozen=True, slots=True)
+class ProviderSubscriptionSnapshot:
+    id: str
+    customer_id: str
+    price_id: str
+    status: str
+    livemode: bool
+    current_period_start: datetime | None
+    current_period_end: datetime | None
+    trial_start: datetime | None
+    trial_end: datetime | None
+    cancel_at_period_end: bool
+    canceled_at: datetime | None
+    ended_at: datetime | None
+
+
 class BillingProvider(Protocol):
     def create_customer(
         self,
@@ -81,6 +97,11 @@ class BillingProvider(Protocol):
         trial_days: int,
         idempotency_key: str,
     ) -> ProviderSubscription: ...
+
+    def retrieve_subscription(
+        self,
+        subscription_id: str,
+    ) -> ProviderSubscriptionSnapshot: ...
 
 
 class StripeBillingProvider:
@@ -226,6 +247,43 @@ class StripeBillingProvider:
             current_period_end=period_end,
         )
 
+    def retrieve_subscription(
+        self,
+        subscription_id: str,
+    ) -> ProviderSubscriptionSnapshot:
+        try:
+            subscription = self.client.v1.subscriptions.retrieve(subscription_id)
+        except stripe.StripeError as error:
+            raise BillingProviderError("Stripe odrzucił pobranie subskrypcji.") from error
+        items = getattr(subscription, "items", None)
+        rows = getattr(items, "data", None)
+        if not isinstance(rows, list) or len(rows) != 1:
+            raise BillingProviderError("Subskrypcja Stripe musi mieć dokładnie jeden Price.")
+        price_id = _reference_id(getattr(rows[0], "price", None), "price")
+        period_start, period_end = _subscription_period(subscription)
+        trial_start, trial_end = _optional_timestamp_pair(
+            subscription,
+            "trial_start",
+            "trial_end",
+        )
+        livemode = getattr(subscription, "livemode", None)
+        if not isinstance(livemode, bool):
+            raise BillingProviderError("Stripe nie zwrócił trybu subskrypcji.")
+        return ProviderSubscriptionSnapshot(
+            id=_required_attribute(subscription, "id"),
+            customer_id=_reference_id(getattr(subscription, "customer", None), "customer"),
+            price_id=price_id,
+            status=_required_attribute(subscription, "status"),
+            livemode=livemode,
+            current_period_start=period_start,
+            current_period_end=period_end,
+            trial_start=trial_start,
+            trial_end=trial_end,
+            cancel_at_period_end=getattr(subscription, "cancel_at_period_end", False) is True,
+            canceled_at=_optional_timestamp_value(getattr(subscription, "canceled_at", None)),
+            ended_at=_optional_timestamp_value(getattr(subscription, "ended_at", None)),
+        )
+
 
 def get_billing_provider() -> BillingProvider:
     return StripeBillingProvider()
@@ -275,3 +333,23 @@ def _subscription_period(subscription: Any) -> tuple[datetime | None, datetime |
     ):
         raise BillingProviderError("Stripe zwrócił nieprawidłowy okres subskrypcji.")
     return datetime.fromtimestamp(raw_start, tz=UTC), datetime.fromtimestamp(raw_end, tz=UTC)
+
+
+def _optional_timestamp_pair(
+    value: Any,
+    start_field: str,
+    end_field: str,
+) -> tuple[datetime | None, datetime | None]:
+    start = _optional_timestamp_value(getattr(value, start_field, None))
+    end = _optional_timestamp_value(getattr(value, end_field, None))
+    if (start is None) != (end is None) or (start is not None and end is not None and end <= start):
+        raise BillingProviderError("Stripe zwrócił nieprawidłowe okno czasowe.")
+    return start, end
+
+
+def _optional_timestamp_value(raw: Any) -> datetime | None:
+    if raw is None:
+        return None
+    if not isinstance(raw, int) or isinstance(raw, bool) or raw < 0:
+        raise BillingProviderError("Stripe zwrócił nieprawidłowy timestamp.")
+    return datetime.fromtimestamp(raw, tz=UTC)

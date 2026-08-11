@@ -173,7 +173,7 @@ def _handle_subscription(event: StripeWebhookEvent) -> None:
         _mark_stale(event, subscription)
         return
 
-    internal_state, access_mode = _subscription_access(provider_status)
+    internal_state, access_mode = subscription_access(provider_status)
     period_start, period_end = _timestamp_pair(
         data, item, "current_period_start", "current_period_end"
     )
@@ -182,8 +182,7 @@ def _handle_subscription(event: StripeWebhookEvent) -> None:
     if provider_status == StripeSubscriptionStatus.PAST_DUE:
         grace_period_end = (
             subscription.grace_period_end
-            if subscription is not None
-            and subscription.grace_period_end is not None
+            if subscription is not None and subscription.grace_period_end is not None
             else event.provider_created_at + timedelta(days=mapping.plan_version.grace_period_days)
         )
         if subscription is not None and subscription.state == SubscriptionState.READ_ONLY:
@@ -314,7 +313,7 @@ def _handle_invoice(event: StripeWebhookEvent) -> None:
     event.subscription = subscription
 
 
-def _subscription_access(provider_status: str) -> tuple[str, str]:
+def subscription_access(provider_status: str) -> tuple[str, str]:
     mapping = {
         StripeSubscriptionStatus.INCOMPLETE: (
             SubscriptionState.UNCONFIGURED,

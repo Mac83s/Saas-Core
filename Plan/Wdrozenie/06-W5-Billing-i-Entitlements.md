@@ -85,14 +85,17 @@ OpenAPI/klienta, poprawny Compose i 166 testów backendu.
 
 ### W5.4 — trial i lifecycle subskrypcji
 
-**Stan:** w toku. W5.4.1–W5.4.2 zakończone lokalnie 2026-08-11: wewnętrzny kontrakt
+**Stan:** zakończone lokalnie 2026-08-11. Wewnętrzny kontrakt
 `activate_trial_for_product()` trwale zapisuje pierwszy trigger produktu,
 wymaga zakończonego Setup Checkout i idempotentnie tworzy subskrypcję Stripe z
 trialem z bieżącej wersji planu. Lokalna subskrypcja, snapshot entitlementów i
 wpis audytu powstają bez oczekiwania na webhook. Minutowy zegar Celery obsługuje
 trwałe akcje ostrzeżeń i przejścia do `read_only`; notice outbox jest gotowy do
-podłączenia przez przyszły `shared.notifications`. Walidacja: Ruff, mypy modułu,
-import-linter, brak dryfu migracji, poprawny Compose i 176 testów backendu.
+podłączenia przez przyszły `shared.notifications`. Godzinna rekonsyliacja pobiera
+bieżący obiekt Stripe poza transakcją, naprawia brakujące webhooki i odrzuca
+zapis, jeśli lokalna wersja zmieniła się podczas połączenia. Wynik, diff, retry i
+błąd są trwałe oraz audytowalne. Walidacja: Ruff, mypy modułu, import-linter,
+brak dryfu migracji, poprawny Compose i 181 testów backendu.
 
 #### W5.4.1 — rozpoczęcie triala przy pierwszej aktywacji
 
@@ -119,6 +122,11 @@ import-linter, brak dryfu migracji, poprawny Compose i 176 testów backendu.
 - audytować każdą lokalną zmianę stanu wykonaną przez zegar.
 
 #### W5.4.3 — rekonsyliacja Stripe
+
+**Stan:** zakończone lokalnie 2026-08-11. Celery Beat tworzy jedną próbę na
+subskrypcję i godzinne okno, ponawia błędy do limitu oraz zapisuje `no_change`,
+`succeeded`, `conflict` albo `failed`. Rekonsyliacja weryfikuje Customer,
+test/live i lokalne mapowanie Price; nie uczestniczy w ścieżce autoryzacji.
 
 - cyklicznie pobierać bieżące subskrypcje wymagające potwierdzenia;
 - porównywać wersję lokalną z obiektem Stripe bez używania Stripe w ścieżce
@@ -153,7 +161,7 @@ import-linter, brak dryfu migracji, poprawny Compose i 176 testów backendu.
 ## 5. Bramka wyjścia
 
 - [ ] lokalny stan wystarcza do decyzji dostępu bez zapytania do Stripe;
-- [ ] webhooki są podpisane, trwałe, idempotentne i rekoncyliowalne;
+- [x] webhooki są podpisane, trwałe, idempotentne i rekoncyliowalne;
 - [x] utrata płatności nie usuwa danych ani nie omija grace period;
 - [ ] katalog planów jest wersjonowany;
 - [ ] override ma autora, przyczynę, zakres i opcjonalne wygaśnięcie;
