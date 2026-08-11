@@ -14,6 +14,10 @@ checkoutem i z prawami `0600`:
 - `stripe_secret_key` — klucz API Stripe właściwy dla trybu test/live wdrożenia;
 - `stripe_webhook_secret` — sekret podpisu przypisany wyłącznie do endpointu
   webhooka tego wdrożenia;
+- `object_storage_access_key_id` — identyfikator poświadczenia ograniczonego do
+  stagingowego bucketa mediów;
+- `object_storage_secret_access_key` — odpowiadający sekret S3, udostępniany
+  wyłącznie procesom backendu;
 - późniejsze integracje dodają osobny plik na każdy sekret i przyznają go tylko
   usługom, które go potrzebują.
 

@@ -22,10 +22,12 @@ class MediaAsset(TenantScopedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     original_filename = models.CharField(max_length=160)
     object_key = models.CharField(max_length=240, unique=True)
+    source_object_key = models.CharField(max_length=240, blank=True)
     declared_mime = models.CharField(max_length=80)
     detected_mime = models.CharField(max_length=80, blank=True)
     expected_size = models.PositiveBigIntegerField()
     actual_size = models.PositiveBigIntegerField(null=True, blank=True)
+    stored_size = models.PositiveBigIntegerField(null=True, blank=True)
     sha256 = models.CharField(max_length=64, blank=True)
     width = models.PositiveIntegerField(null=True, blank=True)
     height = models.PositiveIntegerField(null=True, blank=True)
@@ -36,6 +38,7 @@ class MediaAsset(TenantScopedModel):
     )
     quota_reservation_key = models.CharField(max_length=120, unique=True)
     quota_committed = models.BooleanField(default=False)
+    variants = models.JSONField(default=dict, blank=True)
     rejection_code = models.CharField(max_length=80, blank=True)
     upload_expires_at = models.DateTimeField()
     uploaded_at = models.DateTimeField(null=True, blank=True)
@@ -71,7 +74,12 @@ class MediaAsset(TenantScopedModel):
                 name="media_asset_actual_size_positive_ck",
             ),
             models.CheckConstraint(
-                condition=models.Q(quota_committed=False) | models.Q(state=MediaAssetState.READY),
+                condition=models.Q(stored_size__isnull=True) | models.Q(stored_size__gte=1),
+                name="media_asset_stored_size_positive_ck",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(quota_committed=False)
+                | models.Q(state=MediaAssetState.READY, stored_size__isnull=False),
                 name="media_asset_quota_only_ready_ck",
             ),
         ]
@@ -93,6 +101,8 @@ class MediaAsset(TenantScopedModel):
         super().clean()
         if self.quota_committed and self.state != MediaAssetState.READY:
             raise ValidationError({"quota_committed": "Limit można rozliczyć tylko dla ready."})
+        if self.quota_committed and self.stored_size is None:
+            raise ValidationError({"stored_size": "Rozliczony asset wymaga rozmiaru storage."})
         if self.state == MediaAssetState.REJECTED and not self.rejection_code:
             raise ValidationError({"rejection_code": "Odrzucony asset wymaga kodu powodu."})
 

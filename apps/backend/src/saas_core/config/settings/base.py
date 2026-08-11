@@ -166,10 +166,21 @@ if OBJECT_STORAGE_ENDPOINT_URL and not (
     raise ImproperlyConfigured("Lokalny object storage wymaga endpointu, bucketa i sekretów")
 MEDIA_UPLOAD_URL_TTL_SECONDS = int(os.environ.get("MEDIA_UPLOAD_URL_TTL_SECONDS", "900"))
 MEDIA_MAX_UPLOAD_BYTES = int(os.environ.get("MEDIA_MAX_UPLOAD_BYTES", str(10 * 1024**2)))
+MEDIA_MAX_IMAGE_PIXELS = int(os.environ.get("MEDIA_MAX_IMAGE_PIXELS", "40000000"))
+MEDIA_PROCESSING_RESERVATION_TTL_SECONDS = int(
+    os.environ.get("MEDIA_PROCESSING_RESERVATION_TTL_SECONDS", "3600")
+)
+CLAMAV_HOST = os.environ.get("CLAMAV_HOST", "")
+CLAMAV_PORT = int(os.environ.get("CLAMAV_PORT", "3310"))
+CLAMAV_TIMEOUT_SECONDS = float(os.environ.get("CLAMAV_TIMEOUT_SECONDS", "30"))
 if MEDIA_UPLOAD_URL_TTL_SECONDS <= 0 or MEDIA_UPLOAD_URL_TTL_SECONDS > 3600:
     raise ImproperlyConfigured("Czas ważności signed upload musi mieścić się w 1..3600 s")
-if MEDIA_MAX_UPLOAD_BYTES <= 0:
-    raise ImproperlyConfigured("Maksymalny rozmiar uploadu musi być dodatni")
+if MEDIA_MAX_UPLOAD_BYTES <= 0 or MEDIA_MAX_IMAGE_PIXELS <= 0:
+    raise ImproperlyConfigured("Limity uploadu i obrazu muszą być dodatnie")
+if MEDIA_PROCESSING_RESERVATION_TTL_SECONDS <= 0:
+    raise ImproperlyConfigured("Czas rezerwacji przetwarzania mediów musi być dodatni")
+if not 1 <= CLAMAV_PORT <= 65535 or CLAMAV_TIMEOUT_SECONDS <= 0:
+    raise ImproperlyConfigured("Konfiguracja połączenia ClamAV jest nieprawidłowa")
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "identity.User"
 

@@ -7,6 +7,7 @@ const baseUrl = new URL(
 for (const service of ["backend", "worker", "scheduler"]) {
   checkDatabaseRole(service);
 }
+checkMalwareScanner();
 
 await checkJson("frontend", "/healthz", (payload) => payload.status === "ok");
 await checkJson(
@@ -57,6 +58,26 @@ function checkDatabaseRole(service) {
   if (result.error) throw result.error;
   if (result.status !== 0) {
     throw new Error(`${service} używa uprzywilejowanej roli PostgreSQL`);
+  }
+}
+
+function checkMalwareScanner() {
+  const result = spawnSync(
+    "docker",
+    [
+      "compose",
+      "exec",
+      "-T",
+      "worker",
+      "python",
+      "manage.py",
+      "check_malware_scanner",
+    ],
+    { stdio: "inherit" },
+  );
+  if (result.error) throw result.error;
+  if (result.status !== 0) {
+    throw new Error("worker nie ma działającego połączenia z ClamAV");
   }
 }
 

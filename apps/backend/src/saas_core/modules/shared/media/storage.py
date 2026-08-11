@@ -6,7 +6,7 @@ from typing import Protocol
 
 from botocore.client import BaseClient
 from botocore.config import Config
-from botocore.exceptions import ClientError
+from botocore.exceptions import BotoCoreError, ClientError
 from botocore.session import get_session
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -28,6 +28,14 @@ class ObjectNotFoundError(RuntimeError):
     pass
 
 
+class ObjectTooLargeError(RuntimeError):
+    pass
+
+
+class ObjectStorageError(RuntimeError):
+    pass
+
+
 class ObjectStorage(Protocol):
     def sign_put(
         self,
@@ -38,6 +46,12 @@ class ObjectStorage(Protocol):
     ) -> SignedUpload: ...
 
     def head(self, *, object_key: str) -> ObjectMetadata: ...
+
+    def read(self, *, object_key: str, max_bytes: int) -> bytes: ...
+
+    def put(self, *, object_key: str, content: bytes, content_type: str) -> None: ...
+
+    def delete(self, *, object_key: str) -> None: ...
 
 
 class S3ObjectStorage:
@@ -102,11 +116,48 @@ class S3ObjectStorage:
         except ClientError as error:
             if error.response.get("Error", {}).get("Code") in {"404", "NoSuchKey", "NotFound"}:
                 raise ObjectNotFoundError(object_key) from error
-            raise
+            raise ObjectStorageError("Nie można odczytać metadanych obiektu.") from error
         return ObjectMetadata(
             content_length=int(response["ContentLength"]),
             content_type=str(response.get("ContentType", "")).strip().lower(),
         )
+
+    def read(self, *, object_key: str, max_bytes: int) -> bytes:
+        if max_bytes <= 0:
+            raise ValueError("Limit odczytu obiektu musi być dodatni.")
+        try:
+            response = self.private_client.get_object(Bucket=self.bucket, Key=object_key)
+            body = response["Body"]
+            try:
+                content = body.read(max_bytes + 1)
+            finally:
+                body.close()
+        except ClientError as error:
+            if error.response.get("Error", {}).get("Code") in {"404", "NoSuchKey", "NotFound"}:
+                raise ObjectNotFoundError(object_key) from error
+            raise ObjectStorageError("Nie można odczytać obiektu.") from error
+        except (BotoCoreError, OSError) as error:
+            raise ObjectStorageError("Nie można odczytać obiektu.") from error
+        if len(content) > max_bytes:
+            raise ObjectTooLargeError(object_key)
+        return bytes(content)
+
+    def put(self, *, object_key: str, content: bytes, content_type: str) -> None:
+        try:
+            self.private_client.put_object(
+                Bucket=self.bucket,
+                Key=object_key,
+                Body=content,
+                ContentType=content_type,
+            )
+        except (BotoCoreError, ClientError, OSError) as error:
+            raise ObjectStorageError("Nie można zapisać obiektu.") from error
+
+    def delete(self, *, object_key: str) -> None:
+        try:
+            self.private_client.delete_object(Bucket=self.bucket, Key=object_key)
+        except (BotoCoreError, ClientError, OSError) as error:
+            raise ObjectStorageError("Nie można usunąć obiektu.") from error
 
 
 @cache

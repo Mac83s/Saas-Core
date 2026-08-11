@@ -269,6 +269,21 @@ def test_task_rejects_missing_or_invalid_contract(contract: str) -> None:
         pass
 
 
+def test_task_contract_is_bound_to_expected_causation_payload() -> None:
+    membership = create_membership()
+    with activate_tenant_context(context_for(membership)):
+        contract = issue_tenant_task_contract(causation_id="media-upload:one")
+
+    with (
+        pytest.raises(InvalidTenantTaskContext, match="payloadu"),
+        tenant_task_context(contract, expected_causation_id="media-upload:two"),
+    ):
+        pass
+
+    with tenant_task_context(contract, expected_causation_id="media-upload:one"):
+        assert current_tenant_context() is not None
+
+
 def test_task_rejects_contract_after_membership_is_revoked() -> None:
     membership = create_membership()
     with activate_tenant_context(context_for(membership)):

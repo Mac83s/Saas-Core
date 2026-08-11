@@ -5,7 +5,7 @@ import json
 import secrets
 import unicodedata
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import PurePosixPath
 from uuid import UUID
 
@@ -16,19 +16,36 @@ from rest_framework.exceptions import APIException, NotFound
 
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import record_audit
+from saas_core.modules.core.organizations.context import require_tenant_context
 from saas_core.modules.core.organizations.models import Organization
+from saas_core.modules.core.organizations.tasks import issue_tenant_task_contract
 from saas_core.modules.shared.billing.api import (
     FeatureOperation,
+    QuotaExceeded,
+    adjust_quota_reservation,
     authorize_entitled,
+    commit_quota,
+    extend_quota_reservation,
+    release_quota,
     reserve_quota,
 )
 
+from .images import UnsafeImageError, process_image
 from .models import MediaAsset, MediaAssetState
 from .permissions import MEDIA_MANAGE, MEDIA_READ, STORAGE_BYTES, STORAGE_ENABLED
-from .storage import ObjectNotFoundError, ObjectStorage, SignedUpload, get_object_storage
+from .scanner import MalwareScanner, MalwareVerdict, get_malware_scanner
+from .storage import (
+    ObjectNotFoundError,
+    ObjectStorage,
+    ObjectTooLargeError,
+    SignedUpload,
+    get_object_storage,
+)
 
 MEDIA_UPLOAD_INITIATED = "media.asset.upload_initiated"
 MEDIA_UPLOAD_COMPLETED = "media.asset.upload_completed"
+MEDIA_ASSET_READY = "media.asset.ready"
+MEDIA_ASSET_REJECTED = "media.asset.rejected"
 
 ALLOWED_MEDIA_TYPES = {
     "image/jpeg": ".jpg",
@@ -236,6 +253,11 @@ def complete_media_upload(
         locked.actual_size = metadata.content_length
         locked.uploaded_at = timezone.now()
         locked.save(update_fields=["state", "actual_size", "uploaded_at", "updated_at"])
+        extend_quota_reservation(
+            locked.quota_reservation_key,
+            expires_at=timezone.now()
+            + timedelta(seconds=settings.MEDIA_PROCESSING_RESERVATION_TTL_SECONDS),
+        )
         actor = User.objects.get(pk=context.actor_id)
         record_audit(
             organization=locked.organization,
@@ -245,7 +267,225 @@ def complete_media_upload(
             target_id=locked.id,
             metadata={"actual_size": metadata.content_length},
         )
+        task_contract = issue_tenant_task_contract(causation_id=f"media-upload:{locked.id}")
+
+        def enqueue() -> None:
+            from .tasks import process_media_asset_task
+
+            process_media_asset_task.delay(str(locked.id), task_contract)
+
+        transaction.on_commit(enqueue, robust=True)
         return locked
+
+
+def process_media_asset(
+    *,
+    asset_id: UUID,
+    storage: ObjectStorage | None = None,
+    scanner: MalwareScanner | None = None,
+) -> MediaAsset | None:
+    context = require_tenant_context()
+    asset = (
+        MediaAsset.all_objects.select_for_update()
+        .filter(pk=asset_id, organization_id=context.organization_id)
+        .first()
+    )
+    if asset is None or asset.state in {MediaAssetState.READY, MediaAssetState.REJECTED}:
+        return asset
+    if asset.state == MediaAssetState.PENDING or asset.deleted_at is not None:
+        return asset
+
+    asset.state = MediaAssetState.SCANNING
+    asset.save(update_fields=["state", "updated_at"])
+    object_storage = storage or get_object_storage()
+    malware_scanner = scanner or get_malware_scanner()
+    try:
+        raw_content = object_storage.read(
+            object_key=asset.object_key,
+            max_bytes=settings.MEDIA_MAX_UPLOAD_BYTES,
+        )
+    except (ObjectNotFoundError, ObjectTooLargeError):
+        return _reject_media_asset(
+            asset,
+            code="media_object_invalid",
+            storage=object_storage,
+            scanned_at=None,
+        )
+    if len(raw_content) != asset.expected_size or len(raw_content) != asset.actual_size:
+        return _reject_media_asset(
+            asset,
+            code="media_size_mismatch",
+            storage=object_storage,
+            scanned_at=None,
+        )
+
+    checked_at = timezone.now()
+    if malware_scanner.scan(raw_content) == MalwareVerdict.INFECTED:
+        return _reject_media_asset(
+            asset,
+            code="media_malware_detected",
+            storage=object_storage,
+            scanned_at=checked_at,
+        )
+    try:
+        processed = process_image(raw_content, declared_mime=asset.declared_mime)
+    except UnsafeImageError:
+        return _reject_media_asset(
+            asset,
+            code="media_image_invalid",
+            storage=object_storage,
+            scanned_at=checked_at,
+        )
+
+    variants: dict[str, dict[str, object]] = {}
+    variant_keys: list[str] = []
+    variant_size = 0
+    for variant in processed.variants:
+        object_key = _variant_object_key(asset, variant.kind)
+        variant_keys.append(object_key)
+        object_storage.put(
+            object_key=object_key,
+            content=variant.content,
+            content_type=variant.content_type,
+        )
+        variant_size += len(variant.content)
+        variants[variant.kind] = {
+            "object_key": object_key,
+            "content_type": variant.content_type,
+            "size": len(variant.content),
+            "width": variant.width,
+            "height": variant.height,
+        }
+    processed_object_key = _processed_object_key(asset)
+    object_storage.put(
+        object_key=processed_object_key,
+        content=processed.content,
+        content_type=processed.content_type,
+    )
+    stored_size = len(processed.content) + variant_size
+    try:
+        adjust_quota_reservation(asset.quota_reservation_key, amount=stored_size)
+    except QuotaExceeded:
+        return _reject_media_asset(
+            asset,
+            code="media_quota_exceeded",
+            storage=object_storage,
+            scanned_at=checked_at,
+            extra_object_keys=[*variant_keys, processed_object_key],
+        )
+    commit_quota(asset.quota_reservation_key)
+
+    asset.state = MediaAssetState.READY
+    asset.source_object_key = asset.object_key
+    asset.object_key = processed_object_key
+    asset.detected_mime = processed.content_type
+    asset.stored_size = stored_size
+    asset.sha256 = processed.sha256
+    asset.width = processed.width
+    asset.height = processed.height
+    asset.variants = variants
+    asset.quota_committed = True
+    asset.scanned_at = checked_at
+    asset.ready_at = timezone.now()
+    asset.rejection_code = ""
+    asset.save(
+        update_fields=[
+            "state",
+            "source_object_key",
+            "object_key",
+            "detected_mime",
+            "stored_size",
+            "sha256",
+            "width",
+            "height",
+            "variants",
+            "quota_committed",
+            "scanned_at",
+            "ready_at",
+            "rejection_code",
+            "updated_at",
+        ]
+    )
+    actor = User.objects.get(pk=context.actor_id)
+    record_audit(
+        organization=asset.organization,
+        action=MEDIA_ASSET_READY,
+        actor=actor,
+        target_type="media_asset",
+        target_id=asset.id,
+        metadata={
+            "content_type": processed.content_type,
+            "stored_size": stored_size,
+            "variant_kinds": sorted(variants),
+        },
+    )
+    return asset
+
+
+def cleanup_media_source_object(
+    *,
+    asset_id: UUID,
+    storage: ObjectStorage | None = None,
+) -> MediaAsset | None:
+    context = require_tenant_context()
+    asset = (
+        MediaAsset.all_objects.select_for_update()
+        .filter(pk=asset_id, organization_id=context.organization_id)
+        .first()
+    )
+    if asset is None or not asset.source_object_key:
+        return asset
+    (storage or get_object_storage()).delete(object_key=asset.source_object_key)
+    asset.source_object_key = ""
+    asset.save(update_fields=["source_object_key", "updated_at"])
+    return asset
+
+
+def _reject_media_asset(
+    asset: MediaAsset,
+    *,
+    code: str,
+    storage: ObjectStorage,
+    scanned_at: datetime | None,
+    extra_object_keys: list[str] | None = None,
+) -> MediaAsset:
+    for object_key in [*(extra_object_keys or []), asset.object_key]:
+        storage.delete(object_key=object_key)
+    release_quota(asset.quota_reservation_key)
+    asset.state = MediaAssetState.REJECTED
+    asset.rejection_code = code
+    asset.rejected_at = timezone.now()
+    if scanned_at is not None:
+        asset.scanned_at = scanned_at
+    asset.save(
+        update_fields=[
+            "state",
+            "rejection_code",
+            "rejected_at",
+            "scanned_at",
+            "updated_at",
+        ]
+    )
+    context = require_tenant_context()
+    actor = User.objects.get(pk=context.actor_id)
+    record_audit(
+        organization=asset.organization,
+        action=MEDIA_ASSET_REJECTED,
+        actor=actor,
+        target_type="media_asset",
+        target_id=asset.id,
+        metadata={"reason": code},
+    )
+    return asset
+
+
+def _variant_object_key(asset: MediaAsset, kind: str) -> str:
+    return f"{asset.organization_id}/variants/{asset.id}/{kind}.webp"
+
+
+def _processed_object_key(asset: MediaAsset) -> str:
+    extension = ALLOWED_MEDIA_TYPES[asset.declared_mime]
+    return f"{asset.organization_id}/processed/{asset.id}/original{extension}"
 
 
 def _sign_upload(asset: MediaAsset, *, storage: ObjectStorage | None) -> SignedUpload:

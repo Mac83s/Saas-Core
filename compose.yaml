@@ -40,6 +40,11 @@ x-backend-environment: &backend-environment
   BILLING_RECONCILIATION_BATCH_SIZE: ${BILLING_RECONCILIATION_BATCH_SIZE:-100}
   BILLING_INVOICE_ADAPTER: ${BILLING_INVOICE_ADAPTER:-saas_core.modules.shared.billing.invoicing.InternalInvoiceAdapter}
   TENANT_TASK_CONTEXT_TTL_SECONDS: ${TENANT_TASK_CONTEXT_TTL_SECONDS:-86400}
+  CLAMAV_HOST: ${CLAMAV_HOST:-clamav}
+  CLAMAV_PORT: ${CLAMAV_PORT:-3310}
+  CLAMAV_TIMEOUT_SECONDS: ${CLAMAV_TIMEOUT_SECONDS:-30}
+  MEDIA_MAX_IMAGE_PIXELS: ${MEDIA_MAX_IMAGE_PIXELS:-40000000}
+  MEDIA_PROCESSING_RESERVATION_TTL_SECONDS: ${MEDIA_PROCESSING_RESERVATION_TTL_SECONDS:-3600}
   TRUSTED_PROXY_COUNT: ${TRUSTED_PROXY_COUNT:-1}
 
 x-backend-service: &backend-service
@@ -62,6 +67,8 @@ x-backend-service: &backend-service
   networks:
     - app
     - data
+    - egress
+    - scanner
     - storage
   read_only: true
   tmpfs:
@@ -193,6 +200,29 @@ services:
       retries: 5
     restart: unless-stopped
 
+  clamav:
+    image: clamav/clamav:1.5.3-debian13-slim
+    environment:
+      CLAMD_CONF_ConcurrentDatabaseReload: "no"
+      CLAMD_CONF_MaxFileSize: 12M
+      CLAMD_CONF_MaxScanSize: 12M
+      CLAMD_CONF_StreamMaxLength: 12M
+    expose:
+      - "3310"
+    volumes:
+      - clamav-data:/var/lib/clamav
+    networks:
+      - scanner
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4g
+
   migrate:
     <<: *backend-service
     command: ["python", "manage.py", "migrate", "--noinput"]
@@ -263,12 +293,15 @@ services:
       - -c
       - >-
         python manage.py check_database_role &&
+        python manage.py check_malware_scanner &&
         exec celery -A saas_core.config.celery worker --loglevel=INFO
         --concurrency=2 --hostname=worker@%h --max-tasks-per-child=500
     volumes:
       - ${SAAS_CORE_LOGS_DIR:-.runtime/logs}:/var/log/saas-core
       - ${SAAS_CORE_EMAILS_DIR:-.runtime/emails}:/var/lib/saas-core/emails
     depends_on:
+      clamav:
+        condition: service_healthy
       migrate:
         condition: service_completed_successfully
       redis:
@@ -620,10 +653,13 @@ secrets:
 
 networks:
   edge:
+  egress:
   host-access:
   app:
     internal: true
   data:
+    internal: true
+  scanner:
     internal: true
   monitoring:
     internal: true
@@ -639,3 +675,4 @@ volumes:
   loki-data:
   grafana-data:
   object-storage-data:
+  clamav-data:

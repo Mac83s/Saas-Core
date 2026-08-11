@@ -25,8 +25,10 @@ from saas_core.modules.shared.billing.quotas import (
     QuotaReservationConflict,
     QuotaReservationExpired,
     QuotaUnavailable,
+    adjust_quota_reservation,
     commit_quota,
     consume_quota,
+    extend_quota_reservation,
     release_expired_quota_reservations,
     release_quota,
     reserve_quota,
@@ -130,6 +132,67 @@ def test_commit_and_release_are_idempotent_and_update_counter() -> None:
     assert released.state == QuotaReservationState.RELEASED
     assert repeated_release.id == released.id
     assert usage.used == 1
+    assert usage.reserved == 0
+
+
+def test_reservation_can_be_adjusted_and_extended_before_exact_commit() -> None:
+    tenant, tenant_context = setup_quota(slug="quota-adjust", quota=8)
+    now = datetime(2026, 8, 11, 12, tzinfo=UTC)
+
+    with activate_tenant_context(tenant_context):
+        reservation = reserve_quota(
+            "appointments.monthly",
+            amount=2,
+            idempotency_key="appointment:adjust",
+            at=now,
+            expires_at=now + timedelta(minutes=5),
+        )
+        extended = extend_quota_reservation(
+            "appointment:adjust",
+            expires_at=now + timedelta(hours=1),
+            at=now,
+        )
+        adjusted = adjust_quota_reservation(
+            "appointment:adjust",
+            amount=5,
+            at=now + timedelta(minutes=10),
+        )
+        committed = commit_quota(
+            "appointment:adjust",
+            at=now + timedelta(minutes=10),
+        )
+        repeated = adjust_quota_reservation(
+            "appointment:adjust",
+            amount=5,
+            at=now + timedelta(minutes=10),
+        )
+
+    usage = QuotaUsage.all_objects.get(organization=tenant)
+    assert extended.expires_at == now + timedelta(hours=1)
+    assert adjusted.amount == 5
+    assert committed.state == QuotaReservationState.COMMITTED
+    assert repeated.id == reservation.id
+    assert usage.used == 5
+    assert usage.reserved == 0
+
+
+def test_adjustment_cannot_exceed_quota_or_change_committed_amount() -> None:
+    tenant, tenant_context = setup_quota(slug="quota-adjust-limit", quota=3)
+
+    with activate_tenant_context(tenant_context):
+        reserve_quota(
+            "appointments.monthly",
+            amount=2,
+            idempotency_key="appointment:adjust-limit",
+        )
+        with pytest.raises(QuotaExceeded):
+            adjust_quota_reservation("appointment:adjust-limit", amount=4)
+        commit_quota("appointment:adjust-limit")
+        with pytest.raises(QuotaReservationConflict):
+            adjust_quota_reservation("appointment:adjust-limit", amount=1)
+
+    usage = QuotaUsage.all_objects.get(organization=tenant)
+    assert usage.used == 2
     assert usage.reserved == 0
 
 

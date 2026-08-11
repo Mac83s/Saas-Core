@@ -21,10 +21,15 @@ if [ ! -d "${DEPLOY_PATH}/secrets" ]; then
   echo "Brak ${DEPLOY_PATH}/secrets na hoście staging" >&2
   exit 1
 fi
-if [ ! -s "${DEPLOY_PATH}/secrets/postgres_app_password" ]; then
-  echo "Brak niepustego sekretu postgres_app_password na hoście staging" >&2
-  exit 1
-fi
+for required_secret in \
+  postgres_app_password \
+  object_storage_access_key_id \
+  object_storage_secret_access_key; do
+  if [ ! -s "${DEPLOY_PATH}/secrets/${required_secret}" ]; then
+    echo "Brak niepustego sekretu ${required_secret} na hoście staging" >&2
+    exit 1
+  fi
+done
 
 set -a
 . "${DEPLOY_PATH}/staging.env"
@@ -51,7 +56,7 @@ fi
 
 compose config --quiet
 compose pull
-compose up -d postgres redis
+compose up -d --wait --wait-timeout 1800 postgres redis clamav
 compose run --rm database-bootstrap
 compose run --rm migrate
 compose up -d --no-deps backend worker scheduler
@@ -68,7 +73,7 @@ until curl --fail --silent --show-error --max-time 10 \
     compose ps
     compose logs --tail 100 \
       caddy backend frontend worker scheduler \
-      celery-exporter postgres-exporter redis-exporter prometheus loki alloy grafana
+      clamav celery-exporter postgres-exporter redis-exporter prometheus loki alloy grafana
     exit 1
   fi
   sleep 5
@@ -77,6 +82,7 @@ done
 for service in backend worker scheduler; do
   compose exec -T "${service}" python manage.py check_database_role
 done
+compose exec -T worker python manage.py check_malware_scanner
 
 compose ps
 compose images --format json >"${state_dir}/images-${RELEASE_SHA}.json"

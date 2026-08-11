@@ -152,6 +152,56 @@ def commit_quota(
 
 
 @transaction.atomic
+def adjust_quota_reservation(
+    idempotency_key: str,
+    *,
+    amount: int,
+    at: datetime | None = None,
+) -> QuotaReservation:
+    if not isinstance(amount, int) or isinstance(amount, bool) or amount <= 0:
+        raise ValueError("Docelowa ilość musi być dodatnią liczbą całkowitą.")
+    reservation, usage = _locked_reservation(idempotency_key)
+    if reservation.state != QuotaReservationState.RESERVED:
+        if reservation.state == QuotaReservationState.COMMITTED and reservation.amount == amount:
+            return reservation
+        raise QuotaReservationConflict
+    checked_at = at or datetime.now(UTC)
+    if reservation.expires_at is not None and reservation.expires_at <= checked_at:
+        raise QuotaReservationExpired
+    if reservation.amount == amount:
+        return reservation
+    decision = decide_quota(reservation.usage.quota_definition.key, at=checked_at)
+    if not decision.available:
+        raise QuotaUnavailable(decision)
+    difference = amount - reservation.amount
+    if difference > 0 and usage.used + usage.reserved + difference > decision.value:
+        raise QuotaExceeded
+    usage.reserved += difference
+    usage.save(update_fields=["reserved", "updated_at"])
+    reservation.amount = amount
+    reservation.save(update_fields=["amount", "updated_at"])
+    return reservation
+
+
+@transaction.atomic
+def extend_quota_reservation(
+    idempotency_key: str,
+    *,
+    expires_at: datetime,
+    at: datetime | None = None,
+) -> QuotaReservation:
+    reservation, _ = _locked_reservation(idempotency_key)
+    if reservation.state != QuotaReservationState.RESERVED:
+        return reservation
+    if expires_at <= (at or datetime.now(UTC)):
+        raise ValueError("Wygaśnięcie rezerwacji musi przypadać w przyszłości.")
+    if reservation.expires_at is None or expires_at > reservation.expires_at:
+        reservation.expires_at = expires_at
+        reservation.save(update_fields=["expires_at", "updated_at"])
+    return reservation
+
+
+@transaction.atomic
 def release_quota(idempotency_key: str) -> QuotaReservation:
     reservation, usage = _locked_reservation(idempotency_key)
     if reservation.state == QuotaReservationState.RELEASED:

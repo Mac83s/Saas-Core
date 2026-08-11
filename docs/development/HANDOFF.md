@@ -11,7 +11,7 @@
 Kontynuuj lokalną falę W6 z
 `Plan/Wdrozenie/07-W6-Sites-Content-i-Media.md`. W6.0-W6.3 są ukończone
 lokalnie, a **W6.4 — Media** jest w toku po ukończeniu przyrostów W6.4.1,
-W6.4.2 i W6.4.3a. Nie wracaj teraz do wdrożenia VPS: brakujące bramki stagingowe W2 i W3
+W6.4.2, W6.4.3a i W6.4.3b. Nie wracaj teraz do wdrożenia VPS: brakujące bramki stagingowe W2 i W3
 są świadomie odłożone do osobnej sesji z dostępem do hosta, domeny, GHCR i
 GitHub Environment.
 
@@ -49,6 +49,27 @@ obiektu, wygaśnięcie i rozbieżność zwracają stabilne Problem Details bez z
 `pending`. Powtórzenie po sukcesie nie odpytuje storage ponownie i nie duplikuje
 audytu. OpenAPI oraz klient TypeScript są aktualne.
 
+W6.4.3b dodało pełny fail-closed pipeline obrazu. Callback przedłuża rezerwację
+quota i po commicie emituje Celery task z podpisanym tenant context oraz
+`causation_id` związanym z ID assetu. Worker odczytuje obiekt z prywatnego S3 z
+limitem, skanuje surowe bajty przez `clamd INSTREAM`, sprawdza magic bytes i
+rzeczywiste dekodowanie Pillow, odrzuca animacje/HTML/JS/SVG i bomby
+dekompresyjne, a następnie re-enkoduje obraz bez EXIF. Powstają deterministyczne
+warianty WebP `thumbnail` i `preview`.
+
+Sanityzowany oryginał dostaje osobny klucz `processed`; dopiero atomowy commit
+bazy przełącza `MediaAsset` na ten klucz. Osobne retryowalne zadanie usuwa
+zapamiętany klucz źródłowy po commicie, dzięki czemu retry nigdy nie interpretuje
+przetworzonego obiektu jako surowego uploadu. `storage.bytes` jest dopasowywane
+do faktycznej sumy sanityzowanego oryginału i wariantów, a następnie commitowane
+idempotentnie dokładnie raz. Odrzucenie usuwa obiekty i zwalnia rezerwację.
+
+Compose uruchamia oficjalny ClamAV `1.5.3-debian13-slim` wyłącznie w prywatnej
+sieci i zatrzymuje worker, jeśli `check_malware_scanner` nie przejdzie. Staging
+wymaga teraz jawnego zewnętrznego S3; lokalny SeaweedFS jest w override wyłączony
+profilem. Deploy czeka na zdrowy ClamAV, a rollback nie może wrócić przed tę
+granicę storage.
+
 Test RLS używa prawdziwego PostgreSQL i tymczasowej roli
 `NOSUPERUSER NOBYPASSRLS`: brak `SET LOCAL` i obcy tenant zwracają zero, własny
 tenant widzi rekord, a cross-tenant `INSERT` jest odrzucany. Ten sam kontrakt
@@ -64,36 +85,32 @@ Ostatnie commity punktu bazowego przed W6.3:
 
 ## Następny cel wykonawczy
 
-Kontynuuj W6.4 następującymi spójnymi przyrostami:
+Domknij W6.4 następującymi spójnymi przyrostami:
 
-1. Rozszerz adapter storage o limitowany odczyt i usuwanie obiektu; uruchom
-   przetwarzanie przez task z podpisanym tenant task contract.
-2. Waliduj ponownie rzeczywisty rozmiar, magic bytes i dekodowanie;
-   blokuj HTML, JavaScript i SVG oraz usuwaj EXIF.
-3. Dodaj allowlistowane warianty obrazów i stany
-   `pending -> uploaded -> scanning -> ready` albo `rejected`.
-4. Dopuszczaj do publikacji wyłącznie assety `ready`, a `storage.bytes` naliczaj
-   idempotentnie dokładnie raz.
-5. Zaimplementuj tombstone i asynchroniczne usunięcie obiektu dopiero bez
-   referencji z publikacji.
-6. Rozszerz testy o fałszywy MIME, malware, warianty, rozliczenie quota dokładnie
-   raz i ponowienie callbacku. Cross-tenant RLS, nadmierny rozmiar, złośliwa
-   nazwa, quota przy rezerwacji i ponowienie inicjowania uploadu są już pokryte.
+1. Dodaj model/rejestr referencji mediów i waliduj `ready` zarówno przy zapisie
+   referencji, jak i atomowej publikacji snapshotu.
+2. Zaimplementuj tombstone i asynchroniczne usunięcie oryginału oraz wariantów
+   dopiero bez referencji z publikacji.
+3. Dodaj testy odmowy publikacji assetu nie-`ready`, blokady delete przy
+   referencji i idempotentnego ponowienia cleanup/tombstone.
 
 Kontrakty obowiązkowe przed implementacją: ADR-027, ADR-022, ADR-025,
 `docs/architecture/module-contract.md` oraz `docs/architecture/api-and-events.md`.
 Lokalny SeaweedFS `4.41` jest zdrowym, uwierzytelnionym emulatorem S3 wyłącznie
 dla Compose local; staging i production nadal wymagają zewnętrznego S3.
 
-## Walidacja W6.4.3a
+## Walidacja W6.4.3b
 
-- celowane 12 testów API mediów, w tym callback sukcesu i błędów;
-- pełna bramka backendu: 227 testów;
-- pełny Mypy: 0 błędów w 145 plikach;
+- celowane 42 testy mediów, skanera i quota oraz 54 testy regresji task context;
+- pełna bramka backendu: 248 testów po końcowym związaniu payloadu z causation ID;
+- pełny Mypy: 0 błędów w 152 plikach;
 - Ruff, import-linter i brak dryfu migracji;
-- aktualny OpenAPI i wygenerowany klient TypeScript bez driftu;
-- rzeczywisty `put -> HEAD -> delete` na lokalnym SeaweedFS zwrócił
-  `10|image/jpeg` prywatnym endpointem adaptera.
+- lokalny ClamAV jest zdrowy, a rzeczywisty INSTREAM zwrócił `clean|infected`
+  dla bezpiecznego payloadu i standardowego testu EICAR;
+- migracja `media.0002` zastosowana lokalnie, backend/worker/scheduler zdrowe;
+- runtime smoke potwierdził role RLS, fail-closed skaner, frontend i API;
+- lokalny i stagingowy Compose przechodzą `config --quiet`, a staging nie
+  zawiera usługi SeaweedFS i używa wyłącznie jawnego zewnętrznego endpointu S3.
 
 Lokalny `/usr/bin/node` ma wersję 22 i emituje ostrzeżenie `engines`; właściwy
 runtime Node.js 24 został potwierdzony buildem obrazu frontendowego. Przy pracy

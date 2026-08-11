@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import secrets
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
@@ -60,8 +61,17 @@ def issue_tenant_task_contract(*, causation_id: str) -> str:
 
 
 @contextmanager
-def tenant_task_context(signed_contract: str) -> Iterator[TenantContext]:
+def tenant_task_context(
+    signed_contract: str,
+    *,
+    expected_causation_id: str | None = None,
+) -> Iterator[TenantContext]:
     contract = _load_contract(signed_contract)
+    if expected_causation_id is not None and not secrets.compare_digest(
+        contract.causation_id,
+        expected_causation_id,
+    ):
+        raise InvalidTenantTaskContext("Tenant task context nie pasuje do payloadu zadania.")
     correlation_token = correlation_id.set(contract.correlation_id)
     try:
         with transaction.atomic():
@@ -149,7 +159,10 @@ def send_organization_invitation(
     signed_tenant_context: str,
 ) -> None:
     try:
-        with tenant_task_context(signed_tenant_context) as context:
+        with tenant_task_context(
+            signed_tenant_context,
+            expected_causation_id=invitation_id,
+        ) as context:
             invitation = (
                 Invitation.objects.select_related("organization", "role")
                 .filter(pk=invitation_id, organization_id=context.organization_id)

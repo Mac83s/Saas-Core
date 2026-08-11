@@ -119,15 +119,17 @@ build Next.js oraz obrazy backend/frontend na Node.js 24, poprawne profile
 ### W6.4 — Media
 
 - **Stan:** w toku — W6.4.1 (inicjowanie uploadu), W6.4.2 (operacyjne RLS) oraz
-  W6.4.3a (callback uploadu)
+  W6.4.3a (callback uploadu) i W6.4.3b (bezpieczny pipeline obrazu)
   ukończone lokalnie 2026-08-11. `MediaAsset`, polityka `FORCE RLS`, uprawnienia,
   entitlement, rezerwacja `storage.bytes`, losowy klucz tenantowy, signed PUT i
   list API mają testy PostgreSQL oraz aktualny kontrakt OpenAPI. Compose tworzy
   idempotentnie osobną rolę aplikacyjną `NOBYPASSRLS`; backend, worker i scheduler
   zatrzymują start dla roli uprzywilejowanej. Idempotentny callback wykonuje
   `HEAD` prywatnym endpointem S3 i przechodzi do `uploaded` tylko dla zgodnego
-  rozmiaru i MIME. Następny przyrost obejmuje odczyt zawartości, podpisany task,
-  walidację obrazu i pipeline skanera.
+  rozmiaru i MIME. Podpisany task tenantowy skanuje surowe bajty przez prywatny
+  ClamAV, sprawdza magic bytes i dekodowanie, usuwa EXIF przez re-encoding,
+  tworzy allowlistowane warianty i rozlicza faktyczne bajty dokładnie raz.
+  Następny przyrost obejmuje referencje publikacji oraz tombstone/delete.
 
 - [x] utworzyć moduł `shared.media`, adapter S3 i `MediaAsset` z RLS od pierwszej
   migracji;
@@ -136,20 +138,23 @@ build Next.js oraz obrazy backend/frontend na Node.js 24, poprawne profile
   - [x] uruchamiać backend/worker rolą aplikacyjną bez `BYPASSRLS`, a migracje
     oddzielną rolą;
 - [x] wydawać krótkotrwały signed upload z losowym kluczem tenantowym;
-- [ ] walidować rozmiar, nazwę, deklarowany MIME, magic bytes i rzeczywiste
+- [x] walidować rozmiar, nazwę, deklarowany MIME, magic bytes i rzeczywiste
   dekodowanie;
   - [x] walidować limit rozmiaru, bezpieczną nazwę-metadane i allowlistę
     deklarowanego MIME przed wydaniem URL;
-  - [ ] po uploadzie sprawdzać rozmiar obiektu, magic bytes i dekodowanie;
+  - [x] po uploadzie sprawdzać rozmiar obiektu, magic bytes i dekodowanie;
     - [x] sprawdzać przez prywatny `HEAD` obecność, rozmiar oraz zapisany MIME;
-    - [ ] sprawdzać magic bytes i rzeczywiste dekodowanie;
-- [ ] usuwać EXIF, blokować HTML/JS/SVG i tworzyć allowlistowane warianty
+    - [x] sprawdzać magic bytes i rzeczywiste dekodowanie;
+- [x] usuwać EXIF, blokować HTML/JS/SVG i tworzyć allowlistowane warianty
   obrazów;
-- [ ] wdrożyć stany `pending/uploaded/scanning/ready/rejected` i skaner plików;
+- [x] wdrożyć stany `pending/uploaded/scanning/ready/rejected` i skaner plików;
 - [ ] dopuszczać do publikacji wyłącznie `ready` i egzekwować `storage.bytes`
   dokładnie raz;
+  - [x] dopasować rezerwację do sanitizowanego oryginału i wariantów oraz
+    commitować ją idempotentnie dokładnie raz;
+  - [ ] walidować `ready` przy zapisie referencji i publikacji;
 - [ ] dodać tombstone oraz asynchroniczne usunięcie obiektu bez referencji;
-- [ ] przetestować RLS, fałszywy MIME, przekroczenie quota, malware i
+- [x] przetestować RLS, fałszywy MIME, przekroczenie quota, malware i
   idempotentne ponowienie callbacku.
   - [x] przetestować RLS read/write, przekroczenie quota, złośliwą nazwę i
     idempotentne inicjowanie uploadu;

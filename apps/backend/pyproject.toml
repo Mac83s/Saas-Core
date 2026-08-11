@@ -12,6 +12,7 @@ dependencies = [
   "drf-spectacular==0.30.0",
   "gunicorn>=23.0.0,<24",
   "jsonschema>=4.26,<5",
+  "pillow>=12.3,<13",
   "prometheus-client>=0.25.0,<0.26",
   "psycopg[binary]>=3.2.9,<3.3",
   "redis>=6.4.0,<7",

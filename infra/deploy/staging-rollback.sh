@@ -22,6 +22,10 @@ if ! grep -q 'postgres_app_password' "${release_dir}/compose.yaml"; then
   echo "Rollback zablokowany: poprzedni release nie rozdziela ról PostgreSQL" >&2
   exit 1
 fi
+if ! grep -q 'OBJECT_STORAGE_ENDPOINT_URL' "${release_dir}/compose.staging.yaml"; then
+  echo "Rollback zablokowany: poprzedni release nie wymaga zewnętrznego S3" >&2
+  exit 1
+fi
 
 set -a
 . "${DEPLOY_PATH}/staging.env"
@@ -36,13 +40,15 @@ compose() {
 }
 
 # Rollback nie cofa schematu. Poprzedni obraz musi być zgodny z migracją expand/contract.
-compose pull backend frontend caddy redis
+compose pull backend frontend caddy redis clamav
+compose up -d --wait --wait-timeout 1800 clamav
 compose up -d --no-deps backend worker scheduler celery-exporter frontend caddy
 curl --fail --silent --show-error --retry 18 --retry-delay 5 --max-time 10 \
   "${STAGING_URL%/}/api/v1/health/" >/dev/null
 for service in backend worker scheduler; do
   compose exec -T "${service}" python manage.py check_database_role
 done
+compose exec -T worker python manage.py check_malware_scanner
 printf '%s\n' "${previous_tag}" >"${state_dir}/last-successful-image-tag"
 cp "${previous_images}" "${state_dir}/last-successful-images.env"
 ln -sfn "${release_dir}" "${DEPLOY_PATH}/current"

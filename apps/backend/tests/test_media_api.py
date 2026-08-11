@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from io import BytesIO
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 from uuid import uuid7
@@ -9,6 +10,7 @@ import pytest
 from django.core.cache import cache
 from django.db import DatabaseError, connection, transaction
 from django.utils import timezone
+from PIL import Image
 from rest_framework.test import APIClient
 
 from saas_core.modules.core.identity.models import User, UserStatus
@@ -20,6 +22,7 @@ from saas_core.modules.core.organizations.models import (
     OrganizationStatus,
     Role,
 )
+from saas_core.modules.core.organizations.tasks import tenant_task_context
 from saas_core.modules.shared.billing.models import (
     AccessMode,
     EntitlementSnapshot,
@@ -28,7 +31,13 @@ from saas_core.modules.shared.billing.models import (
     QuotaUsage,
     SubscriptionState,
 )
+from saas_core.modules.shared.media.images import ProcessedImage, ProcessedVariant
 from saas_core.modules.shared.media.models import MediaAsset, MediaAssetState
+from saas_core.modules.shared.media.scanner import (
+    MalwareScannerUnavailable,
+    MalwareVerdict,
+)
+from saas_core.modules.shared.media.services import process_media_asset
 from saas_core.modules.shared.media.storage import ObjectMetadata, ObjectNotFoundError
 
 pytestmark = pytest.mark.django_db
@@ -124,6 +133,69 @@ class HeadStorage:
         if self.metadata is None:
             raise ObjectNotFoundError(object_key)
         return self.metadata
+
+
+class MemoryStorage:
+    def __init__(self) -> None:
+        self.objects: dict[str, tuple[bytes, str]] = {}
+        self.put_calls: list[str] = []
+        self.delete_calls: list[str] = []
+
+    def head(self, *, object_key: str) -> ObjectMetadata:
+        try:
+            content, content_type = self.objects[object_key]
+        except KeyError as error:
+            raise ObjectNotFoundError(object_key) from error
+        return ObjectMetadata(content_length=len(content), content_type=content_type)
+
+    def read(self, *, object_key: str, max_bytes: int) -> bytes:
+        try:
+            content = self.objects[object_key][0]
+        except KeyError as error:
+            raise ObjectNotFoundError(object_key) from error
+        assert len(content) <= max_bytes
+        return content
+
+    def put(self, *, object_key: str, content: bytes, content_type: str) -> None:
+        self.put_calls.append(object_key)
+        self.objects[object_key] = (content, content_type)
+
+    def delete(self, *, object_key: str) -> None:
+        self.delete_calls.append(object_key)
+        self.objects.pop(object_key, None)
+
+
+class VerdictScanner:
+    def __init__(self, verdict: MalwareVerdict) -> None:
+        self.verdict = verdict
+        self.calls = 0
+
+    def scan(self, content: bytes) -> MalwareVerdict:
+        assert content
+        self.calls += 1
+        return self.verdict
+
+
+class UnavailableScanner:
+    def scan(self, content: bytes) -> MalwareVerdict:
+        raise MalwareScannerUnavailable from None
+
+
+def encoded_image(
+    image_format: str,
+    *,
+    size: tuple[int, int] = (640, 480),
+    with_exif: bool = False,
+) -> bytes:
+    image = Image.new("RGB", size, color=(24, 96, 180))
+    output = BytesIO()
+    save_options: dict[str, object] = {}
+    if with_exif:
+        exif = Image.Exif()
+        exif[0x010E] = "private fixture metadata"
+        save_options["exif"] = exif
+    image.save(output, format=image_format, **save_options)
+    return output.getvalue()
 
 
 def _tenant_asset_count(organization: Organization) -> int:
@@ -301,6 +373,267 @@ def test_upload_completion_rejects_expired_intent_before_storage_lookup(
     assert storage.calls == []
 
 
+def test_signed_task_scans_sanitizes_variants_and_commits_storage_quota_exactly_once(
+    monkeypatch: pytest.MonkeyPatch,
+    django_capture_on_commit_callbacks: Any,
+) -> None:
+    client, organization, _ = media_client(slug="media-process-ready", storage_limit=10**7)
+    raw_content = encoded_image("JPEG", with_exif=True)
+    created = initiate_upload(
+        client,
+        size=len(raw_content),
+        idempotency_key="media-process-ready",
+    )
+    asset = MediaAsset.all_objects.get(pk=created.data["asset"]["id"])
+    source_object_key = asset.object_key
+    storage = MemoryStorage()
+    storage.objects[asset.object_key] = (raw_content, "image/jpeg")
+    scanner = VerdictScanner(MalwareVerdict.CLEAN)
+    delayed: list[tuple[str, str]] = []
+    cleanup_delayed: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.services.get_object_storage",
+        lambda: storage,
+    )
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.services.get_malware_scanner",
+        lambda: scanner,
+    )
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.tasks.process_media_asset_task.delay",
+        lambda asset_id, contract: delayed.append((asset_id, contract)),
+    )
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.tasks.cleanup_media_source_object_task.delay",
+        lambda asset_id, contract: cleanup_delayed.append((asset_id, contract)),
+    )
+
+    with django_capture_on_commit_callbacks(execute=True):
+        completed = complete_upload(client, str(asset.id))
+
+    assert completed.status_code == 200
+    assert len(delayed) == 1
+    from saas_core.modules.shared.media.tasks import (
+        cleanup_media_source_object_task,
+        process_media_asset_task,
+    )
+
+    with django_capture_on_commit_callbacks(execute=True):
+        process_media_asset_task(*delayed[0])
+    assert len(cleanup_delayed) == 1
+    cleanup_media_source_object_task(*cleanup_delayed[0])
+    first_put_count = len(storage.put_calls)
+    process_media_asset_task(*delayed[0])
+
+    asset.refresh_from_db()
+    usage = QuotaUsage.all_objects.get(organization=organization)
+    reservation = QuotaReservation.all_objects.get(organization=organization)
+    assert asset.state == MediaAssetState.READY
+    assert asset.detected_mime == "image/jpeg"
+    assert asset.width == 640
+    assert asset.height == 480
+    assert asset.ready_at is not None
+    assert asset.scanned_at is not None
+    assert asset.quota_committed is True
+    assert asset.source_object_key == ""
+    assert asset.stored_size == usage.used == reservation.amount
+    assert usage.reserved == 0
+    assert reservation.state == QuotaReservationState.COMMITTED
+    assert set(asset.variants) == {"preview", "thumbnail"}
+    assert len(storage.put_calls) == first_put_count == 3
+    assert scanner.calls == 1
+    assert source_object_key not in storage.objects
+    sanitized = storage.objects[asset.object_key][0]
+    with Image.open(BytesIO(sanitized)) as decoded:
+        assert not decoded.getexif()
+    for variant in asset.variants.values():
+        assert variant["object_key"] in storage.objects
+        assert storage.objects[variant["object_key"]][1] == "image/webp"
+    assert OrganizationAuditEntry.objects.filter(
+        organization=organization,
+        action="media.asset.ready",
+        target_id=asset.id,
+    ).count() == 1
+
+
+@pytest.mark.parametrize(
+    ("raw_format", "declared_mime", "verdict", "rejection_code"),
+    [
+        ("PNG", "image/jpeg", MalwareVerdict.CLEAN, "media_image_invalid"),
+        ("JPEG", "image/jpeg", MalwareVerdict.INFECTED, "media_malware_detected"),
+    ],
+)
+def test_processing_rejects_false_mime_and_malware_and_releases_quota(
+    monkeypatch: pytest.MonkeyPatch,
+    django_capture_on_commit_callbacks: Any,
+    raw_format: str,
+    declared_mime: str,
+    verdict: MalwareVerdict,
+    rejection_code: str,
+) -> None:
+    slug = f"media-reject-{raw_format.lower()}-{verdict}"
+    client, organization, _ = media_client(slug=slug, storage_limit=10**7)
+    raw_content = encoded_image(raw_format)
+    created = initiate_upload(
+        client,
+        content_type=declared_mime,
+        size=len(raw_content),
+        idempotency_key=slug,
+    )
+    asset = MediaAsset.all_objects.get(pk=created.data["asset"]["id"])
+    storage = MemoryStorage()
+    storage.objects[asset.object_key] = (raw_content, declared_mime)
+    scanner = VerdictScanner(verdict)
+    delayed: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.services.get_object_storage",
+        lambda: storage,
+    )
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.services.get_malware_scanner",
+        lambda: scanner,
+    )
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.tasks.process_media_asset_task.delay",
+        lambda asset_id, contract: delayed.append((asset_id, contract)),
+    )
+
+    with django_capture_on_commit_callbacks(execute=True):
+        assert complete_upload(client, str(asset.id)).status_code == 200
+    from saas_core.modules.shared.media.tasks import process_media_asset_task
+
+    process_media_asset_task(*delayed[0])
+
+    asset.refresh_from_db()
+    usage = QuotaUsage.all_objects.get(organization=organization)
+    reservation = QuotaReservation.all_objects.get(organization=organization)
+    assert asset.state == MediaAssetState.REJECTED
+    assert asset.rejection_code == rejection_code
+    assert asset.object_key not in storage.objects
+    assert usage.used == 0
+    assert usage.reserved == 0
+    assert reservation.state == QuotaReservationState.RELEASED
+    audit = OrganizationAuditEntry.objects.get(
+        organization=organization,
+        action="media.asset.rejected",
+        target_id=asset.id,
+    )
+    assert audit.metadata == {"reason": rejection_code}
+
+
+def test_scanner_outage_is_fail_closed_and_rolls_asset_back_for_retry(
+    monkeypatch: pytest.MonkeyPatch,
+    django_capture_on_commit_callbacks: Any,
+) -> None:
+    client, organization, _ = media_client(slug="media-scanner-outage", storage_limit=10**7)
+    raw_content = encoded_image("JPEG")
+    created = initiate_upload(
+        client,
+        size=len(raw_content),
+        idempotency_key="media-scanner-outage",
+    )
+    asset = MediaAsset.all_objects.get(pk=created.data["asset"]["id"])
+    storage = MemoryStorage()
+    storage.objects[asset.object_key] = (raw_content, "image/jpeg")
+    delayed: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.services.get_object_storage",
+        lambda: storage,
+    )
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.tasks.process_media_asset_task.delay",
+        lambda asset_id, contract: delayed.append((asset_id, contract)),
+    )
+
+    with django_capture_on_commit_callbacks(execute=True):
+        assert complete_upload(client, str(asset.id)).status_code == 200
+    with (
+        pytest.raises(MalwareScannerUnavailable),
+        tenant_task_context(delayed[0][1]),
+    ):
+        process_media_asset(
+            asset_id=asset.id,
+            storage=storage,
+            scanner=UnavailableScanner(),
+        )
+
+    asset.refresh_from_db()
+    usage = QuotaUsage.all_objects.get(organization=organization)
+    assert asset.state == MediaAssetState.UPLOADED
+    assert asset.quota_committed is False
+    assert usage.used == 0
+    assert usage.reserved == len(raw_content)
+    assert storage.put_calls == []
+
+
+def test_processing_rejects_when_sanitized_original_and_variants_exceed_quota(
+    monkeypatch: pytest.MonkeyPatch,
+    django_capture_on_commit_callbacks: Any,
+) -> None:
+    raw_content = encoded_image("JPEG", size=(1600, 1200))
+    client, organization, _ = media_client(
+        slug="media-process-quota",
+        storage_limit=len(raw_content) + 1,
+    )
+    created = initiate_upload(
+        client,
+        size=len(raw_content),
+        idempotency_key="media-process-quota",
+    )
+    asset = MediaAsset.all_objects.get(pk=created.data["asset"]["id"])
+    storage = MemoryStorage()
+    storage.objects[asset.object_key] = (raw_content, "image/jpeg")
+    delayed: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.services.get_object_storage",
+        lambda: storage,
+    )
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.services.get_malware_scanner",
+        lambda: VerdictScanner(MalwareVerdict.CLEAN),
+    )
+    oversized = ProcessedImage(
+        content=b"x" * len(raw_content),
+        content_type="image/jpeg",
+        sha256="0" * 64,
+        width=1600,
+        height=1200,
+        variants=(
+            ProcessedVariant(
+                kind="thumbnail",
+                content=b"variant",
+                content_type="image/webp",
+                width=320,
+                height=240,
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.services.process_image",
+        lambda content, declared_mime: oversized,
+    )
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.tasks.process_media_asset_task.delay",
+        lambda asset_id, contract: delayed.append((asset_id, contract)),
+    )
+
+    with django_capture_on_commit_callbacks(execute=True):
+        assert complete_upload(client, str(asset.id)).status_code == 200
+    from saas_core.modules.shared.media.tasks import process_media_asset_task
+
+    process_media_asset_task(*delayed[0])
+
+    asset.refresh_from_db()
+    usage = QuotaUsage.all_objects.get(organization=organization)
+    reservation = QuotaReservation.all_objects.get(organization=organization)
+    assert asset.state == MediaAssetState.REJECTED
+    assert asset.rejection_code == "media_quota_exceeded"
+    assert storage.objects == {}
+    assert usage.used == 0
+    assert usage.reserved == 0
+    assert reservation.state == QuotaReservationState.RELEASED
+
+
 @pytest.mark.parametrize("content_type", ["text/html", "application/javascript", "image/svg+xml"])
 def test_upload_rejects_active_content_types(content_type: str) -> None:
     client, organization, _ = media_client(
@@ -392,14 +725,15 @@ def test_media_list_and_database_rls_isolate_tenants_and_block_cross_tenant_inse
             """
                 INSERT INTO media_mediaasset (
                     id, organization_id, created_by_id, original_filename, object_key,
-                    declared_mime, detected_mime, expected_size, actual_size, sha256,
+                    source_object_key, declared_mime, detected_mime, expected_size,
+                    actual_size, stored_size, sha256,
                     width, height, state, quota_reservation_key, quota_committed,
-                    rejection_code, upload_expires_at, uploaded_at, scanned_at, ready_at,
+                    variants, rejection_code, upload_expires_at, uploaded_at, scanned_at, ready_at,
                     rejected_at, deleted_at, idempotency_key, request_hash, created_at,
                     updated_at
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, '', 1, NULL, '', NULL, NULL, 'pending',
-                    %s, FALSE, '', %s, NULL, NULL, NULL, NULL, NULL, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, '', %s, '', 1, NULL, NULL, '', NULL, NULL, 'pending',
+                    %s, FALSE, '{}'::jsonb, '', %s, NULL, NULL, NULL, NULL, NULL, %s, %s, %s, %s
                 )
                 """,
             [
