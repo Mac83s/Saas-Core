@@ -18,6 +18,11 @@ class MediaAssetState(models.TextChoices):
     REJECTED = "rejected", "Odrzucony"
 
 
+class MediaReferenceOwner(models.TextChoices):
+    PAGE_VERSION = "sites.page_version", "Wersja strony"
+    PUBLICATION = "sites.publication", "Publikacja"
+
+
 class MediaAsset(TenantScopedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     original_filename = models.CharField(max_length=160)
@@ -109,3 +114,48 @@ class MediaAsset(TenantScopedModel):
     def save(self, *args: Any, **kwargs: Any) -> None:
         self.original_filename = self.original_filename.strip()
         super().save(*args, **kwargs)
+
+
+class MediaReference(TenantScopedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    asset = models.ForeignKey(
+        MediaAsset,
+        on_delete=models.PROTECT,
+        related_name="references",
+    )
+    owner_type = models.CharField(max_length=80, choices=MediaReferenceOwner)
+    owner_id = models.UUIDField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "owner_type", "owner_id", "asset_id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "owner_type", "owner_id", "asset"],
+                name="media_ref_org_owner_asset_uq",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(owner_type__in=MediaReferenceOwner.values),
+                name="media_ref_owner_type_ck",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["organization", "owner_type", "owner_id"],
+                name="media_ref_org_owner_idx",
+            ),
+            models.Index(
+                fields=["organization", "asset", "owner_type"],
+                name="media_ref_org_asset_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.owner_type}:{self.owner_id}:{self.asset_id}"
+
+    def clean(self) -> None:
+        super().clean()
+        if self.asset_id and self.asset.organization_id != self.organization_id:
+            raise ValidationError({"asset": "Referencja wskazuje media innej organizacji."})

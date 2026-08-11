@@ -1924,6 +1924,12 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PageBlockInput'
+        media_asset_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
       required:
       - blocks
       - expected_version
@@ -2531,11 +2537,17 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PageBlock'
+        media_asset_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
       required:
       - blocks
       - content_hash
       - created_at
       - draft_id
+      - media_asset_ids
       - page_id
       - version
     PageList:

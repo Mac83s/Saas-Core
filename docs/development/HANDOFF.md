@@ -11,7 +11,7 @@
 Kontynuuj lokalną falę W6 z
 `Plan/Wdrozenie/07-W6-Sites-Content-i-Media.md`. W6.0-W6.3 są ukończone
 lokalnie, a **W6.4 — Media** jest w toku po ukończeniu przyrostów W6.4.1,
-W6.4.2, W6.4.3a i W6.4.3b. Nie wracaj teraz do wdrożenia VPS: brakujące bramki stagingowe W2 i W3
+W6.4.2, W6.4.3a, W6.4.3b i W6.4.3c. Nie wracaj teraz do wdrożenia VPS: brakujące bramki stagingowe W2 i W3
 są świadomie odłożone do osobnej sesji z dostępem do hosta, domeny, GHCR i
 GitHub Environment.
 
@@ -70,6 +70,15 @@ wymaga teraz jawnego zewnętrznego S3; lokalny SeaweedFS jest w override wyłąc
 profilem. Deploy czeka na zdrowy ClamAV, a rollback nie może wrócić przed tę
 granicę storage.
 
+W6.4.3c dodało opcjonalny rejestr referencji zasobów w warstwie Core bez
+bezpośredniego importu Sites -> Media. `shared.media` rejestruje typ
+`shared.media.asset` i przechowuje tenantowy `MediaReference` z `FORCE RLS`.
+Zapis `PageVersion` przyjmuje maksymalnie 100 unikalnych `media_asset_ids`,
+wiąże je z hashem/idempotencją draftu i w tej samej transakcji akceptuje
+wyłącznie assety `ready`, bez tombstone i z bieżącej organizacji. Błąd wycofuje
+wersję, bloki, referencje oraz audyt. GET draftu i jawny preview zwracają
+utrwaloną listę referencji.
+
 Test RLS używa prawdziwego PostgreSQL i tymczasowej roli
 `NOSUPERUSER NOBYPASSRLS`: brak `SET LOCAL` i obcy tenant zwracają zero, własny
 tenant widzi rekord, a cross-tenant `INSERT` jest odrzucany. Ten sam kontrakt
@@ -87,8 +96,9 @@ Ostatnie commity punktu bazowego przed W6.3:
 
 Domknij W6.4 następującymi spójnymi przyrostami:
 
-1. Dodaj model/rejestr referencji mediów i waliduj `ready` zarówno przy zapisie
-   referencji, jak i atomowej publikacji snapshotu.
+1. Dodaj atomową publikację snapshotu, ponownie waliduj assety `ready` i utrwal
+   append-only referencje `sites.publication` przed przełączeniem
+   `Site.current_publication`.
 2. Zaimplementuj tombstone i asynchroniczne usunięcie oryginału oraz wariantów
    dopiero bez referencji z publikacji.
 3. Dodaj testy odmowy publikacji assetu nie-`ready`, blokady delete przy
@@ -99,12 +109,15 @@ Kontrakty obowiązkowe przed implementacją: ADR-027, ADR-022, ADR-025,
 Lokalny SeaweedFS `4.41` jest zdrowym, uwierzytelnionym emulatorem S3 wyłącznie
 dla Compose local; staging i production nadal wymagają zewnętrznego S3.
 
-## Walidacja W6.4.3b
+## Walidacja W6.4.3c
 
-- celowane 42 testy mediów, skanera i quota oraz 54 testy regresji task context;
-- pełna bramka backendu: 248 testów po końcowym związaniu payloadu z causation ID;
-- pełny Mypy: 0 błędów w 152 plikach;
+- celowane 32 testy integracyjne Sites/Media, w tym transakcyjna odmowa dla
+  `pending`, tombstone i obcego tenanta oraz bezpośrednie RLS referencji;
+- pełna bramka backendu: 249 testów;
+- pełny Mypy: 0 błędów w 156 plikach;
 - Ruff, import-linter i brak dryfu migracji;
+- import-linter potwierdził kierunek dla 156 plików i 206 zależności;
+- OpenAPI i wygenerowany klient TypeScript są aktualne;
 - lokalny ClamAV jest zdrowy, a rzeczywisty INSTREAM zwrócił `clean|infected`
   dla bezpiecznego payloadu i standardowego testu EICAR;
 - migracja `media.0002` zastosowana lokalnie, backend/worker/scheduler zdrowe;

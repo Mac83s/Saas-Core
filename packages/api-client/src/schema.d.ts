@@ -671,6 +671,7 @@ export interface components {
         DraftSave: {
             expected_version: number;
             blocks: components["schemas"]["PageBlockInput"][];
+            media_asset_ids?: string[];
         };
         EntitlementSupportItem: {
             kind: components["schemas"]["KindEnum"];
@@ -908,6 +909,7 @@ export interface components {
             /** Format: date-time */
             created_at: string | null;
             blocks: components["schemas"]["PageBlock"][];
+            media_asset_ids: string[];
         };
         PageList: {
             items: components["schemas"]["PageSummary"][];

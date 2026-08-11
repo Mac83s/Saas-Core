@@ -10,7 +10,14 @@ from django.utils import timezone
 from rest_framework.exceptions import APIException, NotFound
 
 from saas_core.modules.core.identity.models import User
+from saas_core.modules.core.organizations.api import (
+    ResourceReferenceConflict,
+    ResourceReferenceRejected,
+    list_resource_reference_ids,
+    record_resource_references,
+)
 from saas_core.modules.core.organizations.audit import record_audit
+from saas_core.modules.core.organizations.context import TenantContext
 from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.billing.api import (
     FeatureOperation,
@@ -35,6 +42,8 @@ SITE_CREATED = "sites.site.created"
 PAGE_CREATED = "sites.page.created"
 PAGE_DRAFT_SAVED = "sites.page.draft_saved"
 PAGE_TRANSLATION_SAVED = "sites.page.translation_saved"
+MEDIA_ASSET_RESOURCE_TYPE = "shared.media.asset"
+PAGE_VERSION_REFERENCE_OWNER = "sites.page_version"
 
 
 class SitesIdempotencyConflict(APIException):
@@ -59,6 +68,12 @@ class DraftVersionConflict(APIException):
     status_code = 409
     default_detail = "Draft został w międzyczasie zmieniony."
     default_code = "draft_version_conflict"
+
+
+class SiteMediaReferenceUnavailable(APIException):
+    status_code = 409
+    default_detail = "Wybrane media nie są gotowe albo nie są dostępne w tej organizacji."
+    default_code = "site_media_reference_unavailable"
 
 
 class UnsupportedSiteLocale(APIException):
@@ -117,6 +132,7 @@ class PageDraft:
     page: Page
     version: PageVersion | None
     blocks: tuple[PageBlock, ...]
+    media_asset_ids: tuple[UUID, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,13 +169,11 @@ def create_site(
         raise UnsupportedSiteLocale
     normalized_key = _idempotency_key(idempotency_key)
     normalized_slug = slug.strip().lower()
-    request_hash = canonical_json_hash(
-        {
-            "name": name,
-            "slug": normalized_slug,
-            "default_locale": default_locale,
-        }
-    )
+    request_hash = canonical_json_hash({
+        "name": name,
+        "slug": normalized_slug,
+        "default_locale": default_locale,
+    })
     existing = Site.all_objects.filter(
         organization_id=context.organization_id,
         created_by_id=context.actor_id,
@@ -250,9 +264,11 @@ def create_page(
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
     normalized_idempotency_key = _idempotency_key(idempotency_key)
     normalized_page_key = key.strip().lower()
-    request_hash = canonical_json_hash(
-        {"site_id": str(site_id), "name": name, "key": normalized_page_key}
-    )
+    request_hash = canonical_json_hash({
+        "site_id": str(site_id),
+        "name": name,
+        "key": normalized_page_key,
+    })
     try:
         site = Site.all_objects.select_for_update().get(
             pk=site_id,
@@ -310,14 +326,19 @@ def get_draft(*, page_id: UUID) -> PageDraft:
     except Page.DoesNotExist as error:
         raise PageNotFound from error
     if page.current_draft is None:
-        return PageDraft(page, None, ())
+        return PageDraft(page, None, (), ())
     blocks = tuple(
         PageBlock.all_objects.filter(
             organization_id=context.organization_id,
             page_version_id=page.current_draft_id,
         ).order_by("position")
     )
-    return PageDraft(page, page.current_draft, blocks)
+    return PageDraft(
+        page,
+        page.current_draft,
+        blocks,
+        _page_version_media_asset_ids(context=context, version_id=page.current_draft.id),
+    )
 
 
 def get_draft_preview(*, page_id: UUID, version_id: UUID) -> PageDraft:
@@ -350,7 +371,12 @@ def get_draft_preview(*, page_id: UUID, version_id: UUID) -> PageDraft:
             schema_version=block.schema_version,
             data=block.data,
         )
-    return PageDraft(page, version, blocks)
+    return PageDraft(
+        page,
+        version,
+        blocks,
+        _page_version_media_asset_ids(context=context, version_id=version.id),
+    )
 
 
 @transaction.atomic
@@ -359,6 +385,7 @@ def save_draft(
     page_id: UUID,
     expected_version: int,
     blocks: list[dict[str, Any]],
+    media_asset_ids: list[UUID],
     idempotency_key: str,
 ) -> MutationResult[PageVersion]:
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
@@ -371,20 +398,23 @@ def save_draft(
         }
         for block in blocks
     ]
+    normalized_media_asset_ids = tuple(sorted(set(media_asset_ids), key=str))
     for block in normalized_blocks:
         validate_site_block(
             block_type=block["block_type"],
             schema_version=block["schema_version"],
             data=block["data"],
         )
-    content_hash = canonical_json_hash(normalized_blocks)
-    request_hash = canonical_json_hash(
-        {
-            "page_id": str(page_id),
-            "expected_version": expected_version,
-            "blocks": normalized_blocks,
-        }
-    )
+    content_hash = canonical_json_hash({
+        "blocks": normalized_blocks,
+        "media_asset_ids": [str(asset_id) for asset_id in normalized_media_asset_ids],
+    })
+    request_hash = canonical_json_hash({
+        "page_id": str(page_id),
+        "expected_version": expected_version,
+        "blocks": normalized_blocks,
+        "media_asset_ids": [str(asset_id) for asset_id in normalized_media_asset_ids],
+    })
     existing = PageVersion.all_objects.filter(
         organization_id=context.organization_id,
         page_id=page_id,
@@ -394,9 +424,13 @@ def save_draft(
     if existing is not None:
         return MutationResult(_same_request(existing, request_hash), False)
     try:
-        page = Page.all_objects.select_for_update().select_related("site").get(
-            pk=page_id,
-            organization_id=context.organization_id,
+        page = (
+            Page.all_objects.select_for_update()
+            .select_related("site")
+            .get(
+                pk=page_id,
+                organization_id=context.organization_id,
+            )
         )
     except Page.DoesNotExist as error:
         raise PageNotFound from error
@@ -421,19 +455,29 @@ def save_draft(
         request_hash=request_hash,
         content_hash=content_hash,
     )
-    PageBlock.all_objects.bulk_create(
-        [
-            PageBlock(
-                organization_id=context.organization_id,
-                page_version=version,
-                position=position,
-                block_type=block["block_type"],
-                schema_version=block["schema_version"],
-                data=block["data"],
-            )
-            for position, block in enumerate(normalized_blocks)
-        ]
-    )
+    PageBlock.all_objects.bulk_create([
+        PageBlock(
+            organization_id=context.organization_id,
+            page_version=version,
+            position=position,
+            block_type=block["block_type"],
+            schema_version=block["schema_version"],
+            data=block["data"],
+        )
+        for position, block in enumerate(normalized_blocks)
+    ])
+    try:
+        record_resource_references(
+            context=context,
+            resource_type=MEDIA_ASSET_RESOURCE_TYPE,
+            owner_type=PAGE_VERSION_REFERENCE_OWNER,
+            owner_id=version.id,
+            resource_ids=normalized_media_asset_ids,
+        )
+    except ResourceReferenceRejected as error:
+        raise SiteMediaReferenceUnavailable from error
+    except ResourceReferenceConflict as error:
+        raise SitesIdempotencyConflict from error
     updated = Page.all_objects.filter(
         pk=page.id,
         organization_id=context.organization_id,
@@ -456,6 +500,7 @@ def save_draft(
             "page_id": str(page.id),
             "version": version.number,
             "block_count": len(normalized_blocks),
+            "media_asset_count": len(normalized_media_asset_ids),
             "content_hash": version.content_hash,
         },
     )
@@ -519,14 +564,12 @@ def save_page_translation(
         "allow_social_title_fallback": allow_social_title_fallback,
         "allow_social_description_fallback": allow_social_description_fallback,
     }
-    request_hash = canonical_json_hash(
-        {
-            "page_id": str(page_id),
-            "locale": normalized_locale,
-            "expected_version": expected_version,
-            **values,
-        }
-    )
+    request_hash = canonical_json_hash({
+        "page_id": str(page_id),
+        "locale": normalized_locale,
+        "expected_version": expected_version,
+        **values,
+    })
     try:
         page = (
             Page.all_objects.select_for_update()
@@ -541,14 +584,12 @@ def save_page_translation(
     )
     if site.default_locale not in _supported_locales():
         raise UnsupportedSiteLocale
-    if normalized_locale == site.default_locale and any(
-        (
-            allow_title_fallback,
-            allow_description_fallback,
-            allow_social_title_fallback,
-            allow_social_description_fallback,
-        )
-    ):
+    if normalized_locale == site.default_locale and any((
+        allow_title_fallback,
+        allow_description_fallback,
+        allow_social_title_fallback,
+        allow_social_description_fallback,
+    )):
         raise TranslationFallbackConflict
 
     translation = (
@@ -682,14 +723,29 @@ def _idempotency_key(value: str) -> str:
 
 
 def _quota_idempotency_key(actor_id: UUID, idempotency_key: str) -> str:
-    digest = canonical_json_hash(
-        {"endpoint": "sites.create", "actor_id": str(actor_id), "key": idempotency_key}
-    )
+    digest = canonical_json_hash({
+        "endpoint": "sites.create",
+        "actor_id": str(actor_id),
+        "key": idempotency_key,
+    })
     return f"sites-create:{digest}"
 
 
 def _supported_locales() -> tuple[str, ...]:
     return tuple(settings.SITES_SUPPORTED_LOCALES)
+
+
+def _page_version_media_asset_ids(
+    *,
+    context: TenantContext,
+    version_id: UUID,
+) -> tuple[UUID, ...]:
+    return list_resource_reference_ids(
+        context=context,
+        resource_type=MEDIA_ASSET_RESOURCE_TYPE,
+        owner_type=PAGE_VERSION_REFERENCE_OWNER,
+        owner_id=version_id,
+    )
 
 
 def _same_request[T: Site | Page | PageVersion](value: T, request_hash: str) -> T:

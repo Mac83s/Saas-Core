@@ -32,7 +32,12 @@ from saas_core.modules.shared.billing.models import (
     SubscriptionState,
 )
 from saas_core.modules.shared.media.images import ProcessedImage, ProcessedVariant
-from saas_core.modules.shared.media.models import MediaAsset, MediaAssetState
+from saas_core.modules.shared.media.models import (
+    MediaAsset,
+    MediaAssetState,
+    MediaReference,
+    MediaReferenceOwner,
+)
 from saas_core.modules.shared.media.scanner import (
     MalwareScannerUnavailable,
     MalwareVerdict,
@@ -307,11 +312,14 @@ def test_upload_completion_is_csrf_protected_idempotent_audited_and_tenant_scope
     assert len(storage.calls) == 1
     asset = MediaAsset.all_objects.get(pk=asset_id, organization=organization)
     assert asset.uploaded_at is not None
-    assert OrganizationAuditEntry.objects.filter(
-        organization=organization,
-        action="media.asset.upload_completed",
-        target_id=asset_id,
-    ).count() == 1
+    assert (
+        OrganizationAuditEntry.objects.filter(
+            organization=organization,
+            action="media.asset.upload_completed",
+            target_id=asset_id,
+        ).count()
+        == 1
+    )
 
 
 @pytest.mark.parametrize(
@@ -449,11 +457,14 @@ def test_signed_task_scans_sanitizes_variants_and_commits_storage_quota_exactly_
     for variant in asset.variants.values():
         assert variant["object_key"] in storage.objects
         assert storage.objects[variant["object_key"]][1] == "image/webp"
-    assert OrganizationAuditEntry.objects.filter(
-        organization=organization,
-        action="media.asset.ready",
-        target_id=asset.id,
-    ).count() == 1
+    assert (
+        OrganizationAuditEntry.objects.filter(
+            organization=organization,
+            action="media.asset.ready",
+            target_id=asset.id,
+        ).count()
+        == 1
+    )
 
 
 @pytest.mark.parametrize(
@@ -693,21 +704,35 @@ def test_media_list_and_database_rls_isolate_tenants_and_block_cross_tenant_inse
     assert created.status_code == 201
     assert [item["id"] for item in own_list.data["items"]] == [created.data["asset"]["id"]]
     assert foreign_list.data["items"] == []
+    asset = MediaAsset.all_objects.get(pk=created.data["asset"]["id"])
+    reference = MediaReference.all_objects.create(
+        organization=organization,
+        asset=asset,
+        owner_type=MediaReferenceOwner.PAGE_VERSION,
+        owner_id=uuid7(),
+    )
     role_name = f"media_rls_test_{uuid7().hex}"
     quoted_role = connection.ops.quote_name(role_name)
     with connection.cursor() as cursor:
         cursor.execute(f"CREATE ROLE {quoted_role} NOSUPERUSER NOBYPASSRLS NOLOGIN")
         cursor.execute(f"GRANT USAGE ON SCHEMA public TO {quoted_role}")
         cursor.execute(f"GRANT SELECT, INSERT ON media_mediaasset TO {quoted_role}")
+        cursor.execute(f"GRANT SELECT, INSERT ON media_mediareference TO {quoted_role}")
         cursor.execute(f"SET LOCAL ROLE {quoted_role}")
         cursor.execute("SET LOCAL app.organization_id = ''")
         cursor.execute("SELECT COUNT(*) FROM media_mediaasset")
         assert cursor.fetchone()[0] == 0
+        cursor.execute("SELECT COUNT(*) FROM media_mediareference")
+        assert cursor.fetchone()[0] == 0
         cursor.execute("SET LOCAL app.organization_id = %s", [str(foreign_organization.id)])
         cursor.execute("SELECT COUNT(*) FROM media_mediaasset")
         assert cursor.fetchone()[0] == 0
+        cursor.execute("SELECT COUNT(*) FROM media_mediareference")
+        assert cursor.fetchone()[0] == 0
         cursor.execute("SET LOCAL app.organization_id = %s", [str(organization.id)])
         cursor.execute("SELECT COUNT(*) FROM media_mediaasset")
+        assert cursor.fetchone()[0] == 1
+        cursor.execute("SELECT COUNT(*) FROM media_mediareference")
         assert cursor.fetchone()[0] == 1
         cursor.execute("RESET ROLE")
     assert _tenant_asset_count(organization) == 1
@@ -751,3 +776,27 @@ def test_media_list_and_database_rls_isolate_tenants_and_block_cross_tenant_inse
                 now,
             ],
         )
+
+    with (
+        pytest.raises(DatabaseError),
+        transaction.atomic(),
+        connection.cursor() as cursor,
+    ):
+        cursor.execute(f"SET LOCAL ROLE {quoted_role}")
+        cursor.execute("SET LOCAL app.organization_id = %s", [str(organization.id)])
+        cursor.execute(
+            """
+                INSERT INTO media_mediareference (
+                    id, organization_id, asset_id, owner_type, owner_id, created_at
+                ) VALUES (%s, %s, %s, %s, %s, %s)
+            """,
+            [
+                str(uuid7()),
+                str(foreign_organization.id),
+                str(asset.id),
+                MediaReferenceOwner.PAGE_VERSION,
+                str(uuid7()),
+                now,
+            ],
+        )
+    assert MediaReference.all_objects.get(pk=reference.id).asset_id == asset.id

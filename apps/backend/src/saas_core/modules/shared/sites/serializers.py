@@ -80,10 +80,21 @@ class PageBlockInputSerializer(serializers.Serializer[dict[str, Any]]):
 class DraftSaveSerializer(serializers.Serializer[dict[str, Any]]):
     expected_version = serializers.IntegerField(min_value=0)
     blocks = PageBlockInputSerializer(many=True, allow_empty=True)
+    media_asset_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        allow_empty=True,
+        default=list,
+        max_length=100,
+    )
 
     def validate_blocks(self, value: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if len(value) > 200:
             raise serializers.ValidationError("Draft może zawierać maksymalnie 200 bloków.")
+        return value
+
+    def validate_media_asset_ids(self, value: list[Any]) -> list[Any]:
+        if len(value) != len(set(value)):
+            raise serializers.ValidationError("Lista mediów nie może zawierać duplikatów.")
         return value
 
 
@@ -102,6 +113,7 @@ class PageDraftSerializer(serializers.Serializer[dict[str, Any]]):
     content_hash = serializers.CharField(allow_null=True)
     created_at = serializers.DateTimeField(allow_null=True)
     blocks = PageBlockSerializer(many=True)
+    media_asset_ids = serializers.ListField(child=serializers.UUIDField())
 
 
 class PageTranslationSaveSerializer(serializers.Serializer[dict[str, Any]]):

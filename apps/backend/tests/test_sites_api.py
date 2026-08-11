@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 from typing import Any
+from uuid import uuid7
 
 import pytest
 from django.conf import settings
 from django.core.cache import cache
 from django.db import DatabaseError, transaction
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from saas_core.modules.core.identity.models import User, UserStatus
@@ -23,6 +26,12 @@ from saas_core.modules.shared.billing.models import (
     EntitlementSnapshot,
     QuotaUsage,
     SubscriptionState,
+)
+from saas_core.modules.shared.media.models import (
+    MediaAsset,
+    MediaAssetState,
+    MediaReference,
+    MediaReferenceOwner,
 )
 from saas_core.modules.shared.sites.models import (
     Page,
@@ -127,6 +136,7 @@ def save_draft(
     expected_version: int,
     idempotency_key: str,
     heading: str,
+    media_asset_ids: list[str] | None = None,
 ) -> Any:
     return client.put(
         f"/api/v1/sites/pages/{page_id}/draft/",
@@ -144,10 +154,41 @@ def save_draft(
                     "data": {"text": "Treść"},
                 },
             ],
+            "media_asset_ids": media_asset_ids or [],
         },
         format="json",
         HTTP_X_CSRFTOKEN=csrf_value(client),
         HTTP_IDEMPOTENCY_KEY=idempotency_key,
+    )
+
+
+def create_media_asset(
+    organization: Organization,
+    user: User,
+    *,
+    state: MediaAssetState = MediaAssetState.READY,
+    deleted: bool = False,
+) -> MediaAsset:
+    asset_id = uuid7()
+    return MediaAsset.all_objects.create(
+        id=asset_id,
+        organization=organization,
+        original_filename="reference.jpg",
+        object_key=f"{organization.id}/processed/{asset_id}/original.jpg",
+        declared_mime="image/jpeg",
+        detected_mime="image/jpeg" if state == MediaAssetState.READY else "",
+        expected_size=1024,
+        actual_size=1024 if state == MediaAssetState.READY else None,
+        stored_size=2048 if state == MediaAssetState.READY else None,
+        state=state,
+        quota_reservation_key=f"media-reference:{asset_id}",
+        quota_committed=state == MediaAssetState.READY,
+        upload_expires_at=timezone.now() + timedelta(hours=1),
+        ready_at=timezone.now() if state == MediaAssetState.READY else None,
+        deleted_at=timezone.now() if deleted else None,
+        created_by=user,
+        idempotency_key=f"reference-{asset_id}",
+        request_hash="0" * 64,
     )
 
 
@@ -387,9 +428,7 @@ def test_page_and_draft_are_tenant_scoped_versioned_and_idempotent() -> None:
     assert PageVersion.all_objects.filter(organization=organization).count() == 2
     first_version = PageVersion.all_objects.get(id=first.data["draft_id"])
     first_block = (
-        PageBlock.all_objects.filter(page_version=first_version)
-        .order_by("position")
-        .first()
+        PageBlock.all_objects.filter(page_version=first_version).order_by("position").first()
     )
     assert first_block is not None
     assert first_block.data["heading"] == "Pierwszy"
@@ -479,6 +518,87 @@ def test_draft_uses_canonical_block_contracts_after_authorization() -> None:
     assert denied.data["code"] == "organization_permission_denied"
 
 
+def test_draft_media_references_require_ready_assets_from_the_same_tenant() -> None:
+    client, organization, user = sites_client(slug="sites-media-reference")
+    _, foreign_organization, foreign_user = sites_client(slug="sites-media-reference-foreign")
+    site = create_site(client)
+    page = create_page(client, site.data["id"])
+    ready = create_media_asset(organization, user)
+    pending = create_media_asset(
+        organization,
+        user,
+        state=MediaAssetState.PENDING,
+    )
+    tombstoned = create_media_asset(organization, user, deleted=True)
+    foreign = create_media_asset(foreign_organization, foreign_user)
+
+    for asset, key in (
+        (pending, "draft-media-pending"),
+        (tombstoned, "draft-media-tombstoned"),
+        (foreign, "draft-media-foreign"),
+    ):
+        rejected = save_draft(
+            client,
+            page.data["id"],
+            expected_version=0,
+            idempotency_key=key,
+            heading="Nie zapisuj",
+            media_asset_ids=[str(asset.id)],
+        )
+        assert rejected.status_code == 409
+        assert rejected.data["code"] == "site_media_reference_unavailable"
+
+    assert PageVersion.all_objects.filter(page_id=page.data["id"]).count() == 0
+    assert MediaReference.all_objects.filter(organization=organization).count() == 0
+
+    saved = save_draft(
+        client,
+        page.data["id"],
+        expected_version=0,
+        idempotency_key="draft-media-ready",
+        heading="Gotowe media",
+        media_asset_ids=[str(ready.id)],
+    )
+    repeated = save_draft(
+        client,
+        page.data["id"],
+        expected_version=0,
+        idempotency_key="draft-media-ready",
+        heading="Gotowe media",
+        media_asset_ids=[str(ready.id)],
+    )
+    changed_replay = save_draft(
+        client,
+        page.data["id"],
+        expected_version=0,
+        idempotency_key="draft-media-ready",
+        heading="Gotowe media",
+        media_asset_ids=[],
+    )
+    preview = client.get(f"/api/v1/sites/pages/{page.data['id']}/preview/{saved.data['draft_id']}/")
+
+    assert saved.status_code == 201
+    assert saved.data["media_asset_ids"] == [ready.id]
+    assert repeated.status_code == 200
+    assert repeated.data["media_asset_ids"] == [ready.id]
+    assert changed_replay.status_code == 409
+    assert changed_replay.data["code"] == "sites_idempotency_conflict"
+    assert preview.status_code == 200
+    assert preview.data["media_asset_ids"] == [ready.id]
+    reference = MediaReference.all_objects.get(
+        organization=organization,
+        owner_type=MediaReferenceOwner.PAGE_VERSION,
+        owner_id=saved.data["draft_id"],
+    )
+    assert reference.asset_id == ready.id
+    audit = OrganizationAuditEntry.objects.get(
+        organization=organization,
+        action="sites.page.draft_saved",
+        target_id=saved.data["draft_id"],
+    )
+    assert audit.metadata["media_asset_count"] == 1
+
+
 def test_preview_requires_session_and_explicit_tenant_scoped_version() -> None:
     client, _, _ = sites_client(slug="sites-preview")
     foreign_client, _, _ = sites_client(slug="sites-preview-foreign")
@@ -498,9 +618,7 @@ def test_preview_requires_session_and_explicit_tenant_scoped_version() -> None:
         idempotency_key="preview-v2",
         heading="Wersja druga",
     )
-    preview_url = (
-        f"/api/v1/sites/pages/{page.data['id']}/preview/{first.data['draft_id']}/"
-    )
+    preview_url = f"/api/v1/sites/pages/{page.data['id']}/preview/{first.data['draft_id']}/"
 
     anonymous = APIClient().get(preview_url)
     preview = client.get(preview_url)
@@ -857,12 +975,8 @@ def test_translation_rejects_unsupported_locale_base_fallback_and_foreign_tenant
         description="Obcy opis",
         idempotency_key="locale-foreign",
     )
-    viewer = viewer_client.get(
-        f"/api/v1/sites/pages/{page.data['id']}/translations/"
-    )
-    disabled = disabled_client.get(
-        f"/api/v1/sites/{site.data['id']}/localization/"
-    )
+    viewer = viewer_client.get(f"/api/v1/sites/pages/{page.data['id']}/translations/")
+    disabled = disabled_client.get(f"/api/v1/sites/{site.data['id']}/localization/")
 
     assert unsupported.status_code == 400
     assert unsupported.data["code"] == "unsupported_site_locale"

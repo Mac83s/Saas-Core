@@ -88,12 +88,10 @@ class SiteListCreateView(APIView):
             cursor=query.validated_data.get("cursor"),
             limit=query.validated_data["limit"],
         )
-        return Response(
-            {
-                "items": [_site_summary(site) for site in items],
-                "next_cursor": next_cursor,
-            }
-        )
+        return Response({
+            "items": [_site_summary(site) for site in items],
+            "next_cursor": next_cursor,
+        })
 
     @extend_schema(
         operation_id="sites_create",
@@ -144,12 +142,10 @@ class PageListCreateView(APIView):
             cursor=query.validated_data.get("cursor"),
             limit=query.validated_data["limit"],
         )
-        return Response(
-            {
-                "items": [_page_summary(page) for page in items],
-                "next_cursor": next_cursor,
-            }
-        )
+        return Response({
+            "items": [_page_summary(page) for page in items],
+            "next_cursor": next_cursor,
+        })
 
     @extend_schema(
         operation_id="sites_pages_create",
@@ -238,9 +234,7 @@ class PageDraftPreviewView(APIView):
         },
     )
     def get(self, _request: Request, page_id: UUID, version_id: UUID) -> Response:
-        return Response(
-            _draft_payload(get_draft_preview(page_id=page_id, version_id=version_id))
-        )
+        return Response(_draft_payload(get_draft_preview(page_id=page_id, version_id=version_id)))
 
 
 class PageTranslationListView(APIView):
@@ -258,17 +252,14 @@ class PageTranslationListView(APIView):
     )
     def get(self, _request: Request, page_id: UUID) -> Response:
         translations = list_page_translations(page_id=page_id)
-        return Response(
-            {
-                "page_id": translations.page.id,
-                "default_locale": translations.page.site.default_locale,
-                "supported_locales": list(translations.supported_locales),
-                "items": [
-                    _translation_summary(translation)
-                    for translation in translations.translations
-                ],
-            }
-        )
+        return Response({
+            "page_id": translations.page.id,
+            "default_locale": translations.page.site.default_locale,
+            "supported_locales": list(translations.supported_locales),
+            "items": [
+                _translation_summary(translation) for translation in translations.translations
+            ],
+        })
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -318,9 +309,7 @@ class SiteLocalizationReportView(APIView):
         },
     )
     def get(self, _request: Request, site_id: UUID) -> Response:
-        return Response(
-            _localization_report(get_site_localization_report(site_id=site_id))
-        )
+        return Response(_localization_report(get_site_localization_report(site_id=site_id)))
 
 
 def _site_summary(site: Site) -> dict[str, Any]:
@@ -362,6 +351,7 @@ def _draft_payload(draft: PageDraft) -> dict[str, Any]:
         "content_hash": draft.version.content_hash if draft.version is not None else None,
         "created_at": draft.version.created_at if draft.version is not None else None,
         "blocks": [_block_summary(block) for block in draft.blocks],
+        "media_asset_ids": list(draft.media_asset_ids),
     }
 
 
@@ -389,9 +379,7 @@ def _translation_summary(translation: PageTranslation) -> dict[str, Any]:
         "allow_title_fallback": translation.allow_title_fallback,
         "allow_description_fallback": translation.allow_description_fallback,
         "allow_social_title_fallback": translation.allow_social_title_fallback,
-        "allow_social_description_fallback": (
-            translation.allow_social_description_fallback
-        ),
+        "allow_social_description_fallback": (translation.allow_social_description_fallback),
         "version": translation.version,
         "slug_locked": translation.slug_locked_at is not None,
         "created_at": translation.created_at,
