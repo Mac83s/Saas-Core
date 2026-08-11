@@ -1,7 +1,6 @@
 # W6 — Sites, Content i Media
 
-**Status:** in progress — W4 zakończone lokalnie, ADR-017 rozwinięty przez ADR-027;
-staging pozostaje odłożony
+**Status:** zakończone lokalnie 2026-08-11 — staging pozostaje odłożony
 **Szacunek:** 2–3 tygodnie  
 **Poprzednik:** W4  
 **Rezultat:** wersjonowana, wielojęzyczna strona organizacji
@@ -174,38 +173,45 @@ build Next.js oraz obrazy backend/frontend na Node.js 24, poprawne profile
 
 ### W6.5 — panel edycji i publikacja
 
-**Stan:** w toku — W6.5.1 udostępnia tenantowy workspace `/panel/sites` z
+**Stan:** zakończone lokalnie 2026-08-11 — W6.5.1 udostępnia tenantowy workspace `/panel/sites` z
 listą i tworzeniem sites/pages, wyborem locale, wyszukiwalną nawigacją,
 raportem gotowości PL/EN oraz atomową publikacją. Klient korzysta z
 wygenerowanych kontraktów OpenAPI, a formularze z React Hook Form, Zod i
 Problem Details. W6.5.2 dodaje tenantową, cursorową historię publikacji z
 autorem oraz idempotentny rollback jako nową publikację z audytem, outboxem i
-kopią referencji mediów bez zmiany nowszego draftu. Edycja metadanych, bloków,
-preview oraz interfejs historii i konfliktu optimistic lock pozostają do
-realizacji w kolejnych przyrostach.
+kopią referencji mediów bez zmiany nowszego draftu. W6.5.3 dodaje edytor
+kontrolowanych bloków i metadanych PL/EN, signed upload, wybór mediów,
+chroniony preview, widoczny konflikt optimistic lock oraz historię i rollback.
+W6.5.4 zamyka dostępność i ścieżkę przeglądarkową: klawiatura/focus Combobox,
+axe bez naruszeń, testy PL/EN oraz Playwright od sesji same-origin przez draft,
+preview i dwie publikacje do rollbacku bez utraty nowszego draftu.
+Walidacja końcowa: 258 testów backendu, Mypy 0 błędów w 163 plikach, Ruff,
+import-linter, brak dryfu migracji, aktualny OpenAPI i klient TypeScript, pełny
+`pnpm check` (34 testy workspace), Playwright, obrazy backend/frontend na
+Node.js 24, zdrowy Compose oraz smoke aplikacji, RLS, ClamAV i object storage.
 
-- [ ] zbudować listę stron, formularz metadanych i edytor kontrolowanych bloków
+- [x] zbudować listę stron, formularz metadanych i edytor kontrolowanych bloków
   w publicznym API `@saas-core/ui`;
   - [x] dodać listę oraz tworzenie sites/pages w panelu;
-  - [ ] dodać formularz metadanych i edytor kontrolowanych bloków;
-- [ ] użyć `Select` dla locale oraz `Combobox` dla wyszukiwalnych stron, bloków
+  - [x] dodać formularz metadanych i edytor kontrolowanych bloków;
+- [x] użyć `Select` dla locale oraz `Combobox` dla wyszukiwalnych stron, bloków
   i mediów zgodnie z ADR-020;
   - [x] użyć `Select` dla locale oraz `Combobox` dla sites/pages;
-  - [ ] dodać `Combobox` dla bloków i mediów;
-- [ ] zastosować React Hook Form, Zod, Problem Details i widoczny konflikt
+  - [x] dodać `Combobox` dla bloków i mediów;
+- [x] zastosować React Hook Form, Zod, Problem Details i widoczny konflikt
   optimistic lock bez nadpisania cudzej zmiany;
   - [x] zastosować React Hook Form, Zod i Problem Details w formularzach
     tworzenia;
-  - [ ] obsłużyć widoczny konflikt optimistic lock w edycji draftu;
-- [ ] dodać chroniony preview, raport gotowości PL/EN i atomową publikację;
+  - [x] obsłużyć widoczny konflikt optimistic lock w edycji draftu;
+- [x] dodać chroniony preview, raport gotowości PL/EN i atomową publikację;
   - [x] pokazać raport gotowości PL/EN i uruchamiać atomową publikację;
-  - [ ] dodać chroniony preview konkretnej wersji draftu;
-- [ ] rejestrować autora, pokazywać historię oraz tworzyć rollback jako nową
+  - [x] dodać chroniony preview konkretnej wersji draftu;
+- [x] rejestrować autora, pokazywać historię oraz tworzyć rollback jako nową
   publikację bez utraty nowszego draftu;
   - [x] udostępnić API historii z autorem oraz bezpieczny rollback jako nową
     publikację bez zmiany draftu;
-  - [ ] pokazać historię i akcję rollbacku w panelu;
-- [ ] przetestować klawiaturę, focus, axe, PL/EN i krytyczną ścieżkę E2E.
+  - [x] pokazać historię i akcję rollbacku w panelu;
+- [x] przetestować klawiaturę, focus, axe, PL/EN i krytyczną ścieżkę E2E.
 
 ## 3. Testy obowiązkowe
 
@@ -219,10 +225,10 @@ realizacji w kolejnych przyrostach.
 
 ## 4. Bramka wyjścia
 
-- [ ] draft, preview, publication i rollback są odrębnymi stanami;
-- [ ] snapshot publikacji jest niezmienny i możliwy do odtworzenia;
-- [ ] bloki są wersjonowane i mają testowane migratory;
-- [ ] PL/EN ma poprawne URL, canonical i hreflang;
-- [ ] upload przechodzi walidację, skan i limity organizacji;
-- [ ] testy cross-tenant obejmują treści, publikacje i media;
-- [ ] Site Renderer nie wykonuje dowolnego kodu klienta.
+- [x] draft, preview, publication i rollback są odrębnymi stanami;
+- [x] snapshot publikacji jest niezmienny i możliwy do odtworzenia;
+- [x] bloki są wersjonowane i mają testowane migratory;
+- [x] PL/EN ma poprawne URL, canonical i hreflang;
+- [x] upload przechodzi walidację, skan i limity organizacji;
+- [x] testy cross-tenant obejmują treści, publikacje i media;
+- [x] Site Renderer nie wykonuje dowolnego kodu klienta.

@@ -15,15 +15,23 @@ import { SitesPanel } from "./sites-panel";
 const {
   createSite,
   createSitePage,
+  getPageDraft,
   getSiteLocalizationReport,
+  listMediaAssets,
+  listPageTranslations,
   listSitePages,
+  listSitePublications,
   listSites,
   publishSite,
 } = vi.hoisted(() => ({
   createSite: vi.fn(),
   createSitePage: vi.fn(),
+  getPageDraft: vi.fn(),
   getSiteLocalizationReport: vi.fn(),
+  listMediaAssets: vi.fn(),
+  listPageTranslations: vi.fn(),
   listSitePages: vi.fn(),
+  listSitePublications: vi.fn(),
   listSites: vi.fn(),
   publishSite: vi.fn(),
 }));
@@ -32,8 +40,12 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@saas-core/api-client")>()),
   createSite,
   createSitePage,
+  getPageDraft,
   getSiteLocalizationReport,
+  listMediaAssets,
+  listPageTranslations,
   listSitePages,
+  listSitePublications,
   listSites,
   publishSite,
 }));
@@ -63,6 +75,23 @@ beforeEach(() => {
   vi.clearAllMocks();
   listSites.mockResolvedValue({ items: [site], next_cursor: null });
   listSitePages.mockResolvedValue({ items: [page], next_cursor: null });
+  listSitePublications.mockResolvedValue({ items: [], next_cursor: null });
+  getPageDraft.mockResolvedValue({
+    page_id: page.id,
+    version: 0,
+    draft_id: null,
+    content_hash: null,
+    created_at: null,
+    blocks: [],
+    media_asset_ids: [],
+  });
+  listPageTranslations.mockResolvedValue({
+    page_id: page.id,
+    default_locale: "pl",
+    supported_locales: ["pl", "en"],
+    items: [],
+  });
+  listMediaAssets.mockResolvedValue({ items: [], next_cursor: null });
   getSiteLocalizationReport.mockResolvedValue({
     site_id: site.id,
     default_locale: "pl",

@@ -46,6 +46,10 @@ export type SiteLocalizationReport =
   components["schemas"]["SiteLocalizationReport"];
 export type SitePublication = components["schemas"]["SitePublication"];
 export type SitePublicationList = components["schemas"]["SitePublicationList"];
+export type MediaAsset = components["schemas"]["MediaAsset"];
+export type MediaAssetList = components["schemas"]["MediaAssetList"];
+export type MediaUploadInput = components["schemas"]["MediaUploadCreate"];
+export type MediaUpload = components["schemas"]["MediaUpload"];
 
 export type LoginResult =
   { kind: "authenticated"; user: UserSummary } | { kind: "mfa_required" };
@@ -550,6 +554,139 @@ export async function rollbackSitePublication(
         header: { "Idempotency-Key": idempotencyKey },
         path: { publication_id: publicationId, site_id: siteId },
       },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function getPageDraft(pageId: string): Promise<PageDraft> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/pages/{page_id}/draft/",
+    {
+      params: { path: { page_id: pageId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function savePageDraft(
+  pageId: string,
+  input: DraftSaveInput,
+  idempotencyKey: string,
+): Promise<PageDraft> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/sites/pages/{page_id}/draft/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { page_id: pageId },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function getPageDraftPreview(
+  pageId: string,
+  versionId: string,
+): Promise<PageDraft> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/pages/{page_id}/preview/{version_id}/",
+    {
+      params: { path: { page_id: pageId, version_id: versionId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function listPageTranslations(
+  pageId: string,
+): Promise<PageTranslationList> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/pages/{page_id}/translations/",
+    {
+      params: { path: { page_id: pageId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function savePageTranslation(
+  pageId: string,
+  locale: string,
+  input: PageTranslationSaveInput,
+  idempotencyKey: string,
+): Promise<PageTranslation> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/sites/pages/{page_id}/translations/{locale}/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { locale, page_id: pageId },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function listMediaAssets(): Promise<MediaAssetList> {
+  const { data, error, response } = await client.GET("/api/v1/media/", {
+    params: { query: { limit: 100 } },
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function initiateMediaUpload(
+  input: MediaUploadInput,
+  idempotencyKey: string,
+): Promise<MediaUpload> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/media/uploads/",
+    {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function completeMediaUpload(
+  assetId: string,
+): Promise<MediaAsset> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/media/uploads/{asset_id}/complete/",
+    {
+      params: { path: { asset_id: assetId } },
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
     },

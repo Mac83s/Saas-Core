@@ -13,6 +13,8 @@ export function sitesErrorMessage(error: unknown, t: Translate): string {
     case "site_publication_not_ready":
       return t("notReady");
     case "draft_version_conflict":
+    case "translation_version_conflict":
+    case "site_publication_already_current":
     case "sites_idempotency_conflict":
       return t("conflict");
     default:

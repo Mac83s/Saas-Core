@@ -15,6 +15,7 @@
     "format:check": "prettier --check .",
     "lint": "pnpm deployment:check:all && pnpm -r --if-present lint",
     "test": "pnpm -r --if-present test",
+    "test:e2e": "pnpm --filter @saas-core/frontend test:e2e",
     "typecheck": "pnpm -r --if-present typecheck",
     "backend:lint": "uv run --project apps/backend ruff check apps/backend/src apps/backend/tests",
     "backend:imports": "uv run --project apps/backend lint-imports --config apps/backend/.importlinter",

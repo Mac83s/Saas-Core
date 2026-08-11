@@ -25,8 +25,10 @@ import {
   createSitePage,
   getSiteLocalizationReport,
   listSitePages,
+  listSitePublications,
   listSites,
   publishSite,
+  rollbackSitePublication,
   type PageSummary,
   type SiteLocalizationReport,
   type SitePublication,
@@ -65,6 +67,9 @@ import {
 } from "@saas-core/ui/components/select";
 
 import { sitesErrorMessage } from "./problem";
+import { mutationKey, type MutationReceipt } from "./idempotency";
+import { PageEditor } from "./page-editor";
+import { PublicationHistory } from "./publication-history";
 
 type SiteValues = {
   name: string;
@@ -72,7 +77,6 @@ type SiteValues = {
   default_locale: "pl" | "en";
 };
 type PageValues = { name: string; key: string };
-type MutationReceipt = { signature: string; key: string };
 
 export function SitesPanel() {
   const t = useTranslations("Sites");
@@ -82,12 +86,14 @@ export function SitesPanel() {
   const [selectedSiteId, setSelectedSiteId] = useState<string>();
   const [selectedPageId, setSelectedPageId] = useState<string>();
   const [report, setReport] = useState<SiteLocalizationReport>();
+  const [publications, setPublications] = useState<SitePublication[]>([]);
   const [publication, setPublication] = useState<SitePublication>();
   const [loading, setLoading] = useState(true);
   const [problem, setProblem] = useState<string>();
   const siteReceipt = useRef<MutationReceipt | undefined>(undefined);
   const pageReceipt = useRef<MutationReceipt | undefined>(undefined);
   const publishReceipt = useRef<MutationReceipt | undefined>(undefined);
+  const rollbackReceipt = useRef<MutationReceipt | undefined>(undefined);
 
   const siteSchema = useMemo(
     () =>
@@ -136,6 +142,7 @@ export function SitesPanel() {
         if (nextSiteId !== selectedSiteId) {
           setPages([]);
           setReport(undefined);
+          setPublications([]);
           setPublication(undefined);
           setSelectedPageId(undefined);
         }
@@ -154,12 +161,16 @@ export function SitesPanel() {
       setLoading(true);
       setProblem(undefined);
       try {
-        const [pageResult, localization] = await Promise.all([
-          listSitePages(siteId),
-          getSiteLocalizationReport(siteId),
-        ]);
+        const [pageResult, localization, publicationResult] = await Promise.all(
+          [
+            listSitePages(siteId),
+            getSiteLocalizationReport(siteId),
+            listSitePublications(siteId),
+          ],
+        );
         setPages(pageResult.items);
         setReport(localization);
+        setPublications(publicationResult.items);
         setSelectedPageId((current) => {
           if (
             preferredPageId &&
@@ -175,6 +186,7 @@ export function SitesPanel() {
       } catch (error) {
         setPages([]);
         setReport(undefined);
+        setPublications([]);
         setProblem(sitesErrorMessage(error, t));
       } finally {
         setLoading(false);
@@ -208,17 +220,20 @@ export function SitesPanel() {
     void Promise.all([
       listSitePages(selectedSiteId),
       getSiteLocalizationReport(selectedSiteId),
+      listSitePublications(selectedSiteId),
     ])
-      .then(([pageResult, localization]) => {
+      .then(([pageResult, localization, publicationResult]) => {
         if (!mounted) return;
         setPages(pageResult.items);
         setReport(localization);
+        setPublications(publicationResult.items);
         setSelectedPageId(pageResult.items[0]?.id);
       })
       .catch((error: unknown) => {
         if (!mounted) return;
         setPages([]);
         setReport(undefined);
+        setPublications([]);
         setProblem(sitesErrorMessage(error, t));
       })
       .finally(() => {
@@ -283,6 +298,31 @@ export function SitesPanel() {
     }
   }
 
+  async function rollbackPublication(target: SitePublication) {
+    if (!selectedSiteId) return;
+    setProblem(undefined);
+    setLoading(true);
+    try {
+      const restored = await rollbackSitePublication(
+        selectedSiteId,
+        target.id,
+        mutationKey(rollbackReceipt, `site-rollback-${selectedSiteId}`, {
+          publication_id: target.id,
+        }),
+      );
+      rollbackReceipt.current = undefined;
+      setPublication(restored);
+      await Promise.all([
+        loadSites(selectedSiteId),
+        loadSiteDetails(selectedSiteId, selectedPageId),
+      ]);
+    } catch (error) {
+      setProblem(sitesErrorMessage(error, t));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function refresh() {
     await loadSites(selectedSiteId);
     if (selectedSiteId) await loadSiteDetails(selectedSiteId, selectedPageId);
@@ -344,6 +384,7 @@ export function SitesPanel() {
                     if (!item) {
                       setPages([]);
                       setReport(undefined);
+                      setPublications([]);
                       setSelectedPageId(undefined);
                       setSelectedSiteId(undefined);
                       setLoading(false);
@@ -352,6 +393,7 @@ export function SitesPanel() {
                     if (item.id === selectedSiteId) return;
                     setPages([]);
                     setReport(undefined);
+                    setPublications([]);
                     setSelectedPageId(undefined);
                     setLoading(true);
                     setSelectedSiteId(item.id);
@@ -470,6 +512,12 @@ export function SitesPanel() {
             publication={publication}
             report={report}
           />
+          <PublicationHistory
+            currentPublicationId={selectedSite?.current_publication_id}
+            loading={loading}
+            onRollback={(target) => void rollbackPublication(target)}
+            publications={publications}
+          />
         </div>
 
         <div className="space-y-6">
@@ -481,6 +529,17 @@ export function SitesPanel() {
           />
         </div>
       </div>
+      {selectedPage && (
+        <PageEditor
+          key={selectedPage.id}
+          onChanged={() =>
+            selectedSiteId
+              ? loadSiteDetails(selectedSiteId, selectedPage.id)
+              : Promise.resolve()
+          }
+          page={selectedPage}
+        />
+      )}
     </section>
   );
 }
@@ -710,19 +769,4 @@ function Summary({ label, value }: { label: string; value: string }) {
       <p className="font-medium">{value}</p>
     </div>
   );
-}
-
-function mutationKey(
-  receipt: { current: MutationReceipt | undefined },
-  scope: string,
-  payload: object,
-): string {
-  const signature = JSON.stringify(payload);
-  if (receipt.current?.signature !== signature) {
-    receipt.current = {
-      signature,
-      key: `${scope}-${globalThis.crypto.randomUUID()}`,
-    };
-  }
-  return receipt.current.key;
 }

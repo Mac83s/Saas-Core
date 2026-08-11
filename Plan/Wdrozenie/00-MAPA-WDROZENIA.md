@@ -101,9 +101,8 @@ Fala może przejść do `in progress`, gdy:
 
 ## 8. Bieżący ruch
 
-W0 i W1 są ukończone. Lokalna część W2, lokalna implementacja W3 oraz W4 i W5
-są zakończone; bramki wymagające prawdziwego stagingu/VPS pozostają świadomie
-odłożone. Aktywną lokalną falą jest W6. Pakiety W6.0-W6.3 są ukończone, a
-najbliższy przyrost to W6.4: tenantowe media, bezpieczny upload, walidacja,
-skanowanie, warianty oraz lifecycle obiektów. Dokładny punkt wznowienia opisuje
-`docs/development/HANDOFF.md`.
+W0 i W1 są ukończone. Lokalna część W2 oraz lokalne implementacje W3-W6 są
+zakończone; bramki wymagające prawdziwego stagingu/VPS pozostają świadomie
+odłożone. W6 dostarcza wersjonowane treści i tłumaczenia, kontrolowany renderer,
+tenantowe media, atomową publikację, historię i rollback potwierdzone pełną
+bramką jakości oraz krytycznym Playwright. Następną lokalną falą jest W7.
