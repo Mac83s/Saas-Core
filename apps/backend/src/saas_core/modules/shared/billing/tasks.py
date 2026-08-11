@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from celery import shared_task
 
+from .invoicing import InvoiceAdapterError, process_invoice_document
 from .lifecycle import process_due_lifecycle_actions
 from .overrides import expire_entitlement_overrides
 from .processor import StripeEventProcessingError, process_stripe_event
@@ -45,3 +46,14 @@ def expire_billing_overrides() -> int:
 )
 def release_expired_reservations() -> int:
     return release_expired_quota_reservations()
+
+
+@shared_task(  # type: ignore[untyped-decorator]
+    name="saas_core.modules.shared.billing.tasks.issue_invoice_document",
+    autoretry_for=(InvoiceAdapterError,),
+    retry_backoff=True,
+    retry_jitter=True,
+    retry_kwargs={"max_retries": 5},
+)
+def issue_invoice_document(document_id: str) -> None:
+    process_invoice_document(document_id)

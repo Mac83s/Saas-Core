@@ -142,7 +142,7 @@ test/live i lokalne mapowanie Price; nie uczestniczy w ścieżce autoryzacji.
 
 ### W5.5 — override, usage i fakturowanie
 
-**Stan:** w toku. W5.5.1–W5.5.2 zakończone lokalnie 2026-08-11. Override wymaga
+**Stan:** w toku. W5.5.1–W5.5.3 zakończone lokalnie 2026-08-11. Override wymaga
 aktywnego operatora platformy i jawnego tenant context, ma przyczynę, zakres,
 opcjonalne wygaśnięcie oraz klucz idempotencji. Aktywna wartość jest składana do
 lokalnego snapshotu, decyzja potrafi bez Stripe bezpiecznie wrócić do planu na
@@ -151,9 +151,13 @@ override'y tego samego pola są odrzucane. Istniejący `QuotaUsage` przechowuje
 liczniki w okresach miesięcznych albo lifetime, a `consume_quota()` zapewnia
 atomowe i dokładnie-jedno naliczenie po kluczu zdarzenia. Commit po wygaśnięciu
 rezerwacji jest blokowany, a minutowy task zwalnia niezużyte rezerwacje. Testy
-obejmują rollover okresu i downgrade poniżej zużycia. Walidacja: Ruff, mypy
-modułu, import-linter, brak dryfu migracji, 190 testów backendu oraz pełny Compose ze
-smoke testami runtime, Identity i observability.
+obejmują rollover okresu i downgrade poniżej zużycia. `invoice.paid` zapisuje
+kanoniczne żądanie dokumentu z kopią danych nabywcy i pozycji, a konfigurowalny
+adapter działa asynchronicznie z trwałym statusem, wynikiem, błędem i retry.
+Adapter `internal` nie udaje integracji KSeF. Niekompletne dane lub błąd adaptera
+nie cofają potwierdzonej płatności ani dostępu. Walidacja: Ruff, mypy modułu,
+import-linter, brak dryfu migracji, 193 testy backendu oraz pełny Compose ze smoke
+testami runtime, Identity i observability.
 
 > **FINDING W5.5-01 — rozwiązane 2026-08-11:** middleware `next-intl`
 > przechwytuje `/healthz` i przepisuje go na lokalizowaną trasę, przez co
@@ -163,8 +167,8 @@ smoke testami runtime, Identity i observability.
 
 - [x] dodać audytowane, wygasające override z uzasadnieniem operatora;
 - [x] wdrożyć okresowe `UsageCounter` i ochronę przed podwójnym naliczeniem;
-- [ ] przygotować interfejs adaptera fakturowania;
-- [ ] odseparować błędy fakturowania od potwierdzonej płatności;
+- [x] przygotować interfejs adaptera fakturowania;
+- [x] odseparować błędy fakturowania od potwierdzonej płatności;
 - [ ] dodać panel supportu pokazujący źródło efektywnego entitlementu.
 
 ## 4. Testy obowiązkowe

@@ -121,6 +121,13 @@ class ReconciliationStatus(models.TextChoices):
     FAILED = "failed", "Błąd"
 
 
+class InvoiceDocumentStatus(models.TextChoices):
+    PENDING = "pending", "Oczekuje"
+    PROCESSING = "processing", "Przetwarzany"
+    SUCCEEDED = "succeeded", "Obsłużony"
+    FAILED = "failed", "Błąd"
+
+
 class Feature(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     key = models.CharField(max_length=100, unique=True, validators=[CATALOG_KEY_VALIDATOR])
@@ -864,3 +871,79 @@ class QuotaReservation(TenantScopedModel):
         super().clean()
         if self.usage_id and self.usage.organization_id != self.organization_id:
             raise ValidationError({"usage": "Licznik quota należy do innej organizacji."})
+
+
+class BillingInvoiceDocument(TenantScopedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    subscription = models.ForeignKey(
+        BillingSubscription,
+        on_delete=models.PROTECT,
+        related_name="invoice_documents",
+    )
+    origin_event = models.ForeignKey(
+        StripeWebhookEvent,
+        on_delete=models.PROTECT,
+        related_name="invoice_documents",
+    )
+    stripe_invoice_id = models.CharField(max_length=160, unique=True)
+    status = models.CharField(
+        max_length=16,
+        choices=InvoiceDocumentStatus,
+        default=InvoiceDocumentStatus.PENDING,
+    )
+    adapter_key = models.CharField(max_length=64, default="internal")
+    request = models.JSONField(default=dict)
+    result = models.JSONField(default=dict, blank=True)
+    attempt_count = models.PositiveIntegerField(default=0)
+    last_error = models.TextField(blank=True)
+    payment_confirmed_at = models.DateTimeField()
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "-created_at")
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(
+                        status__in=[
+                            InvoiceDocumentStatus.PENDING,
+                            InvoiceDocumentStatus.PROCESSING,
+                        ],
+                        completed_at__isnull=True,
+                    )
+                    | models.Q(
+                        status=InvoiceDocumentStatus.SUCCEEDED,
+                        completed_at__isnull=False,
+                        last_error="",
+                    )
+                    | (
+                        models.Q(
+                            status=InvoiceDocumentStatus.FAILED,
+                            completed_at__isnull=False,
+                        )
+                        & ~models.Q(last_error="")
+                    )
+                ),
+                name="billing_invoice_document_state_ck",
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=["organization", "status", "created_at"],
+                name="bill_invoice_org_status_idx",
+            )
+        ]
+
+    def clean(self) -> None:
+        super().clean()
+        if self.subscription_id and self.subscription.organization_id != self.organization_id:
+            raise ValidationError({"subscription": "Subskrypcja należy do innej organizacji."})
+        if self.origin_event_id and self.origin_event.organization_id not in (
+            None,
+            self.organization_id,
+        ):
+            raise ValidationError({"origin_event": "Event należy do innej organizacji."})

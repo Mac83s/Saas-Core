@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from saas_core.modules.core.organizations.models import BillingProfile
 
+from .invoicing import queue_paid_invoice
 from .lifecycle import sync_subscription_lifecycle
 from .models import (
     AccessMode,
@@ -309,6 +310,13 @@ def _handle_invoice(event: StripeWebhookEvent) -> None:
         effective_until=effective_until,
     )
     sync_subscription_lifecycle(subscription)
+    if event.event_type == "invoice.paid":
+        queue_paid_invoice(
+            event=event,
+            subscription=subscription,
+            profile=profile,
+            data=data,
+        )
     event.organization_id = profile.organization_id
     event.subscription = subscription
 

@@ -10,10 +10,12 @@ from saas_core.modules.shared.billing.lifecycle import process_due_lifecycle_act
 from saas_core.modules.shared.billing.models import (
     AccessMode,
     BillingCheckout,
+    BillingInvoiceDocument,
     BillingLifecycleAction,
     BillingSubscription,
     CheckoutStatus,
     EntitlementSnapshot,
+    InvoiceDocumentStatus,
     LifecycleActionStatus,
     LifecycleActionType,
     PlanVersion,
@@ -246,7 +248,7 @@ def test_payment_failure_starts_grace_and_later_paid_event_restores_access() -> 
             "parent": {"subscription_details": {"subscription": "sub_local"}},
         },
     )
-    process_stripe_event(paid.id)
+    paid_result = process_stripe_event(paid.id)
 
     subscription.refresh_from_db()
     snapshot.refresh_from_db()
@@ -254,6 +256,14 @@ def test_payment_failure_starts_grace_and_later_paid_event_restores_access() -> 
     assert subscription.grace_period_end is None
     assert snapshot.subscription_state == SubscriptionState.ACTIVE
     assert snapshot.access_mode == AccessMode.FULL
+    assert paid_result is not None
+    assert paid_result.status == WebhookProcessingStatus.PROCESSED
+    invoice_document = BillingInvoiceDocument.all_objects.get(
+        stripe_invoice_id="in_paid"
+    )
+    assert invoice_document.status == InvoiceDocumentStatus.FAILED
+    assert "Brak waluty" in invoice_document.last_error
+    assert invoice_document.payment_confirmed_at == paid.provider_created_at
     assert not BillingLifecycleAction.all_objects.filter(
         subscription=subscription,
         status=LifecycleActionStatus.PENDING,

@@ -206,6 +206,10 @@ BILLING_RECONCILIATION_MAX_ATTEMPTS = int(
 BILLING_RECONCILIATION_BATCH_SIZE = int(
     os.environ.get("BILLING_RECONCILIATION_BATCH_SIZE", "100")
 )
+BILLING_INVOICE_ADAPTER = os.environ.get(
+    "BILLING_INVOICE_ADAPTER",
+    "saas_core.modules.shared.billing.invoicing.InternalInvoiceAdapter",
+)
 if BILLING_LIFECYCLE_WARNING_LEAD_SECONDS <= 0 or BILLING_LIFECYCLE_MAX_ATTEMPTS <= 0:
     raise ImproperlyConfigured("Ustawienia lifecycle Billing muszą być dodatnie")
 if (
