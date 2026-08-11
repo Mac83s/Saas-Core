@@ -239,6 +239,22 @@ def publish_site_request(
     )
 
 
+def rollback_site_request(
+    client: APIClient,
+    site_id: str,
+    publication_id: str,
+    *,
+    idempotency_key: str,
+) -> Any:
+    return client.post(
+        f"/api/v1/sites/{site_id}/publications/{publication_id}/rollback/",
+        {},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+        HTTP_IDEMPOTENCY_KEY=idempotency_key,
+    )
+
+
 def test_site_create_is_csrf_protected_idempotent_audited_and_consumes_quota() -> None:
     client, organization, _ = sites_client(slug="sites-create")
     payload = {"name": "Main", "slug": "main", "default_locale": "pl"}
@@ -1134,6 +1150,164 @@ def test_publication_is_atomic_idempotent_and_emits_signed_outbox(
     assert newer_draft.status_code == 201
     assert publication.snapshot["pages"][0]["version_id"] == str(draft.data["draft_id"])
     assert site_record.current_publication_id == publication.id
+
+
+def test_publication_history_and_rollback_preserve_newer_draft_and_media() -> None:
+    client, organization, user = sites_client(
+        slug="sites-publication-rollback",
+        role_key="owner",
+    )
+    site = create_site(client)
+    page = create_page(client, site.data["id"])
+    asset = create_media_asset(organization, user)
+    first_draft = save_draft(
+        client,
+        page.data["id"],
+        expected_version=0,
+        idempotency_key="rollback-draft-v1",
+        heading="Pierwsza wersja",
+        media_asset_ids=[str(asset.id)],
+    )
+    save_translation(
+        client,
+        page.data["id"],
+        "pl",
+        expected_version=0,
+        slug="start",
+        title="Start",
+        description="Opis",
+        idempotency_key="rollback-translation",
+    )
+    first = publish_site_request(
+        client,
+        site.data["id"],
+        idempotency_key="rollback-publication-v1",
+    )
+    second_draft = save_draft(
+        client,
+        page.data["id"],
+        expected_version=1,
+        idempotency_key="rollback-draft-v2",
+        heading="Nowszy draft",
+        media_asset_ids=[str(asset.id)],
+    )
+    second = publish_site_request(
+        client,
+        site.data["id"],
+        idempotency_key="rollback-publication-v2",
+    )
+    MediaAsset.all_objects.filter(pk=asset.id).update(
+        deleted_at=timezone.now(),
+        deleted_by=user,
+        deletion_idempotency_key=f"rollback-delete-{asset.id}",
+    )
+
+    missing_csrf = client.post(
+        f"/api/v1/sites/{site.data['id']}/publications/{first.data['id']}/rollback/",
+        {},
+        format="json",
+        HTTP_IDEMPOTENCY_KEY="rollback-missing-csrf",
+    )
+    rolled_back = rollback_site_request(
+        client,
+        site.data["id"],
+        first.data["id"],
+        idempotency_key="rollback-to-first",
+    )
+    repeated = rollback_site_request(
+        client,
+        site.data["id"],
+        first.data["id"],
+        idempotency_key="rollback-to-first",
+    )
+    conflicting_key = rollback_site_request(
+        client,
+        site.data["id"],
+        second.data["id"],
+        idempotency_key="rollback-to-first",
+    )
+    current_target = rollback_site_request(
+        client,
+        site.data["id"],
+        rolled_back.data["id"],
+        idempotency_key="rollback-current",
+    )
+    history = client.get(f"/api/v1/sites/{site.data['id']}/publications/?limit=2")
+    next_page = client.get(
+        f"/api/v1/sites/{site.data['id']}/publications/",
+        {"limit": 2, "cursor": history.data["next_cursor"]},
+    )
+
+    manager, _, _ = sites_client(slug="sites-rollback-manager")
+    foreign_owner, _, _ = sites_client(
+        slug="sites-rollback-foreign",
+        role_key="owner",
+    )
+    denied = rollback_site_request(
+        manager,
+        site.data["id"],
+        first.data["id"],
+        idempotency_key="rollback-manager",
+    )
+    foreign = rollback_site_request(
+        foreign_owner,
+        site.data["id"],
+        first.data["id"],
+        idempotency_key="rollback-foreign",
+    )
+
+    assert first_draft.status_code == 201
+    assert second_draft.status_code == 201
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert missing_csrf.status_code == 403
+    assert rolled_back.status_code == 201
+    assert repeated.status_code == 200
+    assert repeated.data["id"] == rolled_back.data["id"]
+    assert conflicting_key.status_code == 409
+    assert conflicting_key.data["code"] == "sites_idempotency_conflict"
+    assert current_target.status_code == 409
+    assert current_target.data["code"] == "site_publication_already_current"
+    assert denied.status_code == 403
+    assert denied.data["code"] == "organization_permission_denied"
+    assert foreign.status_code == 404
+    assert foreign.data["code"] == "site_not_found"
+
+    rollback_record = Publication.all_objects.get(pk=rolled_back.data["id"])
+    first_record = Publication.all_objects.get(pk=first.data["id"])
+    page_record = Page.all_objects.get(pk=page.data["id"])
+    site_record = Site.all_objects.get(pk=site.data["id"])
+    assert rollback_record.sequence == 3
+    assert rollback_record.source_publication_id == first_record.id
+    assert rollback_record.snapshot == first_record.snapshot
+    assert rollback_record.snapshot_hash == first_record.snapshot_hash
+    assert site_record.current_publication_id == rollback_record.id
+    assert page_record.current_draft_id == second_draft.data["draft_id"]
+    assert page_record.version == 2
+    assert (
+        MediaReference.all_objects.filter(
+            organization=organization,
+            owner_type=MediaReferenceOwner.PUBLICATION,
+            owner_id=rollback_record.id,
+            asset=asset,
+        ).count()
+        == 1
+    )
+    assert history.status_code == 200
+    assert [item["sequence"] for item in history.data["items"]] == [3, 2]
+    assert history.data["items"][0]["source_publication_id"] == first.data["id"]
+    assert history.data["items"][0]["created_by"]["email"] == user.email
+    assert next_page.status_code == 200
+    assert [item["sequence"] for item in next_page.data["items"]] == [1]
+    assert SiteOutboxEvent.all_objects.filter(publication=rollback_record).count() == 1
+    assert (
+        OrganizationAuditEntry.objects.filter(
+            organization=organization,
+            action="sites.site.rolled_back",
+            target_id=rollback_record.id,
+        ).count()
+        == 1
+    )
 
 
 def test_published_translation_slug_is_locked_in_service_and_database() -> None:

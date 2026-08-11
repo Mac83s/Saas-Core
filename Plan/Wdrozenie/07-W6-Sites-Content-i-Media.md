@@ -178,8 +178,11 @@ build Next.js oraz obrazy backend/frontend na Node.js 24, poprawne profile
 listą i tworzeniem sites/pages, wyborem locale, wyszukiwalną nawigacją,
 raportem gotowości PL/EN oraz atomową publikacją. Klient korzysta z
 wygenerowanych kontraktów OpenAPI, a formularze z React Hook Form, Zod i
-Problem Details. Edycja metadanych, bloków, preview, konflikt optimistic lock,
-historia i rollback pozostają do realizacji w kolejnych przyrostach.
+Problem Details. W6.5.2 dodaje tenantową, cursorową historię publikacji z
+autorem oraz idempotentny rollback jako nową publikację z audytem, outboxem i
+kopią referencji mediów bez zmiany nowszego draftu. Edycja metadanych, bloków,
+preview oraz interfejs historii i konfliktu optimistic lock pozostają do
+realizacji w kolejnych przyrostach.
 
 - [ ] zbudować listę stron, formularz metadanych i edytor kontrolowanych bloków
   w publicznym API `@saas-core/ui`;
@@ -199,6 +202,9 @@ historia i rollback pozostają do realizacji w kolejnych przyrostach.
   - [ ] dodać chroniony preview konkretnej wersji draftu;
 - [ ] rejestrować autora, pokazywać historię oraz tworzyć rollback jako nową
   publikację bez utraty nowszego draftu;
+  - [x] udostępnić API historii z autorem oraz bezpieczny rollback jako nową
+    publikację bez zmiany draftu;
+  - [ ] pokazać historię i akcję rollbacku w panelu;
 - [ ] przetestować klawiaturę, focus, axe, PL/EN i krytyczną ścieżkę E2E.
 
 ## 3. Testy obowiązkowe

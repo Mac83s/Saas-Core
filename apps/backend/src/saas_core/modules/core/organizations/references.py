@@ -35,6 +35,15 @@ class ResourceReferenceHandler(Protocol):
         owner_id: UUID,
     ) -> tuple[UUID, ...]: ...
 
+    def copy(
+        self,
+        *,
+        context: TenantContext,
+        owner_type: str,
+        source_owner_id: UUID,
+        target_owner_id: UUID,
+    ) -> tuple[UUID, ...]: ...
+
 
 _IDENTIFIER_PATTERN = re.compile(r"^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+$")
 _handlers: dict[str, ResourceReferenceHandler] = {}
@@ -83,6 +92,23 @@ def list_resource_reference_ids(
         context=context,
         owner_type=owner_type,
         owner_id=owner_id,
+    )
+
+
+def copy_resource_references(
+    *,
+    context: TenantContext,
+    resource_type: str,
+    owner_type: str,
+    source_owner_id: UUID,
+    target_owner_id: UUID,
+) -> tuple[UUID, ...]:
+    _require_matching_context(context)
+    return _handler(resource_type).copy(
+        context=context,
+        owner_type=owner_type,
+        source_owner_id=source_owner_id,
+        target_owner_id=target_owner_id,
     )
 
 

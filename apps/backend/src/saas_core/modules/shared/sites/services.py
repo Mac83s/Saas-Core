@@ -14,6 +14,7 @@ from saas_core.modules.core.organizations.api import (
     DomainEvent,
     ResourceReferenceConflict,
     ResourceReferenceRejected,
+    copy_resource_references,
     dispatch_domain_event,
     list_resource_reference_ids,
     record_resource_references,
@@ -52,6 +53,7 @@ PAGE_CREATED = "sites.page.created"
 PAGE_DRAFT_SAVED = "sites.page.draft_saved"
 PAGE_TRANSLATION_SAVED = "sites.page.translation_saved"
 SITE_PUBLISHED = "sites.site.published"
+SITE_ROLLED_BACK = "sites.site.rolled_back"
 SITE_PUBLISHED_EVENT = "sites.site.published"
 MEDIA_ASSET_RESOURCE_TYPE = "shared.media.asset"
 PAGE_VERSION_REFERENCE_OWNER = "sites.page_version"
@@ -106,6 +108,17 @@ class SitePublicationConflict(APIException):
     status_code = 409
     default_detail = "Zawartość site zmieniła się podczas publikacji."
     default_code = "site_publication_conflict"
+
+
+class SitePublicationNotFound(NotFound):
+    default_detail = "Publikacja nie istnieje."
+    default_code = "site_publication_not_found"
+
+
+class SitePublicationAlreadyCurrent(APIException):
+    status_code = 409
+    default_detail = "Wybrana publikacja jest już bieżąca."
+    default_code = "site_publication_already_current"
 
 
 class UnsupportedSiteLocale(APIException):
@@ -753,6 +766,36 @@ def get_site_localization_report(*, site_id: UUID) -> SiteLocalizationReport:
     )
 
 
+def list_site_publications(
+    *,
+    site_id: UUID,
+    cursor: UUID | None,
+    limit: int,
+) -> tuple[list[Publication], UUID | None]:
+    context = authorize_entitled(
+        SITE_CONTENT_EDIT,
+        SITES_ENABLED,
+        operation=FeatureOperation.READ,
+    )
+    if not Site.all_objects.filter(
+        pk=site_id,
+        organization_id=context.organization_id,
+    ).exists():
+        raise SiteNotFound
+    queryset = Publication.all_objects.filter(
+        organization_id=context.organization_id,
+        site_id=site_id,
+    ).select_related("created_by", "source_publication")
+    if cursor is not None:
+        cursor_publication = queryset.filter(pk=cursor).first()
+        if cursor_publication is None:
+            raise SitePublicationNotFound
+        queryset = queryset.filter(sequence__lt=cursor_publication.sequence)
+    rows = list(queryset.order_by("-sequence")[: limit + 1])
+    next_cursor = rows[limit - 1].id if len(rows) > limit else None
+    return rows[:limit], next_cursor
+
+
 @transaction.atomic
 def publish_site(*, site_id: UUID, idempotency_key: str) -> SitePublication:
     context = authorize_entitled(SITE_PUBLISH, SITES_ENABLED)
@@ -943,6 +986,124 @@ def publish_site(*, site_id: UUID, idempotency_key: str) -> SitePublication:
     return SitePublication(publication, True)
 
 
+@transaction.atomic
+def rollback_site(
+    *,
+    site_id: UUID,
+    publication_id: UUID,
+    idempotency_key: str,
+) -> SitePublication:
+    context = authorize_entitled(SITE_PUBLISH, SITES_ENABLED)
+    normalized_key = _idempotency_key(idempotency_key)
+    existing = _existing_site_rollback(
+        context=context,
+        site_id=site_id,
+        source_publication_id=publication_id,
+        idempotency_key=normalized_key,
+    )
+    if existing is not None:
+        return existing
+
+    try:
+        site = Site.all_objects.select_for_update().get(
+            pk=site_id,
+            organization_id=context.organization_id,
+        )
+        source = Publication.all_objects.get(
+            pk=publication_id,
+            site_id=site.id,
+            organization_id=context.organization_id,
+        )
+    except Site.DoesNotExist as error:
+        raise SiteNotFound from error
+    except Publication.DoesNotExist as error:
+        raise SitePublicationNotFound from error
+    existing = _existing_site_rollback(
+        context=context,
+        site_id=site.id,
+        source_publication_id=source.id,
+        idempotency_key=normalized_key,
+    )
+    if existing is not None:
+        return existing
+    if site.current_publication_id == source.id:
+        raise SitePublicationAlreadyCurrent
+
+    previous = (
+        Publication.all_objects.filter(
+            organization_id=context.organization_id,
+            site_id=site.id,
+        )
+        .order_by("-sequence")
+        .first()
+    )
+    if previous is None:
+        raise SitePublicationNotFound
+    actor = User.objects.get(pk=context.actor_id)
+    publication = Publication.all_objects.create(
+        organization_id=context.organization_id,
+        site=site,
+        sequence=previous.sequence + 1,
+        snapshot_schema_version=source.snapshot_schema_version,
+        snapshot=source.snapshot,
+        snapshot_hash="",
+        created_by=actor,
+        source_publication=source,
+        idempotency_key=normalized_key,
+    )
+    try:
+        media_ids = copy_resource_references(
+            context=context,
+            resource_type=MEDIA_ASSET_RESOURCE_TYPE,
+            owner_type=PUBLICATION_REFERENCE_OWNER,
+            source_owner_id=source.id,
+            target_owner_id=publication.id,
+        )
+    except ResourceReferenceRejected as error:
+        raise SiteMediaReferenceUnavailable from error
+    except ResourceReferenceConflict as error:
+        raise SitesIdempotencyConflict from error
+
+    activated_at = timezone.now()
+    Site.all_objects.filter(
+        pk=site.id,
+        organization_id=context.organization_id,
+    ).update(current_publication=publication, updated_at=activated_at)
+    active_correlation_id = correlation_id.get()
+    event = SiteOutboxEvent.all_objects.create(
+        organization_id=context.organization_id,
+        publication=publication,
+        event_type=SITE_PUBLISHED_EVENT,
+        version=1,
+        actor=actor,
+        correlation_id=UUID(active_correlation_id) if active_correlation_id else uuid7(),
+        causation_id=f"sites-rollback:{publication.id}",
+        payload={
+            "site_id": str(site.id),
+            "publication_id": str(publication.id),
+            "sequence": publication.sequence,
+            "snapshot_hash": publication.snapshot_hash,
+            "source_publication_id": str(source.id),
+        },
+    )
+    _schedule_site_outbox_delivery(event)
+    record_audit(
+        organization=site.organization,
+        action=SITE_ROLLED_BACK,
+        actor=actor,
+        target_type="publication",
+        target_id=publication.id,
+        metadata={
+            "site_id": str(site.id),
+            "sequence": publication.sequence,
+            "snapshot_hash": publication.snapshot_hash,
+            "source_publication_id": str(source.id),
+            "media_asset_count": len(media_ids),
+        },
+    )
+    return SitePublication(publication, True)
+
+
 def _schedule_site_outbox_delivery(event: SiteOutboxEvent) -> None:
     task_contract = issue_tenant_task_contract(causation_id=f"sites-outbox:{event.id}")
 
@@ -968,6 +1129,33 @@ def _existing_site_publication(
     ).first()
     if publication is None:
         return None
+    pending_event = SiteOutboxEvent.all_objects.filter(
+        organization_id=context.organization_id,
+        publication_id=publication.id,
+        published_at__isnull=True,
+    ).first()
+    if pending_event is not None:
+        _schedule_site_outbox_delivery(pending_event)
+    return SitePublication(publication, False)
+
+
+def _existing_site_rollback(
+    *,
+    context: TenantContext,
+    site_id: UUID,
+    source_publication_id: UUID,
+    idempotency_key: str,
+) -> SitePublication | None:
+    publication = Publication.all_objects.filter(
+        organization_id=context.organization_id,
+        site_id=site_id,
+        created_by_id=context.actor_id,
+        idempotency_key=idempotency_key,
+    ).first()
+    if publication is None:
+        return None
+    if publication.source_publication_id != source_publication_id:
+        raise SitesIdempotencyConflict
     pending_event = SiteOutboxEvent.all_objects.filter(
         organization_id=context.organization_id,
         publication_id=publication.id,

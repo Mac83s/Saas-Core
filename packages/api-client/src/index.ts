@@ -45,6 +45,7 @@ export type PageTranslationSaveInput =
 export type SiteLocalizationReport =
   components["schemas"]["SiteLocalizationReport"];
 export type SitePublication = components["schemas"]["SitePublication"];
+export type SitePublicationList = components["schemas"]["SitePublicationList"];
 
 export type LoginResult =
   { kind: "authenticated"; user: UserSummary } | { kind: "mfa_required" };
@@ -512,6 +513,42 @@ export async function publishSite(
       params: {
         header: { "Idempotency-Key": idempotencyKey },
         path: { site_id: siteId },
+      },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function listSitePublications(
+  siteId: string,
+): Promise<SitePublicationList> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/{site_id}/publications/",
+    {
+      params: { path: { site_id: siteId }, query: { limit: 100 } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function rollbackSitePublication(
+  siteId: string,
+  publicationId: string,
+  idempotencyKey: string,
+): Promise<SitePublication> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/{site_id}/publications/{publication_id}/rollback/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { publication_id: publicationId, site_id: siteId },
       },
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },

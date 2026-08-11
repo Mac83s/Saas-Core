@@ -85,5 +85,51 @@ class MediaAssetReferenceHandler:
             .values_list("asset_id", flat=True)
         )
 
+    @transaction.atomic
+    def copy(
+        self,
+        *,
+        context: TenantContext,
+        owner_type: str,
+        source_owner_id: UUID,
+        target_owner_id: UUID,
+    ) -> tuple[UUID, ...]:
+        if owner_type not in MediaReferenceOwner.values:
+            raise ResourceReferenceRejected
+        source_ids = tuple(
+            MediaReference.all_objects.select_for_update()
+            .filter(
+                organization_id=context.organization_id,
+                owner_type=owner_type,
+                owner_id=source_owner_id,
+            )
+            .order_by("asset_id")
+            .values_list("asset_id", flat=True)
+        )
+        existing_ids = tuple(
+            MediaReference.all_objects.select_for_update()
+            .filter(
+                organization_id=context.organization_id,
+                owner_type=owner_type,
+                owner_id=target_owner_id,
+            )
+            .order_by("asset_id")
+            .values_list("asset_id", flat=True)
+        )
+        if existing_ids:
+            if existing_ids != source_ids:
+                raise ResourceReferenceConflict
+            return existing_ids
+        MediaReference.all_objects.bulk_create([
+            MediaReference(
+                organization_id=context.organization_id,
+                asset_id=asset_id,
+                owner_type=owner_type,
+                owner_id=target_owner_id,
+            )
+            for asset_id in source_ids
+        ])
+        return source_ids
+
 
 media_asset_reference_handler = MediaAssetReferenceHandler()

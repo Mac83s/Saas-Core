@@ -603,9 +603,25 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["sites_publications_list"];
         put?: never;
         post: operations["sites_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/{site_id}/publications/{publication_id}/rollback/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sites_publication_rollback"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1069,6 +1085,12 @@ export interface components {
             detail: unknown;
             correlation_id: string | null;
         };
+        PublicationAuthor: {
+            /** Format: uuid */
+            id: string;
+            /** Format: email */
+            email: string;
+        };
         Registration: {
             /** Format: email */
             email: string;
@@ -1115,8 +1137,16 @@ export interface components {
             sequence: number;
             snapshot_schema_version: number;
             snapshot_hash: string;
+            /** Format: uuid */
+            source_publication_id: string | null;
+            created_by: components["schemas"]["PublicationAuthor"];
             /** Format: date-time */
             created_at: string;
+        };
+        SitePublicationList: {
+            items: components["schemas"]["SitePublication"][];
+            /** Format: uuid */
+            next_cursor: string | null;
         };
         SiteSummary: {
             /** Format: uuid */
@@ -3088,6 +3118,47 @@ export interface operations {
             };
         };
     };
+    sites_publications_list: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                /** @description Liczba elementów od 1 do 100; domyślnie 50. */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SitePublicationList"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     sites_publish: {
         parameters: {
             query?: never;
@@ -3096,6 +3167,63 @@ export interface operations {
                 "Idempotency-Key": string;
             };
             path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SitePublication"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SitePublication"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_publication_rollback: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia mutacji w zakresie organizacji i użytkownika. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                publication_id: string;
                 site_id: string;
             };
             cookie?: never;

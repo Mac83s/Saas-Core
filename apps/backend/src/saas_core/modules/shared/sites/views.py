@@ -29,8 +29,10 @@ from .serializers import (
     SiteCreateSerializer,
     SiteListSerializer,
     SiteLocalizationReportSerializer,
+    SitePublicationListSerializer,
     SitePublicationSerializer,
     SitePublishSerializer,
+    SiteRollbackSerializer,
     SiteSummarySerializer,
 )
 from .services import (
@@ -42,8 +44,10 @@ from .services import (
     get_site_localization_report,
     list_page_translations,
     list_pages,
+    list_site_publications,
     list_sites,
     publish_site,
+    rollback_site,
     save_draft,
     save_page_translation,
 )
@@ -320,6 +324,29 @@ class SitePublicationCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
+        operation_id="sites_publications_list",
+        tags=["sites"],
+        parameters=[CURSOR_PARAMETER, LIMIT_PARAMETER],
+        responses={
+            200: SitePublicationListSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, request: Request, site_id: UUID) -> Response:
+        query = CursorQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        items, next_cursor = list_site_publications(
+            site_id=site_id,
+            cursor=query.validated_data.get("cursor"),
+            limit=query.validated_data["limit"],
+        )
+        return Response({
+            "items": [_publication_summary(publication) for publication in items],
+            "next_cursor": next_cursor,
+        })
+
+    @extend_schema(
         operation_id="sites_publish",
         tags=["sites"],
         parameters=[IDEMPOTENCY_PARAMETER],
@@ -337,6 +364,42 @@ class SitePublicationCreateView(APIView):
         serializer.is_valid(raise_exception=True)
         result = publish_site(
             site_id=site_id,
+            idempotency_key=request.headers.get("Idempotency-Key", ""),
+        )
+        return Response(
+            _publication_summary(result.publication),
+            status=(status.HTTP_201_CREATED if result.created else status.HTTP_200_OK),
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SitePublicationRollbackView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_publication_rollback",
+        tags=["sites"],
+        parameters=[IDEMPOTENCY_PARAMETER],
+        request=SiteRollbackSerializer,
+        responses={
+            200: SitePublicationSerializer,
+            201: SitePublicationSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def post(
+        self,
+        request: Request,
+        site_id: UUID,
+        publication_id: UUID,
+    ) -> Response:
+        serializer = SiteRollbackSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = rollback_site(
+            site_id=site_id,
+            publication_id=publication_id,
             idempotency_key=request.headers.get("Idempotency-Key", ""),
         )
         return Response(
@@ -379,6 +442,11 @@ def _publication_summary(publication: Publication) -> dict[str, Any]:
         "sequence": publication.sequence,
         "snapshot_schema_version": publication.snapshot_schema_version,
         "snapshot_hash": publication.snapshot_hash,
+        "source_publication_id": publication.source_publication_id,
+        "created_by": {
+            "id": publication.created_by_id,
+            "email": publication.created_by.email,
+        },
         "created_at": publication.created_at,
     }
 

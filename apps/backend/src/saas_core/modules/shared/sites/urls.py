@@ -9,6 +9,7 @@ from .views import (
     SiteListCreateView,
     SiteLocalizationReportView,
     SitePublicationCreateView,
+    SitePublicationRollbackView,
 )
 
 app_name = "sites"
@@ -25,6 +26,11 @@ urlpatterns = [
         "<uuid:site_id>/publications/",
         SitePublicationCreateView.as_view(),
         name="publication-create",
+    ),
+    path(
+        "<uuid:site_id>/publications/<uuid:publication_id>/rollback/",
+        SitePublicationRollbackView.as_view(),
+        name="publication-rollback",
     ),
     path("pages/<uuid:page_id>/draft/", PageDraftView.as_view(), name="page-draft"),
     path(

@@ -1644,6 +1644,48 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
   /api/v1/sites/{site_id}/publications/:
+    get:
+      operationId: sites_publications_list
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: limit
+        schema:
+          type: integer
+        description: Liczba elementów od 1 do 100; domyślnie 50.
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SitePublicationList'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
     post:
       operationId: sites_publish
       parameters:
@@ -1653,6 +1695,64 @@ paths:
           type: string
         description: Klucz bezpiecznego ponowienia mutacji w zakresie organizacji
           i użytkownika.
+        required: true
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SitePublication'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SitePublication'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/{site_id}/publications/{publication_id}/rollback/:
+    post:
+      operationId: sites_publication_rollback
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: Klucz bezpiecznego ponowienia mutacji w zakresie organizacji
+          i użytkownika.
+        required: true
+      - in: path
+        name: publication_id
+        schema:
+          type: string
+          format: uuid
         required: true
       - in: path
         name: site_id
@@ -2957,6 +3057,18 @@ components:
       - status
       - title
       - type
+    PublicationAuthor:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+      required:
+      - email
+      - id
     Registration:
       type: object
       properties:
@@ -3073,16 +3185,40 @@ components:
           type: integer
         snapshot_hash:
           type: string
+        source_publication_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        created_by:
+          $ref: '#/components/schemas/PublicationAuthor'
         created_at:
           type: string
           format: date-time
       required:
       - created_at
+      - created_by
       - id
       - sequence
       - site_id
       - snapshot_hash
       - snapshot_schema_version
+      - source_publication_id
+    SitePublicationList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SitePublication'
+        next_cursor:
+          type:
+          - string
+          - 'null'
+          format: uuid
+      required:
+      - items
+      - next_cursor
     SiteSummary:
       type: object
       properties:

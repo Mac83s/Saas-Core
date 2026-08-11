@@ -221,10 +221,26 @@ class SitePublishSerializer(serializers.Serializer[dict[str, Any]]):
     pass
 
 
+class SiteRollbackSerializer(serializers.Serializer[dict[str, Any]]):
+    pass
+
+
+class PublicationAuthorSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    email = serializers.EmailField()
+
+
 class SitePublicationSerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     site_id = serializers.UUIDField()
     sequence = serializers.IntegerField()
     snapshot_schema_version = serializers.IntegerField()
     snapshot_hash = serializers.CharField()
+    source_publication_id = serializers.UUIDField(allow_null=True)
+    created_by = PublicationAuthorSerializer()
     created_at = serializers.DateTimeField()
+
+
+class SitePublicationListSerializer(serializers.Serializer[dict[str, Any]]):
+    items = SitePublicationSerializer(many=True)
+    next_cursor = serializers.UUIDField(allow_null=True)
