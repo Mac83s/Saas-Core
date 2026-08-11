@@ -142,11 +142,26 @@ test/live i lokalne mapowanie Price; nie uczestniczy w ścieżce autoryzacji.
 
 ### W5.5 — override, usage i fakturowanie
 
-- dodać audytowane, wygasające override z uzasadnieniem operatora;
-- wdrożyć okresowe `UsageCounter` i ochronę przed podwójnym naliczeniem;
-- przygotować interfejs adaptera fakturowania;
-- odseparować błędy fakturowania od potwierdzonej płatności;
-- dodać panel supportu pokazujący źródło efektywnego entitlementu.
+**Stan:** w toku. W5.5.1 zakończone lokalnie 2026-08-11. Override wymaga
+aktywnego operatora platformy i jawnego tenant context, ma przyczynę, zakres,
+opcjonalne wygaśnięcie oraz klucz idempotencji. Aktywna wartość jest składana do
+lokalnego snapshotu, decyzja potrafi bez Stripe bezpiecznie wrócić do planu na
+granicy wygaśnięcia, a Celery czyści snapshot i zapisuje audyt. Równoległe
+override'y tego samego pola są odrzucane. Walidacja: Ruff, mypy modułu,
+import-linter, brak dryfu migracji, 186 testów backendu oraz pełny Compose ze
+smoke testami runtime, Identity i observability.
+
+> **FINDING W5.5-01 — rozwiązane 2026-08-11:** middleware `next-intl`
+> przechwytuje `/healthz` i przepisuje go na lokalizowaną trasę, przez co
+> poprawnie uruchomiony frontend zwraca 404 w healthchecku, a pełny Compose nie
+> uruchamia Caddy. Trasa techniczna omija teraz middleware lokalizacji; frontend
+> i Caddy są healthy, a smoke runtime przechodzi.
+
+- [x] dodać audytowane, wygasające override z uzasadnieniem operatora;
+- [ ] wdrożyć okresowe `UsageCounter` i ochronę przed podwójnym naliczeniem;
+- [ ] przygotować interfejs adaptera fakturowania;
+- [ ] odseparować błędy fakturowania od potwierdzonej płatności;
+- [ ] dodać panel supportu pokazujący źródło efektywnego entitlementu.
 
 ## 4. Testy obowiązkowe
 
@@ -160,10 +175,10 @@ test/live i lokalne mapowanie Price; nie uczestniczy w ścieżce autoryzacji.
 
 ## 5. Bramka wyjścia
 
-- [ ] lokalny stan wystarcza do decyzji dostępu bez zapytania do Stripe;
+- [x] lokalny stan wystarcza do decyzji dostępu bez zapytania do Stripe;
 - [x] webhooki są podpisane, trwałe, idempotentne i rekoncyliowalne;
 - [x] utrata płatności nie usuwa danych ani nie omija grace period;
-- [ ] katalog planów jest wersjonowany;
-- [ ] override ma autora, przyczynę, zakres i opcjonalne wygaśnięcie;
+- [x] katalog planów jest wersjonowany;
+- [x] override ma autora, przyczynę, zakres i opcjonalne wygaśnięcie;
 - [ ] support potrafi wyjaśnić wynik `can()` i `limit()`;
-- [ ] testy dowodzą niezależności RBAC i entitlementów.
+- [x] testy dowodzą niezależności RBAC i entitlementów.

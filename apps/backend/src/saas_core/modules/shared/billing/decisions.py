@@ -6,6 +6,7 @@ from enum import StrEnum
 from typing import Any, cast
 
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 
 from saas_core.modules.core.organizations.context import require_tenant_context
 
@@ -78,7 +79,7 @@ def decide_feature(
 ) -> FeatureDecision:
     require_tenant_context()
     snapshot = cast(EntitlementSnapshot | None, EntitlementSnapshot.objects.first())
-    evidence = _evidence(snapshot, feature_key)
+    evidence = _evidence(snapshot, feature_key, at=at)
     if snapshot is None:
         return FeatureDecision(
             feature_key,
@@ -98,7 +99,7 @@ def decide_feature(
     access_reason = _access_denial(snapshot, operation=operation, at=at)
     if access_reason is not None:
         return FeatureDecision(feature_key, operation, False, access_reason, evidence)
-    if snapshot.features.get(feature_key) is not True:
+    if _feature_value(snapshot, feature_key, at=at) is not True:
         return FeatureDecision(
             feature_key,
             operation,
@@ -118,7 +119,7 @@ def decide_feature(
 def decide_quota(quota_key: str, *, at: datetime | None = None) -> QuotaDecision:
     require_tenant_context()
     snapshot = cast(EntitlementSnapshot | None, EntitlementSnapshot.objects.first())
-    evidence = _evidence(snapshot, quota_key)
+    evidence = _evidence(snapshot, quota_key, at=at)
     if snapshot is None:
         return QuotaDecision(
             quota_key,
@@ -138,7 +139,7 @@ def decide_quota(quota_key: str, *, at: datetime | None = None) -> QuotaDecision
     access_reason = _access_denial(snapshot, operation=FeatureOperation.READ, at=at)
     if access_reason is not None:
         return QuotaDecision(quota_key, 0, False, access_reason, evidence)
-    value = snapshot.quotas.get(quota_key)
+    value = _quota_value(snapshot, quota_key, at=at)
     if not isinstance(value, int) or isinstance(value, bool) or value < 0:
         return QuotaDecision(
             quota_key,
@@ -175,12 +176,21 @@ def _access_denial(
 def _evidence(
     snapshot: EntitlementSnapshot | None,
     key: str,
+    *,
+    at: datetime | None,
 ) -> DecisionEvidence:
     if snapshot is None:
         return DecisionEvidence(None, None, None, None, None)
     source = snapshot.sources.get(key)
     if source is None:
         source = snapshot.sources.get("plan")
+    elif _override_expired(source, at=at):
+        source = {
+            "kind": "expired_override",
+            "ref": source.get("ref"),
+            "expired_at": source.get("expires_at"),
+            "fallback_source": source.get("fallback_source"),
+        }
     return DecisionEvidence(
         snapshot_id=str(snapshot.id),
         snapshot_version=snapshot.version,
@@ -188,3 +198,37 @@ def _evidence(
         access_mode=snapshot.access_mode,
         source=source,
     )
+
+
+def _feature_value(
+    snapshot: EntitlementSnapshot,
+    key: str,
+    *,
+    at: datetime | None,
+) -> Any:
+    source = snapshot.sources.get(key)
+    if _override_expired(source, at=at):
+        return source.get("fallback_value")
+    return snapshot.features.get(key)
+
+
+def _quota_value(
+    snapshot: EntitlementSnapshot,
+    key: str,
+    *,
+    at: datetime | None,
+) -> Any:
+    source = snapshot.sources.get(key)
+    if _override_expired(source, at=at):
+        return source.get("fallback_value")
+    return snapshot.quotas.get(key)
+
+
+def _override_expired(source: Any, *, at: datetime | None) -> bool:
+    if not isinstance(source, dict) or source.get("kind") != "override":
+        return False
+    raw_expiry = source.get("expires_at")
+    if not isinstance(raw_expiry, str):
+        return False
+    expiry = parse_datetime(raw_expiry)
+    return expiry is not None and expiry <= (at or timezone.now())

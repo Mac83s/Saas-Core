@@ -309,6 +309,7 @@ class EntitlementGrant(TenantScopedModel):
     enabled = models.BooleanField(null=True, blank=True)
     limit_value = models.PositiveBigIntegerField(null=True, blank=True)
     reason = models.TextField(blank=True)
+    idempotency_key = models.CharField(max_length=120, blank=True)
     granted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -361,6 +362,11 @@ class EntitlementGrant(TenantScopedModel):
                     ~models.Q(source=GrantSource.PLAN) | models.Q(plan_version__isnull=False)
                 ),
                 name="billing_plan_grant_version_ck",
+            ),
+            models.UniqueConstraint(
+                fields=["organization", "idempotency_key"],
+                condition=~models.Q(idempotency_key=""),
+                name="billing_grant_idempotency_uq",
             ),
         ]
         indexes = [

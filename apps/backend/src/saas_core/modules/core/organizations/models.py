@@ -388,6 +388,9 @@ class OrganizationAuditAction(models.TextChoices):
     BILLING_TRIAL_STARTED = "billing.trial.started", "Rozpoczęto trial"
     BILLING_ACCESS_READ_ONLY = "billing.access.read_only", "Włączono tryb tylko do odczytu"
     BILLING_RECONCILED = "billing.reconciled", "Naprawiono stan billingowy"
+    BILLING_OVERRIDE_CREATED = "billing.override.created", "Utworzono override dostępu"
+    BILLING_OVERRIDE_REVOKED = "billing.override.revoked", "Wycofano override dostępu"
+    BILLING_OVERRIDE_EXPIRED = "billing.override.expired", "Wygasł override dostępu"
 
 
 class OrganizationAuditEntry(models.Model):
