@@ -22,7 +22,15 @@ from saas_core.modules.shared.billing.models import (
     QuotaUsage,
     SubscriptionState,
 )
-from saas_core.modules.shared.sites.models import Page, PageBlock, PageVersion, Publication, Site
+from saas_core.modules.shared.sites.models import (
+    Page,
+    PageBlock,
+    PageTranslation,
+    PageTranslationMutation,
+    PageVersion,
+    Publication,
+    Site,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -134,6 +142,35 @@ def save_draft(
                     "data": {"text": "Treść"},
                 },
             ],
+        },
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+        HTTP_IDEMPOTENCY_KEY=idempotency_key,
+    )
+
+
+def save_translation(
+    client: APIClient,
+    page_id: str,
+    locale: str,
+    *,
+    expected_version: int,
+    slug: str,
+    title: str = "",
+    description: str = "",
+    idempotency_key: str,
+    **fallback: bool,
+) -> Any:
+    return client.put(
+        f"/api/v1/sites/pages/{page_id}/translations/{locale}/",
+        {
+            "expected_version": expected_version,
+            "slug": slug,
+            "title": title,
+            "description": description,
+            "social_title": "",
+            "social_description": "",
+            **fallback,
         },
         format="json",
         HTTP_X_CSRFTOKEN=csrf_value(client),
@@ -410,3 +447,327 @@ def test_database_guards_append_only_snapshots_and_cross_tenant_links() -> None:
             request_hash="0" * 64,
         )
     assert foreign_site.organization_id == other_organization.id
+
+
+def test_translations_are_separate_idempotent_audited_records() -> None:
+    client, organization, _ = sites_client(slug="sites-translations")
+    site = create_site(client)
+    page = create_page(client, site.data["id"])
+
+    polish = save_translation(
+        client,
+        page.data["id"],
+        "pl",
+        expected_version=0,
+        slug="oferta",
+        title="Oferta",
+        description="Opis oferty",
+        idempotency_key="translation-pl-v1",
+    )
+    repeated = save_translation(
+        client,
+        page.data["id"],
+        "pl",
+        expected_version=0,
+        slug="oferta",
+        title="Oferta",
+        description="Opis oferty",
+        idempotency_key="translation-pl-v1",
+    )
+    changed_replay = save_translation(
+        client,
+        page.data["id"],
+        "pl",
+        expected_version=0,
+        slug="oferta",
+        title="Inna oferta",
+        description="Opis oferty",
+        idempotency_key="translation-pl-v1",
+    )
+    listing = client.get(f"/api/v1/sites/pages/{page.data['id']}/translations/")
+
+    assert polish.status_code == 201
+    assert polish.data["version"] == 1
+    assert repeated.status_code == 200
+    assert repeated.data["id"] == polish.data["id"]
+    assert changed_replay.status_code == 409
+    assert changed_replay.data["code"] == "sites_idempotency_conflict"
+    assert listing.status_code == 200
+    assert listing.data["default_locale"] == "pl"
+    assert listing.data["supported_locales"] == ["pl", "en"]
+    assert [item["locale"] for item in listing.data["items"]] == ["pl"]
+    assert PageTranslation.all_objects.filter(organization=organization).count() == 1
+    assert PageTranslationMutation.all_objects.filter(organization=organization).count() == 1
+    assert (
+        OrganizationAuditEntry.objects.filter(
+            organization=organization,
+            action="sites.page.translation_saved",
+        ).count()
+        == 1
+    )
+
+
+def test_localization_report_resolves_fallback_and_generates_seo_paths() -> None:
+    client, _, _ = sites_client(slug="sites-localization")
+    site = create_site(client)
+    page = create_page(client, site.data["id"])
+    assert (
+        save_translation(
+            client,
+            page.data["id"],
+            "pl",
+            expected_version=0,
+            slug="uslugi",
+            title="Usługi",
+            description="Opis usług",
+            idempotency_key="localization-pl",
+        ).status_code
+        == 201
+    )
+    assert (
+        save_translation(
+            client,
+            page.data["id"],
+            "en",
+            expected_version=0,
+            slug="services",
+            idempotency_key="localization-en",
+            allow_title_fallback=True,
+            allow_description_fallback=True,
+            allow_social_title_fallback=True,
+            allow_social_description_fallback=True,
+        ).status_code
+        == 201
+    )
+
+    response = client.get(f"/api/v1/sites/{site.data['id']}/localization/")
+
+    assert response.status_code == 200
+    assert response.data["ready_to_publish"] is True
+    report = response.data["pages"][0]
+    polish, english = report["locales"]
+    assert polish["path"] == "/uslugi/"
+    assert polish["canonical_path"] == "/uslugi/"
+    assert english["path"] == "/en/services/"
+    assert english["canonical_path"] == "/en/services/"
+    assert english["title"] == "Usługi"
+    assert english["description"] == "Opis usług"
+    assert english["social_title"] == "Usługi"
+    assert english["social_description"] == "Opis usług"
+    assert english["fallback_fields"] == [
+        "title",
+        "description",
+        "social_title",
+        "social_description",
+    ]
+    assert report["hreflang"] == {"pl": "/uslugi/", "en": "/en/services/"}
+    assert report["x_default"] == "/uslugi/"
+
+
+def test_missing_locales_and_fields_are_reported_without_blocking_base_locale() -> None:
+    client, _, _ = sites_client(slug="sites-completeness")
+    site = create_site(client)
+    page = create_page(client, site.data["id"])
+
+    missing_base = client.get(f"/api/v1/sites/{site.data['id']}/localization/")
+    assert missing_base.data["ready_to_publish"] is False
+    assert missing_base.data["pages"][0]["locales"][0]["missing_fields"] == [
+        "translation",
+        "slug",
+        "title",
+        "description",
+    ]
+
+    assert (
+        save_translation(
+            client,
+            page.data["id"],
+            "pl",
+            expected_version=0,
+            slug="kontakt",
+            title="Kontakt",
+            description="Dane kontaktowe",
+            idempotency_key="completeness-pl",
+        ).status_code
+        == 201
+    )
+    report = client.get(f"/api/v1/sites/{site.data['id']}/localization/")
+
+    assert report.data["ready_to_publish"] is True
+    english = report.data["pages"][0]["locales"][1]
+    assert english["complete"] is False
+    assert english["path"] is None
+    assert report.data["pages"][0]["hreflang"] == {"pl": "/kontakt/"}
+
+
+def test_translation_slug_collision_is_scoped_by_site_and_locale() -> None:
+    client, _, _ = sites_client(slug="sites-slugs")
+    site = create_site(client)
+    first_page = create_page(client, site.data["id"], key="first")
+    second_page = create_page(
+        client,
+        site.data["id"],
+        key="second",
+        idempotency_key="page-second",
+    )
+    assert (
+        save_translation(
+            client,
+            first_page.data["id"],
+            "pl",
+            expected_version=0,
+            slug="wspolny",
+            title="Pierwsza",
+            description="Pierwszy opis",
+            idempotency_key="slug-first-pl",
+        ).status_code
+        == 201
+    )
+
+    collision = save_translation(
+        client,
+        second_page.data["id"],
+        "pl",
+        expected_version=0,
+        slug="wspolny",
+        title="Druga",
+        description="Drugi opis",
+        idempotency_key="slug-second-pl",
+    )
+    other_locale = save_translation(
+        client,
+        second_page.data["id"],
+        "en",
+        expected_version=0,
+        slug="wspolny",
+        title="Second",
+        description="Second description",
+        idempotency_key="slug-second-en",
+    )
+
+    assert collision.status_code == 409
+    assert collision.data["code"] == "translation_slug_conflict"
+    assert other_locale.status_code == 201
+
+
+def test_published_translation_slug_is_locked_in_service_and_database() -> None:
+    client, _, _ = sites_client(slug="sites-slug-lock")
+    site = create_site(client)
+    page = create_page(client, site.data["id"])
+    created = save_translation(
+        client,
+        page.data["id"],
+        "pl",
+        expected_version=0,
+        slug="staly",
+        title="Stały",
+        description="Opis",
+        idempotency_key="slug-lock-v1",
+    )
+    translation = PageTranslation.all_objects.get(pk=created.data["id"])
+    PageTranslation.all_objects.filter(pk=translation.id).update(
+        slug_locked_at=translation.created_at
+    )
+
+    changed = save_translation(
+        client,
+        page.data["id"],
+        "pl",
+        expected_version=1,
+        slug="nowy",
+        title="Nowy",
+        description="Opis",
+        idempotency_key="slug-lock-v2",
+    )
+    metadata_only = save_translation(
+        client,
+        page.data["id"],
+        "pl",
+        expected_version=1,
+        slug="staly",
+        title="Zmieniony tytuł",
+        description="Opis",
+        idempotency_key="slug-lock-metadata-v2",
+    )
+
+    assert changed.status_code == 409
+    assert changed.data["code"] == "translation_slug_locked"
+    assert metadata_only.status_code == 201
+    assert metadata_only.data["version"] == 2
+    with pytest.raises(DatabaseError), transaction.atomic():
+        PageTranslation.all_objects.filter(pk=translation.id).update(slug="bypass")
+
+
+def test_translation_rejects_unsupported_locale_base_fallback_and_foreign_tenant() -> None:
+    client, organization, _ = sites_client(slug="sites-locale-guards")
+    foreign_client, _, _ = sites_client(slug="sites-locale-foreign")
+    viewer_client, _, _ = sites_client(
+        slug="sites-locale-viewer",
+        role_key="viewer",
+    )
+    disabled_client, _, _ = sites_client(
+        slug="sites-locale-disabled",
+        feature_enabled=False,
+    )
+    site = create_site(client)
+    page = create_page(client, site.data["id"])
+
+    unsupported = save_translation(
+        client,
+        page.data["id"],
+        "de",
+        expected_version=0,
+        slug="angebot",
+        title="Angebot",
+        description="Beschreibung",
+        idempotency_key="locale-de",
+    )
+    base_fallback = save_translation(
+        client,
+        page.data["id"],
+        "pl",
+        expected_version=0,
+        slug="oferta",
+        idempotency_key="locale-pl-fallback",
+        allow_title_fallback=True,
+    )
+    foreign = save_translation(
+        foreign_client,
+        page.data["id"],
+        "pl",
+        expected_version=0,
+        slug="foreign",
+        title="Obce",
+        description="Obcy opis",
+        idempotency_key="locale-foreign",
+    )
+    viewer = viewer_client.get(
+        f"/api/v1/sites/pages/{page.data['id']}/translations/"
+    )
+    disabled = disabled_client.get(
+        f"/api/v1/sites/{site.data['id']}/localization/"
+    )
+
+    assert unsupported.status_code == 400
+    assert unsupported.data["code"] == "unsupported_site_locale"
+    assert base_fallback.status_code == 400
+    assert base_fallback.data["code"] == "translation_fallback_conflict"
+    assert foreign.status_code == 404
+    assert foreign.data["code"] == "page_not_found"
+    assert viewer.status_code == 403
+    assert viewer.data["code"] == "organization_permission_denied"
+    assert disabled.status_code == 403
+    assert disabled.data["code"] == "entitlement_required"
+
+    site_model = Site.all_objects.get(pk=site.data["id"])
+    page_model = Page.all_objects.get(pk=page.data["id"])
+    with pytest.raises(DatabaseError), transaction.atomic():
+        PageTranslation.all_objects.create(
+            organization=organization,
+            site=site_model,
+            page=page_model,
+            locale="de",
+            slug="angebot",
+            title="Angebot",
+            description="Beschreibung",
+        )

@@ -139,6 +139,170 @@ class Page(TenantScopedModel):
         super().save(*args, **kwargs)
 
 
+class PageTranslation(TenantScopedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.PROTECT,
+        related_name="page_translations",
+    )
+    page = models.ForeignKey(
+        Page,
+        on_delete=models.PROTECT,
+        related_name="translations",
+    )
+    locale = models.CharField(
+        max_length=10,
+        choices=[("pl", "Polski"), ("en", "English")],
+    )
+    slug = models.SlugField(max_length=80)
+    title = models.CharField(max_length=160, blank=True)
+    description = models.CharField(max_length=320, blank=True)
+    social_title = models.CharField(max_length=160, blank=True)
+    social_description = models.CharField(max_length=320, blank=True)
+    allow_title_fallback = models.BooleanField(default=False)
+    allow_description_fallback = models.BooleanField(default=False)
+    allow_social_title_fallback = models.BooleanField(default=False)
+    allow_social_description_fallback = models.BooleanField(default=False)
+    version = models.PositiveBigIntegerField(default=1)
+    slug_locked_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "site_id", "page_id", "locale")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "page", "locale"],
+                name="sites_translation_org_page_locale_uq",
+            ),
+            models.UniqueConstraint(
+                fields=["organization", "site", "locale", "slug"],
+                name="sites_translation_org_site_locale_slug_uq",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(version__gte=1),
+                name="sites_translation_version_positive_ck",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(locale__in=["pl", "en"]),
+                name="sites_translation_locale_supported_ck",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["organization", "site", "locale", "slug"],
+                name="sites_translation_route_idx",
+            ),
+            models.Index(
+                fields=["organization", "page", "locale"],
+                name="sites_translation_page_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.page_id}:{self.locale}:{self.slug}"
+
+    def clean(self) -> None:
+        super().clean()
+        if self.page_id and self.page.organization_id != self.organization_id:
+            raise ValidationError({"page": "Tłumaczenie należy do innej organizacji."})
+        if self.site_id and self.site.organization_id != self.organization_id:
+            raise ValidationError({"site": "Tłumaczenie należy do innej organizacji."})
+        if self.page_id and self.site_id and self.page.site_id != self.site_id:
+            raise ValidationError({"site": "Tłumaczenie należy do innego site."})
+        if (
+            self.site_id
+            and self.locale == self.site.default_locale
+            and any(
+                (
+                    self.allow_title_fallback,
+                    self.allow_description_fallback,
+                    self.allow_social_title_fallback,
+                    self.allow_social_description_fallback,
+                )
+            )
+        ):
+            raise ValidationError(
+                {"locale": "Locale bazowe nie może korzystać z fallbacku."}
+            )
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        self.slug = self.slug.strip().lower()
+        super().save(*args, **kwargs)
+
+
+class PageTranslationMutation(TenantScopedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    translation = models.ForeignKey(
+        PageTranslation,
+        on_delete=models.PROTECT,
+        related_name="mutations",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_page_translation_mutations",
+    )
+    idempotency_key = models.CharField(max_length=120)
+    request_hash = models.CharField(max_length=64)
+    resulting_version = models.PositiveBigIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "translation_id", "resulting_version")
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "organization",
+                    "translation",
+                    "created_by",
+                    "idempotency_key",
+                ],
+                name="sites_trmutation_org_actor_idem_uq",
+            ),
+            models.UniqueConstraint(
+                fields=["organization", "translation", "resulting_version"],
+                name="sites_trmutation_org_version_uq",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(resulting_version__gte=1),
+                name="sites_trmutation_version_positive_ck",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["organization", "translation", "created_at"],
+                name="sites_trmutation_org_idx",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.translation_id}:v{self.resulting_version}"
+
+    def clean(self) -> None:
+        super().clean()
+        if (
+            self.translation_id
+            and self.translation.organization_id != self.organization_id
+        ):
+            raise ValidationError(
+                {"translation": "Mutacja tłumaczenia należy do innej organizacji."}
+            )
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        if not self._state.adding:
+            raise ValidationError("Zapis mutacji tłumaczenia jest niemutowalny.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
+        raise ValidationError("Zapis mutacji tłumaczenia jest niemutowalny.")
+
+
 class PageVersion(TenantScopedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     page = models.ForeignKey(Page, on_delete=models.PROTECT, related_name="versions")

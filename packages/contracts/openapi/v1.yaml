@@ -1309,6 +1309,45 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/{site_id}/localization/:
+    get:
+      operationId: sites_localization_report_retrieve
+      parameters:
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteLocalizationReport'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/{site_id}/pages/:
     get:
       operationId: sites_pages_list
@@ -1510,6 +1549,120 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PageDraft'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/pages/{page_id}/translations/:
+    get:
+      operationId: sites_page_translations_list
+      parameters:
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageTranslationList'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/pages/{page_id}/translations/{locale}/:
+    put:
+      operationId: sites_page_translation_save
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: Klucz bezpiecznego ponowienia mutacji w zakresie organizacji
+          i użytkownika.
+        required: true
+      - in: path
+        name: locale
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PageTranslationSave'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PageTranslationSave'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PageTranslationSave'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageTranslation'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageTranslation'
           description: ''
         '400':
           content:
@@ -1816,6 +1969,75 @@ components:
       description: |-
         * `pl` - pl
         * `en` - en
+    LocaleLocalization:
+      type: object
+      properties:
+        locale:
+          type: string
+        translation_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        version:
+          type:
+          - integer
+          - 'null'
+        slug:
+          type:
+          - string
+          - 'null'
+        path:
+          type:
+          - string
+          - 'null'
+        canonical_path:
+          type:
+          - string
+          - 'null'
+        title:
+          type:
+          - string
+          - 'null'
+        description:
+          type:
+          - string
+          - 'null'
+        social_title:
+          type:
+          - string
+          - 'null'
+        social_description:
+          type:
+          - string
+          - 'null'
+        fallback_fields:
+          type: array
+          items:
+            type: string
+        missing_fields:
+          type: array
+          items:
+            type: string
+        complete:
+          type: boolean
+        slug_locked:
+          type: boolean
+      required:
+      - canonical_path
+      - complete
+      - description
+      - fallback_fields
+      - locale
+      - missing_fields
+      - path
+      - slug
+      - slug_locked
+      - social_description
+      - social_title
+      - title
+      - translation_id
+      - version
     Login:
       type: object
       properties:
@@ -2073,6 +2295,35 @@ components:
       required:
       - items
       - next_cursor
+    PageLocalization:
+      type: object
+      properties:
+        page_id:
+          type: string
+          format: uuid
+        page_key:
+          type: string
+        page_name:
+          type: string
+        locales:
+          type: array
+          items:
+            $ref: '#/components/schemas/LocaleLocalization'
+        hreflang:
+          type: object
+          additionalProperties:
+            type: string
+        x_default:
+          type:
+          - string
+          - 'null'
+      required:
+      - hreflang
+      - locales
+      - page_id
+      - page_key
+      - page_name
+      - x_default
     PageSummary:
       type: object
       properties:
@@ -2113,6 +2364,128 @@ components:
       - site_id
       - updated_at
       - version
+    PageTranslation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        page_id:
+          type: string
+          format: uuid
+        site_id:
+          type: string
+          format: uuid
+        locale:
+          type: string
+        slug:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        social_title:
+          type: string
+        social_description:
+          type: string
+        allow_title_fallback:
+          type: boolean
+        allow_description_fallback:
+          type: boolean
+        allow_social_title_fallback:
+          type: boolean
+        allow_social_description_fallback:
+          type: boolean
+        version:
+          type: integer
+        slug_locked:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - allow_description_fallback
+      - allow_social_description_fallback
+      - allow_social_title_fallback
+      - allow_title_fallback
+      - created_at
+      - description
+      - id
+      - locale
+      - page_id
+      - site_id
+      - slug
+      - slug_locked
+      - social_description
+      - social_title
+      - title
+      - updated_at
+      - version
+    PageTranslationList:
+      type: object
+      properties:
+        page_id:
+          type: string
+          format: uuid
+        default_locale:
+          type: string
+        supported_locales:
+          type: array
+          items:
+            type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PageTranslation'
+      required:
+      - default_locale
+      - items
+      - page_id
+      - supported_locales
+    PageTranslationSave:
+      type: object
+      properties:
+        expected_version:
+          type: integer
+          minimum: 0
+        slug:
+          type: string
+          maxLength: 80
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        title:
+          type: string
+          default: ''
+          maxLength: 160
+        description:
+          type: string
+          default: ''
+          maxLength: 320
+        social_title:
+          type: string
+          default: ''
+          maxLength: 160
+        social_description:
+          type: string
+          default: ''
+          maxLength: 320
+        allow_title_fallback:
+          type: boolean
+          default: false
+        allow_description_fallback:
+          type: boolean
+          default: false
+        allow_social_title_fallback:
+          type: boolean
+          default: false
+        allow_social_description_fallback:
+          type: boolean
+          default: false
+      required:
+      - expected_version
+      - slug
     PasswordResetConfirm:
       type: object
       properties:
@@ -2276,6 +2649,30 @@ components:
       required:
       - items
       - next_cursor
+    SiteLocalizationReport:
+      type: object
+      properties:
+        site_id:
+          type: string
+          format: uuid
+        default_locale:
+          type: string
+        supported_locales:
+          type: array
+          items:
+            type: string
+        ready_to_publish:
+          type: boolean
+        pages:
+          type: array
+          items:
+            $ref: '#/components/schemas/PageLocalization'
+      required:
+      - default_locale
+      - pages
+      - ready_to_publish
+      - site_id
+      - supported_locales
     SiteSummary:
       type: object
       properties:

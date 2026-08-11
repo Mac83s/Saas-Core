@@ -14,7 +14,8 @@ from rest_framework.views import APIView
 
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
-from .models import Page, PageBlock, Site
+from .localization import LocaleResolution, SiteLocalizationReport
+from .models import Page, PageBlock, PageTranslation, Site
 from .serializers import (
     CursorQuerySerializer,
     DraftSaveSerializer,
@@ -22,11 +23,25 @@ from .serializers import (
     PageDraftSerializer,
     PageListSerializer,
     PageSummarySerializer,
+    PageTranslationListSerializer,
+    PageTranslationSaveSerializer,
+    PageTranslationSerializer,
     SiteCreateSerializer,
     SiteListSerializer,
+    SiteLocalizationReportSerializer,
     SiteSummarySerializer,
 )
-from .services import create_page, create_site, get_draft, list_pages, list_sites, save_draft
+from .services import (
+    create_page,
+    create_site,
+    get_draft,
+    get_site_localization_report,
+    list_page_translations,
+    list_pages,
+    list_sites,
+    save_draft,
+    save_page_translation,
+)
 
 IDEMPOTENCY_PARAMETER = OpenApiParameter(
     name="Idempotency-Key",
@@ -207,6 +222,86 @@ class PageDraftView(APIView):
         )
 
 
+class PageTranslationListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_page_translations_list",
+        tags=["sites"],
+        responses={
+            200: PageTranslationListSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, _request: Request, page_id: UUID) -> Response:
+        translations = list_page_translations(page_id=page_id)
+        return Response(
+            {
+                "page_id": translations.page.id,
+                "default_locale": translations.page.site.default_locale,
+                "supported_locales": list(translations.supported_locales),
+                "items": [
+                    _translation_summary(translation)
+                    for translation in translations.translations
+                ],
+            }
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class PageTranslationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_page_translation_save",
+        tags=["sites"],
+        parameters=[IDEMPOTENCY_PARAMETER],
+        request=PageTranslationSaveSerializer,
+        responses={
+            200: PageTranslationSerializer,
+            201: PageTranslationSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def put(self, request: Request, page_id: UUID, locale: str) -> Response:
+        serializer = PageTranslationSaveSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = save_page_translation(
+            page_id=page_id,
+            locale=locale,
+            **serializer.validated_data,
+            idempotency_key=request.headers.get("Idempotency-Key", ""),
+        )
+        return Response(
+            _translation_summary(result.value),
+            status=(status.HTTP_201_CREATED if result.created else status.HTTP_200_OK),
+        )
+
+
+class SiteLocalizationReportView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_localization_report_retrieve",
+        tags=["sites"],
+        responses={
+            200: SiteLocalizationReportSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, _request: Request, site_id: UUID) -> Response:
+        return Response(
+            _localization_report(get_site_localization_report(site_id=site_id))
+        )
+
+
 def _site_summary(site: Site) -> dict[str, Any]:
     return {
         "id": site.id,
@@ -253,4 +348,67 @@ def _block_summary(block: PageBlock) -> dict[str, Any]:
         "block_type": block.block_type,
         "schema_version": block.schema_version,
         "data": block.data,
+    }
+
+
+def _translation_summary(translation: PageTranslation) -> dict[str, Any]:
+    return {
+        "id": translation.id,
+        "page_id": translation.page_id,
+        "site_id": translation.site_id,
+        "locale": translation.locale,
+        "slug": translation.slug,
+        "title": translation.title,
+        "description": translation.description,
+        "social_title": translation.social_title,
+        "social_description": translation.social_description,
+        "allow_title_fallback": translation.allow_title_fallback,
+        "allow_description_fallback": translation.allow_description_fallback,
+        "allow_social_title_fallback": translation.allow_social_title_fallback,
+        "allow_social_description_fallback": (
+            translation.allow_social_description_fallback
+        ),
+        "version": translation.version,
+        "slug_locked": translation.slug_locked_at is not None,
+        "created_at": translation.created_at,
+        "updated_at": translation.updated_at,
+    }
+
+
+def _localization_report(report: SiteLocalizationReport) -> dict[str, Any]:
+    return {
+        "site_id": report.site.id,
+        "default_locale": report.site.default_locale,
+        "supported_locales": list(report.supported_locales),
+        "ready_to_publish": report.ready_to_publish,
+        "pages": [
+            {
+                "page_id": page.page.id,
+                "page_key": page.page.key,
+                "page_name": page.page.name,
+                "locales": [_locale_resolution(locale) for locale in page.locales],
+                "hreflang": page.hreflang,
+                "x_default": page.x_default,
+            }
+            for page in report.pages
+        ],
+    }
+
+
+def _locale_resolution(locale: LocaleResolution) -> dict[str, Any]:
+    return {
+        "locale": locale.locale,
+        "translation_id": locale.translation_id,
+        "version": locale.version,
+        "slug": locale.slug,
+        "path": locale.path,
+        "canonical_path": locale.canonical_path,
+        "title": locale.title,
+        "description": locale.description,
+        "social_title": locale.social_title,
+        "social_description": locale.social_description,
+        "fallback_fields": list(locale.fallback_fields),
+        "missing_fields": list(locale.missing_fields),
+        "complete": locale.complete,
+        "slug_locked": locale.slug_locked,
     }

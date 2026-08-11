@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import APIException, NotFound
@@ -17,12 +18,22 @@ from saas_core.modules.shared.billing.api import (
     consume_quota,
 )
 
-from .models import Page, PageBlock, PageVersion, Site, canonical_json_hash
+from .localization import SiteLocalizationReport, build_localization_report
+from .models import (
+    Page,
+    PageBlock,
+    PageTranslation,
+    PageTranslationMutation,
+    PageVersion,
+    Site,
+    canonical_json_hash,
+)
 from .permissions import SITE_CONTENT_EDIT, SITES_ENABLED, SITES_MAX
 
 SITE_CREATED = "sites.site.created"
 PAGE_CREATED = "sites.page.created"
 PAGE_DRAFT_SAVED = "sites.page.draft_saved"
+PAGE_TRANSLATION_SAVED = "sites.page.translation_saved"
 
 
 class SitesIdempotencyConflict(APIException):
@@ -49,6 +60,36 @@ class DraftVersionConflict(APIException):
     default_code = "draft_version_conflict"
 
 
+class UnsupportedSiteLocale(APIException):
+    status_code = 400
+    default_detail = "Locale nie należy do profilu deploymentu."
+    default_code = "unsupported_site_locale"
+
+
+class TranslationFallbackConflict(APIException):
+    status_code = 400
+    default_detail = "Locale bazowe nie może korzystać z fallbacku."
+    default_code = "translation_fallback_conflict"
+
+
+class TranslationVersionConflict(APIException):
+    status_code = 409
+    default_detail = "Metadane tłumaczenia zostały w międzyczasie zmienione."
+    default_code = "translation_version_conflict"
+
+
+class TranslationSlugConflict(APIException):
+    status_code = 409
+    default_detail = "Slug jest już używany w tym site i locale."
+    default_code = "translation_slug_conflict"
+
+
+class TranslationSlugLocked(APIException):
+    status_code = 409
+    default_detail = "Slug opublikowanego tłumaczenia jest zablokowany."
+    default_code = "translation_slug_locked"
+
+
 class SiteNotFound(NotFound):
     default_detail = "Strona nie istnieje."
     default_code = "site_not_found"
@@ -70,6 +111,13 @@ class PageDraft:
     page: Page
     version: PageVersion | None
     blocks: tuple[PageBlock, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class PageTranslations:
+    page: Page
+    supported_locales: tuple[str, ...]
+    translations: tuple[PageTranslation, ...]
 
 
 def list_sites(*, cursor: UUID | None, limit: int) -> tuple[list[Site], UUID | None]:
@@ -95,6 +143,8 @@ def create_site(
     idempotency_key: str,
 ) -> MutationResult[Site]:
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    if default_locale not in _supported_locales():
+        raise UnsupportedSiteLocale
     normalized_key = _idempotency_key(idempotency_key)
     normalized_slug = slug.strip().lower()
     request_hash = canonical_json_hash(
@@ -367,6 +417,218 @@ def save_draft(
     return MutationResult(version, True)
 
 
+def list_page_translations(*, page_id: UUID) -> PageTranslations:
+    context = authorize_entitled(
+        SITE_CONTENT_EDIT,
+        SITES_ENABLED,
+        operation=FeatureOperation.READ,
+    )
+    try:
+        page = Page.all_objects.select_related("site").get(
+            pk=page_id,
+            organization_id=context.organization_id,
+        )
+    except Page.DoesNotExist as error:
+        raise PageNotFound from error
+    translations = tuple(
+        PageTranslation.all_objects.filter(
+            organization_id=context.organization_id,
+            page_id=page.id,
+        )
+        .select_related("site")
+        .order_by("locale")
+    )
+    return PageTranslations(page, _supported_locales(), translations)
+
+
+@transaction.atomic
+def save_page_translation(
+    *,
+    page_id: UUID,
+    locale: str,
+    expected_version: int,
+    slug: str,
+    title: str,
+    description: str,
+    social_title: str,
+    social_description: str,
+    allow_title_fallback: bool,
+    allow_description_fallback: bool,
+    allow_social_title_fallback: bool,
+    allow_social_description_fallback: bool,
+    idempotency_key: str,
+) -> MutationResult[PageTranslation]:
+    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    normalized_locale = locale.strip().lower()
+    if normalized_locale not in _supported_locales():
+        raise UnsupportedSiteLocale
+    normalized_key = _idempotency_key(idempotency_key)
+    values: dict[str, str | bool] = {
+        "slug": slug.strip().lower(),
+        "title": title.strip(),
+        "description": description.strip(),
+        "social_title": social_title.strip(),
+        "social_description": social_description.strip(),
+        "allow_title_fallback": allow_title_fallback,
+        "allow_description_fallback": allow_description_fallback,
+        "allow_social_title_fallback": allow_social_title_fallback,
+        "allow_social_description_fallback": allow_social_description_fallback,
+    }
+    request_hash = canonical_json_hash(
+        {
+            "page_id": str(page_id),
+            "locale": normalized_locale,
+            "expected_version": expected_version,
+            **values,
+        }
+    )
+    try:
+        page = (
+            Page.all_objects.select_for_update()
+            .select_related("site__organization")
+            .get(pk=page_id, organization_id=context.organization_id)
+        )
+    except Page.DoesNotExist as error:
+        raise PageNotFound from error
+    site = Site.all_objects.select_for_update().get(
+        pk=page.site_id,
+        organization_id=context.organization_id,
+    )
+    if site.default_locale not in _supported_locales():
+        raise UnsupportedSiteLocale
+    if normalized_locale == site.default_locale and any(
+        (
+            allow_title_fallback,
+            allow_description_fallback,
+            allow_social_title_fallback,
+            allow_social_description_fallback,
+        )
+    ):
+        raise TranslationFallbackConflict
+
+    translation = (
+        PageTranslation.all_objects.select_for_update()
+        .filter(
+            organization_id=context.organization_id,
+            page_id=page.id,
+            locale=normalized_locale,
+        )
+        .first()
+    )
+    if translation is not None:
+        receipt = PageTranslationMutation.all_objects.filter(
+            organization_id=context.organization_id,
+            translation_id=translation.id,
+            created_by_id=context.actor_id,
+            idempotency_key=normalized_key,
+        ).first()
+        if receipt is not None:
+            if receipt.request_hash != request_hash:
+                raise SitesIdempotencyConflict
+            return MutationResult(translation, False)
+    if translation is None and expected_version != 0:
+        raise TranslationVersionConflict
+    if translation is not None and translation.version != expected_version:
+        raise TranslationVersionConflict
+    if (
+        translation is not None
+        and translation.slug_locked_at is not None
+        and translation.slug != values["slug"]
+    ):
+        raise TranslationSlugLocked
+    duplicate_slug = PageTranslation.all_objects.filter(
+        organization_id=context.organization_id,
+        site_id=site.id,
+        locale=normalized_locale,
+        slug=values["slug"],
+    )
+    if translation is not None:
+        duplicate_slug = duplicate_slug.exclude(pk=translation.id)
+    if duplicate_slug.exists():
+        raise TranslationSlugConflict
+
+    actor = User.objects.get(pk=context.actor_id)
+    resulting_version = expected_version + 1
+    if translation is None:
+        translation = PageTranslation.all_objects.create(
+            organization_id=context.organization_id,
+            site=site,
+            page=page,
+            locale=normalized_locale,
+            version=resulting_version,
+            **values,
+        )
+    else:
+        for field, value in values.items():
+            setattr(translation, field, value)
+        translation.version = resulting_version
+        translation.save(update_fields=[*values.keys(), "version", "updated_at"])
+    PageTranslationMutation.all_objects.create(
+        organization_id=context.organization_id,
+        translation=translation,
+        created_by=actor,
+        idempotency_key=normalized_key,
+        request_hash=request_hash,
+        resulting_version=resulting_version,
+    )
+    record_audit(
+        organization=page.site.organization,
+        action=PAGE_TRANSLATION_SAVED,
+        actor=actor,
+        target_type="page_translation",
+        target_id=translation.id,
+        metadata={
+            "site_id": str(site.id),
+            "page_id": str(page.id),
+            "locale": normalized_locale,
+            "version": resulting_version,
+            "fallback_fields": [
+                field.removeprefix("allow_").removesuffix("_fallback")
+                for field, value in values.items()
+                if field.startswith("allow_") and value
+            ],
+        },
+    )
+    return MutationResult(translation, True)
+
+
+def get_site_localization_report(*, site_id: UUID) -> SiteLocalizationReport:
+    context = authorize_entitled(
+        SITE_CONTENT_EDIT,
+        SITES_ENABLED,
+        operation=FeatureOperation.READ,
+    )
+    try:
+        site = Site.all_objects.get(
+            pk=site_id,
+            organization_id=context.organization_id,
+        )
+    except Site.DoesNotExist as error:
+        raise SiteNotFound from error
+    supported_locales = _supported_locales()
+    if site.default_locale not in supported_locales:
+        raise UnsupportedSiteLocale
+    pages = list(
+        Page.all_objects.filter(
+            organization_id=context.organization_id,
+            site_id=site.id,
+        ).order_by("key", "id")
+    )
+    translations = list(
+        PageTranslation.all_objects.filter(
+            organization_id=context.organization_id,
+            site_id=site.id,
+            locale__in=supported_locales,
+        ).select_related("site")
+    )
+    return build_localization_report(
+        site=site,
+        pages=pages,
+        translations=translations,
+        supported_locales=supported_locales,
+    )
+
+
 def _idempotency_key(value: str) -> str:
     normalized = value.strip()
     if not normalized or len(normalized) > 120:
@@ -379,6 +641,10 @@ def _quota_idempotency_key(actor_id: UUID, idempotency_key: str) -> str:
         {"endpoint": "sites.create", "actor_id": str(actor_id), "key": idempotency_key}
     )
     return f"sites-create:{digest}"
+
+
+def _supported_locales() -> tuple[str, ...]:
+    return tuple(settings.SITES_SUPPORTED_LOCALES)
 
 
 def _same_request[T: Site | Page | PageVersion](value: T, request_hash: str) -> T:

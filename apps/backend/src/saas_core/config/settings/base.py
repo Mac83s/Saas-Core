@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 from urllib.parse import quote
@@ -5,6 +6,37 @@ from urllib.parse import quote
 from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parents[4]
+
+DEPLOYMENT = os.environ.get("DEPLOYMENT", "core-only")
+_deployment_profile_setting = os.environ.get("DEPLOYMENT_PROFILE_PATH")
+DEPLOYMENT_PROFILE_PATH = (
+    Path(_deployment_profile_setting)
+    if _deployment_profile_setting is not None
+    else BASE_DIR.parent.parent / "deployments" / DEPLOYMENT / "deployment.json"
+)
+try:
+    _deployment_profile = json.loads(DEPLOYMENT_PROFILE_PATH.read_text(encoding="utf-8"))
+    _deployment_product = _deployment_profile["product"]
+    _deployment_id = _deployment_profile["id"]
+    _deployment_default_locale = _deployment_product["defaultLocale"]
+    _deployment_supported_locales = _deployment_product["supportedLocales"]
+except (OSError, KeyError, TypeError, json.JSONDecodeError) as error:
+    raise ImproperlyConfigured(
+        f"Nie można odczytać profilu deploymentu: {DEPLOYMENT_PROFILE_PATH}"
+    ) from error
+if _deployment_id != DEPLOYMENT:
+    raise ImproperlyConfigured(
+        f"Profil {_deployment_id} nie odpowiada deploymentowi {DEPLOYMENT}"
+    )
+if (
+    not isinstance(_deployment_supported_locales, list)
+    or not _deployment_supported_locales
+    or any(locale not in {"pl", "en"} for locale in _deployment_supported_locales)
+    or _deployment_default_locale not in _deployment_supported_locales
+):
+    raise ImproperlyConfigured("Profil deploymentu zawiera nieobsługiwaną konfigurację locale")
+SITES_SUPPORTED_LOCALES = tuple(dict.fromkeys(_deployment_supported_locales))
+SITES_DEFAULT_LOCALE = _deployment_default_locale
 
 
 def secret_setting(name: str, default: str = "") -> str:
@@ -322,6 +354,5 @@ SPECTACULAR_SETTINGS = {
     },
 }
 
-DEPLOYMENT = os.environ.get("DEPLOYMENT", "core-only")
 APPLICATION_VERSION = os.environ.get("APPLICATION_VERSION", "0.1.0")
 HEALTH_CHECK_DEPENDENCIES = True

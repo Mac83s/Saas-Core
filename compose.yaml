@@ -47,6 +47,8 @@ x-backend-service: &backend-service
   build:
     context: .
     dockerfile: apps/backend/Dockerfile
+    args:
+      DEPLOYMENT: ${DEPLOYMENT:-core-only}
   environment: *backend-environment
   secrets:
     - django_secret_key

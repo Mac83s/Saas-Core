@@ -2,16 +2,21 @@
 
 ARG PYTHON_VERSION=3.14.6
 ARG UV_VERSION=0.11.32
+ARG DEPLOYMENT=core-only
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
 
 FROM python:${PYTHON_VERSION}-slim-trixie AS builder
 
+ARG DEPLOYMENT
+
 COPY --from=uv /uv /uvx /bin/
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
-    UV_PROJECT_ENVIRONMENT=/opt/venv
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    DEPLOYMENT=${DEPLOYMENT} \
+    DEPLOYMENT_PROFILE_PATH=/app/deployment.json
 
 WORKDIR /app
 
@@ -21,6 +26,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 COPY apps/backend/manage.py ./manage.py
 COPY apps/backend/src ./src
+COPY deployments/${DEPLOYMENT}/deployment.json ./deployment.json
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev && \
@@ -37,6 +43,7 @@ RUN groupadd --gid ${APP_GID} app && \
       --home-dir /app --create-home app
 
 ENV DJANGO_SETTINGS_MODULE=saas_core.config.settings.container \
+    DEPLOYMENT_PROFILE_PATH=/app/deployment.json \
     PATH=/opt/venv/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app/src \
@@ -48,6 +55,7 @@ COPY --from=builder --chown=app:app /opt/venv /opt/venv
 COPY --from=builder --chown=app:app /app/manage.py ./manage.py
 COPY --from=builder --chown=app:app /app/src ./src
 COPY --from=builder --chown=app:app /app/staticfiles ./staticfiles
+COPY --from=builder --chown=app:app /app/deployment.json ./deployment.json
 
 USER app:app
 

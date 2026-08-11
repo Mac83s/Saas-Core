@@ -68,15 +68,26 @@ smoke aplikacji i object storage.
 
 ### W6.2 — tłumaczenia i SEO
 
-- [ ] przechowywać tłumaczenia jako osobne rekordy ograniczone do locale
+**Stan:** zakończone lokalnie 2026-08-11. `PageTranslation` przechowuje osobne
+rekordy PL/EN oraz wersjonowane, idempotentne zapisy metadanych z audytem.
+Raport kompletności rozróżnia wymagane locale bazowe od opcjonalnych wariantów,
+stosuje jawny fallback per pole i wylicza ścieżki canonical, `hreflang` oraz
+`x-default`. PostgreSQL pilnuje locale, relacji tenantowych, unikalności trasy,
+append-only receiptów i niezmienności sluga po jego zablokowaniu przez pierwszą
+publikację. Walidacja: migracja od pustej bazy, 207 testów backendu, Ruff, pełny
+Mypy, import-linter, brak dryfu migracji, aktualny OpenAPI i klient TypeScript,
+pełny `pnpm check`, build profilu `medplano`, zdrowy Compose oraz smoke runtime,
+storage i nowej trasy API.
+
+- [x] przechowywać tłumaczenia jako osobne rekordy ograniczone do locale
   deploymentu;
-- [ ] zdefiniować locale bazowe, dozwolony fallback i raport kompletności;
-- [ ] dodać title, description, canonical metadata i social preview;
-- [ ] generować adres bez prefiksu dla locale bazowego, prefiks dla pozostałych,
+- [x] zdefiniować locale bazowe, dozwolony fallback i raport kompletności;
+- [x] dodać title, description, canonical metadata i social preview;
+- [x] generować adres bez prefiksu dla locale bazowego, prefiks dla pozostałych,
   canonical, hreflang i `x-default`;
-- [ ] walidować unikalność slug w obrębie site i locale oraz blokować zwykłą
+- [x] walidować unikalność slug w obrębie site i locale oraz blokować zwykłą
   zmianę slug po pierwszej publikacji;
-- [ ] przetestować brakujące PL/EN, fallback i kolizje adresów.
+- [x] przetestować brakujące PL/EN, fallback i kolizje adresów.
 
 ### W6.3 — motyw i renderer
 
