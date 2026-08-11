@@ -46,6 +46,11 @@ export type SiteLocalizationReport =
   components["schemas"]["SiteLocalizationReport"];
 export type SitePublication = components["schemas"]["SitePublication"];
 export type SitePublicationList = components["schemas"]["SitePublicationList"];
+export type SiteDomain = components["schemas"]["SiteDomain"];
+export type SiteDomainList = components["schemas"]["SiteDomainList"];
+export type DomainCreateInput = components["schemas"]["DomainCreate"];
+export type DomainActionInput = components["schemas"]["DomainAction"];
+export type PublicSitePage = components["schemas"]["PublicSitePage"];
 export type MediaAsset = components["schemas"]["MediaAsset"];
 export type MediaAssetList = components["schemas"]["MediaAssetList"];
 export type MediaUploadInput = components["schemas"]["MediaUploadCreate"];
@@ -562,6 +567,63 @@ export async function rollbackSitePublication(
   return data;
 }
 
+export async function listSiteDomains(siteId: string): Promise<SiteDomainList> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/{site_id}/domains/",
+    {
+      params: { path: { site_id: siteId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createSiteDomain(
+  siteId: string,
+  input: DomainCreateInput,
+  idempotencyKey: string,
+): Promise<SiteDomain> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/{site_id}/domains/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { site_id: siteId },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function mutateSiteDomain(
+  domainId: string,
+  input: DomainActionInput,
+  idempotencyKey: string,
+): Promise<SiteDomain> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/domains/{domain_id}/actions/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { domain_id: domainId },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export async function getPageDraft(pageId: string): Promise<PageDraft> {
   const { data, error, response } = await client.GET(
     "/api/v1/sites/pages/{page_id}/draft/",
@@ -696,12 +758,30 @@ export async function completeMediaUpload(
 }
 
 async function getCsrfToken(): Promise<string> {
+  const cookieToken = readCookie("csrftoken");
+  if (cookieToken) return cookieToken;
   const { data, error, response } = await client.GET("/api/v1/auth/csrf/", {
     credentials: "same-origin",
     cache: "no-store",
   });
   if (error || !data) throwProblem(error, response);
   return data.csrf_token;
+}
+
+function readCookie(name: string): string | undefined {
+  if (typeof document === "undefined") return undefined;
+  const prefix = `${name}=`;
+  const rawValue = document.cookie
+    .split(";")
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(prefix))
+    ?.slice(prefix.length);
+  if (!rawValue) return undefined;
+  try {
+    return decodeURIComponent(rawValue);
+  } catch {
+    return undefined;
+  }
 }
 
 function throwProblem(error: unknown, response: Response): never {

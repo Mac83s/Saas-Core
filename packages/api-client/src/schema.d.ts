@@ -532,6 +532,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public/site/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["public_site_page_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/session/active-organization/": {
         parameters: {
             query?: never;
@@ -558,6 +574,22 @@ export interface paths {
         get: operations["sites_list"];
         put?: never;
         post: operations["sites_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/{site_id}/domains/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["sites_domains_list"];
+        put?: never;
+        post: operations["sites_domains_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -622,6 +654,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["sites_publication_rollback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/domains/{domain_id}/actions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sites_domains_action"];
         delete?: never;
         options?: never;
         head?: never;
@@ -696,6 +744,15 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @description * `disable` - disable
+         *     * `enable` - enable
+         *     * `release` - release
+         *     * `set_canonical` - set_canonical
+         *     * `verify` - verify
+         * @enum {string}
+         */
+        ActionEnum: "disable" | "enable" | "release" | "set_canonical" | "verify";
         ActiveOrganization: {
             /** Format: uuid */
             organization_id: string;
@@ -715,6 +772,12 @@ export interface components {
         };
         CsrfToken: {
             csrf_token: string;
+        };
+        DomainAction: {
+            action: components["schemas"]["ActionEnum"];
+        };
+        DomainCreate: {
+            hostname: string;
         };
         DraftSave: {
             expected_version: number;
@@ -1085,6 +1148,29 @@ export interface components {
             detail: unknown;
             correlation_id: string | null;
         };
+        PublicSitePage: {
+            /** Format: uuid */
+            publication_id: string;
+            snapshot_hash: string;
+            locale: string;
+            /** Format: uri */
+            canonical_url: string;
+            hreflang: {
+                [key: string]: string;
+            };
+            /** Format: uri */
+            x_default: string;
+            title: string;
+            description: string;
+            social_title: string;
+            social_description: string;
+            design_tokens: {
+                [key: string]: unknown;
+            };
+            blocks: {
+                [key: string]: unknown;
+            }[];
+        };
         PublicationAuthor: {
             /** Format: uuid */
             id: string;
@@ -1115,6 +1201,40 @@ export interface components {
             slug: string;
             /** @default pl */
             default_locale: components["schemas"]["LocaleEnum"];
+        };
+        SiteDomain: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            site_id: string;
+            hostname: string;
+            kind: string;
+            status: string;
+            tls_status: string;
+            is_canonical: boolean;
+            verification_name: string;
+            verification_token: string;
+            dns_cname_target: string;
+            dns_expected_ipv4: string[];
+            dns_expected_ipv6: string[];
+            dns_error_code: string;
+            /** Format: date-time */
+            last_checked_at: string | null;
+            /** Format: date-time */
+            last_verified_at: string | null;
+            /** Format: date-time */
+            next_check_at: string | null;
+            /** Format: date-time */
+            tls_last_requested_at: string | null;
+            /** Format: date-time */
+            released_at: string | null;
+            /** Format: date-time */
+            quarantine_until: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        SiteDomainList: {
+            items: components["schemas"]["SiteDomain"][];
         };
         SiteList: {
             items: components["schemas"]["SiteSummary"][];
@@ -2806,6 +2926,50 @@ export interface operations {
             };
         };
     };
+    public_site_page_retrieve: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicSitePage"];
+                };
+            };
+            /** @description No response body */
+            308: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     api_v1_session_active_organization_update: {
         parameters: {
             query?: never;
@@ -2937,6 +3101,112 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_domains_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteDomainList"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_domains_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DomainCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["DomainCreate"];
+                "multipart/form-data": components["schemas"]["DomainCreate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteDomain"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteDomain"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3244,6 +3514,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SitePublication"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_domains_action: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                domain_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DomainAction"];
+                "application/x-www-form-urlencoded": components["schemas"]["DomainAction"];
+                "multipart/form-data": components["schemas"]["DomainAction"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteDomain"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteDomain"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
             403: {

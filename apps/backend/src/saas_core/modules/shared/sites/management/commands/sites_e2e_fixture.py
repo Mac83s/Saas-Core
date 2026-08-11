@@ -69,12 +69,17 @@ class Command(BaseCommand):
                 organization=organization,
                 subscription_state=SubscriptionState.ACTIVE,
                 access_mode=AccessMode.FULL,
-                features={"sites.enabled": True, "storage.enabled": True},
+                features={
+                    "sites.enabled": True,
+                    "storage.enabled": True,
+                    "custom_domain.enabled": True,
+                },
                 quotas={"sites.max": 3, "storage.bytes": 10_000_000},
                 sources={
                     "sites.enabled": {"kind": "e2e"},
                     "sites.max": {"kind": "e2e"},
                     "storage.enabled": {"kind": "e2e"},
+                    "custom_domain.enabled": {"kind": "e2e"},
                     "storage.bytes": {"kind": "e2e"},
                 },
             )

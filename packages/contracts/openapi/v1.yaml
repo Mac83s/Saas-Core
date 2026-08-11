@@ -1348,6 +1348,40 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/public/site/:
+    get:
+      operationId: public_site_page_retrieve
+      parameters:
+      - in: query
+        name: path
+        schema:
+          type: string
+        required: true
+      tags:
+      - public-sites
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicSitePage'
+          description: ''
+        '308':
+          description: No response body
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/session/active-organization/:
     put:
       operationId: api_v1_session_active_organization_update
@@ -1475,6 +1509,106 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/{site_id}/domains/:
+    get:
+      operationId: sites_domains_list
+      parameters:
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - domains
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteDomainList'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: sites_domains_create
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - domains
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DomainCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DomainCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DomainCreate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteDomain'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteDomain'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
           content:
             application/json:
               schema:
@@ -1795,6 +1929,74 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/domains/{domain_id}/actions/:
+    post:
+      operationId: sites_domains_action
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: domain_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - domains
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DomainAction'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DomainAction'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DomainAction'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteDomain'
+          description: ''
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteDomain'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/pages/{page_id}/draft/:
     get:
       operationId: sites_page_draft_retrieve
@@ -2064,6 +2266,20 @@ paths:
           description: ''
 components:
   schemas:
+    ActionEnum:
+      enum:
+      - disable
+      - enable
+      - release
+      - set_canonical
+      - verify
+      type: string
+      description: |-
+        * `disable` - disable
+        * `enable` - enable
+        * `release` - release
+        * `set_canonical` - set_canonical
+        * `verify` - verify
     ActiveOrganization:
       type: object
       properties:
@@ -2111,6 +2327,21 @@ components:
           type: string
       required:
       - csrf_token
+    DomainAction:
+      type: object
+      properties:
+        action:
+          $ref: '#/components/schemas/ActionEnum'
+      required:
+      - action
+    DomainCreate:
+      type: object
+      properties:
+        hostname:
+          type: string
+          maxLength: 253
+      required:
+      - hostname
     DraftSave:
       type: object
       properties:
@@ -3057,6 +3288,56 @@ components:
       - status
       - title
       - type
+    PublicSitePage:
+      type: object
+      properties:
+        publication_id:
+          type: string
+          format: uuid
+        snapshot_hash:
+          type: string
+        locale:
+          type: string
+        canonical_url:
+          type: string
+          format: uri
+        hreflang:
+          type: object
+          additionalProperties:
+            type: string
+            format: uri
+        x_default:
+          type: string
+          format: uri
+        title:
+          type: string
+        description:
+          type: string
+        social_title:
+          type: string
+        social_description:
+          type: string
+        design_tokens:
+          type: object
+          additionalProperties: {}
+        blocks:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+      required:
+      - blocks
+      - canonical_url
+      - description
+      - design_tokens
+      - hreflang
+      - locale
+      - publication_id
+      - snapshot_hash
+      - social_description
+      - social_title
+      - title
+      - x_default
     PublicationAuthor:
       type: object
       properties:
@@ -3131,6 +3412,106 @@ components:
       required:
       - name
       - slug
+    SiteDomain:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        site_id:
+          type: string
+          format: uuid
+        hostname:
+          type: string
+        kind:
+          type: string
+        status:
+          type: string
+        tls_status:
+          type: string
+        is_canonical:
+          type: boolean
+        verification_name:
+          type: string
+        verification_token:
+          type: string
+        dns_cname_target:
+          type: string
+        dns_expected_ipv4:
+          type: array
+          items:
+            type: string
+            format: ipv4
+        dns_expected_ipv6:
+          type: array
+          items:
+            type: string
+            format: ipv6
+        dns_error_code:
+          type: string
+        last_checked_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        last_verified_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        next_check_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        tls_last_requested_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        released_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        quarantine_until:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - created_at
+      - dns_cname_target
+      - dns_error_code
+      - dns_expected_ipv4
+      - dns_expected_ipv6
+      - hostname
+      - id
+      - is_canonical
+      - kind
+      - last_checked_at
+      - last_verified_at
+      - next_check_at
+      - quarantine_until
+      - released_at
+      - site_id
+      - status
+      - tls_last_requested_at
+      - tls_status
+      - verification_name
+      - verification_token
+    SiteDomainList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SiteDomain'
+      required:
+      - items
     SiteList:
       type: object
       properties:

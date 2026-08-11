@@ -1,0 +1,57 @@
+from __future__ import annotations
+
+from drf_spectacular.utils import OpenApiParameter, extend_schema
+from rest_framework.permissions import AllowAny
+from rest_framework.request import Request
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
+
+from .publication_routing import public_page_payload, resolve_public_page
+from .serializers import PublicSitePageSerializer
+from .tls import authorize_tls_hostname
+
+
+class CaddyDomainAuthorizationView(APIView):
+    authentication_classes: list[type] = []
+    permission_classes = [AllowAny]
+
+    @extend_schema(exclude=True)
+    def get(self, request: Request) -> Response:
+        decision = authorize_tls_hostname(request.query_params.get("domain", ""))
+        if decision.allowed:
+            return Response(status=204)
+        return Response(status=429 if decision.reason == "rate_limited" else 404)
+
+
+class PublicSitePageView(APIView):
+    authentication_classes: list[type] = []
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        operation_id="public_site_page_retrieve",
+        tags=["public-sites"],
+        parameters=[
+            OpenApiParameter(
+                name="path",
+                type=str,
+                location=OpenApiParameter.QUERY,
+                required=True,
+            )
+        ],
+        responses={
+            200: PublicSitePageSerializer,
+            308: None,
+            400: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, request: Request) -> Response:
+        host = str(request.META.get("HTTP_HOST", ""))
+        page = resolve_public_page(host=host, path=request.query_params.get("path", ""))
+        if page.redirect_url is not None:
+            response = Response(status=308)
+            response["Location"] = page.redirect_url
+            return response
+        return Response(public_page_payload(page))

@@ -101,8 +101,10 @@ Fala może przejść do `in progress`, gdy:
 
 ## 8. Bieżący ruch
 
-W0 i W1 są ukończone. Lokalna część W2 oraz lokalne implementacje W3-W6 są
+W0 i W1 są ukończone. Lokalna część W2 oraz lokalne implementacje W3-W7 są
 zakończone; bramki wymagające prawdziwego stagingu/VPS pozostają świadomie
-odłożone. W6 dostarcza wersjonowane treści i tłumaczenia, kontrolowany renderer,
-tenantowe media, atomową publikację, historię i rollback potwierdzone pełną
-bramką jakości oraz krytycznym Playwright. Następną lokalną falą jest W7.
+odłożone. W7 dostarcza subdomeny platformy, workflow domen własnych i DNS,
+fail-closed Caddy On-Demand TLS oraz publiczny routing snapshotów z canonical i
+locale. Politykę potwierdzają testy, build Node 24, Playwright i smoke Compose;
+zewnętrzne issuance ACME wymaga prawdziwego stagingu. Następną lokalną falą jest
+W8.

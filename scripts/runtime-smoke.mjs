@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { request as httpRequest } from "node:http";
 
 const baseUrl = new URL(
   process.env.SAAS_CORE_BASE_URL ?? "http://127.0.0.1:8080",
@@ -24,6 +25,17 @@ await checkJson(
     payload.checks?.database === "ok" &&
     payload.checks?.cache === "ok",
   true,
+);
+await checkStatus(
+  "prywatny endpoint autoryzacji TLS",
+  "/internal/caddy/domains/authorize/?domain=arbitrary.example.test",
+  404,
+);
+await checkStatus(
+  "nieprzypisany publiczny host",
+  "/",
+  404,
+  "unclaimed.example.test",
 );
 
 const panelResponse = await fetch(new URL("/", baseUrl), {
@@ -99,4 +111,37 @@ async function checkJson(label, path, predicate, correlationRequired = false) {
     }
   }
   console.log(`OK ${label}: ${response.status}`);
+}
+
+async function checkStatus(label, path, expectedStatus, host) {
+  const status = await requestStatus(new URL(path, baseUrl), host);
+  if (status !== expectedStatus) {
+    throw new Error(
+      `${label} zwrócił HTTP ${status}, oczekiwano ${expectedStatus}`,
+    );
+  }
+  console.log(`OK ${label}: ${status}`);
+}
+
+function requestStatus(url, host) {
+  return new Promise((resolve, reject) => {
+    const request = httpRequest(
+      url,
+      {
+        headers: {
+          Accept: "text/html,application/json",
+          ...(host ? { Host: host } : {}),
+        },
+      },
+      (response) => {
+        response.resume();
+        resolve(response.statusCode ?? 0);
+      },
+    );
+    request.setTimeout(5_000, () =>
+      request.destroy(new Error(`timeout dla ${url}`)),
+    );
+    request.on("error", reject);
+    request.end();
+  });
 }

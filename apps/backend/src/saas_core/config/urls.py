@@ -2,11 +2,20 @@ from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+from saas_core.modules.shared.sites.public_views import (
+    CaddyDomainAuthorizationView,
+    PublicSitePageView,
+)
 from saas_core.observability.metrics import metrics_view
 
 urlpatterns = [
     path("internal/admin/", admin.site.urls),
     path("internal/metrics/", metrics_view, name="metrics"),
+    path(
+        "internal/caddy/domains/authorize/",
+        CaddyDomainAuthorizationView.as_view(),
+        name="caddy-domain-authorize",
+    ),
     path("api/v1/auth/", include("saas_core.modules.core.identity.urls")),
     path(
         "api/v1/organizations/",
@@ -22,6 +31,7 @@ urlpatterns = [
     ),
     path("api/v1/billing/", include("saas_core.modules.shared.billing.urls")),
     path("api/v1/sites/", include("saas_core.modules.shared.sites.urls")),
+    path("api/v1/public/site/", PublicSitePageView.as_view(), name="public-site-page"),
     path("api/v1/media/", include("saas_core.modules.shared.media.urls")),
     path("api/v1/", include("saas_core.modules.core.health.urls")),
     path("api/schema/", SpectacularAPIView.as_view(), name="openapi-schema"),

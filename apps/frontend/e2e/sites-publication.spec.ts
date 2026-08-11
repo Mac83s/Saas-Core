@@ -30,6 +30,16 @@ test.describe("W6 Sites publication workspace", () => {
     await page.locator("#site-slug").fill(`site-${runId}`);
     await page.getByRole("button", { name: "Utwórz site" }).click();
     await expect(page.getByText(siteName, { exact: true })).toBeVisible();
+    await page.getByLabel("Własna domena").fill(`www-${runId}.example.test`);
+    await page.getByRole("button", { name: "Dodaj domenę" }).click();
+    await expect(
+      page.getByText(`www-${runId}.example.test`, { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByText(/_saas-core\.www-/)).toBeVisible();
+    await page.getByRole("button", { name: "Sprawdź DNS" }).click();
+    await expect(
+      page.getByText("zweryfikowana", { exact: true }),
+    ).toBeVisible();
 
     await page.locator("#page-name").fill("Start");
     await page.locator("#page-key").fill("home");
@@ -104,13 +114,27 @@ test.describe("W6 Sites publication workspace", () => {
     await expect(page.getByRole("status")).toContainText(
       "Opublikowano sekwencję 2",
     );
+    await expect(
+      page.getByText("Publikacja #2", { exact: true }),
+    ).toBeVisible();
 
     const firstPublication = page
       .getByText("Publikacja #1", { exact: true })
       .locator("xpath=ancestor::article");
-    await firstPublication
-      .getByRole("button", { name: "Przywróć jako nową publikację" })
-      .click();
+    const restoreButton = firstPublication.getByRole("button", {
+      name: "Przywróć jako nową publikację",
+    });
+    await expect(restoreButton).toBeEnabled();
+    const rollback = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname.endsWith(
+          "/publications/019ff20d-a000-7000-8002-000000000001/rollback/",
+        ) &&
+        response.status() === 201,
+    );
+    await restoreButton.click();
+    await rollback;
     await expect(page.getByRole("status")).toContainText(
       "Opublikowano sekwencję 3",
     );
@@ -169,6 +193,7 @@ function createMockState() {
     },
     translation: null as null | Record<string, unknown>,
     publications: [] as Record<string, unknown>[],
+    domains: [] as Record<string, unknown>[],
   };
 }
 
@@ -199,7 +224,47 @@ async function handleSitesRoute(route: Route, state: MockState) {
       created_at: now,
       updated_at: now,
     };
+    state.domains = [
+      domainRecord({
+        id: "019ff20d-a000-7000-8000-000000000040",
+        hostname: `site-${runId}-019ff20da000.core.localhost`,
+        kind: "platform",
+        status: "verified",
+        tls_status: "eligible",
+        is_canonical: true,
+        siteId,
+      }),
+    ];
     return fulfill(route, state.site, 201);
+  }
+  if (path === `/api/v1/sites/${siteId}/domains/` && method === "GET") {
+    return fulfill(route, { items: state.domains });
+  }
+  if (path === `/api/v1/sites/${siteId}/domains/` && method === "POST") {
+    const body = request.postDataJSON() as { hostname: string };
+    const domain = domainRecord({
+      id: "019ff20d-a000-7000-8000-000000000041",
+      hostname: body.hostname,
+      kind: "custom",
+      status: "pending",
+      tls_status: "pending",
+      is_canonical: false,
+      siteId,
+    });
+    state.domains.push(domain);
+    return fulfill(route, domain, 201);
+  }
+  if (
+    path ===
+      "/api/v1/sites/domains/019ff20d-a000-7000-8000-000000000041/actions/" &&
+    method === "POST"
+  ) {
+    const domain = state.domains[1];
+    if (domain) {
+      domain.status = "verified";
+      domain.tls_status = "eligible";
+    }
+    return fulfill(route, domain, 202);
   }
   if (path === `/api/v1/sites/${siteId}/pages/` && method === "GET") {
     return fulfill(route, {
@@ -336,6 +401,50 @@ async function handleSitesRoute(route: Route, state: MockState) {
     status: 501,
     json: { detail: `Unhandled E2E API route: ${method} ${path}` },
   });
+}
+
+function domainRecord({
+  hostname,
+  id,
+  is_canonical,
+  kind,
+  siteId,
+  status,
+  tls_status,
+}: {
+  hostname: string;
+  id: string;
+  is_canonical: boolean;
+  kind: "custom" | "platform";
+  siteId: string;
+  status: string;
+  tls_status: string;
+}) {
+  const custom = kind === "custom";
+  return {
+    id,
+    site_id: siteId,
+    hostname,
+    kind,
+    status,
+    tls_status,
+    is_canonical,
+    verification_name: custom ? `_saas-core.${hostname}` : "",
+    verification_token: custom
+      ? `saas-core-domain-verification=${id}.test-token`
+      : "",
+    dns_cname_target: "sites.core.localhost",
+    dns_expected_ipv4: [],
+    dns_expected_ipv6: [],
+    dns_error_code: "",
+    last_checked_at: custom ? null : "2026-08-12T08:00:00Z",
+    last_verified_at: custom ? null : "2026-08-12T08:00:00Z",
+    next_check_at: custom ? "2026-08-12T08:01:00Z" : null,
+    tls_last_requested_at: null,
+    released_at: null,
+    quarantine_until: null,
+    created_at: "2026-08-12T08:00:00Z",
+  };
 }
 
 function createPublication(

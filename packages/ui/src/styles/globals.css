@@ -27,6 +27,71 @@
   --radius: 0.625rem;
 }
 
+.site-theme {
+  --site-accent: oklch(0.45 0.12 250);
+  margin-inline: auto;
+  min-height: 100vh;
+  max-width: 72rem;
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-sans);
+}
+
+.site-theme--emerald {
+  --site-accent: oklch(0.48 0.13 160);
+}
+
+.site-theme--neutral {
+  --site-accent: oklch(0.35 0.02 260);
+}
+
+.site-theme--serif {
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+.site-block {
+  padding: 2.5rem 1.5rem;
+}
+
+.site-theme--compact .site-block {
+  padding-block: 1.5rem;
+}
+
+.site-theme--spacious .site-block {
+  padding-block: 4rem;
+}
+
+.site-block--hero {
+  display: grid;
+  gap: 1rem;
+  min-height: 24rem;
+  align-content: center;
+}
+
+.site-block--hero h1 {
+  max-width: 18ch;
+  font-size: clamp(2.5rem, 8vw, 5.5rem);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+}
+
+.site-block--hero p,
+.site-block--rich-text p {
+  max-width: 65ch;
+  font-size: 1.125rem;
+  line-height: 1.7;
+}
+
+.site-block--hero a {
+  width: fit-content;
+  border-radius: 0.5rem;
+  background: var(--site-accent);
+  padding: 0.75rem 1rem;
+  color: white;
+  font-weight: 600;
+  text-decoration: none;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

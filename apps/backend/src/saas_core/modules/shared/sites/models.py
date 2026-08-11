@@ -78,6 +78,174 @@ class Site(TenantScopedModel):
         super().save(*args, **kwargs)
 
 
+class DomainKind(models.TextChoices):
+    PLATFORM = "platform", "Subdomena platformy"
+    CUSTOM = "custom", "Domena własna"
+
+
+class DomainStatus(models.TextChoices):
+    PENDING = "pending", "Oczekuje"
+    VERIFIED = "verified", "Zweryfikowana"
+    FAILED = "failed", "Weryfikacja nieudana"
+    DISABLED = "disabled", "Wyłączona"
+    RELEASED = "released", "Zwolniona"
+
+
+class DomainTlsStatus(models.TextChoices):
+    PENDING = "pending", "Oczekuje"
+    ELIGIBLE = "eligible", "Kwalifikuje się"
+    REQUESTED = "requested", "Zażądano certyfikatu"
+    DISABLED = "disabled", "Wyłączony"
+    FAILED = "failed", "Błąd"
+
+
+class Domain(TenantScopedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name="domains")
+    hostname = models.CharField(max_length=253)
+    kind = models.CharField(max_length=16, choices=DomainKind)
+    status = models.CharField(
+        max_length=16,
+        choices=DomainStatus,
+        default=DomainStatus.PENDING,
+    )
+    verification_name = models.CharField(max_length=253)
+    verification_token = models.CharField(max_length=320)
+    tls_status = models.CharField(
+        max_length=16,
+        choices=DomainTlsStatus,
+        default=DomainTlsStatus.PENDING,
+    )
+    is_canonical = models.BooleanField(default=False)
+    last_checked_at = models.DateTimeField(null=True, blank=True)
+    last_verified_at = models.DateTimeField(null=True, blank=True)
+    next_check_at = models.DateTimeField(null=True, blank=True)
+    dns_error_code = models.CharField(max_length=40, blank=True)
+    consecutive_transient_errors = models.PositiveIntegerField(default=0)
+    tls_last_requested_at = models.DateTimeField(null=True, blank=True)
+    released_at = models.DateTimeField(null=True, blank=True)
+    quarantine_until = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_site_domains",
+    )
+    idempotency_key = models.CharField(max_length=120)
+    request_hash = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "site_id", "hostname", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["hostname"],
+                condition=~models.Q(status=DomainStatus.RELEASED),
+                name="sites_domain_active_hostname_uq",
+            ),
+            models.UniqueConstraint(
+                fields=["site"],
+                condition=(
+                    models.Q(kind=DomainKind.PLATFORM)
+                    & ~models.Q(status=DomainStatus.RELEASED)
+                ),
+                name="sites_domain_active_platform_uq",
+            ),
+            models.UniqueConstraint(
+                fields=["site"],
+                condition=(
+                    models.Q(is_canonical=True)
+                    & ~models.Q(status=DomainStatus.RELEASED)
+                ),
+                name="sites_domain_active_canonical_uq",
+            ),
+            models.UniqueConstraint(
+                fields=["organization", "created_by", "idempotency_key"],
+                name="sites_domain_org_actor_idem_uq",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(
+                        status=DomainStatus.RELEASED,
+                        released_at__isnull=False,
+                        quarantine_until__isnull=False,
+                        is_canonical=False,
+                    )
+                    | (
+                        ~models.Q(status=DomainStatus.RELEASED)
+                        & models.Q(released_at__isnull=True, quarantine_until__isnull=True)
+                    )
+                ),
+                name="sites_domain_release_state_ck",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["hostname", "status"], name="sites_domain_host_status_idx"),
+            models.Index(
+                fields=["status", "next_check_at"],
+                name="sites_domain_reverify_idx",
+            ),
+            models.Index(
+                fields=["organization", "site", "id"],
+                name="sites_domain_org_site_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.hostname
+
+    def clean(self) -> None:
+        super().clean()
+        if self.site_id and self.site.organization_id != self.organization_id:
+            raise ValidationError({"site": "Domena należy do site innej organizacji."})
+
+
+class DomainMutation(TenantScopedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    domain = models.ForeignKey(Domain, on_delete=models.PROTECT, related_name="mutations")
+    action = models.CharField(max_length=32)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_domain_mutations",
+    )
+    idempotency_key = models.CharField(max_length=120)
+    request_hash = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "domain_id", "created_at")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "domain", "created_by", "action", "idempotency_key"],
+                name="sites_domainmutation_idem_uq",
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=["organization", "domain", "created_at"],
+                name="sites_domainmutation_org_idx",
+            )
+        ]
+
+    def clean(self) -> None:
+        super().clean()
+        if self.domain_id and self.domain.organization_id != self.organization_id:
+            raise ValidationError({"domain": "Mutacja należy do domeny innej organizacji."})
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        if not self._state.adding:
+            raise ValidationError("Mutacja domeny jest niemutowalna.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
+        raise ValidationError("Mutacja domeny jest niemutowalna.")
+
+
 class Page(TenantScopedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name="pages")

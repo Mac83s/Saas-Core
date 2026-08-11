@@ -20,6 +20,7 @@ const {
   listMediaAssets,
   listPageTranslations,
   listSitePages,
+  listSiteDomains,
   listSitePublications,
   listSites,
   publishSite,
@@ -31,6 +32,7 @@ const {
   listMediaAssets: vi.fn(),
   listPageTranslations: vi.fn(),
   listSitePages: vi.fn(),
+  listSiteDomains: vi.fn(),
   listSitePublications: vi.fn(),
   listSites: vi.fn(),
   publishSite: vi.fn(),
@@ -45,6 +47,7 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   listMediaAssets,
   listPageTranslations,
   listSitePages,
+  listSiteDomains,
   listSitePublications,
   listSites,
   publishSite,
@@ -75,6 +78,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   listSites.mockResolvedValue({ items: [site], next_cursor: null });
   listSitePages.mockResolvedValue({ items: [page], next_cursor: null });
+  listSiteDomains.mockResolvedValue({ items: [] });
   listSitePublications.mockResolvedValue({ items: [], next_cursor: null });
   getPageDraft.mockResolvedValue({
     page_id: page.id,

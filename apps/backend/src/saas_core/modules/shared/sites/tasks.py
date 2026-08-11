@@ -17,6 +17,32 @@ logger = logging.getLogger("saas_core.security")
 
 
 @shared_task(  # type: ignore[untyped-decorator]
+    name="saas_core.modules.shared.sites.tasks.verify_site_domain",
+)
+def verify_site_domain(domain_id: str) -> None:
+    from .dns_verification import verify_domain_dns
+
+    try:
+        parsed_domain_id = UUID(domain_id)
+    except (TypeError, ValueError):
+        logger.warning(
+            "site_domain_task_identifier_rejected",
+            extra={"security_event": "sites.domain_task_identifier_rejected"},
+        )
+        return
+    verify_domain_dns(domain_id=parsed_domain_id)
+
+
+@shared_task(  # type: ignore[untyped-decorator]
+    name="saas_core.modules.shared.sites.tasks.schedule_domain_verifications",
+)
+def schedule_domain_verifications() -> int:
+    from .dns_verification import schedule_due_domain_verifications
+
+    return schedule_due_domain_verifications()
+
+
+@shared_task(  # type: ignore[untyped-decorator]
     autoretry_for=(DomainEventDeliveryError,),
     retry_backoff=True,
     retry_jitter=True,

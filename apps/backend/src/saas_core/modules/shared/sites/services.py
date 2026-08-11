@@ -262,13 +262,24 @@ def create_site(
         idempotency_key=normalized_key,
         request_hash=request_hash,
     )
+    from .domain_services import create_platform_domain
+
+    platform_domain = create_platform_domain(
+        site=site,
+        actor=actor,
+        idempotency_key=normalized_key,
+    )
     record_audit(
         organization=organization,
         action=SITE_CREATED,
         actor=actor,
         target_type="site",
         target_id=site.id,
-        metadata={"slug": site.slug, "default_locale": site.default_locale},
+        metadata={
+            "slug": site.slug,
+            "default_locale": site.default_locale,
+            "platform_hostname": platform_domain.hostname,
+        },
     )
     return MutationResult(site, True)
 
@@ -951,6 +962,9 @@ def publish_site(*, site_id: UUID, idempotency_key: str) -> SitePublication:
         pk=site.id,
         organization_id=context.organization_id,
     ).update(current_publication=publication, updated_at=published_at)
+    from .tls import invalidate_site_tls_decisions
+
+    transaction.on_commit(lambda: invalidate_site_tls_decisions(site_id=site.id))
 
     active_correlation_id = correlation_id.get()
     event = SiteOutboxEvent.all_objects.create(
@@ -1069,6 +1083,9 @@ def rollback_site(
         pk=site.id,
         organization_id=context.organization_id,
     ).update(current_publication=publication, updated_at=activated_at)
+    from .tls import invalidate_site_tls_decisions
+
+    transaction.on_commit(lambda: invalidate_site_tls_decisions(site_id=site.id))
     active_correlation_id = correlation_id.get()
     event = SiteOutboxEvent.all_objects.create(
         organization_id=context.organization_id,

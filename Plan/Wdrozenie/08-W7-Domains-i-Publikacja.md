@@ -1,6 +1,6 @@
 # W7 — Domains i publikacja
 
-**Status:** blocked by W2 and W6  
+**Status:** zakończone lokalnie (2026-08-12)
 **Szacunek:** 1–2 tygodnie  
 **Poprzednicy:** W2, W6  
 **Rezultat:** publikacja na subdomenie i zweryfikowanej domenie klienta
@@ -57,11 +57,27 @@ lub niezweryfikowana domena nie uzyskuje certyfikatu ani treści innego tenanta.
 
 ## 4. Bramka wyjścia
 
-- [ ] subdomena platformy działa po publikacji strony;
-- [ ] własna domena przechodzi udokumentowany workflow DNS;
-- [ ] niezweryfikowany host nie uzyskuje certyfikatu;
-- [ ] Site Renderer nigdy nie wybiera site spoza resolved host;
-- [ ] canonical, przekierowania i locale są testowane;
-- [ ] status domeny oraz certyfikatu jest obserwowalny dla supportu;
-- [ ] istnieje procedura wycofania DNS i zwolnienia domeny.
+- [x] subdomena platformy działa po publikacji strony;
+- [x] własna domena przechodzi udokumentowany workflow DNS;
+- [x] niezweryfikowany host nie uzyskuje certyfikatu;
+- [x] Site Renderer nigdy nie wybiera site spoza resolved host;
+- [x] canonical, przekierowania i locale są testowane;
+- [x] status domeny oraz certyfikatu jest obserwowalny dla supportu;
+- [x] istnieje procedura wycofania DNS i zwolnienia domeny.
 
+## 5. Dowody zamknięcia
+
+- 268 testów backendu, w tym normalizacja Host/IDNA, izolacja tenantów,
+  lifecycle, DNS, TLS, canonical, locale i publiczny resolver;
+- testy frontendowe i axe dla panelu domen oraz renderera, 8 testów parsera
+  oryginalnego `Host` i zielony Playwright całego workflow Sites;
+- produkcyjny build Next.js na Node 24 zawiera dynamiczną trasę
+  `/site-renderer/[[...path]]`, a migracja `sites.0004` działa w Compose;
+- smoke realnego ingressu potwierdza prywatność endpointu Caddy, `404` dla
+  nieprzypisanego hosta i brak zatrucia kolejnego żądania panelu;
+- procedura operacyjna znajduje się w `docs/operations/domains.md`, a decyzje
+  własności, DNS, TLS, routingu i CDN/WAF w ADR-028.
+
+Faktyczne issuance przez publiczny urząd ACME pozostaje dowodem stagingowym:
+wymaga delegowanej domeny i publicznego DNS. Nie blokuje zamknięcia lokalnej
+fali, a procedura jawnie odróżnia sprawdzoną politykę od zewnętrznego issuance.

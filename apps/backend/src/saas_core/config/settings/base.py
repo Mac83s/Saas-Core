@@ -20,6 +20,7 @@ try:
     _deployment_id = _deployment_profile["id"]
     _deployment_default_locale = _deployment_product["defaultLocale"]
     _deployment_supported_locales = _deployment_product["supportedLocales"]
+    _deployment_platform_domain = _deployment_product["platformDomain"]
 except (OSError, KeyError, TypeError, json.JSONDecodeError) as error:
     raise ImproperlyConfigured(
         f"Nie można odczytać profilu deploymentu: {DEPLOYMENT_PROFILE_PATH}"
@@ -37,6 +38,47 @@ if (
     raise ImproperlyConfigured("Profil deploymentu zawiera nieobsługiwaną konfigurację locale")
 SITES_SUPPORTED_LOCALES = tuple(dict.fromkeys(_deployment_supported_locales))
 SITES_DEFAULT_LOCALE = _deployment_default_locale
+SITES_PLATFORM_DOMAIN = str(_deployment_platform_domain).strip().lower().rstrip(".")
+if not SITES_PLATFORM_DOMAIN:
+    raise ImproperlyConfigured("Profil deploymentu wymaga platformDomain")
+DOMAIN_DNS_CNAME_TARGET = os.environ.get(
+    "DOMAIN_DNS_CNAME_TARGET", SITES_PLATFORM_DOMAIN
+).strip().lower().rstrip(".")
+DOMAIN_DNS_EXPECTED_IPV4 = tuple(
+    value.strip()
+    for value in os.environ.get("DOMAIN_DNS_EXPECTED_IPV4", "").split(",")
+    if value.strip()
+)
+DOMAIN_DNS_EXPECTED_IPV6 = tuple(
+    value.strip()
+    for value in os.environ.get("DOMAIN_DNS_EXPECTED_IPV6", "").split(",")
+    if value.strip()
+)
+DOMAIN_DNS_TIMEOUT_SECONDS = float(os.environ.get("DOMAIN_DNS_TIMEOUT_SECONDS", "3"))
+DOMAIN_REVERIFY_SECONDS = int(os.environ.get("DOMAIN_REVERIFY_SECONDS", "3600"))
+DOMAIN_TRANSIENT_GRACE_SECONDS = int(
+    os.environ.get("DOMAIN_TRANSIENT_GRACE_SECONDS", "86400")
+)
+DOMAIN_RELEASE_QUARANTINE_DAYS = int(
+    os.environ.get("DOMAIN_RELEASE_QUARANTINE_DAYS", "7")
+)
+DOMAIN_TLS_DECISION_CACHE_SECONDS = int(
+    os.environ.get("DOMAIN_TLS_DECISION_CACHE_SECONDS", "10")
+)
+DOMAIN_TLS_RATE_LIMIT_PER_MINUTE = int(
+    os.environ.get("DOMAIN_TLS_RATE_LIMIT_PER_MINUTE", "30")
+)
+PUBLIC_SITE_SCHEME = os.environ.get("PUBLIC_SITE_SCHEME", "https").strip().lower()
+if (
+    DOMAIN_DNS_TIMEOUT_SECONDS <= 0
+    or DOMAIN_REVERIFY_SECONDS <= 0
+    or DOMAIN_TRANSIENT_GRACE_SECONDS <= 0
+    or DOMAIN_RELEASE_QUARANTINE_DAYS < 1
+    or not 1 <= DOMAIN_TLS_DECISION_CACHE_SECONDS <= 60
+    or DOMAIN_TLS_RATE_LIMIT_PER_MINUTE <= 0
+    or PUBLIC_SITE_SCHEME not in {"http", "https"}
+):
+    raise ImproperlyConfigured("Konfiguracja domen i DNS jest nieprawidłowa")
 SITE_BLOCK_CONTRACTS_PATH = Path(
     os.environ.get(
         "SITE_BLOCK_CONTRACTS_PATH",
@@ -65,7 +107,12 @@ MFA_CHALLENGE_TTL_SECONDS = int(os.environ.get("MFA_CHALLENGE_TTL_SECONDS", "300
 if MFA_CHALLENGE_TTL_SECONDS <= 0:
     raise ImproperlyConfigured("Czas ważności wyzwania MFA musi być dodatni")
 DEBUG = False
-ALLOWED_HOSTS = [host for host in os.environ.get("ALLOWED_HOSTS", "").split(",") if host]
+CONFIGURED_ALLOWED_HOSTS = tuple(
+    host.strip().lower()
+    for host in os.environ.get("ALLOWED_HOSTS", "").split(",")
+    if host.strip()
+)
+ALLOWED_HOSTS = ["*"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -86,6 +133,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "saas_core.http.middleware.CorrelationIdMiddleware",
+    "saas_core.http.hosts.DynamicHostValidationMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -299,6 +347,10 @@ CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_TASK_TRACK_STARTED = True
 CELERY_WORKER_HIJACK_ROOT_LOGGER = False
 CELERY_BEAT_SCHEDULE = {
+    "sites-verify-domains": {
+        "task": "saas_core.modules.shared.sites.tasks.schedule_domain_verifications",
+        "schedule": 60.0,
+    },
     "billing-process-lifecycle": {
         "task": "saas_core.modules.shared.billing.tasks.process_billing_lifecycle",
         "schedule": 60.0,

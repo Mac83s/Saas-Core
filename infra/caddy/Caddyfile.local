@@ -19,6 +19,9 @@
 		X-Frame-Options "DENY"
 	}
 
+	@private path /internal/metrics/ /internal/caddy/*
+	respond @private 404
+
 	@api path /api/* /internal/* /static/*
 	handle @api {
 		reverse_proxy backend:8000 {

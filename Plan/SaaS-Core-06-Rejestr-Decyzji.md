@@ -199,7 +199,7 @@ Dla managed SaaS metoda płatności jest zbierana przed rozpoczęciem triala. Da
 - [x] monitoring i centralizacja logów — Prometheus, Loki, Alloy i Grafana, ADR-025;
 - [x] zarządzanie sekretami — pliki Docker Compose poza repo, ADR-025;
 - [x] RPO i RTO — staging 24 h / 4 h, produkcja wraca w W11, ADR-025;
-- [ ] strategia CDN/WAF;
+- [x] strategia CDN/WAF — bez zewnętrznego providera w pilocie, decyzja produkcyjna wraca w W11, ADR-028;
 - [x] sposób publikowania generowanego klienta OpenAPI — ADR-024.
 
 ## 6. Szablon nowej decyzji

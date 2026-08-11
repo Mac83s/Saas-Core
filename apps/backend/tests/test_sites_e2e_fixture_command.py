@@ -26,7 +26,11 @@ def test_sites_e2e_fixture_is_synthetic_entitled_and_removable(
     assert user.status == UserStatus.ACTIVE
     assert user.is_staff is False
     assert Membership.objects.get(user=user, organization=organization).role.key == "admin"
-    assert snapshot.features == {"sites.enabled": True, "storage.enabled": True}
+    assert snapshot.features == {
+        "custom_domain.enabled": True,
+        "sites.enabled": True,
+        "storage.enabled": True,
+    }
     assert snapshot.quotas["sites.max"] == 3
 
     call_command("sites_e2e_fixture", "cleanup", email=email, slug=slug)

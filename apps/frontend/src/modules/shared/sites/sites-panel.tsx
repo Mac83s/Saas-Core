@@ -68,6 +68,7 @@ import {
 
 import { sitesErrorMessage } from "./problem";
 import { mutationKey, type MutationReceipt } from "./idempotency";
+import { DomainPanel } from "./domain-panel";
 import { PageEditor } from "./page-editor";
 import { PublicationHistory } from "./publication-history";
 
@@ -539,6 +540,9 @@ export function SitesPanel() {
           }
           page={selectedPage}
         />
+      )}
+      {selectedSiteId && (
+        <DomainPanel key={selectedSiteId} siteId={selectedSiteId} />
       )}
     </section>
   );

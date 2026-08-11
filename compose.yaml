@@ -368,6 +368,7 @@ services:
         DEPLOYMENT: ${DEPLOYMENT:-core-only}
     environment:
       BACKEND_INTERNAL_URL: http://backend:8000
+      FRONTEND_CONTROL_HOSTS: localhost,127.0.0.1
       HOSTNAME: 0.0.0.0
       NODE_ENV: production
       PORT: "3000"

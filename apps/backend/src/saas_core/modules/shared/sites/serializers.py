@@ -33,6 +33,58 @@ class SiteSummarySerializer(serializers.Serializer[dict[str, Any]]):
     updated_at = serializers.DateTimeField()
 
 
+class DomainCreateSerializer(serializers.Serializer[dict[str, Any]]):
+    hostname = serializers.CharField(max_length=253, trim_whitespace=False)
+
+
+class DomainActionSerializer(serializers.Serializer[dict[str, Any]]):
+    action = serializers.ChoiceField(
+        choices=["disable", "enable", "release", "set_canonical", "verify"]
+    )
+
+
+class SiteDomainSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    site_id = serializers.UUIDField()
+    hostname = serializers.CharField()
+    kind = serializers.CharField()
+    status = serializers.CharField()
+    tls_status = serializers.CharField()
+    is_canonical = serializers.BooleanField()
+    verification_name = serializers.CharField()
+    verification_token = serializers.CharField()
+    dns_cname_target = serializers.CharField()
+    dns_expected_ipv4 = serializers.ListField(child=serializers.IPAddressField(protocol="IPv4"))
+    dns_expected_ipv6 = serializers.ListField(child=serializers.IPAddressField(protocol="IPv6"))
+    dns_error_code = serializers.CharField()
+    last_checked_at = serializers.DateTimeField(allow_null=True)
+    last_verified_at = serializers.DateTimeField(allow_null=True)
+    next_check_at = serializers.DateTimeField(allow_null=True)
+    tls_last_requested_at = serializers.DateTimeField(allow_null=True)
+    released_at = serializers.DateTimeField(allow_null=True)
+    quarantine_until = serializers.DateTimeField(allow_null=True)
+    created_at = serializers.DateTimeField()
+
+
+class SiteDomainListSerializer(serializers.Serializer[dict[str, Any]]):
+    items = SiteDomainSerializer(many=True)
+
+
+class PublicSitePageSerializer(serializers.Serializer[dict[str, Any]]):
+    publication_id = serializers.UUIDField()
+    snapshot_hash = serializers.CharField()
+    locale = serializers.CharField()
+    canonical_url = serializers.URLField()
+    hreflang = serializers.DictField(child=serializers.URLField())
+    x_default = serializers.URLField()
+    title = serializers.CharField()
+    description = serializers.CharField()
+    social_title = serializers.CharField()
+    social_description = serializers.CharField()
+    design_tokens = serializers.DictField()
+    blocks = serializers.ListField(child=serializers.DictField())
+
+
 class SiteListSerializer(serializers.Serializer[dict[str, Any]]):
     items = SiteSummarySerializer(many=True)
     next_cursor = serializers.UUIDField(allow_null=True)

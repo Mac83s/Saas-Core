@@ -1,5 +1,6 @@
 from django.urls import path
 
+from .domain_views import SiteDomainActionView, SiteDomainListCreateView
 from .views import (
     PageDraftPreviewView,
     PageDraftView,
@@ -15,6 +16,16 @@ from .views import (
 app_name = "sites"
 
 urlpatterns = [
+    path(
+        "<uuid:site_id>/domains/",
+        SiteDomainListCreateView.as_view(),
+        name="site-domain-list-create",
+    ),
+    path(
+        "domains/<uuid:domain_id>/actions/",
+        SiteDomainActionView.as_view(),
+        name="site-domain-action",
+    ),
     path("", SiteListCreateView.as_view(), name="list-create"),
     path("<uuid:site_id>/pages/", PageListCreateView.as_view(), name="page-list-create"),
     path(
