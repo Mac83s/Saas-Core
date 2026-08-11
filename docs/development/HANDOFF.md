@@ -10,8 +10,8 @@
 
 Kontynuuj lokalną falę W6 z
 `Plan/Wdrozenie/07-W6-Sites-Content-i-Media.md`. W6.0-W6.3 są ukończone
-lokalnie, a **W6.4 — Media** jest w toku po ukończeniu przyrostów W6.4.1 i
-W6.4.2. Nie wracaj teraz do wdrożenia VPS: brakujące bramki stagingowe W2 i W3
+lokalnie, a **W6.4 — Media** jest w toku po ukończeniu przyrostów W6.4.1,
+W6.4.2 i W6.4.3a. Nie wracaj teraz do wdrożenia VPS: brakujące bramki stagingowe W2 i W3
 są świadomie odłożone do osobnej sesji z dostępem do hosta, domeny, GHCR i
 GitHub Environment.
 
@@ -41,6 +41,14 @@ runtime smoke wywołują `check_database_role` i kończą się błędem dla roli
 uprzywilejowanej. Rollback stagingu nie może wrócić przez tę granicę
 bezpieczeństwa.
 
+W6.4.3a dodało chroniony CSRF i tenantowo izolowany
+`POST /api/v1/media/uploads/{asset_id}/complete/`. Callback nie przyjmuje
+metadanych obiektu od klienta: adapter S3 używa prywatnego endpointu do `HEAD`
+i zapisuje stan `uploaded` wyłącznie przy zgodnym rozmiarze oraz MIME. Brak
+obiektu, wygaśnięcie i rozbieżność zwracają stabilne Problem Details bez zmiany
+`pending`. Powtórzenie po sukcesie nie odpytuje storage ponownie i nie duplikuje
+audytu. OpenAPI oraz klient TypeScript są aktualne.
+
 Test RLS używa prawdziwego PostgreSQL i tymczasowej roli
 `NOSUPERUSER NOBYPASSRLS`: brak `SET LOCAL` i obcy tenant zwracają zero, własny
 tenant widzi rekord, a cross-tenant `INSERT` jest odrzucany. Ten sam kontrakt
@@ -58,9 +66,9 @@ Ostatnie commity punktu bazowego przed W6.3:
 
 Kontynuuj W6.4 następującymi spójnymi przyrostami:
 
-1. Dodaj idempotentny callback ukończenia uploadu i adapter odczytu/head/delete
-   obiektu; task otrzymuje podpisany tenant task contract.
-2. Waliduj rzeczywisty rozmiar, magic bytes i dekodowanie;
+1. Rozszerz adapter storage o limitowany odczyt i usuwanie obiektu; uruchom
+   przetwarzanie przez task z podpisanym tenant task contract.
+2. Waliduj ponownie rzeczywisty rozmiar, magic bytes i dekodowanie;
    blokuj HTML, JavaScript i SVG oraz usuwaj EXIF.
 3. Dodaj allowlistowane warianty obrazów i stany
    `pending -> uploaded -> scanning -> ready` albo `rejected`.
@@ -77,18 +85,15 @@ Kontrakty obowiązkowe przed implementacją: ADR-027, ADR-022, ADR-025,
 Lokalny SeaweedFS `4.41` jest zdrowym, uwierzytelnionym emulatorem S3 wyłącznie
 dla Compose local; staging i production nadal wymagają zewnętrznego S3.
 
-## Walidacja W6.4.2
+## Walidacja W6.4.3a
 
-- 222 testy backendu;
+- celowane 12 testów API mediów, w tym callback sukcesu i błędów;
+- pełna bramka backendu: 227 testów;
 - pełny Mypy: 0 błędów w 145 plikach;
 - Ruff, import-linter i brak dryfu migracji;
-- testy oraz typecheck całego workspace;
 - aktualny OpenAPI i wygenerowany klient TypeScript bez driftu;
-- poprawne profile `core-only` i `medplano`;
-- 21 celowanych testów media + tenant context, w tym bezpośredni SQL RLS.
-- dwukrotny bootstrap roli na istniejącym wolumenie i migracje bez resetu danych;
-- zdrowy Compose oraz runtime smoke roli dla backendu, workera i schedulera;
-- negatywny smoke odrzucający rolę migracyjną z `SUPERUSER/BYPASSRLS`.
+- rzeczywisty `put -> HEAD -> delete` na lokalnym SeaweedFS zwrócił
+  `10|image/jpeg` prywatnym endpointem adaptera.
 
 Lokalny `/usr/bin/node` ma wersję 22 i emituje ostrzeżenie `engines`; właściwy
 runtime Node.js 24 został potwierdzony buildem obrazu frontendowego. Przy pracy

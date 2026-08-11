@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlparse
 from uuid import uuid7
@@ -27,6 +28,8 @@ from saas_core.modules.shared.billing.models import (
     QuotaUsage,
     SubscriptionState,
 )
+from saas_core.modules.shared.media.models import MediaAsset, MediaAssetState
+from saas_core.modules.shared.media.storage import ObjectMetadata, ObjectNotFoundError
 
 pytestmark = pytest.mark.django_db
 
@@ -102,6 +105,25 @@ def initiate_upload(
         HTTP_X_CSRFTOKEN=csrf_value(client),
         HTTP_IDEMPOTENCY_KEY=idempotency_key,
     )
+
+
+def complete_upload(client: APIClient, asset_id: str) -> Any:
+    return client.post(
+        f"{UPLOAD_URL}{asset_id}/complete/",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+
+
+class HeadStorage:
+    def __init__(self, metadata: ObjectMetadata | None) -> None:
+        self.metadata = metadata
+        self.calls: list[str] = []
+
+    def head(self, *, object_key: str) -> ObjectMetadata:
+        self.calls.append(object_key)
+        if self.metadata is None:
+            raise ObjectNotFoundError(object_key)
+        return self.metadata
 
 
 def _tenant_asset_count(organization: Organization) -> int:
@@ -180,6 +202,103 @@ def test_signed_put_uses_random_tenant_key_without_original_filename() -> None:
     assert "Poufne" not in decoded_path
     assert decoded_path.endswith(".jpg")
     assert int(parse_qs(parsed.query)["X-Amz-Expires"][0]) <= 900
+
+
+def test_upload_completion_is_csrf_protected_idempotent_audited_and_tenant_scoped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, organization, _ = media_client(slug="media-complete")
+    foreign_client, _, _ = media_client(slug="media-complete-foreign")
+    created = initiate_upload(client)
+    asset_id = created.data["asset"]["id"]
+    storage = HeadStorage(
+        ObjectMetadata(content_length=2048, content_type="image/jpeg; charset=binary")
+    )
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.services.get_object_storage",
+        lambda: storage,
+    )
+
+    missing_csrf = client.post(f"{UPLOAD_URL}{asset_id}/complete/")
+    foreign = complete_upload(foreign_client, asset_id)
+    completed = complete_upload(client, asset_id)
+    repeated = complete_upload(client, asset_id)
+
+    assert missing_csrf.status_code == 403
+    assert foreign.status_code == 404
+    assert foreign.data["code"] == "media_asset_not_found"
+    assert completed.status_code == 200
+    assert completed.data["state"] == MediaAssetState.UPLOADED
+    assert completed.data["actual_size"] == 2048
+    assert repeated.status_code == 200
+    assert repeated.data == completed.data
+    assert len(storage.calls) == 1
+    asset = MediaAsset.all_objects.get(pk=asset_id, organization=organization)
+    assert asset.uploaded_at is not None
+    assert OrganizationAuditEntry.objects.filter(
+        organization=organization,
+        action="media.asset.upload_completed",
+        target_id=asset_id,
+    ).count() == 1
+
+
+@pytest.mark.parametrize(
+    ("metadata", "code"),
+    [
+        (None, "media_upload_missing"),
+        (
+            ObjectMetadata(content_length=2049, content_type="image/jpeg"),
+            "media_upload_metadata_mismatch",
+        ),
+        (
+            ObjectMetadata(content_length=2048, content_type="text/html"),
+            "media_upload_metadata_mismatch",
+        ),
+    ],
+)
+def test_upload_completion_rejects_missing_or_mismatched_object_without_state_change(
+    monkeypatch: pytest.MonkeyPatch,
+    metadata: ObjectMetadata | None,
+    code: str,
+) -> None:
+    client, organization, _ = media_client(slug=f"media-head-{code}-{metadata is None}")
+    created = initiate_upload(client)
+    asset_id = created.data["asset"]["id"]
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.services.get_object_storage",
+        lambda: HeadStorage(metadata),
+    )
+
+    response = complete_upload(client, asset_id)
+
+    assert response.status_code == 409
+    assert response.data["code"] == code
+    asset = MediaAsset.all_objects.get(pk=asset_id, organization=organization)
+    assert asset.state == MediaAssetState.PENDING
+    assert asset.actual_size is None
+    assert asset.uploaded_at is None
+
+
+def test_upload_completion_rejects_expired_intent_before_storage_lookup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, organization, _ = media_client(slug="media-complete-expired")
+    created = initiate_upload(client)
+    asset_id = created.data["asset"]["id"]
+    MediaAsset.all_objects.filter(pk=asset_id, organization=organization).update(
+        upload_expires_at=timezone.now() - timedelta(seconds=1)
+    )
+    storage = HeadStorage(ObjectMetadata(content_length=2048, content_type="image/jpeg"))
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.services.get_object_storage",
+        lambda: storage,
+    )
+
+    response = complete_upload(client, asset_id)
+
+    assert response.status_code == 409
+    assert response.data["code"] == "media_upload_expired"
+    assert storage.calls == []
 
 
 @pytest.mark.parametrize("content_type", ["text/html", "application/javascript", "image/svg+xml"])

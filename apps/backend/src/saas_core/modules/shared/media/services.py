@@ -12,7 +12,7 @@ from uuid import UUID
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
-from rest_framework.exceptions import APIException
+from rest_framework.exceptions import APIException, NotFound
 
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import record_audit
@@ -23,11 +23,12 @@ from saas_core.modules.shared.billing.api import (
     reserve_quota,
 )
 
-from .models import MediaAsset
+from .models import MediaAsset, MediaAssetState
 from .permissions import MEDIA_MANAGE, MEDIA_READ, STORAGE_BYTES, STORAGE_ENABLED
-from .storage import ObjectStorage, SignedUpload, get_object_storage
+from .storage import ObjectNotFoundError, ObjectStorage, SignedUpload, get_object_storage
 
 MEDIA_UPLOAD_INITIATED = "media.asset.upload_initiated"
+MEDIA_UPLOAD_COMPLETED = "media.asset.upload_completed"
 
 ALLOWED_MEDIA_TYPES = {
     "image/jpeg": ".jpg",
@@ -58,6 +59,29 @@ class MediaFilenameInvalid(APIException):
     status_code = 400
     default_detail = "Nazwa pliku jest nieprawidłowa."
     default_code = "media_filename_invalid"
+
+
+class MediaAssetNotFound(NotFound):
+    default_detail = "Asset nie istnieje."
+    default_code = "media_asset_not_found"
+
+
+class MediaUploadMissing(APIException):
+    status_code = 409
+    default_detail = "Obiekt uploadu nie jest jeszcze dostępny."
+    default_code = "media_upload_missing"
+
+
+class MediaUploadExpired(APIException):
+    status_code = 409
+    default_detail = "Upload wygasł. Rozpocznij nowy upload."
+    default_code = "media_upload_expired"
+
+
+class MediaUploadMetadataMismatch(APIException):
+    status_code = 409
+    default_detail = "Rozmiar albo typ obiektu nie zgadza się z rozpoczętym uploadem."
+    default_code = "media_upload_metadata_mismatch"
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,6 +188,66 @@ def initiate_media_upload(
     )
 
 
+def complete_media_upload(
+    *,
+    asset_id: UUID,
+    storage: ObjectStorage | None = None,
+) -> MediaAsset:
+    context = authorize_entitled(MEDIA_MANAGE, STORAGE_ENABLED)
+    asset = MediaAsset.all_objects.filter(
+        pk=asset_id,
+        organization_id=context.organization_id,
+        deleted_at__isnull=True,
+    ).first()
+    if asset is None:
+        raise MediaAssetNotFound
+    if asset.state != MediaAssetState.PENDING:
+        return asset
+    if asset.upload_expires_at <= timezone.now():
+        raise MediaUploadExpired
+
+    try:
+        metadata = (storage or get_object_storage()).head(object_key=asset.object_key)
+    except ObjectNotFoundError as error:
+        raise MediaUploadMissing from error
+    if (
+        metadata.content_length != asset.expected_size
+        or _base_content_type(metadata.content_type) != asset.declared_mime
+    ):
+        raise MediaUploadMetadataMismatch
+
+    with transaction.atomic():
+        locked = (
+            MediaAsset.all_objects.select_for_update()
+            .filter(
+                pk=asset.id,
+                organization_id=context.organization_id,
+                deleted_at__isnull=True,
+            )
+            .first()
+        )
+        if locked is None:
+            raise MediaAssetNotFound
+        if locked.state != MediaAssetState.PENDING:
+            return locked
+        if locked.upload_expires_at <= timezone.now():
+            raise MediaUploadExpired
+        locked.state = MediaAssetState.UPLOADED
+        locked.actual_size = metadata.content_length
+        locked.uploaded_at = timezone.now()
+        locked.save(update_fields=["state", "actual_size", "uploaded_at", "updated_at"])
+        actor = User.objects.get(pk=context.actor_id)
+        record_audit(
+            organization=locked.organization,
+            action=MEDIA_UPLOAD_COMPLETED,
+            actor=actor,
+            target_type="media_asset",
+            target_id=locked.id,
+            metadata={"actual_size": metadata.content_length},
+        )
+        return locked
+
+
 def _sign_upload(asset: MediaAsset, *, storage: ObjectStorage | None) -> SignedUpload:
     expires_in = max(1, int((asset.upload_expires_at - timezone.now()).total_seconds()))
     return (storage or get_object_storage()).sign_put(
@@ -171,6 +255,10 @@ def _sign_upload(asset: MediaAsset, *, storage: ObjectStorage | None) -> SignedU
         content_type=asset.declared_mime,
         expires_in=expires_in,
     )
+
+
+def _base_content_type(value: str) -> str:
+    return value.partition(";")[0].strip().lower()
 
 
 def _idempotency_key(value: str) -> str:

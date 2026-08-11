@@ -16,7 +16,7 @@ from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
 from .models import MediaAsset
 from .serializers import MediaAssetSerializer, MediaUploadCreateSerializer, MediaUploadSerializer
-from .services import initiate_media_upload, list_media_assets
+from .services import complete_media_upload, initiate_media_upload, list_media_assets
 
 IDEMPOTENCY_PARAMETER = OpenApiParameter(
     name="Idempotency-Key",
@@ -98,6 +98,26 @@ class MediaUploadCreateView(APIView):
             },
             status=(status.HTTP_201_CREATED if intent.created else status.HTTP_200_OK),
         )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class MediaUploadCompleteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="media_uploads_complete",
+        tags=["media"],
+        request=None,
+        responses={
+            200: MediaAssetSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request, asset_id: UUID) -> Response:
+        del request
+        return Response(_asset_payload(complete_media_upload(asset_id=asset_id)))
 
 
 def _asset_payload(asset: MediaAsset) -> dict[str, object]:

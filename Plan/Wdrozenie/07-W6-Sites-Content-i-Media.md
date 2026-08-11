@@ -118,13 +118,16 @@ build Next.js oraz obrazy backend/frontend na Node.js 24, poprawne profile
 
 ### W6.4 — Media
 
-- **Stan:** w toku — W6.4.1 (inicjowanie uploadu) i W6.4.2 (operacyjne RLS)
+- **Stan:** w toku — W6.4.1 (inicjowanie uploadu), W6.4.2 (operacyjne RLS) oraz
+  W6.4.3a (callback uploadu)
   ukończone lokalnie 2026-08-11. `MediaAsset`, polityka `FORCE RLS`, uprawnienia,
   entitlement, rezerwacja `storage.bytes`, losowy klucz tenantowy, signed PUT i
   list API mają testy PostgreSQL oraz aktualny kontrakt OpenAPI. Compose tworzy
   idempotentnie osobną rolę aplikacyjną `NOBYPASSRLS`; backend, worker i scheduler
-  zatrzymują start dla roli uprzywilejowanej. Następny przyrost obejmuje callback
-  uploadu, walidację zawartości i pipeline skanera.
+  zatrzymują start dla roli uprzywilejowanej. Idempotentny callback wykonuje
+  `HEAD` prywatnym endpointem S3 i przechodzi do `uploaded` tylko dla zgodnego
+  rozmiaru i MIME. Następny przyrost obejmuje odczyt zawartości, podpisany task,
+  walidację obrazu i pipeline skanera.
 
 - [x] utworzyć moduł `shared.media`, adapter S3 i `MediaAsset` z RLS od pierwszej
   migracji;
@@ -138,6 +141,8 @@ build Next.js oraz obrazy backend/frontend na Node.js 24, poprawne profile
   - [x] walidować limit rozmiaru, bezpieczną nazwę-metadane i allowlistę
     deklarowanego MIME przed wydaniem URL;
   - [ ] po uploadzie sprawdzać rozmiar obiektu, magic bytes i dekodowanie;
+    - [x] sprawdzać przez prywatny `HEAD` obecność, rozmiar oraz zapisany MIME;
+    - [ ] sprawdzać magic bytes i rzeczywiste dekodowanie;
 - [ ] usuwać EXIF, blokować HTML/JS/SVG i tworzyć allowlistowane warianty
   obrazów;
 - [ ] wdrożyć stany `pending/uploaded/scanning/ready/rejected` i skaner plików;
@@ -148,6 +153,8 @@ build Next.js oraz obrazy backend/frontend na Node.js 24, poprawne profile
   idempotentne ponowienie callbacku.
   - [x] przetestować RLS read/write, przekroczenie quota, złośliwą nazwę i
     idempotentne inicjowanie uploadu;
+  - [x] przetestować brak obiektu, rozbieżność metadanych, wygaśnięcie, izolację
+    tenantów i idempotentne ponowienie callbacku;
 
 ### W6.5 — panel edycji i publikacja
 

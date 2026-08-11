@@ -6,6 +6,7 @@ from typing import Protocol
 
 from botocore.client import BaseClient
 from botocore.config import Config
+from botocore.exceptions import ClientError
 from botocore.session import get_session
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -17,6 +18,16 @@ class SignedUpload:
     headers: dict[str, str]
 
 
+@dataclass(frozen=True, slots=True)
+class ObjectMetadata:
+    content_length: int
+    content_type: str
+
+
+class ObjectNotFoundError(RuntimeError):
+    pass
+
+
 class ObjectStorage(Protocol):
     def sign_put(
         self,
@@ -26,11 +37,14 @@ class ObjectStorage(Protocol):
         expires_in: int,
     ) -> SignedUpload: ...
 
+    def head(self, *, object_key: str) -> ObjectMetadata: ...
+
 
 class S3ObjectStorage:
     def __init__(self) -> None:
         required = {
-            "endpoint": settings.OBJECT_STORAGE_PUBLIC_ENDPOINT_URL,
+            "private_endpoint": settings.OBJECT_STORAGE_ENDPOINT_URL,
+            "public_endpoint": settings.OBJECT_STORAGE_PUBLIC_ENDPOINT_URL,
             "bucket": settings.OBJECT_STORAGE_BUCKET,
             "access_key": settings.OBJECT_STORAGE_ACCESS_KEY_ID,
             "secret_key": settings.OBJECT_STORAGE_SECRET_ACCESS_KEY,
@@ -39,13 +53,11 @@ class S3ObjectStorage:
             raise ImproperlyConfigured("Object storage nie jest skonfigurowany dla mediów")
         self.bucket = settings.OBJECT_STORAGE_BUCKET
         session = get_session()
-        self.client: BaseClient = session.create_client(
-            "s3",
-            endpoint_url=settings.OBJECT_STORAGE_PUBLIC_ENDPOINT_URL,
-            region_name=settings.OBJECT_STORAGE_REGION,
-            aws_access_key_id=settings.OBJECT_STORAGE_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.OBJECT_STORAGE_SECRET_ACCESS_KEY,
-            config=Config(
+        client_options = {
+            "region_name": settings.OBJECT_STORAGE_REGION,
+            "aws_access_key_id": settings.OBJECT_STORAGE_ACCESS_KEY_ID,
+            "aws_secret_access_key": settings.OBJECT_STORAGE_SECRET_ACCESS_KEY,
+            "config": Config(
                 signature_version="s3v4",
                 s3={
                     "addressing_style": (
@@ -53,6 +65,16 @@ class S3ObjectStorage:
                     )
                 },
             ),
+        }
+        self.public_client: BaseClient = session.create_client(
+            "s3",
+            endpoint_url=settings.OBJECT_STORAGE_PUBLIC_ENDPOINT_URL,
+            **client_options,
+        )
+        self.private_client: BaseClient = session.create_client(
+            "s3",
+            endpoint_url=settings.OBJECT_STORAGE_ENDPOINT_URL,
+            **client_options,
         )
 
     def sign_put(
@@ -62,7 +84,7 @@ class S3ObjectStorage:
         content_type: str,
         expires_in: int,
     ) -> SignedUpload:
-        url = self.client.generate_presigned_url(
+        url = self.public_client.generate_presigned_url(
             "put_object",
             Params={
                 "Bucket": self.bucket,
@@ -73,6 +95,18 @@ class S3ObjectStorage:
             HttpMethod="PUT",
         )
         return SignedUpload(url=url, headers={"Content-Type": content_type})
+
+    def head(self, *, object_key: str) -> ObjectMetadata:
+        try:
+            response = self.private_client.head_object(Bucket=self.bucket, Key=object_key)
+        except ClientError as error:
+            if error.response.get("Error", {}).get("Code") in {"404", "NoSuchKey", "NotFound"}:
+                raise ObjectNotFoundError(object_key) from error
+            raise
+        return ObjectMetadata(
+            content_length=int(response["ContentLength"]),
+            content_type=str(response.get("ContentType", "")).strip().lower(),
+        )
 
 
 @cache
