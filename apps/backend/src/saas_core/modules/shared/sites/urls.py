@@ -8,6 +8,7 @@ from .views import (
     PageTranslationView,
     SiteListCreateView,
     SiteLocalizationReportView,
+    SitePublicationCreateView,
 )
 
 app_name = "sites"
@@ -19,6 +20,11 @@ urlpatterns = [
         "<uuid:site_id>/localization/",
         SiteLocalizationReportView.as_view(),
         name="localization-report",
+    ),
+    path(
+        "<uuid:site_id>/publications/",
+        SitePublicationCreateView.as_view(),
+        name="publication-create",
     ),
     path("pages/<uuid:page_id>/draft/", PageDraftView.as_view(), name="page-draft"),
     path(

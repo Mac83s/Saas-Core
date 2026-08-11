@@ -8,7 +8,7 @@ from uuid import uuid7
 import pytest
 from django.conf import settings
 from django.core.cache import cache
-from django.db import DatabaseError, transaction
+from django.db import DatabaseError, connection, transaction
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -41,6 +41,7 @@ from saas_core.modules.shared.sites.models import (
     PageVersion,
     Publication,
     Site,
+    SiteOutboxEvent,
 )
 
 pytestmark = pytest.mark.django_db
@@ -215,6 +216,21 @@ def save_translation(
             "social_description": "",
             **fallback,
         },
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+        HTTP_IDEMPOTENCY_KEY=idempotency_key,
+    )
+
+
+def publish_site_request(
+    client: APIClient,
+    site_id: str,
+    *,
+    idempotency_key: str,
+) -> Any:
+    return client.post(
+        f"/api/v1/sites/{site_id}/publications/",
+        {},
         format="json",
         HTTP_X_CSRFTOKEN=csrf_value(client),
         HTTP_IDEMPOTENCY_KEY=idempotency_key,
@@ -666,8 +682,38 @@ def test_database_guards_append_only_snapshots_and_cross_tenant_links() -> None:
         created_by=user,
         idempotency_key="publication-guard",
     )
+    outbox = SiteOutboxEvent.all_objects.create(
+        organization=organization,
+        publication=publication,
+        event_type="sites.site.published",
+        version=1,
+        actor=user,
+        correlation_id=uuid7(),
+        causation_id=f"sites-publish:{publication.id}",
+        payload={"publication_id": str(publication.id)},
+    )
     with pytest.raises(DatabaseError), transaction.atomic():
         Publication.all_objects.filter(pk=publication.pk).update(sequence=2)
+    with pytest.raises(DatabaseError), transaction.atomic():
+        SiteOutboxEvent.all_objects.filter(pk=outbox.pk).update(payload={"changed": True})
+
+    role_name = f"sites_outbox_rls_{uuid7().hex}"
+    quoted_role = connection.ops.quote_name(role_name)
+    with connection.cursor() as cursor:
+        cursor.execute(f"CREATE ROLE {quoted_role} NOSUPERUSER NOBYPASSRLS NOLOGIN")
+        cursor.execute(f"GRANT USAGE ON SCHEMA public TO {quoted_role}")
+        cursor.execute(f"GRANT SELECT ON sites_siteoutboxevent TO {quoted_role}")
+        cursor.execute(f"SET LOCAL ROLE {quoted_role}")
+        cursor.execute("SET LOCAL app.organization_id = ''")
+        cursor.execute("SELECT COUNT(*) FROM sites_siteoutboxevent")
+        assert cursor.fetchone()[0] == 0
+        cursor.execute("SET LOCAL app.organization_id = %s", [str(other_organization.id)])
+        cursor.execute("SELECT COUNT(*) FROM sites_siteoutboxevent")
+        assert cursor.fetchone()[0] == 0
+        cursor.execute("SET LOCAL app.organization_id = %s", [str(organization.id)])
+        cursor.execute("SELECT COUNT(*) FROM sites_siteoutboxevent")
+        assert cursor.fetchone()[0] == 1
+        cursor.execute("RESET ROLE")
 
     foreign_site = Site.all_objects.get(pk=other_site_response.data["id"])
     with pytest.raises(DatabaseError), transaction.atomic():
@@ -882,6 +928,206 @@ def test_translation_slug_collision_is_scoped_by_site_and_locale() -> None:
     assert collision.status_code == 409
     assert collision.data["code"] == "translation_slug_conflict"
     assert other_locale.status_code == 201
+
+
+def test_publication_requires_complete_draft_translation_and_still_ready_media() -> None:
+    client, organization, user = sites_client(
+        slug="sites-publication-not-ready",
+        role_key="owner",
+    )
+    site = create_site(client)
+    page = create_page(client, site.data["id"])
+    manager, _, _ = sites_client(slug="sites-publication-manager")
+    foreign_owner, _, _ = sites_client(
+        slug="sites-publication-foreign-owner",
+        role_key="owner",
+    )
+
+    denied = publish_site_request(
+        manager,
+        site.data["id"],
+        idempotency_key="publish-manager-denied",
+    )
+    foreign = publish_site_request(
+        foreign_owner,
+        site.data["id"],
+        idempotency_key="publish-foreign-denied",
+    )
+    assert denied.status_code == 403
+    assert denied.data["code"] == "organization_permission_denied"
+    assert foreign.status_code == 404
+    assert foreign.data["code"] == "site_not_found"
+
+    missing_draft = publish_site_request(
+        client,
+        site.data["id"],
+        idempotency_key="publish-missing-draft",
+    )
+    assert missing_draft.status_code == 409
+    assert missing_draft.data["code"] == "site_publication_not_ready"
+
+    asset = create_media_asset(organization, user)
+    draft = save_draft(
+        client,
+        page.data["id"],
+        expected_version=0,
+        idempotency_key="publish-draft",
+        heading="Publikacja",
+        media_asset_ids=[str(asset.id)],
+    )
+    missing_translation = publish_site_request(
+        client,
+        site.data["id"],
+        idempotency_key="publish-missing-translation",
+    )
+    assert draft.status_code == 201
+    assert missing_translation.status_code == 409
+    assert missing_translation.data["code"] == "site_publication_not_ready"
+
+    translation = save_translation(
+        client,
+        page.data["id"],
+        "pl",
+        expected_version=0,
+        slug="publikacja",
+        title="Publikacja",
+        description="Opis publikacji",
+        idempotency_key="publish-translation",
+    )
+    MediaAsset.all_objects.filter(pk=asset.id).update(deleted_at=timezone.now())
+    unavailable_media = publish_site_request(
+        client,
+        site.data["id"],
+        idempotency_key="publish-tombstoned-media",
+    )
+
+    assert translation.status_code == 201
+    assert unavailable_media.status_code == 409
+    assert unavailable_media.data["code"] == "site_media_reference_unavailable"
+    assert Publication.all_objects.filter(organization=organization).count() == 0
+    assert SiteOutboxEvent.all_objects.filter(organization=organization).count() == 0
+    assert Site.all_objects.get(pk=site.data["id"]).current_publication_id is None
+
+
+def test_publication_is_atomic_idempotent_and_emits_signed_outbox(
+    monkeypatch: pytest.MonkeyPatch,
+    django_capture_on_commit_callbacks: Any,
+) -> None:
+    client, organization, user = sites_client(
+        slug="sites-publication-ready",
+        role_key="owner",
+    )
+    site = create_site(client)
+    page = create_page(client, site.data["id"])
+    asset = create_media_asset(organization, user)
+    draft = save_draft(
+        client,
+        page.data["id"],
+        expected_version=0,
+        idempotency_key="publication-draft-v1",
+        heading="Wersja opublikowana",
+        media_asset_ids=[str(asset.id)],
+    )
+    translation = save_translation(
+        client,
+        page.data["id"],
+        "pl",
+        expected_version=0,
+        slug="start",
+        title="Start",
+        description="Strona startowa",
+        idempotency_key="publication-translation-pl",
+    )
+    delayed: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        "saas_core.modules.shared.sites.tasks.publish_site_outbox_event_task.delay",
+        lambda event_id, contract: delayed.append((event_id, contract)),
+    )
+
+    missing_csrf = client.post(
+        f"/api/v1/sites/{site.data['id']}/publications/",
+        {},
+        format="json",
+        HTTP_IDEMPOTENCY_KEY="publication-no-csrf",
+    )
+    with django_capture_on_commit_callbacks(execute=True):
+        published = publish_site_request(
+            client,
+            site.data["id"],
+            idempotency_key="publication-ready",
+        )
+    with django_capture_on_commit_callbacks(execute=True):
+        repeated = publish_site_request(
+            client,
+            site.data["id"],
+            idempotency_key="publication-ready",
+        )
+
+    assert draft.status_code == 201
+    assert translation.status_code == 201
+    assert missing_csrf.status_code == 403
+    assert published.status_code == 201
+    assert repeated.status_code == 200
+    assert repeated.data["id"] == published.data["id"]
+    # Pending delivery is deliberately rescheduled on an idempotent replay so
+    # a transient broker failure cannot strand a committed outbox event.
+    assert len(delayed) == 2
+
+    publication = Publication.all_objects.get(pk=published.data["id"])
+    site_record = Site.all_objects.get(pk=site.data["id"])
+    translation_record = PageTranslation.all_objects.get(pk=translation.data["id"])
+    assert site_record.current_publication_id == publication.id
+    assert translation_record.slug_locked_at is not None
+    assert publication.snapshot["site_id"] == str(site_record.id)
+    assert publication.snapshot["pages"][0]["version_id"] == str(draft.data["draft_id"])
+    assert publication.snapshot["pages"][0]["media_asset_ids"] == [str(asset.id)]
+    assert publication.snapshot["pages"][0]["locales"][0]["canonical_path"] == "/start/"
+    assert publication.snapshot_hash == published.data["snapshot_hash"]
+    assert (
+        MediaReference.all_objects.filter(
+            organization=organization,
+            owner_type=MediaReferenceOwner.PUBLICATION,
+            owner_id=publication.id,
+            asset=asset,
+        ).count()
+        == 1
+    )
+    event = SiteOutboxEvent.all_objects.get(publication=publication)
+    assert event.published_at is None
+    assert event.payload["snapshot_hash"] == publication.snapshot_hash
+    assert event.payload.get("object_key") is None
+    assert (
+        OrganizationAuditEntry.objects.filter(
+            organization=organization,
+            action="sites.site.published",
+            target_id=publication.id,
+        ).count()
+        == 1
+    )
+
+    from saas_core.modules.shared.sites.tasks import publish_site_outbox_event_task
+
+    publish_site_outbox_event_task(str(uuid7()), delayed[0][1])
+    event.refresh_from_db()
+    assert event.published_at is None
+    publish_site_outbox_event_task(*delayed[0])
+    publish_site_outbox_event_task(*delayed[1])
+    event.refresh_from_db()
+    assert event.published_at is not None
+
+    newer_draft = save_draft(
+        client,
+        page.data["id"],
+        expected_version=1,
+        idempotency_key="publication-draft-v2",
+        heading="Nowszy, nieopublikowany draft",
+        media_asset_ids=[str(asset.id)],
+    )
+    publication.refresh_from_db()
+    site_record.refresh_from_db()
+    assert newer_draft.status_code == 201
+    assert publication.snapshot["pages"][0]["version_id"] == str(draft.data["draft_id"])
+    assert site_record.current_publication_id == publication.id
 
 
 def test_published_translation_slug_is_locked_in_service_and_database() -> None:

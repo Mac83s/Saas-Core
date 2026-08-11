@@ -215,3 +215,16 @@ class SiteLocalizationReportSerializer(serializers.Serializer[dict[str, Any]]):
     supported_locales = serializers.ListField(child=serializers.CharField())
     ready_to_publish = serializers.BooleanField()
     pages = PageLocalizationSerializer(many=True)
+
+
+class SitePublishSerializer(serializers.Serializer[dict[str, Any]]):
+    pass
+
+
+class SitePublicationSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    site_id = serializers.UUIDField()
+    sequence = serializers.IntegerField()
+    snapshot_schema_version = serializers.IntegerField()
+    snapshot_hash = serializers.CharField()
+    created_at = serializers.DateTimeField()

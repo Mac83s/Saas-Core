@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid7
 
 from django.conf import settings
 from django.db import transaction
@@ -11,19 +11,26 @@ from rest_framework.exceptions import APIException, NotFound
 
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.api import (
+    DomainEvent,
     ResourceReferenceConflict,
     ResourceReferenceRejected,
+    dispatch_domain_event,
     list_resource_reference_ids,
     record_resource_references,
 )
 from saas_core.modules.core.organizations.audit import record_audit
-from saas_core.modules.core.organizations.context import TenantContext
+from saas_core.modules.core.organizations.context import (
+    TenantContext,
+    require_tenant_context,
+)
 from saas_core.modules.core.organizations.models import Organization
+from saas_core.modules.core.organizations.tasks import issue_tenant_task_contract
 from saas_core.modules.shared.billing.api import (
     FeatureOperation,
     authorize_entitled,
     consume_quota,
 )
+from saas_core.observability import correlation_id
 
 from .block_contracts import validate_site_block
 from .localization import SiteLocalizationReport, build_localization_report
@@ -33,17 +40,30 @@ from .models import (
     PageTranslation,
     PageTranslationMutation,
     PageVersion,
+    Publication,
     Site,
+    SiteOutboxEvent,
     canonical_json_hash,
 )
-from .permissions import SITE_CONTENT_EDIT, SITES_ENABLED, SITES_MAX
+from .permissions import SITE_CONTENT_EDIT, SITE_PUBLISH, SITES_ENABLED, SITES_MAX
 
 SITE_CREATED = "sites.site.created"
 PAGE_CREATED = "sites.page.created"
 PAGE_DRAFT_SAVED = "sites.page.draft_saved"
 PAGE_TRANSLATION_SAVED = "sites.page.translation_saved"
+SITE_PUBLISHED = "sites.site.published"
+SITE_PUBLISHED_EVENT = "sites.site.published"
 MEDIA_ASSET_RESOURCE_TYPE = "shared.media.asset"
 PAGE_VERSION_REFERENCE_OWNER = "sites.page_version"
+PUBLICATION_REFERENCE_OWNER = "sites.publication"
+PUBLICATION_SNAPSHOT_SCHEMA_VERSION = 1
+DEFAULT_DESIGN_TOKENS = {
+    "schemaVersion": 1,
+    "palette": "neutral",
+    "typography": "sans",
+    "radius": "medium",
+    "spacing": "comfortable",
+}
 
 
 class SitesIdempotencyConflict(APIException):
@@ -74,6 +94,18 @@ class SiteMediaReferenceUnavailable(APIException):
     status_code = 409
     default_detail = "Wybrane media nie są gotowe albo nie są dostępne w tej organizacji."
     default_code = "site_media_reference_unavailable"
+
+
+class SitePublicationNotReady(APIException):
+    status_code = 409
+    default_detail = "Site nie ma kompletnego draftu i bazowych tłumaczeń."
+    default_code = "site_publication_not_ready"
+
+
+class SitePublicationConflict(APIException):
+    status_code = 409
+    default_detail = "Zawartość site zmieniła się podczas publikacji."
+    default_code = "site_publication_conflict"
 
 
 class UnsupportedSiteLocale(APIException):
@@ -140,6 +172,12 @@ class PageTranslations:
     page: Page
     supported_locales: tuple[str, ...]
     translations: tuple[PageTranslation, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class SitePublication:
+    publication: Publication
+    created: bool
 
 
 def list_sites(*, cursor: UUID | None, limit: int) -> tuple[list[Site], UUID | None]:
@@ -715,6 +753,262 @@ def get_site_localization_report(*, site_id: UUID) -> SiteLocalizationReport:
     )
 
 
+@transaction.atomic
+def publish_site(*, site_id: UUID, idempotency_key: str) -> SitePublication:
+    context = authorize_entitled(SITE_PUBLISH, SITES_ENABLED)
+    normalized_key = _idempotency_key(idempotency_key)
+    try:
+        initial_site = Site.all_objects.get(
+            pk=site_id,
+            organization_id=context.organization_id,
+        )
+    except Site.DoesNotExist as error:
+        raise SiteNotFound from error
+    existing = _existing_site_publication(
+        context=context,
+        site_id=site_id,
+        idempotency_key=normalized_key,
+    )
+    if existing is not None:
+        return existing
+
+    pages = list(
+        Page.all_objects.select_for_update(of=("self",))
+        .select_related("current_draft")
+        .filter(
+            organization_id=context.organization_id,
+            site_id=initial_site.id,
+        )
+        .order_by("id")
+    )
+    site = Site.all_objects.select_for_update().get(
+        pk=initial_site.id,
+        organization_id=context.organization_id,
+    )
+    existing = _existing_site_publication(
+        context=context,
+        site_id=site.id,
+        idempotency_key=normalized_key,
+    )
+    if existing is not None:
+        return existing
+    current_page_ids = tuple(
+        Page.all_objects.filter(
+            organization_id=context.organization_id,
+            site_id=site.id,
+        )
+        .order_by("id")
+        .values_list("id", flat=True)
+    )
+    if current_page_ids != tuple(page.id for page in pages):
+        raise SitePublicationConflict
+    if not pages or any(page.current_draft_id is None for page in pages):
+        raise SitePublicationNotReady
+
+    translations = list(
+        PageTranslation.all_objects.select_for_update()
+        .filter(
+            organization_id=context.organization_id,
+            site_id=site.id,
+            locale__in=_supported_locales(),
+        )
+        .select_related("site")
+        .order_by("page_id", "locale")
+    )
+    localization = build_localization_report(
+        site=site,
+        pages=pages,
+        translations=translations,
+        supported_locales=_supported_locales(),
+    )
+    if not localization.ready_to_publish:
+        raise SitePublicationNotReady
+
+    version_ids = tuple(_current_version_id(page) for page in pages)
+    blocks = list(
+        PageBlock.all_objects.filter(
+            organization_id=context.organization_id,
+            page_version_id__in=version_ids,
+        ).order_by("page_version_id", "position")
+    )
+    blocks_by_version: dict[UUID, list[PageBlock]] = {}
+    for block in blocks:
+        validate_site_block(
+            block_type=block.block_type,
+            schema_version=block.schema_version,
+            data=block.data,
+        )
+        blocks_by_version.setdefault(block.page_version_id, []).append(block)
+
+    page_media_ids = {
+        page.id: _page_version_media_asset_ids(
+            context=context,
+            version_id=_current_version_id(page),
+        )
+        for page in pages
+    }
+    all_media_ids = tuple(
+        sorted(
+            {asset_id for asset_ids in page_media_ids.values() for asset_id in asset_ids},
+            key=str,
+        )
+    )
+    snapshot = _publication_snapshot(
+        site=site,
+        pages=pages,
+        blocks_by_version=blocks_by_version,
+        localization=localization,
+        page_media_ids=page_media_ids,
+    )
+    previous = (
+        Publication.all_objects.filter(
+            organization_id=context.organization_id,
+            site_id=site.id,
+        )
+        .order_by("-sequence")
+        .first()
+    )
+    actor = User.objects.get(pk=context.actor_id)
+    publication = Publication.all_objects.create(
+        organization_id=context.organization_id,
+        site=site,
+        sequence=(previous.sequence + 1 if previous is not None else 1),
+        snapshot_schema_version=PUBLICATION_SNAPSHOT_SCHEMA_VERSION,
+        snapshot=snapshot,
+        snapshot_hash="",
+        created_by=actor,
+        idempotency_key=normalized_key,
+    )
+    try:
+        record_resource_references(
+            context=context,
+            resource_type=MEDIA_ASSET_RESOURCE_TYPE,
+            owner_type=PUBLICATION_REFERENCE_OWNER,
+            owner_id=publication.id,
+            resource_ids=all_media_ids,
+        )
+    except ResourceReferenceRejected as error:
+        raise SiteMediaReferenceUnavailable from error
+    except ResourceReferenceConflict as error:
+        raise SitesIdempotencyConflict from error
+
+    published_at = timezone.now()
+    published_translation_ids = [
+        locale.translation_id
+        for page in localization.pages
+        for locale in page.locales
+        if locale.complete and locale.translation_id is not None
+    ]
+    PageTranslation.all_objects.filter(
+        organization_id=context.organization_id,
+        id__in=published_translation_ids,
+        slug_locked_at__isnull=True,
+    ).update(slug_locked_at=published_at, updated_at=published_at)
+    Site.all_objects.filter(
+        pk=site.id,
+        organization_id=context.organization_id,
+    ).update(current_publication=publication, updated_at=published_at)
+
+    active_correlation_id = correlation_id.get()
+    event = SiteOutboxEvent.all_objects.create(
+        organization_id=context.organization_id,
+        publication=publication,
+        event_type=SITE_PUBLISHED_EVENT,
+        version=1,
+        actor=actor,
+        correlation_id=UUID(active_correlation_id) if active_correlation_id else uuid7(),
+        causation_id=f"sites-publish:{publication.id}",
+        payload={
+            "site_id": str(site.id),
+            "publication_id": str(publication.id),
+            "sequence": publication.sequence,
+            "snapshot_hash": publication.snapshot_hash,
+        },
+    )
+    _schedule_site_outbox_delivery(event)
+    record_audit(
+        organization=site.organization,
+        action=SITE_PUBLISHED,
+        actor=actor,
+        target_type="publication",
+        target_id=publication.id,
+        metadata={
+            "site_id": str(site.id),
+            "sequence": publication.sequence,
+            "snapshot_hash": publication.snapshot_hash,
+            "page_count": len(pages),
+            "media_asset_count": len(all_media_ids),
+        },
+    )
+    return SitePublication(publication, True)
+
+
+def _schedule_site_outbox_delivery(event: SiteOutboxEvent) -> None:
+    task_contract = issue_tenant_task_contract(causation_id=f"sites-outbox:{event.id}")
+
+    def enqueue_outbox() -> None:
+        from .tasks import publish_site_outbox_event_task
+
+        publish_site_outbox_event_task.delay(str(event.id), task_contract)
+
+    transaction.on_commit(enqueue_outbox, robust=True)
+
+
+def _existing_site_publication(
+    *,
+    context: TenantContext,
+    site_id: UUID,
+    idempotency_key: str,
+) -> SitePublication | None:
+    publication = Publication.all_objects.filter(
+        organization_id=context.organization_id,
+        site_id=site_id,
+        created_by_id=context.actor_id,
+        idempotency_key=idempotency_key,
+    ).first()
+    if publication is None:
+        return None
+    pending_event = SiteOutboxEvent.all_objects.filter(
+        organization_id=context.organization_id,
+        publication_id=publication.id,
+        published_at__isnull=True,
+    ).first()
+    if pending_event is not None:
+        _schedule_site_outbox_delivery(pending_event)
+    return SitePublication(publication, False)
+
+
+@transaction.atomic
+def publish_site_outbox_event(*, event_id: UUID) -> SiteOutboxEvent | None:
+    context = require_tenant_context()
+    event = (
+        SiteOutboxEvent.all_objects.select_for_update()
+        .filter(
+            pk=event_id,
+            organization_id=context.organization_id,
+        )
+        .first()
+    )
+    if event is None or event.published_at is not None:
+        return event
+    dispatch_domain_event(
+        context=context,
+        event=DomainEvent(
+            id=event.id,
+            event_type=event.event_type,
+            version=event.version,
+            organization_id=event.organization_id,
+            actor_id=event.actor_id,
+            correlation_id=event.correlation_id,
+            causation_id=event.causation_id,
+            payload=event.payload,
+        ),
+    )
+    event.published_at = timezone.now()
+    event.save(update_fields=["published_at"])
+    return event
+
+
 def _idempotency_key(value: str) -> str:
     normalized = value.strip()
     if not normalized or len(normalized) > 120:
@@ -746,6 +1040,70 @@ def _page_version_media_asset_ids(
         owner_type=PAGE_VERSION_REFERENCE_OWNER,
         owner_id=version_id,
     )
+
+
+def _publication_snapshot(
+    *,
+    site: Site,
+    pages: list[Page],
+    blocks_by_version: dict[UUID, list[PageBlock]],
+    localization: SiteLocalizationReport,
+    page_media_ids: dict[UUID, tuple[UUID, ...]],
+) -> dict[str, Any]:
+    localization_by_page = {page.page.id: page for page in localization.pages}
+    return {
+        "site_id": str(site.id),
+        "site_slug": site.slug,
+        "default_locale": site.default_locale,
+        "design_tokens": DEFAULT_DESIGN_TOKENS,
+        "pages": [
+            {
+                "page_id": str(page.id),
+                "key": page.key,
+                "version_id": str(_current_version_id(page)),
+                "version": page.current_draft.number if page.current_draft else 0,
+                "blocks": [
+                    {
+                        "block_type": block.block_type,
+                        "schema_version": block.schema_version,
+                        "data": block.data,
+                    }
+                    for block in blocks_by_version.get(_current_version_id(page), [])
+                ],
+                "media_asset_ids": [str(asset_id) for asset_id in page_media_ids.get(page.id, ())],
+                "locales": [
+                    {
+                        "locale": locale.locale,
+                        "translation_id": (
+                            str(locale.translation_id)
+                            if locale.translation_id is not None
+                            else None
+                        ),
+                        "version": locale.version,
+                        "slug": locale.slug,
+                        "path": locale.path,
+                        "canonical_path": locale.canonical_path,
+                        "title": locale.title,
+                        "description": locale.description,
+                        "social_title": locale.social_title,
+                        "social_description": locale.social_description,
+                        "fallback_fields": list(locale.fallback_fields),
+                    }
+                    for locale in localization_by_page[page.id].locales
+                    if locale.complete
+                ],
+                "hreflang": localization_by_page[page.id].hreflang,
+                "x_default": localization_by_page[page.id].x_default,
+            }
+            for page in pages
+        ],
+    }
+
+
+def _current_version_id(page: Page) -> UUID:
+    if page.current_draft_id is None:
+        raise SitePublicationNotReady
+    return page.current_draft_id
 
 
 def _same_request[T: Site | Page | PageVersion](value: T, request_hash: str) -> T:

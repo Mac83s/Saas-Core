@@ -15,7 +15,7 @@ from rest_framework.views import APIView
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
 from .localization import LocaleResolution, SiteLocalizationReport
-from .models import Page, PageBlock, PageTranslation, Site
+from .models import Page, PageBlock, PageTranslation, Publication, Site
 from .serializers import (
     CursorQuerySerializer,
     DraftSaveSerializer,
@@ -29,6 +29,8 @@ from .serializers import (
     SiteCreateSerializer,
     SiteListSerializer,
     SiteLocalizationReportSerializer,
+    SitePublicationSerializer,
+    SitePublishSerializer,
     SiteSummarySerializer,
 )
 from .services import (
@@ -41,6 +43,7 @@ from .services import (
     list_page_translations,
     list_pages,
     list_sites,
+    publish_site,
     save_draft,
     save_page_translation,
 )
@@ -312,6 +315,36 @@ class SiteLocalizationReportView(APIView):
         return Response(_localization_report(get_site_localization_report(site_id=site_id)))
 
 
+@method_decorator(csrf_protect, name="dispatch")
+class SitePublicationCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_publish",
+        tags=["sites"],
+        parameters=[IDEMPOTENCY_PARAMETER],
+        request=SitePublishSerializer,
+        responses={
+            200: SitePublicationSerializer,
+            201: SitePublicationSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request, site_id: UUID) -> Response:
+        serializer = SitePublishSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = publish_site(
+            site_id=site_id,
+            idempotency_key=request.headers.get("Idempotency-Key", ""),
+        )
+        return Response(
+            _publication_summary(result.publication),
+            status=(status.HTTP_201_CREATED if result.created else status.HTTP_200_OK),
+        )
+
+
 def _site_summary(site: Site) -> dict[str, Any]:
     return {
         "id": site.id,
@@ -336,6 +369,17 @@ def _page_summary(page: Page) -> dict[str, Any]:
         "current_draft_hash": draft.content_hash if draft is not None else None,
         "created_at": page.created_at,
         "updated_at": page.updated_at,
+    }
+
+
+def _publication_summary(publication: Publication) -> dict[str, Any]:
+    return {
+        "id": publication.id,
+        "site_id": publication.site_id,
+        "sequence": publication.sequence,
+        "snapshot_schema_version": publication.snapshot_schema_version,
+        "snapshot_hash": publication.snapshot_hash,
+        "created_at": publication.created_at,
     }
 
 

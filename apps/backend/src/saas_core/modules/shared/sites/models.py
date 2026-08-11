@@ -495,3 +495,53 @@ class Publication(TenantScopedModel):
 
     def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
         raise ValidationError("Publikacja jest niemutowalna.")
+
+
+class SiteOutboxEvent(TenantScopedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    publication = models.OneToOneField(
+        Publication,
+        on_delete=models.PROTECT,
+        related_name="outbox_event",
+    )
+    event_type = models.CharField(max_length=120)
+    version = models.PositiveIntegerField(default=1)
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_site_outbox_events",
+    )
+    correlation_id = models.UUIDField()
+    causation_id = models.CharField(max_length=160)
+    payload = models.JSONField(default=dict)
+    occurred_at = models.DateTimeField(auto_now_add=True)
+    published_at = models.DateTimeField(null=True, blank=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "occurred_at", "id")
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(version__gte=1),
+                name="sites_outbox_version_positive_ck",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["organization", "published_at", "occurred_at"],
+                name="sites_outbox_pending_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.event_type}.v{self.version}:{self.id}"
+
+    def clean(self) -> None:
+        super().clean()
+        if self.publication_id and self.publication.organization_id != self.organization_id:
+            raise ValidationError({
+                "publication": "Zdarzenie wskazuje publikację innej organizacji."
+            })
+        if not isinstance(self.payload, dict):
+            raise ValidationError({"payload": "Payload zdarzenia musi być obiektem JSON."})

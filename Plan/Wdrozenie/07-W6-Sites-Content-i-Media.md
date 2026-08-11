@@ -119,8 +119,8 @@ build Next.js oraz obrazy backend/frontend na Node.js 24, poprawne profile
 ### W6.4 — Media
 
 - **Stan:** w toku — W6.4.1 (inicjowanie uploadu), W6.4.2 (operacyjne RLS) oraz
-  W6.4.3a (callback uploadu), W6.4.3b (bezpieczny pipeline obrazu) i W6.4.3c
-  (tenantowe referencje draftu)
+  W6.4.3a (callback uploadu), W6.4.3b (bezpieczny pipeline obrazu), W6.4.3c
+  (tenantowe referencje draftu) i W6.4.3d (atomowa publikacja z outboxem)
   ukończone lokalnie 2026-08-11. `MediaAsset`, polityka `FORCE RLS`, uprawnienia,
   entitlement, rezerwacja `storage.bytes`, losowy klucz tenantowy, signed PUT i
   list API mają testy PostgreSQL oraz aktualny kontrakt OpenAPI. Compose tworzy
@@ -131,8 +131,10 @@ build Next.js oraz obrazy backend/frontend na Node.js 24, poprawne profile
   ClamAV, sprawdza magic bytes i dekodowanie, usuwa EXIF przez re-encoding,
   tworzy allowlistowane warianty i rozlicza faktyczne bajty dokładnie raz.
   Niemutowalny draft zapisuje referencje przez rejestr rozszerzeń Core wyłącznie
-  dla assetów `ready` z tego samego tenanta. Następny przyrost obejmuje ponowną
-  walidację i utrwalenie referencji publikacji oraz tombstone/delete.
+  dla assetów `ready` z tego samego tenanta. Publikacja ponownie waliduje media,
+  utrwala append-only referencje i kanoniczny snapshot, przełącza Site oraz
+  zapisuje podpisany outbox w jednej transakcji. Następny przyrost obejmuje
+  tombstone/delete.
 
 - [x] utworzyć moduł `shared.media`, adapter S3 i `MediaAsset` z RLS od pierwszej
   migracji;
@@ -151,13 +153,13 @@ build Next.js oraz obrazy backend/frontend na Node.js 24, poprawne profile
 - [x] usuwać EXIF, blokować HTML/JS/SVG i tworzyć allowlistowane warianty
   obrazów;
 - [x] wdrożyć stany `pending/uploaded/scanning/ready/rejected` i skaner plików;
-- [ ] dopuszczać do publikacji wyłącznie `ready` i egzekwować `storage.bytes`
+- [x] dopuszczać do publikacji wyłącznie `ready` i egzekwować `storage.bytes`
   dokładnie raz;
   - [x] dopasować rezerwację do sanitizowanego oryginału i wariantów oraz
     commitować ją idempotentnie dokładnie raz;
-  - [ ] walidować `ready` przy zapisie referencji i publikacji;
+  - [x] walidować `ready` przy zapisie referencji i publikacji;
     - [x] zapisywać tenantowe referencje draftu wyłącznie do assetów `ready`;
-    - [ ] ponownie walidować i utrwalać referencje w atomowej publikacji;
+    - [x] ponownie walidować i utrwalać referencje w atomowej publikacji;
 - [ ] dodać tombstone oraz asynchroniczne usunięcie obiektu bez referencji;
 - [x] przetestować RLS, fałszywy MIME, przekroczenie quota, malware i
   idempotentne ponowienie callbacku.

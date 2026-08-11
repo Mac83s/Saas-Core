@@ -11,7 +11,7 @@
 Kontynuuj lokalną falę W6 z
 `Plan/Wdrozenie/07-W6-Sites-Content-i-Media.md`. W6.0-W6.3 są ukończone
 lokalnie, a **W6.4 — Media** jest w toku po ukończeniu przyrostów W6.4.1,
-W6.4.2, W6.4.3a, W6.4.3b i W6.4.3c. Nie wracaj teraz do wdrożenia VPS: brakujące bramki stagingowe W2 i W3
+W6.4.2, W6.4.3a, W6.4.3b, W6.4.3c i W6.4.3d. Nie wracaj teraz do wdrożenia VPS: brakujące bramki stagingowe W2 i W3
 są świadomie odłożone do osobnej sesji z dostępem do hosta, domeny, GHCR i
 GitHub Environment.
 
@@ -79,6 +79,23 @@ wyłącznie assety `ready`, bez tombstone i z bieżącej organizacji. Błąd wyc
 wersję, bloki, referencje oraz audyt. GET draftu i jawny preview zwracają
 utrwaloną listę referencji.
 
+W6.4.3d dodało chroniony `POST /api/v1/sites/{site_id}/publications/` dla
+`site.publish`. Use case blokuje strony, site i tłumaczenia w ustalonej
+kolejności, wymaga draftu oraz kompletnego locale bazowego, ponownie waliduje
+każdy asset jako `ready` bez tombstone i tworzy referencje
+`sites.publication`. Kanoniczny snapshot zawiera wersje draftów, bloki,
+rozwiązane tłumaczenia/SEO, canonical/hreflang, domyślne design tokens oraz ID
+mediów. Dopiero potem atomowo blokuje opublikowane slugi i przełącza
+`Site.current_publication`.
+
+Ta sama transakcja zapisuje audyt oraz `SiteOutboxEvent` dla
+`sites.site.published.v1`. Payload outboxu jest niemutowalny w PostgreSQL,
+tabela ma `FORCE RLS`, a podpisany task z causation ID związanym z eventem
+dostarcza go co najmniej raz przez rejestr handlerów Core i idempotentnie ustawia
+`published_at`. Retry tego samego klucza publikacji nie tworzy snapshotu,
+referencji, audytu ani eventu ponownie; jeśli event nadal oczekuje, zleca jednak
+ponowne dostarczenie (ochrona przed przejściowym błędem brokera po commitcie).
+
 Test RLS używa prawdziwego PostgreSQL i tymczasowej roli
 `NOSUPERUSER NOBYPASSRLS`: brak `SET LOCAL` i obcy tenant zwracają zero, własny
 tenant widzi rekord, a cross-tenant `INSERT` jest odrzucany. Ten sam kontrakt
@@ -96,12 +113,9 @@ Ostatnie commity punktu bazowego przed W6.3:
 
 Domknij W6.4 następującymi spójnymi przyrostami:
 
-1. Dodaj atomową publikację snapshotu, ponownie waliduj assety `ready` i utrwal
-   append-only referencje `sites.publication` przed przełączeniem
-   `Site.current_publication`.
-2. Zaimplementuj tombstone i asynchroniczne usunięcie oryginału oraz wariantów
+1. Zaimplementuj tombstone i asynchroniczne usunięcie oryginału oraz wariantów
    dopiero bez referencji z publikacji.
-3. Dodaj testy odmowy publikacji assetu nie-`ready`, blokady delete przy
+2. Dodaj testy blokady delete przy
    referencji i idempotentnego ponowienia cleanup/tombstone.
 
 Kontrakty obowiązkowe przed implementacją: ADR-027, ADR-022, ADR-025,
@@ -109,14 +123,15 @@ Kontrakty obowiązkowe przed implementacją: ADR-027, ADR-022, ADR-025,
 Lokalny SeaweedFS `4.41` jest zdrowym, uwierzytelnionym emulatorem S3 wyłącznie
 dla Compose local; staging i production nadal wymagają zewnętrznego S3.
 
-## Walidacja W6.4.3c
+## Walidacja W6.4.3d
 
-- celowane 32 testy integracyjne Sites/Media, w tym transakcyjna odmowa dla
-  `pending`, tombstone i obcego tenanta oraz bezpośrednie RLS referencji;
-- pełna bramka backendu: 249 testów;
-- pełny Mypy: 0 błędów w 156 plikach;
+- 17 testów integracyjnych Sites, w tym odmowa dla brakującego draftu/locale,
+  tombstone media, permission, obcego tenanta, CSRF, RLS i niemutowalności
+  outboxu oraz rozdzielenie nowszego draftu od bieżącej publikacji;
+- pełna bramka backendu: 251 testów;
+- pełny Mypy: 0 błędów w 159 plikach;
 - Ruff, import-linter i brak dryfu migracji;
-- import-linter potwierdził kierunek dla 156 plików i 206 zależności;
+- import-linter potwierdził kierunek dla 159 plików i 214 zależności;
 - OpenAPI i wygenerowany klient TypeScript są aktualne;
 - lokalny ClamAV jest zdrowy, a rzeczywisty INSTREAM zwrócił `clean|infected`
   dla bezpiecznego payloadu i standardowego testu EICAR;
