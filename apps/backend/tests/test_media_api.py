@@ -14,7 +14,11 @@ from PIL import Image
 from rest_framework.test import APIClient
 
 from saas_core.modules.core.identity.models import User, UserStatus
-from saas_core.modules.core.organizations.context import set_local_organization_id
+from saas_core.modules.core.organizations.context import (
+    activate_tenant_context,
+    context_from_membership,
+    set_local_organization_id,
+)
 from saas_core.modules.core.organizations.models import (
     Membership,
     Organization,
@@ -31,6 +35,7 @@ from saas_core.modules.shared.billing.models import (
     QuotaUsage,
     SubscriptionState,
 )
+from saas_core.modules.shared.billing.quotas import commit_quota, reserve_quota
 from saas_core.modules.shared.media.images import ProcessedImage, ProcessedVariant
 from saas_core.modules.shared.media.models import (
     MediaAsset,
@@ -125,6 +130,82 @@ def complete_upload(client: APIClient, asset_id: str) -> Any:
     return client.post(
         f"{UPLOAD_URL}{asset_id}/complete/",
         HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+
+
+def delete_asset(
+    client: APIClient,
+    asset_id: str,
+    *,
+    idempotency_key: str,
+) -> Any:
+    return client.delete(
+        f"{MEDIA_URL}{asset_id}/",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+        HTTP_IDEMPOTENCY_KEY=idempotency_key,
+    )
+
+
+def create_ready_asset(
+    organization: Organization,
+    user: User,
+    *,
+    suffix: str,
+) -> MediaAsset:
+    membership = Membership.objects.select_related("organization", "role").get(
+        organization=organization,
+        user=user,
+    )
+    context = context_from_membership(membership)
+    quota_key = f"media-cleanup:{suffix}:{uuid7()}"
+    with activate_tenant_context(context):
+        reserve_quota(
+            "storage.bytes",
+            amount=30,
+            idempotency_key=quota_key,
+        )
+        commit_quota(quota_key)
+    asset_id = uuid7()
+    return MediaAsset.all_objects.create(
+        id=asset_id,
+        organization=organization,
+        original_filename=f"{suffix}.jpg",
+        object_key=f"{organization.id}/processed/{asset_id}/original.jpg",
+        source_object_key=f"{organization.id}/originals/{asset_id}.jpg",
+        declared_mime="image/jpeg",
+        detected_mime="image/jpeg",
+        expected_size=10,
+        actual_size=10,
+        stored_size=30,
+        sha256="a" * 64,
+        width=10,
+        height=10,
+        state=MediaAssetState.READY,
+        quota_reservation_key=quota_key,
+        quota_committed=True,
+        variants={
+            "preview": {
+                "object_key": f"{organization.id}/variants/{asset_id}/preview.webp",
+                "content_type": "image/webp",
+                "size": 10,
+                "width": 10,
+                "height": 10,
+            },
+            "thumbnail": {
+                "object_key": f"{organization.id}/variants/{asset_id}/thumbnail.webp",
+                "content_type": "image/webp",
+                "size": 10,
+                "width": 10,
+                "height": 10,
+            },
+        },
+        upload_expires_at=timezone.now() - timedelta(seconds=1),
+        uploaded_at=timezone.now(),
+        scanned_at=timezone.now(),
+        ready_at=timezone.now(),
+        created_by=user,
+        idempotency_key=f"ready-{suffix}-{uuid7()}",
+        request_hash="b" * 64,
     )
 
 
@@ -467,6 +548,244 @@ def test_signed_task_scans_sanitizes_variants_and_commits_storage_quota_exactly_
     )
 
 
+def test_delete_tombstones_and_cleans_objects_and_quota_idempotently(
+    monkeypatch: pytest.MonkeyPatch,
+    django_capture_on_commit_callbacks: Any,
+) -> None:
+    client, organization, user = media_client(slug="media-delete-ready")
+    asset = create_ready_asset(organization, user, suffix="delete-ready")
+    MediaReference.all_objects.create(
+        organization=organization,
+        asset=asset,
+        owner_type=MediaReferenceOwner.PAGE_VERSION,
+        owner_id=uuid7(),
+    )
+    storage = MemoryStorage()
+    object_keys = {
+        asset.object_key,
+        asset.source_object_key,
+        *(str(variant["object_key"]) for variant in asset.variants.values()),
+    }
+    for object_key in object_keys:
+        storage.objects[object_key] = (b"content", "image/jpeg")
+    delayed: list[tuple[tuple[str, str], int]] = []
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.services.get_object_storage",
+        lambda: storage,
+    )
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.tasks.cleanup_tombstoned_media_asset_task.apply_async",
+        lambda *, args, countdown: delayed.append((tuple(args), countdown)),
+    )
+
+    missing_csrf = client.delete(
+        f"{MEDIA_URL}{asset.id}/",
+        HTTP_IDEMPOTENCY_KEY="delete-ready",
+    )
+    with django_capture_on_commit_callbacks(execute=True):
+        deleted = delete_asset(client, str(asset.id), idempotency_key="delete-ready")
+    with django_capture_on_commit_callbacks(execute=True):
+        repeated = delete_asset(client, str(asset.id), idempotency_key="delete-ready")
+
+    assert missing_csrf.status_code == 403
+    assert deleted.status_code == repeated.status_code == 202
+    assert str(deleted.data["id"]) == str(repeated.data["id"]) == str(asset.id)
+    assert deleted.data["cleanup_completed_at"] is None
+    assert len(delayed) == 2
+    assert all(countdown == 0 for _, countdown in delayed)
+    assert client.get(MEDIA_URL).data["items"] == []
+    asset.refresh_from_db()
+    assert asset.deleted_at is not None
+    assert asset.deleted_by_id == user.id
+    assert asset.deletion_idempotency_key == "delete-ready"
+    assert storage.delete_calls == []
+    with pytest.raises(DatabaseError), transaction.atomic():
+        MediaAsset.all_objects.filter(pk=asset.id).update(deleted_at=None)
+
+    from saas_core.modules.shared.media.tasks import cleanup_tombstoned_media_asset_task
+
+    cleanup_tombstoned_media_asset_task(str(uuid7()), delayed[0][0][1])
+    asset.refresh_from_db()
+    assert asset.cleanup_completed_at is None
+    cleanup_tombstoned_media_asset_task(*delayed[0][0])
+    cleanup_tombstoned_media_asset_task(*delayed[1][0])
+
+    asset.refresh_from_db()
+    usage = QuotaUsage.all_objects.get(organization=organization)
+    reservation = QuotaReservation.all_objects.get(
+        organization=organization,
+        idempotency_key=asset.quota_reservation_key,
+    )
+    assert asset.cleanup_completed_at is not None
+    assert asset.quota_committed is False
+    assert asset.source_object_key == ""
+    assert set(storage.delete_calls) == object_keys
+    assert len(storage.delete_calls) == len(object_keys)
+    assert storage.objects == {}
+    assert usage.used == usage.reserved == 0
+    assert reservation.state == QuotaReservationState.RELEASED
+    assert (
+        OrganizationAuditEntry.objects.filter(
+            organization=organization,
+            action="media.asset.tombstoned",
+            target_id=asset.id,
+        ).count()
+        == 1
+    )
+    assert (
+        OrganizationAuditEntry.objects.filter(
+            organization=organization,
+            action="media.asset.cleaned",
+            target_id=asset.id,
+        ).count()
+        == 1
+    )
+    with django_capture_on_commit_callbacks(execute=True):
+        completed_retry = delete_asset(
+            client,
+            str(asset.id),
+            idempotency_key="delete-ready",
+        )
+    assert completed_retry.status_code == 202
+    assert completed_retry.data["cleanup_completed_at"] is not None
+    assert len(delayed) == 2
+
+    other_asset = create_ready_asset(organization, user, suffix="delete-conflict")
+    conflict = delete_asset(client, str(other_asset.id), idempotency_key="delete-ready")
+    assert conflict.status_code == 409
+    assert conflict.data["code"] == "media_idempotency_conflict"
+
+
+def test_delete_keeps_published_objects_and_rejects_foreign_or_unauthorized_access(
+    monkeypatch: pytest.MonkeyPatch,
+    django_capture_on_commit_callbacks: Any,
+) -> None:
+    client, organization, user = media_client(slug="media-delete-referenced")
+    asset = create_ready_asset(organization, user, suffix="delete-referenced")
+    MediaReference.all_objects.create(
+        organization=organization,
+        asset=asset,
+        owner_type=MediaReferenceOwner.PUBLICATION,
+        owner_id=uuid7(),
+    )
+    storage = MemoryStorage()
+    storage.objects[asset.object_key] = (b"published", "image/jpeg")
+    delayed: list[tuple[tuple[str, str], int]] = []
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.services.get_object_storage",
+        lambda: storage,
+    )
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.tasks.cleanup_tombstoned_media_asset_task.apply_async",
+        lambda *, args, countdown: delayed.append((tuple(args), countdown)),
+    )
+    foreign, _, _ = media_client(slug="media-delete-foreign")
+    viewer, viewer_organization, viewer_user = media_client(
+        slug="media-delete-viewer",
+        role_key="viewer",
+    )
+    viewer_asset = create_ready_asset(
+        viewer_organization,
+        viewer_user,
+        suffix="delete-viewer",
+    )
+
+    foreign_response = delete_asset(
+        foreign,
+        str(asset.id),
+        idempotency_key="delete-foreign",
+    )
+    viewer_response = delete_asset(
+        viewer,
+        str(viewer_asset.id),
+        idempotency_key="delete-viewer",
+    )
+    with django_capture_on_commit_callbacks(execute=True):
+        deleted = delete_asset(
+            client,
+            str(asset.id),
+            idempotency_key="delete-referenced",
+        )
+
+    assert foreign_response.status_code == 404
+    assert foreign_response.data["code"] == "media_asset_not_found"
+    assert viewer_response.status_code == 403
+    assert viewer_response.data["code"] == "organization_permission_denied"
+    assert deleted.status_code == 202
+    assert len(delayed) == 1
+
+    from saas_core.modules.shared.media.tasks import cleanup_tombstoned_media_asset_task
+
+    cleanup_tombstoned_media_asset_task(*delayed[0][0])
+    asset.refresh_from_db()
+    usage = QuotaUsage.all_objects.get(organization=organization)
+    assert asset.deleted_at is not None
+    assert asset.cleanup_completed_at is None
+    assert asset.quota_committed is True
+    assert storage.delete_calls == []
+    assert asset.object_key in storage.objects
+    assert usage.used == 30
+
+
+def test_delete_defers_pending_upload_cleanup_until_signed_put_expires(
+    monkeypatch: pytest.MonkeyPatch,
+    django_capture_on_commit_callbacks: Any,
+) -> None:
+    client, organization, _ = media_client(slug="media-delete-pending")
+    created = initiate_upload(
+        client,
+        size=2048,
+        idempotency_key="delete-pending-upload",
+    )
+    asset = MediaAsset.all_objects.get(pk=created.data["asset"]["id"])
+    storage = MemoryStorage()
+    storage.objects[asset.object_key] = (b"late-upload", "image/jpeg")
+    delayed: list[tuple[tuple[str, str], int]] = []
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.services.get_object_storage",
+        lambda: storage,
+    )
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.tasks.cleanup_tombstoned_media_asset_task.apply_async",
+        lambda *, args, countdown: delayed.append((tuple(args), countdown)),
+    )
+
+    with django_capture_on_commit_callbacks(execute=True):
+        deleted = delete_asset(
+            client,
+            str(asset.id),
+            idempotency_key="delete-pending",
+        )
+
+    assert deleted.status_code == 202
+    assert len(delayed) == 1
+    assert delayed[0][1] > 0
+
+    from saas_core.modules.shared.media.tasks import cleanup_tombstoned_media_asset_task
+
+    cleanup_tombstoned_media_asset_task(*delayed[0][0])
+    asset.refresh_from_db()
+    assert asset.cleanup_completed_at is None
+    assert len(delayed) == 2
+    assert delayed[1][1] > 0
+    assert storage.delete_calls == []
+
+    MediaAsset.all_objects.filter(pk=asset.id).update(
+        upload_expires_at=timezone.now() - timedelta(seconds=1)
+    )
+    cleanup_tombstoned_media_asset_task(*delayed[1][0])
+    asset.refresh_from_db()
+    usage = QuotaUsage.all_objects.get(organization=organization)
+    reservation = QuotaReservation.all_objects.get(
+        organization=organization,
+        idempotency_key=asset.quota_reservation_key,
+    )
+    assert asset.cleanup_completed_at is not None
+    assert storage.delete_calls == [asset.object_key]
+    assert usage.used == usage.reserved == 0
+    assert reservation.state == QuotaReservationState.RELEASED
+
+
 @pytest.mark.parametrize(
     ("raw_format", "declared_mime", "verdict", "rejection_code"),
     [
@@ -800,3 +1119,7 @@ def test_media_list_and_database_rls_isolate_tenants_and_block_cross_tenant_inse
             ],
         )
     assert MediaReference.all_objects.get(pk=reference.id).asset_id == asset.id
+    with pytest.raises(DatabaseError), transaction.atomic():
+        MediaReference.all_objects.filter(pk=reference.id).update(owner_id=uuid7())
+    with pytest.raises(DatabaseError), transaction.atomic():
+        MediaReference.all_objects.filter(pk=reference.id).delete()

@@ -9,6 +9,7 @@ from .quotas import (
     commit_quota,
     consume_quota,
     extend_quota_reservation,
+    release_committed_quota,
     release_quota,
     reserve_quota,
 )
@@ -23,6 +24,7 @@ __all__ = [
     "commit_quota",
     "consume_quota",
     "extend_quota_reservation",
+    "release_committed_quota",
     "release_quota",
     "reserve_quota",
 ]

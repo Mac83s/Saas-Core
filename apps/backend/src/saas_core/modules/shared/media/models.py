@@ -51,11 +51,20 @@ class MediaAsset(TenantScopedModel):
     ready_at = models.DateTimeField(null=True, blank=True)
     rejected_at = models.DateTimeField(null=True, blank=True)
     deleted_at = models.DateTimeField(null=True, blank=True)
+    cleanup_completed_at = models.DateTimeField(null=True, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
         related_name="created_media_assets",
     )
+    deleted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="deleted_media_assets",
+        null=True,
+        blank=True,
+    )
+    deletion_idempotency_key = models.CharField(max_length=120, blank=True)
     idempotency_key = models.CharField(max_length=120)
     request_hash = models.CharField(max_length=64)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -87,6 +96,12 @@ class MediaAsset(TenantScopedModel):
                 | models.Q(state=MediaAssetState.READY, stored_size__isnull=False),
                 name="media_asset_quota_only_ready_ck",
             ),
+            models.UniqueConstraint(
+                fields=["organization", "deleted_by", "deletion_idempotency_key"],
+                condition=models.Q(deleted_by__isnull=False)
+                & ~models.Q(deletion_idempotency_key=""),
+                name="media_asset_org_actor_delete_idem_uq",
+            ),
         ]
         indexes = [
             models.Index(
@@ -96,6 +111,10 @@ class MediaAsset(TenantScopedModel):
             models.Index(
                 fields=["organization", "id"],
                 name="media_asset_org_id_idx",
+            ),
+            models.Index(
+                fields=["organization", "deleted_at", "cleanup_completed_at"],
+                name="media_asset_cleanup_idx",
             ),
         ]
 

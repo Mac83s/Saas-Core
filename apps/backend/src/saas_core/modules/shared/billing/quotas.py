@@ -215,6 +215,22 @@ def release_quota(idempotency_key: str) -> QuotaReservation:
     return reservation
 
 
+@transaction.atomic
+def release_committed_quota(idempotency_key: str) -> QuotaReservation:
+    reservation, usage = _locked_reservation(idempotency_key)
+    if reservation.state == QuotaReservationState.RELEASED:
+        return reservation
+    if reservation.state != QuotaReservationState.COMMITTED:
+        raise QuotaReservationConflict
+    if usage.used < reservation.amount:
+        raise QuotaReservationConflict
+    usage.used -= reservation.amount
+    usage.save(update_fields=["used", "updated_at"])
+    reservation.state = QuotaReservationState.RELEASED
+    reservation.save(update_fields=["state", "updated_at"])
+    return reservation
+
+
 def release_expired_quota_reservations(
     *,
     at: datetime | None = None,

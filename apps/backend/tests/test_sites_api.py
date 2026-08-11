@@ -187,6 +187,8 @@ def create_media_asset(
         upload_expires_at=timezone.now() + timedelta(hours=1),
         ready_at=timezone.now() if state == MediaAssetState.READY else None,
         deleted_at=timezone.now() if deleted else None,
+        deleted_by=user if deleted else None,
+        deletion_idempotency_key=f"reference-delete-{asset_id}" if deleted else "",
         created_by=user,
         idempotency_key=f"reference-{asset_id}",
         request_hash="0" * 64,
@@ -994,7 +996,11 @@ def test_publication_requires_complete_draft_translation_and_still_ready_media()
         description="Opis publikacji",
         idempotency_key="publish-translation",
     )
-    MediaAsset.all_objects.filter(pk=asset.id).update(deleted_at=timezone.now())
+    MediaAsset.all_objects.filter(pk=asset.id).update(
+        deleted_at=timezone.now(),
+        deleted_by=user,
+        deletion_idempotency_key=f"publication-delete-{asset.id}",
+    )
     unavailable_media = publish_site_request(
         client,
         site.data["id"],

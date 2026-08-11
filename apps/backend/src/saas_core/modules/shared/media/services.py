@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import secrets
 import unicodedata
 from dataclasses import dataclass
@@ -26,12 +27,13 @@ from saas_core.modules.shared.billing.api import (
     authorize_entitled,
     commit_quota,
     extend_quota_reservation,
+    release_committed_quota,
     release_quota,
     reserve_quota,
 )
 
 from .images import UnsafeImageError, process_image
-from .models import MediaAsset, MediaAssetState
+from .models import MediaAsset, MediaAssetState, MediaReference, MediaReferenceOwner
 from .permissions import MEDIA_MANAGE, MEDIA_READ, STORAGE_BYTES, STORAGE_ENABLED
 from .scanner import MalwareScanner, MalwareVerdict, get_malware_scanner
 from .storage import (
@@ -46,6 +48,8 @@ MEDIA_UPLOAD_INITIATED = "media.asset.upload_initiated"
 MEDIA_UPLOAD_COMPLETED = "media.asset.upload_completed"
 MEDIA_ASSET_READY = "media.asset.ready"
 MEDIA_ASSET_REJECTED = "media.asset.rejected"
+MEDIA_ASSET_TOMBSTONED = "media.asset.tombstoned"
+MEDIA_ASSET_CLEANED = "media.asset.cleaned"
 
 ALLOWED_MEDIA_TYPES = {
     "image/jpeg": ".jpg",
@@ -105,6 +109,12 @@ class MediaUploadMetadataMismatch(APIException):
 class MediaUploadIntent:
     asset: MediaAsset
     upload: SignedUpload
+    created: bool
+
+
+@dataclass(frozen=True, slots=True)
+class MediaDeletion:
+    asset: MediaAsset
     created: bool
 
 
@@ -278,6 +288,68 @@ def complete_media_upload(
         return locked
 
 
+@transaction.atomic
+def tombstone_media_asset(
+    *,
+    asset_id: UUID,
+    idempotency_key: str,
+) -> MediaDeletion:
+    context = authorize_entitled(MEDIA_MANAGE, STORAGE_ENABLED)
+    normalized_key = _idempotency_key(idempotency_key)
+    organization = Organization.objects.select_for_update().get(pk=context.organization_id)
+    existing = MediaAsset.all_objects.filter(
+        organization_id=context.organization_id,
+        deleted_by_id=context.actor_id,
+        deletion_idempotency_key=normalized_key,
+    ).first()
+    if existing is not None:
+        if existing.id != asset_id:
+            raise MediaIdempotencyConflict
+        if existing.cleanup_completed_at is None:
+            _schedule_tombstone_cleanup(existing)
+        return MediaDeletion(existing, False)
+
+    asset = (
+        MediaAsset.all_objects.select_for_update()
+        .filter(pk=asset_id, organization_id=context.organization_id)
+        .first()
+    )
+    if asset is None:
+        raise MediaAssetNotFound
+    if asset.deleted_at is not None:
+        if asset.cleanup_completed_at is None:
+            _schedule_tombstone_cleanup(asset)
+        return MediaDeletion(asset, False)
+
+    actor = User.objects.get(pk=context.actor_id)
+    asset.deleted_at = timezone.now()
+    asset.deleted_by = actor
+    asset.deletion_idempotency_key = normalized_key
+    asset.save(
+        update_fields=[
+            "deleted_at",
+            "deleted_by",
+            "deletion_idempotency_key",
+            "updated_at",
+        ]
+    )
+    publication_reference_count = MediaReference.all_objects.filter(
+        organization_id=context.organization_id,
+        asset_id=asset.id,
+        owner_type=MediaReferenceOwner.PUBLICATION,
+    ).count()
+    record_audit(
+        organization=organization,
+        action=MEDIA_ASSET_TOMBSTONED,
+        actor=actor,
+        target_type="media_asset",
+        target_id=asset.id,
+        metadata={"publication_reference_count": publication_reference_count},
+    )
+    _schedule_tombstone_cleanup(asset)
+    return MediaDeletion(asset, True)
+
+
 def process_media_asset(
     *,
     asset_id: UUID,
@@ -441,6 +513,66 @@ def cleanup_media_source_object(
     return asset
 
 
+@transaction.atomic
+def cleanup_tombstoned_media_asset(
+    *,
+    asset_id: UUID,
+    storage: ObjectStorage | None = None,
+) -> MediaAsset | None:
+    context = require_tenant_context()
+    asset = (
+        MediaAsset.all_objects.select_for_update()
+        .filter(pk=asset_id, organization_id=context.organization_id)
+        .first()
+    )
+    if (
+        asset is None
+        or asset.deleted_at is None
+        or asset.cleanup_completed_at is not None
+        or asset.upload_expires_at > timezone.now()
+    ):
+        return asset
+    if MediaReference.all_objects.filter(
+        organization_id=context.organization_id,
+        asset_id=asset.id,
+        owner_type=MediaReferenceOwner.PUBLICATION,
+    ).exists():
+        return asset
+
+    object_keys = _stored_object_keys(asset)
+    object_storage = storage or get_object_storage()
+    for object_key in object_keys:
+        object_storage.delete(object_key=object_key)
+    if asset.quota_committed:
+        release_committed_quota(asset.quota_reservation_key)
+        asset.quota_committed = False
+    else:
+        release_quota(asset.quota_reservation_key)
+    asset.cleanup_completed_at = timezone.now()
+    asset.source_object_key = ""
+    asset.save(
+        update_fields=[
+            "quota_committed",
+            "cleanup_completed_at",
+            "source_object_key",
+            "updated_at",
+        ]
+    )
+    actor = asset.deleted_by or User.objects.get(pk=context.actor_id)
+    record_audit(
+        organization=asset.organization,
+        action=MEDIA_ASSET_CLEANED,
+        actor=actor,
+        target_type="media_asset",
+        target_id=asset.id,
+        metadata={
+            "object_count": len(object_keys),
+            "released_storage_bytes": asset.stored_size or 0,
+        },
+    )
+    return asset
+
+
 def _reject_media_asset(
     asset: MediaAsset,
     *,
@@ -486,6 +618,39 @@ def _variant_object_key(asset: MediaAsset, kind: str) -> str:
 def _processed_object_key(asset: MediaAsset) -> str:
     extension = ALLOWED_MEDIA_TYPES[asset.declared_mime]
     return f"{asset.organization_id}/processed/{asset.id}/original{extension}"
+
+
+def _stored_object_keys(asset: MediaAsset) -> tuple[str, ...]:
+    variant_keys = [
+        variant.get("object_key")
+        for variant in asset.variants.values()
+        if isinstance(variant, dict)
+    ]
+    return tuple(
+        dict.fromkeys(
+            object_key
+            for object_key in [asset.object_key, asset.source_object_key, *variant_keys]
+            if isinstance(object_key, str) and object_key
+        )
+    )
+
+
+def _schedule_tombstone_cleanup(asset: MediaAsset) -> None:
+    task_contract = issue_tenant_task_contract(causation_id=f"media-delete:{asset.id}")
+    countdown = max(
+        0,
+        math.ceil((asset.upload_expires_at - timezone.now()).total_seconds()),
+    )
+
+    def enqueue_cleanup() -> None:
+        from .tasks import cleanup_tombstoned_media_asset_task
+
+        cleanup_tombstoned_media_asset_task.apply_async(
+            args=[str(asset.id), task_contract],
+            countdown=countdown,
+        )
+
+    transaction.on_commit(enqueue_cleanup, robust=True)
 
 
 def _sign_upload(asset: MediaAsset, *, storage: ObjectStorage | None) -> SignedUpload:

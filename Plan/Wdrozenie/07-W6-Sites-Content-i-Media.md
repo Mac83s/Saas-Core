@@ -118,10 +118,12 @@ build Next.js oraz obrazy backend/frontend na Node.js 24, poprawne profile
 
 ### W6.4 — Media
 
-- **Stan:** w toku — W6.4.1 (inicjowanie uploadu), W6.4.2 (operacyjne RLS) oraz
+- **Stan:** zakończone lokalnie 2026-08-11 — W6.4.1 (inicjowanie uploadu),
+  W6.4.2 (operacyjne RLS) oraz
   W6.4.3a (callback uploadu), W6.4.3b (bezpieczny pipeline obrazu), W6.4.3c
-  (tenantowe referencje draftu) i W6.4.3d (atomowa publikacja z outboxem)
-  ukończone lokalnie 2026-08-11. `MediaAsset`, polityka `FORCE RLS`, uprawnienia,
+  (tenantowe referencje draftu), W6.4.3d (atomowa publikacja z outboxem) i
+  W6.4.3e (tombstone oraz cleanup) są ukończone. `MediaAsset`, polityka
+  `FORCE RLS`, uprawnienia,
   entitlement, rezerwacja `storage.bytes`, losowy klucz tenantowy, signed PUT i
   list API mają testy PostgreSQL oraz aktualny kontrakt OpenAPI. Compose tworzy
   idempotentnie osobną rolę aplikacyjną `NOBYPASSRLS`; backend, worker i scheduler
@@ -133,8 +135,10 @@ build Next.js oraz obrazy backend/frontend na Node.js 24, poprawne profile
   Niemutowalny draft zapisuje referencje przez rejestr rozszerzeń Core wyłącznie
   dla assetów `ready` z tego samego tenanta. Publikacja ponownie waliduje media,
   utrwala append-only referencje i kanoniczny snapshot, przełącza Site oraz
-  zapisuje podpisany outbox w jednej transakcji. Następny przyrost obejmuje
-  tombstone/delete.
+  zapisuje podpisany outbox w jednej transakcji. Chroniony `DELETE` zapisuje
+  nieodwracalny tombstone i audyt, a podpisany task po wygaśnięciu signed PUT
+  usuwa oryginał i warianty wyłącznie bez referencji publikacji oraz zwalnia
+  rozliczone `storage.bytes` dokładnie raz.
 
 - [x] utworzyć moduł `shared.media`, adapter S3 i `MediaAsset` z RLS od pierwszej
   migracji;
@@ -160,7 +164,7 @@ build Next.js oraz obrazy backend/frontend na Node.js 24, poprawne profile
   - [x] walidować `ready` przy zapisie referencji i publikacji;
     - [x] zapisywać tenantowe referencje draftu wyłącznie do assetów `ready`;
     - [x] ponownie walidować i utrwalać referencje w atomowej publikacji;
-- [ ] dodać tombstone oraz asynchroniczne usunięcie obiektu bez referencji;
+- [x] dodać tombstone oraz asynchroniczne usunięcie obiektu bez referencji;
 - [x] przetestować RLS, fałszywy MIME, przekroczenie quota, malware i
   idempotentne ponowienie callbacku.
   - [x] przetestować RLS read/write, przekroczenie quota, złośliwą nazwę i

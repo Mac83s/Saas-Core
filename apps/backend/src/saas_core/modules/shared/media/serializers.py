@@ -26,3 +26,9 @@ class MediaUploadSerializer(serializers.Serializer[dict[str, Any]]):
     asset = MediaAssetSerializer()
     upload_url = serializers.URLField(max_length=4096)
     upload_headers = serializers.DictField(child=serializers.CharField())
+
+
+class MediaDeletionSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    deleted_at = serializers.DateTimeField()
+    cleanup_completed_at = serializers.DateTimeField(allow_null=True)

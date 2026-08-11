@@ -2,6 +2,7 @@
 
 from .references import MEDIA_ASSET_RESOURCE_TYPE
 from .services import (
+    MediaDeletion,
     MediaFilenameInvalid,
     MediaIdempotencyConflict,
     MediaUploadIntent,
@@ -9,9 +10,11 @@ from .services import (
     UnsupportedMediaType,
     initiate_media_upload,
     list_media_assets,
+    tombstone_media_asset,
 )
 
 __all__ = [
+    "MediaDeletion",
     "MediaFilenameInvalid",
     "MediaIdempotencyConflict",
     "MediaUploadIntent",
@@ -20,4 +23,5 @@ __all__ = [
     "UnsupportedMediaType",
     "initiate_media_upload",
     "list_media_assets",
+    "tombstone_media_asset",
 ]

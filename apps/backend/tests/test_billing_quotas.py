@@ -29,6 +29,7 @@ from saas_core.modules.shared.billing.quotas import (
     commit_quota,
     consume_quota,
     extend_quota_reservation,
+    release_committed_quota,
     release_expired_quota_reservations,
     release_quota,
     reserve_quota,
@@ -132,6 +133,26 @@ def test_commit_and_release_are_idempotent_and_update_counter() -> None:
     assert released.state == QuotaReservationState.RELEASED
     assert repeated_release.id == released.id
     assert usage.used == 1
+    assert usage.reserved == 0
+
+
+def test_committed_quota_can_be_released_idempotently_after_resource_cleanup() -> None:
+    tenant, tenant_context = setup_quota(slug="quota-cleanup", quota=3)
+
+    with activate_tenant_context(tenant_context):
+        reserve_quota(
+            "appointments.monthly",
+            amount=2,
+            idempotency_key="appointment:cleanup",
+        )
+        commit_quota("appointment:cleanup")
+        released = release_committed_quota("appointment:cleanup")
+        repeated = release_committed_quota("appointment:cleanup")
+
+    usage = QuotaUsage.all_objects.get(organization=tenant)
+    assert released.state == QuotaReservationState.RELEASED
+    assert repeated.id == released.id
+    assert usage.used == 0
     assert usage.reserved == 0
 
 

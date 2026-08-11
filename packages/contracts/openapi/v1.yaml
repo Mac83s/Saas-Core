@@ -779,6 +779,51 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/media/{asset_id}/:
+    delete:
+      operationId: media_assets_delete
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: Klucz bezpiecznego ponowienia tombstone i cleanupu assetu.
+        required: true
+      - in: path
+        name: asset_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - media
+      security:
+      - cookieAuth: []
+      responses:
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaDeletion'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/media/uploads/:
     post:
       operationId: media_uploads_create
@@ -2335,6 +2380,24 @@ components:
       required:
       - items
       - next_cursor
+    MediaDeletion:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        deleted_at:
+          type: string
+          format: date-time
+        cleanup_completed_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+      required:
+      - cleanup_completed_at
+      - deleted_at
+      - id
     MediaUpload:
       type: object
       properties:

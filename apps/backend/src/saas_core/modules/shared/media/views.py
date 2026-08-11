@@ -15,8 +15,18 @@ from rest_framework.views import APIView
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
 from .models import MediaAsset
-from .serializers import MediaAssetSerializer, MediaUploadCreateSerializer, MediaUploadSerializer
-from .services import complete_media_upload, initiate_media_upload, list_media_assets
+from .serializers import (
+    MediaAssetSerializer,
+    MediaDeletionSerializer,
+    MediaUploadCreateSerializer,
+    MediaUploadSerializer,
+)
+from .services import (
+    complete_media_upload,
+    initiate_media_upload,
+    list_media_assets,
+    tombstone_media_asset,
+)
 
 IDEMPOTENCY_PARAMETER = OpenApiParameter(
     name="Idempotency-Key",
@@ -24,6 +34,13 @@ IDEMPOTENCY_PARAMETER = OpenApiParameter(
     location=OpenApiParameter.HEADER,
     required=True,
     description="Klucz bezpiecznego ponowienia inicjowania uploadu.",
+)
+DELETE_IDEMPOTENCY_PARAMETER = OpenApiParameter(
+    name="Idempotency-Key",
+    type=str,
+    location=OpenApiParameter.HEADER,
+    required=True,
+    description="Klucz bezpiecznego ponowienia tombstone i cleanupu assetu.",
 )
 
 
@@ -64,6 +81,32 @@ class MediaAssetListView(APIView):
             "items": [_asset_payload(asset) for asset in assets],
             "next_cursor": next_cursor,
         })
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class MediaAssetDeleteView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="media_assets_delete",
+        tags=["media"],
+        parameters=[DELETE_IDEMPOTENCY_PARAMETER],
+        responses={
+            202: MediaDeletionSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def delete(self, request: Request, asset_id: UUID) -> Response:
+        deletion = tombstone_media_asset(
+            asset_id=asset_id,
+            idempotency_key=request.headers.get("Idempotency-Key", ""),
+        )
+        return Response(
+            _deletion_payload(deletion.asset),
+            status=status.HTTP_202_ACCEPTED,
+        )
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -130,4 +173,12 @@ def _asset_payload(asset: MediaAsset) -> dict[str, object]:
         "state": asset.state,
         "upload_expires_at": asset.upload_expires_at,
         "created_at": asset.created_at,
+    }
+
+
+def _deletion_payload(asset: MediaAsset) -> dict[str, object]:
+    return {
+        "id": asset.id,
+        "deleted_at": asset.deleted_at,
+        "cleanup_completed_at": asset.cleanup_completed_at,
     }
