@@ -15,10 +15,11 @@ export default async function PanelLayout({
   children: ReactNode;
   params: Promise<{ locale: string }>;
 }) {
-  const [{ locale }, user, t] = await Promise.all([
+  const [{ locale }, user, billing, sites] = await Promise.all([
     params,
     getServerUser(),
     getTranslations("BillingSupport"),
+    getTranslations("Sites"),
   ]);
   if (!user) redirect(locale === "pl" ? "/login" : `/${locale}/login`);
   return (
@@ -34,9 +35,15 @@ export default async function PanelLayout({
           </Link>
           <Link
             className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            href="/panel/sites"
+          >
+            {sites("navigation")}
+          </Link>
+          <Link
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             href="/panel/support/billing"
           >
-            {t("navigation")}
+            {billing("navigation")}
           </Link>
           <div className="ml-auto flex items-center gap-3">
             <span className="hidden text-sm text-muted-foreground sm:inline">

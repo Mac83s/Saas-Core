@@ -30,6 +30,21 @@ export type EntitlementSupportReport =
   components["schemas"]["EntitlementSupportReport"];
 export type EntitlementSupportItem =
   components["schemas"]["EntitlementSupportItem"];
+export type SiteSummary = components["schemas"]["SiteSummary"];
+export type SiteCreateInput = components["schemas"]["SiteCreate"];
+export type SiteList = components["schemas"]["SiteList"];
+export type PageSummary = components["schemas"]["PageSummary"];
+export type PageCreateInput = components["schemas"]["PageCreate"];
+export type PageList = components["schemas"]["PageList"];
+export type PageDraft = components["schemas"]["PageDraft"];
+export type DraftSaveInput = components["schemas"]["DraftSave"];
+export type PageTranslation = components["schemas"]["PageTranslation"];
+export type PageTranslationList = components["schemas"]["PageTranslationList"];
+export type PageTranslationSaveInput =
+  components["schemas"]["PageTranslationSave"];
+export type SiteLocalizationReport =
+  components["schemas"]["SiteLocalizationReport"];
+export type SitePublication = components["schemas"]["SitePublication"];
 
 export type LoginResult =
   { kind: "authenticated"; user: UserSummary } | { kind: "mfa_required" };
@@ -409,6 +424,101 @@ export async function transferOwnership(membershipId: string): Promise<void> {
     },
   );
   if (error || !response.ok) throwProblem(error, response);
+}
+
+export async function listSites(): Promise<SiteList> {
+  const { data, error, response } = await client.GET("/api/v1/sites/", {
+    params: { query: { limit: 100 } },
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createSite(
+  input: SiteCreateInput,
+  idempotencyKey: string,
+): Promise<SiteSummary> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST("/api/v1/sites/", {
+    params: { header: { "Idempotency-Key": idempotencyKey } },
+    body: input,
+    credentials: "same-origin",
+    headers: { "X-CSRFToken": csrfToken },
+  });
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function listSitePages(siteId: string): Promise<PageList> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/{site_id}/pages/",
+    {
+      params: { path: { site_id: siteId }, query: { limit: 100 } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createSitePage(
+  siteId: string,
+  input: PageCreateInput,
+  idempotencyKey: string,
+): Promise<PageSummary> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/{site_id}/pages/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { site_id: siteId },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function getSiteLocalizationReport(
+  siteId: string,
+): Promise<SiteLocalizationReport> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/{site_id}/localization/",
+    {
+      params: { path: { site_id: siteId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function publishSite(
+  siteId: string,
+  idempotencyKey: string,
+): Promise<SitePublication> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/{site_id}/publications/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { site_id: siteId },
+      },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
 }
 
 async function getCsrfToken(): Promise<string> {

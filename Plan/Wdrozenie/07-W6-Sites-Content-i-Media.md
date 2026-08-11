@@ -174,13 +174,29 @@ build Next.js oraz obrazy backend/frontend na Node.js 24, poprawne profile
 
 ### W6.5 — panel edycji i publikacja
 
+**Stan:** w toku — W6.5.1 udostępnia tenantowy workspace `/panel/sites` z
+listą i tworzeniem sites/pages, wyborem locale, wyszukiwalną nawigacją,
+raportem gotowości PL/EN oraz atomową publikacją. Klient korzysta z
+wygenerowanych kontraktów OpenAPI, a formularze z React Hook Form, Zod i
+Problem Details. Edycja metadanych, bloków, preview, konflikt optimistic lock,
+historia i rollback pozostają do realizacji w kolejnych przyrostach.
+
 - [ ] zbudować listę stron, formularz metadanych i edytor kontrolowanych bloków
   w publicznym API `@saas-core/ui`;
+  - [x] dodać listę oraz tworzenie sites/pages w panelu;
+  - [ ] dodać formularz metadanych i edytor kontrolowanych bloków;
 - [ ] użyć `Select` dla locale oraz `Combobox` dla wyszukiwalnych stron, bloków
   i mediów zgodnie z ADR-020;
+  - [x] użyć `Select` dla locale oraz `Combobox` dla sites/pages;
+  - [ ] dodać `Combobox` dla bloków i mediów;
 - [ ] zastosować React Hook Form, Zod, Problem Details i widoczny konflikt
   optimistic lock bez nadpisania cudzej zmiany;
+  - [x] zastosować React Hook Form, Zod i Problem Details w formularzach
+    tworzenia;
+  - [ ] obsłużyć widoczny konflikt optimistic lock w edycji draftu;
 - [ ] dodać chroniony preview, raport gotowości PL/EN i atomową publikację;
+  - [x] pokazać raport gotowości PL/EN i uruchamiać atomową publikację;
+  - [ ] dodać chroniony preview konkretnej wersji draftu;
 - [ ] rejestrować autora, pokazywać historię oraz tworzyć rollback jako nową
   publikację bez utraty nowszego draftu;
 - [ ] przetestować klawiaturę, focus, axe, PL/EN i krytyczną ścieżkę E2E.
