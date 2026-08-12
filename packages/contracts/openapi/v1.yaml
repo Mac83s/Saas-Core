@@ -665,6 +665,461 @@ paths:
               schema:
                 $ref: '#/components/schemas/StripeWebhookReceipt'
           description: ''
+  /api/v1/booking/appointments/:
+    get:
+      operationId: api_v1_booking_appointments_retrieve
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentList'
+          description: ''
+    post:
+      operationId: api_v1_booking_appointments_create
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AppointmentCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AppointmentCreate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+          description: ''
+  /api/v1/booking/appointments/{appointment_id}/cancel/:
+    post:
+      operationId: api_v1_booking_appointments_cancel_create
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: appointment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+          description: ''
+  /api/v1/booking/appointments/{appointment_id}/reschedule/:
+    post:
+      operationId: api_v1_booking_appointments_reschedule_create
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: appointment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Reschedule'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Reschedule'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Reschedule'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+          description: ''
+  /api/v1/booking/catalog/:
+    get:
+      operationId: api_v1_booking_catalog_retrieve
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Catalog'
+          description: ''
+    post:
+      operationId: api_v1_booking_catalog_create
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CatalogCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CatalogCreate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/customers/{customer_id}/anonymize/:
+    post:
+      operationId: api_v1_booking_customers_anonymize_create
+      parameters:
+      - in: path
+        name: customer_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerAnonymized'
+          description: ''
+  /api/v1/booking/public/{public_slug}/:
+    get:
+      operationId: api_v1_booking_public_retrieve
+      parameters:
+      - in: path
+        name: public_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - public-booking
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Catalog'
+          description: ''
+  /api/v1/booking/public/{public_slug}/appointments/:
+    post:
+      operationId: api_v1_booking_public_appointments_create
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: public_slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - public-booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppointmentCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AppointmentCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AppointmentCreate'
+        required: true
+      security:
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+          description: ''
+  /api/v1/booking/public/{public_slug}/slots/:
+    get:
+      operationId: api_v1_booking_public_slots_retrieve
+      parameters:
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: location_id
+        schema:
+          type: string
+          format: uuid
+      - in: path
+        name: public_slug
+        schema:
+          type: string
+        required: true
+      - in: query
+        name: service_id
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+      tags:
+      - public-booking
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SlotList'
+          description: ''
+  /api/v1/booking/schedule/:
+    post:
+      operationId: api_v1_booking_schedule_create
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScheduleCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ScheduleCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ScheduleCreate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/booking/self-service/{token}/:
+    get:
+      operationId: api_v1_booking_self_service_retrieve
+      parameters:
+      - in: path
+        name: token
+        schema:
+          type: string
+        required: true
+      tags:
+      - public-booking
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+          description: ''
+  /api/v1/booking/self-service/{token}/cancel/:
+    get:
+      operationId: api_v1_booking_self_service_cancel_retrieve
+      parameters:
+      - in: path
+        name: token
+        schema:
+          type: string
+        required: true
+      tags:
+      - public-booking
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+          description: ''
+    post:
+      operationId: api_v1_booking_self_service_cancel_create
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: token
+        schema:
+          type: string
+        required: true
+      tags:
+      - public-booking
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+          description: ''
+  /api/v1/booking/self-service/{token}/reschedule/:
+    get:
+      operationId: api_v1_booking_self_service_reschedule_retrieve
+      parameters:
+      - in: path
+        name: token
+        schema:
+          type: string
+        required: true
+      tags:
+      - public-booking
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+          description: ''
+    post:
+      operationId: api_v1_booking_self_service_reschedule_create
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: token
+        schema:
+          type: string
+        required: true
+      tags:
+      - public-booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Reschedule'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Reschedule'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Reschedule'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+          description: ''
+  /api/v1/booking/slots/:
+    get:
+      operationId: api_v1_booking_slots_retrieve
+      parameters:
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+      - in: query
+        name: location_id
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: service_id
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SlotList'
+          description: ''
   /api/v1/health/:
     get:
       operationId: api_v1_health_retrieve
@@ -2846,6 +3301,86 @@ components:
             $ref: '#/components/schemas/ApiKey'
       required:
       - items
+    Appointment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        timezone:
+          type: string
+        service_name:
+          type: string
+        status:
+          type: string
+        customer_name:
+          type: string
+        staff_name:
+          type: string
+        location_name:
+          type: string
+        resource_name:
+          type:
+          - string
+          - 'null'
+        self_service_token:
+          type:
+          - string
+          - 'null'
+      required:
+      - customer_name
+      - ends_at
+      - id
+      - location_name
+      - resource_name
+      - service_name
+      - staff_name
+      - starts_at
+      - status
+      - timezone
+    AppointmentCreate:
+      type: object
+      properties:
+        service_id:
+          type: string
+          format: uuid
+        staff_id:
+          type: string
+          format: uuid
+        location_id:
+          type: string
+          format: uuid
+        resource_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        starts_at:
+          type: string
+          format: date-time
+        customer:
+          $ref: '#/components/schemas/CustomerInput'
+      required:
+      - customer
+      - location_id
+      - service_id
+      - staff_id
+      - starts_at
+    AppointmentList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Appointment'
+      required:
+      - items
     BillingSession:
       type: object
       properties:
@@ -2862,6 +3397,78 @@ components:
       required:
       - id
       - url
+    Catalog:
+      type: object
+      properties:
+        locations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Location'
+        staff:
+          type: array
+          items:
+            $ref: '#/components/schemas/Staff'
+        services:
+          type: array
+          items:
+            $ref: '#/components/schemas/Service'
+        resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/Resource'
+      required:
+      - locations
+      - resources
+      - services
+      - staff
+    CatalogCreate:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/CatalogCreateKindEnum'
+        name:
+          type: string
+          maxLength: 160
+        public_slug:
+          type: string
+          maxLength: 80
+          pattern: ^[-a-zA-Z0-9_]+$
+        address:
+          type: string
+          maxLength: 240
+        resource_kind:
+          type: string
+          maxLength: 80
+        duration_minutes:
+          type: integer
+          maximum: 1440
+          minimum: 5
+        buffer_before_minutes:
+          type: integer
+          maximum: 1440
+          minimum: 0
+        buffer_after_minutes:
+          type: integer
+          maximum: 1440
+          minimum: 0
+        minimum_notice_minutes:
+          type: integer
+          minimum: 0
+      required:
+      - kind
+      - name
+    CatalogCreateKindEnum:
+      enum:
+      - location
+      - staff
+      - service
+      - resource
+      type: string
+      description: |-
+        * `location` - location
+        * `staff` - staff
+        * `service` - service
+        * `resource` - resource
     CheckoutCreate:
       type: object
       properties:
@@ -2878,6 +3485,40 @@ components:
           type: string
       required:
       - csrf_token
+    CustomerAnonymized:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        anonymized_at:
+          type: string
+          format: date-time
+      required:
+      - anonymized_at
+      - id
+    CustomerInput:
+      type: object
+      properties:
+        display_name:
+          type: string
+          maxLength: 160
+          minLength: 1
+        email:
+          oneOf:
+          - type: string
+            format: email
+          - type: string
+            maxLength: 0
+        phone:
+          type: string
+          maxLength: 40
+        locale:
+          allOf:
+          - $ref: '#/components/schemas/LocaleEnum'
+          default: pl
+      required:
+      - display_name
     DataExport:
       type: object
       properties:
@@ -3235,6 +3876,20 @@ components:
       - title
       - translation_id
       - version
+    Location:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        public_slug:
+          type: string
+      required:
+      - id
+      - name
+      - public_slug
     Login:
       type: object
       properties:
@@ -4001,6 +4656,101 @@ components:
       required:
       - email
       - password
+    Reschedule:
+      type: object
+      properties:
+        starts_at:
+          type: string
+          format: date-time
+      required:
+      - starts_at
+    Resource:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        kind:
+          type: string
+      required:
+      - id
+      - kind
+      - name
+    ScheduleCreate:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/ScheduleCreateKindEnum'
+        service_id:
+          type: string
+          format: uuid
+        staff_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        location_id:
+          type: string
+          format: uuid
+        resource_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        weekday:
+          type: integer
+          maximum: 6
+          minimum: 0
+        local_start:
+          type: string
+          format: time
+        local_end:
+          type: string
+          format: time
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        reason:
+          type: string
+          maxLength: 160
+      required:
+      - kind
+    ScheduleCreateKindEnum:
+      enum:
+      - availability
+      - time_off
+      - service_staff
+      - service_location
+      - service_resource
+      type: string
+      description: |-
+        * `availability` - availability
+        * `time_off` - time_off
+        * `service_staff` - service_staff
+        * `service_location` - service_location
+        * `service_resource` - service_resource
+    Service:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        public_slug:
+          type: string
+        duration_minutes:
+          type: integer
+      required:
+      - duration_minutes
+      - id
+      - name
+      - public_slug
     SessionSummary:
       type: object
       properties:
@@ -4263,6 +5013,51 @@ components:
       - name
       - slug
       - updated_at
+    Slot:
+      type: object
+      properties:
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        staff_id:
+          type: string
+          format: uuid
+        resource_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+      required:
+      - ends_at
+      - resource_id
+      - staff_id
+      - starts_at
+    SlotList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Slot'
+      required:
+      - items
+    Staff:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        public_slug:
+          type: string
+      required:
+      - id
+      - name
+      - public_slug
     StripeWebhookReceipt:
       type: object
       properties:

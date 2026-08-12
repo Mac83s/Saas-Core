@@ -63,6 +63,14 @@ export type NotificationTemplatePreview =
 export type IntegrationApiKey = components["schemas"]["ApiKey"];
 export type IntegrationWebhook = components["schemas"]["Webhook"];
 export type NotificationSupportHealth = components["schemas"]["SupportHealth"];
+export type BookingCatalog = components["schemas"]["Catalog"];
+export type BookingAppointment = components["schemas"]["Appointment"];
+export type BookingAppointmentList = components["schemas"]["AppointmentList"];
+export type BookingAppointmentInput =
+  components["schemas"]["AppointmentCreate"];
+export type BookingSlotList = components["schemas"]["SlotList"];
+export type BookingCatalogInput = components["schemas"]["CatalogCreate"];
+export type BookingScheduleInput = components["schemas"]["ScheduleCreate"];
 
 export type LoginResult =
   { kind: "authenticated"; user: UserSummary } | { kind: "mfa_required" };
@@ -892,6 +900,223 @@ export async function retryNotificationMessage(
       body: { reason },
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function getBookingCatalog(): Promise<BookingCatalog> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/catalog/",
+    {
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createBookingCatalogItem(
+  input: BookingCatalogInput,
+): Promise<{ id: string }> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/catalog/",
+    {
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data as { id: string };
+}
+
+export async function configureBookingSchedule(
+  input: BookingScheduleInput,
+): Promise<{ id: string }> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/schedule/",
+    {
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data as { id: string };
+}
+
+export async function listBookingAppointments(): Promise<BookingAppointment[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/appointments/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data.items;
+}
+
+export async function getBookingSlots(query: {
+  service_id: string;
+  location_id: string;
+  from: string;
+  to: string;
+}): Promise<BookingSlotList> {
+  const { data, error, response } = await client.GET("/api/v1/booking/slots/", {
+    params: { query },
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createBookingAppointment(
+  input: BookingAppointmentInput,
+  idempotencyKey: string,
+): Promise<BookingAppointment> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/appointments/",
+    {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function cancelBookingAppointment(
+  appointmentId: string,
+  idempotencyKey: string,
+): Promise<BookingAppointment> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/appointments/{appointment_id}/cancel/",
+    {
+      params: {
+        path: { appointment_id: appointmentId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function rescheduleBookingAppointment(
+  appointmentId: string,
+  startsAt: string,
+  idempotencyKey: string,
+): Promise<BookingAppointment> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/appointments/{appointment_id}/reschedule/",
+    {
+      params: {
+        path: { appointment_id: appointmentId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      body: { starts_at: startsAt },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function getPublicBookingCatalog(
+  publicSlug: string,
+): Promise<BookingCatalog> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/public/{public_slug}/",
+    { params: { path: { public_slug: publicSlug } }, cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function getPublicBookingSlots(
+  publicSlug: string,
+  query: { service_id: string; location_id: string; from: string; to: string },
+): Promise<BookingSlotList> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/public/{public_slug}/slots/",
+    { params: { path: { public_slug: publicSlug }, query }, cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createPublicBookingAppointment(
+  publicSlug: string,
+  input: BookingAppointmentInput,
+  idempotencyKey: string,
+): Promise<BookingAppointment> {
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/public/{public_slug}/appointments/",
+    {
+      params: {
+        path: { public_slug: publicSlug },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      body: input,
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function getSelfServiceBooking(
+  token: string,
+): Promise<BookingAppointment> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/self-service/{token}/",
+    { params: { path: { token } }, cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function rescheduleSelfServiceBooking(
+  token: string,
+  startsAt: string,
+  idempotencyKey: string,
+): Promise<BookingAppointment> {
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/self-service/{token}/reschedule/",
+    {
+      params: {
+        path: { token },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      body: { starts_at: startsAt },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function cancelSelfServiceBooking(
+  token: string,
+  idempotencyKey: string,
+): Promise<BookingAppointment> {
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/self-service/{token}/cancel/",
+    {
+      params: {
+        path: { token },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
     },
   );
   if (error || !data) throwProblem(error, response);

@@ -37,6 +37,7 @@ urlpatterns = [
         "api/v1/notifications/",
         include("saas_core.modules.shared.notifications.urls"),
     ),
+    path("api/v1/booking/", include("saas_core.modules.shared.booking.urls")),
     path("api/v1/", include("saas_core.modules.core.health.urls")),
     path("api/schema/", SpectacularAPIView.as_view(), name="openapi-schema"),
     path(

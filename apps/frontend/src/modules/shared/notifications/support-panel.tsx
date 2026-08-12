@@ -46,6 +46,8 @@ export function NotificationSupportPanel() {
     }
   }, [t]);
   useEffect(() => {
+    // The loader only updates state after its awaited requests settle.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
   const retry = form.handleSubmit(async ({ messageId, reason }) => {

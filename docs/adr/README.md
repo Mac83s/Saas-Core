@@ -25,6 +25,7 @@ rejestr z `Plan/SaaS-Core-06-Rejestr-Decyzji.md`.
 | [ADR-027](ADR-027-Sites-Tresc-Media-i-Publikacja.md) | sites, treść, media i atomowa publikacja | Accepted |
 | [ADR-028](ADR-028-Domeny-DNS-TLS-i-Publiczny-Routing.md) | domeny, DNS, TLS i publiczny routing | Accepted |
 | [ADR-029](ADR-029-Notifications-Integrations-i-Support.md) | powiadomienia, integracje i bezpieczny support | Accepted |
+| [ADR-030](ADR-030-Booking-Czas-Blokady-i-Self-Service.md) | Booking: czas, blokady i self-service | Accepted |
 
 Każda zmiana decyzji tworzy nowy ADR i oznacza poprzedni jako `Superseded`.
 Nie przepisujemy historii.

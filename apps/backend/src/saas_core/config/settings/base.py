@@ -21,6 +21,8 @@ try:
     _deployment_default_locale = _deployment_product["defaultLocale"]
     _deployment_supported_locales = _deployment_product["supportedLocales"]
     _deployment_platform_domain = _deployment_product["platformDomain"]
+    _deployment_modules = _deployment_profile["modules"]
+    _deployment_features = _deployment_profile["features"]
 except (OSError, KeyError, TypeError, json.JSONDecodeError) as error:
     raise ImproperlyConfigured(
         f"Nie można odczytać profilu deploymentu: {DEPLOYMENT_PROFILE_PATH}"
@@ -37,6 +39,8 @@ if (
 SITES_SUPPORTED_LOCALES = tuple(dict.fromkeys(_deployment_supported_locales))
 SITES_DEFAULT_LOCALE = _deployment_default_locale
 SITES_PLATFORM_DOMAIN = str(_deployment_platform_domain).strip().lower().rstrip(".")
+BOOKING_MODULE_ENABLED = "shared.booking" in _deployment_modules
+PUBLIC_BOOKING_ENABLED = bool(_deployment_features.get("publicBooking", False))
 if not SITES_PLATFORM_DOMAIN:
     raise ImproperlyConfigured("Profil deploymentu wymaga platformDomain")
 DOMAIN_DNS_CNAME_TARGET = (
@@ -109,6 +113,7 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
+    "django.contrib.postgres",
     "django.contrib.staticfiles",
     "rest_framework",
     "drf_spectacular",
@@ -119,6 +124,7 @@ INSTALLED_APPS = [
     "saas_core.modules.shared.sites",
     "saas_core.modules.shared.media",
     "saas_core.modules.shared.notifications",
+    "saas_core.modules.shared.booking",
 ]
 
 MIDDLEWARE = [
@@ -281,17 +287,27 @@ NOTIFICATIONS_WEBHOOK_TOLERANCE_SECONDS = int(
 NOTIFICATIONS_RETENTION_DAYS = int(os.environ.get("NOTIFICATIONS_RETENTION_DAYS", "30"))
 NOTIFICATIONS_EXPORT_TTL_HOURS = int(os.environ.get("NOTIFICATIONS_EXPORT_TTL_HOURS", "24"))
 NOTIFICATIONS_EXPORT_MAX_ROWS = int(os.environ.get("NOTIFICATIONS_EXPORT_MAX_ROWS", "10000"))
+BOOKING_PUBLIC_RATE = os.environ.get("BOOKING_PUBLIC_RATE", "30/min")
+BOOKING_SELF_SERVICE_TTL_DAYS = int(os.environ.get("BOOKING_SELF_SERVICE_TTL_DAYS", "30"))
+BOOKING_SLOT_HORIZON_DAYS = int(os.environ.get("BOOKING_SLOT_HORIZON_DAYS", "62"))
+BOOKING_REMINDER_LEAD_HOURS = int(os.environ.get("BOOKING_REMINDER_LEAD_HOURS", "24"))
 if (
     NOTIFICATIONS_WEBHOOK_TOLERANCE_SECONDS <= 0
     or NOTIFICATIONS_RETENTION_DAYS <= 0
     or NOTIFICATIONS_EXPORT_TTL_HOURS <= 0
     or NOTIFICATIONS_EXPORT_MAX_ROWS <= 0
+    or BOOKING_SELF_SERVICE_TTL_DAYS <= 0
+    or not 1 <= BOOKING_SLOT_HORIZON_DAYS <= 62
+    or BOOKING_REMINDER_LEAD_HOURS <= 0
 ):
     raise ImproperlyConfigured("Ustawienia notifications muszą być dodatnie")
-if max(
-    NOTIFICATIONS_RETENTION_DAYS * 86400,
-    NOTIFICATIONS_EXPORT_TTL_HOURS * 3600,
-) > TENANT_TASK_CONTEXT_TTL_SECONDS:
+if (
+    max(
+        NOTIFICATIONS_RETENTION_DAYS * 86400,
+        NOTIFICATIONS_EXPORT_TTL_HOURS * 3600,
+    )
+    > TENANT_TASK_CONTEXT_TTL_SECONDS
+):
     raise ImproperlyConfigured(
         "Tenant task context musi obejmować retencję notifications i eksportów"
     )
@@ -382,6 +398,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "saas_core.modules.shared.notifications.tasks.recover_pending",
         "schedule": 60.0,
     },
+    "booking-dispatch-reminders": {
+        "task": "saas_core.modules.shared.booking.tasks.dispatch_booking_reminders",
+        "schedule": 60.0,
+    },
 }
 
 LOGGING = {
@@ -430,6 +450,7 @@ REST_FRAMEWORK = {
         "identity_register": "5/min",
         "identity_verification_resend": "5/min",
         "identity_verification_confirm": "10/min",
+        "booking_public": BOOKING_PUBLIC_RATE,
     },
 }
 SPECTACULAR_SETTINGS = {

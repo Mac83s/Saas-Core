@@ -25,7 +25,7 @@ from .context import (
     set_local_organization_id,
 )
 from .email import InvitationEmailDeliveryError, get_invitation_email_sender
-from .models import Invitation, Membership, MembershipStatus, OrganizationStatus
+from .models import Invitation, Membership, MembershipStatus, Organization, OrganizationStatus
 
 TENANT_TASK_CONTEXT_SALT = "saas-core.tenant-task-context.v1"
 logger = logging.getLogger("saas_core.security")
@@ -43,6 +43,9 @@ class TenantTaskContract:
     actor_id: str
     correlation_id: str
     causation_id: str
+    principal_kind: str = "membership"
+    role_key: str = ""
+    permissions: tuple[str, ...] = ()
 
 
 def issue_tenant_task_contract(*, causation_id: str) -> str:
@@ -50,12 +53,15 @@ def issue_tenant_task_contract(*, causation_id: str) -> str:
     if not causation_id or len(causation_id) > 160:
         raise ValueError("causation_id musi mieć od 1 do 160 znaków.")
     contract = TenantTaskContract(
-        version=1,
+        version=2,
         organization_id=str(context.organization_id),
         membership_id=str(context.membership_id),
         actor_id=str(context.actor_id),
         correlation_id=correlation_id.get() or str(uuid7()),
         causation_id=causation_id,
+        principal_kind=context.principal_kind,
+        role_key=context.role_key,
+        permissions=tuple(sorted(context.permissions)),
     )
     return signing.dumps(asdict(contract), salt=TENANT_TASK_CONTEXT_SALT, compress=True)
 
@@ -75,6 +81,12 @@ def tenant_task_context(
     correlation_token = correlation_id.set(contract.correlation_id)
     try:
         with transaction.atomic():
+            if contract.principal_kind == "service":
+                context = _service_context(contract)
+                with activate_tenant_context(context):
+                    set_local_organization_id(context.organization_id)
+                    yield context
+                return
             membership = (
                 Membership.objects.select_for_update()
                 .select_related("organization", "role")
@@ -119,13 +131,15 @@ def _load_contract(signed_contract: str) -> TenantTaskContract:
         if not isinstance(payload, dict):
             raise ValueError
         contract = TenantTaskContract(**_contract_fields(payload))
-        if contract.version != 1:
+        if contract.version not in {1, 2}:
             raise ValueError
         UUID(contract.organization_id)
         UUID(contract.membership_id)
         UUID(contract.actor_id)
         UUID(contract.correlation_id)
         if not contract.causation_id or len(contract.causation_id) > 160:
+            raise ValueError
+        if contract.principal_kind not in {"membership", "service"}:
             raise ValueError
         return contract
     except (signing.BadSignature, TypeError, ValueError) as error:
@@ -135,7 +149,7 @@ def _load_contract(signed_contract: str) -> TenantTaskContract:
 
 
 def _contract_fields(payload: dict[str, Any]) -> dict[str, Any]:
-    expected = {
+    base = {
         "version",
         "organization_id",
         "membership_id",
@@ -143,9 +157,39 @@ def _contract_fields(payload: dict[str, Any]) -> dict[str, Any]:
         "correlation_id",
         "causation_id",
     }
-    if set(payload) != expected:
+    extra = {"principal_kind", "role_key", "permissions"}
+    if set(payload) not in {frozenset(base), frozenset(base | extra)}:
         raise ValueError
-    return {field: payload[field] for field in expected}
+    values = {field: payload[field] for field in base}
+    if extra <= set(payload):
+        values.update({field: payload[field] for field in extra})
+        if not isinstance(values["permissions"], (list, tuple)):
+            raise ValueError
+        values["permissions"] = tuple(values["permissions"])
+    return values
+
+
+def _service_context(contract: TenantTaskContract) -> TenantContext:
+    allowed = {"booking.public.read", "booking.public.manage"}
+    if (
+        contract.version != 2
+        or contract.role_key != "public_booking"
+        or not set(contract.permissions) <= allowed
+    ):
+        raise InvalidTenantTaskContext("Service tenant context ma niedozwolony zakres.")
+    if not Organization.objects.filter(
+        pk=contract.organization_id,
+        status__in=[OrganizationStatus.ONBOARDING, OrganizationStatus.ACTIVE],
+    ).exists():
+        raise InvalidTenantTaskContext("Service tenant context wskazuje nieaktywną organizację.")
+    return TenantContext(
+        organization_id=UUID(contract.organization_id),
+        membership_id=UUID(contract.membership_id),
+        actor_id=UUID(contract.actor_id),
+        role_key=contract.role_key,
+        permissions=frozenset(contract.permissions),
+        principal_kind="service",
+    )
 
 
 @shared_task(  # type: ignore[untyped-decorator]

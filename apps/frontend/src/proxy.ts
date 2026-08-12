@@ -14,6 +14,12 @@ export default function proxy(request: NextRequest) {
     rewritten.pathname = `/site-renderer${request.nextUrl.pathname}`;
     return NextResponse.rewrite(rewritten);
   }
+  if (
+    !deployment.features.publicBooking &&
+    request.nextUrl.pathname.includes("/book/")
+  ) {
+    return new NextResponse(null, { status: 404 });
+  }
   return internationalization(request);
 }
 

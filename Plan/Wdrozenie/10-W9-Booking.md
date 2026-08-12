@@ -1,6 +1,6 @@
 # W9 — Booking
 
-**Status:** blocked by W4, W8 and ADR-018  
+**Status:** zakończone lokalnie (2026-08-12); staging odłożony
 **Szacunek:** 3–5 tygodni  
 **Poprzednicy:** W4, W8  
 **Rezultat:** neutralny branżowo system rezerwacji odporny na wyścigi
@@ -24,6 +24,8 @@ anulować wizytę. Dwie równoległe próby nie tworzą konfliktujących rezerwa
 
 ### W9.1 — model katalogu
 
+**Stan:** zakończone lokalnie; ADR-030 definiuje neutralny model i rozszerzenia.
+
 - wdrożyć `Location`, `StaffMember`, `Service` i `Resource`;
 - powiązać usługi z czasem, buforami, lokalizacją, personelem i zasobami;
 - zastosować tenant scope do każdej encji;
@@ -31,6 +33,9 @@ anulować wizytę. Dwie równoległe próby nie tworzą konfliktujących rezerwa
 - dodać uprawnienia i entitlement `booking.enabled`.
 
 ### W9.2 — dostępność
+
+**Stan:** zakończone lokalnie; reguły IANA/DST, horyzont 62 dni i bufory mają
+testy deterministyczne.
 
 - wdrożyć powtarzalne `AvailabilityRule` oraz konkretne `TimeOff`;
 - przechowywać instants w UTC i interpretować reguły w strefie organizacji;
@@ -40,6 +45,9 @@ anulować wizytę. Dwie równoległe próby nie tworzą konfliktujących rezerwa
 
 ### W9.3 — rezerwacja transakcyjna
 
+**Stan:** zakończone lokalnie; PostgreSQL exclusion constraints blokują wyścig
+pracownika i zasobu, a mutacje są idempotentne.
+
 - wdrożyć `Appointment` i historię statusów;
 - egzekwować konflikt na poziomie bazy, nie tylko aplikacji;
 - dodać idempotency key dla tworzenia i zmiany terminu;
@@ -48,6 +56,9 @@ anulować wizytę. Dwie równoległe próby nie tworzą konfliktujących rezerwa
 
 ### W9.4 — Customer i self-service
 
+**Stan:** zakończone lokalnie; Customer pozostaje niezależny od User, token jest
+ograniczony, wygasający i routowany przez PII-free digest.
+
 - wdrożyć tenantowego `Customer` niezależnego od `User`;
 - zebrać minimalny zestaw danych kontaktowych;
 - wydać wygasający, ograniczony token do zmiany/anulowania;
@@ -55,6 +66,9 @@ anulować wizytę. Dwie równoległe próby nie tworzą konfliktujących rezerwa
 - przygotować anonimizację zgodną z retencją oraz obowiązkami biznesowymi.
 
 ### W9.5 — panel, publiczny flow i wiadomości
+
+**Stan:** zakończone lokalnie; panel `/panel/calendar`, publiczny `/book/:slug`,
+rate limiting i ogólne potwierdzenia/przypomnienia korzystają z W8.
 
 - zbudować konfigurację grafiku i kalendarz organizacji;
 - udostępnić publiczne wyszukiwanie terminów z rate limitingiem;
@@ -75,11 +89,17 @@ anulować wizytę. Dwie równoległe próby nie tworzą konfliktujących rezerwa
 
 ## 5. Bramka wyjścia
 
-- [ ] baza uniemożliwia podwójną rezerwację;
-- [ ] reguły czasu przechodzą testy DST i stref czasowych;
-- [ ] create, reschedule i cancel są idempotentne;
-- [ ] zmiana grafiku nie modyfikuje historycznych rezerwacji;
-- [ ] Customer nie jest automatycznie Userem;
-- [ ] wiadomości nie ujawniają zbędnych danych;
-- [ ] moduł można wyłączyć bez uszkodzenia Core i ukrywa się w panelu.
+- [x] baza uniemożliwia podwójną rezerwację;
+- [x] reguły czasu przechodzą testy DST i stref czasowych;
+- [x] create, reschedule i cancel są idempotentne;
+- [x] zmiana grafiku nie modyfikuje historycznych rezerwacji;
+- [x] Customer nie jest automatycznie Userem;
+- [x] wiadomości nie ujawniają zbędnych danych;
+- [x] moduł można wyłączyć bez uszkodzenia Core i ukrywa się w panelu.
 
+Walidacja lokalna: 10 krytycznych testów Booking (w tym dwie faktycznie
+równoległe transakcje, DST, RLS, tokeny i stały budżet zapytań dla 31-dniowego
+horyzontu), 288 testów pełnej regresji backendu, pełny mypy, Ruff,
+import-linter, drift migracji i API, walidacja obu profili deploymentu oraz
+produkcyjny build Next.js w obrazie Node 24. W tym samym obrazie przeszły 3/3
+testy komponentów W9: axe dla PL/EN i publiczne wyszukiwanie terminu bez konta.

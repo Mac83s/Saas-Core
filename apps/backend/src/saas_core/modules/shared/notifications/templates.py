@@ -17,6 +17,38 @@ class EmailTemplate:
 
 
 TEMPLATES: dict[tuple[str, int], EmailTemplate] = {
+    ("booking.confirmation", 1): EmailTemplate(
+        key="booking.confirmation",
+        version=1,
+        category="required",
+        subjects={"pl": "Potwierdzenie rezerwacji", "en": "Booking confirmation"},
+        bodies={
+            "pl": (
+                "<p>Rezerwacja w {organization_name} została potwierdzona.</p>"
+                "<p>Termin: {starts_at}</p>"
+            ),
+            "en": (
+                "<p>Your booking at {organization_name} is confirmed.</p><p>Time: {starts_at}</p>"
+            ),
+        },
+        allowed_context=frozenset({"organization_name", "starts_at"}),
+    ),
+    ("booking.reminder", 1): EmailTemplate(
+        key="booking.reminder",
+        version=1,
+        category="required",
+        subjects={"pl": "Przypomnienie o rezerwacji", "en": "Booking reminder"},
+        bodies={
+            "pl": (
+                "<p>Przypominamy o rezerwacji w {organization_name}.</p><p>Termin: {starts_at}</p>"
+            ),
+            "en": (
+                "<p>This is a reminder about your booking at {organization_name}.</p>"
+                "<p>Time: {starts_at}</p>"
+            ),
+        },
+        allowed_context=frozenset({"organization_name", "starts_at"}),
+    ),
     ("system.activity", 1): EmailTemplate(
         key="system.activity",
         version=1,

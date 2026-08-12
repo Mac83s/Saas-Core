@@ -7,6 +7,7 @@ import { LocaleSwitcher } from "#components/locale-switcher";
 import { Link } from "#i18n/navigation";
 import { getServerUser } from "#lib/server-auth";
 import { LogoutButton } from "../../../modules/core/identity";
+import { deployment } from "../../../generated/deployment";
 
 export default async function PanelLayout({
   children,
@@ -15,15 +16,23 @@ export default async function PanelLayout({
   children: ReactNode;
   params: Promise<{ locale: string }>;
 }) {
-  const [{ locale }, user, billing, sites, notifications, integrations] =
-    await Promise.all([
-      params,
-      getServerUser(),
-      getTranslations("BillingSupport"),
-      getTranslations("Sites"),
-      getTranslations("Notifications"),
-      getTranslations("Integrations"),
-    ]);
+  const [
+    { locale },
+    user,
+    billing,
+    sites,
+    notifications,
+    integrations,
+    booking,
+  ] = await Promise.all([
+    params,
+    getServerUser(),
+    getTranslations("BillingSupport"),
+    getTranslations("Sites"),
+    getTranslations("Notifications"),
+    getTranslations("Integrations"),
+    getTranslations("Booking"),
+  ]);
   if (!user) redirect(locale === "pl" ? "/login" : `/${locale}/login`);
   return (
     <div className="min-h-screen bg-muted/30">
@@ -36,6 +45,14 @@ export default async function PanelLayout({
             />
             SaaS Core
           </Link>
+          {deployment.features.publicBooking ? (
+            <Link
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              href="/panel/calendar"
+            >
+              {booking("navigation")}
+            </Link>
+          ) : null}
           <Link
             className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             href="/panel/sites"

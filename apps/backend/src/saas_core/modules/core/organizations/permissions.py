@@ -10,8 +10,13 @@ OWNERSHIP_TRANSFER: Final = "organization.ownership.transfer"
 ORGANIZATION_ARCHIVE: Final = "organization.archive"
 
 SYSTEM_ROLE_PERMISSIONS: Final[dict[str, tuple[str, ...]]] = {
-    "viewer": (ORGANIZATION_READ, "notifications.preferences"),
-    "staff": (ORGANIZATION_READ, MEMBERS_READ, "notifications.preferences"),
+    "viewer": (ORGANIZATION_READ, "notifications.preferences", "booking.appointment.read"),
+    "staff": (
+        ORGANIZATION_READ,
+        MEMBERS_READ,
+        "notifications.preferences",
+        "booking.appointment.read",
+    ),
     "manager": (
         ORGANIZATION_READ,
         MEMBERS_READ,
@@ -21,6 +26,8 @@ SYSTEM_ROLE_PERMISSIONS: Final[dict[str, tuple[str, ...]]] = {
         "media.manage",
         "notifications.preferences",
         "notifications.manage",
+        "booking.appointment.read",
+        "booking.appointment.manage",
     ),
     "admin": (
         ORGANIZATION_READ,
@@ -36,6 +43,8 @@ SYSTEM_ROLE_PERMISSIONS: Final[dict[str, tuple[str, ...]]] = {
         "notifications.manage",
         "notifications.support",
         "integrations.manage",
+        "booking.appointment.read",
+        "booking.appointment.manage",
     ),
     "owner": (
         ORGANIZATION_READ,
@@ -54,5 +63,7 @@ SYSTEM_ROLE_PERMISSIONS: Final[dict[str, tuple[str, ...]]] = {
         "notifications.manage",
         "notifications.support",
         "integrations.manage",
+        "booking.appointment.read",
+        "booking.appointment.manage",
     ),
 }

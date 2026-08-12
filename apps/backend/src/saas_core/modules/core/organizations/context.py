@@ -26,6 +26,7 @@ class TenantContext:
     actor_id: UUID
     role_key: str
     permissions: frozenset[str]
+    principal_kind: str = "membership"
 
     def has_permission(self, permission: str) -> bool:
         return permission in self.permissions

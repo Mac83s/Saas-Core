@@ -397,6 +397,15 @@ class OrganizationAuditAction(models.TextChoices):
     API_KEY_ROTATED = "integration.api_key.rotated", "Obrócono klucz API"
     API_KEY_REVOKED = "integration.api_key.revoked", "Wycofano klucz API"
     WEBHOOK_CREATED = "integration.webhook.created", "Utworzono webhook"
+    BOOKING_CATALOG_CHANGED = "booking.catalog.changed", "Zmieniono katalog rezerwacji"
+    BOOKING_SCHEDULE_CHANGED = "booking.schedule.changed", "Zmieniono grafik rezerwacji"
+    BOOKING_APPOINTMENT_CREATED = "booking.appointment.created", "Utworzono rezerwację"
+    BOOKING_APPOINTMENT_RESCHEDULED = (
+        "booking.appointment.rescheduled",
+        "Zmieniono termin rezerwacji",
+    )
+    BOOKING_APPOINTMENT_CANCELED = "booking.appointment.canceled", "Anulowano rezerwację"
+    BOOKING_CUSTOMER_ANONYMIZED = "booking.customer.anonymized", "Zanonimizowano klienta"
 
 
 class OrganizationAuditEntry(models.Model):

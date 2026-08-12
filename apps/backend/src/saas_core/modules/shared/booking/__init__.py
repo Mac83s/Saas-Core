@@ -1,0 +1,1 @@
+"""Neutralny branżowo moduł rezerwacji."""

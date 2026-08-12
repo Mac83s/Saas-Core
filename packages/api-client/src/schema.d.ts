@@ -292,6 +292,214 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/booking/appointments/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["api_v1_booking_appointments_retrieve"];
+        put?: never;
+        post: operations["api_v1_booking_appointments_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/appointments/{appointment_id}/cancel/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["api_v1_booking_appointments_cancel_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/appointments/{appointment_id}/reschedule/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["api_v1_booking_appointments_reschedule_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/catalog/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["api_v1_booking_catalog_retrieve"];
+        put?: never;
+        post: operations["api_v1_booking_catalog_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/customers/{customer_id}/anonymize/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["api_v1_booking_customers_anonymize_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/public/{public_slug}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["api_v1_booking_public_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/public/{public_slug}/appointments/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["api_v1_booking_public_appointments_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/public/{public_slug}/slots/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["api_v1_booking_public_slots_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/schedule/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["api_v1_booking_schedule_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/self-service/{token}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["api_v1_booking_self_service_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/self-service/{token}/cancel/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["api_v1_booking_self_service_cancel_retrieve"];
+        put?: never;
+        post: operations["api_v1_booking_self_service_cancel_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/self-service/{token}/reschedule/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["api_v1_booking_self_service_reschedule_retrieve"];
+        put?: never;
+        post: operations["api_v1_booking_self_service_reschedule_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/slots/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["api_v1_booking_slots_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health/": {
         parameters: {
             query?: never;
@@ -1007,6 +1215,38 @@ export interface components {
         ApiKeyList: {
             items: components["schemas"]["ApiKey"][];
         };
+        Appointment: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            timezone: string;
+            service_name: string;
+            status: string;
+            customer_name: string;
+            staff_name: string;
+            location_name: string;
+            resource_name: string | null;
+            self_service_token?: string | null;
+        };
+        AppointmentCreate: {
+            /** Format: uuid */
+            service_id: string;
+            /** Format: uuid */
+            staff_id: string;
+            /** Format: uuid */
+            location_id: string;
+            /** Format: uuid */
+            resource_id?: string | null;
+            /** Format: date-time */
+            starts_at: string;
+            customer: components["schemas"]["CustomerInput"];
+        };
+        AppointmentList: {
+            items: components["schemas"]["Appointment"][];
+        };
         BillingSession: {
             id: string;
             /** Format: uri */
@@ -1014,11 +1254,49 @@ export interface components {
             /** Format: date-time */
             expires_at?: string | null;
         };
+        Catalog: {
+            locations: components["schemas"]["Location"][];
+            staff: components["schemas"]["Staff"][];
+            services: components["schemas"]["Service"][];
+            resources: components["schemas"]["Resource"][];
+        };
+        CatalogCreate: {
+            kind: components["schemas"]["CatalogCreateKindEnum"];
+            name: string;
+            public_slug?: string;
+            address?: string;
+            resource_kind?: string;
+            duration_minutes?: number;
+            buffer_before_minutes?: number;
+            buffer_after_minutes?: number;
+            minimum_notice_minutes?: number;
+        };
+        /**
+         * @description * `location` - location
+         *     * `staff` - staff
+         *     * `service` - service
+         *     * `resource` - resource
+         * @enum {string}
+         */
+        CatalogCreateKindEnum: "location" | "staff" | "service" | "resource";
         CheckoutCreate: {
             plan: string;
         };
         CsrfToken: {
             csrf_token: string;
+        };
+        CustomerAnonymized: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            anonymized_at: string;
+        };
+        CustomerInput: {
+            display_name: string;
+            email?: string;
+            phone?: string;
+            /** @default pl */
+            locale: components["schemas"]["LocaleEnum"];
         };
         DataExport: {
             /** Format: uuid */
@@ -1151,6 +1429,12 @@ export interface components {
             missing_fields: string[];
             complete: boolean;
             slug_locked: boolean;
+        };
+        Location: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            public_slug: string;
         };
         Login: {
             /** Format: email */
@@ -1469,6 +1753,53 @@ export interface components {
             /** @default pl */
             locale: components["schemas"]["LocaleEnum"];
         };
+        Reschedule: {
+            /** Format: date-time */
+            starts_at: string;
+        };
+        Resource: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            kind: string;
+        };
+        ScheduleCreate: {
+            kind: components["schemas"]["ScheduleCreateKindEnum"];
+            /** Format: uuid */
+            service_id?: string;
+            /** Format: uuid */
+            staff_id?: string | null;
+            /** Format: uuid */
+            location_id?: string;
+            /** Format: uuid */
+            resource_id?: string | null;
+            weekday?: number;
+            /** Format: time */
+            local_start?: string;
+            /** Format: time */
+            local_end?: string;
+            /** Format: date-time */
+            starts_at?: string;
+            /** Format: date-time */
+            ends_at?: string;
+            reason?: string;
+        };
+        /**
+         * @description * `availability` - availability
+         *     * `time_off` - time_off
+         *     * `service_staff` - service_staff
+         *     * `service_location` - service_location
+         *     * `service_resource` - service_resource
+         * @enum {string}
+         */
+        ScheduleCreateKindEnum: "availability" | "time_off" | "service_staff" | "service_location" | "service_resource";
+        Service: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            public_slug: string;
+            duration_minutes: number;
+        };
         SessionSummary: {
             /** Format: uuid */
             id: string;
@@ -1565,6 +1896,25 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        Slot: {
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            /** Format: uuid */
+            staff_id: string;
+            /** Format: uuid */
+            resource_id: string | null;
+        };
+        SlotList: {
+            items: components["schemas"]["Slot"][];
+        };
+        Staff: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            public_slug: string;
         };
         StripeWebhookReceipt: {
             received: boolean;
@@ -2465,6 +2815,421 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StripeWebhookReceipt"];
+                };
+            };
+        };
+    };
+    api_v1_booking_appointments_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppointmentList"];
+                };
+            };
+        };
+    };
+    api_v1_booking_appointments_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppointmentCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["AppointmentCreate"];
+                "multipart/form-data": components["schemas"]["AppointmentCreate"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+        };
+    };
+    api_v1_booking_appointments_cancel_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                appointment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+        };
+    };
+    api_v1_booking_appointments_reschedule_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                appointment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Reschedule"];
+                "application/x-www-form-urlencoded": components["schemas"]["Reschedule"];
+                "multipart/form-data": components["schemas"]["Reschedule"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+        };
+    };
+    api_v1_booking_catalog_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Catalog"];
+                };
+            };
+        };
+    };
+    api_v1_booking_catalog_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CatalogCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["CatalogCreate"];
+                "multipart/form-data": components["schemas"]["CatalogCreate"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_booking_customers_anonymize_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerAnonymized"];
+                };
+            };
+        };
+    };
+    api_v1_booking_public_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                public_slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Catalog"];
+                };
+            };
+        };
+    };
+    api_v1_booking_public_appointments_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                public_slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppointmentCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["AppointmentCreate"];
+                "multipart/form-data": components["schemas"]["AppointmentCreate"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+        };
+    };
+    api_v1_booking_public_slots_retrieve: {
+        parameters: {
+            query?: {
+                from?: string;
+                location_id?: string;
+                service_id?: string;
+                to?: string;
+            };
+            header?: never;
+            path: {
+                public_slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotList"];
+                };
+            };
+        };
+    };
+    api_v1_booking_schedule_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["ScheduleCreate"];
+                "multipart/form-data": components["schemas"]["ScheduleCreate"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    api_v1_booking_self_service_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+        };
+    };
+    api_v1_booking_self_service_cancel_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+        };
+    };
+    api_v1_booking_self_service_cancel_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+        };
+    };
+    api_v1_booking_self_service_reschedule_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+        };
+    };
+    api_v1_booking_self_service_reschedule_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Reschedule"];
+                "application/x-www-form-urlencoded": components["schemas"]["Reschedule"];
+                "multipart/form-data": components["schemas"]["Reschedule"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+        };
+    };
+    api_v1_booking_slots_retrieve: {
+        parameters: {
+            query?: {
+                from?: string;
+                location_id?: string;
+                service_id?: string;
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotList"];
                 };
             };
         };
