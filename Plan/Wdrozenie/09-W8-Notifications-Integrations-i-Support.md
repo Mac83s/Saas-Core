@@ -1,6 +1,6 @@
 # W8 — Notifications, Integrations i Support
 
-**Status:** blocked by W3 and W4  
+**Status:** zakończona lokalnie; aktywacja komercyjnego providera wymaga sekretów i DPA stagingu
 **Szacunek:** 2 tygodnie  
 **Poprzednicy:** W3, W4; wykorzystuje kontrakty W2  
 **Rezultat:** niezawodna komunikacja i bezpieczna obsługa operacyjna
@@ -66,11 +66,15 @@ bezpieczną operację, a każda akcja trafia do audytu.
 
 ## 4. Bramka wyjścia
 
-- [ ] awaria providera nie blokuje requestu użytkownika;
-- [ ] retry i webhooki są idempotentne;
-- [ ] szablony są wersjonowane i dostępne w PL/EN;
-- [ ] bounce, complaint i suppression wpływają na kolejne wysyłki;
-- [ ] webhooki wychodzące są podpisane i odporne na SSRF;
-- [ ] działania supportu są ograniczone, jawne i audytowane;
-- [ ] runbook pozwala zdiagnozować i bezpiecznie wznowić kolejkę.
+- [x] awaria providera nie blokuje requestu użytkownika;
+- [x] retry i webhooki są idempotentne;
+- [x] szablony są wersjonowane i dostępne w PL/EN;
+- [x] bounce, complaint i suppression wpływają na kolejne wysyłki;
+- [x] webhooki wychodzące są podpisane i odporne na SSRF;
+- [x] działania supportu są ograniczone, jawne i audytowane;
+- [x] runbook pozwala zdiagnozować i bezpiecznie wznowić kolejkę.
 
+Dowody lokalne: 278 testów backendu, obowiązkowy pakiet W8 10/10 na PostgreSQL
+z FORCE RLS, testy komponentów PL/EN z axe, Ruff, mypy, import-linter, OpenAPI
+drift, migracje bez dryfu, produkcyjny build Next.js, `promtool` (6 reguł) oraz
+runtime smoke na przebudowanym i zdrowym stosie Compose.

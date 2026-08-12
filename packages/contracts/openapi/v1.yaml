@@ -920,6 +920,491 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/notifications/exports/:
+    post:
+      operationId: integration_exports_create
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - integrations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DataExportCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DataExportCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DataExportCreate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataExport'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataExport'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/notifications/exports/{export_id}/:
+    get:
+      operationId: integration_exports_get
+      parameters:
+      - in: path
+        name: export_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - integrations
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataExport'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/notifications/exports/{export_id}/download/:
+    get:
+      operationId: integration_exports_download
+      parameters:
+      - in: path
+        name: export_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: token
+        schema:
+          type: string
+        required: true
+      tags:
+      - integrations
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: string
+                format: binary
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/notifications/integrations/api-keys/:
+    get:
+      operationId: integration_api_keys_list
+      tags:
+      - integrations
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKeyList'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: integration_api_keys_create
+      tags:
+      - integrations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApiKeyCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ApiKeyCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ApiKeyCreate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKey'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/notifications/integrations/api-keys/{key_id}/revoke/:
+    post:
+      operationId: integration_api_keys_revoke
+      parameters:
+      - in: path
+        name: key_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - integrations
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKey'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/notifications/integrations/api-keys/{key_id}/rotate/:
+    post:
+      operationId: integration_api_keys_rotate
+      parameters:
+      - in: path
+        name: key_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - integrations
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKey'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/notifications/integrations/webhooks/:
+    get:
+      operationId: integration_webhooks_list
+      tags:
+      - integrations
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookList'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: integration_webhooks_create
+      tags:
+      - integrations
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/WebhookCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/WebhookCreate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Webhook'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/notifications/preferences/:
+    get:
+      operationId: notification_preferences_get
+      tags:
+      - notifications
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Preference'
+          description: ''
+    put:
+      operationId: notification_preferences_update
+      tags:
+      - notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Preference'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Preference'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Preference'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Preference'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/notifications/provider/status/:
+    post:
+      operationId: notification_provider_status
+      tags:
+      - notifications-provider
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProviderStatus'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProviderStatus'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProviderStatus'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+        '202':
+          description: No response body
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/notifications/support/health/:
+    get:
+      operationId: notification_support_health
+      tags:
+      - notifications-support
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SupportHealth'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/notifications/support/messages/{message_id}/retry/:
+    post:
+      operationId: notification_support_message_retry
+      parameters:
+      - in: path
+        name: message_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - notifications-support
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SupportRetry'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SupportRetry'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SupportRetry'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageStatus'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/notifications/support/webhooks/{delivery_id}/retry/:
+    post:
+      operationId: notification_support_webhook_retry
+      parameters:
+      - in: path
+        name: delivery_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - notifications-support
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SupportRetry'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SupportRetry'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SupportRetry'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageStatus'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/notifications/templates/:
+    get:
+      operationId: notification_templates_list
+      tags:
+      - notifications
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateCatalog'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/notifications/templates/preview/:
+    post:
+      operationId: notification_template_preview
+      tags:
+      - notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TemplatePreview'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TemplatePreview'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TemplatePreview'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplatePreviewResult'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/organizations/:
     get:
       operationId: api_v1_organizations_list
@@ -2295,6 +2780,72 @@ components:
           $ref: '#/components/schemas/OrganizationSummary'
       required:
       - organization
+    ApiKey:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        prefix:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
+        revoked_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        expires_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        secret:
+          type: string
+      required:
+      - created_at
+      - expires_at
+      - id
+      - name
+      - prefix
+      - revoked_at
+      - scopes
+    ApiKeyCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        scopes:
+          type: array
+          items:
+            type: string
+            maxLength: 80
+          minItems: 1
+        expires_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+      required:
+      - name
+      - scopes
+    ApiKeyList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiKey'
+      required:
+      - items
     BillingSession:
       type: object
       properties:
@@ -2327,6 +2878,41 @@ components:
           type: string
       required:
       - csrf_token
+    DataExport:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        download_token:
+          type:
+          - string
+          - 'null'
+      required:
+      - download_token
+      - expires_at
+      - id
+      - status
+    DataExportCreate:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/DataExportCreateKindEnum'
+      required:
+      - kind
+    DataExportCreateKindEnum:
+      enum:
+      - notification_deliveries
+      - webhook_deliveries
+      type: string
+      description: |-
+        * `notification_deliveries` - notification_deliveries
+        * `webhook_deliveries` - webhook_deliveries
     DomainAction:
       type: object
       properties:
@@ -2365,7 +2951,7 @@ components:
       type: object
       properties:
         kind:
-          $ref: '#/components/schemas/KindEnum'
+          $ref: '#/components/schemas/EntitlementSupportItemKindEnum'
         key:
           type: string
         available:
@@ -2419,6 +3005,14 @@ components:
       - reserved
       - used
       - value
+    EntitlementSupportItemKindEnum:
+      enum:
+      - feature
+      - quota
+      type: string
+      description: |-
+        * `feature` - feature
+        * `quota` - quota
     EntitlementSupportReport:
       type: object
       properties:
@@ -2557,14 +3151,6 @@ components:
       - id
       - role
       - status
-    KindEnum:
-      enum:
-      - feature
-      - quota
-      type: string
-      description: |-
-        * `feature` - feature
-        * `quota` - quota
     LifecycleResult:
       type: object
       properties:
@@ -2798,6 +3384,17 @@ components:
         * `active` - active
         * `suspended` - suspended
         * `revoked` - revoked
+    MessageStatus:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+      required:
+      - id
+      - status
     MfaChallenge:
       type: object
       properties:
@@ -3265,6 +3862,16 @@ components:
         currency:
           type: string
           pattern: ^[A-Z]{3}$
+    Preference:
+      type: object
+      properties:
+        locale:
+          $ref: '#/components/schemas/LocaleEnum'
+        marketing_enabled:
+          type: boolean
+      required:
+      - locale
+      - marketing_enabled
     ProblemDetails:
       type: object
       properties:
@@ -3288,6 +3895,31 @@ components:
       - status
       - title
       - type
+    ProviderStatus:
+      type: object
+      properties:
+        event_id:
+          type: string
+          maxLength: 160
+        provider_message_id:
+          type: string
+          maxLength: 160
+        status:
+          $ref: '#/components/schemas/ProviderStatusStatusEnum'
+      required:
+      - event_id
+      - provider_message_id
+      - status
+    ProviderStatusStatusEnum:
+      enum:
+      - delivered
+      - bounced
+      - complained
+      type: string
+      description: |-
+        * `delivered` - delivered
+        * `bounced` - bounced
+        * `complained` - complained
     PublicSitePage:
       type: object
       properties:
@@ -3638,6 +4270,94 @@ components:
           type: boolean
       required:
       - received
+    SupportHealth:
+      type: object
+      properties:
+        queued_messages:
+          type: integer
+        dead_messages:
+          type: integer
+        active_suppressions:
+          type: integer
+        queued_webhooks:
+          type: integer
+        dead_webhooks:
+          type: integer
+      required:
+      - active_suppressions
+      - dead_messages
+      - dead_webhooks
+      - queued_messages
+      - queued_webhooks
+    SupportRetry:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+      required:
+      - reason
+    TemplateCatalog:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemplateItem'
+      required:
+      - items
+    TemplateItem:
+      type: object
+      properties:
+        key:
+          type: string
+        version:
+          type: integer
+        category:
+          type: string
+        locales:
+          type: array
+          items:
+            type: string
+        context_fields:
+          type: array
+          items:
+            type: string
+      required:
+      - category
+      - context_fields
+      - key
+      - locales
+      - version
+    TemplatePreview:
+      type: object
+      properties:
+        key:
+          type: string
+          maxLength: 100
+        version:
+          type: integer
+          minimum: 1
+        locale:
+          $ref: '#/components/schemas/LocaleEnum'
+        context:
+          type: object
+          additionalProperties: {}
+      required:
+      - context
+      - key
+      - locale
+      - version
+    TemplatePreviewResult:
+      type: object
+      properties:
+        subject:
+          type: string
+        html_body:
+          type: string
+      required:
+      - html_body
+      - subject
     TotpConfirmResult:
       type: object
       properties:
@@ -3717,6 +4437,67 @@ components:
       - verified
       type: string
       description: '* `verified` - verified'
+    Webhook:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        url:
+          type: string
+          format: uri
+        events:
+          type: array
+          items:
+            type: string
+        active:
+          type: boolean
+        secret_hint:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        secret:
+          type: string
+      required:
+      - active
+      - created_at
+      - events
+      - id
+      - name
+      - secret_hint
+      - url
+    WebhookCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        url:
+          type: string
+          format: uri
+          maxLength: 2048
+        events:
+          type: array
+          items:
+            type: string
+            maxLength: 120
+          minItems: 1
+      required:
+      - events
+      - name
+      - url
+    WebhookList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Webhook'
+      required:
+      - items
     WorkspaceKindEnum:
       enum:
       - personal

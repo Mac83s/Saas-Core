@@ -391,6 +391,12 @@ class OrganizationAuditAction(models.TextChoices):
     BILLING_OVERRIDE_CREATED = "billing.override.created", "Utworzono override dostępu"
     BILLING_OVERRIDE_REVOKED = "billing.override.revoked", "Wycofano override dostępu"
     BILLING_OVERRIDE_EXPIRED = "billing.override.expired", "Wygasł override dostępu"
+    NOTIFICATION_RETRIED = "support.notification.retried", "Ponowiono wiadomość"
+    WEBHOOK_RETRIED = "support.webhook.retried", "Ponowiono webhook"
+    API_KEY_CREATED = "integration.api_key.created", "Utworzono klucz API"
+    API_KEY_ROTATED = "integration.api_key.rotated", "Obrócono klucz API"
+    API_KEY_REVOKED = "integration.api_key.revoked", "Wycofano klucz API"
+    WEBHOOK_CREATED = "integration.webhook.created", "Utworzono webhook"
 
 
 class OrganizationAuditEntry(models.Model):

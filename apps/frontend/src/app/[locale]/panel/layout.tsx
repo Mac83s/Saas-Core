@@ -15,12 +15,15 @@ export default async function PanelLayout({
   children: ReactNode;
   params: Promise<{ locale: string }>;
 }) {
-  const [{ locale }, user, billing, sites] = await Promise.all([
-    params,
-    getServerUser(),
-    getTranslations("BillingSupport"),
-    getTranslations("Sites"),
-  ]);
+  const [{ locale }, user, billing, sites, notifications, integrations] =
+    await Promise.all([
+      params,
+      getServerUser(),
+      getTranslations("BillingSupport"),
+      getTranslations("Sites"),
+      getTranslations("Notifications"),
+      getTranslations("Integrations"),
+    ]);
   if (!user) redirect(locale === "pl" ? "/login" : `/${locale}/login`);
   return (
     <div className="min-h-screen bg-muted/30">
@@ -41,9 +44,27 @@ export default async function PanelLayout({
           </Link>
           <Link
             className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            href="/panel/notifications"
+          >
+            {notifications("navigation")}
+          </Link>
+          <Link
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            href="/panel/integrations"
+          >
+            {integrations("navigation")}
+          </Link>
+          <Link
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             href="/panel/support/billing"
           >
             {billing("navigation")}
+          </Link>
+          <Link
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            href="/panel/support/notifications"
+          >
+            {notifications("supportNavigation")}
           </Link>
           <div className="ml-auto flex items-center gap-3">
             <span className="hidden text-sm text-muted-foreground sm:inline">

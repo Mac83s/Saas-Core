@@ -2,17 +2,30 @@
   "id": "shared.notifications",
   "layer": "shared",
   "version": 1,
-  "dependsOn": ["core.organizations", "core.audit"],
+  "dependsOn": ["core.organizations", "core.audit", "shared.billing"],
   "backend": {
     "djangoApp": "saas_core.modules.shared.notifications",
     "urlPrefix": "/api/v1/notifications",
-    "permissions": ["notifications.manage"],
+    "permissions": [
+      "notifications.preferences",
+      "notifications.manage",
+      "notifications.support",
+      "integrations.manage"
+    ],
     "entitlements": ["notifications.enabled"],
-    "eventSchemas": ["notifications.message.queued.v1"]
+    "eventSchemas": [
+      "notifications.message.queued.v1",
+      "notifications.message.status.v1",
+      "sites.site.published.v1"
+    ]
   },
   "frontend": {
-    "routes": ["/settings/notifications"],
-    "navigation": [],
+    "routes": [
+      "/panel/notifications",
+      "/panel/integrations",
+      "/panel/support/notifications"
+    ],
+    "navigation": ["settings.notifications", "settings.integrations"],
     "translationNamespaces": ["notifications"]
   }
 }

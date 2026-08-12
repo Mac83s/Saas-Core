@@ -55,6 +55,14 @@ export type MediaAsset = components["schemas"]["MediaAsset"];
 export type MediaAssetList = components["schemas"]["MediaAssetList"];
 export type MediaUploadInput = components["schemas"]["MediaUploadCreate"];
 export type MediaUpload = components["schemas"]["MediaUpload"];
+export type NotificationPreference = components["schemas"]["Preference"];
+export type NotificationTemplateCatalog =
+  components["schemas"]["TemplateCatalog"];
+export type NotificationTemplatePreview =
+  components["schemas"]["TemplatePreviewResult"];
+export type IntegrationApiKey = components["schemas"]["ApiKey"];
+export type IntegrationWebhook = components["schemas"]["Webhook"];
+export type NotificationSupportHealth = components["schemas"]["SupportHealth"];
 
 export type LoginResult =
   { kind: "authenticated"; user: UserSummary } | { kind: "mfa_required" };
@@ -749,6 +757,139 @@ export async function completeMediaUpload(
     "/api/v1/media/uploads/{asset_id}/complete/",
     {
       params: { path: { asset_id: assetId } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function getNotificationPreferences(): Promise<NotificationPreference> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/notifications/preferences/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function updateNotificationPreferences(
+  input: NotificationPreference,
+): Promise<NotificationPreference> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/notifications/preferences/",
+    {
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function getNotificationTemplates(): Promise<NotificationTemplateCatalog> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/notifications/templates/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function previewNotificationTemplate(input: {
+  key: string;
+  version: number;
+  locale: "pl" | "en";
+  context: Record<string, unknown>;
+}): Promise<NotificationTemplatePreview> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/notifications/templates/preview/",
+    {
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function listIntegrationApiKeys(): Promise<IntegrationApiKey[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/notifications/integrations/api-keys/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data.items;
+}
+
+export async function createIntegrationApiKey(input: {
+  name: string;
+  scopes: string[];
+}): Promise<IntegrationApiKey> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/notifications/integrations/api-keys/",
+    {
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function listIntegrationWebhooks(): Promise<IntegrationWebhook[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/notifications/integrations/webhooks/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data.items;
+}
+
+export async function createIntegrationWebhook(input: {
+  name: string;
+  url: string;
+  events: string[];
+}): Promise<IntegrationWebhook> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/notifications/integrations/webhooks/",
+    {
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function getNotificationSupportHealth(): Promise<NotificationSupportHealth> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/notifications/support/health/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function retryNotificationMessage(
+  messageId: string,
+  reason: string,
+): Promise<components["schemas"]["MessageStatus"]> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/notifications/support/messages/{message_id}/retry/",
+    {
+      params: { path: { message_id: messageId } },
+      body: { reason },
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
     },

@@ -26,9 +26,7 @@ except (OSError, KeyError, TypeError, json.JSONDecodeError) as error:
         f"Nie można odczytać profilu deploymentu: {DEPLOYMENT_PROFILE_PATH}"
     ) from error
 if _deployment_id != DEPLOYMENT:
-    raise ImproperlyConfigured(
-        f"Profil {_deployment_id} nie odpowiada deploymentowi {DEPLOYMENT}"
-    )
+    raise ImproperlyConfigured(f"Profil {_deployment_id} nie odpowiada deploymentowi {DEPLOYMENT}")
 if (
     not isinstance(_deployment_supported_locales, list)
     or not _deployment_supported_locales
@@ -41,9 +39,9 @@ SITES_DEFAULT_LOCALE = _deployment_default_locale
 SITES_PLATFORM_DOMAIN = str(_deployment_platform_domain).strip().lower().rstrip(".")
 if not SITES_PLATFORM_DOMAIN:
     raise ImproperlyConfigured("Profil deploymentu wymaga platformDomain")
-DOMAIN_DNS_CNAME_TARGET = os.environ.get(
-    "DOMAIN_DNS_CNAME_TARGET", SITES_PLATFORM_DOMAIN
-).strip().lower().rstrip(".")
+DOMAIN_DNS_CNAME_TARGET = (
+    os.environ.get("DOMAIN_DNS_CNAME_TARGET", SITES_PLATFORM_DOMAIN).strip().lower().rstrip(".")
+)
 DOMAIN_DNS_EXPECTED_IPV4 = tuple(
     value.strip()
     for value in os.environ.get("DOMAIN_DNS_EXPECTED_IPV4", "").split(",")
@@ -56,18 +54,10 @@ DOMAIN_DNS_EXPECTED_IPV6 = tuple(
 )
 DOMAIN_DNS_TIMEOUT_SECONDS = float(os.environ.get("DOMAIN_DNS_TIMEOUT_SECONDS", "3"))
 DOMAIN_REVERIFY_SECONDS = int(os.environ.get("DOMAIN_REVERIFY_SECONDS", "3600"))
-DOMAIN_TRANSIENT_GRACE_SECONDS = int(
-    os.environ.get("DOMAIN_TRANSIENT_GRACE_SECONDS", "86400")
-)
-DOMAIN_RELEASE_QUARANTINE_DAYS = int(
-    os.environ.get("DOMAIN_RELEASE_QUARANTINE_DAYS", "7")
-)
-DOMAIN_TLS_DECISION_CACHE_SECONDS = int(
-    os.environ.get("DOMAIN_TLS_DECISION_CACHE_SECONDS", "10")
-)
-DOMAIN_TLS_RATE_LIMIT_PER_MINUTE = int(
-    os.environ.get("DOMAIN_TLS_RATE_LIMIT_PER_MINUTE", "30")
-)
+DOMAIN_TRANSIENT_GRACE_SECONDS = int(os.environ.get("DOMAIN_TRANSIENT_GRACE_SECONDS", "86400"))
+DOMAIN_RELEASE_QUARANTINE_DAYS = int(os.environ.get("DOMAIN_RELEASE_QUARANTINE_DAYS", "7"))
+DOMAIN_TLS_DECISION_CACHE_SECONDS = int(os.environ.get("DOMAIN_TLS_DECISION_CACHE_SECONDS", "10"))
+DOMAIN_TLS_RATE_LIMIT_PER_MINUTE = int(os.environ.get("DOMAIN_TLS_RATE_LIMIT_PER_MINUTE", "30"))
 PUBLIC_SITE_SCHEME = os.environ.get("PUBLIC_SITE_SCHEME", "https").strip().lower()
 if (
     DOMAIN_DNS_TIMEOUT_SECONDS <= 0
@@ -102,15 +92,14 @@ def secret_setting(name: str, default: str = "") -> str:
 
 SECRET_KEY = secret_setting("DJANGO_SECRET_KEY")
 MFA_ENCRYPTION_KEY = secret_setting("MFA_ENCRYPTION_KEY")
+INTEGRATIONS_ENCRYPTION_KEY = secret_setting("INTEGRATIONS_ENCRYPTION_KEY")
 MFA_ISSUER_NAME = os.environ.get("MFA_ISSUER_NAME", "SaaS Core")
 MFA_CHALLENGE_TTL_SECONDS = int(os.environ.get("MFA_CHALLENGE_TTL_SECONDS", "300"))
 if MFA_CHALLENGE_TTL_SECONDS <= 0:
     raise ImproperlyConfigured("Czas ważności wyzwania MFA musi być dodatni")
 DEBUG = False
 CONFIGURED_ALLOWED_HOSTS = tuple(
-    host.strip().lower()
-    for host in os.environ.get("ALLOWED_HOSTS", "").split(",")
-    if host.strip()
+    host.strip().lower() for host in os.environ.get("ALLOWED_HOSTS", "").split(",") if host.strip()
 )
 ALLOWED_HOSTS = ["*"]
 
@@ -129,6 +118,7 @@ INSTALLED_APPS = [
     "saas_core.modules.shared.billing",
     "saas_core.modules.shared.sites",
     "saas_core.modules.shared.media",
+    "saas_core.modules.shared.notifications",
 ]
 
 MIDDLEWARE = [
@@ -257,7 +247,7 @@ SESSION_COOKIE_SECURE = True
 SESSION_COOKIE_PATH = "/"
 SESSION_IDLE_TIMEOUT_SECONDS = int(os.environ.get("SESSION_IDLE_TIMEOUT_SECONDS", "1800"))
 SESSION_MAX_LIFETIME_SECONDS = int(os.environ.get("SESSION_MAX_LIFETIME_SECONDS", "86400"))
-TENANT_TASK_CONTEXT_TTL_SECONDS = int(os.environ.get("TENANT_TASK_CONTEXT_TTL_SECONDS", "86400"))
+TENANT_TASK_CONTEXT_TTL_SECONDS = int(os.environ.get("TENANT_TASK_CONTEXT_TTL_SECONDS", "3888000"))
 ORGANIZATION_INVITATION_TTL_SECONDS = int(
     os.environ.get("ORGANIZATION_INVITATION_TTL_SECONDS", "604800")
 )
@@ -280,6 +270,31 @@ EMAIL_HOST_PASSWORD = secret_setting("EMAIL_HOST_PASSWORD")
 EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "false").lower() in {"1", "true", "yes"}
 EMAIL_FILE_PATH = os.environ.get("EMAIL_FILE_PATH")
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "SaaS Core <noreply@localhost>")
+NOTIFICATIONS_EMAIL_PROVIDER = os.environ.get(
+    "NOTIFICATIONS_EMAIL_PROVIDER",
+    "saas_core.modules.shared.notifications.providers.DjangoEmailProvider",
+)
+NOTIFICATIONS_PROVIDER_WEBHOOK_SECRET = secret_setting("NOTIFICATIONS_PROVIDER_WEBHOOK_SECRET")
+NOTIFICATIONS_WEBHOOK_TOLERANCE_SECONDS = int(
+    os.environ.get("NOTIFICATIONS_WEBHOOK_TOLERANCE_SECONDS", "300")
+)
+NOTIFICATIONS_RETENTION_DAYS = int(os.environ.get("NOTIFICATIONS_RETENTION_DAYS", "30"))
+NOTIFICATIONS_EXPORT_TTL_HOURS = int(os.environ.get("NOTIFICATIONS_EXPORT_TTL_HOURS", "24"))
+NOTIFICATIONS_EXPORT_MAX_ROWS = int(os.environ.get("NOTIFICATIONS_EXPORT_MAX_ROWS", "10000"))
+if (
+    NOTIFICATIONS_WEBHOOK_TOLERANCE_SECONDS <= 0
+    or NOTIFICATIONS_RETENTION_DAYS <= 0
+    or NOTIFICATIONS_EXPORT_TTL_HOURS <= 0
+    or NOTIFICATIONS_EXPORT_MAX_ROWS <= 0
+):
+    raise ImproperlyConfigured("Ustawienia notifications muszą być dodatnie")
+if max(
+    NOTIFICATIONS_RETENTION_DAYS * 86400,
+    NOTIFICATIONS_EXPORT_TTL_HOURS * 3600,
+) > TENANT_TASK_CONTEXT_TTL_SECONDS:
+    raise ImproperlyConfigured(
+        "Tenant task context musi obejmować retencję notifications i eksportów"
+    )
 FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", "http://localhost:8080")
 EMAIL_VERIFICATION_TTL_SECONDS = int(os.environ.get("EMAIL_VERIFICATION_TTL_SECONDS", "86400"))
 EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS = int(
@@ -317,18 +332,14 @@ BILLING_PORTAL_RETURN_URL = os.environ.get(
 BILLING_LIFECYCLE_WARNING_LEAD_SECONDS = int(
     os.environ.get("BILLING_LIFECYCLE_WARNING_LEAD_SECONDS", "86400")
 )
-BILLING_LIFECYCLE_MAX_ATTEMPTS = int(
-    os.environ.get("BILLING_LIFECYCLE_MAX_ATTEMPTS", "5")
-)
+BILLING_LIFECYCLE_MAX_ATTEMPTS = int(os.environ.get("BILLING_LIFECYCLE_MAX_ATTEMPTS", "5"))
 BILLING_RECONCILIATION_INTERVAL_SECONDS = int(
     os.environ.get("BILLING_RECONCILIATION_INTERVAL_SECONDS", "3600")
 )
 BILLING_RECONCILIATION_MAX_ATTEMPTS = int(
     os.environ.get("BILLING_RECONCILIATION_MAX_ATTEMPTS", "5")
 )
-BILLING_RECONCILIATION_BATCH_SIZE = int(
-    os.environ.get("BILLING_RECONCILIATION_BATCH_SIZE", "100")
-)
+BILLING_RECONCILIATION_BATCH_SIZE = int(os.environ.get("BILLING_RECONCILIATION_BATCH_SIZE", "100"))
 BILLING_INVOICE_ADAPTER = os.environ.get(
     "BILLING_INVOICE_ADAPTER",
     "saas_core.modules.shared.billing.invoicing.InternalInvoiceAdapter",
@@ -364,9 +375,11 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": 60.0,
     },
     "billing-release-expired-reservations": {
-        "task": (
-            "saas_core.modules.shared.billing.tasks.release_expired_quota_reservations"
-        ),
+        "task": ("saas_core.modules.shared.billing.tasks.release_expired_quota_reservations"),
+        "schedule": 60.0,
+    },
+    "notifications-recover-pending": {
+        "task": "saas_core.modules.shared.notifications.tasks.recover_pending",
         "schedule": 60.0,
     },
 }

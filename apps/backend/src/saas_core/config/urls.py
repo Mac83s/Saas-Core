@@ -33,6 +33,10 @@ urlpatterns = [
     path("api/v1/sites/", include("saas_core.modules.shared.sites.urls")),
     path("api/v1/public/site/", PublicSitePageView.as_view(), name="public-site-page"),
     path("api/v1/media/", include("saas_core.modules.shared.media.urls")),
+    path(
+        "api/v1/notifications/",
+        include("saas_core.modules.shared.notifications.urls"),
+    ),
     path("api/v1/", include("saas_core.modules.core.health.urls")),
     path("api/schema/", SpectacularAPIView.as_view(), name="openapi-schema"),
     path(

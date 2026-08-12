@@ -404,6 +404,230 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notifications/exports/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["integration_exports_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/exports/{export_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["integration_exports_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/exports/{export_id}/download/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["integration_exports_download"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/integrations/api-keys/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["integration_api_keys_list"];
+        put?: never;
+        post: operations["integration_api_keys_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/integrations/api-keys/{key_id}/revoke/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["integration_api_keys_revoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/integrations/api-keys/{key_id}/rotate/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["integration_api_keys_rotate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/integrations/webhooks/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["integration_webhooks_list"];
+        put?: never;
+        post: operations["integration_webhooks_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/preferences/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["notification_preferences_get"];
+        put: operations["notification_preferences_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/provider/status/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["notification_provider_status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/support/health/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["notification_support_health"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/support/messages/{message_id}/retry/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["notification_support_message_retry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/support/webhooks/{delivery_id}/retry/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["notification_support_webhook_retry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/templates/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["notification_templates_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/templates/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["notification_template_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/": {
         parameters: {
             query?: never;
@@ -760,6 +984,29 @@ export interface components {
         ActiveOrganizationResult: {
             organization: components["schemas"]["OrganizationSummary"];
         };
+        ApiKey: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            prefix: string;
+            scopes: string[];
+            /** Format: date-time */
+            revoked_at: string | null;
+            /** Format: date-time */
+            expires_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            secret?: string;
+        };
+        ApiKeyCreate: {
+            name: string;
+            scopes: string[];
+            /** Format: date-time */
+            expires_at?: string | null;
+        };
+        ApiKeyList: {
+            items: components["schemas"]["ApiKey"][];
+        };
         BillingSession: {
             id: string;
             /** Format: uri */
@@ -773,6 +1020,23 @@ export interface components {
         CsrfToken: {
             csrf_token: string;
         };
+        DataExport: {
+            /** Format: uuid */
+            id: string;
+            status: string;
+            /** Format: date-time */
+            expires_at: string;
+            download_token: string | null;
+        };
+        DataExportCreate: {
+            kind: components["schemas"]["DataExportCreateKindEnum"];
+        };
+        /**
+         * @description * `notification_deliveries` - notification_deliveries
+         *     * `webhook_deliveries` - webhook_deliveries
+         * @enum {string}
+         */
+        DataExportCreateKindEnum: "notification_deliveries" | "webhook_deliveries";
         DomainAction: {
             action: components["schemas"]["ActionEnum"];
         };
@@ -785,7 +1049,7 @@ export interface components {
             media_asset_ids?: string[];
         };
         EntitlementSupportItem: {
-            kind: components["schemas"]["KindEnum"];
+            kind: components["schemas"]["EntitlementSupportItemKindEnum"];
             key: string;
             available: boolean;
             reason: string;
@@ -800,6 +1064,12 @@ export interface components {
             period_end: string | null;
             evidence: unknown | null;
         };
+        /**
+         * @description * `feature` - feature
+         *     * `quota` - quota
+         * @enum {string}
+         */
+        EntitlementSupportItemKindEnum: "feature" | "quota";
         EntitlementSupportReport: {
             snapshot: components["schemas"]["EntitlementSupportSnapshot"] | null;
             items: components["schemas"]["EntitlementSupportItem"][];
@@ -856,12 +1126,6 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
-        /**
-         * @description * `feature` - feature
-         *     * `quota` - quota
-         * @enum {string}
-         */
-        KindEnum: "feature" | "quota";
         LifecycleResult: {
             status: string;
         };
@@ -951,6 +1215,11 @@ export interface components {
          * @enum {string}
          */
         MembershipUpdateStatusEnum: "active" | "suspended" | "revoked";
+        MessageStatus: {
+            /** Format: uuid */
+            id: string;
+            status: string;
+        };
         MfaChallenge: {
             status: components["schemas"]["MfaChallengeStatusEnum"];
         };
@@ -1140,6 +1409,10 @@ export interface components {
             timezone?: string;
             currency?: string;
         };
+        Preference: {
+            locale: components["schemas"]["LocaleEnum"];
+            marketing_enabled: boolean;
+        };
         ProblemDetails: {
             type: string;
             title: string;
@@ -1148,6 +1421,18 @@ export interface components {
             detail: unknown;
             correlation_id: string | null;
         };
+        ProviderStatus: {
+            event_id: string;
+            provider_message_id: string;
+            status: components["schemas"]["ProviderStatusStatusEnum"];
+        };
+        /**
+         * @description * `delivered` - delivered
+         *     * `bounced` - bounced
+         *     * `complained` - complained
+         * @enum {string}
+         */
+        ProviderStatusStatusEnum: "delivered" | "bounced" | "complained";
         PublicSitePage: {
             /** Format: uuid */
             publication_id: string;
@@ -1284,6 +1569,38 @@ export interface components {
         StripeWebhookReceipt: {
             received: boolean;
         };
+        SupportHealth: {
+            queued_messages: number;
+            dead_messages: number;
+            active_suppressions: number;
+            queued_webhooks: number;
+            dead_webhooks: number;
+        };
+        SupportRetry: {
+            reason: string;
+        };
+        TemplateCatalog: {
+            items: components["schemas"]["TemplateItem"][];
+        };
+        TemplateItem: {
+            key: string;
+            version: number;
+            category: string;
+            locales: string[];
+            context_fields: string[];
+        };
+        TemplatePreview: {
+            key: string;
+            version: number;
+            locale: components["schemas"]["LocaleEnum"];
+            context: {
+                [key: string]: unknown;
+            };
+        };
+        TemplatePreviewResult: {
+            subject: string;
+            html_body: string;
+        };
         TotpConfirmResult: {
             status: components["schemas"]["TotpConfirmResultStatusEnum"];
             recovery_codes: string[];
@@ -1321,6 +1638,28 @@ export interface components {
          * @enum {string}
          */
         VerificationResultStatusEnum: "verified";
+        Webhook: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: uri */
+            url: string;
+            events: string[];
+            active: boolean;
+            secret_hint: string;
+            /** Format: date-time */
+            created_at: string;
+            secret?: string;
+        };
+        WebhookCreate: {
+            name: string;
+            /** Format: uri */
+            url: string;
+            events: string[];
+        };
+        WebhookList: {
+            items: components["schemas"]["Webhook"][];
+        };
         /**
          * @description * `personal` - personal
          *     * `business` - business
@@ -2407,6 +2746,535 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    integration_exports_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DataExportCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["DataExportCreate"];
+                "multipart/form-data": components["schemas"]["DataExportCreate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataExport"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataExport"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    integration_exports_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                export_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DataExport"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    integration_exports_download: {
+        parameters: {
+            query: {
+                token: string;
+            };
+            header?: never;
+            path: {
+                export_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string;
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    integration_api_keys_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyList"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    integration_api_keys_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApiKeyCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["ApiKeyCreate"];
+                "multipart/form-data": components["schemas"]["ApiKeyCreate"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKey"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    integration_api_keys_revoke: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKey"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    integration_api_keys_rotate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKey"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    integration_webhooks_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookList"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    integration_webhooks_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebhookCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["WebhookCreate"];
+                "multipart/form-data": components["schemas"]["WebhookCreate"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Webhook"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    notification_preferences_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preference"];
+                };
+            };
+        };
+    };
+    notification_preferences_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Preference"];
+                "application/x-www-form-urlencoded": components["schemas"]["Preference"];
+                "multipart/form-data": components["schemas"]["Preference"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preference"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    notification_provider_status: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderStatus"];
+                "application/x-www-form-urlencoded": components["schemas"]["ProviderStatus"];
+                "multipart/form-data": components["schemas"]["ProviderStatus"];
+            };
+        };
+        responses: {
+            /** @description No response body */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description No response body */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    notification_support_health: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportHealth"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    notification_support_message_retry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                message_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupportRetry"];
+                "application/x-www-form-urlencoded": components["schemas"]["SupportRetry"];
+                "multipart/form-data": components["schemas"]["SupportRetry"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageStatus"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    notification_support_webhook_retry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                delivery_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupportRetry"];
+                "application/x-www-form-urlencoded": components["schemas"]["SupportRetry"];
+                "multipart/form-data": components["schemas"]["SupportRetry"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageStatus"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    notification_templates_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateCatalog"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    notification_template_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemplatePreview"];
+                "application/x-www-form-urlencoded": components["schemas"]["TemplatePreview"];
+                "multipart/form-data": components["schemas"]["TemplatePreview"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplatePreviewResult"];
+                };
+            };
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
