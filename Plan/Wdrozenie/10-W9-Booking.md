@@ -101,5 +101,6 @@ Walidacja lokalna: 10 krytycznych testów Booking (w tym dwie faktycznie
 równoległe transakcje, DST, RLS, tokeny i stały budżet zapytań dla 31-dniowego
 horyzontu), 288 testów pełnej regresji backendu, pełny mypy, Ruff,
 import-linter, drift migracji i API, walidacja obu profili deploymentu oraz
-produkcyjny build Next.js w obrazie Node 24. W tym samym obrazie przeszły 3/3
-testy komponentów W9: axe dla PL/EN i publiczne wyszukiwanie terminu bez konta.
+produkcyjny build Next.js w obrazie Node 24. W tym samym obrazie przeszły 4/4
+testy komponentów W9: axe dla PL/EN, publiczne wyszukiwanie terminu bez konta
+oraz self-service reschedule.
