@@ -16,11 +16,20 @@ export default function proxy(request: NextRequest) {
   }
   if (
     !deployment.features.publicBooking &&
-    request.nextUrl.pathname.includes("/book/")
+    bookingPathDisabled(request.nextUrl.pathname)
   ) {
     return new NextResponse(null, { status: 404 });
   }
   return internationalization(request);
+}
+
+function bookingPathDisabled(pathname: string): boolean {
+  return (
+    pathname.includes("/book/") ||
+    pathname.includes("/booking/") ||
+    pathname.endsWith("/panel/calendar") ||
+    pathname.includes("/panel/calendar/")
+  );
 }
 
 function isControlHostname(hostname: string): boolean {
