@@ -26,6 +26,12 @@ rejestr z `Plan/SaaS-Core-06-Rejestr-Decyzji.md`.
 | [ADR-028](ADR-028-Domeny-DNS-TLS-i-Publiczny-Routing.md) | domeny, DNS, TLS i publiczny routing | Accepted |
 | [ADR-029](ADR-029-Notifications-Integrations-i-Support.md) | powiadomienia, integracje i bezpieczny support | Accepted |
 | [ADR-030](ADR-030-Booking-Czas-Blokady-i-Self-Service.md) | Booking: czas, blokady i self-service | Accepted |
+| [ADR-031](ADR-031-Panel-Klienta-i-Wizualny-Site-Studio.md) | panel klienta i wizualny Site Studio | Accepted |
+| [ADR-032](ADR-032-Oferta-Plany-i-Customer-Billing.md) | oferta, plany i Customer Billing | Accepted |
+| [ADR-033](ADR-033-Asystent-AI-Narzedzia-Zgody-i-Glos.md) | asystent AI: narzędzia, zgody i głos | Accepted |
+| [ADR-034](ADR-034-Simulator-Billingu-i-Odroczenie-Stripe.md) | simulator billingowy i odroczenie Stripe | Accepted |
 
-Każda zmiana decyzji tworzy nowy ADR i oznacza poprzedni jako `Superseded`.
-Nie przepisujemy historii.
+Każda zmiana decyzji tworzy nowy ADR. Całkowicie zastąpiony dokument otrzymuje
+status `Superseded`; przy częściowym zastąpieniu nowy ADR wskazuje dokładny
+fragment, a wcześniejszy pozostaje obowiązujący w pozostałym zakresie. Nie
+przepisujemy historii.

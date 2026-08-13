@@ -59,6 +59,7 @@ compose pull
 compose up -d --wait --wait-timeout 1800 postgres redis clamav
 compose run --rm database-bootstrap
 compose run --rm migrate
+compose run --rm --no-deps backend python manage.py configure_simulated_prices
 compose up -d --no-deps backend worker scheduler
 compose up -d --no-deps frontend
 compose up -d --no-deps caddy

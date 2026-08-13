@@ -34,6 +34,8 @@ class WebhookReceipt:
 
 @transaction.atomic
 def ingest_stripe_webhook(*, payload: bytes, signature: str) -> WebhookReceipt:
+    if settings.BILLING_PROVIDER != "stripe":
+        raise ImproperlyConfigured("Webhook Stripe jest wyłączony w bieżącym trybie płatności")
     if not settings.STRIPE_WEBHOOK_SECRET:
         raise ImproperlyConfigured("STRIPE_WEBHOOK_SECRET jest wymagany")
     if not signature:

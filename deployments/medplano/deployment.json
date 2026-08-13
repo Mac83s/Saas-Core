@@ -20,6 +20,9 @@
     "vertical.medical",
     "config.medplano"
   ],
+  "billing": {
+    "planKeys": ["profile", "starter", "pro"]
+  },
   "features": {
     "customDomains": true,
     "publicBooking": true

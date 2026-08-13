@@ -13,13 +13,17 @@ from rest_framework.views import APIView
 
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
+from .overview import customer_billing_overview
 from .serializers import (
     BillingSessionSerializer,
     CheckoutCreateSerializer,
+    CustomerBillingOverviewSerializer,
     EntitlementSupportReportSerializer,
     StripeWebhookReceiptSerializer,
+    TrialActivationCreateSerializer,
+    TrialActivationResultSerializer,
 )
-from .services import create_customer_portal, create_setup_checkout
+from .services import activate_customer_trial, create_customer_portal, create_setup_checkout
 from .support import entitlement_support_report
 from .webhooks import InvalidStripeWebhook, StripeWebhookConflict, ingest_stripe_webhook
 
@@ -93,6 +97,55 @@ class BillingCheckoutView(APIView):
                 "id": result.checkout.stripe_checkout_session_id,
                 "url": result.checkout.checkout_url,
                 "expires_at": result.checkout.expires_at,
+            },
+            status=(status.HTTP_201_CREATED if result.created else status.HTTP_200_OK),
+        )
+
+
+class BillingOverviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="billing_overview_retrieve",
+        tags=["billing"],
+        responses={
+            200: CustomerBillingOverviewSerializer,
+            403: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, _request: Request) -> Response:
+        return Response(customer_billing_overview())
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class BillingTrialActivationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="billing_trial_activation_create",
+        tags=["billing"],
+        request=TrialActivationCreateSerializer,
+        responses={
+            200: TrialActivationResultSerializer,
+            201: TrialActivationResultSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+            502: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = TrialActivationCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = activate_customer_trial(
+            checkout_session_id=serializer.validated_data["checkout_session_id"]
+        )
+        return Response(
+            {
+                "id": result.activation.id,
+                "status": result.activation.status,
+                "created": result.created,
             },
             status=(status.HTTP_201_CREATED if result.created else status.HTTP_200_OK),
         )

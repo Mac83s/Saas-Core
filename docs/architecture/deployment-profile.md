@@ -34,6 +34,9 @@ Plik `deployments/medplano/deployment.json`:
     "vertical.medical",
     "config.medplano"
   ],
+  "billing": {
+    "planKeys": ["profile", "starter", "pro"]
+  },
   "features": {
     "customDomains": true,
     "publicBooking": true
@@ -53,6 +56,8 @@ Walidator kończy proces kodem różnym od zera, gdy:
 - brakuje zależności bezpośredniej lub przechodniej;
 - graf zawiera cykl albo import w niedozwolonym kierunku;
 - locale domyślne nie należy do listy obsługiwanych;
+- profil z aktywnym `shared.billing` nie zawiera dokładnie trzech unikalnych
+  kluczy `billing.planKeys`;
 - profil zawiera klucz oznaczony jako sekret;
 - backendowy i frontendowy deskryptor tego samego modułu są niespójne.
 
@@ -72,6 +77,10 @@ profilu i obrazu są różne.
 Zmiana build-time wymaga nowego obrazu. Zmiana deploy-time wymaga ponownego
 uruchomienia kontenera. Runtime jest zmieniany przez kontrolowane use case'y i
 zapisywany w audycie.
+
+`billing.planKeys` jest build-time'ową listą publicznego katalogu konkretnego
+deploymentu. Dla obecnej oferty zawiera dokładnie trzy stabilne klucze. Profil
+bez `shared.billing`, taki jak `core-only`, nie wymaga sekcji `billing`.
 
 ## 5. Komendy
 

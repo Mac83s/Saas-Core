@@ -10,7 +10,10 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import englishMessages from "../../../../messages/en.json";
 import polishMessages from "../../../../messages/pl.json";
+import { ApiProblemError } from "@saas-core/api-client";
 import { SitesPanel } from "./sites-panel";
+
+vi.mock("#i18n/navigation", () => ({ Link: "a" }));
 
 const {
   createSite,
@@ -209,3 +212,61 @@ test("renderuje pusty stan i formularze po angielsku", async () => {
     screen.getByText("Choose a site to load its readiness report."),
   ).not.toBeNull();
 });
+
+test("po odrzuceniu mutacji zachowuje treść i kieruje do płatności", async () => {
+  createSite.mockRejectedValueOnce(entitlementProblem());
+  render(
+    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+      <SitesPanel canManageBilling />
+    </NextIntlClientProvider>,
+  );
+
+  expect(await screen.findByText("Przychodnia")).not.toBeNull();
+  fireEvent.change(
+    screen.getByLabelText("Nazwa", { selector: "input#site-name" }),
+    { target: { value: "Nowa placówka" } },
+  );
+  fireEvent.change(
+    screen.getByLabelText("Slug", { selector: "input#site-slug" }),
+    { target: { value: "nowa-placowka" } },
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Utwórz site" }));
+
+  await waitFor(() => expect(createSite).toHaveBeenCalledOnce());
+  expect(await screen.findByText("Plan wymaga uwagi")).not.toBeNull();
+  expect(
+    screen.getByRole("link", { name: "Sprawdź plan i płatność" }),
+  ).not.toBeNull();
+  expect(
+    screen.queryByRole("heading", { name: "Najpierw wybierz plan" }),
+  ).toBeNull();
+  expect(screen.getByText("Start")).not.toBeNull();
+  expect(screen.getByRole("button", { name: "Utwórz site" })).not.toBeNull();
+});
+
+test("kieruje właściciela bez planu do porównania oferty", async () => {
+  listSites.mockRejectedValueOnce(entitlementProblem());
+
+  render(
+    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+      <SitesPanel canManageBilling />
+    </NextIntlClientProvider>,
+  );
+
+  expect(
+    await screen.findByRole("heading", { name: "Najpierw wybierz plan" }),
+  ).not.toBeNull();
+  expect(screen.getByRole("link", { name: "Porównaj plany" })).not.toBeNull();
+  expect(screen.queryByRole("button", { name: "Utwórz site" })).toBeNull();
+});
+
+function entitlementProblem() {
+  return new ApiProblemError({
+    type: "about:blank",
+    title: "Forbidden",
+    status: 403,
+    code: "entitlement_required",
+    detail: "Plan organizacji nie pozwala na tę operację.",
+    correlation_id: null,
+  });
+}

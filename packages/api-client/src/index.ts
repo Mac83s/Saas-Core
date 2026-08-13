@@ -30,6 +30,14 @@ export type EntitlementSupportReport =
   components["schemas"]["EntitlementSupportReport"];
 export type EntitlementSupportItem =
   components["schemas"]["EntitlementSupportItem"];
+export type CustomerBillingOverview =
+  components["schemas"]["CustomerBillingOverview"];
+export type CustomerPlan = components["schemas"]["CustomerPlan"];
+export type CustomerSubscription =
+  components["schemas"]["CustomerSubscription"];
+export type BillingSession = components["schemas"]["BillingSession"];
+export type TrialActivationResult =
+  components["schemas"]["TrialActivationResult"];
 export type SiteSummary = components["schemas"]["SiteSummary"];
 export type SiteCreateInput = components["schemas"]["SiteCreate"];
 export type SiteList = components["schemas"]["SiteList"];
@@ -272,6 +280,67 @@ export async function getEntitlementSupportReport(): Promise<EntitlementSupportR
   const { data, error, response } = await client.GET(
     "/api/v1/billing/support/entitlements/",
     { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function getCustomerBillingOverview(): Promise<CustomerBillingOverview> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/billing/overview/",
+    {
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createBillingCheckout(
+  plan: string,
+  idempotencyKey: string,
+): Promise<BillingSession> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/billing/checkout/",
+    {
+      body: { plan },
+      credentials: "same-origin",
+      headers: {
+        "Idempotency-Key": idempotencyKey,
+        "X-CSRFToken": csrfToken,
+      },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createBillingPortal(): Promise<BillingSession> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/billing/portal/",
+    {
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function activateBillingTrial(
+  checkoutSessionId: string,
+): Promise<TrialActivationResult> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/billing/trial-activation/",
+    {
+      body: { checkout_session_id: checkoutSessionId },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
   );
   if (error || !data) throwProblem(error, response);
   return data;

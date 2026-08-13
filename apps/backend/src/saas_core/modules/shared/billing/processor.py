@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
@@ -45,6 +46,8 @@ class StripeEventProcessingError(RuntimeError):
 
 
 def process_stripe_event(event_id: UUID | str) -> StripeWebhookEvent | None:
+    if settings.BILLING_PROVIDER != "stripe":
+        return None
     with transaction.atomic():
         event = StripeWebhookEvent.objects.select_for_update().filter(pk=event_id).first()
         if event is None:
@@ -109,6 +112,16 @@ def _handle_checkout(event: StripeWebhookEvent) -> None:
     data = _data_object(event)
     checkout_id = _required_string(data, "id")
     customer_id = _stripe_id(data.get("customer"), "customer")
+    checkout_organization_id = (
+        BillingCheckout.all_objects.filter(stripe_checkout_session_id=checkout_id)
+        .values_list("organization_id", flat=True)
+        .first()
+    )
+    if checkout_organization_id is None:
+        raise StripeEventProcessingError("Checkout Stripe nie ma lokalnego intentu.")
+    profile = BillingProfile.objects.select_for_update().get(
+        organization_id=checkout_organization_id
+    )
     checkout = (
         BillingCheckout.all_objects.select_for_update()
         .select_related("price_mapping")
@@ -117,9 +130,6 @@ def _handle_checkout(event: StripeWebhookEvent) -> None:
     )
     if checkout is None:
         raise StripeEventProcessingError("Checkout Stripe nie ma lokalnego intentu.")
-    profile = BillingProfile.objects.select_for_update().get(
-        organization_id=checkout.organization_id
-    )
     if profile.external_customer_id != customer_id:
         raise StripeEventProcessingError("Checkout wskazuje innego Stripe Customer.")
     metadata = data.get("metadata")
@@ -148,7 +158,8 @@ def _handle_subscription(event: StripeWebhookEvent) -> None:
         raise StripeEventProcessingError(f"Nieobsługiwany status Stripe: {provider_status}.")
 
     profile = (
-        BillingProfile.objects.select_related("organization")
+        BillingProfile.objects.select_for_update()
+        .select_related("organization")
         .filter(external_customer_id=customer_id)
         .first()
     )

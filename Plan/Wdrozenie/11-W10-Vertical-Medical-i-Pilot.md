@@ -1,8 +1,8 @@
 # W10 — Vertical Medical i pilot MedPlano
 
-**Status:** blocked by W5–W9 and privacy review  
+**Status:** blocked by W5–W9.5 and privacy review
 **Szacunek:** 2–3 tygodnie  
-**Poprzednicy:** W5, W6, W7, W8, W9  
+**Poprzednicy:** W5, W6, W7, W8, W9, W9.5
 **Rezultat:** pierwszy gabinet przechodzi pełny onboarding MedPlano
 
 ## 1. Granica produktu
@@ -78,4 +78,3 @@ rezerwację. Migracja z WordPressa ma kontrolę kompletności i rollback DNS.
 - [ ] zakres danych oraz dostawcy przeszli przegląd RODO;
 - [ ] właściciel produktu i pilot zaakceptowali scenariusze odbioru;
 - [ ] nie wprowadzono danych klinicznych ani funkcji diagnostycznych.
-

@@ -244,6 +244,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/billing/overview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["billing_overview_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/billing/portal/": {
         parameters: {
             query?: never;
@@ -270,6 +286,22 @@ export interface paths {
         get: operations["billing_entitlement_support"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/trial-activation/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["billing_trial_activation_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1291,12 +1323,48 @@ export interface components {
             /** Format: date-time */
             anonymized_at: string;
         };
+        CustomerBillingOverview: {
+            can_manage: boolean;
+            payment_mode: components["schemas"]["PaymentModeEnum"];
+            portal_available: boolean;
+            subscription: components["schemas"]["CustomerSubscription"] | null;
+            plans: components["schemas"]["CustomerPlan"][];
+        };
         CustomerInput: {
             display_name: string;
             email?: string;
             phone?: string;
             /** @default pl */
             locale: components["schemas"]["LocaleEnum"];
+        };
+        CustomerPlan: {
+            key: string;
+            name: string;
+            description: string;
+            version: number;
+            currency: string;
+            billing_interval: string;
+            unit_amount_minor: number;
+            trial_days: number;
+            features: string[];
+            quotas: {
+                [key: string]: number;
+            };
+            is_current: boolean;
+            checkout_available: boolean;
+        };
+        CustomerSubscription: {
+            state: string;
+            access_mode: string | null;
+            plan_key: string | null;
+            plan_version: number | null;
+            /** Format: date-time */
+            current_period_end: string | null;
+            /** Format: date-time */
+            trial_end: string | null;
+            /** Format: date-time */
+            grace_period_end: string | null;
+            cancel_at_period_end: boolean;
         };
         DataExport: {
             /** Format: uuid */
@@ -1693,6 +1761,12 @@ export interface components {
             timezone?: string;
             currency?: string;
         };
+        /**
+         * @description * `stripe` - stripe
+         *     * `simulated` - simulated
+         * @enum {string}
+         */
+        PaymentModeEnum: "stripe" | "simulated";
         Preference: {
             locale: components["schemas"]["LocaleEnum"];
             marketing_enabled: boolean;
@@ -1963,6 +2037,15 @@ export interface components {
         TotpSetup: {
             secret: string;
             provisioning_uri: string;
+        };
+        TrialActivationCreate: {
+            checkout_session_id: string;
+        };
+        TrialActivationResult: {
+            /** Format: uuid */
+            id: string;
+            status: string;
+            created: boolean;
         };
         UserSummary: {
             /** Format: uuid */
@@ -2684,6 +2767,41 @@ export interface operations {
             };
         };
     };
+    billing_overview_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerBillingOverview"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     billing_portal_create: {
         parameters: {
             query?: never;
@@ -2753,6 +2871,71 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    billing_trial_activation_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TrialActivationCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["TrialActivationCreate"];
+                "multipart/form-data": components["schemas"]["TrialActivationCreate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrialActivationResult"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrialActivationResult"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };

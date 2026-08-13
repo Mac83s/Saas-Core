@@ -5,7 +5,11 @@ from pathlib import Path
 import pytest
 from django.core.exceptions import ImproperlyConfigured
 
-from saas_core.config.settings.base import secret_setting
+from saas_core.config.settings.base import (
+    _deployment_billing_plan_keys,
+    _validate_billing_provider,
+    secret_setting,
+)
 from saas_core.observability import JsonFormatter, correlation_id
 
 
@@ -41,6 +45,50 @@ def test_secret_setting_hides_file_system_error(
         secret_setting("EXAMPLE_SECRET")
 
     assert str(missing_file) not in str(error.value)
+
+
+def test_deployment_billing_plan_keys_follow_enabled_module() -> None:
+    assert _deployment_billing_plan_keys({}, ["core.identity"]) == ()
+    assert _deployment_billing_plan_keys(
+        {"billing": {"planKeys": ["profile", "starter", "pro"]}},
+        ["core.identity", "shared.billing"],
+    ) == ("profile", "starter", "pro")
+
+
+@pytest.mark.parametrize(
+    "billing",
+    [
+        None,
+        {"planKeys": ["profile", "starter"]},
+        {"planKeys": ["profile", "starter", "profile"]},
+        {"planKeys": ["profile", "starter", "pro", "enterprise"]},
+    ],
+)
+def test_deployment_billing_plan_keys_reject_invalid_catalog(billing: object) -> None:
+    profile = {} if billing is None else {"billing": billing}
+    with pytest.raises(ImproperlyConfigured, match="billing.planKeys"):
+        _deployment_billing_plan_keys(profile, ["shared.billing"])
+
+
+@pytest.mark.parametrize("provider", ["", "fake", "STRIPE"])
+def test_billing_provider_rejects_unknown_values(provider: str) -> None:
+    with pytest.raises(ImproperlyConfigured, match="BILLING_PROVIDER"):
+        _validate_billing_provider(provider, app_env="test", stripe_livemode=False)
+
+
+def test_simulated_billing_provider_is_allowed_only_outside_live_production() -> None:
+    assert (
+        _validate_billing_provider("simulated", app_env="test", stripe_livemode=False)
+        == "simulated"
+    )
+    assert (
+        _validate_billing_provider("simulated", app_env="staging", stripe_livemode=False)
+        == "simulated"
+    )
+    with pytest.raises(ImproperlyConfigured, match="local, test albo staging"):
+        _validate_billing_provider("simulated", app_env="production", stripe_livemode=False)
+    with pytest.raises(ImproperlyConfigured, match="STRIPE_LIVEMODE"):
+        _validate_billing_provider("simulated", app_env="staging", stripe_livemode=True)
 
 
 def test_json_formatter_uses_context_and_allowlisted_fields() -> None:

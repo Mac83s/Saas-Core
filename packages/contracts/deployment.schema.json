@@ -42,9 +42,43 @@
         "pattern": "^(core|shared|vertical|config)\\.[a-z][a-z0-9-]*$"
       }
     },
+    "billing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["planKeys"],
+      "properties": {
+        "planKeys": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]*$"
+          }
+        }
+      }
+    },
     "features": {
       "type": "object",
       "additionalProperties": { "type": ["boolean", "string", "number"] }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "modules": {
+            "type": "array",
+            "contains": { "const": "shared.billing" }
+          }
+        },
+        "required": ["modules"]
+      },
+      "then": {
+        "properties": { "billing": {} },
+        "required": ["billing"]
+      }
+    }
+  ]
 }

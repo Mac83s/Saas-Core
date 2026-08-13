@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from django.db import IntegrityError, transaction
 from django.db.models import F
+from django.utils import timezone
 from rest_framework.exceptions import APIException, NotFound
 
 from saas_core.modules.core.identity.models import User
@@ -18,8 +20,21 @@ from saas_core.modules.core.organizations.models import (
 )
 from saas_core.modules.core.organizations.permissions import BILLING_MANAGE
 
-from .models import BillingCheckout, BillingSubscription, StripePriceMapping, SubscriptionState
-from .provider import BillingProviderError, get_billing_provider
+from .models import (
+    BillingCheckout,
+    BillingSubscription,
+    CheckoutStatus,
+    StripePriceMapping,
+    SubscriptionState,
+)
+from .provider import (
+    BillingProviderCapabilityError,
+    BillingProviderError,
+    get_billing_provider,
+)
+
+if TYPE_CHECKING:
+    from .lifecycle import TrialActivationResult
 
 
 class BillingPlanUnavailable(NotFound):
@@ -51,6 +66,12 @@ class BillingProviderUnavailable(APIException):
     default_code = "billing_provider_unavailable"
 
 
+class BillingPortalUnavailable(APIException):
+    status_code = 409
+    default_detail = "Portal płatniczy nie jest dostępny w bieżącym trybie płatności."
+    default_code = "billing_portal_unavailable"
+
+
 @dataclass(frozen=True, slots=True)
 class CheckoutResult:
     checkout: BillingCheckout
@@ -61,6 +82,19 @@ class CheckoutResult:
 class PortalResult:
     session_id: str
     url: str
+
+
+def activate_customer_trial(*, checkout_session_id: str) -> TrialActivationResult:
+    """Activate the selected plan after Stripe confirms Setup Checkout."""
+
+    authorize(BILLING_MANAGE, owner_only=True)
+    from .lifecycle import activate_trial_for_product
+
+    return activate_trial_for_product(
+        source_type="sites.onboarding",
+        source_id=checkout_session_id,
+        checkout_session_id=checkout_session_id,
+    )
 
 
 def create_setup_checkout(*, plan_key: str, idempotency_key: str) -> CheckoutResult:
@@ -79,6 +113,7 @@ def create_setup_checkout(*, plan_key: str, idempotency_key: str) -> CheckoutRes
         StripePriceMapping.objects.select_related("plan_version__plan")
         .filter(
             plan_version__plan__key=plan_key,
+            plan_version__plan__key__in=settings.BILLING_PLAN_KEYS,
             plan_version__plan__is_active=True,
             plan_version__plan__is_public=True,
             plan_version__plan__current_version_id=F("plan_version_id"),
@@ -101,7 +136,10 @@ def create_setup_checkout(*, plan_key: str, idempotency_key: str) -> CheckoutRes
     organization = Organization.objects.get(pk=context.organization_id)
     actor = User.objects.get(pk=context.actor_id)
     profile = BillingProfile.objects.get(organization=organization)
-    provider = get_billing_provider()
+    try:
+        provider = get_billing_provider()
+    except (BillingProviderError, ImproperlyConfigured) as error:
+        raise BillingProviderUnavailable from error
     customer_created = False
     if not profile.external_customer_id:
         try:
@@ -134,6 +172,10 @@ def create_setup_checkout(*, plan_key: str, idempotency_key: str) -> CheckoutRes
     except (BillingProviderError, ImproperlyConfigured) as error:
         raise BillingProviderUnavailable from error
 
+    if provider_checkout.completed and not provider_checkout.setup_intent_id:
+        raise BillingProviderUnavailable("Dostawca nie zwrócił potwierdzenia symulacji.")
+    completed_at = timezone.now() if provider_checkout.completed else None
+
     try:
         with transaction.atomic():
             checkout = BillingCheckout.all_objects.create(
@@ -142,6 +184,13 @@ def create_setup_checkout(*, plan_key: str, idempotency_key: str) -> CheckoutRes
                 stripe_checkout_session_id=provider_checkout.id,
                 idempotency_key=normalized_key,
                 checkout_url=provider_checkout.url,
+                status=(
+                    CheckoutStatus.COMPLETE
+                    if provider_checkout.completed
+                    else CheckoutStatus.OPEN
+                ),
+                setup_intent_id=provider_checkout.setup_intent_id,
+                completed_at=completed_at,
                 expires_at=provider_checkout.expires_at,
             )
     except IntegrityError:
@@ -164,6 +213,7 @@ def create_setup_checkout(*, plan_key: str, idempotency_key: str) -> CheckoutRes
             "plan_version": mapping.plan_version.version,
             "stripe_checkout_session_id": checkout.stripe_checkout_session_id,
             "stripe_customer_created": customer_created,
+            "payment_mode": settings.BILLING_PROVIDER,
         },
     )
     return CheckoutResult(checkout, True)
@@ -171,6 +221,8 @@ def create_setup_checkout(*, plan_key: str, idempotency_key: str) -> CheckoutRes
 
 def create_customer_portal() -> PortalResult:
     context = authorize(BILLING_MANAGE, owner_only=True)
+    if settings.BILLING_PROVIDER == "simulated":
+        raise BillingPortalUnavailable
     organization = Organization.objects.get(pk=context.organization_id)
     actor = User.objects.get(pk=context.actor_id)
     profile = BillingProfile.objects.get(organization=organization)
@@ -181,6 +233,8 @@ def create_customer_portal() -> PortalResult:
             customer_id=profile.external_customer_id,
             return_url=settings.BILLING_PORTAL_RETURN_URL,
         )
+    except BillingProviderCapabilityError as error:
+        raise BillingPortalUnavailable from error
     except (BillingProviderError, ImproperlyConfigured) as error:
         raise BillingProviderUnavailable from error
     record_audit(

@@ -35,6 +35,8 @@ from .snapshots import update_entitlement_snapshot
 
 
 def run_reconciliation_batch(*, at: datetime | None = None, limit: int | None = None) -> int:
+    if settings.BILLING_PROVIDER != "stripe":
+        return 0
     checked_at = at or timezone.now()
     batch_limit = limit or settings.BILLING_RECONCILIATION_BATCH_SIZE
     if batch_limit <= 0:

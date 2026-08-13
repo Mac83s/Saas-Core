@@ -45,6 +45,23 @@ const assertNoSecretKeys = (value, location = "/") => {
   }
 };
 
+export const assertBillingConfiguration = (
+  profile,
+  profileName = profile.id,
+) => {
+  if (!profile.modules.includes("shared.billing")) return;
+  const planKeys = profile.billing?.planKeys;
+  if (
+    !Array.isArray(planKeys) ||
+    planKeys.length !== 3 ||
+    new Set(planKeys).size !== planKeys.length
+  ) {
+    throw new Error(
+      `Profil ${profileName}: shared.billing wymaga dokładnie 3 unikalnych billing.planKeys`,
+    );
+  }
+};
+
 const loadDescriptors = async (root) => {
   const directory = path.join(root, "packages/contracts/modules");
   const files = (await readdir(directory))
@@ -115,6 +132,7 @@ export async function validateDeployment(profileName, root = repositoryRoot) {
   ) {
     throw new Error("Domyślne locale musi należeć do supportedLocales");
   }
+  assertBillingConfiguration(profile, profileName);
 
   const validateModule = createValidator(moduleSchema);
   const descriptorsById = new Map();

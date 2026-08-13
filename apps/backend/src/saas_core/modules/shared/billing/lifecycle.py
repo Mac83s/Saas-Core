@@ -7,8 +7,10 @@ from datetime import datetime, timedelta
 from uuid import UUID
 
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from django.db import transaction
 from django.utils import timezone
+from rest_framework.exceptions import APIException
 
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import record_audit
@@ -40,20 +42,26 @@ SOURCE_TYPE_RE = re.compile(r"^[a-z][a-z0-9_.-]*$")
 logger = logging.getLogger(__name__)
 
 
-class TrialActivationError(RuntimeError):
-    pass
+class TrialActivationError(APIException):
+    status_code = 409
+    default_detail = "Nie można aktywować subskrypcji."
+    default_code = "trial_activation_error"
 
 
 class CompletedCheckoutRequired(TrialActivationError):
-    pass
+    default_detail = "Pierwsza aktywacja produktu wymaga zakończonego Checkout."
+    default_code = "completed_checkout_required"
 
 
 class TrialActivationConflict(TrialActivationError):
-    pass
+    default_detail = "Nie można jednoznacznie aktywować wybranego planu."
+    default_code = "trial_activation_conflict"
 
 
 class TrialActivationProviderUnavailable(TrialActivationError):
-    pass
+    status_code = 502
+    default_detail = "Dostawca płatności nie aktywował subskrypcji."
+    default_code = "trial_activation_provider_unavailable"
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,21 +70,37 @@ class TrialActivationResult:
     created: bool
 
 
-def activate_trial_for_product(*, source_type: str, source_id: str) -> TrialActivationResult:
+def activate_trial_for_product(
+    *,
+    source_type: str,
+    source_id: str,
+    checkout_session_id: str | None = None,
+) -> TrialActivationResult:
     context = require_tenant_context()
     normalized_type, normalized_id = _normalize_source(source_type, source_id)
+    normalized_checkout_session_id = _normalize_checkout_session_id(checkout_session_id)
 
     with transaction.atomic():
+        # BillingProfile is the stable per-organization mutex shared with the
+        # webhook processor and subscription persistence. It serializes two
+        # activation attempts even when they target different Checkout rows.
+        BillingProfile.objects.select_for_update().get(organization_id=context.organization_id)
         activation = (
             BillingTrialActivation.all_objects.select_for_update()
             .select_related("checkout__price_mapping__plan_version__plan")
             .filter(organization_id=context.organization_id)
             .first()
         )
+        if (
+            activation is not None
+            and normalized_checkout_session_id is not None
+            and activation.checkout.stripe_checkout_session_id != normalized_checkout_session_id
+        ):
+            raise TrialActivationConflict("Aktywacja jest już powiązana z inną sesją Checkout.")
         if activation is not None and activation.status == TrialActivationStatus.ACTIVE:
             return TrialActivationResult(activation, False)
         if activation is None:
-            checkout = (
+            checkouts = (
                 BillingCheckout.all_objects.select_for_update()
                 .select_related("price_mapping__plan_version__plan")
                 .filter(
@@ -85,9 +109,12 @@ def activate_trial_for_product(*, source_type: str, source_id: str) -> TrialActi
                     price_mapping__livemode=settings.STRIPE_LIVEMODE,
                 )
                 .exclude(setup_intent_id="")
-                .order_by("-completed_at")
-                .first()
             )
+            if normalized_checkout_session_id is not None:
+                checkouts = checkouts.filter(
+                    stripe_checkout_session_id=normalized_checkout_session_id
+                )
+            checkout = checkouts.order_by("-completed_at").first()
             if checkout is None:
                 raise CompletedCheckoutRequired(
                     "Pierwsza aktywacja produktu wymaga zakończonego Checkout."
@@ -100,6 +127,8 @@ def activate_trial_for_product(*, source_type: str, source_id: str) -> TrialActi
                     "source_id": normalized_id,
                 },
             )
+            if normalized_checkout_session_id is not None and activation.checkout_id != checkout.id:
+                raise TrialActivationConflict("Aktywacja jest już powiązana z inną sesją Checkout.")
 
     activation = BillingTrialActivation.all_objects.select_related(
         "checkout__price_mapping__plan_version__plan",
@@ -112,8 +141,15 @@ def activate_trial_for_product(*, source_type: str, source_id: str) -> TrialActi
 
     mapping = checkout.price_mapping
     plan_version = mapping.plan_version
+    if (
+        BillingSubscription.all_objects.filter(organization_id=activation.organization_id)
+        .exclude(state=SubscriptionState.CANCELED)
+        .exists()
+    ):
+        raise TrialActivationConflict("Organizacja ma już bieżącą subskrypcję.")
     try:
-        provider_subscription = get_billing_provider().create_trial_subscription(
+        provider = get_billing_provider()
+        provider_subscription = provider.create_trial_subscription(
             customer_id=profile.external_customer_id,
             setup_intent_id=checkout.setup_intent_id,
             price_id=mapping.stripe_price_id,
@@ -124,7 +160,7 @@ def activate_trial_for_product(*, source_type: str, source_id: str) -> TrialActi
         )
         if provider_subscription.status != StripeSubscriptionStatus.TRIALING:
             raise BillingProviderError("Stripe nie utworzył subskrypcji w stanie trialing.")
-    except BillingProviderError as error:
+    except (BillingProviderError, ImproperlyConfigured) as error:
         BillingTrialActivation.all_objects.filter(
             pk=activation.pk,
         ).exclude(status=TrialActivationStatus.ACTIVE).update(
@@ -153,7 +189,11 @@ def _persist_trial_activation(
 ) -> TrialActivationResult:
     if provider_subscription.status != StripeSubscriptionStatus.TRIALING:
         raise TrialActivationConflict("Stripe nie utworzył subskrypcji w stanie trialing.")
+    organization_id = BillingTrialActivation.all_objects.values_list(
+        "organization_id", flat=True
+    ).get(pk=activation_id)
     with transaction.atomic():
+        BillingProfile.objects.select_for_update().get(organization_id=organization_id)
         activation = (
             BillingTrialActivation.all_objects.select_for_update()
             .select_related(
@@ -261,6 +301,15 @@ def _normalize_source(source_type: str, source_id: str) -> tuple[str, str]:
     if not normalized_id or len(normalized_id) > 160:
         raise TrialActivationConflict("Nieprawidłowy identyfikator źródła aktywacji.")
     return normalized_type, normalized_id
+
+
+def _normalize_checkout_session_id(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    if not normalized or len(normalized) > 160:
+        raise TrialActivationConflict("Nieprawidłowy identyfikator sesji Checkout.")
+    return normalized
 
 
 def sync_subscription_lifecycle(subscription: BillingSubscription) -> None:

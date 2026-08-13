@@ -565,6 +565,32 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/billing/overview/:
+    get:
+      operationId: billing_overview_retrieve
+      tags:
+      - billing
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerBillingOverview'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/billing/portal/:
     post:
       operationId: billing_portal_create
@@ -618,6 +644,62 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/billing/trial-activation/:
+    post:
+      operationId: billing_trial_activation_create
+      tags:
+      - billing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TrialActivationCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TrialActivationCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TrialActivationCreate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrialActivationResult'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TrialActivationResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '502':
           content:
             application/json:
               schema:
@@ -3497,6 +3579,29 @@ components:
       required:
       - anonymized_at
       - id
+    CustomerBillingOverview:
+      type: object
+      properties:
+        can_manage:
+          type: boolean
+        payment_mode:
+          $ref: '#/components/schemas/PaymentModeEnum'
+        portal_available:
+          type: boolean
+        subscription:
+          oneOf:
+          - $ref: '#/components/schemas/CustomerSubscription'
+          - type: 'null'
+        plans:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerPlan'
+      required:
+      - can_manage
+      - payment_mode
+      - plans
+      - portal_available
+      - subscription
     CustomerInput:
       type: object
       properties:
@@ -3519,6 +3624,94 @@ components:
           default: pl
       required:
       - display_name
+    CustomerPlan:
+      type: object
+      properties:
+        key:
+          type: string
+          pattern: ^[-a-zA-Z0-9_]+$
+        name:
+          type: string
+        description:
+          type: string
+        version:
+          type: integer
+        currency:
+          type: string
+        billing_interval:
+          type: string
+        unit_amount_minor:
+          type: integer
+        trial_days:
+          type: integer
+        features:
+          type: array
+          items:
+            type: string
+        quotas:
+          type: object
+          additionalProperties:
+            type: integer
+        is_current:
+          type: boolean
+        checkout_available:
+          type: boolean
+      required:
+      - billing_interval
+      - checkout_available
+      - currency
+      - description
+      - features
+      - is_current
+      - key
+      - name
+      - quotas
+      - trial_days
+      - unit_amount_minor
+      - version
+    CustomerSubscription:
+      type: object
+      properties:
+        state:
+          type: string
+        access_mode:
+          type:
+          - string
+          - 'null'
+        plan_key:
+          type:
+          - string
+          - 'null'
+        plan_version:
+          type:
+          - integer
+          - 'null'
+        current_period_end:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        trial_end:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        grace_period_end:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        cancel_at_period_end:
+          type: boolean
+      required:
+      - access_mode
+      - cancel_at_period_end
+      - current_period_end
+      - grace_period_end
+      - plan_key
+      - plan_version
+      - state
+      - trial_end
     DataExport:
       type: object
       properties:
@@ -4517,6 +4710,14 @@ components:
         currency:
           type: string
           pattern: ^[A-Z]{3}$
+    PaymentModeEnum:
+      enum:
+      - stripe
+      - simulated
+      type: string
+      description: |-
+        * `stripe` - stripe
+        * `simulated` - simulated
     Preference:
       type: object
       properties:
@@ -5180,6 +5381,29 @@ components:
       required:
       - provisioning_uri
       - secret
+    TrialActivationCreate:
+      type: object
+      properties:
+        checkout_session_id:
+          type: string
+          maxLength: 160
+          minLength: 1
+      required:
+      - checkout_session_id
+    TrialActivationResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+        created:
+          type: boolean
+      required:
+      - created
+      - id
+      - status
     UserSummary:
       type: object
       properties:

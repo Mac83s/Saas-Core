@@ -38,12 +38,13 @@ katalogu opisują sposób realizacji i nie zmieniają statusu żadnego ADR-u.
 | W2 | [Runtime local i staging](03-W2-Runtime-Local-i-Staging.md) | 1–2 tygodnie | W1 | powtarzalne środowisko oraz pierwszy deploy na staging |
 | W3 | [Identity i sesje](04-W3-Identity-i-Sesje.md) | 1,5–2 tygodnie | W1, W2 | bezpieczna rejestracja, logowanie i zarządzanie sesją |
 | W4 | [Organizations, RBAC i i18n](05-W4-Organizations-RBAC-i-I18n.md) | 1,5–2 tygodnie | W3 | izolowane organizacje, członkostwa, role i dwa języki |
-| W5 | [Billing i Entitlements](06-W5-Billing-i-Entitlements.md) | 2–3 tygodnie | W4 | lokalny model dostępu zsynchronizowany ze Stripe |
+| W5 | [Billing i Entitlements](06-W5-Billing-i-Entitlements.md) | 2–3 tygodnie | W4 | lokalny model dostępu i providerowy kontrakt billingowy |
 | W6 | [Sites, Content i Media](07-W6-Sites-Content-i-Media.md) | 2–3 tygodnie | W4 | wersjonowana, wielojęzyczna strona organizacji |
 | W7 | [Domains i publikacja](08-W7-Domains-i-Publikacja.md) | 1–2 tygodnie | W2, W6 | subdomeny, własne domeny i bezpieczny TLS |
 | W8 | [Notifications, Integrations i Support](09-W8-Notifications-Integrations-i-Support.md) | 2 tygodnie | W3, W4 | niezawodna komunikacja i narzędzia operatora |
 | W9 | [Booking](10-W9-Booking.md) | 3–5 tygodni | W4, W8 | neutralny branżowo, bezpieczny system rezerwacji |
-| W10 | [Vertical Medical i pilot](11-W10-Vertical-Medical-i-Pilot.md) | 2–3 tygodnie | W5–W9 | pierwszy gabinet MedPlano przechodzi pełną ścieżkę |
+| W9.5 | [Customer Experience, Commerce i AI](10A-W9.5-Customer-Experience-Commerce-i-AI.md) | 6–10 tygodni | W3–W9 | self-service, szablony, Site Studio i asystent AI |
+| W10 | [Vertical Medical i pilot](11-W10-Vertical-Medical-i-Pilot.md) | 2–3 tygodnie | W5–W9.5 | pierwszy gabinet MedPlano przechodzi pełną ścieżkę |
 | W11 | [Hardening i uruchomienie](12-W11-Hardening-i-Go-Live.md) | 1–2 tygodnie | W0–W10 | audyt, odtworzenie, testy obciążeniowe i decyzja go-live |
 
 Szacunki dotyczą 1–2 doświadczonych programistów i zostaną skorygowane po W0.
@@ -55,10 +56,11 @@ W5 i W6 mogą częściowo biec równolegle dopiero wtedy, gdy W4 jest stabilne.
 | --- | --- | --- |
 | M1 — szkielet na stagingu | W0–W2 | jedna komenda lokalnie, automatyczny deploy i smoke test |
 | M2 — bezpieczne konta | W3–W4 | pełna ścieżka użytkownik → organizacja → uprawnienie |
-| M3 — płatny SaaS | W5 | plan, trial, webhooki, grace period i audytowane override |
+| M3 — billing core | W5 | plan, trial, lokalny lifecycle, grace period i audytowane override |
 | M4 — publikowane strony | W6–W7 | wersjonowana treść na subdomenie i własnej domenie |
 | M5 — komunikacja | W8 | asynchroniczne wiadomości, webhooki i obsługa błędów |
 | M6 — rezerwacje | W9 | odporna na wyścigi rezerwacja z przypomnieniami |
+| M6.5 — produkt self-service | W9.5 | wybór planu, szablon, subdomena i bezpieczne zarządzanie przez AI; realna płatność wymaga W9.5.2S |
 | M7 — pilot MedPlano | W10–W11 | onboarding gabinetu, migracja, rollback i zgoda go-live |
 
 ## 5. Bramka wejścia do fali
@@ -91,20 +93,23 @@ Fala może przejść do `in progress`, gdy:
 | W2 | strategia sekretów, monitoring, storage dla stagingu, RPO/RTO stagingu |
 | W3 | ADR-013 sesje cookie, polityka CSRF, provider transakcyjnego e-maila dla auth |
 | W4 | ADR-012 model tenantów, tenant context, zakres początkowego RLS, biblioteka i18n |
-| W5 | model triala, karta w trialu, plany pilota, grace period, fakturowanie/KSeF |
+| W5 | model triala, plany pilota, grace period, fakturowanie/KSeF; aktywacja realnego providera jest odroczona przez ADR-034 |
 | W6 | ADR-017 kontrolowane bloki, wersjonowanie treści i tłumaczeń |
 | W7 | DNS, storage produkcyjny, CDN/WAF i polityka certyfikatów |
 | W8 | provider e-mail/SMS, format webhooków i retencja komunikacji |
 | W9 | ADR-018 Booking, model blokad i zasady stref czasowych |
+| W9.5 | IA panelu, trzy poziomy oferty, Site Studio, kontrakt narzędzi i zgód AI oraz bramka realnego Stripe przed płatnym pilotem |
 | W10 | zakres danych MedPlano, DPA, retencja i wymagania RODO pilota |
 | W11 | produkcyjne RPO/RTO, parametry VPS i kryteria go-live |
 
 ## 8. Bieżący ruch
 
-W0 i W1 są ukończone. Lokalna część W2 oraz lokalne implementacje W3-W7 są
-zakończone; bramki wymagające prawdziwego stagingu/VPS pozostają świadomie
-odłożone. W7 dostarcza subdomeny platformy, workflow domen własnych i DNS,
-fail-closed Caddy On-Demand TLS oraz publiczny routing snapshotów z canonical i
-locale. Politykę potwierdzają testy, build Node 24, Playwright i smoke Compose;
-zewnętrzne issuance ACME wymaga prawdziwego stagingu. Następną lokalną falą jest
-W8.
+Lokalne implementacje W0–W9 są zakończone; bramki wymagające prawdziwego
+stagingu/VPS pozostają świadomie odłożone i nie są oznaczone jako zaliczone.
+Audyt produktowy panelu uruchomił obowiązkową falę W9.5 przed Vertical Medical.
+Bieżący pakiet dostarcza produktowy shell, Customer Billing i bezpieczne
+przejście wybór planu → symulowany trial → entitlement, bez karty, sekretów i
+obciążeń. Realny Stripe jest wydzielony do niezaliczonego W9.5.2S i blokuje
+pierwszy płatny pilot, ale nie dalszą lokalną implementację W9.5. Kolejne pakiety
+obejmują onboarding subdomeny, szablony, Site Studio oraz asystenta. W10
+pozostaje zablokowane do zaliczenia bramki W9.5 i privacy review.

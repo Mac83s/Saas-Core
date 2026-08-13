@@ -35,8 +35,6 @@ await ensureSecret(
   "grafana_admin_password",
   randomBytes(24).toString("base64url"),
 );
-await ensureSecret("stripe_secret_key", "");
-await ensureSecret("stripe_webhook_secret", "");
 await ensureSecret(
   "object_storage_access_key_id",
   randomBytes(16).toString("hex").toUpperCase().slice(0, 20),

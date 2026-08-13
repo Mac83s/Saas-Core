@@ -13,6 +13,10 @@ class BillingProviderError(RuntimeError):
     pass
 
 
+class BillingProviderCapabilityError(BillingProviderError):
+    pass
+
+
 @dataclass(frozen=True, slots=True)
 class ProviderCustomer:
     id: str
@@ -23,12 +27,26 @@ class ProviderCheckout:
     id: str
     url: str
     expires_at: datetime | None
+    completed: bool = False
+    setup_intent_id: str = ""
 
 
 @dataclass(frozen=True, slots=True)
 class ProviderPortal:
     id: str
     url: str
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderPrice:
+    id: str
+    product_id: str
+    active: bool
+    livemode: bool
+    currency: str
+    unit_amount_minor: int
+    recurring_interval: str
+    recurring_interval_count: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +103,8 @@ class BillingProvider(Protocol):
         customer_id: str,
         return_url: str,
     ) -> ProviderPortal: ...
+
+    def retrieve_price(self, price_id: str) -> ProviderPrice: ...
 
     def create_trial_subscription(
         self,
@@ -192,6 +212,26 @@ class StripeBillingProvider:
             _required_attribute(portal, "url"),
         )
 
+    def retrieve_price(self, price_id: str) -> ProviderPrice:
+        try:
+            price = self.client.v1.prices.retrieve(price_id)
+        except stripe.StripeError as error:
+            raise BillingProviderError("Stripe nie zwrócił konfiguracji Price.") from error
+
+        recurring = getattr(price, "recurring", None)
+        if recurring is None:
+            raise BillingProviderError("Stripe Price nie jest ceną cykliczną.")
+        return ProviderPrice(
+            id=_required_attribute(price, "id"),
+            product_id=_reference_id(getattr(price, "product", None), "product"),
+            active=_required_boolean(price, "active"),
+            livemode=_required_boolean(price, "livemode"),
+            currency=_required_attribute(price, "currency").upper(),
+            unit_amount_minor=_required_nonnegative_integer(price, "unit_amount"),
+            recurring_interval=_required_attribute(recurring, "interval"),
+            recurring_interval_count=_required_positive_integer(recurring, "interval_count"),
+        )
+
     def create_trial_subscription(
         self,
         *,
@@ -286,7 +326,13 @@ class StripeBillingProvider:
 
 
 def get_billing_provider() -> BillingProvider:
-    return StripeBillingProvider()
+    if settings.BILLING_PROVIDER == "stripe":
+        return StripeBillingProvider()
+    if settings.BILLING_PROVIDER == "simulated":
+        from .simulated_provider import SimulatedBillingProvider
+
+        return SimulatedBillingProvider()
+    raise ImproperlyConfigured("Nieobsługiwany BILLING_PROVIDER")
 
 
 def _required_attribute(value: Any, field: str) -> str:
@@ -311,6 +357,27 @@ def _required_timestamp(value: Any, field: str) -> datetime:
     if not isinstance(raw, int) or isinstance(raw, bool) or raw < 0:
         raise BillingProviderError(f"Stripe nie zwrócił timestampu {field}.")
     return datetime.fromtimestamp(raw, tz=UTC)
+
+
+def _required_boolean(value: Any, field: str) -> bool:
+    raw = getattr(value, field, None)
+    if not isinstance(raw, bool):
+        raise BillingProviderError(f"Stripe nie zwrócił pola logicznego {field}.")
+    return raw
+
+
+def _required_nonnegative_integer(value: Any, field: str) -> int:
+    raw = getattr(value, field, None)
+    if not isinstance(raw, int) or isinstance(raw, bool) or raw < 0:
+        raise BillingProviderError(f"Stripe nie zwrócił poprawnej liczby {field}.")
+    return raw
+
+
+def _required_positive_integer(value: Any, field: str) -> int:
+    raw = _required_nonnegative_integer(value, field)
+    if raw == 0:
+        raise BillingProviderError(f"Stripe nie zwrócił dodatniej liczby {field}.")
+    return raw
 
 
 def _subscription_period(subscription: Any) -> tuple[datetime | None, datetime | None]:

@@ -12,8 +12,10 @@ import {
   type UseFormReturn,
 } from "react-hook-form";
 import {
+  ArrowRightIcon,
   FileTextIcon,
   Globe2Icon,
+  LockKeyholeIcon,
   PlusIcon,
   RefreshCwIcon,
   RocketIcon,
@@ -21,6 +23,7 @@ import {
 import { z } from "zod";
 
 import {
+  ApiProblemError,
   createSite,
   createSitePage,
   getSiteLocalizationReport,
@@ -36,6 +39,7 @@ import {
 } from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
+import { buttonVariants } from "@saas-core/ui/components/button";
 import {
   Card,
   CardContent,
@@ -67,6 +71,7 @@ import {
 } from "@saas-core/ui/components/select";
 
 import { sitesErrorMessage } from "./problem";
+import { Link } from "#i18n/navigation";
 import { mutationKey, type MutationReceipt } from "./idempotency";
 import { DomainPanel } from "./domain-panel";
 import { PageEditor } from "./page-editor";
@@ -79,7 +84,11 @@ type SiteValues = {
 };
 type PageValues = { name: string; key: string };
 
-export function SitesPanel() {
+export function SitesPanel({
+  canManageBilling = false,
+}: {
+  canManageBilling?: boolean;
+}) {
   const t = useTranslations("Sites");
   const common = useTranslations("Common");
   const [sites, setSites] = useState<SiteSummary[]>([]);
@@ -91,6 +100,8 @@ export function SitesPanel() {
   const [publication, setPublication] = useState<SitePublication>();
   const [loading, setLoading] = useState(true);
   const [problem, setProblem] = useState<string>();
+  const [requiresPlan, setRequiresPlan] = useState(false);
+  const [planAttention, setPlanAttention] = useState(false);
   const siteReceipt = useRef<MutationReceipt | undefined>(undefined);
   const pageReceipt = useRef<MutationReceipt | undefined>(undefined);
   const publishReceipt = useRef<MutationReceipt | undefined>(undefined);
@@ -131,6 +142,7 @@ export function SitesPanel() {
       setProblem(undefined);
       try {
         const result = await listSites();
+        setRequiresPlan(false);
         const nextSiteId =
           preferredSiteId &&
           result.items.some((item) => item.id === preferredSiteId)
@@ -149,7 +161,10 @@ export function SitesPanel() {
         }
         setSelectedSiteId(nextSiteId);
       } catch (error) {
-        setProblem(sitesErrorMessage(error, t));
+        if (requiresBillingPlan(error)) {
+          setPlanAttention(true);
+          setProblem(undefined);
+        } else setProblem(sitesErrorMessage(error, t));
       } finally {
         setLoading(false);
       }
@@ -185,10 +200,15 @@ export function SitesPanel() {
           return pageResult.items[0]?.id;
         });
       } catch (error) {
-        setPages([]);
-        setReport(undefined);
-        setPublications([]);
-        setProblem(sitesErrorMessage(error, t));
+        if (requiresBillingPlan(error)) {
+          setPlanAttention(true);
+          setProblem(undefined);
+        } else {
+          setPages([]);
+          setReport(undefined);
+          setPublications([]);
+          setProblem(sitesErrorMessage(error, t));
+        }
       } finally {
         setLoading(false);
       }
@@ -201,11 +221,16 @@ export function SitesPanel() {
     void listSites()
       .then((result) => {
         if (!mounted) return;
+        setRequiresPlan(false);
         setSites(result.items);
         setSelectedSiteId(result.items[0]?.id);
       })
       .catch((error: unknown) => {
-        if (mounted) setProblem(sitesErrorMessage(error, t));
+        if (!mounted) return;
+        if (requiresBillingPlan(error)) {
+          setRequiresPlan(true);
+          setProblem(undefined);
+        } else setProblem(sitesErrorMessage(error, t));
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -232,10 +257,15 @@ export function SitesPanel() {
       })
       .catch((error: unknown) => {
         if (!mounted) return;
-        setPages([]);
-        setReport(undefined);
-        setPublications([]);
-        setProblem(sitesErrorMessage(error, t));
+        if (requiresBillingPlan(error)) {
+          setPlanAttention(true);
+          setProblem(undefined);
+        } else {
+          setPages([]);
+          setReport(undefined);
+          setPublications([]);
+          setProblem(sitesErrorMessage(error, t));
+        }
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -253,10 +283,14 @@ export function SitesPanel() {
         mutationKey(siteReceipt, "site-create", values),
       );
       siteReceipt.current = undefined;
+      setPlanAttention(false);
       siteForm.reset();
       await loadSites(created.id);
     } catch (error) {
-      setProblem(sitesErrorMessage(error, t));
+      if (requiresBillingPlan(error)) {
+        setPlanAttention(true);
+        setProblem(undefined);
+      } else setProblem(sitesErrorMessage(error, t));
     }
   };
 
@@ -270,10 +304,14 @@ export function SitesPanel() {
         mutationKey(pageReceipt, `page-create-${selectedSiteId}`, values),
       );
       pageReceipt.current = undefined;
+      setPlanAttention(false);
       pageForm.reset();
       await loadSiteDetails(selectedSiteId, created.id);
     } catch (error) {
-      setProblem(sitesErrorMessage(error, t));
+      if (requiresBillingPlan(error)) {
+        setPlanAttention(true);
+        setProblem(undefined);
+      } else setProblem(sitesErrorMessage(error, t));
     }
   };
 
@@ -289,13 +327,17 @@ export function SitesPanel() {
         }),
       );
       publishReceipt.current = undefined;
+      setPlanAttention(false);
       setPublication(created);
       await Promise.all([
         loadSites(selectedSiteId),
         loadSiteDetails(selectedSiteId),
       ]);
     } catch (error) {
-      setProblem(sitesErrorMessage(error, t));
+      if (requiresBillingPlan(error)) {
+        setPlanAttention(true);
+        setProblem(undefined);
+      } else setProblem(sitesErrorMessage(error, t));
     }
   }
 
@@ -312,13 +354,17 @@ export function SitesPanel() {
         }),
       );
       rollbackReceipt.current = undefined;
+      setPlanAttention(false);
       setPublication(restored);
       await Promise.all([
         loadSites(selectedSiteId),
         loadSiteDetails(selectedSiteId, selectedPageId),
       ]);
     } catch (error) {
-      setProblem(sitesErrorMessage(error, t));
+      if (requiresBillingPlan(error)) {
+        setPlanAttention(true);
+        setProblem(undefined);
+      } else setProblem(sitesErrorMessage(error, t));
     } finally {
       setLoading(false);
     }
@@ -329,32 +375,75 @@ export function SitesPanel() {
     if (selectedSiteId) await loadSiteDetails(selectedSiteId, selectedPageId);
   }
 
+  const heading = (
+    <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+      <div>
+        <p className="text-sm font-medium text-primary">{t("eyebrow")}</p>
+        <h1
+          className="text-3xl font-semibold tracking-tight"
+          id="sites-heading"
+        >
+          {t("title")}
+        </h1>
+        <p className="text-muted-foreground">{t("description")}</p>
+      </div>
+      <Button
+        aria-label={common("refresh")}
+        disabled={loading}
+        onClick={() => void refresh()}
+        size="icon"
+        variant="outline"
+      >
+        <RefreshCwIcon
+          aria-hidden="true"
+          className={loading ? "animate-spin" : ""}
+        />
+      </Button>
+    </div>
+  );
+
+  if (requiresPlan) {
+    return (
+      <section className="space-y-6" aria-labelledby="sites-heading">
+        {heading}
+        <Card className="overflow-hidden border-primary/25 bg-gradient-to-br from-primary/10 via-background to-background">
+          <CardHeader className="max-w-3xl space-y-3 p-7 sm:p-10">
+            <span className="flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
+              <LockKeyholeIcon aria-hidden="true" className="size-5" />
+            </span>
+            <CardTitle className="text-2xl">
+              <h2>{t("planRequiredTitle")}</h2>
+            </CardTitle>
+            <CardDescription className="text-base leading-7">
+              {t(
+                canManageBilling
+                  ? "planRequiredDescription"
+                  : "planRequiredOwnerDescription",
+              )}
+            </CardDescription>
+          </CardHeader>
+          {canManageBilling ? (
+            <CardContent className="px-7 pb-7 sm:px-10 sm:pb-10">
+              <Link
+                className={buttonVariants({
+                  className: "rounded-xl",
+                  size: "lg",
+                })}
+                href="/panel/settings/billing"
+              >
+                {t("choosePlan")}
+                <ArrowRightIcon aria-hidden="true" />
+              </Link>
+            </CardContent>
+          ) : null}
+        </Card>
+      </section>
+    );
+  }
+
   return (
     <section className="space-y-6" aria-labelledby="sites-heading">
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div>
-          <p className="text-sm font-medium text-primary">{t("eyebrow")}</p>
-          <h1
-            className="text-3xl font-semibold tracking-tight"
-            id="sites-heading"
-          >
-            {t("title")}
-          </h1>
-          <p className="text-muted-foreground">{t("description")}</p>
-        </div>
-        <Button
-          aria-label={common("refresh")}
-          disabled={loading}
-          onClick={() => void refresh()}
-          size="icon"
-          variant="outline"
-        >
-          <RefreshCwIcon
-            aria-hidden="true"
-            className={loading ? "animate-spin" : ""}
-          />
-        </Button>
-      </div>
+      {heading}
 
       {problem && (
         <div
@@ -362,6 +451,39 @@ export function SitesPanel() {
           role="alert"
         >
           {problem}
+        </div>
+      )}
+
+      {planAttention && (
+        <div
+          className="flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm"
+          role="alert"
+        >
+          <div className="flex min-w-0 items-start gap-3">
+            <LockKeyholeIcon
+              aria-hidden="true"
+              className="mt-0.5 size-5 shrink-0 text-amber-700"
+            />
+            <div>
+              <p className="font-medium">{t("planAttentionTitle")}</p>
+              <p className="mt-1 text-muted-foreground">
+                {t(
+                  canManageBilling
+                    ? "planAttentionDescription"
+                    : "planAttentionOwnerDescription",
+                )}
+              </p>
+            </div>
+          </div>
+          {canManageBilling ? (
+            <Link
+              className={buttonVariants({ size: "sm", variant: "outline" })}
+              href="/panel/settings/billing"
+            >
+              {t("reviewPlan")}
+              <ArrowRightIcon aria-hidden="true" />
+            </Link>
+          ) : null}
         </div>
       )}
 
@@ -545,6 +667,13 @@ export function SitesPanel() {
         <DomainPanel key={selectedSiteId} siteId={selectedSiteId} />
       )}
     </section>
+  );
+}
+
+function requiresBillingPlan(error: unknown) {
+  return (
+    error instanceof ApiProblemError &&
+    error.problem.code === "entitlement_required"
   );
 }
 

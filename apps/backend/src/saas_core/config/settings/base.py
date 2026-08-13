@@ -1,11 +1,62 @@
 import json
 import os
 from pathlib import Path
+from typing import Any
 from urllib.parse import quote
 
 from django.core.exceptions import ImproperlyConfigured
 
+
+def _deployment_billing_plan_keys(profile: dict[str, Any], modules: list[str]) -> tuple[str, ...]:
+    if "shared.billing" not in modules:
+        return ()
+    billing = profile.get("billing")
+    raw_plan_keys = billing.get("planKeys") if isinstance(billing, dict) else None
+    if not isinstance(raw_plan_keys, list) or not all(
+        isinstance(value, str) and value.strip() for value in raw_plan_keys
+    ):
+        raise ImproperlyConfigured("Profil z shared.billing wymaga listy billing.planKeys")
+    plan_keys = tuple(value.strip() for value in raw_plan_keys)
+    if len(plan_keys) != 3 or len(plan_keys) != len(set(plan_keys)):
+        raise ImproperlyConfigured(
+            "Profil z shared.billing wymaga dokładnie 3 unikalnych billing.planKeys"
+        )
+    return plan_keys
+
+
+def _settings_environment() -> str:
+    configured = os.environ.get("APP_ENV")
+    if configured is not None:
+        return configured.strip().lower()
+    module = os.environ.get("DJANGO_SETTINGS_MODULE", "")
+    if module.endswith((".test", ".migration_check")):
+        return "test"
+    if module.endswith(".local"):
+        return "local"
+    return "staging"
+
+
+def _validate_billing_provider(
+    provider: str,
+    *,
+    app_env: str,
+    stripe_livemode: bool,
+) -> str:
+    if provider not in {"stripe", "simulated"}:
+        raise ImproperlyConfigured("BILLING_PROVIDER musi mieć wartość stripe albo simulated")
+    if provider == "simulated" and app_env not in {"local", "test", "staging"}:
+        raise ImproperlyConfigured(
+            "BILLING_PROVIDER=simulated jest dozwolony tylko w local, test albo staging"
+        )
+    if provider == "simulated" and stripe_livemode:
+        raise ImproperlyConfigured(
+            "BILLING_PROVIDER=simulated nie może działać z STRIPE_LIVEMODE=true"
+        )
+    return provider
+
+
 BASE_DIR = Path(__file__).resolve().parents[4]
+APP_ENV = _settings_environment()
 
 DEPLOYMENT = os.environ.get("DEPLOYMENT", "core-only")
 _deployment_profile_setting = os.environ.get("DEPLOYMENT_PROFILE_PATH")
@@ -29,6 +80,7 @@ except (OSError, KeyError, TypeError, json.JSONDecodeError) as error:
     ) from error
 if _deployment_id != DEPLOYMENT:
     raise ImproperlyConfigured(f"Profil {_deployment_id} nie odpowiada deploymentowi {DEPLOYMENT}")
+BILLING_PLAN_KEYS = _deployment_billing_plan_keys(_deployment_profile, _deployment_modules)
 if (
     not isinstance(_deployment_supported_locales, list)
     or not _deployment_supported_locales
@@ -328,6 +380,11 @@ STRIPE_LIVEMODE = os.environ.get("STRIPE_LIVEMODE", "false").lower() in {
     "true",
     "yes",
 }
+BILLING_PROVIDER = _validate_billing_provider(
+    os.environ.get("BILLING_PROVIDER", "stripe").strip().lower(),
+    app_env=APP_ENV,
+    stripe_livemode=STRIPE_LIVEMODE,
+)
 STRIPE_WEBHOOK_TOLERANCE_SECONDS = int(os.environ.get("STRIPE_WEBHOOK_TOLERANCE_SECONDS", "300"))
 STRIPE_WEBHOOK_MAX_BYTES = int(os.environ.get("STRIPE_WEBHOOK_MAX_BYTES", "262144"))
 if STRIPE_WEBHOOK_TOLERANCE_SECONDS <= 0 or STRIPE_WEBHOOK_MAX_BYTES <= 0:

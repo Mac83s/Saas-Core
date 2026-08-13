@@ -17,6 +17,50 @@ class BillingSessionSerializer(serializers.Serializer[dict[str, Any]]):
     expires_at = serializers.DateTimeField(allow_null=True, required=False)
 
 
+class TrialActivationCreateSerializer(serializers.Serializer[dict[str, Any]]):
+    checkout_session_id = serializers.CharField(min_length=1, max_length=160)
+
+
+class TrialActivationResultSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    status = serializers.CharField()
+    created = serializers.BooleanField()
+
+
+class CustomerPlanSerializer(serializers.Serializer[dict[str, Any]]):
+    key = serializers.SlugField()
+    name = serializers.CharField()
+    description = serializers.CharField()
+    version = serializers.IntegerField()
+    currency = serializers.CharField()
+    billing_interval = serializers.CharField()
+    unit_amount_minor = serializers.IntegerField()
+    trial_days = serializers.IntegerField()
+    features = serializers.ListField(child=serializers.CharField())
+    quotas = serializers.DictField(child=serializers.IntegerField())
+    is_current = serializers.BooleanField()
+    checkout_available = serializers.BooleanField()
+
+
+class CustomerSubscriptionSerializer(serializers.Serializer[dict[str, Any]]):
+    state = serializers.CharField()
+    access_mode = serializers.CharField(allow_null=True)
+    plan_key = serializers.CharField(allow_null=True)
+    plan_version = serializers.IntegerField(allow_null=True)
+    current_period_end = serializers.DateTimeField(allow_null=True)
+    trial_end = serializers.DateTimeField(allow_null=True)
+    grace_period_end = serializers.DateTimeField(allow_null=True)
+    cancel_at_period_end = serializers.BooleanField()
+
+
+class CustomerBillingOverviewSerializer(serializers.Serializer[dict[str, Any]]):
+    can_manage = serializers.BooleanField()
+    payment_mode = serializers.ChoiceField(choices=["stripe", "simulated"])
+    portal_available = serializers.BooleanField()
+    subscription = CustomerSubscriptionSerializer(allow_null=True)
+    plans = CustomerPlanSerializer(many=True)
+
+
 class EntitlementSupportSnapshotSerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     version = serializers.IntegerField()

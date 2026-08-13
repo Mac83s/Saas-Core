@@ -33,11 +33,20 @@ from saas_core.modules.shared.billing.provider import (
 from saas_core.modules.shared.billing.services import (
     BillingCheckoutConflict,
     BillingCustomerRequired,
+    BillingPlanUnavailable,
+    BillingProviderUnavailable,
     create_customer_portal,
     create_setup_checkout,
 )
 
 pytestmark = pytest.mark.django_db
+
+DEPLOYMENT_PLAN_KEYS = ("profile", "starter", "pro")
+
+
+@pytest.fixture(autouse=True)
+def deployment_catalog(settings: Any) -> None:
+    settings.BILLING_PLAN_KEYS = DEPLOYMENT_PLAN_KEYS
 
 
 class FakeProvider:
@@ -146,6 +155,25 @@ def test_checkout_idempotency_key_cannot_select_another_plan(
             create_setup_checkout(plan_key="pro", idempotency_key="same-key")
 
 
+@override_settings(
+    STRIPE_LIVEMODE=False,
+    BILLING_PLAN_KEYS=("profile", "starter"),
+)
+def test_checkout_rejects_public_plan_outside_deployment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _, context = setup_owner(slug="checkout-hidden-plan")
+    mapping(plan_key="pro")
+    provider = FakeProvider()
+    monkeypatch.setattr(services, "get_billing_provider", lambda: provider)
+
+    with activate_tenant_context(context), pytest.raises(BillingPlanUnavailable):
+        create_setup_checkout(plan_key="pro", idempotency_key="hidden-plan")
+
+    assert provider.customer_calls == []
+    assert provider.checkout_calls == []
+
+
 @override_settings(STRIPE_LIVEMODE=False)
 def test_checkout_uses_only_the_current_public_plan_version(
     monkeypatch: pytest.MonkeyPatch,
@@ -228,6 +256,17 @@ def test_portal_requires_customer_and_checkout_is_owner_only(
     )
     with activate_tenant_context(unauthorized), pytest.raises(OrganizationPermissionDenied):
         create_setup_checkout(plan_key="starter", idempotency_key="owner-only")
+
+
+@override_settings(STRIPE_LIVEMODE=False, STRIPE_SECRET_KEY="")
+def test_checkout_reports_missing_provider_configuration_as_unavailable() -> None:
+    _, context = setup_owner(slug="checkout-provider-missing")
+    mapping()
+
+    with activate_tenant_context(context), pytest.raises(BillingProviderUnavailable):
+        create_setup_checkout(plan_key="starter", idempotency_key="provider-missing")
+
+    assert BillingCheckout.all_objects.count() == 0
 
 
 @override_settings(STRIPE_SECRET_KEY="sk_test_local", STRIPE_API_VERSION="2026-07-29.dahlia")

@@ -3,6 +3,7 @@ name: saas-core
 x-backend-environment: &backend-environment
   ALLOWED_HOSTS: localhost,127.0.0.1,backend
   APP_ENV: local
+  BILLING_PROVIDER: ${BILLING_PROVIDER:-simulated}
   CSRF_TRUSTED_ORIGINS: http://localhost:8080
   DEPLOYMENT: ${DEPLOYMENT:-core-only}
   DJANGO_SECRET_KEY_FILE: /run/secrets/django_secret_key
@@ -28,11 +29,6 @@ x-backend-environment: &backend-environment
   SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-saas_core_local_session}
   SESSION_IDLE_TIMEOUT_SECONDS: ${SESSION_IDLE_TIMEOUT_SECONDS:-1800}
   SESSION_MAX_LIFETIME_SECONDS: ${SESSION_MAX_LIFETIME_SECONDS:-86400}
-  STRIPE_API_VERSION: ${STRIPE_API_VERSION:-2026-07-29.dahlia}
-  STRIPE_LIVEMODE: ${STRIPE_LIVEMODE:-false}
-  STRIPE_SECRET_KEY_FILE: /run/secrets/stripe_secret_key
-  STRIPE_WEBHOOK_SECRET_FILE: /run/secrets/stripe_webhook_secret
-  STRIPE_WEBHOOK_TOLERANCE_SECONDS: ${STRIPE_WEBHOOK_TOLERANCE_SECONDS:-300}
   BILLING_LIFECYCLE_WARNING_LEAD_SECONDS: ${BILLING_LIFECYCLE_WARNING_LEAD_SECONDS:-86400}
   BILLING_LIFECYCLE_MAX_ATTEMPTS: ${BILLING_LIFECYCLE_MAX_ATTEMPTS:-5}
   BILLING_RECONCILIATION_INTERVAL_SECONDS: ${BILLING_RECONCILIATION_INTERVAL_SECONDS:-3600}
@@ -62,8 +58,6 @@ x-backend-service: &backend-service
   secrets:
     - django_secret_key
     - postgres_app_password
-    - stripe_secret_key
-    - stripe_webhook_secret
     - object_storage_access_key_id
     - object_storage_secret_access_key
   volumes:
@@ -229,7 +223,12 @@ services:
 
   migrate:
     <<: *backend-service
-    command: ["python", "manage.py", "migrate", "--noinput"]
+    command:
+      - sh
+      - -c
+      - >-
+        python manage.py migrate --noinput &&
+        python manage.py configure_simulated_prices
     environment:
       <<: *backend-environment
       LOG_SERVICE: migrate
@@ -238,8 +237,6 @@ services:
     secrets:
       - django_secret_key
       - postgres_password
-      - stripe_secret_key
-      - stripe_webhook_secret
       - object_storage_access_key_id
       - object_storage_secret_access_key
     depends_on:
@@ -258,6 +255,7 @@ services:
     networks:
       - app
       - data
+      - egress
       - monitoring
       - storage
     depends_on:
@@ -647,10 +645,6 @@ secrets:
     file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/postgres_app_password
   grafana_admin_password:
     file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/grafana_admin_password
-  stripe_secret_key:
-    file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/stripe_secret_key
-  stripe_webhook_secret:
-    file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/stripe_webhook_secret
   object_storage_access_key_id:
     file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/object_storage_access_key_id
   object_storage_secret_access_key:

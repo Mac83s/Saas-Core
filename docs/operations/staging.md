@@ -25,6 +25,14 @@ ustaw prawdziwą domenę, prefix GHCR i wartości niesekretne. Utwórz sekrety
 według [secrets.md](secrets.md). Katalog główny i `secrets` mają należeć do
 operatora deploymentu; pliki sekretów wymagają trybu `0600`.
 
+Staging W9.5 działa jawnie z `BILLING_PROVIDER=simulated`. Nie umieszczaj na
+hoście klucza API, sekretu webhooka ani identyfikatorów Product/Price Stripe.
+Simulator nie łączy się z bramką płatniczą, nie wyświetla formularza karty i nie
+wykonuje obciążeń. Służy do odbioru katalogu, onboardingu planu oraz lokalnego
+lifecycle'u entitlementów; szczegóły opisuje [billing.md](billing.md). Realny
+Stripe pozostaje osobnym, niezaliczonym pakietem W9.5.2S i jest wymagany przed
+pierwszym płatnym pilotem.
+
 Staging wymaga jawnego zewnętrznego storage S3: ustaw osobny bucket, prywatny
 endpoint API, publiczny endpoint signed uploadów, region i właściwą politykę
 path-style. Lokalny SeaweedFS jest wyłączony w stagingowym override. Poświadczenia
@@ -57,7 +65,8 @@ Sekwencja `CI` → `Images` → `Deploy staging` działa wyłącznie dla `main`:
 
 1. quality i skany repozytorium;
 2. obrazy `linux/amd64`, SBOM, provenance, skan Trivy i tag `sha-<commit>`;
-3. pull danych i usług, pojedyncza migracja, rollout bez publikowania ich portów;
+3. pull danych i usług, pojedyncza migracja, idempotentna konfiguracja cen
+   simulatora i rollout bez publikowania portów usług;
 4. fail-closed start workera sprawdzający bazę oraz połączenie z ClamAV;
 5. smoke HTTPS przez Caddy;
 6. zapis tagu, SHA, listy obrazów oraz dokładnych `repo@sha256` w `state/`.
