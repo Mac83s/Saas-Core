@@ -214,6 +214,7 @@ def create_site(
     slug: str,
     default_locale: str,
     idempotency_key: str,
+    subdomain_label: str | None = None,
 ) -> MutationResult[Site]:
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
     if default_locale not in _supported_locales():
@@ -224,6 +225,7 @@ def create_site(
         "name": name,
         "slug": normalized_slug,
         "default_locale": default_locale,
+        "subdomain_label": subdomain_label or "",
     })
     existing = Site.all_objects.filter(
         organization_id=context.organization_id,
@@ -268,6 +270,7 @@ def create_site(
         site=site,
         actor=actor,
         idempotency_key=normalized_key,
+        preferred_label=subdomain_label,
     )
     record_audit(
         organization=organization,

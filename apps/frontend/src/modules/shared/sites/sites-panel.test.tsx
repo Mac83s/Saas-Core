@@ -16,9 +16,9 @@ import { SitesPanel } from "./sites-panel";
 vi.mock("#i18n/navigation", () => ({ Link: "a" }));
 
 const {
-  createSite,
   createSitePage,
   getPageDraft,
+  getSiteOnboarding,
   getSiteLocalizationReport,
   listMediaAssets,
   listPageTranslations,
@@ -28,9 +28,9 @@ const {
   listSites,
   publishSite,
 } = vi.hoisted(() => ({
-  createSite: vi.fn(),
   createSitePage: vi.fn(),
   getPageDraft: vi.fn(),
+  getSiteOnboarding: vi.fn(),
   getSiteLocalizationReport: vi.fn(),
   listMediaAssets: vi.fn(),
   listPageTranslations: vi.fn(),
@@ -43,9 +43,9 @@ const {
 
 vi.mock("@saas-core/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@saas-core/api-client")>()),
-  createSite,
   createSitePage,
   getPageDraft,
+  getSiteOnboarding,
   getSiteLocalizationReport,
   listMediaAssets,
   listPageTranslations,
@@ -80,6 +80,18 @@ const page = {
 beforeEach(() => {
   vi.clearAllMocks();
   listSites.mockResolvedValue({ items: [site], next_cursor: null });
+  getSiteOnboarding.mockResolvedValue({
+    id: null,
+    version: 0,
+    step: "address",
+    name: "",
+    subdomain_label: "",
+    default_locale: "pl",
+    platform_domain: "sites.example.test",
+    hostname: "",
+    site_id: null,
+    updated_at: null,
+  });
   listSitePages.mockResolvedValue({ items: [page], next_cursor: null });
   listSiteDomains.mockResolvedValue({ items: [] });
   listSitePublications.mockResolvedValue({ items: [], next_cursor: null });
@@ -195,7 +207,7 @@ test("publikuje gotowy snapshot i pokazuje potwierdzenie", async () => {
   expect(await screen.findByText("Opublikowano sekwencję 1.")).not.toBeNull();
 });
 
-test("renderuje pusty stan i formularze po angielsku", async () => {
+test("zastępuje techniczny formularz kreatorem pierwszej strony po angielsku", async () => {
   listSites.mockResolvedValueOnce({ items: [], next_cursor: null });
   render(
     <NextIntlClientProvider locale="en" messages={englishMessages}>
@@ -206,15 +218,16 @@ test("renderuje pusty stan i formularze po angielsku", async () => {
   expect(
     await screen.findByRole("heading", { name: "Site content" }),
   ).not.toBeNull();
-  expect(screen.getByRole("button", { name: "Create site" })).not.toBeNull();
-  expect(screen.getByRole("button", { name: "Add page" })).not.toBeNull();
   expect(
-    screen.getByText("Choose a site to load its readiness report."),
+    await screen.findByRole("heading", { name: "Choose your website address" }),
   ).not.toBeNull();
+  expect(screen.getByLabelText("Preferred address")).not.toBeNull();
+  expect(screen.queryByText("Slug")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Create site" })).toBeNull();
 });
 
 test("po odrzuceniu mutacji zachowuje treść i kieruje do płatności", async () => {
-  createSite.mockRejectedValueOnce(entitlementProblem());
+  createSitePage.mockRejectedValueOnce(entitlementProblem());
   render(
     <NextIntlClientProvider locale="pl" messages={polishMessages}>
       <SitesPanel canManageBilling />
@@ -223,16 +236,16 @@ test("po odrzuceniu mutacji zachowuje treść i kieruje do płatności", async (
 
   expect(await screen.findByText("Przychodnia")).not.toBeNull();
   fireEvent.change(
-    screen.getByLabelText("Nazwa", { selector: "input#site-name" }),
-    { target: { value: "Nowa placówka" } },
+    screen.getByLabelText("Nazwa", { selector: "input#page-name" }),
+    { target: { value: "Nowa podstrona" } },
   );
   fireEvent.change(
-    screen.getByLabelText("Slug", { selector: "input#site-slug" }),
-    { target: { value: "nowa-placowka" } },
+    screen.getByLabelText("Klucz podstrony", { selector: "input#page-key" }),
+    { target: { value: "nowa-podstrona" } },
   );
-  fireEvent.click(screen.getByRole("button", { name: "Utwórz site" }));
+  fireEvent.click(screen.getByRole("button", { name: "Dodaj podstronę" }));
 
-  await waitFor(() => expect(createSite).toHaveBeenCalledOnce());
+  await waitFor(() => expect(createSitePage).toHaveBeenCalledOnce());
   expect(await screen.findByText("Plan wymaga uwagi")).not.toBeNull();
   expect(
     screen.getByRole("link", { name: "Sprawdź plan i płatność" }),
@@ -241,7 +254,9 @@ test("po odrzuceniu mutacji zachowuje treść i kieruje do płatności", async (
     screen.queryByRole("heading", { name: "Najpierw wybierz plan" }),
   ).toBeNull();
   expect(screen.getByText("Start")).not.toBeNull();
-  expect(screen.getByRole("button", { name: "Utwórz site" })).not.toBeNull();
+  expect(
+    screen.getByRole("button", { name: "Dodaj podstronę" }),
+  ).not.toBeNull();
 });
 
 test("kieruje właściciela bez planu do porównania oferty", async () => {

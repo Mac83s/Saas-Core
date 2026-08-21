@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  Controller,
   useForm,
   type FieldValues,
   type Path,
@@ -24,7 +23,6 @@ import { z } from "zod";
 
 import {
   ApiProblemError,
-  createSite,
   createSitePage,
   getSiteLocalizationReport,
   listSitePages,
@@ -62,13 +60,6 @@ import {
   FieldLabel,
 } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@saas-core/ui/components/select";
 
 import { sitesErrorMessage } from "./problem";
 import { Link } from "#i18n/navigation";
@@ -76,12 +67,8 @@ import { mutationKey, type MutationReceipt } from "./idempotency";
 import { DomainPanel } from "./domain-panel";
 import { PageEditor } from "./page-editor";
 import { PublicationHistory } from "./publication-history";
+import { SiteOnboardingWizard } from "./site-onboarding";
 
-type SiteValues = {
-  name: string;
-  slug: string;
-  default_locale: "pl" | "en";
-};
 type PageValues = { name: string; key: string };
 
 export function SitesPanel({
@@ -102,20 +89,10 @@ export function SitesPanel({
   const [problem, setProblem] = useState<string>();
   const [requiresPlan, setRequiresPlan] = useState(false);
   const [planAttention, setPlanAttention] = useState(false);
-  const siteReceipt = useRef<MutationReceipt | undefined>(undefined);
   const pageReceipt = useRef<MutationReceipt | undefined>(undefined);
   const publishReceipt = useRef<MutationReceipt | undefined>(undefined);
   const rollbackReceipt = useRef<MutationReceipt | undefined>(undefined);
 
-  const siteSchema = useMemo(
-    () =>
-      z.object({
-        name: z.string().min(2, t("required")),
-        slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, t("invalidSlug")),
-        default_locale: z.enum(["pl", "en"]),
-      }),
-    [t],
-  );
   const pageSchema = useMemo(
     () =>
       z.object({
@@ -124,10 +101,6 @@ export function SitesPanel({
       }),
     [t],
   );
-  const siteForm = useForm<SiteValues>({
-    resolver: zodResolver(siteSchema),
-    defaultValues: { name: "", slug: "", default_locale: "pl" },
-  });
   const pageForm = useForm<PageValues>({
     resolver: zodResolver(pageSchema),
     defaultValues: { name: "", key: "" },
@@ -275,25 +248,6 @@ export function SitesPanel({
     };
   }, [selectedSiteId, t]);
 
-  const submitSite: SubmitHandler<SiteValues> = async (values) => {
-    setProblem(undefined);
-    try {
-      const created = await createSite(
-        values,
-        mutationKey(siteReceipt, "site-create", values),
-      );
-      siteReceipt.current = undefined;
-      setPlanAttention(false);
-      siteForm.reset();
-      await loadSites(created.id);
-    } catch (error) {
-      if (requiresBillingPlan(error)) {
-        setPlanAttention(true);
-        setProblem(undefined);
-      } else setProblem(sitesErrorMessage(error, t));
-    }
-  };
-
   const submitPage: SubmitHandler<PageValues> = async (values) => {
     if (!selectedSiteId) return;
     setProblem(undefined);
@@ -437,6 +391,38 @@ export function SitesPanel({
             </CardContent>
           ) : null}
         </Card>
+      </section>
+    );
+  }
+
+  if (loading && sites.length === 0) {
+    return (
+      <section className="space-y-6" aria-labelledby="sites-heading">
+        {heading}
+        <Card aria-busy="true">
+          <CardContent className="py-12 text-center text-sm text-muted-foreground">
+            {t("onboardingLoading")}
+          </CardContent>
+        </Card>
+      </section>
+    );
+  }
+
+  if (sites.length === 0) {
+    return (
+      <section className="space-y-6" aria-labelledby="sites-heading">
+        {heading}
+        {problem ? (
+          <div
+            className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+            role="alert"
+          >
+            {problem}
+          </div>
+        ) : null}
+        <SiteOnboardingWizard
+          onCompleted={(created) => loadSites(created.id)}
+        />
       </section>
     );
   }
@@ -644,7 +630,6 @@ export function SitesPanel({
         </div>
 
         <div className="space-y-6">
-          <CreateSiteCard form={siteForm} onSubmit={submitSite} />
           <CreatePageCard
             disabled={!selectedSite}
             form={pageForm}
@@ -674,72 +659,6 @@ function requiresBillingPlan(error: unknown) {
   return (
     error instanceof ApiProblemError &&
     error.problem.code === "entitlement_required"
-  );
-}
-
-function CreateSiteCard({
-  form,
-  onSubmit,
-}: {
-  form: UseFormReturn<SiteValues>;
-  onSubmit: SubmitHandler<SiteValues>;
-}) {
-  const t = useTranslations("Sites");
-  const common = useTranslations("Common");
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("createSite")}</CardTitle>
-        <CardDescription>{t("createSiteDescription")}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
-          <FieldGroup>
-            <TextField
-              form={form}
-              id="site-name"
-              label={t("name")}
-              name="name"
-            />
-            <TextField
-              form={form}
-              id="site-slug"
-              label={t("slug")}
-              name="slug"
-            />
-            <Controller
-              control={form.control}
-              name="default_locale"
-              render={({ field, fieldState }) => (
-                <Field data-invalid={fieldState.invalid}>
-                  <FieldLabel htmlFor="site-default-locale">
-                    {t("defaultLocale")}
-                  </FieldLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <SelectTrigger
-                      aria-invalid={fieldState.invalid}
-                      className="w-full"
-                      id="site-default-locale"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pl">{common("polish")}</SelectItem>
-                      <SelectItem value="en">{common("english")}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FieldError>{fieldState.error?.message}</FieldError>
-                </Field>
-              )}
-            />
-          </FieldGroup>
-          <Button disabled={form.formState.isSubmitting} type="submit">
-            <PlusIcon aria-hidden="true" />
-            {form.formState.isSubmitting ? t("creating") : t("createSite")}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
   );
 }
 

@@ -1092,6 +1092,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/{site_id}/platform-domain/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["sites_platform_domain_change"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/{site_id}/publications/": {
         parameters: {
             query?: never;
@@ -1134,6 +1150,38 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["sites_domains_action"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/onboarding/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["sites_onboarding_retrieve"];
+        put: operations["sites_onboarding_save"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/onboarding/complete/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sites_onboarding_complete"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1197,6 +1245,22 @@ export interface paths {
         };
         get?: never;
         put: operations["sites_page_translation_save"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/subdomain-availability/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["sites_subdomain_availability"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -1767,6 +1831,9 @@ export interface components {
          * @enum {string}
          */
         PaymentModeEnum: "stripe" | "simulated";
+        PlatformDomainChange: {
+            label: string;
+        };
         Preference: {
             locale: components["schemas"]["LocaleEnum"];
             marketing_enabled: boolean;
@@ -1820,6 +1887,15 @@ export interface components {
             /** Format: email */
             email: string;
         };
+        /**
+         * @description * `available` - available
+         *     * `invalid` - invalid
+         *     * `reserved` - reserved
+         *     * `taken` - taken
+         *     * `quarantined` - quarantined
+         * @enum {string}
+         */
+        ReasonEnum: "available" | "invalid" | "reserved" | "taken" | "quarantined";
         Registration: {
             /** Format: email */
             email: string;
@@ -1891,6 +1967,7 @@ export interface components {
             slug: string;
             /** @default pl */
             default_locale: components["schemas"]["LocaleEnum"];
+            subdomain_label?: string;
         };
         SiteDomain: {
             /** Format: uuid */
@@ -1938,6 +2015,28 @@ export interface components {
             supported_locales: string[];
             ready_to_publish: boolean;
             pages: components["schemas"]["PageLocalization"][];
+        };
+        SiteOnboarding: {
+            /** Format: uuid */
+            id: string | null;
+            version: number;
+            step: string;
+            name: string;
+            subdomain_label: string;
+            default_locale: string;
+            platform_domain: string;
+            hostname: string;
+            /** Format: uuid */
+            site_id: string | null;
+            /** Format: date-time */
+            updated_at: string | null;
+        };
+        SiteOnboardingSave: {
+            version: number;
+            step: components["schemas"]["StepEnum"];
+            name: string;
+            subdomain_label: string;
+            default_locale: components["schemas"]["LocaleEnum"];
         };
         SitePublication: {
             /** Format: uuid */
@@ -1990,8 +2089,23 @@ export interface components {
             name: string;
             public_slug: string;
         };
+        /**
+         * @description * `address` - address
+         *     * `details` - details
+         *     * `review` - review
+         * @enum {string}
+         */
+        StepEnum: "address" | "details" | "review";
         StripeWebhookReceipt: {
             received: boolean;
+        };
+        SubdomainAvailability: {
+            requested_label: string;
+            normalized_label: string;
+            hostname: string;
+            available: boolean;
+            reason: components["schemas"]["ReasonEnum"];
+            suggestion: string;
         };
         SupportHealth: {
             queued_messages: number;
@@ -5204,6 +5318,75 @@ export interface operations {
             };
         };
     };
+    sites_platform_domain_change: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlatformDomainChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["PlatformDomainChange"];
+                "multipart/form-data": components["schemas"]["PlatformDomainChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteDomain"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteDomain"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     sites_publications_list: {
         parameters: {
             query?: {
@@ -5410,6 +5593,137 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_onboarding_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteOnboarding"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_onboarding_save: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteOnboardingSave"];
+                "application/x-www-form-urlencoded": components["schemas"]["SiteOnboardingSave"];
+                "multipart/form-data": components["schemas"]["SiteOnboardingSave"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteOnboarding"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_onboarding_complete: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteSummary"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteSummary"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5695,6 +6009,51 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_subdomain_availability: {
+        parameters: {
+            query: {
+                label: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubdomainAvailability"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

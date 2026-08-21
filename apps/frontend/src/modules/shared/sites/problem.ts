@@ -16,7 +16,12 @@ export function sitesErrorMessage(error: unknown, t: Translate): string {
     case "translation_version_conflict":
     case "site_publication_already_current":
     case "sites_idempotency_conflict":
+    case "site_onboarding_version_conflict":
       return t("conflict");
+    case "domain_hostname_conflict":
+      return t("subdomainReason_taken");
+    case "domain_quarantined":
+      return t("subdomainReason_quarantined");
     default:
       return typeof error.problem.detail === "string"
         ? error.problem.detail

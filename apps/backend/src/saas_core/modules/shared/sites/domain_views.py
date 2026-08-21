@@ -15,11 +15,17 @@ from rest_framework.views import APIView
 
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
-from .domain_services import create_custom_domain, list_domains, mutate_domain
+from .domain_services import (
+    change_platform_domain,
+    create_custom_domain,
+    list_domains,
+    mutate_domain,
+)
 from .models import Domain
 from .serializers import (
     DomainActionSerializer,
     DomainCreateSerializer,
+    PlatformDomainChangeSerializer,
     SiteDomainListSerializer,
     SiteDomainSerializer,
 )
@@ -110,6 +116,38 @@ class SiteDomainActionView(APIView):
         )
         response_status = status.HTTP_202_ACCEPTED if action == "verify" else status.HTTP_200_OK
         return Response(_domain_payload(result.value), status=response_status)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SitePlatformDomainView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_platform_domain_change",
+        tags=["domains"],
+        parameters=[IDEMPOTENCY_PARAMETER],
+        request=PlatformDomainChangeSerializer,
+        responses={
+            200: SiteDomainSerializer,
+            201: SiteDomainSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def put(self, request: Request, site_id: UUID) -> Response:
+        serializer = PlatformDomainChangeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = change_platform_domain(
+            site_id=site_id,
+            label=serializer.validated_data["label"],
+            idempotency_key=request.headers.get("Idempotency-Key", ""),
+        )
+        return Response(
+            _domain_payload(result.value),
+            status=status.HTTP_201_CREATED if result.created else status.HTTP_200_OK,
+        )
 
 
 def _domain_payload(domain: Domain) -> dict[str, Any]:

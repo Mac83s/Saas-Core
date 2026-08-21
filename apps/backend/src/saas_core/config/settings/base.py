@@ -91,6 +91,11 @@ if (
 SITES_SUPPORTED_LOCALES = tuple(dict.fromkeys(_deployment_supported_locales))
 SITES_DEFAULT_LOCALE = _deployment_default_locale
 SITES_PLATFORM_DOMAIN = str(_deployment_platform_domain).strip().lower().rstrip(".")
+SITES_RESERVED_SUBDOMAIN_LABELS = tuple(
+    value.strip().casefold()
+    for value in os.environ.get("SITES_RESERVED_SUBDOMAIN_LABELS", "").split(",")
+    if value.strip()
+)
 BOOKING_MODULE_ENABLED = "shared.booking" in _deployment_modules
 PUBLIC_BOOKING_ENABLED = bool(_deployment_features.get("publicBooking", False))
 if not SITES_PLATFORM_DOMAIN:
@@ -508,6 +513,7 @@ REST_FRAMEWORK = {
         "identity_verification_resend": "5/min",
         "identity_verification_confirm": "10/min",
         "booking_public": BOOKING_PUBLIC_RATE,
+        "sites_subdomain_availability": "30/min",
     },
 }
 SPECTACULAR_SETTINGS = {

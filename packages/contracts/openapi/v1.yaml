@@ -2799,6 +2799,74 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/{site_id}/platform-domain/:
+    put:
+      operationId: sites_platform_domain_change
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - domains
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlatformDomainChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PlatformDomainChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PlatformDomainChange'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteDomain'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteDomain'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/{site_id}/publications/:
     get:
       operationId: sites_publications_list
@@ -3008,6 +3076,119 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/onboarding/:
+    get:
+      operationId: sites_onboarding_retrieve
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteOnboarding'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    put:
+      operationId: sites_onboarding_save
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SiteOnboardingSave'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SiteOnboardingSave'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SiteOnboardingSave'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteOnboarding'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/onboarding/complete/:
+    post:
+      operationId: sites_onboarding_complete
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteSummary'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteSummary'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
           content:
             application/json:
               schema:
@@ -3281,6 +3462,44 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/subdomain-availability/:
+    get:
+      operationId: sites_subdomain_availability
+      parameters:
+      - in: query
+        name: label
+        schema:
+          type: string
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubdomainAvailability'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '429':
           content:
             application/json:
               schema:
@@ -4718,6 +4937,14 @@ components:
       description: |-
         * `stripe` - stripe
         * `simulated` - simulated
+    PlatformDomainChange:
+      type: object
+      properties:
+        label:
+          type: string
+          maxLength: 80
+      required:
+      - label
     Preference:
       type: object
       properties:
@@ -4838,6 +5065,20 @@ components:
       required:
       - email
       - id
+    ReasonEnum:
+      enum:
+      - available
+      - invalid
+      - reserved
+      - taken
+      - quarantined
+      type: string
+      description: |-
+        * `available` - available
+        * `invalid` - invalid
+        * `reserved` - reserved
+        * `taken` - taken
+        * `quarantined` - quarantined
     Registration:
       type: object
       properties:
@@ -4992,6 +5233,9 @@ components:
           allOf:
           - $ref: '#/components/schemas/LocaleEnum'
           default: pl
+        subdomain_label:
+          type: string
+          maxLength: 80
       required:
       - name
       - slug
@@ -5134,6 +5378,71 @@ components:
       - ready_to_publish
       - site_id
       - supported_locales
+    SiteOnboarding:
+      type: object
+      properties:
+        id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        version:
+          type: integer
+        step:
+          type: string
+        name:
+          type: string
+        subdomain_label:
+          type: string
+        default_locale:
+          type: string
+        platform_domain:
+          type: string
+        hostname:
+          type: string
+        site_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        updated_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+      required:
+      - default_locale
+      - hostname
+      - id
+      - name
+      - platform_domain
+      - site_id
+      - step
+      - subdomain_label
+      - updated_at
+      - version
+    SiteOnboardingSave:
+      type: object
+      properties:
+        version:
+          type: integer
+          minimum: 0
+        step:
+          $ref: '#/components/schemas/StepEnum'
+        name:
+          type: string
+          maxLength: 160
+        subdomain_label:
+          type: string
+          maxLength: 80
+        default_locale:
+          $ref: '#/components/schemas/LocaleEnum'
+      required:
+      - default_locale
+      - name
+      - step
+      - subdomain_label
+      - version
     SitePublication:
       type: object
       properties:
@@ -5259,6 +5568,16 @@ components:
       - id
       - name
       - public_slug
+    StepEnum:
+      enum:
+      - address
+      - details
+      - review
+      type: string
+      description: |-
+        * `address` - address
+        * `details` - details
+        * `review` - review
     StripeWebhookReceipt:
       type: object
       properties:
@@ -5266,6 +5585,28 @@ components:
           type: boolean
       required:
       - received
+    SubdomainAvailability:
+      type: object
+      properties:
+        requested_label:
+          type: string
+        normalized_label:
+          type: string
+        hostname:
+          type: string
+        available:
+          type: boolean
+        reason:
+          $ref: '#/components/schemas/ReasonEnum'
+        suggestion:
+          type: string
+      required:
+      - available
+      - hostname
+      - normalized_label
+      - reason
+      - requested_label
+      - suggestion
     SupportHealth:
       type: object
       properties:

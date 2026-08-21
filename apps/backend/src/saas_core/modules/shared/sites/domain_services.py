@@ -3,13 +3,14 @@ from __future__ import annotations
 import secrets
 import uuid
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Literal
 from uuid import UUID
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.utils import timezone
+from django.utils.text import slugify
 from rest_framework.exceptions import APIException, NotFound, ValidationError
 
 from saas_core.modules.core.identity.models import User
@@ -34,6 +35,31 @@ DOMAIN_ENABLED = "sites.domain.enabled"
 DOMAIN_RELEASED = "sites.domain.released"
 DOMAIN_CANONICAL_CHANGED = "sites.domain.canonical_changed"
 DOMAIN_VERIFICATION_REQUESTED = "sites.domain.verification_requested"
+DOMAIN_PLATFORM_CHANGED = "sites.domain.platform_changed"
+
+DEFAULT_RESERVED_PLATFORM_LABELS = frozenset({
+    "admin",
+    "api",
+    "app",
+    "assets",
+    "billing",
+    "book",
+    "booking",
+    "cdn",
+    "dashboard",
+    "docs",
+    "ftp",
+    "help",
+    "localhost",
+    "mail",
+    "media",
+    "panel",
+    "smtp",
+    "static",
+    "status",
+    "support",
+    "www",
+})
 
 
 class SitesIdempotencyConflict(APIException):
@@ -51,6 +77,16 @@ class SiteNotFound(NotFound):
 class MutationResult[T]:
     value: T
     created: bool
+
+
+@dataclass(frozen=True, slots=True)
+class SubdomainAvailability:
+    requested_label: str
+    normalized_label: str
+    hostname: str
+    available: bool
+    reason: Literal["available", "invalid", "reserved", "taken", "quarantined"]
+    suggestion: str
 
 
 class DomainHostnameConflict(APIException):
@@ -76,10 +112,31 @@ class DomainLifecycleConflict(APIException):
     default_code = "domain_lifecycle_conflict"
 
 
-def platform_hostname(site: Site) -> str:
-    readable_slug = site.slug[:50].rstrip("-")
-    label = f"{readable_slug}-{site.id.hex[:12]}"
+def normalize_platform_label(value: str) -> str:
+    label = slugify(value.strip(), allow_unicode=False).strip("-")
+    if not label or len(label) > 63:
+        raise ValidationError({"subdomain_label": ["Wpisz nazwę od 1 do 63 znaków."]})
+    if label.startswith("-") or label.endswith("-"):
+        raise ValidationError({"subdomain_label": ["Nazwa nie może zaczynać się od łącznika."]})
+    return label
+
+
+def platform_hostname(site: Site, *, preferred_label: str | None = None) -> str:
+    if preferred_label:
+        label = normalize_platform_label(preferred_label)
+    else:
+        readable_slug = site.slug[:50].rstrip("-")
+        label = f"{readable_slug}-{site.id.hex[:12]}"
     return normalize_hostname(f"{label}.{settings.SITES_PLATFORM_DOMAIN}")
+
+
+def subdomain_availability(label: str) -> SubdomainAvailability:
+    authorize_entitled(
+        SITE_PUBLISH,
+        SITES_ENABLED,
+        operation=FeatureOperation.READ,
+    )
+    return _subdomain_availability(label)
 
 
 def _idempotency_key(value: str) -> str:
@@ -89,36 +146,256 @@ def _idempotency_key(value: str) -> str:
     return normalized
 
 
+def _namespaced_idempotency_key(namespace: str, value: str) -> str:
+    normalized = _idempotency_key(value)
+    result = f"{namespace}:{normalized}"
+    if len(result) > 120:
+        raise ValidationError({"Idempotency-Key": ["Klucz jest za długi dla tej operacji."]})
+    return result
+
+
+def _is_reserved_platform_label(label: str) -> bool:
+    configured = {
+        str(value).strip().casefold()
+        for value in getattr(settings, "SITES_RESERVED_SUBDOMAIN_LABELS", ())
+    }
+    platform_label = settings.SITES_PLATFORM_DOMAIN.split(".", maxsplit=1)[0].casefold()
+    deployment = str(getattr(settings, "DEPLOYMENT", "")).strip().casefold()
+    return label in DEFAULT_RESERVED_PLATFORM_LABELS | configured | {
+        platform_label,
+        deployment,
+    }
+
+
+def _subdomain_availability(value: str) -> SubdomainAvailability:
+    requested = value.strip()
+    try:
+        label = normalize_platform_label(requested)
+        hostname = normalize_hostname(f"{label}.{settings.SITES_PLATFORM_DOMAIN}")
+    except (InvalidHostname, ValidationError):
+        return SubdomainAvailability(requested, "", "", False, "invalid", "")
+    if _is_reserved_platform_label(label):
+        return SubdomainAvailability(
+            requested,
+            label,
+            hostname,
+            False,
+            "reserved",
+            _available_platform_suggestion(f"{label}-online"),
+        )
+    active = Domain.all_objects.filter(hostname=hostname).exclude(
+        status=DomainStatus.RELEASED
+    )
+    if active.exists():
+        return SubdomainAvailability(
+            requested,
+            label,
+            hostname,
+            False,
+            "taken",
+            _available_platform_suggestion(label),
+        )
+    released = (
+        Domain.all_objects.filter(hostname=hostname, status=DomainStatus.RELEASED)
+        .order_by("-released_at")
+        .first()
+    )
+    if (
+        released is not None
+        and released.quarantine_until is not None
+        and released.quarantine_until > timezone.now()
+    ):
+        return SubdomainAvailability(
+            requested,
+            label,
+            hostname,
+            False,
+            "quarantined",
+            _available_platform_suggestion(label),
+        )
+    return SubdomainAvailability(requested, label, hostname, True, "available", "")
+
+
+def _available_platform_suggestion(base: str) -> str:
+    normalized = slugify(base, allow_unicode=False).strip("-")[:56] or "moja-strona"
+    if not _is_reserved_platform_label(normalized):
+        candidate_hostname = normalize_hostname(
+            f"{normalized}.{settings.SITES_PLATFORM_DOMAIN}"
+        )
+        if not _platform_hostname_unavailable(candidate_hostname):
+            return normalized
+    for suffix in range(2, 100):
+        candidate = f"{normalized[: 62 - len(str(suffix))]}-{suffix}"
+        candidate_hostname = normalize_hostname(f"{candidate}.{settings.SITES_PLATFORM_DOMAIN}")
+        if not _platform_hostname_unavailable(candidate_hostname):
+            return candidate
+    return f"strona-{uuid.uuid4().hex[:8]}"
+
+
+def _platform_hostname_unavailable(hostname: str) -> bool:
+    if Domain.all_objects.filter(hostname=hostname).exclude(
+        status=DomainStatus.RELEASED
+    ).exists():
+        return True
+    return Domain.all_objects.filter(
+        hostname=hostname,
+        status=DomainStatus.RELEASED,
+        quarantine_until__gt=timezone.now(),
+    ).exists()
+
+
+def _create_platform_domain_record(
+    *,
+    domain_id: UUID,
+    site: Site,
+    actor: User,
+    hostname: str,
+    idempotency_key: str,
+    is_canonical: bool,
+    now: datetime,
+) -> Domain:
+    return Domain.all_objects.create(
+        id=domain_id,
+        organization_id=site.organization_id,
+        site=site,
+        hostname=hostname,
+        kind=DomainKind.PLATFORM,
+        status=DomainStatus.VERIFIED,
+        verification_name="",
+        verification_token="",
+        tls_status=DomainTlsStatus.ELIGIBLE,
+        is_canonical=is_canonical,
+        last_checked_at=now,
+        last_verified_at=now,
+        next_check_at=None,
+        created_by=actor,
+        idempotency_key=idempotency_key,
+        request_hash=canonical_json_hash({"site_id": str(site.id), "hostname": hostname}),
+    )
+
+
 def create_platform_domain(
     *,
     site: Site,
     actor: User,
     idempotency_key: str,
+    preferred_label: str | None = None,
 ) -> Domain:
     hostname = platform_hostname(site)
+    if preferred_label:
+        preferred = _subdomain_availability(preferred_label)
+        if preferred.reason == "invalid":
+            raise ValidationError({"subdomain_label": ["Wpisz prawidłową nazwę adresu."]})
+        if preferred.reason == "reserved":
+            raise ValidationError({"subdomain_label": ["Ta nazwa jest zarezerwowana."]})
+        if preferred.available:
+            hostname = preferred.hostname
     now = timezone.now()
     domain_id = uuid.uuid7()
     try:
-        return Domain.all_objects.create(
-            id=domain_id,
-            organization_id=site.organization_id,
+        with transaction.atomic():
+            return _create_platform_domain_record(
+                domain_id=domain_id,
+                site=site,
+                actor=actor,
+                hostname=hostname,
+                idempotency_key=_namespaced_idempotency_key("platform", idempotency_key),
+                is_canonical=True,
+                now=now,
+            )
+    except IntegrityError:
+        fallback = platform_hostname(site)
+        if hostname == fallback:
+            raise DomainHostnameConflict from None
+        try:
+            return _create_platform_domain_record(
+                domain_id=uuid.uuid7(),
+                site=site,
+                actor=actor,
+                hostname=fallback,
+                idempotency_key=_namespaced_idempotency_key("platform", idempotency_key),
+                is_canonical=True,
+                now=now,
+            )
+        except IntegrityError as error:
+            raise DomainHostnameConflict from error
+
+
+@transaction.atomic
+def change_platform_domain(
+    *,
+    site_id: UUID,
+    label: str,
+    idempotency_key: str,
+) -> MutationResult[Domain]:
+    context = authorize_entitled(SITE_PUBLISH, SITES_ENABLED)
+    namespaced_key = _namespaced_idempotency_key("platform-change", idempotency_key)
+    normalized_label = normalize_platform_label(label)
+    if _is_reserved_platform_label(normalized_label):
+        raise ValidationError({"subdomain_label": ["Ta nazwa jest zarezerwowana."]})
+    hostname = normalize_hostname(f"{normalized_label}.{settings.SITES_PLATFORM_DOMAIN}")
+    request_hash = canonical_json_hash({"site_id": str(site_id), "hostname": hostname})
+    existing = Domain.all_objects.filter(
+        organization_id=context.organization_id,
+        created_by_id=context.actor_id,
+        idempotency_key=namespaced_key,
+    ).first()
+    if existing is not None:
+        if existing.request_hash != request_hash:
+            raise SitesIdempotencyConflict
+        return MutationResult(existing, False)
+    try:
+        site = Site.all_objects.select_for_update().get(
+            pk=site_id,
+            organization_id=context.organization_id,
+        )
+    except Site.DoesNotExist as error:
+        raise SiteNotFound from error
+    current_domains = list(
+        Domain.all_objects.select_for_update().filter(
             site=site,
-            hostname=hostname,
             kind=DomainKind.PLATFORM,
-            status=DomainStatus.VERIFIED,
-            verification_name="",
-            verification_token="",
-            tls_status=DomainTlsStatus.ELIGIBLE,
+        ).exclude(status=DomainStatus.RELEASED)
+    )
+    for current in current_domains:
+        if current.hostname == hostname:
+            return MutationResult(current, False)
+    _assert_hostname_available(hostname)
+    was_canonical = any(domain.is_canonical for domain in current_domains)
+    if was_canonical:
+        Domain.all_objects.filter(
+            site=site,
+            kind=DomainKind.PLATFORM,
             is_canonical=True,
-            last_checked_at=now,
-            last_verified_at=now,
-            next_check_at=None,
-            created_by=actor,
-            idempotency_key=f"platform:{_idempotency_key(idempotency_key)}",
-            request_hash=canonical_json_hash({"site_id": str(site.id), "hostname": hostname}),
+        ).update(is_canonical=False, updated_at=timezone.now())
+    actor = User.objects.get(pk=context.actor_id)
+    now = timezone.now()
+    try:
+        domain = _create_platform_domain_record(
+            domain_id=uuid.uuid7(),
+            site=site,
+            actor=actor,
+            hostname=hostname,
+            idempotency_key=namespaced_key,
+            is_canonical=was_canonical
+            or not Domain.all_objects.filter(site=site, is_canonical=True).exists(),
+            now=now,
         )
     except IntegrityError as error:
         raise DomainHostnameConflict from error
+    record_audit(
+        organization=site.organization,
+        action=DOMAIN_PLATFORM_CHANGED,
+        actor=actor,
+        target_type="site_domain",
+        target_id=domain.id,
+        metadata={
+            "site_id": str(site.id),
+            "hostname": domain.hostname,
+            "replaces": [item.hostname for item in current_domains],
+        },
+    )
+    return MutationResult(domain, True)
 
 
 def list_domains(*, site_id: UUID) -> list[Domain]:

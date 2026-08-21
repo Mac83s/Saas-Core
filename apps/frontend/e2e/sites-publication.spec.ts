@@ -8,7 +8,7 @@ const email = `w6-e2e-${runId}@example.test`;
 const organizationSlug = `w6-e2e-${runId}`;
 const password = `W6-E2E-${randomUUID()}-aA1!`;
 
-test.describe("W6 Sites publication workspace", () => {
+test.describe("W9.5 Sites onboarding and publication workspace", () => {
   test.beforeAll(() => fixture("prepare"));
   test.afterAll(() => fixture("cleanup"));
 
@@ -26,9 +26,19 @@ test.describe("W6 Sites publication workspace", () => {
       page.getByRole("heading", { name: "Treść strony" }),
     ).toBeVisible();
 
-    await page.locator("#site-name").fill(siteName);
-    await page.locator("#site-slug").fill(`site-${runId}`);
-    await page.getByRole("button", { name: "Utwórz site" }).click();
+    await page.getByLabel("Preferowany adres").fill(`site-${runId}`);
+    await page
+      .getByRole("button", { name: "Sprawdź adres i przejdź dalej" })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "Dodaj podstawowe dane" }),
+    ).toBeVisible();
+    await page.getByLabel("Nazwa widoczna dla klientów").fill(siteName);
+    await page.getByRole("button", { name: "Przejdź do podsumowania" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Sprawdź i utwórz stronę" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Utwórz moją stronę" }).click();
     await expect(page.getByText(siteName, { exact: true })).toBeVisible();
     await page.getByLabel("Własna domena").fill(`www-${runId}.example.test`);
     await page.getByRole("button", { name: "Dodaj domenę" }).click();
@@ -181,6 +191,18 @@ type MockState = ReturnType<typeof createMockState>;
 function createMockState() {
   return {
     site: null as null | Record<string, unknown>,
+    onboarding: {
+      id: null as string | null,
+      version: 0,
+      step: "address",
+      name: "",
+      subdomain_label: "",
+      default_locale: "pl",
+      platform_domain: "sites.core.localhost",
+      hostname: "",
+      site_id: null as string | null,
+      updated_at: null as string | null,
+    },
     page: null as null | Record<string, unknown>,
     draft: {
       page_id: "019ff20d-a000-7000-8000-000000000020",
@@ -205,29 +227,57 @@ async function handleSitesRoute(route: Route, state: MockState) {
   const siteId = "019ff20d-a000-7000-8000-000000000010";
   const pageId = "019ff20d-a000-7000-8000-000000000020";
 
-  if (path === "/api/v1/sites/" && method === "GET") {
+  if (path === "/api/v1/sites/subdomain-availability/" && method === "GET") {
+    const label = new URL(request.url()).searchParams.get("label") ?? "";
+    const normalizedLabel = label.toLowerCase();
     return fulfill(route, {
-      items: state.site ? [state.site] : [],
-      next_cursor: null,
+      requested_label: label,
+      normalized_label: normalizedLabel,
+      hostname: `${normalizedLabel}.sites.core.localhost`,
+      available: true,
+      reason: "available",
+      suggestion: "",
     });
   }
-  if (path === "/api/v1/sites/" && method === "POST") {
+  if (path === "/api/v1/sites/onboarding/" && method === "GET") {
+    return fulfill(route, state.onboarding);
+  }
+  if (path === "/api/v1/sites/onboarding/" && method === "PUT") {
     const body = request.postDataJSON() as {
+      version: number;
+      step: string;
       name: string;
-      slug: string;
+      subdomain_label: string;
       default_locale: string;
     };
+    state.onboarding = {
+      ...state.onboarding,
+      ...body,
+      id: "019ff20d-a000-7000-8000-000000000011",
+      version: body.version + 1,
+      hostname: body.subdomain_label
+        ? `${body.subdomain_label}.sites.core.localhost`
+        : "",
+      updated_at: now,
+    };
+    return fulfill(route, state.onboarding);
+  }
+  if (path === "/api/v1/sites/onboarding/complete/" && method === "POST") {
     state.site = {
       id: siteId,
-      ...body,
+      name: state.onboarding.name,
+      slug: state.onboarding.subdomain_label,
+      default_locale: state.onboarding.default_locale,
       current_publication_id: null,
       created_at: now,
       updated_at: now,
     };
+    state.onboarding.site_id = siteId;
+    state.onboarding.step = "completed";
     state.domains = [
       domainRecord({
         id: "019ff20d-a000-7000-8000-000000000040",
-        hostname: `site-${runId}-019ff20da000.core.localhost`,
+        hostname: state.onboarding.hostname,
         kind: "platform",
         status: "verified",
         tls_status: "eligible",
@@ -236,6 +286,12 @@ async function handleSitesRoute(route: Route, state: MockState) {
       }),
     ];
     return fulfill(route, state.site, 201);
+  }
+  if (path === "/api/v1/sites/" && method === "GET") {
+    return fulfill(route, {
+      items: state.site ? [state.site] : [],
+      next_cursor: null,
+    });
   }
   if (path === `/api/v1/sites/${siteId}/domains/` && method === "GET") {
     return fulfill(route, { items: state.domains });

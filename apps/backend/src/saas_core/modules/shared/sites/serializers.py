@@ -21,6 +21,56 @@ class SiteCreateSerializer(serializers.Serializer[dict[str, Any]]):
         choices=settings.SITES_SUPPORTED_LOCALES,
         default=settings.SITES_DEFAULT_LOCALE,
     )
+    subdomain_label = serializers.CharField(
+        required=False,
+        allow_blank=False,
+        max_length=80,
+        trim_whitespace=True,
+    )
+
+
+class SubdomainAvailabilityQuerySerializer(serializers.Serializer[dict[str, Any]]):
+    # DRF fields are collected by the serializer metaclass; `label` intentionally
+    # shadows the descriptive Field.label attribute because it is the API key.
+    label = serializers.CharField(  # type: ignore[assignment]
+        max_length=80, trim_whitespace=True
+    )
+
+
+class SubdomainAvailabilitySerializer(serializers.Serializer[dict[str, Any]]):
+    requested_label = serializers.CharField()
+    normalized_label = serializers.CharField()
+    hostname = serializers.CharField()
+    available = serializers.BooleanField()
+    reason = serializers.ChoiceField(
+        choices=["available", "invalid", "reserved", "taken", "quarantined"]
+    )
+    suggestion = serializers.CharField()
+
+
+class SiteOnboardingSaveSerializer(serializers.Serializer[dict[str, Any]]):
+    version = serializers.IntegerField(min_value=0)
+    step = serializers.ChoiceField(choices=["address", "details", "review"])
+    name = serializers.CharField(max_length=160, trim_whitespace=True, allow_blank=True)
+    subdomain_label = serializers.CharField(
+        max_length=80,
+        trim_whitespace=True,
+        allow_blank=True,
+    )
+    default_locale = serializers.ChoiceField(choices=settings.SITES_SUPPORTED_LOCALES)
+
+
+class SiteOnboardingSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField(allow_null=True)
+    version = serializers.IntegerField()
+    step = serializers.CharField()
+    name = serializers.CharField()
+    subdomain_label = serializers.CharField()
+    default_locale = serializers.CharField()
+    platform_domain = serializers.CharField()
+    hostname = serializers.CharField()
+    site_id = serializers.UUIDField(allow_null=True)
+    updated_at = serializers.DateTimeField(allow_null=True)
 
 
 class SiteSummarySerializer(serializers.Serializer[dict[str, Any]]):
@@ -35,6 +85,12 @@ class SiteSummarySerializer(serializers.Serializer[dict[str, Any]]):
 
 class DomainCreateSerializer(serializers.Serializer[dict[str, Any]]):
     hostname = serializers.CharField(max_length=253, trim_whitespace=False)
+
+
+class PlatformDomainChangeSerializer(serializers.Serializer[dict[str, Any]]):
+    label = serializers.CharField(  # type: ignore[assignment]
+        max_length=80, trim_whitespace=True
+    )
 
 
 class DomainActionSerializer(serializers.Serializer[dict[str, Any]]):

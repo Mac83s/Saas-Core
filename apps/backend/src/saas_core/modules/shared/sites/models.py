@@ -99,6 +99,13 @@ class DomainTlsStatus(models.TextChoices):
     FAILED = "failed", "Błąd"
 
 
+class SiteOnboardingStep(models.TextChoices):
+    ADDRESS = "address", "Adres"
+    DETAILS = "details", "Podstawowe dane"
+    REVIEW = "review", "Podsumowanie"
+    COMPLETED = "completed", "Zakończony"
+
+
 class Domain(TenantScopedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name="domains")
@@ -144,14 +151,6 @@ class Domain(TenantScopedModel):
                 fields=["hostname"],
                 condition=~models.Q(status=DomainStatus.RELEASED),
                 name="sites_domain_active_hostname_uq",
-            ),
-            models.UniqueConstraint(
-                fields=["site"],
-                condition=(
-                    models.Q(kind=DomainKind.PLATFORM)
-                    & ~models.Q(status=DomainStatus.RELEASED)
-                ),
-                name="sites_domain_active_platform_uq",
             ),
             models.UniqueConstraint(
                 fields=["site"],
@@ -244,6 +243,115 @@ class DomainMutation(TenantScopedModel):
 
     def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
         raise ValidationError("Mutacja domeny jest niemutowalna.")
+
+
+class SiteOnboardingDraft(TenantScopedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    step = models.CharField(
+        max_length=16,
+        choices=SiteOnboardingStep,
+        default=SiteOnboardingStep.ADDRESS,
+    )
+    name = models.CharField(max_length=160, blank=True)
+    subdomain_label = models.CharField(max_length=63, blank=True)
+    default_locale = models.CharField(
+        max_length=10,
+        choices=[("pl", "Polski"), ("en", "English")],
+        default="pl",
+    )
+    site = models.OneToOneField(
+        Site,
+        on_delete=models.PROTECT,
+        related_name="onboarding_draft",
+        null=True,
+        blank=True,
+    )
+    version = models.PositiveBigIntegerField(default=0)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_site_onboarding_drafts",
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="updated_site_onboarding_drafts",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization"],
+                name="sites_onboarding_org_uq",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(step=SiteOnboardingStep.COMPLETED, site__isnull=False)
+                    | (
+                        ~models.Q(step=SiteOnboardingStep.COMPLETED)
+                        & models.Q(site__isnull=True)
+                    )
+                ),
+                name="sites_onboarding_completion_ck",
+            ),
+        ]
+
+    def clean(self) -> None:
+        super().clean()
+        site = self.site
+        if (
+            self.site_id
+            and site is not None
+            and site.organization_id != self.organization_id
+        ):
+            raise ValidationError({"site": "Onboarding wskazuje site innej organizacji."})
+
+
+class SiteOnboardingMutation(TenantScopedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    draft = models.ForeignKey(
+        SiteOnboardingDraft,
+        on_delete=models.PROTECT,
+        related_name="mutations",
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="site_onboarding_mutations",
+    )
+    idempotency_key = models.CharField(max_length=120)
+    request_hash = models.CharField(max_length=64)
+    resulting_version = models.PositiveBigIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "created_at", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "actor", "idempotency_key"],
+                name="sites_onboarding_mutation_idem_uq",
+            )
+        ]
+
+    def clean(self) -> None:
+        super().clean()
+        if self.draft_id and self.draft.organization_id != self.organization_id:
+            raise ValidationError({"draft": "Mutacja wskazuje onboarding innej organizacji."})
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        if not self._state.adding:
+            raise ValidationError("Mutacja onboardingu jest niemutowalna.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
+        raise ValidationError("Mutacja onboardingu jest niemutowalna.")
 
 
 class Page(TenantScopedModel):

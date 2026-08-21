@@ -36,6 +36,7 @@ from saas_core.modules.shared.billing.models import (
     BillingTrialActivation,
     CheckoutStatus,
     EntitlementSnapshot,
+    Plan,
     PlanVersion,
     StripePriceMapping,
     StripeSubscriptionStatus,
@@ -485,11 +486,28 @@ def test_stripe_adapter_uses_setup_intent_payment_method_and_delayed_trial(
     assert options == {"idempotency_key": "trial-adapter"}
 
 
+def _seed_catalog_after_transactional_flush() -> None:
+    """Transaction tests run after a flush that does not replay data migrations."""
+    for key, amount in (("starter", 14_900), ("pro", 29_900)):
+        plan, _ = Plan.objects.get_or_create(key=key, defaults={"name": key.title()})
+        version, _ = PlanVersion.objects.get_or_create(
+            plan=plan,
+            version=1,
+            defaults={
+                "unit_amount_minor": amount,
+                "feature_keys": [],
+                "quotas": {},
+            },
+        )
+        Plan.objects.filter(pk=plan.pk).update(current_version=version)
+
+
 @pytest.mark.django_db(transaction=True)
 @override_settings(STRIPE_LIVEMODE=False)
 def test_concurrent_trial_paths_are_serialized(monkeypatch: pytest.MonkeyPatch) -> None:
     # Keep both real-transaction scenarios in the final test in this module.
     # Django's flush does not re-run catalog data migrations between
     # TransactionTestCase-style tests.
+    _seed_catalog_after_transactional_flush()
     _assert_concurrent_checkout_returns_cannot_switch_the_selected_plan(monkeypatch)
     _assert_subscription_webhook_can_win_race_with_trial_response(monkeypatch)

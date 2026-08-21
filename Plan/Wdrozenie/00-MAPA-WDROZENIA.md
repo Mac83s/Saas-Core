@@ -107,9 +107,10 @@ Fala może przejść do `in progress`, gdy:
 Lokalne implementacje W0–W9 są zakończone; bramki wymagające prawdziwego
 stagingu/VPS pozostają świadomie odłożone i nie są oznaczone jako zaliczone.
 Audyt produktowy panelu uruchomił obowiązkową falę W9.5 przed Vertical Medical.
-Bieżący pakiet dostarcza produktowy shell, Customer Billing i bezpieczne
-przejście wybór planu → symulowany trial → entitlement, bez karty, sekretów i
-obciążeń. Realny Stripe jest wydzielony do niezaliczonego W9.5.2S i blokuje
-pierwszy płatny pilot, ale nie dalszą lokalną implementację W9.5. Kolejne pakiety
-obejmują onboarding subdomeny, szablony, Site Studio oraz asystenta. W10
-pozostaje zablokowane do zaliczenia bramki W9.5 i privacy review.
+Pakiety W9.5.1–W9.5.3 dostarczyły produktowy shell, Customer Billing z jawnym
+simulatorem oraz wznawialny onboarding strony na bezpiecznie claimowanej
+subdomenie platformy. Realny Stripe jest wydzielony do niezaliczonego W9.5.2S i
+blokuje pierwszy płatny pilot, ale nie dalszą lokalną implementację W9.5.
+Bieżącym pakietem jest W9.5.4: wersjonowane szablony i katalog sekcji; później
+powstaną Site Studio oraz asystent. W10 pozostaje zablokowane do zaliczenia
+bramki W9.5 i privacy review.

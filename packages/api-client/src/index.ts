@@ -58,6 +58,13 @@ export type SiteDomain = components["schemas"]["SiteDomain"];
 export type SiteDomainList = components["schemas"]["SiteDomainList"];
 export type DomainCreateInput = components["schemas"]["DomainCreate"];
 export type DomainActionInput = components["schemas"]["DomainAction"];
+export type PlatformDomainChangeInput =
+  components["schemas"]["PlatformDomainChange"];
+export type SiteOnboarding = components["schemas"]["SiteOnboarding"];
+export type SiteOnboardingSaveInput =
+  components["schemas"]["SiteOnboardingSave"];
+export type SubdomainAvailability =
+  components["schemas"]["SubdomainAvailability"];
 export type PublicSitePage = components["schemas"]["PublicSitePage"];
 export type MediaAsset = components["schemas"]["MediaAsset"];
 export type MediaAssetList = components["schemas"]["MediaAssetList"];
@@ -699,6 +706,89 @@ export async function mutateSiteDomain(
       params: {
         header: { "Idempotency-Key": idempotencyKey },
         path: { domain_id: domainId },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function getSubdomainAvailability(
+  label: string,
+): Promise<SubdomainAvailability> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/subdomain-availability/",
+    {
+      params: { query: { label } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function getSiteOnboarding(): Promise<SiteOnboarding> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/onboarding/",
+    {
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function saveSiteOnboarding(
+  input: SiteOnboardingSaveInput,
+  idempotencyKey: string,
+): Promise<SiteOnboarding> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/sites/onboarding/",
+    {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function completeSiteOnboarding(
+  idempotencyKey: string,
+): Promise<SiteSummary> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/onboarding/complete/",
+    {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function changePlatformDomain(
+  siteId: string,
+  input: PlatformDomainChangeInput,
+  idempotencyKey: string,
+): Promise<SiteDomain> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/sites/{site_id}/platform-domain/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { site_id: siteId },
       },
       body: input,
       credentials: "same-origin",
