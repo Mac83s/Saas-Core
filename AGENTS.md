@@ -3,7 +3,8 @@
 ## Źródła prawdy
 
 - mapa fal: `Plan/Wdrozenie/00-MAPA-WDROZENIA.md`;
-- bieżąca lokalna fala: `Plan/Wdrozenie/07-W6-Sites-Content-i-Media.md`;
+- bieżąca lokalna fala: `Plan/Wdrozenie/10A-W9.5-Customer-Experience-Commerce-i-AI.md`;
+- równoległa gałąź kontraktowa publikacji: `Plan/Wdrozenie/10B-W9.6-Publication-Platform-i-Market-Maker.md`;
 - punkt wznowienia następnej sesji: `docs/development/HANDOFF.md`;
 - decyzje techniczne: `docs/adr/`;
 - wykonywalne kontrakty: `docs/architecture/`.

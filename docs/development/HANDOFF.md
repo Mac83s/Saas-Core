@@ -14,6 +14,12 @@ W9.5.1–W9.5.3 są ukończone lokalnie. Następny spójny przyrost to **W9.5.4 
 szablony i katalog sekcji**. Realny Stripe pozostaje świadomie odłożony do
 W9.5.2S i blokuje płatny pilot, ale nie dalszą lokalną pracę nad W9.5.
 
+Równolegle właściciel uruchomił planowanie osobnego systemu Market Maker.
+SaaS Core przygotowuje dla niego falę **W9.6 — Publication Platform i gotowość
+na Market Makera**. W9.6.0 (ADR i kontrakty graniczne) może rozpocząć się obok
+W9.5.4; implementacja wymagająca nawigacji ma użyć rezultatu W9.5.5, a nie
+tworzyć drugie drzewo stron.
+
 Nie wracaj teraz do bramek wymagających prawdziwego stagingu/VPS. Są odłożone do
 sesji z dostępem do hosta, domeny, GHCR i GitHub Environment.
 
@@ -83,6 +89,14 @@ Przed zmianą architektury przeczytaj ADR-027 i ADR-031 oraz kontrakty
 4. egzekwuj rodziny szablonów przez permission i entitlement w API;
 5. dodaj dowody PL/EN, mobile, klawiatura, axe, exact-tenant i idempotentny
    import.
+
+Równoległy cel kontraktowy W9.6:
+
+1. przejrzeć i zatwierdzić lub skorygować proponowany ADR-035;
+2. zamrozić kontrakt `ContentChangeSet`, `ContentAutomationGrant` i dwa rodzaje
+   publikacji: atomowy site oraz wpis kolekcji;
+3. przygotować współdzielone fixture kontraktowe z connectorem Market Makera;
+4. nie rozpoczynać migracji systemowego workspace'u przed akceptacją ADR-035.
 
 ## Niezmienne ograniczenia
 

@@ -44,6 +44,7 @@ katalogu opisują sposób realizacji i nie zmieniają statusu żadnego ADR-u.
 | W8 | [Notifications, Integrations i Support](09-W8-Notifications-Integrations-i-Support.md) | 2 tygodnie | W3, W4 | niezawodna komunikacja i narzędzia operatora |
 | W9 | [Booking](10-W9-Booking.md) | 3–5 tygodni | W4, W8 | neutralny branżowo, bezpieczny system rezerwacji |
 | W9.5 | [Customer Experience, Commerce i AI](10A-W9.5-Customer-Experience-Commerce-i-AI.md) | 6–10 tygodni | W3–W9 | self-service, szablony, Site Studio i asystent AI |
+| W9.6 | [Publication Platform i Market Maker](10B-W9.6-Publication-Platform-i-Market-Maker.md) | 4–6 tygodni | W6–W8; współdzieli W9.5.5 | strony klientów, systemowy marketing/blog i bezpieczny connector content operations |
 | W10 | [Vertical Medical i pilot](11-W10-Vertical-Medical-i-Pilot.md) | 2–3 tygodnie | W5–W9.5 | pierwszy gabinet MedPlano przechodzi pełną ścieżkę |
 | W11 | [Hardening i uruchomienie](12-W11-Hardening-i-Go-Live.md) | 1–2 tygodnie | W0–W10 | audyt, odtworzenie, testy obciążeniowe i decyzja go-live |
 
@@ -61,6 +62,7 @@ W5 i W6 mogą częściowo biec równolegle dopiero wtedy, gdy W4 jest stabilne.
 | M5 — komunikacja | W8 | asynchroniczne wiadomości, webhooki i obsługa błędów |
 | M6 — rezerwacje | W9 | odporna na wyścigi rezerwacja z przypomnieniami |
 | M6.5 — produkt self-service | W9.5 | wybór planu, szablon, subdomena i bezpieczne zarządzanie przez AI; realna płatność wymaga W9.5.2S |
+| M6.6 — content operations | W9.6 | wielostronicowe serwisy, kolekcje blogowe i zakresowa integracja Market Makera bez dostępu do bazy |
 | M7 — pilot MedPlano | W10–W11 | onboarding gabinetu, migracja, rollback i zgoda go-live |
 
 ## 5. Bramka wejścia do fali
@@ -99,6 +101,7 @@ Fala może przejść do `in progress`, gdy:
 | W8 | provider e-mail/SMS, format webhooków i retencja komunikacji |
 | W9 | ADR-018 Booking, model blokad i zasady stref czasowych |
 | W9.5 | IA panelu, trzy poziomy oferty, Site Studio, kontrakt narzędzi i zgód AI oraz bramka realnego Stripe przed płatnym pilotem |
+| W9.6 | ADR-035: jawny właściciel treści systemowych, publikacja wpisów kolekcji i zakresowy grant Market Makera |
 | W10 | zakres danych MedPlano, DPA, retencja i wymagania RODO pilota |
 | W11 | produkcyjne RPO/RTO, parametry VPS i kryteria go-live |
 
@@ -112,5 +115,8 @@ simulatorem oraz wznawialny onboarding strony na bezpiecznie claimowanej
 subdomenie platformy. Realny Stripe jest wydzielony do niezaliczonego W9.5.2S i
 blokuje pierwszy płatny pilot, ale nie dalszą lokalną implementację W9.5.
 Bieżącym pakietem jest W9.5.4: wersjonowane szablony i katalog sekcji; później
-powstaną Site Studio oraz asystent. W10 pozostaje zablokowane do zaliczenia
-bramki W9.5 i privacy review.
+powstaną Site Studio oraz asystent. Równolegle może rozpocząć się W9.6.0:
+zatwierdzenie kontraktu publikacji systemowej, kolekcji blogowych i integracji z
+osobnym Market Makerem. W9.6 współdzieli model nawigacji W9.5.5, ale nie blokuje
+W10, dopóki MedPlano nie włącza tej integracji do pilota. W10 pozostaje
+zablokowane do zaliczenia bramki W9.5 i privacy review.
