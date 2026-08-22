@@ -1,4 +1,4 @@
-# ADR-035 — publikacja systemowa i integracja z Market Makerem
+# ADR-035 — publikacja systemowa i integracja z SeoContentRank
 
 **Status:** Proposed
 **Data:** 2026-08-21
@@ -13,7 +13,7 @@ obsługuje niewielkie strony firmowe. Nie opisuje jednak dwóch nowych potrzeb:
 
 1. platforma musi publikować własne strony marketingowe i blogi bez tworzenia
    globalnego fallbacku omijającego `TenantContext`;
-2. osobny system Market Maker ma analizować oraz proponować zmiany w treści
+2. osobny system SeoContentRank ma analizować oraz proponować zmiany w treści
    klientów i treści platformowych, ale nie może otrzymać dostępu do bazy,
    dowolnego HTML ani nieograniczonego prawa publikacji.
 
@@ -67,7 +67,7 @@ SaaS Core pozostaje właścicielem:
 - publicznego renderera, domen, sitemap, RSS i zdarzeń publikacyjnych;
 - permissionów, entitlementów, grantów automatyzacji i audytu.
 
-Market Maker pozostaje właścicielem analizy SEO/GEO, mapy tematów i fraz,
+SeoContentRank pozostaje właścicielem analizy SEO/GEO, mapy tematów i fraz,
 wykrywania kanibalizacji, rekomendacji, kampanii zmian, kosztów modeli oraz
 pomiaru efektu. Nie zapisuje bezpośrednio modeli domenowych SaaS Core.
 
@@ -93,7 +93,7 @@ osobnego potwierdzenia niezależnie od trybu.
 
 ### 5. Wersjonowany kontrakt zmian
 
-Market Maker wysyła `ContentChangeSet`, a nie dowolny JSON Patch. Dokument
+SeoContentRank wysyła `ContentChangeSet`, a nie dowolny JSON Patch. Dokument
 zawiera wersję kontraktu, docelowy zasób, bazowy numer wersji i hash snapshotu,
 klucz idempotencji, uzasadnienie oraz listę allowlistowanych komend, np.:
 
@@ -105,7 +105,7 @@ klucz idempotencji, uzasadnienie oraz listę allowlistowanych komend, np.:
 
 SaaS Core waliduje grant i aktualną wersję, buduje deterministyczny diff oraz
 preview, wylicza approval digest i dopiero po spełnieniu polityki tworzy nowy
-draft. Publikacja jest osobną komendą. Konflikt wersji zwraca `409`; Market Maker
+draft. Publikacja jest osobną komendą. Konflikt wersji zwraca `409`; SeoContentRank
 musi pobrać nowy stan i jawnie przeliczyć propozycję zamiast nadpisywać zmianę.
 
 ### 6. Synchronizacja i niezawodność
@@ -128,7 +128,7 @@ musi pobrać nowy stan i jawnie przeliczyć propozycję zamiast nadpisywać zmia
   bez duplikowania całej platformy CMS;
 - blog wymaga nowego modelu kolekcji i publikacji per wpis zamiast rozszerzania
   snapshotu całego site bez granic;
-- integracja z Market Makerem jest odwracalna i może rozpocząć się read-only,
+- integracja z SeoContentRank jest odwracalna i może rozpocząć się read-only,
   następnie przejść przez drafty i approval do ograniczonej automatyzacji;
 - SaaS Core nie przejmuje crawlera, Search Console, analizy konkurencji ani
   generowania strategii treści.
@@ -139,7 +139,7 @@ musi pobrać nowy stan i jawnie przeliczyć propozycję zamiast nadpisywać zmia
 - sztuczny fallback tenant wybierany automatycznie — umożliwia pomyłkę zakresu;
 - osobny CMS dla stron systemowych — duplikuje renderer, media, domeny i audyt;
 - pełny blog w snapshotcie całego `Site` — koszt rośnie z każdym wpisem;
-- bezpośredni dostęp Market Makera do bazy lub ORM — omija kontrakty domenowe;
+- bezpośredni dostęp SeoContentRank do bazy lub ORM — omija kontrakty domenowe;
 - dowolny HTML/JavaScript albo ogólny JSON Patch — rozszerza powierzchnię XSS i
   utrudnia stabilną walidację ryzyka;
 - jeden przełącznik „auto” dla całej organizacji — ma zbyt szeroki blast radius.
