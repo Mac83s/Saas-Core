@@ -3,10 +3,10 @@
     "memex": {
       "command": "node",
       "args": [
-        "/mnt/a/DEVELOPMENT/LLM-WIKI/dist/cli.js",
+        "A:\\DEVELOPMENT\\LLM-WIKI\\dist\\cli.js",
         "mcp"
       ],
-      "cwd": "/mnt/a/DEVELOPMENT/memex-vault",
+      "cwd": "A:\\DEVELOPMENT\\memex-vault",
       "env": {
         "MEMEX_PROJECT": "saas-core"
       }
