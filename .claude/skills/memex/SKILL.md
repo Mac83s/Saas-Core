@@ -91,6 +91,28 @@ This is not for what happened (that is `memex_work`), for a passing thought
 (`memex_capture`), or for compiled knowledge with file sources
 (`memex_propose`).
 
+## How the human wants to be worked with is not a decision
+
+"Reply in Polish." "Small diffs, no refactors I did not ask for." "Never
+force-push." These are real and they are worth keeping, but they belong to one
+person, not to the project. Recording them as a decision would put them in the
+base layer, which every agent on the project reads — so a teammate's agent would
+start working the wrong way for *them*.
+
+- **prefer** — `memex_remember(action: "prefer", what: "<the rule, one line>")`.
+  It goes on that person's page and is delivered only into packs built for them,
+  resolved from the account they logged in with or the machine's git identity.
+- **forget** — the same tool with the line to drop. A preference the human has
+  contradicted is a standing instruction to work the wrong way; it costs tokens
+  on every call until it is removed.
+
+Keep each one to a line. This block rides in every pack that person asks for, so
+it is charged for on every single call, and an essay would quietly become a
+second system prompt.
+
+If you are unsure which it is, ask one question: would a new teammate on this
+project have to follow it? Yes → decision. No → preference.
+
 ## Run the work rhythm yourself
 
 Do not wait for “use memex”, “make a worklog”, or “update the task”. Decide from

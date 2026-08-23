@@ -63,6 +63,10 @@ what past sessions learned. Read `.claude/skills/memex/SKILL.md` (or
 2. `memex_remember(action: "retire", superseded_by: …)` when it no longer does.
 3. Never leave a stale decision recorded — it is injected into every future pack as current.
 
+**The human tells you how they want to be worked with** (a language, a format, a standing correction)
+1. `memex_remember(action: "prefer", what: "<the rule, one line>")` — it reaches their sessions only.
+2. A preference is about one person; a rule the whole project must follow is a decision, above.
+
 **End of a session that changed files, produced evidence, or corrected you**
 1. One compact `memex_work(action: "worklog", …)`. Not one per step.
 2. Observable results in `changes`, commands and tests in `evidence`. Never chain-of-thought.
