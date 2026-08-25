@@ -77,18 +77,33 @@ wielowątkowych wyścigów; wynik pozostaje 336/336.
 
 ## Następny cel wykonawczy
 
-Zacznij W9.5.4 od kontraktu wersjonowanego `PageTemplate` i importu do draftu.
-Przed zmianą architektury przeczytaj ADR-027 i ADR-031 oraz kontrakty
-`docs/architecture/module-contract.md`, `api-and-events.md` i
-`testing-strategy.md`. Następnie:
+Katalog sekcji z W9.5.4 jest dostarczony (commity `404fa60`, `e3eabd5`): bloki
+opisują swoją kategorię ADR-031 i pola w manifeście, `defineSiteBlockManifest`
+sprawdza każdą ścieżkę pola względem kanonicznego JSON Schema, a edytor renderuje
+formularz z tego katalogu. Dodanie sekcji to dziś wyłącznie wpis w manifeście
+plus schemat — edytor nie zna żadnego bloku po nazwie. Biblioteka ma 5 z 9
+kategorii; brakuje Zaufanie, Cennik, Rezerwacja, Stopka.
+
+Zostaje właściwy `PageTemplate`. Przed zmianą architektury przeczytaj ADR-027 i
+ADR-031 oraz kontrakty `docs/architecture/module-contract.md`,
+`api-and-events.md` i `testing-strategy.md`. Następnie:
 
 1. zdefiniuj wersjonowany kontrakt szablonu i granicę importu bez obchodzenia
    istniejącego wersjonowania draftów;
-2. zaprojektuj lokalizowane metadata, kategorie, miniatury i preview;
+2. zaprojektuj lokalizowane metadata, miniatury i preview (kategorie już są);
 3. dostarcz co najmniej profil, landing specjalisty i stronę firmy;
 4. egzekwuj rodziny szablonów przez permission i entitlement w API;
 5. dodaj dowody PL/EN, mobile, klawiatura, axe, exact-tenant i idempotentny
    import.
+
+Znane długi frontendu, nietknięte przez te commity:
+
+- publiczny renderer ma `<html>` bez `lang` (`app/site-renderer/layout.tsx`) —
+  narusza WCAG 2.2 AA, które ADR-031 stawia jako bramkę odbioru;
+- paleta `.dark` istnieje, ale nic nie ustawia klasy `dark`: przełącznik motywu
+  wymaga decyzji, gdzie żyje kontrolka i jak wybór przeżywa SSR;
+- lokalny Node to 22, projekt wymaga 24 — każda komenda pnpm ostrzega;
+- `AGENTS.md` nie przechodzi `format:check` (sekcja memeksa).
 
 Równoległy cel kontraktowy W9.6:
 
