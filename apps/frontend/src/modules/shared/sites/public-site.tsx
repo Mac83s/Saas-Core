@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { cache } from "react";
+import { request as httpRequest } from "node:http";
 
 import type { PublicSitePage } from "@saas-core/api-client";
 import {
@@ -17,27 +18,61 @@ export type PublicSiteResult =
   | { kind: "redirect"; location: string }
   | { kind: "not-found" };
 
+type BackendResponse = {
+  status: number;
+  location: string | null;
+  body: string;
+};
+
+/** `fetch` cannot send this request: `Host` is a forbidden header name, so
+ *  undici silently replaces it with the upstream's own address and the backend
+ *  resolves the wrong site — in practice, no site at all. The visitor's host is
+ *  the entire routing key for a published page, so it has to arrive intact, and
+ *  `node:http` is what still lets us set it. */
+function requestBackend(url: URL, host: string): Promise<BackendResponse> {
+  return new Promise((resolve, reject) => {
+    const request = httpRequest(
+      {
+        protocol: url.protocol,
+        hostname: url.hostname,
+        port: url.port,
+        path: `${url.pathname}${url.search}`,
+        method: "GET",
+        headers: { host, accept: "application/json" },
+      },
+      (response) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk: Buffer) => chunks.push(chunk));
+        response.on("end", () =>
+          resolve({
+            status: response.statusCode ?? 0,
+            location: (response.headers.location as string | undefined) ?? null,
+            body: Buffer.concat(chunks).toString("utf8"),
+          }),
+        );
+      },
+    );
+    request.on("error", reject);
+    request.end();
+  });
+}
+
 export const getPublicSite = cache(
   async (host: string, path: string): Promise<PublicSiteResult> => {
     const backend = process.env.BACKEND_INTERNAL_URL ?? "http://127.0.0.1:8000";
     const url = new URL("/api/v1/public/site/", backend);
     url.searchParams.set("path", path);
-    const response = await fetch(url, {
-      cache: "no-store",
-      headers: { Host: host },
-      redirect: "manual",
-    });
+    const response = await requestBackend(url, host);
     if (response.status === 308) {
-      const location = response.headers.get("location");
-      return location === null
+      return response.location === null
         ? { kind: "not-found" }
-        : { kind: "redirect", location };
+        : { kind: "redirect", location: response.location };
     }
     if (response.status === 404) return { kind: "not-found" };
-    if (!response.ok) {
+    if (response.status < 200 || response.status >= 300) {
       throw new Error(`Public Sites API zwróciło status ${response.status}`);
     }
-    return { kind: "page", page: (await response.json()) as PublicSitePage };
+    return { kind: "page", page: JSON.parse(response.body) as PublicSitePage };
   },
 );
 

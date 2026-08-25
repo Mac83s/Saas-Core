@@ -156,7 +156,10 @@ def domain_action(client: APIClient, domain_id: str, action: str, *, key: str) -
     )
 
 
-def publish_fixture(site: Site, user: User) -> Publication:
+def publish_fixture(
+    site: Site, user: User, *, trailing_slash: bool = False
+) -> Publication:
+    tail = "/" if trailing_slash else ""
     snapshot = {
         "site_id": str(site.id),
         "site_slug": site.slug,
@@ -185,8 +188,8 @@ def publish_fixture(site: Site, user: User) -> Publication:
                 "locales": [
                     {
                         "locale": "pl",
-                        "path": "/oferta",
-                        "canonical_path": "/oferta",
+                        "path": f"/oferta{tail}",
+                        "canonical_path": f"/oferta{tail}",
                         "title": "Oferta",
                         "description": "Opis oferty",
                         "social_title": "Oferta social",
@@ -194,16 +197,16 @@ def publish_fixture(site: Site, user: User) -> Publication:
                     },
                     {
                         "locale": "en",
-                        "path": "/en/offer",
-                        "canonical_path": "/en/offer",
+                        "path": f"/en/offer{tail}",
+                        "canonical_path": f"/en/offer{tail}",
                         "title": "Offer",
                         "description": "Offer description",
                         "social_title": "Offer social",
                         "social_description": "Social description",
                     },
                 ],
-                "hreflang": {"pl": "/oferta", "en": "/en/offer"},
-                "x_default": "/oferta",
+                "hreflang": {"pl": f"/oferta{tail}", "en": f"/en/offer{tail}"},
+                "x_default": f"/oferta{tail}",
             }
         ],
     }
@@ -554,6 +557,36 @@ def test_tls_authorization_denies_arbitrary_pending_and_inactive_domains() -> No
     assert arbitrary.status_code == 404
     assert allowed.status_code == 204
     assert suspended.status_code == 404
+
+
+@override_settings(PUBLIC_SITE_SCHEME="https")
+def test_public_renderer_matches_paths_however_they_end() -> None:
+    """Publishing writes trailing-slash paths ("/oferta/"), and the resolver
+    trimmed only the request before comparing — so every page but the home page
+    answered 404 in production while this suite, whose fixture omits the slash,
+    stayed green."""
+    client, _, user = domain_client(slug="domain-slash")
+    site_response = create_site(client, "slash-site")
+    site = Site.all_objects.get(pk=site_response.data["id"])
+    publish_fixture(site, user, trailing_slash=True)
+    platform = Domain.all_objects.get(site=site, kind=DomainKind.PLATFORM)
+
+    with_slash = APIClient().get(
+        "/api/v1/public/site/",
+        {"path": "/oferta/"},
+        HTTP_HOST=platform.hostname,
+    )
+    without_slash = APIClient().get(
+        "/api/v1/public/site/",
+        {"path": "/oferta"},
+        HTTP_HOST=platform.hostname,
+    )
+
+    assert with_slash.status_code == 200
+    assert with_slash.data["locale"] == "pl"
+    # The canonical form differing only by a trailing slash must not send the
+    # visitor back to the address they already requested.
+    assert without_slash.status_code == 200
 
 
 @override_settings(PUBLIC_SITE_SCHEME="https")

@@ -7,12 +7,24 @@ import { normalizeRequestHostname } from "./proxy-host";
 
 const internationalization = createMiddleware(routing);
 
+/** Carries the visitor-facing path across the rewrite into `/site-renderer`,
+ *  so the public layout can set `<html lang>` from the published page. */
+export const PUBLIC_SITE_PATH_HEADER = "x-saas-core-site-path";
+
 export default function proxy(request: NextRequest) {
   const hostname = normalizeRequestHostname(request.headers.get("host"));
   if (!isControlHostname(hostname)) {
     const rewritten = request.nextUrl.clone();
     rewritten.pathname = `/site-renderer${request.nextUrl.pathname}`;
-    return NextResponse.rewrite(rewritten);
+    // The rewritten path is what the layout sees, and a layout cannot read the
+    // route params of the page below it — so the original path travels in a
+    // header. Set, never appended: a visitor could otherwise supply their own
+    // and steer which page's language the document claims.
+    const forwarded = new Headers(request.headers);
+    forwarded.set(PUBLIC_SITE_PATH_HEADER, request.nextUrl.pathname);
+    return NextResponse.rewrite(rewritten, {
+      request: { headers: forwarded },
+    });
   }
   if (
     !deployment.features.publicBooking &&

@@ -29,7 +29,13 @@ class PublicPage:
 
     @property
     def redirect_url(self) -> str | None:
-        if self.hostname == self.canonical_hostname and self.requested_path == self.canonical_path:
+        # Compared the same way the page was matched. A raw `==` treats
+        # "/start" and "/start/" as different addresses and redirects the
+        # visitor to the page they already asked for, forever.
+        already_canonical = _comparable_path(self.requested_path) == _comparable_path(
+            self.canonical_path
+        )
+        if self.hostname == self.canonical_hostname and already_canonical:
             return None
         return f"{settings.PUBLIC_SITE_SCHEME}://{self.canonical_hostname}{self.canonical_path}"
 
@@ -107,18 +113,27 @@ def _normalize_path(value: str) -> str:
     return value
 
 
+def _comparable_path(value: str) -> str:
+    """One spelling for `/start`, `/start/` and `//start//`, so a visitor's URL
+    and the snapshot's stored path compare equal whichever way either ends."""
+    return value.rstrip("/") or "/"
+
+
 def _find_page(
     snapshot: dict[str, Any],
     requested_path: str,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    normalized_without_slash = requested_path.rstrip("/") or "/"
+    wanted = _comparable_path(requested_path)
     for raw_page in snapshot.get("pages", []):
         if not isinstance(raw_page, dict):
             continue
         for raw_locale in raw_page.get("locales", []):
             if not isinstance(raw_locale, dict):
                 continue
-            candidate = str(raw_locale.get("path", ""))
-            if candidate == normalized_without_slash:
+            # The snapshot stores trailing-slash paths ("/start/"), so the
+            # stored value needs the same treatment as the request. Comparing a
+            # trimmed request against an untrimmed candidate never matched, and
+            # every page except the home page answered 404.
+            if _comparable_path(str(raw_locale.get("path", ""))) == wanted:
                 return raw_page, raw_locale
     raise PublicSiteNotFound

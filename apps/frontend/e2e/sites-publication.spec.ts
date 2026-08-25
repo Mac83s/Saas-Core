@@ -23,7 +23,7 @@ test.describe("W9.5 Sites onboarding and publication workspace", () => {
     await page.getByRole("button", { name: "Zaloguj się" }).click();
     await expect(page).toHaveURL(/\/panel\/sites$/);
     await expect(
-      page.getByRole("heading", { name: "Treść strony" }),
+      page.getByRole("heading", { name: "Twoja witryna" }),
     ).toBeVisible();
 
     await page.getByLabel("Preferowany adres").fill(`site-${runId}`);
@@ -40,20 +40,26 @@ test.describe("W9.5 Sites onboarding and publication workspace", () => {
     ).toBeVisible();
     await page.getByRole("button", { name: "Utwórz moją stronę" }).click();
     await expect(page.getByText(siteName, { exact: true })).toBeVisible();
+    await page.getByRole("tab", { name: "Adres" }).click();
     await page.getByLabel("Własna domena").fill(`www-${runId}.example.test`);
     await page.getByRole("button", { name: "Dodaj domenę" }).click();
+    // Scoped to the custom domain's own row: the platform subdomain is already
+    // verified, so an unscoped "zweryfikowana" matches two badges.
+    const domainRow = page
+      .getByText(`www-${runId}.example.test`, { exact: true })
+      .locator("xpath=ancestor::article[1]");
+    await expect(domainRow).toBeVisible();
+    await expect(page.getByText(/_saas-core\.www-/).first()).toBeVisible();
+    await domainRow.getByRole("button", { name: "Sprawdź DNS" }).click();
     await expect(
-      page.getByText(`www-${runId}.example.test`, { exact: true }),
-    ).toBeVisible();
-    await expect(page.getByText(/_saas-core\.www-/)).toBeVisible();
-    await page.getByRole("button", { name: "Sprawdź DNS" }).click();
-    await expect(
-      page.getByText("zweryfikowana", { exact: true }),
+      domainRow.getByText("zweryfikowana", { exact: true }),
     ).toBeVisible();
 
+    await page.getByRole("tab", { name: "Podstrony" }).click();
     await page.locator("#page-name").fill("Start");
     await page.locator("#page-key").fill("home");
     await page.getByRole("button", { name: "Dodaj podstronę" }).click();
+    await page.getByRole("tab", { name: "Treść" }).click();
     await expect(
       page.getByText("Kontrolowane bloki treści", { exact: true }),
     ).toBeVisible();
@@ -82,9 +88,11 @@ test.describe("W9.5 Sites onboarding and publication workspace", () => {
     await expect(
       metadataForm.getByText("Wersja 1", { exact: true }),
     ).toBeVisible();
+    await page.getByRole("tab", { name: "Publikacja" }).click();
     await expect(
       page.getByText("Gotowy do publikacji", { exact: true }),
     ).toBeVisible();
+    await page.getByRole("tab", { name: "Treść" }).click();
 
     await contentForm
       .getByRole("button", { name: "Chroniony podgląd" })
@@ -93,6 +101,7 @@ test.describe("W9.5 Sites onboarding and publication workspace", () => {
       "Pierwsza publikacja",
     );
 
+    await page.getByRole("tab", { name: "Publikacja" }).click();
     await page.getByRole("button", { name: "Opublikuj snapshot" }).click();
     await expect(page.getByRole("status")).toContainText(
       "Opublikowano sekwencję 1",
@@ -101,6 +110,7 @@ test.describe("W9.5 Sites onboarding and publication workspace", () => {
       page.getByText("Publikacja #1", { exact: true }),
     ).toBeVisible();
 
+    await page.getByRole("tab", { name: "Treść" }).click();
     await contentForm.getByLabel("Nagłówek").fill("Nowszy niezależny draft");
     await contentForm
       .getByRole("button", { name: "Zapisz nową wersję draftu" })
@@ -108,11 +118,13 @@ test.describe("W9.5 Sites onboarding and publication workspace", () => {
     await expect(
       contentForm.getByText("Wersja 2", { exact: true }),
     ).toBeVisible();
+    await page.getByRole("tab", { name: "Podstrony" }).click();
     await expect(
       page
         .getByText("Wersja", { exact: true })
         .locator("xpath=following-sibling::p"),
     ).toHaveText("2");
+    await page.getByRole("tab", { name: "Publikacja" }).click();
     const secondPublish = page.waitForRequest(
       (request) =>
         request.method() === "POST" &&
@@ -151,6 +163,7 @@ test.describe("W9.5 Sites onboarding and publication workspace", () => {
     await expect(
       page.getByText("Publikacja #3", { exact: true }),
     ).toBeVisible();
+    await page.getByRole("tab", { name: "Treść" }).click();
     await expect(contentForm.getByLabel("Nagłówek")).toHaveValue(
       "Nowszy niezależny draft",
     );
