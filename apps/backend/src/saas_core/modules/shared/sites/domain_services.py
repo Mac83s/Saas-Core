@@ -112,8 +112,39 @@ class DomainLifecycleConflict(APIException):
     default_code = "domain_lifecycle_conflict"
 
 
+# Characters NFKD cannot decompose, so `slugify` drops them entirely rather
+# than folding them to their base letter: "Łódź" became "odz". Latin-1 and
+# Turkish letters are included because a deployment is not restricted to Polish.
+_TRANSLITERATIONS = str.maketrans(
+    {
+        "ł": "l",
+        "Ł": "L",
+        "đ": "d",
+        "Đ": "D",
+        "ø": "o",
+        "Ø": "O",
+        "ß": "ss",
+        "æ": "ae",
+        "Æ": "AE",
+        "œ": "oe",
+        "Œ": "OE",
+        "ı": "i",
+        "İ": "I",
+        "þ": "th",
+        "Þ": "TH",
+        "ð": "d",
+        "Ð": "D",
+    }
+)
+
+
+def transliterate_label(value: str) -> str:
+    """Fold letters `slugify` would silently delete down to ASCII first."""
+    return value.translate(_TRANSLITERATIONS)
+
+
 def normalize_platform_label(value: str) -> str:
-    label = slugify(value.strip(), allow_unicode=False).strip("-")
+    label = slugify(transliterate_label(value.strip()), allow_unicode=False).strip("-")
     if not label or len(label) > 63:
         raise ValidationError({"subdomain_label": ["Wpisz nazwę od 1 do 63 znaków."]})
     if label.startswith("-") or label.endswith("-"):
@@ -217,7 +248,10 @@ def _subdomain_availability(value: str) -> SubdomainAvailability:
 
 
 def _available_platform_suggestion(base: str) -> str:
-    normalized = slugify(base, allow_unicode=False).strip("-")[:56] or "moja-strona"
+    normalized = (
+        slugify(transliterate_label(base), allow_unicode=False).strip("-")[:56]
+        or "moja-strona"
+    )
     if not _is_reserved_platform_label(normalized):
         candidate_hostname = normalize_hostname(
             f"{normalized}.{settings.SITES_PLATFORM_DOMAIN}"

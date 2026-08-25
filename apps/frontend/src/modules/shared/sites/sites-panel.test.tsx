@@ -259,6 +259,42 @@ test("po odrzuceniu mutacji zachowuje treść i kieruje do płatności", async (
   ).not.toBeNull();
 });
 
+test("wypełnia klucz podstrony z nazwy i ustępuje ręcznej zmianie", async () => {
+  render(
+    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+      <SitesPanel canManageBilling />
+    </NextIntlClientProvider>,
+  );
+
+  expect(await screen.findByText("Przychodnia")).not.toBeNull();
+  const name = screen.getByLabelText("Nazwa", { selector: "input#page-name" });
+  const key = screen.getByLabelText("Klucz podstrony", {
+    selector: "input#page-key",
+  }) as HTMLInputElement;
+
+  // ł has no decomposition, so a naive slug would drop it entirely.
+  fireEvent.change(name, { target: { value: "Gabinet Łukasza" } });
+  await waitFor(() => expect(key.value).toBe("gabinet-lukasza"));
+
+  fireEvent.change(name, { target: { value: "O nas" } });
+  await waitFor(() => expect(key.value).toBe("o-nas"));
+
+  // Once edited by hand the key is the operator's; it must stop rewriting
+  // itself under them.
+  fireEvent.change(key, { target: { value: "kontakt" } });
+  fireEvent.change(name, { target: { value: "Zupełnie inna nazwa" } });
+  await waitFor(() =>
+    expect(
+      (
+        screen.getByLabelText("Nazwa", {
+          selector: "input#page-name",
+        }) as HTMLInputElement
+      ).value,
+    ).toBe("Zupełnie inna nazwa"),
+  );
+  expect(key.value).toBe("kontakt");
+});
+
 test("kieruje właściciela bez planu do porównania oferty", async () => {
   listSites.mockRejectedValueOnce(entitlementProblem());
 

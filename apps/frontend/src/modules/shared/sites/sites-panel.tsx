@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   useForm,
+  useWatch,
   type FieldValues,
   type Path,
   type SubmitHandler,
@@ -62,6 +63,7 @@ import {
 import { Input } from "@saas-core/ui/components/input";
 
 import { sitesErrorMessage } from "./problem";
+import { slugifyTitle } from "./slug";
 import { Link } from "#i18n/navigation";
 import { mutationKey, type MutationReceipt } from "./idempotency";
 import { DomainPanel } from "./domain-panel";
@@ -672,6 +674,20 @@ function CreatePageCard({
   onSubmit: SubmitHandler<PageValues>;
 }) {
   const t = useTranslations("Sites");
+  // The address follows the title until someone edits it by hand; from then on
+  // it is theirs, because a key that keeps rewriting itself under an editor is
+  // worse than one they have to think about once.
+  const [keyEdited, setKeyEdited] = useState(false);
+  const name = useWatch({ control: form.control, name: "name" });
+
+  useEffect(() => {
+    if (keyEdited) return;
+    const suggestion = slugifyTitle(name ?? "");
+    if (suggestion !== form.getValues("key")) {
+      form.setValue("key", suggestion, { shouldValidate: false });
+    }
+  }, [form, keyEdited, name]);
+
   return (
     <Card>
       <CardHeader>
@@ -689,11 +705,13 @@ function CreatePageCard({
               name="name"
             />
             <TextField
+              description={keyEdited ? undefined : t("pageKeyFollowsName")}
               disabled={disabled}
               form={form}
               id="page-key"
               label={t("pageKey")}
               name="key"
+              onInput={() => setKeyEdited(true)}
             />
           </FieldGroup>
           <Button
@@ -786,29 +804,45 @@ function ReadinessCard({
 }
 
 function TextField<T extends FieldValues>({
+  description,
   disabled,
   form,
   id,
   label,
   name,
+  onInput,
 }: {
+  description?: string;
   disabled?: boolean;
   form: UseFormReturn<T>;
   id: string;
   label: string;
   name: Path<T>;
+  onInput?: () => void;
 }) {
   const fieldError = form.getFieldState(name, form.formState).error?.message;
   const error = typeof fieldError === "string" ? fieldError : undefined;
+  const registration = form.register(name);
+  const descriptionId = description ? `${id}-description` : undefined;
   return (
     <Field data-invalid={Boolean(error)}>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <Input
+        aria-describedby={descriptionId}
         aria-invalid={Boolean(error)}
         disabled={disabled}
         id={id}
-        {...form.register(name)}
+        {...registration}
+        onChange={(event) => {
+          onInput?.();
+          return registration.onChange(event);
+        }}
       />
+      {description ? (
+        <p className="text-xs text-muted-foreground" id={descriptionId}>
+          {description}
+        </p>
+      ) : null}
       <FieldError>{error}</FieldError>
     </Field>
   );

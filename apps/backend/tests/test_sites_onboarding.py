@@ -181,6 +181,24 @@ def test_subdomain_availability_normalizes_and_hides_global_ownership() -> None:
     assert "site_id" not in taken.data
 
 
+def test_subdomain_availability_folds_letters_ascii_cannot_decompose() -> None:
+    owner, _, _ = onboarding_client(slug="availability-transliteration")
+
+    # NFKD leaves ł intact, so stripping combining marks would delete it and
+    # "Łódź" would be offered as "odz".
+    polish = owner.get("/api/v1/sites/subdomain-availability/", {"label": "Łódź"})
+    mixed = owner.get(
+        "/api/v1/sites/subdomain-availability/",
+        {"label": "Gabinet Łukasza"},
+    )
+    german = owner.get("/api/v1/sites/subdomain-availability/", {"label": "Straße"})
+
+    assert polish.status_code == 200
+    assert polish.data["normalized_label"] == "lodz"
+    assert mixed.data["normalized_label"] == "gabinet-lukasza"
+    assert german.data["normalized_label"] == "strasse"
+
+
 def test_subdomain_availability_respects_release_quarantine() -> None:
     owner, _, _ = onboarding_client(slug="availability-quarantine")
     created = create_site(

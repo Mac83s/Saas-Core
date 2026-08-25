@@ -230,6 +230,7 @@
     "searchPages": "Szukaj podstrony…",
     "noPages": "Brak podstron w tym site.",
     "pageKey": "Klucz podstrony",
+    "pageKeyFollowsName": "Tworzony automatycznie z nazwy. Możesz go zmienić.",
     "version": "Wersja",
     "draft": "Draft",
     "available": "Dostępny",

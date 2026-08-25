@@ -230,6 +230,7 @@
     "searchPages": "Search pages…",
     "noPages": "This site has no pages.",
     "pageKey": "Page key",
+    "pageKeyFollowsName": "Created automatically from the name. You can change it.",
     "version": "Version",
     "draft": "Draft",
     "available": "Available",
