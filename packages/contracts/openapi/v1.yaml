@@ -2681,6 +2681,95 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/{site_id}/navigation/:
+    get:
+      operationId: sites_navigation_retrieve
+      parameters:
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteNavigation'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    put:
+      operationId: sites_navigation_save
+      parameters:
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SiteNavigationSave'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SiteNavigationSave'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SiteNavigationSave'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteNavigation'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/{site_id}/pages/:
     get:
       operationId: sites_pages_list
@@ -4484,6 +4573,22 @@ components:
           minLength: 6
       required:
       - code
+    NavigationItem:
+      type: object
+      properties:
+        page_id:
+          type: string
+          format: uuid
+        parent_page_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        visible:
+          type: boolean
+          default: true
+      required:
+      - page_id
     OrganizationArchived:
       type: object
       properties:
@@ -5009,7 +5114,7 @@ components:
         page_id:
           type: string
           format: uuid
-        parent_id:
+        parent_page_id:
           type:
           - string
           - 'null'
@@ -5020,7 +5125,7 @@ components:
           type: string
       required:
       - page_id
-      - parent_id
+      - parent_page_id
       - path
       - title
     PublicSitePage:
@@ -5403,6 +5508,35 @@ components:
       - ready_to_publish
       - site_id
       - supported_locales
+    SiteNavigation:
+      type: object
+      properties:
+        site_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/NavigationItem'
+      required:
+      - items
+      - site_id
+      - version
+    SiteNavigationSave:
+      type: object
+      properties:
+        expected_version:
+          type: integer
+          minimum: 0
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/NavigationItem'
+      required:
+      - expected_version
+      - items
     SiteOnboarding:
       type: object
       properties:

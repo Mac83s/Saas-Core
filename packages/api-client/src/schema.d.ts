@@ -1076,6 +1076,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/{site_id}/navigation/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["sites_navigation_retrieve"];
+        put: operations["sites_navigation_save"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/{site_id}/pages/": {
         parameters: {
             query?: never;
@@ -1647,6 +1663,14 @@ export interface components {
         MfaCode: {
             code: string;
         };
+        NavigationItem: {
+            /** Format: uuid */
+            page_id: string;
+            /** Format: uuid */
+            parent_page_id?: string | null;
+            /** @default true */
+            visible: boolean;
+        };
         OrganizationArchived: {
             status: components["schemas"]["OrganizationArchivedStatusEnum"];
         };
@@ -1862,7 +1886,7 @@ export interface components {
             /** Format: uuid */
             page_id: string;
             /** Format: uuid */
-            parent_id: string | null;
+            parent_page_id: string | null;
             title: string;
             path: string;
         };
@@ -2024,6 +2048,16 @@ export interface components {
             supported_locales: string[];
             ready_to_publish: boolean;
             pages: components["schemas"]["PageLocalization"][];
+        };
+        SiteNavigation: {
+            /** Format: uuid */
+            site_id: string;
+            version: number;
+            items: components["schemas"]["NavigationItem"][];
+        };
+        SiteNavigationSave: {
+            expected_version: number;
+            items: components["schemas"]["NavigationItem"][];
         };
         SiteOnboarding: {
             /** Format: uuid */
@@ -5180,6 +5214,102 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SiteLocalizationReport"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_navigation_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteNavigation"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_navigation_save: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteNavigationSave"];
+                "application/x-www-form-urlencoded": components["schemas"]["SiteNavigationSave"];
+                "multipart/form-data": components["schemas"]["SiteNavigationSave"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteNavigation"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
             403: {

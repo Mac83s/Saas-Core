@@ -29,6 +29,8 @@ from .serializers import (
     SiteCreateSerializer,
     SiteListSerializer,
     SiteLocalizationReportSerializer,
+    SiteNavigationSaveSerializer,
+    SiteNavigationSerializer,
     SitePublicationListSerializer,
     SitePublicationSerializer,
     SitePublishSerializer,
@@ -37,11 +39,13 @@ from .serializers import (
 )
 from .services import (
     PageDraft,
+    SiteNavigation,
     create_page,
     create_site,
     get_draft,
     get_draft_preview,
     get_site_localization_report,
+    get_site_navigation,
     list_page_translations,
     list_pages,
     list_site_publications,
@@ -50,6 +54,7 @@ from .services import (
     rollback_site,
     save_draft,
     save_page_translation,
+    save_site_navigation,
 )
 
 IDEMPOTENCY_PARAMETER = OpenApiParameter(
@@ -225,6 +230,64 @@ class PageDraftView(APIView):
             _draft_summary(page_id),
             status=(status.HTTP_201_CREATED if result.created else status.HTTP_200_OK),
         )
+
+
+class SiteNavigationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_navigation_retrieve",
+        tags=["sites"],
+        responses={
+            200: SiteNavigationSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, _request: Request, site_id: UUID) -> Response:
+        return Response(_navigation_summary(get_site_navigation(site_id=site_id)))
+
+    @extend_schema(
+        operation_id="sites_navigation_save",
+        tags=["sites"],
+        request=SiteNavigationSaveSerializer,
+        responses={
+            200: SiteNavigationSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def put(self, request: Request, site_id: UUID) -> Response:
+        serializer = SiteNavigationSaveSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        navigation = save_site_navigation(
+            site_id=site_id,
+            expected_version=serializer.validated_data["expected_version"],
+            items=serializer.validated_data["items"],
+        )
+        return Response(_navigation_summary(navigation))
+
+
+def _navigation_summary(navigation: SiteNavigation) -> dict[str, Any]:
+    parent_page_by_id = {item.id: item.page_id for item in navigation.items}
+    return {
+        "site_id": str(navigation.site.id),
+        "version": navigation.site.navigation_version,
+        "items": [
+            {
+                "page_id": str(item.page_id),
+                "parent_page_id": (
+                    str(parent_page_by_id[item.parent_id])
+                    if item.parent_id is not None
+                    else None
+                ),
+                "visible": item.visible,
+            }
+            for item in navigation.items
+        ],
+    }
 
 
 class PageDraftPreviewView(APIView):

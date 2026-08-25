@@ -128,7 +128,7 @@ class SiteDomainListSerializer(serializers.Serializer[dict[str, Any]]):
 
 class PublicNavigationLinkSerializer(serializers.Serializer[dict[str, Any]]):
     page_id = serializers.UUIDField()
-    parent_id = serializers.UUIDField(allow_null=True)
+    parent_page_id = serializers.UUIDField(allow_null=True)
     title = serializers.CharField()
     path = serializers.CharField()
 
@@ -147,6 +147,25 @@ class PublicSitePageSerializer(serializers.Serializer[dict[str, Any]]):
     design_tokens = serializers.DictField()
     blocks = serializers.ListField(child=serializers.DictField())
     navigation = PublicNavigationLinkSerializer(many=True)
+
+
+class NavigationItemSerializer(serializers.Serializer[dict[str, Any]]):
+    page_id = serializers.UUIDField()
+    parent_page_id = serializers.UUIDField(allow_null=True, required=False)
+    visible = serializers.BooleanField(default=True)
+
+
+class SiteNavigationSerializer(serializers.Serializer[dict[str, Any]]):
+    site_id = serializers.UUIDField()
+    version = serializers.IntegerField()
+    items = NavigationItemSerializer(many=True)
+
+
+class SiteNavigationSaveSerializer(serializers.Serializer[dict[str, Any]]):
+    expected_version = serializers.IntegerField(min_value=0)
+    # A menu with no entries is a legitimate state — it means "no menu" — so an
+    # empty list is accepted rather than rejected as a mistake.
+    items = NavigationItemSerializer(many=True, allow_empty=True)
 
 
 class SiteListSerializer(serializers.Serializer[dict[str, Any]]):

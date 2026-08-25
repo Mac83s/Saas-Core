@@ -18,6 +18,7 @@ from .views import (
     PageTranslationView,
     SiteListCreateView,
     SiteLocalizationReportView,
+    SiteNavigationView,
     SitePublicationCreateView,
     SitePublicationRollbackView,
 )
@@ -57,6 +58,11 @@ urlpatterns = [
         "<uuid:site_id>/localization/",
         SiteLocalizationReportView.as_view(),
         name="localization-report",
+    ),
+    path(
+        "<uuid:site_id>/navigation/",
+        SiteNavigationView.as_view(),
+        name="navigation",
     ),
     path(
         "<uuid:site_id>/publications/",

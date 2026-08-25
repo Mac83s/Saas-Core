@@ -55,6 +55,7 @@ PAGE_DRAFT_SAVED = "sites.page.draft_saved"
 PAGE_TRANSLATION_SAVED = "sites.page.translation_saved"
 SITE_PUBLISHED = "sites.site.published"
 SITE_ROLLED_BACK = "sites.site.rolled_back"
+SITE_NAVIGATION_SAVED = "sites.navigation.saved"
 SITE_PUBLISHED_EVENT = "sites.site.published"
 MEDIA_ASSET_RESOURCE_TYPE = "shared.media.asset"
 PAGE_VERSION_REFERENCE_OWNER = "sites.page_version"
@@ -91,6 +92,18 @@ class DraftVersionConflict(APIException):
     status_code = 409
     default_detail = "Draft został w międzyczasie zmieniony."
     default_code = "draft_version_conflict"
+
+
+class NavigationVersionConflict(APIException):
+    status_code = 409
+    default_detail = "Nawigacja została w międzyczasie zmieniona."
+    default_code = "navigation_version_conflict"
+
+
+class NavigationInvalidTree(APIException):
+    status_code = 400
+    default_detail = "Nawigacja zawiera nieprawidłowe drzewo pozycji."
+    default_code = "navigation_invalid_tree"
 
 
 class SiteMediaReferenceUnavailable(APIException):
@@ -186,6 +199,12 @@ class PageTranslations:
     page: Page
     supported_locales: tuple[str, ...]
     translations: tuple[PageTranslation, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class SiteNavigation:
+    site: Site
+    items: tuple[NavigationItem, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -811,6 +830,138 @@ def list_site_publications(
     return rows[:limit], next_cursor
 
 
+def get_site_navigation(*, site_id: UUID) -> SiteNavigation:
+    context = authorize_entitled(
+        SITE_CONTENT_EDIT,
+        SITES_ENABLED,
+        operation=FeatureOperation.READ,
+    )
+    site = Site.all_objects.filter(
+        pk=site_id,
+        organization_id=context.organization_id,
+    ).first()
+    if site is None:
+        raise SiteNotFound
+    items = tuple(
+        NavigationItem.all_objects.filter(
+            organization_id=context.organization_id,
+            site_id=site_id,
+        ).order_by("position", "id")
+    )
+    return SiteNavigation(site=site, items=items)
+
+
+@transaction.atomic
+def save_site_navigation(
+    *,
+    site_id: UUID,
+    expected_version: int,
+    items: list[dict[str, Any]],
+) -> SiteNavigation:
+    """Replaces the whole menu.
+
+    Navigation is one object even though it is stored as rows: moving an entry
+    renumbers its siblings, so a per-entry API would let two editors interleave
+    partial moves into a tree neither of them intended. The version guards the
+    menu as a whole.
+    """
+    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    site = (
+        Site.all_objects.select_for_update()
+        .filter(pk=site_id, organization_id=context.organization_id)
+        .first()
+    )
+    if site is None:
+        raise SiteNotFound
+    if site.navigation_version != expected_version:
+        raise NavigationVersionConflict
+
+    page_ids = [UUID(str(item["page_id"])) for item in items]
+    if len(set(page_ids)) != len(page_ids):
+        raise NavigationInvalidTree
+    known_pages = set(
+        Page.all_objects.filter(
+            organization_id=context.organization_id,
+            site_id=site_id,
+            pk__in=page_ids,
+        ).values_list("pk", flat=True)
+    )
+    if known_pages != set(page_ids):
+        raise NavigationInvalidTree
+
+    parents = {
+        UUID(str(item["page_id"])): (
+            UUID(str(item["parent_page_id"]))
+            if item.get("parent_page_id") is not None
+            else None
+        )
+        for item in items
+    }
+    for page_id, parent_id in parents.items():
+        if parent_id is None:
+            continue
+        if parent_id not in parents or parent_id == page_id:
+            raise NavigationInvalidTree
+        # One level of nesting, matching what the editor and the public menu
+        # render. A deeper tree would publish links the renderer cannot show.
+        if parents[parent_id] is not None:
+            raise NavigationInvalidTree
+
+    NavigationItem.all_objects.filter(
+        organization_id=context.organization_id,
+        site_id=site_id,
+    ).delete()
+    created: dict[UUID, NavigationItem] = {}
+    for position, item in enumerate(items):
+        page_id = UUID(str(item["page_id"]))
+        if parents[page_id] is not None:
+            continue
+        created[page_id] = NavigationItem.all_objects.create(
+            organization_id=context.organization_id,
+            site_id=site_id,
+            page_id=page_id,
+            parent=None,
+            position=position,
+            visible=bool(item.get("visible", True)),
+        )
+    for position, item in enumerate(items):
+        page_id = UUID(str(item["page_id"]))
+        parent_page_id = parents[page_id]
+        if parent_page_id is None:
+            continue
+        created[page_id] = NavigationItem.all_objects.create(
+            organization_id=context.organization_id,
+            site_id=site_id,
+            page_id=page_id,
+            parent=created[parent_page_id],
+            position=position,
+            visible=bool(item.get("visible", True)),
+        )
+
+    site.navigation_version += 1
+    site.save(update_fields=["navigation_version", "updated_at"])
+    record_audit(
+        organization=Organization.objects.get(pk=context.organization_id),
+        action=SITE_NAVIGATION_SAVED,
+        actor=User.objects.get(pk=context.actor_id),
+        target_type="site",
+        target_id=site.id,
+        metadata={
+            "navigation_version": site.navigation_version,
+            "items": len(items),
+        },
+    )
+    return SiteNavigation(
+        site=site,
+        items=tuple(
+            NavigationItem.all_objects.filter(
+                organization_id=context.organization_id,
+                site_id=site_id,
+            ).order_by("position", "id")
+        ),
+    )
+
+
 @transaction.atomic
 def publish_site(*, site_id: UUID, idempotency_key: str) -> SitePublication:
     context = authorize_entitled(SITE_PUBLISH, SITES_ENABLED)
@@ -1289,10 +1440,15 @@ def _navigation_snapshot(
             current = kept[current.parent_id]
         return True
 
+    # Addressed by page, not by navigation-item id: the public payload and the
+    # panel both speak in pages, and mixing the two id spaces silently drops
+    # every nested entry when the renderer tries to match them up.
     return [
         {
             "page_id": str(item.page_id),
-            "parent_id": str(item.parent_id) if item.parent_id else None,
+            "parent_page_id": (
+                str(kept[item.parent_id].page_id) if item.parent_id else None
+            ),
             "position": item.position,
         }
         for item in items

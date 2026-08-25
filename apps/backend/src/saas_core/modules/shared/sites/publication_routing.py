@@ -135,7 +135,7 @@ def _navigation_links(snapshot: dict[str, Any], locale: str) -> list[dict[str, A
             continue
         links.append({
             "page_id": str(entry.get("page_id")),
-            "parent_id": entry.get("parent_id"),
+            "parent_page_id": entry.get("parent_page_id"),
             "title": localized["title"],
             "path": localized["path"],
         })

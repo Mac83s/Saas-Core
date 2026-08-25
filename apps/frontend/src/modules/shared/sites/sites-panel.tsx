@@ -74,6 +74,7 @@ import { slugifyTitle } from "./slug";
 import { Link } from "#i18n/navigation";
 import { mutationKey, type MutationReceipt } from "./idempotency";
 import { DomainPanel } from "./domain-panel";
+import { NavigationEditor } from "./navigation-editor";
 import { PageEditor } from "./page-editor";
 import { PublicationHistory } from "./publication-history";
 import { SiteOnboardingWizard } from "./site-onboarding";
@@ -644,11 +645,20 @@ export function SitesPanel({
               </CardContent>
             </Card>
 
-            <CreatePageCard
-              disabled={!selectedSite}
-              form={pageForm}
-              onSubmit={submitPage}
-            />
+            <div className="space-y-6">
+              <CreatePageCard
+                disabled={!selectedSite}
+                form={pageForm}
+                onSubmit={submitPage}
+              />
+              {selectedSiteId && (
+                <NavigationEditor
+                  key={selectedSiteId}
+                  pages={pages}
+                  siteId={selectedSiteId}
+                />
+              )}
+            </div>
           </div>
         </TabsPanel>
 

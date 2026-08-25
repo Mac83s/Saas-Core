@@ -70,10 +70,10 @@ function renderNavigation(
   if (links.length === 0) return null;
   const children = new Map<string, NavigationLink[]>();
   for (const link of links) {
-    if (link.parent_id === null) continue;
-    const siblings = children.get(link.parent_id) ?? [];
+    if (link.parent_page_id === null) continue;
+    const siblings = children.get(link.parent_page_id) ?? [];
     siblings.push(link);
-    children.set(link.parent_id, siblings);
+    children.set(link.parent_page_id, siblings);
   }
   return createElement(
     "nav",
@@ -82,7 +82,7 @@ function renderNavigation(
       "ul",
       null,
       ...links
-        .filter((link) => link.parent_id === null)
+        .filter((link) => link.parent_page_id === null)
         .map((link) =>
           createElement(
             "li",

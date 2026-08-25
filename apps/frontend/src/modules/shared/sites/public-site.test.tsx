@@ -37,19 +37,19 @@ const page: PublicSitePage = {
   navigation: [
     {
       page_id: "019ff20d-a000-7000-8000-000000000030",
-      parent_id: null,
+      parent_page_id: null,
       title: "Start",
       path: "/",
     },
     {
       page_id: "019ff20d-a000-7000-8000-000000000031",
-      parent_id: null,
+      parent_page_id: null,
       title: "Oferta",
       path: "/oferta/",
     },
     {
       page_id: "019ff20d-a000-7000-8000-000000000032",
-      parent_id: "019ff20d-a000-7000-8000-000000000031",
+      parent_page_id: "019ff20d-a000-7000-8000-000000000031",
       title: "Konsultacje",
       path: "/oferta/konsultacje/",
     },

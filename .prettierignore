@@ -4,6 +4,9 @@
 .claude/
 .codex/
 .import_linter_cache/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
 .next/
 node_modules/
 Plan/

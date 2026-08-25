@@ -1496,7 +1496,7 @@ def test_publication_snapshot_carries_only_reachable_navigation() -> None:
         str(home.data["id"]),
         str(offer.data["id"]),
     ]
-    assert entries[1]["parent_id"] == str(parent.id)
+    assert entries[1]["parent_page_id"] == str(home.data["id"])
     assert str(invisible.page_id) not in {entry["page_id"] for entry in entries}
 
 
@@ -1517,3 +1517,116 @@ def test_navigation_item_cannot_point_outside_its_site() -> None:
             page=Page.all_objects.get(pk=stranger.data["id"]),
             position=0,
         )
+
+
+def navigation_request(
+    client: APIClient,
+    site_id: str,
+    *,
+    expected_version: int,
+    items: list[dict[str, Any]],
+) -> Any:
+    return client.put(
+        f"/api/v1/sites/{site_id}/navigation/",
+        {"expected_version": expected_version, "items": items},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+
+
+def test_navigation_saves_a_tree_and_guards_its_own_version() -> None:
+    client, _, _ = sites_client(slug="nav-api", role_key="owner")
+    site = create_site(client)
+    site_id = site.data["id"]
+    home = create_page(client, site_id, key="home", idempotency_key="nav-api-home")
+    offer = create_page(client, site_id, key="oferta", idempotency_key="nav-api-offer")
+
+    empty = client.get(f"/api/v1/sites/{site_id}/navigation/")
+    saved = navigation_request(
+        client,
+        site_id,
+        expected_version=0,
+        items=[
+            {"page_id": home.data["id"], "parent_page_id": None, "visible": True},
+            {
+                "page_id": offer.data["id"],
+                "parent_page_id": home.data["id"],
+                "visible": False,
+            },
+        ],
+    )
+    # The version the caller read is already spent; replaying it must not
+    # silently overwrite whatever the other editor saved in between.
+    stale = navigation_request(
+        client,
+        site_id,
+        expected_version=0,
+        items=[{"page_id": home.data["id"], "parent_page_id": None}],
+    )
+    reread = client.get(f"/api/v1/sites/{site_id}/navigation/")
+
+    assert empty.status_code == 200
+    assert empty.data["version"] == 0
+    assert empty.data["items"] == []
+    assert saved.status_code == 200
+    assert saved.data["version"] == 1
+    assert saved.data["items"] == [
+        {"page_id": str(home.data["id"]), "parent_page_id": None, "visible": True},
+        {
+            "page_id": str(offer.data["id"]),
+            "parent_page_id": str(home.data["id"]),
+            "visible": False,
+        },
+    ]
+    assert stale.status_code == 409
+    assert stale.data["code"] == "navigation_version_conflict"
+    assert reread.data["items"] == saved.data["items"]
+
+
+def test_navigation_rejects_trees_the_renderer_could_not_show() -> None:
+    client, _, _ = sites_client(slug="nav-tree", role_key="owner")
+    site = create_site(client)
+    site_id = site.data["id"]
+    home = create_page(client, site_id, key="home", idempotency_key="nav-tree-home")
+    offer = create_page(client, site_id, key="oferta", idempotency_key="nav-tree-offer")
+    deep = create_page(client, site_id, key="deep", idempotency_key="nav-tree-deep")
+    other_site = create_site(client, slug="other", idempotency_key="nav-tree-other")
+    stranger = create_page(
+        client, other_site.data["id"], key="obca", idempotency_key="nav-tree-stranger"
+    )
+
+    duplicate = navigation_request(
+        client,
+        site_id,
+        expected_version=0,
+        items=[{"page_id": home.data["id"]}, {"page_id": home.data["id"]}],
+    )
+    foreign = navigation_request(
+        client,
+        site_id,
+        expected_version=0,
+        items=[{"page_id": stranger.data["id"]}],
+    )
+    self_parent = navigation_request(
+        client,
+        site_id,
+        expected_version=0,
+        items=[{"page_id": home.data["id"], "parent_page_id": home.data["id"]}],
+    )
+    # Only one level of nesting is rendered, so a grandchild would publish a
+    # link the public menu cannot show.
+    too_deep = navigation_request(
+        client,
+        site_id,
+        expected_version=0,
+        items=[
+            {"page_id": home.data["id"]},
+            {"page_id": offer.data["id"], "parent_page_id": home.data["id"]},
+            {"page_id": deep.data["id"], "parent_page_id": offer.data["id"]},
+        ],
+    )
+
+    for response in (duplicate, foreign, self_parent, too_deep):
+        assert response.status_code == 400
+        assert response.data["code"] == "navigation_invalid_tree"
+    assert Site.all_objects.get(pk=site_id).navigation_version == 0

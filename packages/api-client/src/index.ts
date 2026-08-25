@@ -54,6 +54,10 @@ export type SiteLocalizationReport =
   components["schemas"]["SiteLocalizationReport"];
 export type SitePublication = components["schemas"]["SitePublication"];
 export type SitePublicationList = components["schemas"]["SitePublicationList"];
+export type SiteNavigation = components["schemas"]["SiteNavigation"];
+export type SiteNavigationItem = components["schemas"]["NavigationItem"];
+export type SiteNavigationSaveInput =
+  components["schemas"]["SiteNavigationSave"];
 export type SiteDomain = components["schemas"]["SiteDomain"];
 export type SiteDomainList = components["schemas"]["SiteDomainList"];
 export type DomainCreateInput = components["schemas"]["DomainCreate"];
@@ -1326,4 +1330,37 @@ function isProblemDetails(value: unknown): value is ProblemDetails {
 function problemMessage(problem: ProblemDetails): string {
   if (typeof problem.detail === "string") return problem.detail;
   return problem.title;
+}
+
+export async function getSiteNavigation(
+  siteId: string,
+): Promise<SiteNavigation> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/{site_id}/navigation/",
+    {
+      params: { path: { site_id: siteId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function saveSiteNavigation(
+  siteId: string,
+  input: SiteNavigationSaveInput,
+): Promise<SiteNavigation> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/sites/{site_id}/navigation/",
+    {
+      params: { path: { site_id: siteId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
 }

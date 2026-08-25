@@ -125,7 +125,7 @@ export interface DraftPreviewDocument {
 
 export interface NavigationLink {
   readonly page_id: string;
-  readonly parent_id: string | null;
+  readonly parent_page_id: string | null;
   readonly title: string;
   readonly path: string;
 }
