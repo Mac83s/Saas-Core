@@ -1,6 +1,6 @@
 # Handoff następnej sesji
 
-**Aktualizacja:** 2026-08-21
+**Aktualizacja:** 2026-08-25
 
 **Repozytorium:** `/mnt/a/DEVELOPMENT/Saas-Core` (`A:\DEVELOPMENT\Saas-Core`)
 
@@ -77,24 +77,28 @@ wielowątkowych wyścigów; wynik pozostaje 336/336.
 
 ## Następny cel wykonawczy
 
-Katalog sekcji z W9.5.4 jest dostarczony (commity `404fa60`, `e3eabd5`): bloki
-opisują swoją kategorię ADR-031 i pola w manifeście, `defineSiteBlockManifest`
-sprawdza każdą ścieżkę pola względem kanonicznego JSON Schema, a edytor renderuje
-formularz z tego katalogu. Dodanie sekcji to dziś wyłącznie wpis w manifeście
-plus schemat — edytor nie zna żadnego bloku po nazwie. Biblioteka ma 5 z 9
-kategorii; brakuje Zaufanie, Cennik, Rezerwacja, Stopka.
+Frontendowa część W9.5.4 jest dostarczona (commity `404fa60`, `e3eabd5`,
+`dba53f3`): bloki opisują swoją kategorię ADR-031 i pola w manifeście,
+`defineSiteBlockManifest` sprawdza każdą ścieżkę pola względem kanonicznego JSON
+Schema, edytor renderuje formularz z tego katalogu, a pusta strona proponuje trzy
+wersjonowane szablony (`core.profile`, `core.specialist_landing`,
+`core.company`) z `packages/contracts/page-templates`. Dodanie sekcji to dziś
+wpis w manifeście plus schemat; edytor nie zna żadnego bloku po nazwie.
+Biblioteka ma 5 z 9 kategorii — brakuje Zaufanie, Cennik, Rezerwacja, Stopka.
 
-Zostaje właściwy `PageTemplate`. Przed zmianą architektury przeczytaj ADR-027 i
-ADR-031 oraz kontrakty `docs/architecture/module-contract.md`,
-`api-and-events.md` i `testing-strategy.md`. Następnie:
+**Backendu tej fali nie dało się dotknąć w tej sesji:** `.venv` jest linuksowe
+(WSL), Windows nie ma Django, a kontenery SaaS Core nie działały. Praca po
+stronie serwera wymaga sesji z działającym backendem. Do zrobienia:
 
-1. zdefiniuj wersjonowany kontrakt szablonu i granicę importu bez obchodzenia
-   istniejącego wersjonowania draftów;
-2. zaprojektuj lokalizowane metadata, miniatury i preview (kategorie już są);
-3. dostarcz co najmniej profil, landing specjalisty i stronę firmy;
-4. egzekwuj rodziny szablonów przez permission i entitlement w API;
-5. dodaj dowody PL/EN, mobile, klawiatura, axe, exact-tenant i idempotentny
-   import.
+1. model `PageTemplate` i endpoint importu recepty do draftu, bez obchodzenia
+   istniejącego wersjonowania i optimistic locka — recepty i ich walidacja już
+   są, backend ma je konsumować, nie definiować od nowa;
+2. egzekwowanie `requiredEntitlements` recepty w API (frontend filtruje tylko
+   po to, by nie proponować czegoś, co API odrzuci);
+3. idempotentna materializacja mediów recepty jako tenantowych `MediaAsset`
+   (ADR-031) — dzisiejsze szablony celowo nie zawierają mediów;
+4. lokalizowane miniatury i preview;
+5. dowody PL/EN, mobile, klawiatura, axe, exact-tenant i idempotentny import.
 
 Znane długi frontendu, nietknięte przez te commity:
 
