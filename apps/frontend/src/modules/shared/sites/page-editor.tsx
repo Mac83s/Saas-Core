@@ -39,6 +39,7 @@ import {
 import {
   coreSiteBlockManifest,
   createSiteBlockRegistry,
+  InvalidBlockDataError,
   renderDraftPreview,
   type JsonObject,
   type SiteBlock,
@@ -93,61 +94,91 @@ type BlockOption = {
   labelKey: "heroBlock" | "richTextBlock";
 };
 
+type BlockFormValues = {
+  block_type: "core.hero" | "core.rich_text";
+  title: string;
+  text: string;
+  action_label: string;
+  action_href: string;
+};
+
 const blockOptions: BlockOption[] = [
   { type: "core.hero", labelKey: "heroBlock" },
   { type: "core.rich_text", labelKey: "richTextBlock" },
 ];
 
+/** The form is flat — `action_label` / `action_href` — while the canonical
+ *  block schema nests them under `action`. */
+const FIELD_BY_POINTER: Record<string, keyof BlockFormValues> = {
+  title: "title",
+  text: "text",
+  action: "action_label",
+  "action/label": "action_label",
+  "action/href": "action_href",
+};
+
+const MESSAGE_BY_KEYWORD: Record<string, string> = {
+  required: "required",
+  minLength: "required",
+  maxLength: "tooLong",
+  pattern: "invalidHref",
+};
+
+/** Field limits and formats live in the canonical JSON Schema (ADR-027). The
+ *  form validates by asking the registry rather than restating them here: a
+ *  second copy drifts, and the drift is only discovered when the backend
+ *  rejects a draft the panel had already accepted. */
+function refineAgainstBlockContract(
+  block: BlockFormValues,
+  context: z.RefinementCtx,
+): void {
+  try {
+    registry.validate(toSiteBlock(blockPayload(block)));
+  } catch (error) {
+    if (!(error instanceof InvalidBlockDataError)) throw error;
+    for (const issue of error.issues) {
+      const field = FIELD_BY_POINTER[issue.path.join("/")];
+      if (field === undefined) continue;
+      context.addIssue({
+        code: "custom",
+        path: [field],
+        message: MESSAGE_BY_KEYWORD[issue.keyword] ?? "invalid",
+      });
+    }
+  }
+}
+
+const blockFormSchema = z
+  .object({
+    block_type: z.enum(["core.hero", "core.rich_text"]),
+    title: z.string(),
+    text: z.string(),
+    action_label: z.string(),
+    action_href: z.string(),
+  })
+  .superRefine((block, context) => {
+    refineAgainstBlockContract(block, context);
+    // Not expressible in the block schema: `action` is optional as a whole, so
+    // a half-filled call to action validates only because it is dropped from
+    // the payload. The editor has to catch that before it disappears.
+    if (block.action_href.trim() && !block.action_label.trim()) {
+      context.addIssue({
+        code: "custom",
+        path: ["action_label"],
+        message: "required",
+      });
+    }
+    if (block.action_label.trim() && !block.action_href.trim()) {
+      context.addIssue({
+        code: "custom",
+        path: ["action_href"],
+        message: "required",
+      });
+    }
+  });
+
 const draftSchema = z.object({
-  blocks: z.array(
-    z
-      .object({
-        block_type: z.enum(["core.hero", "core.rich_text"]),
-        title: z.string().max(120),
-        text: z.string().max(10_000),
-        action_label: z.string().max(80),
-        action_href: z.string().max(500),
-      })
-      .superRefine((block, context) => {
-        if (
-          block.block_type === "core.hero" &&
-          block.title.trim().length === 0
-        ) {
-          context.addIssue({
-            code: "custom",
-            path: ["title"],
-            message: "required",
-          });
-        }
-        if (
-          block.block_type === "core.rich_text" &&
-          block.text.trim().length === 0
-        ) {
-          context.addIssue({
-            code: "custom",
-            path: ["text"],
-            message: "required",
-          });
-        }
-        if (
-          block.action_label &&
-          !/^(?:\/|https:\/\/|mailto:|tel:)/.test(block.action_href)
-        ) {
-          context.addIssue({
-            code: "custom",
-            path: ["action_href"],
-            message: "invalidHref",
-          });
-        }
-        if (block.action_href && !block.action_label) {
-          context.addIssue({
-            code: "custom",
-            path: ["action_label"],
-            message: "required",
-          });
-        }
-      }),
-  ),
+  blocks: z.array(blockFormSchema),
   media_asset_ids: z.array(z.string()),
 });
 

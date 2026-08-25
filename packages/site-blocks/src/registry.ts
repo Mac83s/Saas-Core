@@ -10,6 +10,7 @@ import {
   InvalidBlockManifestError,
   UnknownBlockTypeError,
   UnknownBlockVersionError,
+  type BlockValidationIssue,
 } from "./errors";
 import type {
   BlockDefinition,
@@ -25,6 +26,30 @@ function validationDetails(errors: ErrorObject[] | null | undefined): string[] {
   return (errors ?? []).map(
     (error) => `${error.instancePath || "/"} ${error.message ?? "invalid"}`,
   );
+}
+
+/** Ajv reports a missing property on the parent object, so `required` errors
+ *  carry the absent key in `params` rather than in `instancePath`. Appending it
+ *  keeps every issue addressed to the field a form would render. */
+function validationIssues(
+  errors: ErrorObject[] | null | undefined,
+): BlockValidationIssue[] {
+  return (errors ?? []).map((error) => {
+    const path = error.instancePath
+      .split("/")
+      .slice(1)
+      .map((segment) => segment.replace(/~1/g, "/").replace(/~0/g, "~"));
+    if (error.keyword === "required") {
+      const missing = (error.params as { missingProperty?: string })
+        .missingProperty;
+      if (missing !== undefined) path.push(missing);
+    }
+    return {
+      path,
+      message: error.message ?? "invalid",
+      keyword: error.keyword,
+    };
+  });
 }
 
 function assertLinearVersions(definition: BlockDefinition): void {
@@ -121,6 +146,7 @@ export function createSiteBlockRegistry(
         block.block_type,
         block.schema_version,
         validationDetails(validator.errors),
+        validationIssues(validator.errors),
       );
     }
   }

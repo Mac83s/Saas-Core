@@ -276,6 +276,8 @@
     "actionLabel": "Etykieta akcji",
     "actionHref": "Adres akcji",
     "invalidHref": "Użyj adresu względnego, HTTPS, mailto lub tel.",
+    "tooLong": "Tekst jest za długi dla tego bloku.",
+    "invalid": "Ta wartość jest nieprawidłowa.",
     "moveBlockUp": "Przenieś blok wyżej",
     "moveBlockDown": "Przenieś blok niżej",
     "removeBlock": "Usuń blok",

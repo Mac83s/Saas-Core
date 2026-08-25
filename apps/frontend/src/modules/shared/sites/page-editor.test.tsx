@@ -153,6 +153,30 @@ test("migruje hero v1 i zapisuje nową wersję draftu przez aktualny kontrakt", 
   expect(onChanged).toHaveBeenCalledOnce();
 });
 
+test("odrzuca tekst hero dłuższy niż kanoniczny limit bloku, bez wysyłki", async () => {
+  renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
+
+  const text = await screen.findByLabelText("Treść");
+  // core.hero.v2 caps `text` at 600; core.rich_text.v1 allows 10 000. The form
+  // used to apply the larger limit to both, so the backend rejected a draft the
+  // panel had accepted.
+  fireEvent.change(text, { target: { value: "x".repeat(601) } });
+  fireEvent.click(
+    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
+  );
+
+  expect(
+    await screen.findByText("Tekst jest za długi dla tego bloku."),
+  ).not.toBeNull();
+  expect(savePageDraft).not.toHaveBeenCalled();
+
+  fireEvent.change(text, { target: { value: "x".repeat(600) } });
+  fireEvent.click(
+    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
+  );
+  await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
+});
+
 test("pokazuje konflikt optimistic lock bez nadpisania lokalnych wartości", async () => {
   savePageDraft.mockRejectedValueOnce(
     new ApiProblemError({

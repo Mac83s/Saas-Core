@@ -276,6 +276,8 @@
     "actionLabel": "Action label",
     "actionHref": "Action URL",
     "invalidHref": "Use a relative URL, HTTPS, mailto, or tel.",
+    "tooLong": "This text is too long for this block.",
+    "invalid": "This value is not valid.",
     "moveBlockUp": "Move block up",
     "moveBlockDown": "Move block down",
     "removeBlock": "Remove block",
