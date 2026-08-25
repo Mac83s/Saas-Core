@@ -1,0 +1,44 @@
+{
+  "id": "core.profile",
+  "version": 1,
+  "category": "profile",
+  "labels": {
+    "pl": {
+      "name": "Wizytówka",
+      "description": "Jedna strona z przedstawieniem, ofertą i kontaktem. Dobra na start, gdy liczy się szybkie uruchomienie."
+    },
+    "en": {
+      "name": "Profile",
+      "description": "A single page introducing you, what you offer and how to reach you. A good starting point when speed matters."
+    }
+  },
+  "requiredEntitlements": ["sites.enabled"],
+  "blocks": [
+    {
+      "block_type": "core.hero",
+      "schema_version": 2,
+      "data": {
+        "title": "Twoje imię i to, w czym pomagasz",
+        "text": "Jedno zdanie o tym, komu pomagasz i z czym. Zastąp ten tekst własnym.",
+        "action": { "label": "Umów wizytę", "href": "/kontakt/" }
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 1,
+      "data": {
+        "text": "Kilka zdań o sobie: doświadczenie, podejście do pracy, czego klient może się spodziewać. Ten akapit zastąp własnym opisem."
+      }
+    },
+    {
+      "block_type": "core.contact",
+      "schema_version": 1,
+      "data": {
+        "title": "Kontakt",
+        "email": "kontakt@example.com",
+        "phone": "+48 000 000 000",
+        "address": "Ulica 1, 00-000 Miasto"
+      }
+    }
+  ]
+}

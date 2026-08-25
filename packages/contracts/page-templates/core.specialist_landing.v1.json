@@ -1,0 +1,74 @@
+{
+  "id": "core.specialist_landing",
+  "version": 1,
+  "category": "landing",
+  "labels": {
+    "pl": {
+      "name": "Landing specjalisty",
+      "description": "Strona nastawiona na jedno działanie: umówienie wizyty. Prowadzi od obietnicy przez usługi i odpowiedzi na wątpliwości do kontaktu."
+    },
+    "en": {
+      "name": "Specialist landing page",
+      "description": "A page aimed at one action: booking. It runs from the promise through services and objections to contact."
+    }
+  },
+  "requiredEntitlements": ["sites.enabled"],
+  "blocks": [
+    {
+      "block_type": "core.hero",
+      "schema_version": 2,
+      "data": {
+        "title": "Konkretna obietnica dla jednej grupy klientów",
+        "text": "Powiedz w jednym zdaniu, jaki problem rozwiązujesz i dla kogo. Im węziej, tym skuteczniej.",
+        "action": { "label": "Umów wizytę", "href": "/kontakt/" }
+      }
+    },
+    {
+      "block_type": "core.feature_list",
+      "schema_version": 1,
+      "data": {
+        "title": "Usługi",
+        "items": [
+          {
+            "title": "Pierwsza usługa",
+            "text": "Co obejmuje, ile trwa i dla kogo jest przeznaczona."
+          },
+          {
+            "title": "Druga usługa",
+            "text": "Opisz ją tak, jak tłumaczysz ją klientowi przez telefon."
+          },
+          {
+            "title": "Trzecia usługa",
+            "text": "Jeśli nie masz trzech, usuń tę pozycję — pusta lista nie zostanie opublikowana."
+          }
+        ]
+      }
+    },
+    {
+      "block_type": "core.faq",
+      "schema_version": 1,
+      "data": {
+        "title": "Częste pytania",
+        "items": [
+          {
+            "question": "Ile trwa pierwsza wizyta?",
+            "answer": "Podaj realny czas. Odpowiadaj na pytania, które faktycznie słyszysz od klientów."
+          },
+          {
+            "question": "Jak się przygotować?",
+            "answer": "Krótka, praktyczna instrukcja oszczędza telefonów przed wizytą."
+          }
+        ]
+      }
+    },
+    {
+      "block_type": "core.contact",
+      "schema_version": 1,
+      "data": {
+        "title": "Umów wizytę",
+        "email": "kontakt@example.com",
+        "phone": "+48 000 000 000"
+      }
+    }
+  ]
+}

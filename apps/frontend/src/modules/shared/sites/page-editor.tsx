@@ -37,13 +37,16 @@ import {
   type PageTranslation,
 } from "@saas-core/api-client";
 import {
+  availablePageTemplates,
   coreSiteBlockManifest,
   createSiteBlockRegistry,
   InvalidBlockDataError,
+  pageTemplateBlocks,
   renderDraftPreview,
   type BlockFieldDefinition,
   type JsonObject,
   type JsonValue,
+  type PageTemplate,
   type SiteBlock,
 } from "@saas-core/site-blocks";
 import { Badge } from "@saas-core/ui/components/badge";
@@ -246,7 +249,7 @@ export function PageEditor({
   const [locale, setLocale] = useState("pl");
   const [baseLocale, setBaseLocale] = useState("pl");
   const [assets, setAssets] = useState<MediaAsset[]>([]);
-  const [blockOption, setBlockOption] = useState<BlockOption | null>(null);
+  const [selectedBlock, setSelectedBlock] = useState<BlockOption | null>(null);
   const [assetOption, setAssetOption] = useState<MediaAsset | null>(null);
   const [preview, setPreview] = useState<PageDraft>();
   const [file, setFile] = useState<File>();
@@ -277,6 +280,33 @@ export function PageEditor({
     translations.find((translation) => translation.locale === locale) ?? null;
   const selectableAssets = assets.filter(
     (asset) => asset.state === "ready" && !selectedMediaIds.includes(asset.id),
+  );
+  // Reaching the editor already means `sites.enabled`; the API stays the
+  // boundary, this only avoids offering a template it would refuse.
+  const pageTemplates = useMemo(
+    () => availablePageTemplates(registry, ["sites.enabled"]),
+    [],
+  );
+  const templateLocale = locale === "en" ? "en" : "pl";
+
+  /** Seeds the recipe into the draft form. Nothing is saved until the operator
+   *  reviews it and presses save, so a template applied by mistake costs a
+   *  reload, not a version. */
+  const applyTemplate = useCallback(
+    (template: PageTemplate) => {
+      draftForm.setValue(
+        "blocks",
+        pageTemplateBlocks(template, registry).map((block) => ({
+          block_type: block.block_type,
+          data: withEditableFields(
+            block.data,
+            blockOption(block.block_type)?.fields ?? [],
+          ),
+        })),
+        { shouldDirty: true },
+      );
+    },
+    [draftForm],
   );
 
   const applyLoadedData = useCallback(
@@ -536,8 +566,8 @@ export function PageEditor({
                   itemToStringLabel={(item) => t(item.labelKey)}
                   itemToStringValue={(item) => item.type}
                   items={blockOptions}
-                  onValueChange={setBlockOption}
-                  value={blockOption}
+                  onValueChange={setSelectedBlock}
+                  value={selectedBlock}
                 >
                   <ComboboxInput
                     id="block-picker"
@@ -557,11 +587,11 @@ export function PageEditor({
                 </Combobox>
               </Field>
               <Button
-                disabled={!blockOption}
+                disabled={!selectedBlock}
                 onClick={() => {
-                  if (!blockOption) return;
-                  blocks.append(emptyBlock(blockOption.type));
-                  setBlockOption(null);
+                  if (!selectedBlock) return;
+                  blocks.append(emptyBlock(selectedBlock.type));
+                  setSelectedBlock(null);
                 }}
                 type="button"
                 variant="outline"
@@ -573,9 +603,45 @@ export function PageEditor({
 
             <div className="space-y-4">
               {blocks.fields.length === 0 && (
-                <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                  {t("emptyBlocks")}
-                </p>
+                <div className="space-y-4 rounded-lg border border-dashed p-4">
+                  <p className="text-sm text-muted-foreground">
+                    {t("emptyBlocks")}
+                  </p>
+                  <div>
+                    <h3 className="font-medium">{t("startFromTemplate")}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {t("startFromTemplateDescription")}
+                    </p>
+                  </div>
+                  <ul className="grid gap-3 sm:grid-cols-3">
+                    {pageTemplates.map((template) => (
+                      <li key={template.id}>
+                        <Card className="h-full">
+                          <CardHeader>
+                            <CardTitle className="text-base">
+                              {template.labels[templateLocale].name}
+                            </CardTitle>
+                            <CardDescription>
+                              {template.labels[templateLocale].description}
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <Button
+                              aria-label={t("useNamedTemplate", {
+                                name: template.labels[templateLocale].name,
+                              })}
+                              onClick={() => applyTemplate(template)}
+                              type="button"
+                              variant="outline"
+                            >
+                              {t("useTemplate")}
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
               {blocks.fields.map((field, index) => (
                 <BlockFields

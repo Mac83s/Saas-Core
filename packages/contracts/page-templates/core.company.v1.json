@@ -1,0 +1,74 @@
+{
+  "id": "core.company",
+  "version": 1,
+  "category": "company",
+  "labels": {
+    "pl": {
+      "name": "Strona firmy",
+      "description": "Dla firmy z kilkoma usługami i zespołem. Więcej miejsca na opis działalności niż w wizytówce."
+    },
+    "en": {
+      "name": "Company site",
+      "description": "For a business with several services and a team. More room to describe the work than a profile page."
+    }
+  },
+  "requiredEntitlements": ["sites.enabled"],
+  "blocks": [
+    {
+      "block_type": "core.hero",
+      "schema_version": 2,
+      "data": {
+        "title": "Nazwa firmy i czym się zajmuje",
+        "text": "Jedno zdanie, które odpowiada na pytanie „co wy właściwie robicie”.",
+        "action": { "label": "Zobacz ofertę", "href": "/oferta/" }
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 1,
+      "data": {
+        "text": "Kim jesteście, od kiedy działacie i co was wyróżnia. Unikaj ogólników w rodzaju „najwyższa jakość” — napisz coś, czego konkurencja nie mogłaby skopiować."
+      }
+    },
+    {
+      "block_type": "core.feature_list",
+      "schema_version": 1,
+      "data": {
+        "title": "Co robimy",
+        "items": [
+          {
+            "title": "Pierwszy obszar działalności",
+            "text": "Dla kogo i z jakim skutkiem."
+          },
+          {
+            "title": "Drugi obszar działalności",
+            "text": "Dla kogo i z jakim skutkiem."
+          }
+        ]
+      }
+    },
+    {
+      "block_type": "core.faq",
+      "schema_version": 1,
+      "data": {
+        "title": "Częste pytania",
+        "items": [
+          {
+            "question": "Jak wygląda współpraca?",
+            "answer": "Opisz kolejne kroki od pierwszego kontaktu do zakończenia zlecenia."
+          }
+        ]
+      }
+    },
+    {
+      "block_type": "core.contact",
+      "schema_version": 1,
+      "data": {
+        "title": "Kontakt",
+        "email": "biuro@example.com",
+        "phone": "+48 000 000 000",
+        "address": "Ulica 1, 00-000 Miasto"
+      }
+    }
+  ]
+}

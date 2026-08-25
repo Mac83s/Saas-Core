@@ -212,6 +212,30 @@ test("dodaje sekcję z powtarzalną listą i zapisuje jej wpisy", async () => {
   });
 });
 
+test("wypełnia pustą stronę szablonem i zapisuje jego sekcje", async () => {
+  getPageDraft.mockResolvedValue({ ...draft, blocks: [] });
+  renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
+
+  // An empty page offers templates instead of a bare "no sections" message.
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Użyj szablonu Wizytówka" }),
+  );
+
+  expect(await screen.findByDisplayValue(/Twoje imię/)).not.toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
+  );
+
+  await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
+  // The recipe seeds valid blocks, so it saves without the operator having to
+  // fix anything first.
+  expect(
+    savePageDraft.mock.calls[0]?.[1].blocks.map(
+      (block: { block_type: string }) => block.block_type,
+    ),
+  ).toEqual(["core.hero", "core.rich_text", "core.contact"]);
+});
+
 test("nie wysyła sekcji FAQ bez ani jednego wpisu", async () => {
   renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
 

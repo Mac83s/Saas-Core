@@ -48,6 +48,21 @@ export class InvalidBlockManifestError extends SiteBlockError {
   }
 }
 
+export class InvalidPageTemplateError extends SiteBlockError {
+  readonly templateId: string;
+  readonly blockIndex: number;
+
+  constructor(templateId: string, blockIndex: number, cause: unknown) {
+    super(
+      `Szablon ${templateId} nie może zostać zastosowany: blok ${blockIndex} nie przechodzi walidacji.`,
+      { cause },
+    );
+    this.name = "InvalidPageTemplateError";
+    this.templateId = templateId;
+    this.blockIndex = blockIndex;
+  }
+}
+
 export class InvalidDesignTokensError extends SiteBlockError {
   readonly details: readonly string[];
 

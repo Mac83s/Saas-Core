@@ -131,6 +131,22 @@ export interface PublishedPageDocument {
   readonly designTokens: DesignTokensV1;
 }
 
+export interface PageTemplateLabel {
+  readonly name: string;
+  readonly description: string;
+}
+
+/** A versioned, immutable recipe: applying it copies these blocks into a new
+ *  draft, and later edits to the page never touch the template (ADR-031). */
+export interface PageTemplate {
+  readonly id: string;
+  readonly version: number;
+  readonly category: "profile" | "landing" | "company";
+  readonly labels: Readonly<Record<"pl" | "en", PageTemplateLabel>>;
+  readonly requiredEntitlements?: readonly string[];
+  readonly blocks: readonly SiteBlock[];
+}
+
 export interface BlockRegistry {
   readonly definitions: ReadonlyMap<string, BlockDefinition>;
   validate(block: SiteBlock): void;

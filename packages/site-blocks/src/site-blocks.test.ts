@@ -4,11 +4,15 @@ import { describe, expect, it } from "vitest";
 import legacyHero from "@saas-core/contracts/site-blocks/fixtures/core.hero.v1.json";
 
 import {
+  availablePageTemplates,
   coreSiteBlockManifest,
+  corePageTemplates,
   createSiteBlockRegistry,
   defineSiteBlockManifest,
   InvalidBlockDataError,
   InvalidBlockManifestError,
+  InvalidPageTemplateError,
+  pageTemplateBlocks,
   renderDraftPreview,
   renderPublishedPage,
   UnknownBlockTypeError,
@@ -179,6 +183,74 @@ describe("site block registry", () => {
         data: { email: "not-an-address" },
       }),
     ).toThrow(InvalidBlockDataError);
+  });
+});
+
+describe("page templates", () => {
+  it("seeds blocks that pass the live registry and never share state", () => {
+    const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
+    const template = corePageTemplates().find(
+      ({ id }) => id === "core.specialist_landing",
+    );
+    if (template === undefined) throw new Error("template missing");
+
+    const first = pageTemplateBlocks(template, registry);
+    const second = pageTemplateBlocks(template, registry);
+    for (const block of first) registry.validate(block);
+    expect(first.map((block) => block.block_type)).toEqual([
+      "core.hero",
+      "core.feature_list",
+      "core.faq",
+      "core.contact",
+    ]);
+
+    // Applying a template twice must not let the first page's edits leak into
+    // the second: the recipe is a shared module-level object.
+    (first[0].data as { title: string }).title = "Zmienione";
+    expect((second[0].data as { title: string }).title).not.toBe("Zmienione");
+  });
+
+  it("hides a template whose blocks or entitlements the deployment lacks", () => {
+    const full = createSiteBlockRegistry([coreSiteBlockManifest]);
+    expect(
+      availablePageTemplates(full, ["sites.enabled"]).map(({ id }) => id),
+    ).toEqual(["core.profile", "core.specialist_landing", "core.company"]);
+
+    // Without the entitlement the recipe declares, nothing is offered.
+    expect(availablePageTemplates(full, [])).toEqual([]);
+
+    // A deployment that ships only the hero block cannot offer a recipe that
+    // seeds a contact section — better to hide it than to fail on save.
+    const heroOnly = createSiteBlockRegistry([
+      {
+        ...coreSiteBlockManifest,
+        blocks: coreSiteBlockManifest.blocks.filter(
+          ({ type }) => type === "core.hero",
+        ),
+      },
+    ]);
+    expect(availablePageTemplates(heroOnly, ["sites.enabled"])).toEqual([]);
+  });
+
+  it("refuses to seed a recipe the registry rejects", () => {
+    const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
+    expect(() =>
+      pageTemplateBlocks(
+        {
+          id: "core.broken",
+          version: 1,
+          category: "profile",
+          labels: {
+            pl: { name: "x", description: "x" },
+            en: { name: "x", description: "x" },
+          },
+          blocks: [
+            { block_type: "core.hero", schema_version: 2, data: { title: "" } },
+          ],
+        },
+        registry,
+      ),
+    ).toThrow(InvalidPageTemplateError);
   });
 });
 
