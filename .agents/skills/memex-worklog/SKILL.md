@@ -99,7 +99,9 @@ the queue was worked through.
 
 ## 6 — Commit
 
-Running this command **is** the request to commit. Nothing else is.
+Commit everything this session touched. A session ends with a clean
+`git status` in both the code repository and the vault — work left uncommitted
+is work the next session cannot see and the owner cannot review.
 
 ```bash
 git status --short          # first, always: see the whole picture
@@ -113,8 +115,11 @@ signs your name to it. If `git diff --cached --name-only` shows a path you did
 not touch, unstage it rather than committing someone's half-finished change.
 
 Commit the vault's own artefacts (worklog, changelog) separately from code —
-they are different histories and get reverted for different reasons. Push only
-when asked.
+they are different histories and get reverted for different reasons.
+
+**`git push` and `git pull` happen only when the owner asks**, in every
+repository. Committing is yours to do; publishing, and taking somebody else's
+work into this tree, are not.
 
 ## 7 — Report
 
