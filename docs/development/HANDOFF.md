@@ -109,9 +109,15 @@ Znane długi frontendu, nietknięte przez te commity:
 - lokalny Node to 22, projekt wymaga 24 — każda komenda pnpm ostrzega;
 - `AGENTS.md` nie przechodzi `format:check` (sekcja memeksa).
 
-Równoległy cel kontraktowy W9.6:
+Równoległy cel kontraktowy W9.6 — właściciel podjął cztery decyzje (ADR-035 §4,
+§4a, §7): klucze i granty wydaje operator, nie klient; tryb `autonomous` jest
+docelowy, a odpowiedzialność za jakość treści spoczywa na SeoContentRank;
+polityka edycji jest ustawiana per strona (`manual` domyślnie), z chwilową
+blokadą na czas ręcznej edycji; strony klientów muszą mieć podstrony, a blog
+jest osobną powierzchnią publikującą wpis po wpisie. Polityka i blokada są już
+zaimplementowane (commit `4de0558`). Dalej:
 
-1. przejrzeć i zatwierdzić lub skorygować proponowany ADR-035;
+1. zatwierdzić ADR-035 w całości albo skorygować pozostałe sekcje;
 2. zamrozić kontrakt `ContentChangeSet`, `ContentAutomationGrant` i dwa rodzaje
    publikacji: atomowy site oraz wpis kolekcji;
 3. przygotować współdzielone fixture kontraktowe z connectorem SeoContentRank;
