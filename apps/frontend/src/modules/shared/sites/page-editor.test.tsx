@@ -177,6 +177,59 @@ test("odrzuca tekst hero dłuższy niż kanoniczny limit bloku, bez wysyłki", a
   await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
 });
 
+test("dodaje sekcję z powtarzalną listą i zapisuje jej wpisy", async () => {
+  renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
+
+  // The catalogue drives the picker, so a block added to the manifest is
+  // offered here without the editor knowing its name.
+  const picker = await screen.findByRole("combobox", { name: "Typ bloku" });
+  picker.focus();
+  fireEvent.change(picker, { target: { value: "FAQ" } });
+  fireEvent.keyDown(picker, { key: "ArrowDown" });
+  fireEvent.click(await screen.findByRole("option", { name: "FAQ" }));
+  // Two "Dodaj" buttons exist — this one adds a block, the other adds media.
+  fireEvent.click(screen.getAllByRole("button", { name: "Dodaj" })[0]);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Dodaj pozycję" }));
+  fireEvent.change(await screen.findByLabelText("Pytanie"), {
+    target: { value: "Ile trwa wizyta?" },
+  });
+  fireEvent.change(screen.getByLabelText("Odpowiedź"), {
+    target: { value: "Około godziny." },
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
+  );
+
+  await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
+  expect(savePageDraft.mock.calls[0]?.[1].blocks[1]).toEqual({
+    block_type: "core.faq",
+    schema_version: 1,
+    // `title` was left blank and is optional, so it is absent rather than "".
+    data: {
+      items: [{ question: "Ile trwa wizyta?", answer: "Około godziny." }],
+    },
+  });
+});
+
+test("nie wysyła sekcji FAQ bez ani jednego wpisu", async () => {
+  renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
+
+  const picker = await screen.findByRole("combobox", { name: "Typ bloku" });
+  picker.focus();
+  fireEvent.change(picker, { target: { value: "FAQ" } });
+  fireEvent.keyDown(picker, { key: "ArrowDown" });
+  fireEvent.click(await screen.findByRole("option", { name: "FAQ" }));
+  // Two "Dodaj" buttons exist — this one adds a block, the other adds media.
+  fireEvent.click(screen.getAllByRole("button", { name: "Dodaj" })[0]);
+  fireEvent.click(
+    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
+  );
+
+  expect(await screen.findByRole("alert")).not.toBeNull();
+  expect(savePageDraft).not.toHaveBeenCalled();
+});
+
 test("pokazuje konflikt optimistic lock bez nadpisania lokalnych wartości", async () => {
   savePageDraft.mockRejectedValueOnce(
     new ApiProblemError({
