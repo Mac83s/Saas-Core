@@ -108,6 +108,78 @@ describe("site block registry", () => {
       }),
     ).toThrow(InvalidBlockManifestError);
   });
+
+  it("rejects a catalogue field the block schema does not declare", () => {
+    const withBadPath = (
+      path: readonly string[],
+      kind: "text" | "list" = "text",
+    ) =>
+      defineSiteBlockManifest({
+        moduleId: "vertical.medical",
+        namespace: "medical",
+        blocks: [
+          {
+            type: "medical.notice",
+            latestVersion: 1,
+            schemas: [
+              {
+                version: 1,
+                schema: {
+                  type: "object",
+                  additionalProperties: false,
+                  required: ["text"],
+                  properties: { text: { type: "string" } },
+                },
+              },
+            ],
+            migrators: {},
+            component: ({ data }: { data: JsonObject }) => String(data.text),
+            catalog: {
+              category: "about",
+              labelKey: "notice",
+              fields: [{ path, kind, labelKey: "text" }],
+            },
+          },
+        ],
+      });
+
+    // A field bound to a property the contract does not have would render an
+    // input whose value the backend always rejects.
+    expect(() => withBadPath(["headline"])).toThrow(InvalidBlockManifestError);
+    // `text` is a string, so it cannot back a repeatable list.
+    expect(() => withBadPath(["text"], "list")).toThrow(
+      InvalidBlockManifestError,
+    );
+    expect(() => withBadPath(["text"])).not.toThrow();
+  });
+
+  it("validates the repeatable catalogue blocks against their contracts", () => {
+    const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
+
+    expect(() =>
+      registry.validate({
+        block_type: "core.faq",
+        schema_version: 1,
+        data: { items: [{ question: "Ile to trwa?", answer: "Godzinę." }] },
+      }),
+    ).not.toThrow();
+    // `items` is required and must hold at least one entry: an empty FAQ would
+    // publish a heading with nothing under it.
+    expect(() =>
+      registry.validate({
+        block_type: "core.faq",
+        schema_version: 1,
+        data: { items: [] },
+      }),
+    ).toThrow(InvalidBlockDataError);
+    expect(() =>
+      registry.validate({
+        block_type: "core.contact",
+        schema_version: 1,
+        data: { email: "not-an-address" },
+      }),
+    ).toThrow(InvalidBlockDataError);
+  });
 });
 
 describe("allowlisted renderer", () => {

@@ -30,6 +30,23 @@ export type RichTextV1Data = JsonObject & {
   text: string;
 };
 
+export type FeatureListV1Data = JsonObject & {
+  title?: string;
+  items: { title: string; text?: string }[];
+};
+
+export type FaqV1Data = JsonObject & {
+  title?: string;
+  items: { question: string; answer: string }[];
+};
+
+export type ContactV1Data = JsonObject & {
+  title?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+};
+
 export type DesignTokensV1 = JsonObject & {
   schemaVersion: 1;
   palette: "neutral" | "blue" | "emerald";
@@ -45,12 +62,52 @@ export interface BlockSchemaVersion {
   readonly schema: object;
 }
 
+/** Catalogue categories from ADR-031. The panel groups and filters the section
+ *  library by these; they are not part of the published data. */
+export type BlockCategory =
+  | "start"
+  | "about"
+  | "offer"
+  | "trust"
+  | "pricing"
+  | "faq"
+  | "contact"
+  | "booking"
+  | "footer";
+
+export type BlockFieldKind = "text" | "textarea" | "url" | "list";
+
+/** How one editable value inside a block is presented. Deliberately data, not a
+ *  component: the same manifest is loaded by the public renderer, which must not
+ *  pull the panel's UI package into a published page. */
+export interface BlockFieldDefinition {
+  /** Property path inside the block data — `["action", "label"]` for
+   *  `data.action.label`. For a field inside a `list`, the path is relative to
+   *  one item. */
+  readonly path: readonly string[];
+  readonly kind: BlockFieldKind;
+  /** Key under the panel's `Sites.blockFields` messages. */
+  readonly labelKey: string;
+  /** Present exactly when `kind` is `"list"`: the shape of a single entry. */
+  readonly item?: readonly BlockFieldDefinition[];
+}
+
+export interface BlockCatalogEntry {
+  readonly category: BlockCategory;
+  /** Key under the panel's `Sites.blockCatalog` messages. */
+  readonly labelKey: string;
+  readonly fields: readonly BlockFieldDefinition[];
+}
+
 export interface BlockDefinition {
   readonly type: string;
   readonly latestVersion: number;
   readonly schemas: readonly BlockSchemaVersion[];
   readonly migrators: Readonly<Record<number, BlockMigrator>>;
   readonly component: ComponentType<{ data: JsonObject }>;
+  /** Absent for a block that exists only to render older publications and is no
+   *  longer offered in the library. */
+  readonly catalog?: BlockCatalogEntry;
 }
 
 export interface SiteBlockManifest {

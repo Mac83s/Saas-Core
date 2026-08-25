@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/site-blocks/core.contact.v1.schema.json",
+  "title": "Core contact block v1",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "title": { "type": "string", "maxLength": 120 },
+    "email": {
+      "type": "string",
+      "maxLength": 254,
+      "pattern": "^[^@\\s]+@[^@\\s.]+\\.[^@\\s]+$"
+    },
+    "phone": { "type": "string", "maxLength": 32, "pattern": "^[0-9+ ()-]+$" },
+    "address": { "type": "string", "maxLength": 300 }
+  }
+}

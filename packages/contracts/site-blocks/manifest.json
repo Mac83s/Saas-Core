@@ -15,6 +15,27 @@
       "schemas": {
         "1": "core.rich_text.v1.schema.json"
       }
+    },
+    {
+      "type": "core.feature_list",
+      "latestVersion": 1,
+      "schemas": {
+        "1": "core.feature_list.v1.schema.json"
+      }
+    },
+    {
+      "type": "core.faq",
+      "latestVersion": 1,
+      "schemas": {
+        "1": "core.faq.v1.schema.json"
+      }
+    },
+    {
+      "type": "core.contact",
+      "latestVersion": 1,
+      "schemas": {
+        "1": "core.contact.v1.schema.json"
+      }
     }
   ],
   "designTokens": "design-tokens.v1.schema.json"

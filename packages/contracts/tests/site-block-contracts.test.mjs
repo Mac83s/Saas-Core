@@ -24,7 +24,13 @@ test("site block manifest references valid canonical schemas", async () => {
   assert.equal(manifest.schemaVersion, 1);
   assert.deepEqual(
     manifest.blocks.map((block) => block.type),
-    ["core.hero", "core.rich_text"],
+    [
+      "core.hero",
+      "core.rich_text",
+      "core.feature_list",
+      "core.faq",
+      "core.contact",
+    ],
   );
 
   for (const block of manifest.blocks) {

@@ -14,6 +14,7 @@ import {
 } from "./errors";
 import type {
   BlockDefinition,
+  BlockFieldDefinition,
   BlockRegistry,
   JsonObject,
   SiteBlock,
@@ -72,6 +73,71 @@ function assertLinearVersions(definition: BlockDefinition): void {
   }
 }
 
+type SchemaNode = {
+  properties?: Record<string, SchemaNode>;
+  items?: SchemaNode;
+};
+
+/** Walks a field path through the block's latest JSON Schema. A path that does
+ *  not resolve means the editor would render an input bound to a property the
+ *  contract does not have — caught here rather than as a save-time rejection. */
+function assertFieldPath(
+  definition: BlockDefinition,
+  field: BlockFieldDefinition,
+  schema: SchemaNode,
+): void {
+  if (field.path.length === 0) {
+    throw new InvalidBlockManifestError(
+      `Pole katalogu ${definition.type} musi mieć niepustą ścieżkę.`,
+    );
+  }
+  let node: SchemaNode | undefined = schema;
+  for (const segment of field.path) {
+    node = node?.properties?.[segment];
+    if (node === undefined) {
+      throw new InvalidBlockManifestError(
+        `Ścieżka ${field.path.join(".")} nie istnieje w schemacie ${definition.type} v${definition.latestVersion}.`,
+      );
+    }
+  }
+  if (field.kind === "list") {
+    if (field.item === undefined || field.item.length === 0) {
+      throw new InvalidBlockManifestError(
+        `Pole listy ${field.path.join(".")} w ${definition.type} musi opisywać kształt wpisu.`,
+      );
+    }
+    const itemSchema = node.items;
+    if (itemSchema === undefined) {
+      throw new InvalidBlockManifestError(
+        `Ścieżka ${field.path.join(".")} w ${definition.type} nie jest tablicą w schemacie.`,
+      );
+    }
+    for (const entry of field.item) {
+      assertFieldPath(definition, entry, itemSchema);
+    }
+  } else if (field.item !== undefined) {
+    throw new InvalidBlockManifestError(
+      `Pole ${field.path.join(".")} w ${definition.type} opisuje wpisy, ale nie jest listą.`,
+    );
+  }
+}
+
+function assertCatalog(definition: BlockDefinition): void {
+  const catalog = definition.catalog;
+  if (catalog === undefined) return;
+  const latest = definition.schemas.find(
+    ({ version }) => version === definition.latestVersion,
+  );
+  if (latest === undefined) {
+    throw new InvalidBlockManifestError(
+      `Brak schematu ${definition.type} v${definition.latestVersion}.`,
+    );
+  }
+  for (const field of catalog.fields) {
+    assertFieldPath(definition, field, latest.schema as SchemaNode);
+  }
+}
+
 export function defineSiteBlockManifest(
   manifest: SiteBlockManifest,
 ): SiteBlockManifest {
@@ -90,6 +156,7 @@ export function defineSiteBlockManifest(
       );
     }
     assertLinearVersions(definition);
+    assertCatalog(definition);
   }
   return manifest;
 }
