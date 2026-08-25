@@ -6,6 +6,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import axe from "axe-core";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import englishMessages from "../../../../messages/en.json";
@@ -180,14 +181,20 @@ test("pokazuje listę site, stron i raport gotowości po polsku", async () => {
   );
 
   expect(
-    await screen.findByRole("heading", { name: "Treść strony" }),
+    await screen.findByRole("heading", { name: "Twoja witryna" }),
   ).not.toBeNull();
   expect(await screen.findByText("Przychodnia")).not.toBeNull();
-  expect(await screen.findByText("Start")).not.toBeNull();
-  expect(screen.getByText("PL: kompletne")).not.toBeNull();
+  // The pages mode is the default, so its picker is on screen without a click.
+  expect(await screen.findByLabelText("Wybierz podstronę")).not.toBeNull();
+  // The selected page shows as the picker's value, not as loose text.
+  expect(await screen.findByDisplayValue("Start")).not.toBeNull();
+  // A single site means no picker: a control whose only value is what it
+  // already shows is noise.
+  expect(screen.queryByLabelText("Wybierz site")).toBeNull();
+
+  fireEvent.click(screen.getByRole("tab", { name: "Publikacja" }));
+  expect(await screen.findByText("PL: kompletne")).not.toBeNull();
   expect(screen.getByText("EN: niekompletne")).not.toBeNull();
-  expect(screen.getByLabelText("Wybierz site")).not.toBeNull();
-  expect(screen.getByLabelText("Wybierz podstronę")).not.toBeNull();
 });
 
 test("publikuje gotowy snapshot i pokazuje potwierdzenie", async () => {
@@ -197,10 +204,10 @@ test("publikuje gotowy snapshot i pokazuje potwierdzenie", async () => {
     </NextIntlClientProvider>,
   );
 
-  const button = await screen.findByRole("button", {
-    name: "Opublikuj snapshot",
-  });
-  fireEvent.click(button);
+  fireEvent.click(await screen.findByRole("tab", { name: "Publikacja" }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Opublikuj snapshot" }),
+  );
 
   await waitFor(() => expect(publishSite).toHaveBeenCalledOnce());
   expect(publishSite.mock.calls[0]?.[0]).toBe(site.id);
@@ -216,7 +223,7 @@ test("zastępuje techniczny formularz kreatorem pierwszej strony po angielsku", 
   );
 
   expect(
-    await screen.findByRole("heading", { name: "Site content" }),
+    await screen.findByRole("heading", { name: "Your website" }),
   ).not.toBeNull();
   expect(
     await screen.findByRole("heading", { name: "Choose your website address" }),
@@ -253,7 +260,8 @@ test("po odrzuceniu mutacji zachowuje treść i kieruje do płatności", async (
   expect(
     screen.queryByRole("heading", { name: "Najpierw wybierz plan" }),
   ).toBeNull();
-  expect(screen.getByText("Start")).not.toBeNull();
+  // The selected page shows as the picker's value, not as loose text.
+  expect(await screen.findByDisplayValue("Start")).not.toBeNull();
   expect(
     screen.getByRole("button", { name: "Dodaj podstronę" }),
   ).not.toBeNull();
@@ -293,6 +301,35 @@ test("wypełnia klucz podstrony z nazwy i ustępuje ręcznej zmianie", async () 
     ).toBe("Zupełnie inna nazwa"),
   );
   expect(key.value).toBe("kontakt");
+});
+
+test("rozdziela zadania na tryby zamiast jednego długiego widoku", async () => {
+  const rendered = render(
+    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+      <SitesPanel />
+    </NextIntlClientProvider>,
+  );
+
+  expect(await screen.findByRole("tablist")).not.toBeNull();
+  const modes = screen
+    .getAllByRole("tab")
+    .map((tab) => tab.textContent?.trim());
+  expect(modes).toEqual(["Podstrony", "Treść", "Publikacja", "Adres"]);
+
+  // Publishing and the address are done once, so they must not sit on the
+  // screen used for daily editing.
+  expect(
+    screen.queryByRole("button", { name: "Opublikuj snapshot" }),
+  ).toBeNull();
+  expect(screen.queryByLabelText("Własna domena")).toBeNull();
+
+  fireEvent.click(screen.getByRole("tab", { name: "Adres" }));
+  expect(await screen.findByLabelText("Własna domena")).not.toBeNull();
+  expect(
+    screen.queryByRole("button", { name: "Opublikuj snapshot" }),
+  ).toBeNull();
+
+  expect((await axe.run(rendered.container)).violations).toHaveLength(0);
 });
 
 test("kieruje właściciela bez planu do porównania oferty", async () => {

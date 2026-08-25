@@ -61,6 +61,13 @@ import {
   FieldLabel,
 } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
+import {
+  Tabs,
+  TabsIndicator,
+  TabsList,
+  TabsPanel,
+  TabsTab,
+} from "@saas-core/ui/components/tabs";
 
 import { sitesErrorMessage } from "./problem";
 import { slugifyTitle } from "./slug";
@@ -475,148 +482,195 @@ export function SitesPanel({
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(20rem,0.9fr)]">
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("workspace")}</CardTitle>
-              <CardDescription>{t("workspaceDescription")}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <Field>
-                <FieldLabel htmlFor="site-picker">{t("chooseSite")}</FieldLabel>
-                <Combobox
-                  isItemEqualToValue={(item, value) => item.id === value.id}
-                  itemToStringLabel={(item) => item.name}
-                  itemToStringValue={(item) => item.id}
-                  items={sites}
-                  onValueChange={(item) => {
-                    setPublication(undefined);
-                    if (!item) {
-                      setPages([]);
-                      setReport(undefined);
-                      setPublications([]);
-                      setSelectedPageId(undefined);
-                      setSelectedSiteId(undefined);
-                      setLoading(false);
-                      return;
-                    }
-                    if (item.id === selectedSiteId) return;
+      {selectedSite && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border p-4">
+          <Globe2Icon
+            aria-hidden="true"
+            className="size-5 shrink-0 text-muted-foreground"
+          />
+          <span className="font-medium">{selectedSite.name}</span>
+          <Badge variant="outline">
+            {selectedSite.default_locale.toUpperCase()}
+          </Badge>
+          <Badge
+            variant={
+              selectedSite.current_publication_id ? "default" : "secondary"
+            }
+          >
+            {t(selectedSite.current_publication_id ? "published" : "draftOnly")}
+          </Badge>
+          {/* A picker for a single site is a control that can only be set to
+              what it already shows, so it appears once there is a choice. */}
+          {sites.length > 1 && (
+            <Field className="ml-auto w-full sm:w-72">
+              <FieldLabel className="sr-only" htmlFor="site-picker">
+                {t("chooseSite")}
+              </FieldLabel>
+              <Combobox
+                isItemEqualToValue={(item, value) => item.id === value.id}
+                itemToStringLabel={(item) => item.name}
+                itemToStringValue={(item) => item.id}
+                items={sites}
+                onValueChange={(item) => {
+                  setPublication(undefined);
+                  if (!item) {
                     setPages([]);
                     setReport(undefined);
                     setPublications([]);
                     setSelectedPageId(undefined);
-                    setLoading(true);
-                    setSelectedSiteId(item.id);
-                  }}
-                  value={selectedSite}
-                >
-                  <ComboboxInput
-                    className="w-full"
-                    disabled={loading}
-                    id="site-picker"
-                    placeholder={t("searchSites")}
-                  />
-                  <ComboboxContent>
-                    <ComboboxEmpty>{t("noSites")}</ComboboxEmpty>
-                    <ComboboxList>
-                      {sites.map((site) => (
-                        <ComboboxItem key={site.id} value={site}>
-                          <Globe2Icon aria-hidden="true" />
-                          <span className="flex-1 truncate">{site.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            /{site.slug}
-                          </span>
-                        </ComboboxItem>
-                      ))}
-                    </ComboboxList>
-                  </ComboboxContent>
-                </Combobox>
-              </Field>
+                    setSelectedSiteId(undefined);
+                    setLoading(false);
+                    return;
+                  }
+                  if (item.id === selectedSiteId) return;
+                  setPages([]);
+                  setReport(undefined);
+                  setPublications([]);
+                  setSelectedPageId(undefined);
+                  setLoading(true);
+                  setSelectedSiteId(item.id);
+                }}
+                value={selectedSite}
+              >
+                <ComboboxInput
+                  className="w-full"
+                  disabled={loading}
+                  id="site-picker"
+                  placeholder={t("searchSites")}
+                />
+                <ComboboxContent>
+                  <ComboboxEmpty>{t("noSites")}</ComboboxEmpty>
+                  <ComboboxList>
+                    {sites.map((site) => (
+                      <ComboboxItem key={site.id} value={site}>
+                        <Globe2Icon aria-hidden="true" />
+                        <span className="flex-1 truncate">{site.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          /{site.slug}
+                        </span>
+                      </ComboboxItem>
+                    ))}
+                  </ComboboxList>
+                </ComboboxContent>
+              </Combobox>
+            </Field>
+          )}
+        </div>
+      )}
 
-              {selectedSite && (
-                <div className="flex flex-wrap items-center gap-2 rounded-lg border p-3">
-                  <span className="font-medium">{selectedSite.name}</span>
-                  <Badge variant="outline">
-                    {selectedSite.default_locale.toUpperCase()}
-                  </Badge>
-                  <Badge
-                    variant={
-                      selectedSite.current_publication_id
-                        ? "default"
-                        : "secondary"
-                    }
+      {/* ADR-031 splits the studio into modes rather than stacking every job on
+          one screen. Address and publication history are things done once, so
+          they sit behind their own tab instead of below the daily work. */}
+      <Tabs defaultValue="pages">
+        <TabsList>
+          <TabsTab value="pages">
+            <FileTextIcon aria-hidden="true" />
+            {t("modePages")}
+          </TabsTab>
+          <TabsTab disabled={!selectedPage} value="content">
+            {t("modeContent")}
+          </TabsTab>
+          <TabsTab value="publish">
+            <RocketIcon aria-hidden="true" />
+            {t("modePublish")}
+          </TabsTab>
+          <TabsTab value="address">
+            <Globe2Icon aria-hidden="true" />
+            {t("modeAddress")}
+          </TabsTab>
+          <TabsIndicator />
+        </TabsList>
+
+        <TabsPanel value="pages">
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(20rem,0.9fr)]">
+            <Card>
+              <CardHeader>
+                <CardTitle>{t("pages")}</CardTitle>
+                <CardDescription>{t("pagesDescription")}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <Field>
+                  <FieldLabel htmlFor="page-picker">
+                    {t("choosePage")}
+                  </FieldLabel>
+                  <Combobox
+                    disabled={!selectedSite}
+                    isItemEqualToValue={(item, value) => item.id === value.id}
+                    itemToStringLabel={(item) => item.name}
+                    itemToStringValue={(item) => item.id}
+                    items={pages}
+                    onValueChange={(item) => setSelectedPageId(item?.id)}
+                    value={selectedPage}
                   >
-                    {t(
-                      selectedSite.current_publication_id
-                        ? "published"
-                        : "draftOnly",
-                    )}
-                  </Badge>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    <ComboboxInput
+                      className="w-full"
+                      disabled={!selectedSite || loading}
+                      id="page-picker"
+                      placeholder={t("searchPages")}
+                    />
+                    <ComboboxContent>
+                      <ComboboxEmpty>{t("noPages")}</ComboboxEmpty>
+                      <ComboboxList>
+                        {pages.map((page) => (
+                          <ComboboxItem key={page.id} value={page}>
+                            <FileTextIcon aria-hidden="true" />
+                            <span className="flex-1 truncate">{page.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {page.key}
+                            </span>
+                          </ComboboxItem>
+                        ))}
+                      </ComboboxList>
+                    </ComboboxContent>
+                  </Combobox>
+                </Field>
+                {selectedPage && (
+                  <div className="grid gap-3 rounded-lg border p-3 sm:grid-cols-3">
+                    <Summary label={t("pageKey")} value={selectedPage.key} />
+                    <Summary
+                      label={t("version")}
+                      value={String(selectedPage.version)}
+                    />
+                    <Summary
+                      label={t("draft")}
+                      value={
+                        selectedPage.current_draft_id
+                          ? t("available")
+                          : t("missing")
+                      }
+                    />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("pages")}</CardTitle>
-              <CardDescription>{t("pagesDescription")}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <Field>
-                <FieldLabel htmlFor="page-picker">{t("choosePage")}</FieldLabel>
-                <Combobox
-                  disabled={!selectedSite}
-                  isItemEqualToValue={(item, value) => item.id === value.id}
-                  itemToStringLabel={(item) => item.name}
-                  itemToStringValue={(item) => item.id}
-                  items={pages}
-                  onValueChange={(item) => setSelectedPageId(item?.id)}
-                  value={selectedPage}
-                >
-                  <ComboboxInput
-                    className="w-full"
-                    disabled={!selectedSite || loading}
-                    id="page-picker"
-                    placeholder={t("searchPages")}
-                  />
-                  <ComboboxContent>
-                    <ComboboxEmpty>{t("noPages")}</ComboboxEmpty>
-                    <ComboboxList>
-                      {pages.map((page) => (
-                        <ComboboxItem key={page.id} value={page}>
-                          <FileTextIcon aria-hidden="true" />
-                          <span className="flex-1 truncate">{page.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {page.key}
-                          </span>
-                        </ComboboxItem>
-                      ))}
-                    </ComboboxList>
-                  </ComboboxContent>
-                </Combobox>
-              </Field>
-              {selectedPage && (
-                <div className="grid gap-3 rounded-lg border p-3 sm:grid-cols-3">
-                  <Summary label={t("pageKey")} value={selectedPage.key} />
-                  <Summary
-                    label={t("version")}
-                    value={String(selectedPage.version)}
-                  />
-                  <Summary
-                    label={t("draft")}
-                    value={
-                      selectedPage.current_draft_id
-                        ? t("available")
-                        : t("missing")
-                    }
-                  />
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            <CreatePageCard
+              disabled={!selectedSite}
+              form={pageForm}
+              onSubmit={submitPage}
+            />
+          </div>
+        </TabsPanel>
 
+        <TabsPanel value="content">
+          {selectedPage ? (
+            <PageEditor
+              key={selectedPage.id}
+              onChanged={() =>
+                selectedSiteId
+                  ? loadSiteDetails(selectedSiteId, selectedPage.id)
+                  : Promise.resolve()
+              }
+              page={selectedPage}
+            />
+          ) : (
+            <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+              {t("choosePageFirst")}
+            </p>
+          )}
+        </TabsPanel>
+
+        <TabsPanel className="space-y-6" value="publish">
           <ReadinessCard
             loading={loading}
             onPublish={() => void publishSelectedSite()}
@@ -629,30 +683,14 @@ export function SitesPanel({
             onRollback={(target) => void rollbackPublication(target)}
             publications={publications}
           />
-        </div>
+        </TabsPanel>
 
-        <div className="space-y-6">
-          <CreatePageCard
-            disabled={!selectedSite}
-            form={pageForm}
-            onSubmit={submitPage}
-          />
-        </div>
-      </div>
-      {selectedPage && (
-        <PageEditor
-          key={selectedPage.id}
-          onChanged={() =>
-            selectedSiteId
-              ? loadSiteDetails(selectedSiteId, selectedPage.id)
-              : Promise.resolve()
-          }
-          page={selectedPage}
-        />
-      )}
-      {selectedSiteId && (
-        <DomainPanel key={selectedSiteId} siteId={selectedSiteId} />
-      )}
+        <TabsPanel value="address">
+          {selectedSiteId && (
+            <DomainPanel key={selectedSiteId} siteId={selectedSiteId} />
+          )}
+        </TabsPanel>
+      </Tabs>
     </section>
   );
 }
