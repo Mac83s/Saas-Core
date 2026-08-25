@@ -8,7 +8,14 @@ from uuid import uuid7
 import pytest
 from django.conf import settings
 from django.core.cache import cache
-from django.db import DatabaseError, connection, transaction
+from django.core.exceptions import ValidationError
+from django.db import (
+    DatabaseError,
+    IntegrityError,
+    InternalError,
+    connection,
+    transaction,
+)
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -34,6 +41,7 @@ from saas_core.modules.shared.media.models import (
     MediaReferenceOwner,
 )
 from saas_core.modules.shared.sites.models import (
+    NavigationItem,
     Page,
     PageBlock,
     PageTranslation,
@@ -1426,4 +1434,86 @@ def test_translation_rejects_unsupported_locale_base_fallback_and_foreign_tenant
             slug="angebot",
             title="Angebot",
             description="Beschreibung",
+        )
+
+
+def test_publication_snapshot_carries_only_reachable_navigation() -> None:
+    client, organization, user = sites_client(slug="nav-snapshot", role_key="owner")
+    site = create_site(client)
+    site_id = site.data["id"]
+    home = create_page(client, site_id, key="home", idempotency_key="nav-home")
+    offer = create_page(client, site_id, key="oferta", idempotency_key="nav-offer")
+    hidden = create_page(client, site_id, key="ukryta", idempotency_key="nav-hidden")
+    for index, page in enumerate((home, offer, hidden)):
+        save_draft(
+            client,
+            page.data["id"],
+            expected_version=0,
+            idempotency_key=f"nav-draft-{index}",
+            heading=f"Nagłówek {index}",
+        )
+        save_translation(
+            client,
+            page.data["id"],
+            "pl",
+            expected_version=0,
+            slug=page.data["key"],
+            title=f"Tytuł {index}",
+            description="Opis",
+            idempotency_key=f"nav-translation-{index}",
+        )
+
+    site_row = Site.all_objects.get(pk=site_id)
+    parent = NavigationItem.all_objects.create(
+        organization=organization,
+        site=site_row,
+        page=Page.all_objects.get(pk=home.data["id"]),
+        position=0,
+    )
+    NavigationItem.all_objects.create(
+        organization=organization,
+        site=site_row,
+        page=Page.all_objects.get(pk=offer.data["id"]),
+        parent=parent,
+        position=1,
+    )
+    # Hidden entries keep their place in the tree but never reach the public
+    # snapshot, and their children go with them rather than being promoted.
+    invisible = NavigationItem.all_objects.create(
+        organization=organization,
+        site=site_row,
+        page=Page.all_objects.get(pk=hidden.data["id"]),
+        position=2,
+        visible=False,
+    )
+
+    published = publish_site_request(client, site_id, idempotency_key="nav-publish")
+
+    assert published.status_code == 201
+    snapshot = Publication.all_objects.get(pk=published.data["id"]).snapshot
+    entries = snapshot["navigation"]
+    assert [entry["page_id"] for entry in entries] == [
+        str(home.data["id"]),
+        str(offer.data["id"]),
+    ]
+    assert entries[1]["parent_id"] == str(parent.id)
+    assert str(invisible.page_id) not in {entry["page_id"] for entry in entries}
+
+
+def test_navigation_item_cannot_point_outside_its_site() -> None:
+    client, organization, _ = sites_client(slug="nav-guard", role_key="owner")
+    first = create_site(client)
+    second = create_site(client, slug="second-site", idempotency_key="nav-second")
+    stranger = create_page(
+        client, second.data["id"], key="obca", idempotency_key="nav-stranger"
+    )
+
+    # The database enforces this too, so a bug in a service cannot quietly link
+    # a menu to another site's page.
+    with pytest.raises((ValidationError, IntegrityError, InternalError)):
+        NavigationItem.all_objects.create(
+            organization=organization,
+            site=Site.all_objects.get(pk=first.data["id"]),
+            page=Page.all_objects.get(pk=stranger.data["id"]),
+            position=0,
         )

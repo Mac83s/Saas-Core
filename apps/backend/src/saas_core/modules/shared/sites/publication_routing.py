@@ -100,7 +100,46 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         "social_description": selected_locale["social_description"],
         "design_tokens": publication_snapshot["design_tokens"],
         "blocks": page.page["blocks"],
+        "navigation": _navigation_links(publication_snapshot, page.locale),
     }
+
+
+def _navigation_links(snapshot: dict[str, Any], locale: str) -> list[dict[str, Any]]:
+    """Menu entries resolved for one locale, in publication order.
+
+    The visible text is the page's own translated title, so it cannot drift
+    from the page. An entry whose page has no translation in this locale is skipped:
+    linking to it would send the visitor to an address that does not exist in
+    the language they are reading."""
+    pages_by_id = {
+        str(raw_page.get("page_id")): raw_page
+        for raw_page in snapshot.get("pages", [])
+        if isinstance(raw_page, dict)
+    }
+    links: list[dict[str, Any]] = []
+    for entry in snapshot.get("navigation", []):
+        if not isinstance(entry, dict):
+            continue
+        raw_page = pages_by_id.get(str(entry.get("page_id")))
+        if raw_page is None:
+            continue
+        localized = next(
+            (
+                candidate
+                for candidate in raw_page.get("locales", [])
+                if isinstance(candidate, dict) and candidate.get("locale") == locale
+            ),
+            None,
+        )
+        if localized is None:
+            continue
+        links.append({
+            "page_id": str(entry.get("page_id")),
+            "parent_id": entry.get("parent_id"),
+            "title": localized["title"],
+            "path": localized["path"],
+        })
+    return links
 
 
 def _normalize_path(value: str) -> str:

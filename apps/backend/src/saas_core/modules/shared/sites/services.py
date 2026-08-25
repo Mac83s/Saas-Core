@@ -36,6 +36,7 @@ from saas_core.observability import correlation_id
 from .block_contracts import validate_site_block
 from .localization import SiteLocalizationReport, build_localization_report
 from .models import (
+    NavigationItem,
     Page,
     PageBlock,
     PageTranslation,
@@ -916,6 +917,11 @@ def publish_site(*, site_id: UUID, idempotency_key: str) -> SitePublication:
         blocks_by_version=blocks_by_version,
         localization=localization,
         page_media_ids=page_media_ids,
+        navigation=_navigation_snapshot(
+            site=site,
+            organization_id=context.organization_id,
+            published_page_ids={page.id for page in pages},
+        ),
     )
     previous = (
         Publication.all_objects.filter(
@@ -1250,6 +1256,50 @@ def _page_version_media_asset_ids(
     )
 
 
+def _navigation_snapshot(
+    *,
+    site: Site,
+    organization_id: UUID,
+    published_page_ids: set[UUID],
+) -> list[dict[str, Any]]:
+    """The menu as published: hidden entries and entries pointing at pages that
+    did not make this publication are dropped, so the snapshot never links to
+    something the renderer cannot show. A child whose parent was dropped is
+    dropped with it rather than silently promoted to the top level."""
+    items = list(
+        NavigationItem.all_objects.filter(
+            organization_id=organization_id,
+            site_id=site.id,
+            visible=True,
+        ).order_by("position", "id")
+    )
+    kept = {
+        item.id: item
+        for item in items
+        if item.page_id in published_page_ids
+    }
+
+    def reachable(item: NavigationItem) -> bool:
+        seen: set[UUID] = set()
+        current = item
+        while current.parent_id is not None:
+            if current.parent_id in seen or current.parent_id not in kept:
+                return False
+            seen.add(current.parent_id)
+            current = kept[current.parent_id]
+        return True
+
+    return [
+        {
+            "page_id": str(item.page_id),
+            "parent_id": str(item.parent_id) if item.parent_id else None,
+            "position": item.position,
+        }
+        for item in items
+        if item.id in kept and reachable(item)
+    ]
+
+
 def _publication_snapshot(
     *,
     site: Site,
@@ -1257,6 +1307,7 @@ def _publication_snapshot(
     blocks_by_version: dict[UUID, list[PageBlock]],
     localization: SiteLocalizationReport,
     page_media_ids: dict[UUID, tuple[UUID, ...]],
+    navigation: list[dict[str, Any]],
 ) -> dict[str, Any]:
     localization_by_page = {page.page.id: page for page in localization.pages}
     return {
@@ -1264,6 +1315,7 @@ def _publication_snapshot(
         "site_slug": site.slug,
         "default_locale": site.default_locale,
         "design_tokens": DEFAULT_DESIGN_TOKENS,
+        "navigation": navigation,
         "pages": [
             {
                 "page_id": str(page.id),

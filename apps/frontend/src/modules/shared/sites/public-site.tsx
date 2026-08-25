@@ -100,6 +100,10 @@ export function PublicSiteRenderer({ page }: { page: PublicSitePage }) {
       snapshotHash: page.snapshot_hash,
       blocks: page.blocks as unknown as SiteBlock[],
       designTokens: page.design_tokens as DesignTokensV1,
+      navigation: page.navigation,
+      // The visitor is reading one language; the menu's accessible name has to
+      // be in it too, not in the panel's language.
+      navigationLabel: page.locale === "en" ? "Menu" : "Menu witryny",
     },
     registry,
   );

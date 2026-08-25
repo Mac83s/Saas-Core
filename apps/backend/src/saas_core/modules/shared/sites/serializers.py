@@ -126,6 +126,13 @@ class SiteDomainListSerializer(serializers.Serializer[dict[str, Any]]):
     items = SiteDomainSerializer(many=True)
 
 
+class PublicNavigationLinkSerializer(serializers.Serializer[dict[str, Any]]):
+    page_id = serializers.UUIDField()
+    parent_id = serializers.UUIDField(allow_null=True)
+    title = serializers.CharField()
+    path = serializers.CharField()
+
+
 class PublicSitePageSerializer(serializers.Serializer[dict[str, Any]]):
     publication_id = serializers.UUIDField()
     snapshot_hash = serializers.CharField()
@@ -139,6 +146,7 @@ class PublicSitePageSerializer(serializers.Serializer[dict[str, Any]]):
     social_description = serializers.CharField()
     design_tokens = serializers.DictField()
     blocks = serializers.ListField(child=serializers.DictField())
+    navigation = PublicNavigationLinkSerializer(many=True)
 
 
 class SiteListSerializer(serializers.Serializer[dict[str, Any]]):

@@ -38,6 +38,9 @@ class Site(TenantScopedModel):
         null=True,
         blank=True,
     )
+    # Navigation is edited as a whole — reordering one item moves others — so it
+    # carries its own optimistic lock rather than borrowing any page's version.
+    navigation_version = models.PositiveBigIntegerField(default=0)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -771,6 +774,70 @@ class Publication(TenantScopedModel):
 
     def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
         raise ValidationError("Publikacja jest niemutowalna.")
+
+
+class NavigationItem(TenantScopedModel):
+    """One entry in a site's menu.
+
+    Deliberately has no label of its own: the visible text is the page's
+    translated title, so a menu is multilingual for free and cannot drift from
+    the page it points at. An entry that needs different wording than its page
+    is a later change, and a real one — it would need its own translations.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    site = models.ForeignKey(
+        Site, on_delete=models.PROTECT, related_name="navigation_items"
+    )
+    page = models.ForeignKey(
+        Page, on_delete=models.CASCADE, related_name="navigation_items"
+    )
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.CASCADE,
+        related_name="children",
+        null=True,
+        blank=True,
+    )
+    position = models.PositiveIntegerField()
+    # Hidden entries stay in the tree and keep their place, so hiding a page for
+    # a while is not the same as losing where it belonged.
+    visible = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "site_id", "position", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "site", "page"],
+                name="sites_navitem_org_site_page_uq",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["organization", "site", "position"],
+                name="sites_navitem_org_site_pos_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.site_id}:{self.page_id}"
+
+    def clean(self) -> None:
+        super().clean()
+        if self.site_id and self.site.organization_id != self.organization_id:
+            raise ValidationError({"site": "Nawigacja należy do innej organizacji."})
+        if self.page_id and self.page.site_id != self.site_id:
+            raise ValidationError({"page": "Podstrona należy do innego serwisu."})
+        if self.parent_id:
+            if self.parent_id == self.id:
+                raise ValidationError({"parent": "Pozycja nie może być swoim rodzicem."})
+            parent = self.parent
+            if parent is not None and parent.site_id != self.site_id:
+                raise ValidationError({"parent": "Rodzic należy do innego serwisu."})
 
 
 class SiteOutboxEvent(TenantScopedModel):

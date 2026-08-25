@@ -1858,6 +1858,14 @@ export interface components {
          * @enum {string}
          */
         ProviderStatusStatusEnum: "delivered" | "bounced" | "complained";
+        PublicNavigationLink: {
+            /** Format: uuid */
+            page_id: string;
+            /** Format: uuid */
+            parent_id: string | null;
+            title: string;
+            path: string;
+        };
         PublicSitePage: {
             /** Format: uuid */
             publication_id: string;
@@ -1880,6 +1888,7 @@ export interface components {
             blocks: {
                 [key: string]: unknown;
             }[];
+            navigation: components["schemas"]["PublicNavigationLink"][];
         };
         PublicationAuthor: {
             /** Format: uuid */

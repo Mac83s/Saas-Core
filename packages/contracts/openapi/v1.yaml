@@ -5003,6 +5003,26 @@ components:
         * `delivered` - delivered
         * `bounced` - bounced
         * `complained` - complained
+    PublicNavigationLink:
+      type: object
+      properties:
+        page_id:
+          type: string
+          format: uuid
+        parent_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        title:
+          type: string
+        path:
+          type: string
+      required:
+      - page_id
+      - parent_id
+      - path
+      - title
     PublicSitePage:
       type: object
       properties:
@@ -5040,6 +5060,10 @@ components:
           items:
             type: object
             additionalProperties: {}
+        navigation:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicNavigationLink'
       required:
       - blocks
       - canonical_url
@@ -5047,6 +5071,7 @@ components:
       - design_tokens
       - hreflang
       - locale
+      - navigation
       - publication_id
       - snapshot_hash
       - social_description

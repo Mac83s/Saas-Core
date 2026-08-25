@@ -123,12 +123,22 @@ export interface DraftPreviewDocument {
   readonly designTokens: DesignTokensV1;
 }
 
+export interface NavigationLink {
+  readonly page_id: string;
+  readonly parent_id: string | null;
+  readonly title: string;
+  readonly path: string;
+}
+
 export interface PublishedPageDocument {
   readonly kind: "publication";
   readonly publicationId: string;
   readonly snapshotHash: string;
   readonly blocks: readonly SiteBlock[];
   readonly designTokens: DesignTokensV1;
+  readonly navigation?: readonly NavigationLink[];
+  /** Accessible name for the menu, in the visitor's language. */
+  readonly navigationLabel?: string;
 }
 
 export interface PageTemplateLabel {

@@ -34,6 +34,26 @@ const page: PublicSitePage = {
       data: { heading: "Bezpieczna oferta", body: "Opis" },
     },
   ],
+  navigation: [
+    {
+      page_id: "019ff20d-a000-7000-8000-000000000030",
+      parent_id: null,
+      title: "Start",
+      path: "/",
+    },
+    {
+      page_id: "019ff20d-a000-7000-8000-000000000031",
+      parent_id: null,
+      title: "Oferta",
+      path: "/oferta/",
+    },
+    {
+      page_id: "019ff20d-a000-7000-8000-000000000032",
+      parent_id: "019ff20d-a000-7000-8000-000000000031",
+      title: "Konsultacje",
+      path: "/oferta/konsultacje/",
+    },
+  ],
 };
 
 test("renderuje tylko kontrolowane bloki opublikowanego snapshotu", async () => {
@@ -61,4 +81,29 @@ test("buduje canonical, hreflang i Open Graph z odpowiedzi API", () => {
     description: page.social_description,
     url: page.canonical_url,
   });
+});
+
+test("renderuje menu nawigacji z opublikowanego snapshotu", async () => {
+  const rendered = render(<PublicSiteRenderer page={page} />);
+
+  // Without a menu, every page a visitor cannot guess the address of is
+  // unreachable — the pages exist and nothing links to them.
+  const nav = screen.getByRole("navigation", { name: "Menu witryny" });
+  expect(nav).not.toBeNull();
+  const links = screen.getAllByRole("link");
+  expect(links.map((link) => link.textContent)).toEqual([
+    "Start",
+    "Oferta",
+    "Konsultacje",
+  ]);
+  // A child entry is nested under its parent, not flattened beside it.
+  const nested = nav.querySelector("li > ul > li > a");
+  expect(nested?.textContent).toBe("Konsultacje");
+  expect((await axe.run(rendered.container)).violations).toHaveLength(0);
+});
+
+test("pomija menu, gdy publikacja go nie zawiera", () => {
+  render(<PublicSiteRenderer page={{ ...page, navigation: [] }} />);
+
+  expect(screen.queryByRole("navigation")).toBeNull();
 });
