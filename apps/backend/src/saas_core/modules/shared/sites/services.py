@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Any
 from uuid import UUID, uuid7
 
@@ -38,6 +39,7 @@ from .localization import SiteLocalizationReport, build_localization_report
 from .models import (
     NavigationItem,
     Page,
+    PageAutomationPolicy,
     PageBlock,
     PageTranslation,
     PageTranslationMutation,
@@ -56,6 +58,7 @@ PAGE_TRANSLATION_SAVED = "sites.page.translation_saved"
 SITE_PUBLISHED = "sites.site.published"
 SITE_ROLLED_BACK = "sites.site.rolled_back"
 SITE_NAVIGATION_SAVED = "sites.navigation.saved"
+PAGE_AUTOMATION_POLICY_SET = "sites.page.automation_policy_set"
 SITE_PUBLISHED_EVENT = "sites.site.published"
 MEDIA_ASSET_RESOURCE_TYPE = "shared.media.asset"
 PAGE_VERSION_REFERENCE_OWNER = "sites.page_version"
@@ -104,6 +107,18 @@ class NavigationInvalidTree(APIException):
     status_code = 400
     default_detail = "Nawigacja zawiera nieprawidłowe drzewo pozycji."
     default_code = "navigation_invalid_tree"
+
+
+class PageAutomationForbidden(APIException):
+    status_code = 403
+    default_detail = "Ta podstrona nie jest udostępniona automatyzacji treści."
+    default_code = "page_automation_forbidden"
+
+
+class PageEditingLocked(APIException):
+    status_code = 409
+    default_detail = "Podstrona jest właśnie edytowana ręcznie."
+    default_code = "page_editing_locked"
 
 
 class SiteMediaReferenceUnavailable(APIException):
@@ -464,6 +479,84 @@ def get_draft_preview(*, page_id: UUID, version_id: UUID) -> PageDraft:
     )
 
 
+PAGE_EDITING_LOCK_TTL_SECONDS = 300
+
+
+def _is_automation(context: TenantContext) -> bool:
+    """An integration acting on its own, as opposed to a signed-in person.
+
+    Everything below keys off this rather than off the endpoint, so a future
+    channel — MCP, a workflow — inherits the same limits without restating them.
+    """
+    return context.principal_kind != "membership"
+
+
+def assert_page_writable(page: Page, context: TenantContext) -> None:
+    """Refuses an automated write the operator has not allowed, or that would
+    land on a page a person currently has open."""
+    if not _is_automation(context):
+        return
+    if page.automation_policy != PageAutomationPolicy.AUTOMATED:
+        raise PageAutomationForbidden
+    if page.editing_locked_until is not None and page.editing_locked_until > timezone.now():
+        raise PageEditingLocked(
+            detail=(
+                "Podstrona jest edytowana ręcznie do "
+                f"{page.editing_locked_until.isoformat()}."
+            )
+        )
+
+
+@transaction.atomic
+def hold_page_editing_lock(*, page_id: UUID) -> Page:
+    """Claims or extends the human editing lock. Called while the editor is
+    open; lapses on its own, so a closed tab does not block the automation
+    forever."""
+    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    page = (
+        Page.all_objects.select_for_update()
+        .filter(pk=page_id, organization_id=context.organization_id)
+        .first()
+    )
+    if page is None:
+        raise PageNotFound
+    page.editing_locked_until = timezone.now() + timedelta(
+        seconds=PAGE_EDITING_LOCK_TTL_SECONDS
+    )
+    page.editing_locked_by_id = context.actor_id
+    page.save(update_fields=["editing_locked_until", "editing_locked_by", "updated_at"])
+    return page
+
+
+@transaction.atomic
+def set_page_automation_policy(*, page_id: UUID, policy: str) -> Page:
+    """Only a person changes this. The automation authenticates with a grant, and
+    a grant that could widen its own scope would not be a limit at all."""
+    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    if _is_automation(context):
+        raise PageAutomationForbidden
+    if policy not in PageAutomationPolicy.values:
+        raise NavigationInvalidTree
+    page = (
+        Page.all_objects.select_for_update()
+        .filter(pk=page_id, organization_id=context.organization_id)
+        .first()
+    )
+    if page is None:
+        raise PageNotFound
+    page.automation_policy = policy
+    page.save(update_fields=["automation_policy", "updated_at"])
+    record_audit(
+        organization=Organization.objects.get(pk=context.organization_id),
+        action=PAGE_AUTOMATION_POLICY_SET,
+        actor=User.objects.get(pk=context.actor_id),
+        target_type="page",
+        target_id=page.id,
+        metadata={"automation_policy": policy},
+    )
+    return page
+
+
 @transaction.atomic
 def save_draft(
     *,
@@ -519,6 +612,9 @@ def save_draft(
         )
     except Page.DoesNotExist as error:
         raise PageNotFound from error
+    # Checked here rather than in the view, so every channel that saves a draft
+    # inherits it — the panel, the automation, and anything added later.
+    assert_page_writable(page, context)
     existing = PageVersion.all_objects.filter(
         organization_id=context.organization_id,
         page_id=page.id,

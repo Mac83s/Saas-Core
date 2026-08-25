@@ -102,6 +102,17 @@ class DomainTlsStatus(models.TextChoices):
     FAILED = "failed", "Błąd"
 
 
+class PageAutomationPolicy(models.TextChoices):
+    """Who may write this page's content.
+
+    `MANUAL` is the default: a page becomes writable by the automation only when
+    a human says so, never by an integration granting itself access.
+    """
+
+    MANUAL = "manual", "Tylko ludzie"
+    AUTOMATED = "automated", "Automatyzacja treści"
+
+
 class SiteOnboardingStep(models.TextChoices):
     ADDRESS = "address", "Adres"
     DETAILS = "details", "Podstawowe dane"
@@ -363,6 +374,22 @@ class Page(TenantScopedModel):
     name = models.CharField(max_length=160)
     key = models.SlugField(max_length=80)
     version = models.PositiveBigIntegerField(default=0)
+    automation_policy = models.CharField(
+        max_length=16,
+        choices=PageAutomationPolicy.choices,
+        default=PageAutomationPolicy.MANUAL,
+    )
+    # Set while a person has the editor open, refreshed as they work. The
+    # automation is refused until it lapses, so a human mid-sentence is never
+    # overwritten; the automation can simply come back later.
+    editing_locked_until = models.DateTimeField(null=True, blank=True)
+    editing_locked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="locked_site_pages",
+        null=True,
+        blank=True,
+    )
     current_draft = models.ForeignKey(
         "PageVersion",
         on_delete=models.PROTECT,

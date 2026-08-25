@@ -4,6 +4,10 @@
 **Data:** 2026-08-21
 **Właściciel:** zespół SaaS Core
 **Wymaga zatwierdzenia przed:** W9.6.1
+**Aktualizacja 2026-08-26:** doprecyzowano właściciela kluczy i grantów
+(operator, nie klient), dodano tryb `autonomous` jako docelowy, opisano politykę
+edycji per strona i chwilową blokadę na czas ręcznej edycji (§4, §4a), oraz
+wymóg, by strony klientów mogły mieć podstrony (§7).
 
 ## Kontekst
 
@@ -77,19 +81,53 @@ Klucz API z ADR-029 uwierzytelnia integrację i ustanawia dokładny tenant. Osob
 odwoływalny `ContentAutomationGrant` ogranicza go dodatkowo do wskazanych
 site'ów, stron, kolekcji lub wpisów oraz do dozwolonych komend.
 
+**Klucze i granty wydaje operator platformy, nie klient.** Klient kupuje usługę
+pozycjonowania i otrzymuje jej efekt; nie konfiguruje integracji, nie widzi
+sekretu i nie może rozszerzyć zakresu automatyzacji. Upraszcza to model zaufania:
+po drugiej stronie klucza stoi zawsze nasz własny system, a nie dowolny
+integrator. W zamian ciężar poprawności treści spoczywa na nas — patrz niżej.
+
 Grant ma jawnie wybrany tryb:
 
 - `suggest_only` — wyłącznie odczyt i propozycje;
 - `draft_write` — propozycja może utworzyć nową wersję draftu;
 - `publish_with_approval` — publikacja wymaga jednorazowego approval digestu;
-- `auto_publish_limited` — automatyczna publikacja wyłącznie dla allowlisty
-  niskiego ryzyka, z limitami częstotliwości i objętości.
+- `autonomous` — SeoContentRank publikuje samodzielnie w granicach polityki
+  strony, bez zatwierdzania pojedynczej zmiany przez człowieka.
 
-Domyślny tryb to `suggest_only`. `auto_publish_limited` jest wyborem operatora,
-ma termin ważności, emergency revoke i początkowo może być używany wyłącznie na
-wewnętrznych powierzchniach platformowych. Zmiana domeny, nawigacji głównej,
-stron prawnych, cennika, publikacja masowa i usunięcie treści zawsze wymagają
-osobnego potwierdzenia niezależnie od trybu.
+Tryb autonomiczny jest docelowym trybem pracy usługi, nie wyjątkiem: sens
+produktu polega na tym, że treść jest utrzymywana bez udziału klienta.
+Odpowiedzialność za poprawność publikowanej treści przenosi się wtedy na
+SeoContentRank i jego własne pętle weryfikacji — SaaS Core nie recenzuje
+merytorycznie tego, co dostaje. SaaS Core odpowiada wyłącznie za to, że zmiana
+mieści się w kontrakcie: właściwy tenant, dozwolony zakres, poprawny blok,
+wersjonowany draft, audyt i możliwość rollbacku.
+
+Granica pozostaje twarda niezależnie od trybu: zmiana domeny, nawigacji
+głównej, stron prawnych, cennika, publikacja masowa i usunięcie treści zawsze
+wymagają osobnego potwierdzenia człowieka.
+
+### 4a. Kto może edytować którą powierzchnię
+
+Automatyzacja i człowiek nie edytują tej samej treści równocześnie. Rozstrzygają
+to dwie niezależne rzeczy.
+
+**Polityka strony — trwała.** Każda strona i każda kolekcja ma jawną politykę:
+`automated` (SeoContentRank może zapisywać) albo `manual` (wyłącznie ludzie).
+To jest właściwy mechanizm zakresu, nie wyjątek awaryjny: typowa konfiguracja
+oddaje automatyzacji blog i wskazane podstrony ofertowe, a stronę główną,
+cennik i treści prawne zostawia człowiekowi. Polityka jest ustawiana w panelu
+i zmienia ją człowiek, nigdy integracja.
+
+**Blokada edycji — chwilowa.** Gdy człowiek otwiera edytor strony o polityce
+`automated`, strona dostaje blokadę z krótkim TTL, odświeżaną dopóki edytor jest
+otwarty. Zapis z SeoContentRank w tym czasie jest odrzucany kodem, który niesie
+czas wygaśnięcia blokady, więc integracja wie, kiedy spróbować ponownie. Jest to
+przypadek rzadki i celowo rozstrzygany na korzyść człowieka: automat może
+poczekać, człowiek w trakcie pisania nie.
+
+Blokada nie zastępuje polityki. Strona `manual` jest niedostępna dla
+automatyzacji zawsze, także gdy nikt jej nie edytuje.
 
 ### 5. Wersjonowany kontrakt zmian
 
@@ -119,6 +157,22 @@ musi pobrać nowy stan i jawnie przeliczyć propozycję zamiast nadpisywać zmia
   przez ślepe ponowienie;
 - payloady i logi nie zawierają sekretów, pełnych promptów ani niepotrzebnych
   danych osobowych.
+
+### 7. Wielostronicowe serwisy klientów i blog
+
+Strona klienta zakładana dziś przez kreator musi pozwalać na dodawanie
+podstron — bez tego automatyzacja nie ma gdzie umieszczać nowej treści, a
+pozycjonowanie sprowadza się do przepisywania jednej strony w kółko.
+
+Blog jest osobnym rodzajem powierzchni, nie zbiorem podstron. Wpis publikuje
+się niezależnie (§1), więc dodanie trzysetnego artykułu nie przepisuje
+poprzednich dwustu dziewięćdziesięciu dziewięciu. Indeks bloga, RSS i sitemap
+są odtwarzalnymi projekcjami opublikowanych wpisów, a nie osobno redagowanymi
+stronami.
+
+W typowej konfiguracji to właśnie blog ma politykę `automated`, a pozostałe
+podstrony `manual` — dlatego kolekcje muszą powstać razem z polityką edycji, a
+nie po niej.
 
 ## Konsekwencje
 

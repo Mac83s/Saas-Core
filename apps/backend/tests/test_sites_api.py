@@ -1630,3 +1630,89 @@ def test_navigation_rejects_trees_the_renderer_could_not_show() -> None:
         assert response.status_code == 400
         assert response.data["code"] == "navigation_invalid_tree"
     assert Site.all_objects.get(pk=site_id).navigation_version == 0
+
+
+def automation_context(organization_id: Any, actor_id: Any) -> Any:
+    """A principal that is not a signed-in person — what an integration gets."""
+    from saas_core.modules.core.organizations.context import TenantContext
+
+    return TenantContext(
+        organization_id=organization_id,
+        membership_id=uuid7(),
+        actor_id=actor_id,
+        role_key="integration",
+        permissions=frozenset({"site.content.edit"}),
+        principal_kind="api_key",
+    )
+
+
+def membership_context(organization: Any, user: Any) -> Any:
+    """A signed-in person: the policy and the lock never apply to them."""
+    from saas_core.modules.core.organizations.context import TenantContext
+
+    return TenantContext(
+        organization_id=organization.id,
+        membership_id=uuid7(),
+        actor_id=user.id,
+        role_key="owner",
+        permissions=frozenset({"site.content.edit"}),
+    )
+
+
+def test_automation_may_only_write_pages_the_operator_opened() -> None:
+    from saas_core.modules.shared.sites.models import PageAutomationPolicy
+    from saas_core.modules.shared.sites.services import (
+        PageAutomationForbidden,
+        assert_page_writable,
+    )
+
+    client, organization, user = sites_client(slug="policy", role_key="owner")
+    site = create_site(client)
+    page_response = create_page(client, site.data["id"], idempotency_key="policy-page")
+    page = Page.all_objects.get(pk=page_response.data["id"])
+    context = automation_context(organization.id, user.id)
+
+    # Default is manual: an integration cannot grant itself a page.
+    assert page.automation_policy == PageAutomationPolicy.MANUAL
+    with pytest.raises(PageAutomationForbidden):
+        assert_page_writable(page, context)
+
+    page.automation_policy = PageAutomationPolicy.AUTOMATED
+    page.save(update_fields=["automation_policy"])
+    assert_page_writable(page, context)
+
+
+def test_manual_editing_lock_holds_the_automation_off_until_it_lapses() -> None:
+    from saas_core.modules.shared.sites.models import PageAutomationPolicy
+    from saas_core.modules.shared.sites.services import (
+        PageEditingLocked,
+        assert_page_writable,
+    )
+
+    client, organization, user = sites_client(slug="lock", role_key="owner")
+    site = create_site(client)
+    page_response = create_page(client, site.data["id"], idempotency_key="lock-page")
+    page = Page.all_objects.get(pk=page_response.data["id"])
+    page.automation_policy = PageAutomationPolicy.AUTOMATED
+    page.editing_locked_until = timezone.now() + timedelta(minutes=5)
+    page.editing_locked_by = user
+    page.save(
+        update_fields=[
+            "automation_policy",
+            "editing_locked_until",
+            "editing_locked_by",
+        ]
+    )
+    context = automation_context(organization.id, user.id)
+
+    with pytest.raises(PageEditingLocked) as locked:
+        assert_page_writable(page, context)
+    # The refusal carries when to come back, so the integration can wait rather
+    # than retry blindly.
+    assert page.editing_locked_until.isoformat() in str(locked.value.detail)
+
+    # A person is never blocked by the lock, and it lapses on its own.
+    assert_page_writable(page, membership_context(organization, user))
+    page.editing_locked_until = timezone.now() - timedelta(seconds=1)
+    page.save(update_fields=["editing_locked_until"])
+    assert_page_writable(page, context)
