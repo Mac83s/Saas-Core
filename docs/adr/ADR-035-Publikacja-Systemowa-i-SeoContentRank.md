@@ -1,9 +1,13 @@
 # ADR-035 — publikacja systemowa i integracja z SeoContentRank
 
-**Status:** Proposed
+**Status:** Accepted
 **Data:** 2026-08-21
+**Zatwierdzono:** 2026-08-27
 **Właściciel:** zespół SaaS Core
-**Wymaga zatwierdzenia przed:** W9.6.1
+**Zastrzeżenie:** §5 (`ContentChangeSet`) jest zatwierdzony wstępnie i zostanie
+zrewidowany przy pierwszym realnym spięciu z SeoContentRank. Reszta ADR-u nie
+zależy od jego szczegółów — kontrakt zmian można doprecyzować bez ruszania
+modelu powierzchni, właściciela treści systemowych ani polityki edycji.
 **Aktualizacja 2026-08-26:** doprecyzowano właściciela kluczy i grantów
 (operator, nie klient), dodano tryb `autonomous` jako docelowy, opisano politykę
 edycji per strona i chwilową blokadę na czas ręcznej edycji (§4, §4a), oraz
@@ -48,6 +52,16 @@ Treści marketingowe i blogowe samej platformy należą do chronionej organizacj
 platformowej tworzonej idempotentnie dla konkretnego deploymentu. Organizacja
 ma wyróżniony `workspace_kind=platform`, ale nadal korzysta z pełnego
 `TenantContext`, permissionów, entitlementów, audytu i RLS tam, gdzie obowiązuje.
+
+**Odrębne dane, wspólny kod.** Rozdział jest zupełny na poziomie danych i
+dostępu: klient nie widzi tej organizacji, nie dołączy do niej onboardingiem
+ani zaproszeniem, a treści platformy nie mieszają się z treściami klientów w
+żadnym zapytaniu. Nie jest natomiast odrębny na poziomie implementacji —
+renderer bloków, media, domeny, wersjonowanie i publikacja są te same. To jest
+świadomy wybór, nie oszczędność: dzięki niemu strona platformy jest ciągłym
+testem produktu, a błąd w publikacji ujawnia się na niej dokładnie tak samo jak
+u klienta. Osobny mechanizm w kodzie oznaczałby dwie ścieżki, które rozjeżdżają
+się niezauważenie, i każdą poprawkę bezpieczeństwa robioną dwa razy.
 
 - nie istnieje globalny tenant ani fallback wybierany z `Host`, requestu lub
   braku kontekstu;
@@ -141,9 +155,15 @@ klucz idempotencji, uzasadnienie oraz listę allowlistowanych komend, np.:
 - dodanie linku wewnętrznego do istniejącego, kanonicznego celu;
 - zaplanowanie publikacji w dozwolonym oknie.
 
+W trybie `autonomous` (§4) nikt nie zatwierdza pojedynczej zmiany, więc approval
+digest w tym trybie nie powstaje. Lista allowlistowanych komend zostaje mimo to,
+bo pełni wtedy inną rolę: jest jedynym zapisem tego, **co** automatyzacja
+zmieniła. Bez niej audyt mówi tylko „SeoContentRank nadpisał stronę", co przy
+autonomicznej publikacji uniemożliwia dojście, skąd wzięła się zła treść.
+
 SaaS Core waliduje grant i aktualną wersję, buduje deterministyczny diff oraz
-preview, wylicza approval digest i dopiero po spełnieniu polityki tworzy nowy
-draft. Publikacja jest osobną komendą. Konflikt wersji zwraca `409`; SeoContentRank
+preview, wylicza approval digest tam, gdzie tryb go wymaga, i dopiero po
+spełnieniu polityki tworzy nowy draft. Publikacja jest osobną komendą. Konflikt wersji zwraca `409`; SeoContentRank
 musi pobrać nowy stan i jawnie przeliczyć propozycję zamiast nadpisywać zmianę.
 
 ### 6. Synchronizacja i niezawodność

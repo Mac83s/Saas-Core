@@ -117,7 +117,12 @@ blokadą na czas ręcznej edycji; strony klientów muszą mieć podstrony, a blo
 jest osobną powierzchnią publikującą wpis po wpisie. Polityka i blokada są już
 zaimplementowane (commit `4de0558`). Dalej:
 
-1. zatwierdzić ADR-035 w całości albo skorygować pozostałe sekcje;
+1. ADR-035 jest **zatwierdzony** (2026-08-27), więc migracje W9.6 są odblokowane.
+   Domknięte decyzje: blog jest osobną powierzchnią publikującą wpis po wpisie
+   (§1); treści platformy mają odrębne dane, ale wspólny kod z treściami
+   klientów (§2) — osobny mechanizm w implementacji został świadomie odrzucony;
+   `ContentChangeSet` zostaje listą komend, bo w trybie autonomicznym jest to
+   jedyny zapis tego, co automatyzacja zmieniła (§5, wstępnie);
 2. zamrozić kontrakt `ContentChangeSet`, `ContentAutomationGrant` i dwa rodzaje
    publikacji: atomowy site oraz wpis kolekcji;
 3. przygotować współdzielone fixture kontraktowe z connectorem SeoContentRank;
