@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from django.core.cache import cache
 from rest_framework.test import APIClient
 
 from saas_core.modules.shared.sites.models import (
@@ -14,6 +15,13 @@ from saas_core.modules.shared.sites.models import (
 from test_sites_api import create_site, csrf_value, sites_client
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture(autouse=True)
+def clear_cache() -> None:
+    # Sign-in is rate limited, and each test here signs in a fresh owner; the
+    # limiter counts in the cache, so a shared one makes later tests fail 429.
+    cache.clear()
 
 
 def create_collection(
@@ -216,3 +224,112 @@ def test_collection_policy_decides_whether_automation_may_write_entries() -> Non
 
     assert created is True
     assert version.number == 1
+
+
+def test_published_entry_is_reachable_on_the_public_site() -> None:
+    """An article nobody can open is not published in any useful sense."""
+    from django.test import override_settings
+    from rest_framework.test import APIClient as PublicClient
+
+    from saas_core.modules.shared.sites.models import (
+        Domain,
+        DomainKind,
+        DomainStatus,
+        DomainTlsStatus,
+    )
+
+    client, _, _ = sites_client(slug="public-entry", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    entry = create_entry(
+        client, collection.data["id"], slug="pierwszy-wpis", idempotency_key="pub-entry"
+    )
+    save_entry_draft(
+        client,
+        entry.data["id"],
+        expected_version=0,
+        text="Treść pierwszego wpisu.",
+        idempotency_key="pub-entry-draft",
+    )
+    publish(client, entry.data["id"], idempotency_key="pub-entry-publish")
+    platform = Domain.all_objects.get(site_id=site.data["id"], kind=DomainKind.PLATFORM)
+    Domain.all_objects.filter(pk=platform.pk).update(
+        status=DomainStatus.VERIFIED, tls_status=DomainTlsStatus.ELIGIBLE
+    )
+
+    with override_settings(PUBLIC_SITE_SCHEME="https"):
+        found = PublicClient().get(
+            "/api/v1/public/site/",
+            {"path": "/blog/pierwszy-wpis/"},
+            HTTP_HOST=platform.hostname,
+        )
+        # The same address without the trailing slash is the same article.
+        no_slash = PublicClient().get(
+            "/api/v1/public/site/",
+            {"path": "/blog/pierwszy-wpis"},
+            HTTP_HOST=platform.hostname,
+        )
+        missing = PublicClient().get(
+            "/api/v1/public/site/",
+            {"path": "/blog/nie-ma-takiego/"},
+            HTTP_HOST=platform.hostname,
+        )
+
+    assert found.status_code == 200
+    assert found.data["title"] == "Pierwszy Wpis"
+    assert found.data["locale"] == "pl"
+    assert found.data["blocks"][0]["block_type"] == "core.rich_text"
+    assert no_slash.status_code == 200
+    assert missing.status_code == 404
+
+
+def test_withdrawn_entry_disappears_from_the_public_site() -> None:
+    from django.test import override_settings
+    from rest_framework.test import APIClient as PublicClient
+
+    from saas_core.modules.shared.sites.models import (
+        Domain,
+        DomainKind,
+        DomainStatus,
+        DomainTlsStatus,
+    )
+
+    client, _, _ = sites_client(slug="withdraw-entry", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    entry = create_entry(
+        client, collection.data["id"], slug="do-wycofania", idempotency_key="wd-entry"
+    )
+    save_entry_draft(
+        client,
+        entry.data["id"],
+        expected_version=0,
+        text="Treść do wycofania.",
+        idempotency_key="wd-draft",
+    )
+    publish(client, entry.data["id"], idempotency_key="wd-publish")
+    platform = Domain.all_objects.get(site_id=site.data["id"], kind=DomainKind.PLATFORM)
+    Domain.all_objects.filter(pk=platform.pk).update(
+        status=DomainStatus.VERIFIED, tls_status=DomainTlsStatus.ELIGIBLE
+    )
+
+    with override_settings(PUBLIC_SITE_SCHEME="https"):
+        before = PublicClient().get(
+            "/api/v1/public/site/",
+            {"path": "/blog/do-wycofania/"},
+            HTTP_HOST=platform.hostname,
+        )
+        client.delete(
+            f"/api/v1/sites/entries/{entry.data['id']}/publication/",
+            HTTP_X_CSRFTOKEN=csrf_value(client),
+        )
+        after = PublicClient().get(
+            "/api/v1/public/site/",
+            {"path": "/blog/do-wycofania/"},
+            HTTP_HOST=platform.hostname,
+        )
+
+    assert before.status_code == 200
+    # Withdrawal has to take effect for readers immediately, not at the next
+    # site publication.
+    assert after.status_code == 404

@@ -9,7 +9,21 @@ from rest_framework.exceptions import NotFound, ValidationError
 from saas_core.modules.core.organizations.models import OrganizationStatus
 
 from .domains import InvalidHostname, normalize_hostname
-from .models import Domain, DomainStatus, Publication
+from .models import (
+    ContentEntry,
+    ContentEntryState,
+    Domain,
+    DomainStatus,
+    Publication,
+)
+
+DEFAULT_PUBLIC_DESIGN_TOKENS = {
+    "schemaVersion": 1,
+    "palette": "neutral",
+    "typography": "sans",
+    "radius": "medium",
+    "spacing": "comfortable",
+}
 
 
 class PublicSiteNotFound(NotFound):
@@ -46,17 +60,19 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
     except InvalidHostname as error:
         raise PublicSiteNotFound from error
     normalized_path = _normalize_path(path)
+    # A published entry is reachable even when the site itself has no
+    # publication yet: entries publish independently, so requiring a site
+    # snapshot would make the blog depend on something unrelated to it.
     domain = (
         Domain.all_objects.select_related("site__current_publication", "organization")
         .filter(
             hostname=hostname,
             status=DomainStatus.VERIFIED,
             organization__status=OrganizationStatus.ACTIVE,
-            site__current_publication__isnull=False,
         )
         .first()
     )
-    if domain is None or domain.site.current_publication is None:
+    if domain is None:
         raise PublicSiteNotFound
     canonical = Domain.all_objects.filter(
         site_id=domain.site_id,
@@ -65,8 +81,20 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
     ).first()
     if canonical is None:
         raise PublicSiteNotFound
-    publication = domain.site.current_publication
-    page, locale_document = _find_page(publication.snapshot, normalized_path)
+    publication: Any = domain.site.current_publication
+    try:
+        if publication is None:
+            raise PublicSiteNotFound
+        page, locale_document = _find_page(publication.snapshot, normalized_path)
+    except PublicSiteNotFound:
+        # Not a page, so it may be a collection entry. Entries publish on their
+        # own (ADR-035 §1) and are therefore absent from the site snapshot; the
+        # entry's own publication then stands in for the site's.
+        page, locale_document, publication = _find_entry(
+            organization_id=domain.organization_id,
+            site_id=domain.site_id,
+            requested_path=normalized_path,
+        )
     canonical_path = str(locale_document["canonical_path"])
     return PublicPage(
         hostname=hostname,
@@ -98,7 +126,12 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         "description": selected_locale["description"],
         "social_title": selected_locale["social_title"],
         "social_description": selected_locale["social_description"],
-        "design_tokens": publication_snapshot["design_tokens"],
+        # An entry's snapshot carries no theme of its own; it inherits the
+        # site's, and falls back to the default when the site has never been
+        # published.
+        "design_tokens": publication_snapshot.get(
+            "design_tokens", DEFAULT_PUBLIC_DESIGN_TOKENS
+        ),
         "blocks": page.page["blocks"],
         "navigation": _navigation_links(publication_snapshot, page.locale),
     }
@@ -140,6 +173,64 @@ def _navigation_links(snapshot: dict[str, Any], locale: str) -> list[dict[str, A
             "path": localized["path"],
         })
     return links
+
+
+def _find_entry(
+    *,
+    organization_id: Any,
+    site_id: Any,
+    requested_path: str,
+) -> tuple[dict[str, Any], dict[str, Any], Any]:
+    """Resolves a published blog entry and shapes it like a page.
+
+    Returning the page shape keeps one payload builder and one renderer for both
+    surfaces — the reader should not be able to tell that an article is stored
+    differently from a page.
+    """
+    wanted = _comparable_path(requested_path)
+    entries = ContentEntry.all_objects.select_related("current_publication").filter(
+        organization_id=organization_id,
+        site_id=site_id,
+        state=ContentEntryState.PUBLISHED,
+        current_publication__isnull=False,
+    )
+    for entry in entries:
+        publication = entry.current_publication
+        if publication is None:
+            continue
+        snapshot = publication.snapshot
+        if _comparable_path(str(snapshot.get("path", ""))) != wanted:
+            continue
+        locale_document = {
+            "locale": snapshot["locale"],
+            "translation_id": None,
+            "version": snapshot.get("version", 1),
+            "slug": snapshot["slug"],
+            "path": snapshot["path"],
+            "canonical_path": snapshot["path"],
+            "title": snapshot["title"],
+            "description": snapshot.get("excerpt", ""),
+            "social_title": snapshot["title"],
+            "social_description": snapshot.get("excerpt", ""),
+            "fallback_fields": [],
+        }
+        return (
+            {
+                "page_id": snapshot["entry_id"],
+                "key": snapshot["slug"],
+                "blocks": snapshot["blocks"],
+                "media_asset_ids": [],
+                "locales": [locale_document],
+                # A single-language article has no alternates to advertise;
+                # claiming otherwise would point search engines at nothing.
+                "hreflang": {snapshot["locale"]: snapshot["path"]},
+                "x_default": snapshot["path"],
+                "noindex": bool(snapshot.get("noindex", False)),
+            },
+            locale_document,
+            publication,
+        )
+    raise PublicSiteNotFound
 
 
 def _normalize_path(value: str) -> str:
