@@ -1,12 +1,10 @@
 {
   "mcpServers": {
     "memex": {
-      "command": "node",
+      "command": "memex",
       "args": [
-        "A:\\DEVELOPMENT\\LLM-WIKI\\dist\\cli.js",
         "mcp"
       ],
-      "cwd": "A:\\DEVELOPMENT\\memex-vault",
       "env": {
         "MEMEX_PROJECT": "saas-core"
       }
