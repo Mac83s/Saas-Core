@@ -867,6 +867,268 @@ class NavigationItem(TenantScopedModel):
                 raise ValidationError({"parent": "Rodzic należy do innego serwisu."})
 
 
+class ContentCollectionKind(models.TextChoices):
+    BLOG = "blog", "Blog"
+    NEWS = "news", "Aktualności"
+    GUIDE = "guide", "Poradniki"
+
+
+class ContentEntryState(models.TextChoices):
+    DRAFT = "draft", "Szkic"
+    PUBLISHED = "published", "Opublikowany"
+    WITHDRAWN = "withdrawn", "Wycofany"
+
+
+class ContentCollection(TenantScopedModel):
+    """A repeatable surface — a blog, news, guides.
+
+    Separate from `Page` because entries publish one at a time (ADR-035 §1).
+    Folding them into the site's atomic snapshot would make publishing the
+    three-hundredth article rewrite the previous two hundred and ninety-nine.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    site = models.ForeignKey(
+        Site, on_delete=models.PROTECT, related_name="content_collections"
+    )
+    key = models.SlugField(max_length=80)
+    name = models.CharField(max_length=160)
+    kind = models.CharField(
+        max_length=16,
+        choices=ContentCollectionKind.choices,
+        default=ContentCollectionKind.BLOG,
+    )
+    # The path the index lives at: "blog" gives /blog/ and /blog/<entry>/.
+    base_path = models.SlugField(max_length=80)
+    automation_policy = models.CharField(
+        max_length=16,
+        choices=PageAutomationPolicy.choices,
+        default=PageAutomationPolicy.MANUAL,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_content_collections",
+    )
+    idempotency_key = models.CharField(max_length=120)
+    request_hash = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "site_id", "key", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "site", "key"],
+                name="sites_collection_org_site_key_uq",
+            ),
+            models.UniqueConstraint(
+                fields=["organization", "site", "base_path"],
+                name="sites_collection_org_site_path_uq",
+            ),
+            models.UniqueConstraint(
+                fields=["organization", "site", "created_by", "idempotency_key"],
+                name="sites_collection_org_actor_idem_uq",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["organization", "site", "id"],
+                name="sites_collection_org_site_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.site_id}:{self.key}"
+
+    def clean(self) -> None:
+        super().clean()
+        if self.site_id and self.site.organization_id != self.organization_id:
+            raise ValidationError({"site": "Kolekcja należy do innej organizacji."})
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        self.key = self.key.strip().lower()
+        self.base_path = self.base_path.strip().lower()
+        super().save(*args, **kwargs)
+
+
+class ContentEntry(TenantScopedModel):
+    """One article, with its own draft pointer, version and publication, so it
+    moves through the lifecycle independently of its neighbours."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    collection = models.ForeignKey(
+        ContentCollection, on_delete=models.PROTECT, related_name="entries"
+    )
+    site = models.ForeignKey(
+        Site, on_delete=models.PROTECT, related_name="content_entries"
+    )
+    slug = models.SlugField(max_length=140)
+    locale = models.CharField(
+        max_length=10,
+        choices=[("pl", "Polski"), ("en", "English")],
+    )
+    title = models.CharField(max_length=200)
+    excerpt = models.CharField(max_length=400, blank=True)
+    author_name = models.CharField(max_length=120, blank=True)
+    state = models.CharField(
+        max_length=16,
+        choices=ContentEntryState.choices,
+        default=ContentEntryState.DRAFT,
+    )
+    version = models.PositiveBigIntegerField(default=0)
+    current_draft = models.ForeignKey(
+        "ContentEntryVersion",
+        on_delete=models.PROTECT,
+        related_name="current_for_entries",
+        null=True,
+        blank=True,
+    )
+    current_publication = models.ForeignKey(
+        "ContentEntryPublication",
+        on_delete=models.PROTECT,
+        related_name="current_for_entries",
+        null=True,
+        blank=True,
+    )
+    # Distinct from the publication timestamp: an article can be backdated, and
+    # the index orders by this rather than by when the button was pressed.
+    published_at = models.DateTimeField(null=True, blank=True)
+    noindex = models.BooleanField(default=False)
+    editing_locked_until = models.DateTimeField(null=True, blank=True)
+    editing_locked_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="locked_content_entries",
+        null=True,
+        blank=True,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_content_entries",
+    )
+    idempotency_key = models.CharField(max_length=120)
+    request_hash = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "collection_id", "-published_at", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "collection", "locale", "slug"],
+                name="sites_entry_org_coll_locale_slug_uq",
+            ),
+            models.UniqueConstraint(
+                fields=["organization", "collection", "created_by", "idempotency_key"],
+                name="sites_entry_org_coll_actor_idem_uq",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["organization", "collection", "state", "-published_at"],
+                name="sites_entry_index_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.collection_id}:{self.slug}"
+
+    def clean(self) -> None:
+        super().clean()
+        if (
+            self.collection_id
+            and self.collection.organization_id != self.organization_id
+        ):
+            raise ValidationError({"collection": "Wpis należy do innej organizacji."})
+        if self.collection_id and self.collection.site_id != self.site_id:
+            raise ValidationError({"collection": "Wpis należy do innego serwisu."})
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        self.slug = self.slug.strip().lower()
+        super().save(*args, **kwargs)
+
+
+class ContentEntryVersion(TenantScopedModel):
+    """Immutable draft content, exactly as `PageVersion` is for pages."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    entry = models.ForeignKey(
+        ContentEntry, on_delete=models.PROTECT, related_name="versions"
+    )
+    number = models.PositiveBigIntegerField()
+    blocks = models.JSONField(default=list)
+    content_hash = models.CharField(max_length=64)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_content_entry_versions",
+    )
+    idempotency_key = models.CharField(max_length=120)
+    request_hash = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "entry_id", "number")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "entry", "number"],
+                name="sites_entryversion_org_entry_number_uq",
+            ),
+            models.UniqueConstraint(
+                fields=["organization", "entry", "created_by", "idempotency_key"],
+                name="sites_entryversion_org_actor_idem_uq",
+            ),
+        ]
+
+
+class ContentEntryPublication(TenantScopedModel):
+    """Append-only, one entry at a time.
+
+    The snapshot holds only this article, which is the whole point: its size
+    does not grow with the archive, so publishing costs the same whether the
+    blog has ten entries or ten thousand.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    entry = models.ForeignKey(
+        ContentEntry, on_delete=models.PROTECT, related_name="publications"
+    )
+    sequence = models.PositiveBigIntegerField()
+    snapshot = models.JSONField(default=dict)
+    snapshot_hash = models.CharField(max_length=64)
+    withdrawn_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_content_entry_publications",
+    )
+    idempotency_key = models.CharField(max_length=120)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "entry_id", "sequence")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "entry", "sequence"],
+                name="sites_entrypub_org_entry_seq_uq",
+            ),
+            models.UniqueConstraint(
+                fields=["organization", "entry", "created_by", "idempotency_key"],
+                name="sites_entrypub_org_actor_idem_uq",
+            ),
+        ]
+
+
 class SiteOutboxEvent(TenantScopedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     publication = models.OneToOneField(

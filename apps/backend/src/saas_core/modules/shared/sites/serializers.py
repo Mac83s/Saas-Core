@@ -168,6 +168,66 @@ class SiteNavigationSaveSerializer(serializers.Serializer[dict[str, Any]]):
     items = NavigationItemSerializer(many=True, allow_empty=True)
 
 
+class ContentCollectionSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    site_id = serializers.UUIDField()
+    key = serializers.CharField()
+    name = serializers.CharField()
+    kind = serializers.CharField()
+    base_path = serializers.CharField()
+    automation_policy = serializers.CharField()
+
+
+class ContentCollectionCreateSerializer(serializers.Serializer[dict[str, Any]]):
+    key = serializers.RegexField(r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=80)
+    name = serializers.CharField(max_length=160, trim_whitespace=True)
+    kind = serializers.ChoiceField(choices=["blog", "news", "guide"], default="blog")
+    base_path = serializers.RegexField(r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=80)
+
+
+class ContentEntrySerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    collection_id = serializers.UUIDField()
+    slug = serializers.CharField()
+    locale = serializers.CharField()
+    title = serializers.CharField()
+    excerpt = serializers.CharField(allow_blank=True)
+    author_name = serializers.CharField(allow_blank=True)
+    state = serializers.CharField()
+    version = serializers.IntegerField()
+    published_at = serializers.DateTimeField(allow_null=True)
+    noindex = serializers.BooleanField()
+
+
+class ContentEntryListSerializer(serializers.Serializer[dict[str, Any]]):
+    items = ContentEntrySerializer(many=True)
+    next_cursor = serializers.UUIDField(allow_null=True)
+
+
+class ContentEntryCreateSerializer(serializers.Serializer[dict[str, Any]]):
+    slug = serializers.RegexField(r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=140)
+    locale = serializers.ChoiceField(choices=["pl", "en"])
+    title = serializers.CharField(max_length=200, trim_whitespace=True)
+
+
+class ContentEntryDraftSerializer(serializers.Serializer[dict[str, Any]]):
+    entry_id = serializers.UUIDField()
+    version = serializers.IntegerField()
+    blocks = serializers.ListField(child=serializers.DictField())
+
+
+class ContentEntryDraftSaveSerializer(serializers.Serializer[dict[str, Any]]):
+    expected_version = serializers.IntegerField(min_value=0)
+    blocks = serializers.ListField(child=serializers.DictField())
+
+
+class ContentEntryPublicationSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    entry_id = serializers.UUIDField()
+    sequence = serializers.IntegerField()
+    snapshot_hash = serializers.CharField()
+
+
 class SiteListSerializer(serializers.Serializer[dict[str, Any]]):
     items = SiteSummarySerializer(many=True)
     next_cursor = serializers.UUIDField(allow_null=True)

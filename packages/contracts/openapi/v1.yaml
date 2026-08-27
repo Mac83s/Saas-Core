@@ -2542,6 +2542,108 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/{site_id}/collections/:
+    get:
+      operationId: sites_collections_list
+      parameters:
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ContentCollection'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: sites_collections_create
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentCollectionCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ContentCollectionCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ContentCollectionCreate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentCollection'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentCollection'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/{site_id}/domains/:
     get:
       operationId: sites_domains_list
@@ -3108,6 +3210,106 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/collections/{collection_id}/entries/:
+    get:
+      operationId: sites_entries_list
+      parameters:
+      - in: path
+        name: collection_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentEntryList'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: sites_entries_create
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: collection_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentEntryCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ContentEntryCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ContentEntryCreate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentEntry'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentEntry'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/domains/{domain_id}/actions/:
     post:
       operationId: sites_domains_action
@@ -3171,6 +3373,188 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/entries/{entry_id}/draft/:
+    get:
+      operationId: sites_entry_draft_retrieve
+      parameters:
+      - in: path
+        name: entry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentEntryDraft'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    put:
+      operationId: sites_entry_draft_save
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: entry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentEntryDraftSave'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ContentEntryDraftSave'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ContentEntryDraftSave'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentEntryDraft'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentEntryDraft'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/entries/{entry_id}/publication/:
+    post:
+      operationId: sites_entry_publish
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: entry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentEntryPublication'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentEntryPublication'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    delete:
+      operationId: sites_entry_withdraw
+      parameters:
+      - in: path
+        name: entry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentEntry'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
           content:
             application/json:
               schema:
@@ -3868,6 +4252,187 @@ components:
           pattern: ^[-a-zA-Z0-9_]+$
       required:
       - plan
+    ContentCollection:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        site_id:
+          type: string
+          format: uuid
+        key:
+          type: string
+        name:
+          type: string
+        kind:
+          type: string
+        base_path:
+          type: string
+        automation_policy:
+          type: string
+      required:
+      - automation_policy
+      - base_path
+      - id
+      - key
+      - kind
+      - name
+      - site_id
+    ContentCollectionCreate:
+      type: object
+      properties:
+        key:
+          type: string
+          maxLength: 80
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        name:
+          type: string
+          maxLength: 160
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/ContentCollectionCreateKindEnum'
+          default: blog
+        base_path:
+          type: string
+          maxLength: 80
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+      required:
+      - base_path
+      - key
+      - name
+    ContentCollectionCreateKindEnum:
+      enum:
+      - blog
+      - news
+      - guide
+      type: string
+      description: |-
+        * `blog` - blog
+        * `news` - news
+        * `guide` - guide
+    ContentEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        collection_id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        locale:
+          type: string
+        title:
+          type: string
+        excerpt:
+          type: string
+        author_name:
+          type: string
+        state:
+          type: string
+        version:
+          type: integer
+        published_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        noindex:
+          type: boolean
+      required:
+      - author_name
+      - collection_id
+      - excerpt
+      - id
+      - locale
+      - noindex
+      - published_at
+      - slug
+      - state
+      - title
+      - version
+    ContentEntryCreate:
+      type: object
+      properties:
+        slug:
+          type: string
+          maxLength: 140
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        locale:
+          $ref: '#/components/schemas/LocaleEnum'
+        title:
+          type: string
+          maxLength: 200
+      required:
+      - locale
+      - slug
+      - title
+    ContentEntryDraft:
+      type: object
+      properties:
+        entry_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        blocks:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+      required:
+      - blocks
+      - entry_id
+      - version
+    ContentEntryDraftSave:
+      type: object
+      properties:
+        expected_version:
+          type: integer
+          minimum: 0
+        blocks:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+      required:
+      - blocks
+      - expected_version
+    ContentEntryList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentEntry'
+        next_cursor:
+          type:
+          - string
+          - 'null'
+          format: uuid
+      required:
+      - items
+      - next_cursor
+    ContentEntryPublication:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        entry_id:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+        snapshot_hash:
+          type: string
+      required:
+      - entry_id
+      - id
+      - sequence
+      - snapshot_hash
     CsrfToken:
       type: object
       properties:

@@ -1,5 +1,11 @@
 from django.urls import path
 
+from .collection_views import (
+    ContentCollectionListCreateView,
+    ContentEntryDraftView,
+    ContentEntryListCreateView,
+    ContentEntryPublicationView,
+)
 from .domain_views import (
     SiteDomainActionView,
     SiteDomainListCreateView,
@@ -58,6 +64,26 @@ urlpatterns = [
         "<uuid:site_id>/localization/",
         SiteLocalizationReportView.as_view(),
         name="localization-report",
+    ),
+    path(
+        "<uuid:site_id>/collections/",
+        ContentCollectionListCreateView.as_view(),
+        name="collection-list-create",
+    ),
+    path(
+        "collections/<uuid:collection_id>/entries/",
+        ContentEntryListCreateView.as_view(),
+        name="entry-list-create",
+    ),
+    path(
+        "entries/<uuid:entry_id>/draft/",
+        ContentEntryDraftView.as_view(),
+        name="entry-draft",
+    ),
+    path(
+        "entries/<uuid:entry_id>/publication/",
+        ContentEntryPublicationView.as_view(),
+        name="entry-publication",
     ),
     path(
         "<uuid:site_id>/navigation/",
