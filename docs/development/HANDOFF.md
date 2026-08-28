@@ -1,6 +1,6 @@
 # Handoff następnej sesji
 
-**Aktualizacja:** 2026-08-25
+**Aktualizacja:** 2026-08-28
 
 **Repozytorium:** `/mnt/a/DEVELOPMENT/Saas-Core` (`A:\DEVELOPMENT\Saas-Core`)
 
@@ -109,24 +109,45 @@ Znane długi frontendu, nietknięte przez te commity:
 - lokalny Node to 22, projekt wymaga 24 — każda komenda pnpm ostrzega;
 - `AGENTS.md` nie przechodzi `format:check` (sekcja memeksa).
 
-Równoległy cel kontraktowy W9.6 — właściciel podjął cztery decyzje (ADR-035 §4,
-§4a, §7): klucze i granty wydaje operator, nie klient; tryb `autonomous` jest
-docelowy, a odpowiedzialność za jakość treści spoczywa na SeoContentRank;
-polityka edycji jest ustawiana per strona (`manual` domyślnie), z chwilową
-blokadą na czas ręcznej edycji; strony klientów muszą mieć podstrony, a blog
-jest osobną powierzchnią publikującą wpis po wpisie. Polityka i blokada są już
-zaimplementowane (commit `4de0558`). Dalej:
+W9.6 — stan po 2026-08-28. ADR-035 jest zatwierdzony, migracje odblokowane.
+Zbudowane i działające na lokalnym stacku:
 
-1. ADR-035 jest **zatwierdzony** (2026-08-27), więc migracje W9.6 są odblokowane.
-   Domknięte decyzje: blog jest osobną powierzchnią publikującą wpis po wpisie
-   (§1); treści platformy mają odrębne dane, ale wspólny kod z treściami
-   klientów (§2) — osobny mechanizm w implementacji został świadomie odrzucony;
-   `ContentChangeSet` zostaje listą komend, bo w trybie autonomicznym jest to
-   jedyny zapis tego, co automatyzacja zmieniła (§5, wstępnie);
-2. zamrozić kontrakt `ContentChangeSet`, `ContentAutomationGrant` i dwa rodzaje
-   publikacji: atomowy site oraz wpis kolekcji;
-3. przygotować współdzielone fixture kontraktowe z connectorem SeoContentRank;
-4. nie rozpoczynać migracji systemowego workspace'u przed akceptacją ADR-035.
+- **kolekcje treści i blog** (`27f3076`, `e4a22fc`): `ContentCollection`,
+  `ContentEntry`, niemutowalna `ContentEntryVersion`, append-only
+  `ContentEntryPublication`. Wpis publikuje się sam — test dowodzi, że rozmiar
+  snapshotu nie rośnie z archiwum. Wpis jest osiągalny publicznie pod
+  `/<kolekcja>/<slug>/` i renderuje się tym samym payloadem co strona;
+- **polityka edycji** (`4de0558`): `automation_policy` na stronie i na kolekcji,
+  plus chwilowa blokada ręcznej edycji; egzekwowane w `save_draft`, więc każdy
+  kanał ją dziedziczy;
+- **klucz API dla SeoContentRank** (`cee17e2`): scope `content:read`,
+  `content:draft`, `content:publish`; middleware w `shared.notifications`
+  ustawia `TenantContext` z `principal_kind="api_key"`. Wymagany scope wynika z
+  samego żądania, a aktorem audytu jest operator, który klucz wydał.
+
+Do zrobienia w W9.6, w kolejności zależności:
+
+1. **`ContentAutomationGrant`** — dziś klucz sięga wszystkich kolekcji
+   organizacji. ADR-035 §4 wymaga zawężenia do wskazanych site'ów i kolekcji
+   oraz TTL, limitów i emergency revoke. To jedyna rzecz dzieląca obecny stan
+   od bezpiecznego włączenia SCR u klienta;
+2. **panel dla bloga i polityki** — kolekcje, wpisy i przełącznik
+   `automated`/`manual` obsługuje się dziś wyłącznie przez API, więc nie da się
+   oddać SCR bloga bez wejścia do bazy;
+3. **indeks bloga, RSS i sitemap** — wpisy są osiągalne tylko po adresie
+   bezpośrednim; czytelnik nie ma jak ich znaleźć;
+4. **tłumaczenia i media wpisów** — wpis jest dziś jednojęzyczny;
+5. **chroniony workspace platformowy (W9.6.1)** — dla waszych własnych stron
+   marketingowych i bloga platformy;
+6. **`ContentChangeSet` (§5, wstępny)** — do rewizji przy pierwszym realnym
+   spięciu z SCR.
+
+Znany rozjazd do rozstrzygnięcia: ADR-022 wymaga RLS na prywatnych rekordach
+tenantowych i `shared.media` go ma, ale `shared.sites` nie — izolacja opiera się
+tam na warstwie serwisu i wyzwalaczach cross-tenant. Migracja `0009` wyrównała
+tabele kolekcji do konwencji modułu, bo wymuszony RLS blokował publiczny
+renderer (żądanie odwiedzającego nie ma kontekstu tenanta). Ktoś powinien
+zdecydować, która strona ma rację.
 
 ## Niezmienne ograniczenia
 
