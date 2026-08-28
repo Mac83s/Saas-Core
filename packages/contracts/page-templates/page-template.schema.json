@@ -26,6 +26,12 @@
       "uniqueItems": true,
       "items": { "type": "string", "pattern": "^[a-z][a-z0-9_.]*$" }
     },
+    "media": {
+      "type": "array",
+      "maxItems": 10,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/approvedMedia" }
+    },
     "blocks": {
       "type": "array",
       "minItems": 1,
@@ -46,6 +52,33 @@
     }
   },
   "$defs": {
+    "approvedMedia": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "source", "filename", "contentType", "sha256"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "source": {
+          "type": "string",
+          "pattern": "^assets/[a-zA-Z0-9][a-zA-Z0-9._/-]*\\.(?:jpg|jpeg|png|webp)$"
+        },
+        "filename": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "contentType": {
+          "enum": ["image/jpeg", "image/png", "image/webp"]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
     "label": {
       "type": "object",
       "additionalProperties": false,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from copy import deepcopy
 from dataclasses import dataclass
@@ -22,12 +23,35 @@ class PageTemplateNotFound(NotFound):
 
 
 @dataclass(frozen=True, slots=True)
+class ApprovedTemplateMedia:
+    id: str
+    source_path: Path
+    filename: str
+    content_type: str
+    sha256: str
+
+    def read(self) -> bytes:
+        try:
+            content = self.source_path.read_bytes()
+        except OSError as error:
+            raise ImproperlyConfigured(
+                f"Nie można odczytać zatwierdzonego medium: {self.source_path}"
+            ) from error
+        if not content or hashlib.sha256(content).hexdigest() != self.sha256:
+            raise ImproperlyConfigured(
+                f"Zatwierdzone medium ma nieprawidłową sumę: {self.source_path}"
+            )
+        return content
+
+
+@dataclass(frozen=True, slots=True)
 class PageTemplate:
     id: str
     version: int
     category: str
     labels: dict[str, dict[str, str]]
     required_entitlements: tuple[str, ...]
+    media: tuple[ApprovedTemplateMedia, ...]
     blocks: tuple[dict[str, Any], ...]
 
     def draft_blocks(self) -> list[dict[str, Any]]:
@@ -101,17 +125,50 @@ def page_template_catalog() -> PageTemplateCatalog:
                         schema_version=block["schema_version"],
                         data=block["data"],
                     )
+                media = _approved_media(
+                    contract_directory=contract_directory,
+                    recipe=recipe,
+                )
                 templates[template_id][version] = PageTemplate(
                     id=template_id,
                     version=version,
                     category=recipe["category"],
                     labels=recipe["labels"],
                     required_entitlements=tuple(recipe.get("requiredEntitlements", [])),
+                    media=media,
                     blocks=blocks,
                 )
     except (APIException, KeyError, TypeError, ValueError) as error:
         raise ImproperlyConfigured("Manifest szablonów stron jest nieprawidłowy") from error
     return PageTemplateCatalog(templates=templates)
+
+
+def _approved_media(
+    *,
+    contract_directory: Path,
+    recipe: dict[str, Any],
+) -> tuple[ApprovedTemplateMedia, ...]:
+    asset_directory = (contract_directory / "assets").resolve()
+    approved: list[ApprovedTemplateMedia] = []
+    seen_ids: set[str] = set()
+    for item in recipe.get("media", []):
+        media_id = item["id"]
+        if media_id in seen_ids:
+            raise ImproperlyConfigured(f"Powielone medium recepty: {media_id}")
+        seen_ids.add(media_id)
+        source_path = (contract_directory / item["source"]).resolve()
+        if not source_path.is_relative_to(asset_directory):
+            raise ImproperlyConfigured("Medium recepty wychodzi poza katalog assets")
+        approved.append(
+            ApprovedTemplateMedia(
+                id=media_id,
+                source_path=source_path,
+                filename=item["filename"],
+                content_type=item["contentType"],
+                sha256=item["sha256"],
+            )
+        )
+    return tuple(approved)
 
 
 def _read_json(path: Path) -> dict[str, Any]:

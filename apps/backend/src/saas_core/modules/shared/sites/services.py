@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
@@ -31,6 +32,10 @@ from saas_core.modules.shared.billing.api import (
     FeatureOperation,
     authorize_entitled,
     consume_quota,
+)
+from saas_core.modules.shared.media.api import (
+    discard_approved_media_asset_objects,
+    materialize_approved_media_asset,
 )
 from saas_core.observability import correlation_id
 
@@ -767,32 +772,57 @@ def import_page_template(
     )
     for entitlement in template.required_entitlements:
         authorize_entitled(SITE_CONTENT_EDIT, entitlement)
-    result = save_draft(
-        page_id=page_id,
-        expected_version=expected_version,
-        blocks=template.draft_blocks(),
-        media_asset_ids=[],
-        idempotency_key=idempotency_key,
-        request_context={
-            "operation": "page_template_import",
-            "template_id": template.id,
-            "template_version": template.version,
-        },
-    )
-    if result.created:
-        context = require_tenant_context()
-        record_audit(
-            organization=Organization.objects.get(pk=context.organization_id),
-            action=PAGE_TEMPLATE_IMPORTED,
-            actor=User.objects.get(pk=context.actor_id),
-            target_type="page_version",
-            target_id=result.value.id,
-            metadata={
-                "page_id": str(page_id),
+    materializations = []
+    try:
+        for medium in template.media:
+            materializations.append(
+                materialize_approved_media_asset(
+                    source_key=(
+                        "template:"
+                        + hashlib.sha256(
+                            (
+                                f"{template.id}:{template.version}:"
+                                f"{medium.id}:{medium.sha256}"
+                            ).encode()
+                        ).hexdigest()
+                    ),
+                    filename=medium.filename,
+                    content_type=medium.content_type,
+                    content=medium.read(),
+                )
+            )
+        result = save_draft(
+            page_id=page_id,
+            expected_version=expected_version,
+            blocks=template.draft_blocks(),
+            media_asset_ids=[item.asset.id for item in materializations],
+            idempotency_key=idempotency_key,
+            request_context={
+                "operation": "page_template_import",
                 "template_id": template.id,
                 "template_version": template.version,
             },
         )
+        if result.created:
+            context = require_tenant_context()
+            record_audit(
+                organization=Organization.objects.get(pk=context.organization_id),
+                action=PAGE_TEMPLATE_IMPORTED,
+                actor=User.objects.get(pk=context.actor_id),
+                target_type="page_version",
+                target_id=result.value.id,
+                metadata={
+                    "page_id": str(page_id),
+                    "template_id": template.id,
+                    "template_version": template.version,
+                    "media_asset_count": len(materializations),
+                },
+            )
+    except Exception:
+        for item in materializations:
+            if item.created:
+                discard_approved_media_asset_objects(asset=item.asset)
+        raise
     return result
 
 

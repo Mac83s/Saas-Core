@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import timedelta
+from io import BytesIO
 from pathlib import Path
 from shutil import copytree
 from typing import Any
@@ -10,7 +12,7 @@ from uuid import uuid7
 import pytest
 from django.conf import settings
 from django.core.cache import cache
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ImproperlyConfigured, ValidationError
 from django.db import (
     DatabaseError,
     IntegrityError,
@@ -20,6 +22,7 @@ from django.db import (
 )
 from django.test import override_settings
 from django.utils import timezone
+from PIL import Image
 from rest_framework.test import APIClient
 
 from saas_core.modules.core.identity.models import User, UserStatus
@@ -44,6 +47,8 @@ from saas_core.modules.shared.media.models import (
     MediaReference,
     MediaReferenceOwner,
 )
+from saas_core.modules.shared.media.scanner import MalwareVerdict
+from saas_core.modules.shared.media.storage import ObjectMetadata, ObjectNotFoundError
 from saas_core.modules.shared.sites.models import (
     NavigationItem,
     Page,
@@ -109,6 +114,48 @@ def sites_client(
 
 def csrf_value(client: APIClient) -> str:
     return client.cookies["csrftoken"].value
+
+
+class TemplateMediaStorage:
+    def __init__(self) -> None:
+        self.objects: dict[str, tuple[bytes, str]] = {}
+        self.put_calls: list[str] = []
+
+    def head(self, *, object_key: str) -> ObjectMetadata:
+        try:
+            content, content_type = self.objects[object_key]
+        except KeyError as error:
+            raise ObjectNotFoundError(object_key) from error
+        return ObjectMetadata(content_length=len(content), content_type=content_type)
+
+    def read(self, *, object_key: str, max_bytes: int) -> bytes:
+        content = self.objects[object_key][0]
+        assert len(content) <= max_bytes
+        return content
+
+    def put(self, *, object_key: str, content: bytes, content_type: str) -> None:
+        self.put_calls.append(object_key)
+        self.objects[object_key] = (content, content_type)
+
+    def delete(self, *, object_key: str) -> None:
+        self.objects.pop(object_key, None)
+
+
+class CleanTemplateMediaScanner:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def scan(self, content: bytes) -> MalwareVerdict:
+        assert content
+        self.calls += 1
+        return MalwareVerdict.CLEAN
+
+
+def template_png() -> bytes:
+    image = Image.new("RGB", (40, 30), color=(24, 96, 180))
+    output = BytesIO()
+    image.save(output, format="PNG")
+    return output.getvalue()
 
 
 def create_site(
@@ -623,6 +670,194 @@ def test_page_template_import_enforces_recipe_entitlements(tmp_path: Path) -> No
     assert denied.status_code == 403
     assert denied.data["code"] == "entitlement_required"
     assert PageVersion.all_objects.filter(organization=organization).count() == 0
+
+
+def test_page_template_import_materializes_approved_media_once_per_tenant(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from saas_core.modules.shared.sites.page_templates import page_template_catalog
+
+    client, organization, _ = sites_client(slug="sites-template-media")
+    snapshot = EntitlementSnapshot.all_objects.get(organization=organization)
+    snapshot.features["storage.enabled"] = True
+    snapshot.quotas["storage.bytes"] = 10 * 1024**2
+    snapshot.sources["storage.enabled"] = {"kind": "plan"}
+    snapshot.sources["storage.bytes"] = {"kind": "plan"}
+    snapshot.save(update_fields=["features", "quotas", "sources", "updated_at"])
+
+    storage = TemplateMediaStorage()
+    scanner = CleanTemplateMediaScanner()
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.services.get_object_storage",
+        lambda: storage,
+    )
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.services.get_malware_scanner",
+        lambda: scanner,
+    )
+
+    source = Path(settings.PAGE_TEMPLATE_CONTRACTS_PATH)
+    contracts = tmp_path / "page-templates"
+    copytree(source, contracts)
+    media_content = template_png()
+    media_path = contracts / "assets" / "profile" / "hero.png"
+    media_path.parent.mkdir(parents=True)
+    media_path.write_bytes(media_content)
+    recipe_path = contracts / "core.profile.v1.json"
+    recipe = json.loads(recipe_path.read_text(encoding="utf-8"))
+    recipe["media"] = [
+        {
+            "id": "hero",
+            "source": "assets/profile/hero.png",
+            "filename": "profile-hero.png",
+            "contentType": "image/png",
+            "sha256": hashlib.sha256(media_content).hexdigest(),
+        }
+    ]
+    recipe_path.write_text(json.dumps(recipe), encoding="utf-8")
+
+    site = create_site(client)
+    first_page = create_page(client, site.data["id"])
+    page_template_catalog.cache_clear()
+    try:
+        with override_settings(PAGE_TEMPLATE_CONTRACTS_PATH=contracts):
+            stale = import_page_template(
+                client,
+                first_page.data["id"],
+                expected_version=99,
+                idempotency_key="template-media-stale",
+            )
+            assert stale.status_code == 409
+            assert storage.objects == {}
+            assert MediaAsset.all_objects.filter(organization=organization).count() == 0
+            assert (
+                QuotaUsage.all_objects.filter(
+                    organization=organization,
+                    quota_definition__key="storage.bytes",
+                ).count()
+                == 0
+            )
+
+            first = import_page_template(
+                client,
+                first_page.data["id"],
+                expected_version=0,
+                idempotency_key="template-media-first",
+            )
+
+            second_user = User.objects.create_user(
+                email="sites-template-media-second@example.test",
+                password=PASSWORD,
+            )
+            second_user.status = UserStatus.ACTIVE
+            second_user.save()
+            Membership.objects.create(
+                organization=organization,
+                user=second_user,
+                role=Role.objects.get(key="manager", organization=None),
+            )
+            second_client = APIClient(enforce_csrf_checks=True)
+            csrf = second_client.get("/api/v1/auth/csrf/").data["csrf_token"]
+            login = second_client.post(
+                "/api/v1/auth/login/",
+                {"email": second_user.email, "password": PASSWORD},
+                format="json",
+                HTTP_X_CSRFTOKEN=csrf,
+            )
+            assert login.status_code == 200
+            second_page = create_page(
+                second_client,
+                site.data["id"],
+                key="about",
+                idempotency_key="page-create-second",
+            )
+            second = import_page_template(
+                second_client,
+                second_page.data["id"],
+                expected_version=0,
+                idempotency_key="template-media-second",
+            )
+    finally:
+        page_template_catalog.cache_clear()
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert len(first.data["media_asset_ids"]) == 1
+    assert second.data["media_asset_ids"] == first.data["media_asset_ids"]
+    asset = MediaAsset.all_objects.get(organization=organization)
+    assert asset.id == first.data["media_asset_ids"][0]
+    assert asset.state == MediaAssetState.READY
+    assert asset.quota_committed is True
+    assert scanner.calls == 2
+    assert len(storage.put_calls) == 8
+    assert (
+        MediaReference.all_objects.filter(
+            organization=organization,
+            asset=asset,
+            owner_type=MediaReferenceOwner.PAGE_VERSION,
+        ).count()
+        == 2
+    )
+    usage = QuotaUsage.all_objects.get(
+        organization=organization,
+        quota_definition__key="storage.bytes",
+    )
+    assert usage.used == asset.stored_size
+
+
+def test_page_template_approved_media_rejects_escape_and_checksum_drift(
+    tmp_path: Path,
+) -> None:
+    from saas_core.modules.shared.sites.page_templates import page_template_catalog
+
+    source = Path(settings.PAGE_TEMPLATE_CONTRACTS_PATH)
+    contracts = tmp_path / "page-templates"
+    copytree(source, contracts)
+    content = template_png()
+    outside = contracts / "outside.png"
+    outside.write_bytes(content)
+    recipe_path = contracts / "core.profile.v1.json"
+    recipe = json.loads(recipe_path.read_text(encoding="utf-8"))
+    recipe["media"] = [
+        {
+            "id": "hero",
+            "source": "assets/a/../../outside.png",
+            "filename": "profile-hero.png",
+            "contentType": "image/png",
+            "sha256": hashlib.sha256(content).hexdigest(),
+        }
+    ]
+    recipe_path.write_text(json.dumps(recipe), encoding="utf-8")
+
+    page_template_catalog.cache_clear()
+    try:
+        with (
+            override_settings(PAGE_TEMPLATE_CONTRACTS_PATH=contracts),
+            pytest.raises(ImproperlyConfigured, match="poza katalog assets"),
+        ):
+            page_template_catalog()
+    finally:
+        page_template_catalog.cache_clear()
+
+    safe_path = contracts / "assets" / "profile" / "hero.png"
+    safe_path.parent.mkdir(parents=True)
+    safe_path.write_bytes(content)
+    recipe["media"][0]["source"] = "assets/profile/hero.png"
+    recipe["media"][0]["sha256"] = "0" * 64
+    recipe_path.write_text(json.dumps(recipe), encoding="utf-8")
+
+    page_template_catalog.cache_clear()
+    try:
+        with override_settings(PAGE_TEMPLATE_CONTRACTS_PATH=contracts):
+            medium = page_template_catalog().get(
+                template_id="core.profile",
+                version=1,
+            ).media[0]
+            with pytest.raises(ImproperlyConfigured, match="nieprawidłową sumę"):
+                medium.read()
+    finally:
+        page_template_catalog.cache_clear()
 
 
 def test_draft_uses_canonical_block_contracts_after_authorization() -> None:

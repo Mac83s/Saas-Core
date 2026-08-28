@@ -57,11 +57,13 @@ sesji z dostępem do hosta, domeny, GHCR i GitHub Environment.
 ## Dowody walidacji
 
 - pełna bramka backendu: Ruff, import-linter, brak dryfu migracji, Mypy 0 błędów
-  w 231 plikach i **358 testów**;
-- import szablonu: **2 testy** obejmujące optimistic lock, idempotentne
-  ponowienie, konflikt zmienionego replaya, exact-tenant, brak recepty, audit i
-  odmowę przy brakującym entitlementcie;
-- pełne testy workspace'u JS: contracts **10**, UI **8**, site-blocks **11**,
+  w 231 plikach i **360 testów**;
+- import szablonu: **4 testy** obejmujące optimistic lock, idempotentne
+  ponowienie, konflikt zmienionego replaya, exact-tenant, brak recepty, audit,
+  odmowę przy brakującym entitlementcie oraz materializację zatwierdzonego
+  medium z checksum, skanowaniem, quota, reuse między aktorami i kompensacją
+  storage po rollbacku draftu;
+- pełne testy workspace'u JS: contracts **12**, UI **8**, site-blocks **13**,
   frontend **71**; lint, typecheck, build Next.js i `api:check` przeszły;
 - skrypt `api:check` uruchamia teraz izolowane środowisko backendu również na
   Windows zamiast próbować wykonać linuksowy `.venv/bin/python`;
@@ -73,7 +75,7 @@ Lokalny host ma Node.js 22 i emituje ostrzeżenie `engines`; właściwy runtime
 Node.js 24 został potwierdzony buildem obrazu frontendowego. Testy backendu
 wymagają zdrowego PostgreSQL i Redis. Pełny pytest może przy zamykaniu zgłosić
 ostrzeżenie o dwóch sesjach testowej bazy pozostawionych chwilowo przez testy
-wielowątkowych wyścigów; wynik pozostaje 358/358.
+wielowątkowych wyścigów; wynik pozostaje 360/360.
 
 ## Następny cel wykonawczy
 
@@ -84,19 +86,24 @@ W9.5.4 ma już trzy kanoniczne recepty, katalog sekcji oraz backendowy import.
 `PageVersion` przez `save_draft`; panel używa endpointu bezpośrednio, więc
 `requiredEntitlements` nie da się ominąć ścieżką UI.
 
+Kontrakt recepty obsługuje już opcjonalne, zatwierdzone media z lokalnym źródłem,
+MIME i SHA-256. Import materializuje je jako tenantowe `MediaAsset` przez ten sam
+pipeline co upload użytkownika: skan malware, normalizacja, warianty, storage
+quota i audyt. Deterministyczna tożsamość daje jeden rekord na organizację także
+przy imporcie przez różnych managerów, a kompensacja usuwa obiekty z storage,
+jeśli późniejszy optimistic lock lub zapis draftu cofnie transakcję. Dzisiejsze
+trzy recepty v1 pozostają bez mediów; obrazy wejdą jako nowe wersje recept.
+
 Do zamknięcia W9.5.4:
 
-1. rozszerzyć kontrakt recepty o zatwierdzone media i wdrożyć ich idempotentną
-   materializację jako tenantowych `MediaAsset`; dzisiejsze recepty celowo nie
-   mają mediów;
-2. przygotować lokalizowane miniatury i preview;
-3. wykonać dowody mobile, klawiatura i axe dla wyboru oraz importu szablonu.
+1. przygotować lokalizowane miniatury i preview;
+2. wykonać dowody mobile, klawiatura i axe dla wyboru oraz importu szablonu.
 
 Biblioteka sekcji ma już 9 z 9 kategorii ADR-031. `core.testimonials`,
 `core.pricing`, `core.booking` i `core.footer` mają kanoniczne JSON Schema,
 deklaratywne pola edytora PL/EN i kontrolowane renderery. Rezerwacja pozostaje
 bezpiecznym CTA — blok nie osadza skryptu ani zewnętrznego widgetu. Kontrakty
-mają **10/10**, site-blocks **13/13**, frontend **71/71**; lint, typecheck i
+mają **12/12**, site-blocks **13/13**, frontend **71/71**; lint, typecheck i
 build Next.js przeszły.
 
 Znane długi frontendu, nietknięte przez te commity:

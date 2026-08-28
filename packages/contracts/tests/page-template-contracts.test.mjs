@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
@@ -123,4 +124,56 @@ test("template link targets stay inside the allowed href forms", async () => {
       );
     }
   }
+});
+
+test("approved template media stays local and content-addressed", async () => {
+  const { templates } = await loadTemplates();
+  const assetRoot = path.resolve(contractRoot, "page-templates", "assets");
+
+  for (const { recipe } of templates) {
+    const ids = new Set();
+    for (const media of recipe.media ?? []) {
+      assert.equal(
+        ids.has(media.id),
+        false,
+        `${recipe.id}: duplicate media id`,
+      );
+      ids.add(media.id);
+      const source = path.resolve(contractRoot, "page-templates", media.source);
+      assert.equal(
+        path.relative(assetRoot, source).startsWith(".."),
+        false,
+        `${recipe.id}: media leaves the approved asset directory`,
+      );
+      const content = await readFile(source);
+      assert.equal(content.length > 0, true, `${recipe.id}: empty media`);
+      assert.equal(
+        createHash("sha256").update(content).digest("hex"),
+        media.sha256,
+        `${recipe.id}: media checksum mismatch`,
+      );
+    }
+  }
+});
+
+test("recipe schema accepts only explicit approved image metadata", async () => {
+  const { validateRecipe, templates } = await loadTemplates();
+  const candidate = structuredClone(templates[0].recipe);
+  candidate.media = [
+    {
+      id: "hero",
+      source: "assets/profile/hero.webp",
+      filename: "hero.webp",
+      contentType: "image/webp",
+      sha256: "a".repeat(64),
+    },
+  ];
+  assert.equal(
+    validateRecipe(candidate),
+    true,
+    JSON.stringify(validateRecipe.errors),
+  );
+
+  candidate.media[0].contentType = "image/svg+xml";
+  assert.equal(validateRecipe(candidate), false);
 });

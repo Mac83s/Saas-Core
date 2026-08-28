@@ -167,6 +167,14 @@ export interface PageTemplateLabel {
   readonly description: string;
 }
 
+export interface ApprovedTemplateMedia {
+  readonly id: string;
+  readonly source: string;
+  readonly filename: string;
+  readonly contentType: "image/jpeg" | "image/png" | "image/webp";
+  readonly sha256: string;
+}
+
 /** A versioned, immutable recipe: applying it copies these blocks into a new
  *  draft, and later edits to the page never touch the template (ADR-031). */
 export interface PageTemplate {
@@ -175,6 +183,7 @@ export interface PageTemplate {
   readonly category: "profile" | "landing" | "company";
   readonly labels: Readonly<Record<"pl" | "en", PageTemplateLabel>>;
   readonly requiredEntitlements?: readonly string[];
+  readonly media?: readonly ApprovedTemplateMedia[];
   readonly blocks: readonly SiteBlock[];
 }
 

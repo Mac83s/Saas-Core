@@ -5,10 +5,11 @@ import json
 import math
 import secrets
 import unicodedata
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import PurePosixPath
-from uuid import UUID
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 from django.conf import settings
 from django.db import transaction
@@ -39,6 +40,7 @@ from .scanner import MalwareScanner, MalwareVerdict, get_malware_scanner
 from .storage import (
     ObjectNotFoundError,
     ObjectStorage,
+    ObjectStorageError,
     ObjectTooLargeError,
     SignedUpload,
     get_object_storage,
@@ -105,6 +107,12 @@ class MediaUploadMetadataMismatch(APIException):
     default_code = "media_upload_metadata_mismatch"
 
 
+class ApprovedMediaMaterializationFailed(APIException):
+    status_code = 409
+    default_detail = "Zatwierdzone medium szablonu nie mogło zostać przygotowane."
+    default_code = "approved_media_materialization_failed"
+
+
 @dataclass(frozen=True, slots=True)
 class MediaUploadIntent:
     asset: MediaAsset
@@ -114,6 +122,12 @@ class MediaUploadIntent:
 
 @dataclass(frozen=True, slots=True)
 class MediaDeletion:
+    asset: MediaAsset
+    created: bool
+
+
+@dataclass(frozen=True, slots=True)
+class ApprovedMediaMaterialization:
     asset: MediaAsset
     created: bool
 
@@ -213,6 +227,129 @@ def initiate_media_upload(
         upload=_sign_upload(asset, storage=storage),
         created=True,
     )
+
+
+@transaction.atomic
+def materialize_approved_media_asset(
+    *,
+    source_key: str,
+    filename: str,
+    content_type: str,
+    content: bytes,
+    storage: ObjectStorage | None = None,
+    scanner: MalwareScanner | None = None,
+) -> ApprovedMediaMaterialization:
+    context = authorize_entitled(MEDIA_MANAGE, STORAGE_ENABLED)
+    normalized_source_key = _idempotency_key(source_key)
+    normalized_name = _safe_filename(filename)
+    normalized_type = content_type.strip().lower()
+    extension = ALLOWED_MEDIA_TYPES.get(normalized_type)
+    if extension is None:
+        raise UnsupportedMediaType
+    if not content or len(content) > settings.MEDIA_MAX_UPLOAD_BYTES:
+        raise MediaUploadTooLarge
+
+    content_sha256 = hashlib.sha256(content).hexdigest()
+    request_hash = _canonical_hash({
+        "source_key": normalized_source_key,
+        "filename": normalized_name,
+        "content_type": normalized_type,
+        "size": len(content),
+        "sha256": content_sha256,
+    })
+    organization = Organization.objects.select_for_update().get(pk=context.organization_id)
+    asset_id = uuid5(
+        NAMESPACE_URL,
+        f"saas-core:approved-media:{context.organization_id}:{normalized_source_key}",
+    )
+    existing = MediaAsset.all_objects.filter(
+        pk=asset_id,
+        organization_id=context.organization_id,
+    ).first()
+    if existing is not None:
+        if existing.request_hash != request_hash or existing.state != MediaAssetState.READY:
+            raise MediaIdempotencyConflict
+        return ApprovedMediaMaterialization(asset=existing, created=False)
+
+    quota_identity = f"{context.organization_id}:{normalized_source_key}"
+    quota_key = f"approved-media:{hashlib.sha256(quota_identity.encode()).hexdigest()}"
+    reserve_quota(
+        STORAGE_BYTES,
+        amount=len(content),
+        idempotency_key=quota_key,
+        expires_at=timezone.now()
+        + timedelta(seconds=settings.MEDIA_PROCESSING_RESERVATION_TTL_SECONDS),
+    )
+    actor = User.objects.get(pk=context.actor_id)
+    asset = MediaAsset.all_objects.create(
+        id=asset_id,
+        organization=organization,
+        original_filename=normalized_name,
+        object_key=f"{context.organization_id}/originals/{asset_id}{extension}",
+        declared_mime=normalized_type,
+        expected_size=len(content),
+        quota_reservation_key=quota_key,
+        upload_expires_at=timezone.now()
+        + timedelta(seconds=settings.MEDIA_PROCESSING_RESERVATION_TTL_SECONDS),
+        created_by=actor,
+        idempotency_key=normalized_source_key,
+        request_hash=request_hash,
+    )
+    record_audit(
+        organization=organization,
+        action=MEDIA_UPLOAD_INITIATED,
+        actor=actor,
+        target_type="media_asset",
+        target_id=asset.id,
+        metadata={
+            "approved_source": normalized_source_key,
+            "content_type": normalized_type,
+            "expected_size": len(content),
+        },
+    )
+
+    object_storage = storage or get_object_storage()
+    original_key = asset.object_key
+    cleanup_keys = (
+        original_key,
+        _processed_object_key(asset),
+        _variant_object_key(asset, "thumbnail"),
+        _variant_object_key(asset, "preview"),
+    )
+    try:
+        object_storage.put(
+            object_key=original_key,
+            content=content,
+            content_type=normalized_type,
+        )
+        complete_media_upload(asset_id=asset.id, storage=object_storage)
+        processed = process_media_asset(
+            asset_id=asset.id,
+            storage=object_storage,
+            scanner=scanner,
+        )
+        if processed is None or processed.state != MediaAssetState.READY:
+            raise ApprovedMediaMaterializationFailed
+    except Exception:
+        for object_key in cleanup_keys:
+            with suppress(ObjectStorageError):
+                object_storage.delete(object_key=object_key)
+        raise
+    return ApprovedMediaMaterialization(asset=processed, created=True)
+
+
+def discard_approved_media_asset_objects(
+    *,
+    asset: MediaAsset,
+    storage: ObjectStorage | None = None,
+) -> None:
+    context = require_tenant_context()
+    if asset.organization_id != context.organization_id:
+        raise MediaAssetNotFound
+    object_storage = storage or get_object_storage()
+    for object_key in _stored_object_keys(asset):
+        with suppress(ObjectStorageError):
+            object_storage.delete(object_key=object_key)
 
 
 def complete_media_upload(
