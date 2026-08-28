@@ -100,36 +100,41 @@ class ApiKeyTenantContextMiddleware:
                 403,
             )
 
-        # Audit rows reference a real person, and the honest answer to "who did
-        # this" is the operator who issued the credential. A synthetic id would
-        # break every audit write and tell nobody anything.
-        api_key = ApiKey.all_objects.filter(pk=route.api_key_id).first()
-        if api_key is None:
-            return _problem(
-                "Klucz API jest nieprawidłowy albo nie ma wymaganego zakresu.",
-                "api_key_invalid",
-                401,
-            )
-
         permissions: set[str] = set()
         for scope in route.scopes:
             permissions |= SCOPE_PERMISSIONS.get(scope, frozenset())
-        context = TenantContext(
-            organization_id=organization.id,
-            # No membership exists for a key; the id is synthetic so audit rows
-            # stay well-formed. `principal_kind` is what the domain services
-            # actually branch on.
-            membership_id=uuid7(),
-            actor_id=api_key.created_by_id,
-            role_key="integration",
-            permissions=frozenset(permissions),
-            principal_kind=API_KEY_PRINCIPAL,
-            credential_id=api_key.id,
-        )
+
         with transaction.atomic():
+            # The order here is load-bearing. `notifications_apikey` carries
+            # forced row-level security, so without the tenant setting the app
+            # role sees no rows at all and every key would look invalid. The
+            # credential route is the deliberately un-tenanted lookup table that
+            # tells us *which* organization to set before reading anything else.
+            set_local_organization_id(organization.id)
+            # Audit rows reference a real person, and the honest answer to "who
+            # did this" is the operator who issued the credential. A synthetic
+            # id would break every audit write and tell nobody anything.
+            api_key = ApiKey.all_objects.filter(pk=route.api_key_id).first()
+            if api_key is None:
+                return _problem(
+                    "Klucz API jest nieprawidłowy albo nie ma wymaganego zakresu.",
+                    "api_key_invalid",
+                    401,
+                )
+            context = TenantContext(
+                organization_id=organization.id,
+                # No membership exists for a key; the id is synthetic so audit
+                # rows stay well-formed. `principal_kind` is what the domain
+                # services actually branch on.
+                membership_id=uuid7(),
+                actor_id=api_key.created_by_id,
+                role_key="integration",
+                permissions=frozenset(permissions),
+                principal_kind=API_KEY_PRINCIPAL,
+                credential_id=api_key.id,
+            )
             cast(Any, request).tenant_context = context
             with activate_tenant_context(context):
-                set_local_organization_id(organization.id)
                 return self.get_response(request)
 
 

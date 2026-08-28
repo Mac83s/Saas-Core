@@ -17,13 +17,7 @@ import {
   type SubmitHandler,
   type UseFormReturn,
 } from "react-hook-form";
-import {
-  BotIcon,
-  FileTextIcon,
-  HandIcon,
-  PlusIcon,
-  RefreshCwIcon,
-} from "lucide-react";
+import { FileTextIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
 import { z } from "zod";
 
 import {
@@ -55,6 +49,7 @@ import {
 import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
+import { AutomationPolicyField } from "./automation-policy";
 import { EntryEditor } from "./entry-editor";
 import { mutationKey, type MutationReceipt } from "./idempotency";
 import { sitesErrorMessage } from "./problem";
@@ -205,19 +200,6 @@ export function BlogPanel({ siteId }: { siteId: string }) {
       setEntryId(created.id);
     });
 
-  function togglePolicy() {
-    if (!collection) return;
-    void run(async () => {
-      const updated = await setCollectionAutomationPolicy(
-        collection.id,
-        collection.automation_policy === "automated" ? "manual" : "automated",
-      );
-      setCollections((current) =>
-        current.map((item) => (item.id === updated.id ? updated : item)),
-      );
-    });
-  }
-
   function publish(target: ContentEntry) {
     void run(async () => {
       await publishContentEntry(
@@ -341,34 +323,24 @@ export function BlogPanel({ siteId }: { siteId: string }) {
                 </Field>
               )}
 
-              {/* Who may write this surface. A credential cannot flip it — the
-                  endpoint is session-only — so the switch is exactly the
-                  operator's decision from ADR-035 §4a. */}
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3">
-                <div className="space-y-1">
-                  <p className="font-medium">{t("automationTitle")}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {collection.automation_policy === "automated"
-                      ? t("automationAutomatedHint")
-                      : t("automationManualHint")}
-                  </p>
-                </div>
-                <Button
-                  disabled={busy}
-                  onClick={togglePolicy}
-                  type="button"
-                  variant="outline"
-                >
-                  {collection.automation_policy === "automated" ? (
-                    <HandIcon aria-hidden="true" />
-                  ) : (
-                    <BotIcon aria-hidden="true" />
-                  )}
-                  {collection.automation_policy === "automated"
-                    ? t("automationTakeBack")
-                    : t("automationHandOver")}
-                </Button>
-              </div>
+              <AutomationPolicyField
+                busy={busy}
+                id="collection-policy"
+                onChange={(policy) =>
+                  void run(async () => {
+                    const updated = await setCollectionAutomationPolicy(
+                      collection.id,
+                      policy,
+                    );
+                    setCollections((current) =>
+                      current.map((item) =>
+                        item.id === updated.id ? updated : item,
+                      ),
+                    );
+                  })
+                }
+                value={collection.automation_policy}
+              />
 
               {entries.length === 0 ? (
                 <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
@@ -399,6 +371,9 @@ export function BlogPanel({ siteId }: { siteId: string }) {
                             : "blogStateDraft",
                         )}
                       </Badge>
+                      {item.draft_author === "automation" && (
+                        <Badge variant="outline">{t("blogProposal")}</Badge>
+                      )}
                       <Button
                         aria-label={t("blogEdit", { title: item.title })}
                         onClick={() => setEntryId(item.id)}
@@ -519,6 +494,7 @@ export function BlogPanel({ siteId }: { siteId: string }) {
           entry={entry}
           key={entry.id}
           locked={collection?.automation_policy === "automated"}
+          proposal={entry.draft_author === "automation"}
           onSaved={() => {
             if (collectionId) void loadEntries(collectionId);
           }}

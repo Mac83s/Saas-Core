@@ -562,3 +562,184 @@ def test_site_grant_covers_its_collections_but_a_collection_grant_does_not_widen
     # A whole-site grant reaches the collections inside it, which is what makes
     # it the wider of the two and worth choosing deliberately.
     assert str(draft.entry.id) == str(entry.data["id"])
+
+
+def test_proposed_policy_lets_automation_draft_but_not_publish() -> None:
+    """The middle setting: a cautious client wants the article written for them
+    and still decides for themselves whether readers ever see it."""
+    from saas_core.modules.core.organizations.context import activate_tenant_context
+    from saas_core.modules.shared.sites.collections import (
+        publish_entry,
+        save_entry_draft,
+        withdraw_entry,
+    )
+    from saas_core.modules.shared.sites.models import (
+        ContentAutomationGrant,
+        ContentCollection,
+        ContentEntryVersion,
+    )
+    from saas_core.modules.shared.sites.services import PageAutomationForbidden
+    from test_sites_api import automation_context
+
+    client, organization, user = sites_client(slug="entry-proposed", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    entry = create_entry(
+        client, collection.data["id"], slug="wpis", idempotency_key="proposed-entry"
+    )
+    credential_id = uuid7()
+    ContentAutomationGrant.all_objects.create(
+        organization=organization,
+        credential_id=credential_id,
+        collection_id=collection.data["id"],
+        mode="autonomous",
+        created_by=user,
+    )
+    ContentCollection.all_objects.filter(pk=collection.data["id"]).update(
+        automation_policy=PageAutomationPolicy.PROPOSED
+    )
+
+    with activate_tenant_context(
+        automation_context(
+            organization.id,
+            user.id,
+            credential_id=credential_id,
+            may_publish=True,
+        )
+    ):
+        version, created = save_entry_draft(
+            entry_id=entry.data["id"],
+            expected_version=0,
+            blocks=[
+                {
+                    "block_type": "core.rich_text",
+                    "schema_version": 1,
+                    "data": {"text": "Propozycja od automatyzacji."},
+                }
+            ],
+            idempotency_key="proposal-draft",
+        )
+        assert created is True
+
+        # Publishing its own proposal would make the acceptance step a fiction.
+        with pytest.raises(PageAutomationForbidden):
+            publish_entry(
+                entry_id=entry.data["id"], idempotency_key="proposal-publish"
+            )
+        with pytest.raises(PageAutomationForbidden):
+            withdraw_entry(entry_id=entry.data["id"])
+
+    stored = ContentEntryVersion.all_objects.get(pk=version.id)
+    # The panel tells a proposal from the operator's own draft by this column;
+    # `created_by` names the person the credential was issued by, not the writer.
+    assert stored.created_by_credential == credential_id
+
+    published = client.post(
+        f"/api/v1/sites/entries/{entry.data['id']}/publication/",
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+        HTTP_IDEMPOTENCY_KEY="human-accepts",
+    )
+    assert published.status_code == 201
+
+
+def test_entry_listing_reports_who_wrote_the_waiting_draft() -> None:
+    client, _organization, _user = sites_client(slug="entry-author", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    entry = create_entry(
+        client, collection.data["id"], slug="wpis", idempotency_key="author-entry"
+    )
+    listed = client.get(f"/api/v1/sites/collections/{collection.data['id']}/entries/")
+    assert listed.json()["items"][0]["draft_author"] is None
+
+    client.put(
+        f"/api/v1/sites/entries/{entry.data['id']}/draft/",
+        {
+            "expected_version": 0,
+            "blocks": [
+                {
+                    "block_type": "core.rich_text",
+                    "schema_version": 1,
+                    "data": {"text": "Napisane ręcznie."},
+                }
+            ],
+        },
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+        HTTP_IDEMPOTENCY_KEY="author-draft",
+    )
+    listed = client.get(f"/api/v1/sites/collections/{collection.data['id']}/entries/")
+    assert listed.json()["items"][0]["draft_author"] == "person"
+
+
+def test_api_key_row_is_read_only_after_the_tenant_setting() -> None:
+    """`notifications_apikey` enforces row-level security, so reading the key
+    before `SET LOCAL app.organization_id` returns nothing and every credential
+    looks invalid.
+
+    The test database connects as an owner that bypasses RLS, which is why a
+    passing suite said nothing: this asserts the statement *order* instead, the
+    one thing that stays observable either way.
+    """
+    from django.contrib.auth.hashers import make_password
+    from django.db import connection
+    from django.test import Client
+    from django.test.utils import CaptureQueriesContext
+
+    from saas_core.modules.shared.notifications.models import (
+        ApiKey,
+        ApiKeyCredentialRoute,
+    )
+    from saas_core.modules.shared.sites.models import ContentAutomationGrant
+
+    client, organization, user = sites_client(slug="api-key-order", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    entry = create_entry(
+        client, collection.data["id"], slug="wpis-order", idempotency_key="order-entry"
+    )
+    raw = "sc_live_" + "o" * 32
+    scopes = ["content:read", "content:draft"]
+    api_key = ApiKey.all_objects.create(
+        organization=organization,
+        name="SeoContentRank",
+        prefix=raw[:18],
+        secret_hash=make_password(raw),
+        scopes=scopes,
+        created_by=user,
+    )
+    ApiKeyCredentialRoute.objects.create(
+        prefix=raw[:18],
+        api_key_id=api_key.id,
+        organization_id=organization.id,
+        secret_hash=api_key.secret_hash,
+        scopes=scopes,
+    )
+    ContentAutomationGrant.all_objects.create(
+        organization=organization,
+        credential_id=api_key.id,
+        collection_id=collection.data["id"],
+        mode="autonomous",
+        created_by=user,
+    )
+
+    with CaptureQueriesContext(connection) as captured:
+        response = Client().get(
+            f"/api/v1/sites/entries/{entry.data['id']}/draft/",
+            HTTP_AUTHORIZATION=f"Bearer {raw}",
+        )
+    assert response.status_code == 200
+
+    statements = [query["sql"] for query in captured.captured_queries]
+    tenant_set = next(
+        index
+        for index, sql in enumerate(statements)
+        if "app.organization_id" in sql and "SET LOCAL" in sql.upper()
+    )
+    key_read = next(
+        index
+        for index, sql in enumerate(statements)
+        if 'FROM "notifications_apikey"' in sql and sql.upper().startswith("SELECT")
+    )
+    assert tenant_set < key_read

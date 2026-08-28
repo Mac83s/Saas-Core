@@ -1412,9 +1412,11 @@ export async function createContentCollection(
   return data;
 }
 
+export type AutomationPolicy = "manual" | "proposed" | "automated";
+
 export async function setCollectionAutomationPolicy(
   collectionId: string,
-  policy: "manual" | "automated",
+  policy: AutomationPolicy,
 ): Promise<ContentCollection> {
   const csrfToken = await getCsrfToken();
   const { data, error, response } = await client.PUT(
@@ -1432,7 +1434,7 @@ export async function setCollectionAutomationPolicy(
 
 export async function setPageAutomationPolicy(
   pageId: string,
-  policy: "manual" | "automated",
+  policy: AutomationPolicy,
 ): Promise<PageSummary> {
   const csrfToken = await getCsrfToken();
   const { data, error, response } = await client.PUT(

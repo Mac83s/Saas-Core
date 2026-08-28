@@ -1464,10 +1464,11 @@ export interface components {
         };
         /**
          * @description * `manual` - manual
+         *     * `proposed` - proposed
          *     * `automated` - automated
          * @enum {string}
          */
-        AutomationPolicyEnum: "manual" | "automated";
+        AutomationPolicyEnum: "manual" | "proposed" | "automated";
         BillingSession: {
             id: string;
             /** Format: uri */
@@ -1543,6 +1544,7 @@ export interface components {
             /** Format: date-time */
             published_at: string | null;
             noindex: boolean;
+            draft_author: string | null;
         };
         ContentEntryCreate: {
             slug: string;
@@ -1949,6 +1951,7 @@ export interface components {
             current_draft_id: string | null;
             current_draft_hash: string | null;
             automation_policy: string;
+            draft_author: string | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */

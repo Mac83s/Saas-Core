@@ -483,6 +483,18 @@ def _site_summary(site: Site) -> dict[str, Any]:
     }
 
 
+def _draft_author(version: Any) -> str | None:
+    """Who wrote the draft that is currently waiting.
+
+    `created_by` is always a person — for a credential it is whoever issued it —
+    so the credential column is the only thing that can tell a proposal from
+    the operator's own work.
+    """
+    if version is None:
+        return None
+    return "automation" if version.created_by_credential else "person"
+
+
 def _page_summary(page: Page) -> dict[str, Any]:
     draft = page.current_draft
     return {
@@ -494,6 +506,7 @@ def _page_summary(page: Page) -> dict[str, Any]:
         "current_draft_id": page.current_draft_id,
         "current_draft_hash": draft.content_hash if draft is not None else None,
         "automation_policy": page.automation_policy,
+        "draft_author": _draft_author(draft),
         "created_at": page.created_at,
         "updated_at": page.updated_at,
     }

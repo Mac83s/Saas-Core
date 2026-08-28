@@ -57,6 +57,7 @@ const page = {
   current_draft_id: "019ff20d-a000-7000-8000-000000000021",
   current_draft_hash: "a".repeat(64),
   automation_policy: "manual",
+  draft_author: null,
   created_at: "2026-08-11T12:00:00Z",
   updated_at: "2026-08-11T12:00:00Z",
 };

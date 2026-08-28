@@ -34,6 +34,7 @@ from .models import (
 )
 from .permissions import SITE_CONTENT_EDIT, SITE_PUBLISH, SITES_ENABLED
 from .services import (
+    DRAFTABLE_POLICIES,
     DraftVersionConflict,
     PageAutomationForbidden,
     PageEditingLocked,
@@ -87,16 +88,28 @@ class EntryDraft:
     version: ContentEntryVersion | None
 
 
-def _assert_entry_writable(entry: ContentEntry, collection: ContentCollection) -> None:
+def _assert_entry_writable(
+    entry: ContentEntry,
+    collection: ContentCollection,
+    *,
+    publishing: bool = False,
+) -> None:
     """Same two rules as pages (ADR-035 §4a), applied to the collection: the
-    policy lives on the collection, the momentary lock on the entry."""
+    policy lives on the collection, the momentary lock on the entry.
+
+    Under `proposed` the automation writes the draft and stops there — putting
+    the article in front of readers, or taking it down, stays a person's act.
+    """
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
     if not _is_automation(context):
         return
     assert_within_grant(
         context, site_id=collection.site_id, collection_id=collection.id
     )
-    if collection.automation_policy != PageAutomationPolicy.AUTOMATED:
+    allowed = (
+        {PageAutomationPolicy.AUTOMATED} if publishing else DRAFTABLE_POLICIES
+    )
+    if collection.automation_policy not in allowed:
         raise PageAutomationForbidden
     if (
         entry.editing_locked_until is not None
@@ -197,9 +210,13 @@ def list_entries(
         pk=collection_id, organization_id=context.organization_id
     ).exists():
         raise CollectionNotFound
-    queryset = ContentEntry.all_objects.filter(
-        organization_id=context.organization_id, collection_id=collection_id
-    ).order_by("id")
+    queryset = (
+        # The listing reports who wrote each waiting draft, so the draft comes
+        # with the row rather than one query per entry.
+        ContentEntry.all_objects.select_related("current_draft")
+        .filter(organization_id=context.organization_id, collection_id=collection_id)
+        .order_by("id")
+    )
     if cursor is not None:
         queryset = queryset.filter(id__gt=cursor)
     rows = list(queryset[: limit + 1])
@@ -349,6 +366,9 @@ def save_entry_draft(
         created_by_id=context.actor_id,
         idempotency_key=normalized_key,
         request_hash=request_hash,
+        created_by_credential=(
+            context.credential_id if _is_automation(context) else None
+        ),
     )
     entry.version = version.number
     entry.current_draft = version
@@ -398,7 +418,7 @@ def publish_entry(
     )
     if entry is None:
         raise EntryNotFound
-    _assert_entry_writable(entry, entry.collection)
+    _assert_entry_writable(entry, entry.collection, publishing=True)
     if entry.current_draft is None or not entry.current_draft.blocks:
         raise EntryNotReady
 
@@ -466,7 +486,7 @@ def withdraw_entry(*, entry_id: UUID) -> ContentEntry:
     )
     if entry is None:
         raise EntryNotFound
-    _assert_entry_writable(entry, entry.collection)
+    _assert_entry_writable(entry, entry.collection, publishing=True)
     entry.state = ContentEntryState.WITHDRAWN
     entry.current_publication = None
     entry.save(update_fields=["state", "current_publication", "updated_at"])

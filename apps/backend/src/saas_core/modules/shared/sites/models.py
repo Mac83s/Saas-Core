@@ -108,9 +108,16 @@ class PageAutomationPolicy(models.TextChoices):
 
     `MANUAL` is the default: a page becomes writable by the automation only when
     a human says so, never by an integration granting itself access.
+
+    `PROPOSED` is the middle setting a cautious client needs: the automation may
+    write a draft, but only a person turns that draft into what visitors see.
+    The draft slot is the proposal — there is no second review object yet, so an
+    automated proposal replaces the previous draft rather than queueing behind
+    it (ADR-035 §5 keeps the fuller `ContentChangeSet` contract open).
     """
 
     MANUAL = "manual", "Tylko ludzie"
+    PROPOSED = "proposed", "Propozycje do akceptacji"
     AUTOMATED = "automated", "Automatyzacja treści"
 
 
@@ -622,6 +629,10 @@ class PageVersion(TenantScopedModel):
     idempotency_key = models.CharField(max_length=120)
     request_hash = models.CharField(max_length=64)
     content_hash = models.CharField(max_length=64)
+    # `created_by` is the person a credential was issued by, so it cannot answer
+    # "was this written by a human". A plain id, not a foreign key: the API key
+    # lives in another module and this column only has to distinguish, not join.
+    created_by_credential = models.UUIDField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     all_objects = models.Manager()
@@ -1072,6 +1083,8 @@ class ContentEntryVersion(TenantScopedModel):
     )
     idempotency_key = models.CharField(max_length=120)
     request_hash = models.CharField(max_length=64)
+    # See `PageVersion.created_by_credential`.
+    created_by_credential = models.UUIDField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     all_objects = models.Manager()

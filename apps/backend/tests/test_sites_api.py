@@ -1648,17 +1648,28 @@ def grant_for_site(organization: Any, user: Any, site_id: Any) -> Any:
 
 
 def automation_context(
-    organization_id: Any, actor_id: Any, *, credential_id: Any = None
+    organization_id: Any,
+    actor_id: Any,
+    *,
+    credential_id: Any = None,
+    may_publish: bool = False,
 ) -> Any:
-    """A principal that is not a signed-in person — what an integration gets."""
+    """A principal that is not a signed-in person — what an integration gets.
+
+    `may_publish` mirrors the `content:publish` scope: without it the key cannot
+    reach a publication at all, so a test about the *policy* has to grant it.
+    """
     from saas_core.modules.core.organizations.context import TenantContext
 
+    permissions = {"site.content.edit"}
+    if may_publish:
+        permissions.add("site.publish")
     return TenantContext(
         organization_id=organization_id,
         membership_id=uuid7(),
         actor_id=actor_id,
         role_key="integration",
-        permissions=frozenset({"site.content.edit"}),
+        permissions=frozenset(permissions),
         principal_kind="api_key",
         credential_id=credential_id,
     )
@@ -1744,3 +1755,63 @@ def test_manual_editing_lock_holds_the_automation_off_until_it_lapses() -> None:
     page.editing_locked_until = timezone.now() - timedelta(seconds=1)
     page.save(update_fields=["editing_locked_until"])
     assert_page_writable(page, context)
+
+
+def test_site_publication_refuses_automation_while_a_proposal_waits() -> None:
+    """Publishing the site would otherwise ship the automation's own proposal:
+    the page policy governs the draft, but a publication is site-wide."""
+    from saas_core.modules.core.organizations.context import activate_tenant_context
+    from saas_core.modules.shared.sites.models import (
+        ContentAutomationGrant,
+        Page,
+        PageAutomationPolicy,
+    )
+    from saas_core.modules.shared.sites.services import (
+        PageAutomationForbidden,
+        publish_site,
+    )
+
+    client, organization, user = sites_client(slug="proposal-publish", role_key="owner")
+    site = create_site(client)
+    page = create_page(client, site.data["id"])
+    save_draft(
+        client,
+        page.data["id"],
+        expected_version=0,
+        idempotency_key="proposal-draft",
+        heading="Gotowa strona",
+    )
+    save_translation(
+        client,
+        page.data["id"],
+        "pl",
+        expected_version=0,
+        slug="start",
+        title="Start",
+        description="Strona startowa",
+        idempotency_key="proposal-translation-pl",
+    )
+    credential_id = uuid7()
+    ContentAutomationGrant.all_objects.create(
+        organization=organization,
+        credential_id=credential_id,
+        site_id=site.data["id"],
+        mode="autonomous",
+        created_by=user,
+    )
+    Page.all_objects.filter(site_id=site.data["id"]).update(
+        automation_policy=PageAutomationPolicy.PROPOSED
+    )
+
+    with (
+        activate_tenant_context(
+            automation_context(
+                organization.id,
+                user.id,
+                credential_id=credential_id,
+                may_publish=True,
+            )
+        ),
+        pytest.raises(PageAutomationForbidden),
+    ):
+        publish_site(site_id=site.data["id"], idempotency_key="automation-publishes")

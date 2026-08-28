@@ -69,6 +69,7 @@ const entry = {
   version: 2,
   published_at: null,
   noindex: false,
+  draft_author: null,
 };
 
 function renderPanel() {
@@ -151,7 +152,9 @@ test("hands the blog to automation and warns before an entry is edited", async (
   renderPanel();
 
   expect(await screen.findByText("Pierwszy wpis")).not.toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Oddaj automatyzacji" }));
+  fireEvent.change(screen.getByLabelText("Kto redaguje tę treść"), {
+    target: { value: "automated" },
+  });
 
   await waitFor(() =>
     expect(setCollectionAutomationPolicy).toHaveBeenCalledWith(
@@ -248,4 +251,42 @@ test("saves the entry draft and confirms it", async () => {
   expect((await screen.findByRole("status")).textContent).toContain(
     "Szkic został zapisany.",
   );
+});
+
+test("offers the middle setting and marks what the automation proposed", async () => {
+  setCollectionAutomationPolicy.mockResolvedValueOnce({
+    ...collection,
+    automation_policy: "proposed",
+  });
+  listContentEntries.mockResolvedValue({
+    items: [{ ...entry, draft_author: "automation" }],
+    next_cursor: null,
+  });
+  renderPanel();
+
+  expect(await screen.findByText("Pierwszy wpis")).not.toBeNull();
+  // A proposal has to be recognisable in the list, or accepting one is a guess.
+  expect(screen.getByText("Propozycja")).not.toBeNull();
+
+  fireEvent.change(screen.getByLabelText("Kto redaguje tę treść"), {
+    target: { value: "proposed" },
+  });
+  await waitFor(() =>
+    expect(setCollectionAutomationPolicy).toHaveBeenCalledWith(
+      collectionId,
+      "proposed",
+    ),
+  );
+  expect(
+    screen.getByText(/to Ty decydujesz, czy zostanie opublikowana/),
+  ).not.toBeNull();
+
+  fireEvent.click(
+    screen.getByRole("button", { name: "Edytuj wpis Pierwszy wpis" }),
+  );
+  // Publishing is the act of accepting, so the editor says so rather than
+  // leaving the operator to guess whose words are on screen.
+  expect(
+    await screen.findByText(/Publikacja oznacza akceptację propozycji/),
+  ).not.toBeNull();
 });

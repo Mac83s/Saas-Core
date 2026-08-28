@@ -186,7 +186,9 @@ class ContentCollectionCreateSerializer(serializers.Serializer[dict[str, Any]]):
 
 
 class AutomationPolicySerializer(serializers.Serializer[dict[str, Any]]):
-    automation_policy = serializers.ChoiceField(choices=["manual", "automated"])
+    automation_policy = serializers.ChoiceField(
+        choices=["manual", "proposed", "automated"]
+    )
 
 
 class ContentEntrySerializer(serializers.Serializer[dict[str, Any]]):
@@ -201,6 +203,7 @@ class ContentEntrySerializer(serializers.Serializer[dict[str, Any]]):
     version = serializers.IntegerField()
     published_at = serializers.DateTimeField(allow_null=True)
     noindex = serializers.BooleanField()
+    draft_author = serializers.CharField(allow_null=True)
 
 
 class ContentEntryListSerializer(serializers.Serializer[dict[str, Any]]):
@@ -254,6 +257,9 @@ class PageSummarySerializer(serializers.Serializer[dict[str, Any]]):
     current_draft_id = serializers.UUIDField(allow_null=True)
     current_draft_hash = serializers.CharField(allow_null=True)
     automation_policy = serializers.CharField()
+    # "person" or "automation": who wrote the draft that is waiting. Without it
+    # a proposal is indistinguishable from the operator's own unsaved work.
+    draft_author = serializers.CharField(allow_null=True)
     created_at = serializers.DateTimeField()
     updated_at = serializers.DateTimeField()
 

@@ -39,7 +39,7 @@ from .serializers import (
     PageSummarySerializer,
 )
 from .services import set_page_automation_policy
-from .views import CURSOR_PARAMETER, LIMIT_PARAMETER
+from .views import CURSOR_PARAMETER, LIMIT_PARAMETER, _draft_author
 
 IDEMPOTENCY_PARAMETER = OpenApiParameter(
     name="Idempotency-Key",
@@ -74,6 +74,7 @@ def _entry_payload(entry: ContentEntry) -> dict[str, Any]:
         "version": entry.version,
         "published_at": entry.published_at,
         "noindex": entry.noindex,
+        "draft_author": _draft_author(entry.current_draft),
     }
 
 
@@ -339,6 +340,7 @@ class PageAutomationPolicyView(APIView):
                 page.current_draft.content_hash if page.current_draft else None
             ),
             "automation_policy": page.automation_policy,
+            "draft_author": _draft_author(page.current_draft),
             "created_at": page.created_at,
             "updated_at": page.updated_at,
         })

@@ -531,13 +531,27 @@ def assert_within_grant(
     raise AutomationGrantMissing
 
 
-def assert_page_writable(page: Page, context: TenantContext) -> None:
+#: Policies under which an automation may write a draft. `PROPOSED` allows the
+#: draft and nothing further: turning it into what visitors see stays a
+#: person's act, which is the whole point of the setting.
+DRAFTABLE_POLICIES = frozenset({
+    PageAutomationPolicy.AUTOMATED,
+    PageAutomationPolicy.PROPOSED,
+})
+
+
+def assert_page_writable(
+    page: Page, context: TenantContext, *, publishing: bool = False
+) -> None:
     """Refuses an automated write the operator has not allowed, or that would
     land on a page a person currently has open."""
     if not _is_automation(context):
         return
     assert_within_grant(context, site_id=page.site_id)
-    if page.automation_policy != PageAutomationPolicy.AUTOMATED:
+    allowed = (
+        {PageAutomationPolicy.AUTOMATED} if publishing else DRAFTABLE_POLICIES
+    )
+    if page.automation_policy not in allowed:
         raise PageAutomationForbidden
     if page.editing_locked_until is not None and page.editing_locked_until > timezone.now():
         raise PageEditingLocked(
@@ -676,6 +690,7 @@ def save_draft(
         idempotency_key=normalized_key,
         request_hash=request_hash,
         content_hash=content_hash,
+        created_by_credential=context.credential_id if _is_automation(context) else None,
     )
     PageBlock.all_objects.bulk_create([
         PageBlock(
@@ -1127,6 +1142,18 @@ def publish_site(*, site_id: UUID, idempotency_key: str) -> SitePublication:
         )
         .order_by("id")
     )
+    # A site-wide publication would otherwise let an automation ship its own
+    # proposal: the page policy governs the draft, but publication is site-wide.
+    # Somebody has to accept a proposal, and it is not the party that made it.
+    if _is_automation(context) and any(
+        page.automation_policy == PageAutomationPolicy.PROPOSED for page in pages
+    ):
+        raise PageAutomationForbidden(
+            detail=(
+                "Witryna zawiera propozycje czekające na akceptację; "
+                "publikuje je człowiek."
+            )
+        )
     site = Site.all_objects.select_for_update().get(
         pk=initial_site.id,
         organization_id=context.organization_id,

@@ -53,10 +53,12 @@ export function EntryEditor({
   entry,
   locked,
   onSaved,
+  proposal,
 }: {
   entry: ContentEntry;
   locked: boolean;
   onSaved: () => void;
+  proposal: boolean;
 }) {
   const t = useTranslations("Sites");
   const [version, setVersion] = useState(entry.version);
@@ -146,6 +148,18 @@ export function EntryEditor({
         {/* The panel does not enforce this — the API does, and it answers 403
             `page_automation_forbidden`. Saying it up front spares the operator
             filling a form that was never going to be accepted. */}
+        {/* Under `proposed` the automation wrote this draft and stopped. What
+            the operator is looking at is a proposal, and publishing it is the
+            act of accepting it — worth saying, because nothing else on screen
+            distinguishes it from their own unsaved work. */}
+        {proposal && !locked && (
+          <p
+            className="rounded-lg border border-sky-500/40 bg-sky-500/5 p-3 text-sm"
+            role="status"
+          >
+            {t("entryProposalHint")}
+          </p>
+        )}
         {locked && (
           <p
             className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm"

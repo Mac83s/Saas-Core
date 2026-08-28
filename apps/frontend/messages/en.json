@@ -407,14 +407,21 @@
     "localeEn": "English",
     "automationTitle": "Who edits this content",
     "automationManualHint": "You edit it by hand. An integration cannot write here.",
-    "automationAutomatedHint": "A positioning integration owns this content. Your changes will be rejected.",
+    "automationAutomatedHint": "A positioning integration owns this content: it writes and publishes on its own. Your changes will be rejected.",
     "automationHandOver": "Hand to automation",
     "automationTakeBack": "Take back",
     "automationLockedHint": "Automation owns this entry. Take the content back by hand before saving your own changes.",
     "entryEditor": "Entry content",
     "entryEditorDescription": "Blocks of {title}.",
     "draftSaved": "Draft saved.",
-    "saving": "Saving…"
+    "saving": "Saving…",
+    "automationManual": "Only me",
+    "automationProposed": "Automation drafts, I accept",
+    "automationAutomated": "Automation runs it",
+    "automationProposedHint": "The integration prepares content as a draft, but you decide whether it is published.",
+    "blogProposal": "Proposal",
+    "entryProposalHint": "Automation prepared this draft. Publishing it is how you accept the proposal.",
+    "pageProposalWaiting": "Automation prepared a proposal for this page. Open the Content tab to review it."
   },
   "BillingSupport": {
     "navigation": "Billing & access",

@@ -4280,10 +4280,12 @@ components:
     AutomationPolicyEnum:
       enum:
       - manual
+      - proposed
       - automated
       type: string
       description: |-
         * `manual` - manual
+        * `proposed` - proposed
         * `automated` - automated
     BillingSession:
       type: object
@@ -4471,9 +4473,14 @@ components:
           format: date-time
         noindex:
           type: boolean
+        draft_author:
+          type:
+          - string
+          - 'null'
       required:
       - author_name
       - collection_id
+      - draft_author
       - excerpt
       - id
       - locale
@@ -5530,6 +5537,10 @@ components:
           - 'null'
         automation_policy:
           type: string
+        draft_author:
+          type:
+          - string
+          - 'null'
         created_at:
           type: string
           format: date-time
@@ -5541,6 +5552,7 @@ components:
       - created_at
       - current_draft_hash
       - current_draft_id
+      - draft_author
       - id
       - key
       - name

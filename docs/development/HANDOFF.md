@@ -120,26 +120,38 @@ Zbudowane i działające na lokalnym stacku:
 - **polityka edycji** (`4de0558`): `automation_policy` na stronie i na kolekcji,
   plus chwilowa blokada ręcznej edycji; egzekwowane w `save_draft`, więc każdy
   kanał ją dziedziczy;
+- **ręczny panel bloga i polityki** (`98076be` oraz kolejny przyrost): operator
+  tworzy kolekcje i wpisy, a trzystanowa polityka `manual` / `proposed` /
+  `automated` rozdziela ręczną redakcję, szkice do akceptacji i pełne prowadzenie
+  przez automatyzację. Panel oznacza szkice napisane przez integrację, żeby
+  publikacja propozycji była świadomą akceptacją;
 - **klucz API dla SeoContentRank** (`cee17e2`): scope `content:read`,
   `content:draft`, `content:publish`; middleware w `shared.notifications`
   ustawia `TenantContext` z `principal_kind="api_key"`. Wymagany scope wynika z
-  samego żądania, a aktorem audytu jest operator, który klucz wydał.
+  samego żądania, a aktorem audytu jest operator, który klucz wydał. Odczyt
+  chronionego RLS rekordu klucza następuje dopiero po `SET LOCAL
+  app.organization_id`; smoke na lokalnym stacku potwierdził odpowiedź `200`;
+- **zakresowy grant automatyzacji** (`a1f4fe3`): brak grantu odcina dostęp, a
+  grant zawęża klucz do site'u albo kolekcji oraz uwzględnia TTL i emergency
+  revoke.
+
+Dowody ostatniego przyrostu: Ruff, import-linter, brak dryfu migracji i Mypy
+przeszły; pełny backend ma **356/356 testów**, pełny workspace JS jest zielony
+(frontend **71/71**), a świeżo wygenerowane OpenAPI i klient TypeScript są
+identyczne z wersjami kanonicznymi. Lokalny Node 22 nadal emituje znane
+ostrzeżenie `engines`; wymagany runtime projektu to Node 24.
 
 Do zrobienia w W9.6, w kolejności zależności:
 
-1. **`ContentAutomationGrant`** — dziś klucz sięga wszystkich kolekcji
-   organizacji. ADR-035 §4 wymaga zawężenia do wskazanych site'ów i kolekcji
-   oraz TTL, limitów i emergency revoke. To jedyna rzecz dzieląca obecny stan
-   od bezpiecznego włączenia SCR u klienta;
-2. **panel dla bloga i polityki** — kolekcje, wpisy i przełącznik
-   `automated`/`manual` obsługuje się dziś wyłącznie przez API, więc nie da się
-   oddać SCR bloga bez wejścia do bazy;
-3. **indeks bloga, RSS i sitemap** — wpisy są osiągalne tylko po adresie
+1. **semantyka czterech trybów grantu i limity** — model zna wszystkie tryby,
+   ale serwisy muszą jeszcze odrębnie egzekwować `suggest_only`, `draft_write`,
+   `publish_with_approval` i `autonomous`, limity zmian oraz allowed windows;
+2. **indeks bloga, RSS i sitemap** — wpisy są osiągalne tylko po adresie
    bezpośrednim; czytelnik nie ma jak ich znaleźć;
-4. **tłumaczenia i media wpisów** — wpis jest dziś jednojęzyczny;
-5. **chroniony workspace platformowy (W9.6.1)** — dla waszych własnych stron
+3. **tłumaczenia i media wpisów** — wpis jest dziś jednojęzyczny;
+4. **chroniony workspace platformowy (W9.6.1)** — dla waszych własnych stron
    marketingowych i bloga platformy;
-6. **`ContentChangeSet` (§5, wstępny)** — do rewizji przy pierwszym realnym
+5. **`ContentChangeSet` (§5, wstępny)** — do rewizji przy pierwszym realnym
    spięciu z SCR.
 
 Znany rozjazd do rozstrzygnięcia: ADR-022 wymaga RLS na prywatnych rekordach
@@ -160,5 +172,5 @@ zdecydować, która strona ma rację.
 - stage'uj wyłącznie jawne ścieżki; `.codex/` jest lokalne i nie należy do
   przyrostu.
 
-Po kolejnym znaczącym przyroście zaktualizuj checklistę W9.5 i Memex, uruchom
+Po kolejnym znaczącym przyroście zaktualizuj checklistę właściwej fali i Memex, uruchom
 odpowiednie bramki, a następnie wykonaj osobny commit.

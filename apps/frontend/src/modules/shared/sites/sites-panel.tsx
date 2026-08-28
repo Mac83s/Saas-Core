@@ -13,9 +13,7 @@ import {
 } from "react-hook-form";
 import {
   ArrowRightIcon,
-  BotIcon,
   FileTextIcon,
-  HandIcon,
   NewspaperIcon,
   Globe2Icon,
   LockKeyholeIcon,
@@ -77,6 +75,7 @@ import { sitesErrorMessage } from "./problem";
 import { slugifyTitle } from "./slug";
 import { Link } from "#i18n/navigation";
 import { mutationKey, type MutationReceipt } from "./idempotency";
+import { AutomationPolicyField } from "./automation-policy";
 import { BlogPanel } from "./blog-panel";
 import { DomainPanel } from "./domain-panel";
 import { NavigationEditor } from "./navigation-editor";
@@ -736,9 +735,9 @@ export function SitesPanel({
   );
 }
 
-/** ADR-035 §4a: handing a page to automation, and taking it back, is a
- *  person's decision. The endpoint behind this refuses API keys, so the switch
- *  is the only way the state changes. */
+/** ADR-035 §4a: what an automation may do with this page is a person's
+ *  decision. The endpoint behind the field refuses API keys, so the field is
+ *  the only way the value changes. */
 function PageAutomationSwitch({
   onChanged,
   page,
@@ -749,47 +748,31 @@ function PageAutomationSwitch({
   const t = useTranslations("Sites");
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string>();
-  const automated = page.automation_policy === "automated";
 
   return (
-    <div className="space-y-2 rounded-lg border p-3">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="space-y-1">
-          <p className="font-medium">{t("automationTitle")}</p>
-          <p className="text-sm text-muted-foreground">
-            {automated
-              ? t("automationAutomatedHint")
-              : t("automationManualHint")}
-          </p>
-        </div>
-        <Button
-          disabled={busy}
-          onClick={() => {
-            setBusy(true);
-            setProblem(undefined);
-            void setPageAutomationPolicy(
-              page.id,
-              automated ? "manual" : "automated",
-            )
-              .then(onChanged)
-              .catch((error: unknown) => {
-                setProblem(sitesErrorMessage(error, t));
-              })
-              .finally(() => {
-                setBusy(false);
-              });
-          }}
-          type="button"
-          variant="outline"
-        >
-          {automated ? (
-            <HandIcon aria-hidden="true" />
-          ) : (
-            <BotIcon aria-hidden="true" />
-          )}
-          {automated ? t("automationTakeBack") : t("automationHandOver")}
-        </Button>
-      </div>
+    <div className="space-y-2">
+      <AutomationPolicyField
+        busy={busy}
+        id="page-policy"
+        onChange={(policy) => {
+          setBusy(true);
+          setProblem(undefined);
+          void setPageAutomationPolicy(page.id, policy)
+            .then(onChanged)
+            .catch((error: unknown) => {
+              setProblem(sitesErrorMessage(error, t));
+            })
+            .finally(() => {
+              setBusy(false);
+            });
+        }}
+        value={page.automation_policy}
+      />
+      {page.draft_author === "automation" && (
+        <p className="text-sm" role="status">
+          {t("pageProposalWaiting")}
+        </p>
+      )}
       {problem && (
         <p className="text-sm text-destructive" role="alert">
           {problem}
