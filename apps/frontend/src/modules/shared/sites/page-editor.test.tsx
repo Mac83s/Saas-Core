@@ -268,6 +268,53 @@ test("importuje szablon do wersjonowanego draftu przez API", async () => {
   expect(onChanged).toHaveBeenCalledOnce();
 });
 
+test.each([
+  {
+    locale: "pl" as const,
+    messages: polishMessages,
+    thumbnail: "Miniatura szablonu Wizytówka",
+    previewButton: "Zobacz podgląd",
+    previewTitle: "Podgląd szablonu Wizytówka",
+  },
+  {
+    locale: "en" as const,
+    messages: englishMessages,
+    thumbnail: "Thumbnail of the Profile template",
+    previewButton: "Preview",
+    previewTitle: "Preview of the Profile template",
+  },
+])(
+  "pokazuje lokalizowaną miniaturę i dostępny preview w $locale",
+  async ({ locale, messages, previewButton, previewTitle, thumbnail }) => {
+    getPageDraft.mockResolvedValue({ ...draft, blocks: [] });
+    renderEditor(locale, messages, vi.fn().mockResolvedValue(undefined));
+
+    const thumbnailElement = await screen.findByRole("img", {
+      name: thumbnail,
+    });
+    const templateGrid = thumbnailElement.closest("ul");
+    expect(templateGrid?.className).toContain("grid");
+    expect(templateGrid?.className).toContain("sm:grid-cols-3");
+
+    const trigger = screen.getAllByRole("button", {
+      name: previewButton,
+    })[0];
+    trigger.focus();
+    fireEvent.click(trigger);
+
+    expect(
+      await screen.findByRole("dialog", { name: previewTitle }),
+    ).not.toBeNull();
+    const result = await axe.run(document.body, {
+      rules: { "color-contrast": { enabled: false } },
+    });
+    expect(result.violations).toEqual([]);
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(trigger).toHaveFocus());
+  },
+);
+
 test("nie wysyła sekcji FAQ bez ani jednego wpisu", async () => {
   renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
 

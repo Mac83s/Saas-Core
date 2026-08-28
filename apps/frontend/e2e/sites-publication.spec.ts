@@ -67,16 +67,39 @@ test.describe("W9.5 Sites onboarding and publication workspace", () => {
     const contentForm = page
       .getByRole("button", { name: "Zapisz nową wersję draftu" })
       .locator("xpath=ancestor::form");
-    await contentForm.getByRole("combobox", { name: "Typ bloku" }).click();
-    await page.getByRole("option", { name: "Hero", exact: true }).click();
-    await contentForm.getByRole("button", { name: "Dodaj" }).first().click();
-    await contentForm.getByLabel("Nagłówek").fill("Pierwsza publikacja");
-    await contentForm.getByLabel("Treść").fill("Treść kontrolowanego bloku");
+    await page.setViewportSize({ width: 390, height: 844 });
+    const templatePreview = page
+      .getByRole("button", { name: "Zobacz podgląd" })
+      .first();
+    await templatePreview.focus();
+    await page.keyboard.press("Enter");
+    const previewDialog = page.getByRole("dialog", {
+      name: "Podgląd szablonu Wizytówka",
+    });
+    await expect(previewDialog).toBeVisible();
+    const dialogBox = await previewDialog.boundingBox();
+    expect(dialogBox).not.toBeNull();
+    expect((dialogBox?.x ?? 0) + (dialogBox?.width ?? 0)).toBeLessThanOrEqual(
+      390,
+    );
+    await page.keyboard.press("Escape");
+    await expect(templatePreview).toBeFocused();
+
+    const useTemplate = page.getByRole("button", {
+      name: "Użyj szablonu Wizytówka",
+    });
+    await useTemplate.focus();
+    await page.keyboard.press("Enter");
+    const heroSection = contentForm.getByRole("group", { name: "Hero" });
+    await expect(heroSection.getByLabel("Nagłówek")).toHaveValue(/Twoje imię/);
+    await page.setViewportSize({ width: 1280, height: 720 });
+    await heroSection.getByLabel("Nagłówek").fill("Pierwsza publikacja");
+    await heroSection.getByLabel("Treść").fill("Treść kontrolowanego bloku");
     await contentForm
       .getByRole("button", { name: "Zapisz nową wersję draftu" })
       .click();
     await expect(
-      contentForm.getByText("Wersja 1", { exact: true }),
+      contentForm.getByText("Wersja 2", { exact: true }),
     ).toBeVisible();
 
     const metadataForm = page
@@ -111,19 +134,19 @@ test.describe("W9.5 Sites onboarding and publication workspace", () => {
     ).toBeVisible();
 
     await page.getByRole("tab", { name: "Treść" }).click();
-    await contentForm.getByLabel("Nagłówek").fill("Nowszy niezależny draft");
+    await heroSection.getByLabel("Nagłówek").fill("Nowszy niezależny draft");
     await contentForm
       .getByRole("button", { name: "Zapisz nową wersję draftu" })
       .click();
     await expect(
-      contentForm.getByText("Wersja 2", { exact: true }),
+      contentForm.getByText("Wersja 3", { exact: true }),
     ).toBeVisible();
     await page.getByRole("tab", { name: "Podstrony" }).click();
     await expect(
       page
         .getByText("Wersja", { exact: true })
         .locator("xpath=following-sibling::p"),
-    ).toHaveText("2");
+    ).toHaveText("3");
     await page.getByRole("tab", { name: "Publikacja" }).click();
     const secondPublish = page.waitForRequest(
       (request) =>
@@ -164,7 +187,7 @@ test.describe("W9.5 Sites onboarding and publication workspace", () => {
       page.getByText("Publikacja #3", { exact: true }),
     ).toBeVisible();
     await page.getByRole("tab", { name: "Treść" }).click();
-    await expect(contentForm.getByLabel("Nagłówek")).toHaveValue(
+    await expect(heroSection.getByLabel("Nagłówek")).toHaveValue(
       "Nowszy niezależny draft",
     );
   });
@@ -355,6 +378,41 @@ async function handleSitesRoute(route: Route, state: MockState) {
     };
     return fulfill(route, state.page, 201);
   }
+  if (
+    path === `/api/v1/sites/pages/${pageId}/template-import/` &&
+    method === "POST"
+  ) {
+    return fulfill(
+      route,
+      saveMockDraft(
+        state,
+        [
+          {
+            block_type: "core.hero",
+            schema_version: 2,
+            data: {
+              title: "Twoje imię i to, w czym pomagasz",
+              text: "Jedno zdanie o tym, komu pomagasz i z czym.",
+              action: { label: "Umów wizytę", href: "/kontakt/" },
+            },
+          },
+          {
+            block_type: "core.rich_text",
+            schema_version: 1,
+            data: { text: "Kilka zdań o sobie." },
+          },
+          {
+            block_type: "core.contact",
+            schema_version: 1,
+            data: { title: "Kontakt", email: "kontakt@example.com" },
+          },
+        ],
+        [],
+        now,
+      ),
+      201,
+    );
+  }
   if (path === `/api/v1/sites/pages/${pageId}/draft/` && method === "GET") {
     return fulfill(route, state.draft);
   }
@@ -367,26 +425,10 @@ async function handleSitesRoute(route: Route, state: MockState) {
       }>;
       media_asset_ids: string[];
     };
-    const version = state.draft.version + 1;
-    state.draft = {
-      page_id: pageId,
-      version,
-      draft_id: `019ff20d-a000-7000-8000-${String(30 + version).padStart(12, "0")}`,
-      content_hash: String(version).repeat(64),
-      created_at: now,
-      blocks: body.blocks.map((block, position) => ({
-        id: `019ff20d-a000-7000-8001-${String(30 + position).padStart(12, "0")}`,
-        position,
-        ...block,
-      })),
-      media_asset_ids: body.media_asset_ids,
-    };
-    if (state.page) {
-      state.page.version = version;
-      state.page.current_draft_id = state.draft.draft_id;
-      state.page.current_draft_hash = state.draft.content_hash;
-    }
-    return fulfill(route, state.draft);
+    return fulfill(
+      route,
+      saveMockDraft(state, body.blocks, body.media_asset_ids, now),
+    );
   }
   if (
     path.startsWith(`/api/v1/sites/pages/${pageId}/preview/`) &&
@@ -514,6 +556,38 @@ function domainRecord({
     quarantine_until: null,
     created_at: "2026-08-12T08:00:00Z",
   };
+}
+
+function saveMockDraft(
+  state: MockState,
+  blocks: Array<{
+    block_type: string;
+    schema_version: number;
+    data: Record<string, unknown>;
+  }>,
+  mediaAssetIds: string[],
+  createdAt: string,
+) {
+  const version = state.draft.version + 1;
+  state.draft = {
+    page_id: "019ff20d-a000-7000-8000-000000000020",
+    version,
+    draft_id: `019ff20d-a000-7000-8000-${String(30 + version).padStart(12, "0")}`,
+    content_hash: String(version).repeat(64),
+    created_at: createdAt,
+    blocks: blocks.map((block, position) => ({
+      id: `019ff20d-a000-7000-8001-${String(30 + position).padStart(12, "0")}`,
+      position,
+      ...block,
+    })),
+    media_asset_ids: mediaAssetIds,
+  };
+  if (state.page) {
+    state.page.version = version;
+    state.page.current_draft_id = state.draft.draft_id;
+    state.page.current_draft_hash = state.draft.content_hash;
+  }
+  return state.draft;
 }
 
 function createPublication(

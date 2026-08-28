@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   useFieldArray,
@@ -37,6 +37,7 @@ import {
 } from "@saas-core/api-client";
 import {
   availablePageTemplates,
+  pageTemplateBlocks,
   renderDraftPreview,
   type PageTemplate,
 } from "@saas-core/site-blocks";
@@ -57,6 +58,14 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@saas-core/ui/components/combobox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@saas-core/ui/components/dialog";
 import {
   Field,
   FieldError,
@@ -103,6 +112,105 @@ const draftSchema = z.object({
 type DraftValues = z.infer<typeof draftSchema>;
 type TranslationValues = z.infer<ReturnType<typeof createTranslationSchema>>;
 
+function TemplateOption({
+  closeLabel,
+  loading,
+  locale,
+  onApply,
+  previewLabel,
+  previewTitle,
+  template,
+  thumbnailLabel,
+  useLabel,
+}: {
+  closeLabel: string;
+  loading: boolean;
+  locale: "pl" | "en";
+  onApply: () => void;
+  previewLabel: string;
+  previewTitle: string;
+  template: PageTemplate;
+  thumbnailLabel: string;
+  useLabel: string;
+}) {
+  const label = template.labels[locale];
+  const rendered = renderDraftPreview(
+    {
+      kind: "draft-preview",
+      versionId: `template:${template.id}:v${template.version}`,
+      blocks: pageTemplateBlocks(template, registry),
+      designTokens,
+    },
+    registry,
+  );
+
+  return (
+    <Card className="h-full overflow-hidden">
+      <div
+        aria-label={thumbnailLabel}
+        className="relative h-40 overflow-hidden border-b bg-muted/30"
+        role="img"
+      >
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 overflow-hidden p-4 text-[7px] opacity-55 [&_a]:underline [&_address]:not-italic [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mt-3 [&_h2]:text-xs [&_h2]:font-semibold [&_h3]:font-medium [&_li]:mt-1 [&_main]:space-y-3 [&_p]:mt-1 [&_section]:rounded-md [&_section]:border [&_section]:bg-background [&_section]:p-3"
+          inert
+        >
+          {rendered}
+        </div>
+        <div className="absolute inset-x-0 bottom-0 bg-background/95 px-4 py-3 shadow-[0_-8px_24px_hsl(var(--background))]">
+          <p className="font-medium">{label.name}</p>
+          <p className="line-clamp-1 text-xs text-muted-foreground">
+            {label.description}
+          </p>
+        </div>
+      </div>
+      <CardHeader>
+        <CardTitle className="text-base">{label.name}</CardTitle>
+        <CardDescription>{label.description}</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-2">
+        <Dialog>
+          <DialogTrigger
+            render={
+              <Button className="w-full" type="button" variant="outline" />
+            }
+          >
+            <EyeIcon aria-hidden="true" />
+            {previewLabel}
+          </DialogTrigger>
+          <DialogContent
+            className="max-h-[90vh] max-w-4xl overflow-y-auto"
+            closeLabel={closeLabel}
+          >
+            <DialogHeader>
+              <DialogTitle>{previewTitle}</DialogTitle>
+              <DialogDescription>{label.description}</DialogDescription>
+            </DialogHeader>
+            <div
+              aria-label={previewTitle}
+              className="overflow-hidden rounded-xl border bg-background p-5 [&_a]:underline [&_address]:space-y-2 [&_address]:not-italic [&_h1]:text-3xl [&_h1]:font-semibold [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:font-medium [&_li]:mt-2 [&_main]:space-y-5 [&_p]:mt-2 [&_section]:rounded-lg [&_section]:border [&_section]:p-5"
+              role="img"
+            >
+              <div aria-hidden="true" inert>
+                {rendered}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+        <Button
+          aria-label={useLabel}
+          disabled={loading}
+          onClick={onApply}
+          type="button"
+        >
+          {useLabel}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function PageEditor({
   onChanged,
   page,
@@ -112,6 +220,7 @@ export function PageEditor({
 }) {
   const t = useTranslations("Sites");
   const common = useTranslations("Common");
+  const interfaceLocale = useLocale();
   const [draft, setDraft] = useState<PageDraft>();
   const [translations, setTranslations] = useState<PageTranslation[]>([]);
   const [locale, setLocale] = useState("pl");
@@ -156,7 +265,7 @@ export function PageEditor({
     () => availablePageTemplates(registry, ["sites.enabled"]),
     [],
   );
-  const templateLocale = locale === "en" ? "en" : "pl";
+  const templateLocale = interfaceLocale === "en" ? "en" : "pl";
 
   const applyTemplate = useCallback(
     async (template: PageTemplate) => {
@@ -503,29 +612,23 @@ export function PageEditor({
                   <ul className="grid gap-3 sm:grid-cols-3">
                     {pageTemplates.map((template) => (
                       <li key={template.id}>
-                        <Card className="h-full">
-                          <CardHeader>
-                            <CardTitle className="text-base">
-                              {template.labels[templateLocale].name}
-                            </CardTitle>
-                            <CardDescription>
-                              {template.labels[templateLocale].description}
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent>
-                            <Button
-                              aria-label={t("useNamedTemplate", {
-                                name: template.labels[templateLocale].name,
-                              })}
-                              disabled={loading}
-                              onClick={() => void applyTemplate(template)}
-                              type="button"
-                              variant="outline"
-                            >
-                              {t("useTemplate")}
-                            </Button>
-                          </CardContent>
-                        </Card>
+                        <TemplateOption
+                          closeLabel={common("close")}
+                          loading={loading}
+                          locale={templateLocale}
+                          onApply={() => void applyTemplate(template)}
+                          previewLabel={t("previewTemplate")}
+                          previewTitle={t("previewNamedTemplate", {
+                            name: template.labels[templateLocale].name,
+                          })}
+                          template={template}
+                          thumbnailLabel={t("templateThumbnail", {
+                            name: template.labels[templateLocale].name,
+                          })}
+                          useLabel={t("useNamedTemplate", {
+                            name: template.labels[templateLocale].name,
+                          })}
+                        />
                       </li>
                     ))}
                   </ul>

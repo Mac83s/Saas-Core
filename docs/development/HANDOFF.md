@@ -10,15 +10,14 @@
 
 Kontynuuj falę W9.5 z
 `Plan/Wdrozenie/10A-W9.5-Customer-Experience-Commerce-i-AI.md`. Pakiety
-W9.5.1–W9.5.3 są ukończone lokalnie. Następny spójny przyrost to **W9.5.4 —
-szablony i katalog sekcji**. Realny Stripe pozostaje świadomie odłożony do
+W9.5.1–W9.5.4 są ukończone lokalnie. Następny spójny przyrost to **W9.5.5 —
+Studio struktury i nawigacji**. Realny Stripe pozostaje świadomie odłożony do
 W9.5.2S i blokuje płatny pilot, ale nie dalszą lokalną pracę nad W9.5.
 
 Równolegle właściciel uruchomił planowanie osobnego systemu SeoContentRank.
-SaaS Core przygotowuje dla niego falę **W9.6 — Publication Platform i gotowość
-na SeoContentRank**. W9.6.0 (ADR i kontrakty graniczne) może rozpocząć się obok
-W9.5.4; implementacja wymagająca nawigacji ma użyć rezultatu W9.5.5, a nie
-tworzyć drugie drzewo stron.
+SaaS Core rozwija dla niego równoległą falę **W9.6 — Publication Platform i
+gotowość na SeoContentRank**. Implementacja wymagająca nawigacji ma użyć
+rezultatu W9.5.5, a nie tworzyć drugie drzewo stron.
 
 Nie wracaj teraz do bramek wymagających prawdziwego stagingu/VPS. Są odłożone do
 sesji z dostępem do hosta, domeny, GHCR i GitHub Environment.
@@ -33,6 +32,9 @@ sesji z dostępem do hosta, domeny, GHCR i GitHub Environment.
 - W9.5.3 zastąpiło techniczny formularz strony trzyetapowym kreatorem
   adres → dane → podsumowanie. Kreator działa po polsku i angielsku, utrwala
   wersjonowany postęp i pozwala go bezpiecznie wznowić.
+- W9.5.4 dostarczyło trzy wersjonowane recepty, pełny katalog dziewięciu
+  kategorii sekcji, bezpieczny import do draftu oraz lokalizowany wybór z
+  dynamiczną miniaturą i pełnym podglądem.
 
 ## Kontrakt W9.5.3
 
@@ -64,11 +66,14 @@ sesji z dostępem do hosta, domeny, GHCR i GitHub Environment.
   medium z checksum, skanowaniem, quota, reuse między aktorami i kompensacją
   storage po rollbacku draftu;
 - pełne testy workspace'u JS: contracts **12**, UI **8**, site-blocks **13**,
-  frontend **71**; lint, typecheck, build Next.js i `api:check` przeszły;
+  frontend **73**; lint, typecheck, build Next.js i `api:check` przeszły;
 - skrypt `api:check` uruchamia teraz izolowane środowisko backendu również na
   Windows zamiast próbować wykonać linuksowy `.venv/bin/python`;
-- wcześniejszy Playwright **1/1** nadal dokumentuje pełną ścieżkę onboarding →
-  domena opcjonalna → treść → preview → publikacja → rollback;
+- Playwright **1/1** dokumentuje pełną ścieżkę onboarding → domena opcjonalna →
+  mobilny wybór i podgląd szablonu → import klawiaturą → edycja → preview →
+  publikacja → rollback; test sprawdza także Escape i powrót fokusu;
+- axe dla otwartego dialogu podglądu przechodzi bez naruszeń w obu wersjach
+  językowych, a testy jednostkowe potwierdzają lokalizację PL/EN;
 - `git diff --check` jest zielone.
 
 Lokalny host ma Node.js 22 i emituje ostrzeżenie `engines`; właściwy runtime
@@ -79,7 +84,8 @@ wielowątkowych wyścigów; wynik pozostaje 360/360.
 
 ## Następny cel wykonawczy
 
-W9.5.4 ma już trzy kanoniczne recepty, katalog sekcji oraz backendowy import.
+Rozpocznij W9.5.5 — Studio struktury i nawigacji. W9.5.4 ma trzy kanoniczne
+recepty, katalog sekcji, backendowy import oraz gotowy wybór z podglądem.
 `PageTemplate` jest niemutowalnym modelem domenowym ładowanym z
 `packages/contracts/page-templates`, nie drugą tabelą z kopią recept. Endpoint
 `POST /api/v1/sites/pages/{page_id}/template-import/` tworzy zwykłą
@@ -93,17 +99,16 @@ quota i audyt. Deterministyczna tożsamość daje jeden rekord na organizację t
 przy imporcie przez różnych managerów, a kompensacja usuwa obiekty z storage,
 jeśli późniejszy optimistic lock lub zapis draftu cofnie transakcję. Dzisiejsze
 trzy recepty v1 pozostają bez mediów; obrazy wejdą jako nowe wersje recept.
-
-Do zamknięcia W9.5.4:
-
-1. przygotować lokalizowane miniatury i preview;
-2. wykonać dowody mobile, klawiatura i axe dla wyboru oraz importu szablonu.
+Miniatury i dialog podglądu nie są osobnymi screenshotami: panel renderuje je z
+kanonicznej recepty przez ten sam rejestr bloków. Lokalizowane są metadane i
+kontrolki interfejsu; przykładowa treść obecnych recept v1 pozostaje polska,
+ponieważ zmiana seed copy wymaga nowej wersji recepty, a nie mutacji v1.
 
 Biblioteka sekcji ma już 9 z 9 kategorii ADR-031. `core.testimonials`,
 `core.pricing`, `core.booking` i `core.footer` mają kanoniczne JSON Schema,
 deklaratywne pola edytora PL/EN i kontrolowane renderery. Rezerwacja pozostaje
 bezpiecznym CTA — blok nie osadza skryptu ani zewnętrznego widgetu. Kontrakty
-mają **12/12**, site-blocks **13/13**, frontend **71/71**; lint, typecheck i
+mają **12/12**, site-blocks **13/13**, frontend **73/73**; lint, typecheck i
 build Next.js przeszły.
 
 Znane długi frontendu, nietknięte przez te commity:
