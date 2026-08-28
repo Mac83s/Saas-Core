@@ -16,11 +16,14 @@
   "blocks": [
     {
       "block_type": "core.hero",
-      "schema_version": 2,
+      "schema_version": 3,
       "data": {
         "title": "Twoje imię i to, w czym pomagasz",
         "text": "Jedno zdanie o tym, komu pomagasz i z czym. Zastąp ten tekst własnym.",
-        "action": { "label": "Umów wizytę", "href": "/kontakt/" }
+        "action": {
+          "label": "Umów wizytę",
+          "href": "/kontakt/"
+        }
       }
     },
     {

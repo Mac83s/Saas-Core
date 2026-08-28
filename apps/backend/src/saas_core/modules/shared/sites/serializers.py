@@ -226,10 +226,14 @@ class ContentEntryDraftSerializer(serializers.Serializer[dict[str, Any]]):
     entry_id = serializers.UUIDField()
     version = serializers.IntegerField()
     blocks = serializers.ListField(child=serializers.DictField())
+    media_asset_ids = serializers.ListField(child=serializers.UUIDField())
 
 
 class ContentEntryDraftSaveSerializer(serializers.Serializer[dict[str, Any]]):
     expected_version = serializers.IntegerField(min_value=0)
+    media_asset_ids = serializers.ListField(
+        child=serializers.UUIDField(), required=False, default=list, max_length=50
+    )
     blocks = serializers.ListField(child=serializers.DictField())
 
 

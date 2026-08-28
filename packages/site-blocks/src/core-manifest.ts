@@ -8,6 +8,7 @@ import featureListV1Schema from "@saas-core/contracts/site-blocks/core.feature_l
 import footerV1Schema from "@saas-core/contracts/site-blocks/core.footer.v1.schema.json";
 import heroV1Schema from "@saas-core/contracts/site-blocks/core.hero.v1.schema.json";
 import heroV2Schema from "@saas-core/contracts/site-blocks/core.hero.v2.schema.json";
+import heroV3Schema from "@saas-core/contracts/site-blocks/core.hero.v3.schema.json";
 import pricingV1Schema from "@saas-core/contracts/site-blocks/core.pricing.v1.schema.json";
 import richTextV1Schema from "@saas-core/contracts/site-blocks/core.rich_text.v1.schema.json";
 import testimonialsV1Schema from "@saas-core/contracts/site-blocks/core.testimonials.v1.schema.json";
@@ -21,6 +22,7 @@ import type {
   FooterV1Data,
   HeroV1Data,
   HeroV2Data,
+  HeroV3Data,
   JsonObject,
   PricingV1Data,
   RichTextV1Data,
@@ -32,8 +34,17 @@ function externalRel(href: string): "noreferrer" | undefined {
   return href.startsWith("https://") ? "noreferrer" : undefined;
 }
 
+/** The address a published asset is served from on the site's own host.
+ *
+ *  Root-relative on purpose: a published page is rendered under the visitor's
+ *  hostname, and baking an origin in would break the moment a client moves to
+ *  their own domain. */
+export function publicMediaPath(assetId: string): string {
+  return `/media/${assetId}`;
+}
+
 function HeroBlock({ data }: { data: JsonObject }) {
-  const hero = data as HeroV2Data;
+  const hero = data as HeroV3Data;
   const action = hero.action;
   return createElement(
     "section",
@@ -42,6 +53,16 @@ function HeroBlock({ data }: { data: JsonObject }) {
       "data-block-type": "core.hero",
     },
     createElement("h1", null, hero.title),
+    hero.image
+      ? createElement("img", {
+          alt: hero.image.alt,
+          decoding: "async",
+          // A hero is the first thing on the page, so it is the one image
+          // worth fetching eagerly; everything else can wait.
+          loading: "eager",
+          src: publicMediaPath(hero.image.asset_id),
+        })
+      : null,
     hero.text ? createElement("p", null, hero.text) : null,
     action
       ? createElement(
@@ -304,18 +325,25 @@ function migrateHeroV1ToV2(data: Readonly<JsonObject>): JsonObject {
   return migrated;
 }
 
+/** v2 already carries everything v3 requires: the picture is optional, so a
+ *  hero saved before images existed migrates by staying exactly as it is. */
+function migrateHeroV2ToV3(data: Readonly<JsonObject>): JsonObject {
+  return { ...data };
+}
+
 export const coreSiteBlockManifest: SiteBlockManifest = {
   moduleId: "shared.sites",
   namespace: "core",
   blocks: [
     {
       type: "core.hero",
-      latestVersion: 2,
+      latestVersion: 3,
       schemas: [
         { version: 1, schema: heroV1Schema },
         { version: 2, schema: heroV2Schema },
+        { version: 3, schema: heroV3Schema },
       ],
-      migrators: { 1: migrateHeroV1ToV2 },
+      migrators: { 1: migrateHeroV1ToV2, 2: migrateHeroV2ToV3 },
       component: HeroBlock,
       catalog: {
         category: "start",
@@ -323,6 +351,12 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
         fields: [
           { path: ["title"], kind: "text", labelKey: "heading" },
           { path: ["text"], kind: "textarea", labelKey: "text" },
+          {
+            path: ["image", "asset_id"],
+            kind: "media",
+            labelKey: "imageAsset",
+          },
+          { path: ["image", "alt"], kind: "text", labelKey: "imageAlt" },
           { path: ["action", "label"], kind: "text", labelKey: "actionLabel" },
           { path: ["action", "href"], kind: "url", labelKey: "actionHref" },
         ],

@@ -1594,9 +1594,11 @@ export interface components {
             blocks: {
                 [key: string]: unknown;
             }[];
+            media_asset_ids: string[];
         };
         ContentEntryDraftSave: {
             expected_version: number;
+            media_asset_ids?: string[];
             blocks: {
                 [key: string]: unknown;
             }[];

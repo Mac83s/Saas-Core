@@ -239,7 +239,7 @@ def _find_entry(
                 "page_id": snapshot["entry_id"],
                 "key": snapshot["slug"],
                 "blocks": snapshot["blocks"],
-                "media_asset_ids": [],
+                "media_asset_ids": snapshot.get("media_asset_ids", []),
                 "locales": [locale_document],
                 # A single-language article has no alternates to advertise;
                 # claiming otherwise would point search engines at nothing.

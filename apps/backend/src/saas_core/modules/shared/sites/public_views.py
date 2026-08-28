@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from uuid import UUID
+
 from django.http import HttpRequest, HttpResponse, HttpResponseNotFound
 from django.views import View
 from drf_spectacular.utils import OpenApiParameter, extend_schema
@@ -15,7 +17,12 @@ from .public_feeds import (
     render_site_robots,
     render_site_sitemap,
 )
-from .publication_routing import PublicSiteNotFound, public_page_payload, resolve_public_page
+from .public_media import serve_public_media
+from .publication_routing import (
+    PublicSiteNotFound,
+    public_page_payload,
+    resolve_public_page,
+)
 from .serializers import PublicSitePageSerializer
 from .tls import authorize_tls_hostname
 
@@ -96,5 +103,17 @@ class PublicSiteRobotsView(View):
     def get(self, request: HttpRequest) -> HttpResponse:
         try:
             return render_site_robots(host=str(request.META.get("HTTP_HOST", "")))
+        except PublicSiteNotFound:
+            return HttpResponseNotFound()
+
+
+class PublicSiteMediaView(View):
+    """See `PublicSiteFeedView`: plain Django, and the bytes are the response."""
+
+    def get(self, request: HttpRequest, asset_id: UUID) -> HttpResponse:
+        try:
+            return serve_public_media(
+                host=str(request.META.get("HTTP_HOST", "")), asset_id=asset_id
+            )
         except PublicSiteNotFound:
             return HttpResponseNotFound()

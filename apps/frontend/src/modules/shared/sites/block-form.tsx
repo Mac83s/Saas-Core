@@ -34,7 +34,10 @@ import {
   FieldLabel,
 } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
+import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { Textarea } from "@saas-core/ui/components/textarea";
+
+import type { MediaAsset } from "@saas-core/api-client";
 
 export const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
 
@@ -175,6 +178,7 @@ export const blockFormSchema = z
 /** The shared components address fields by dot path and therefore work for any
  *  form whose values carry a `blocks` array, whatever else it carries. */
 export function BlockFields<TValues extends FieldValues>({
+  assets = [],
   form,
   index,
   isFirst,
@@ -184,6 +188,7 @@ export function BlockFields<TValues extends FieldValues>({
   onRemove,
   type,
 }: {
+  assets?: readonly MediaAsset[];
   form: UseFormReturn<TValues>;
   index: number;
   isFirst: boolean;
@@ -239,6 +244,7 @@ export function BlockFields<TValues extends FieldValues>({
       <FieldGroup>
         {(option?.fields ?? []).map((field) => (
           <BlockField
+            assets={assets}
             blockIndex={index}
             field={field}
             form={form}
@@ -272,11 +278,13 @@ function fieldErrorMessage<TValues extends FieldValues>(
 }
 
 function BlockField<TValues extends FieldValues>({
+  assets = [],
   blockIndex,
   field,
   form,
   pathPrefix,
 }: {
+  assets?: readonly MediaAsset[];
   blockIndex: number;
   field: BlockFieldDefinition;
   form: UseFormReturn<TValues>;
@@ -290,6 +298,7 @@ function BlockField<TValues extends FieldValues>({
   if (field.kind === "list") {
     return (
       <BlockListField
+        assets={assets}
         blockIndex={blockIndex}
         field={field}
         form={form}
@@ -299,7 +308,24 @@ function BlockField<TValues extends FieldValues>({
   }
 
   const control =
-    field.kind === "textarea" ? (
+    field.kind === "media" ? (
+      // Only assets that finished scanning: offering a pending one would let
+      // the operator publish a page whose picture is not there yet.
+      <NativeSelect
+        aria-invalid={Boolean(error)}
+        id={id}
+        {...form.register(name as never)}
+      >
+        <option value="">{t("noImage")}</option>
+        {assets
+          .filter((asset) => asset.state === "ready")
+          .map((asset) => (
+            <option key={asset.id} value={asset.id}>
+              {asset.original_filename}
+            </option>
+          ))}
+      </NativeSelect>
+    ) : field.kind === "textarea" ? (
       <Textarea
         aria-invalid={Boolean(error)}
         id={id}
@@ -324,11 +350,13 @@ function BlockField<TValues extends FieldValues>({
 }
 
 function BlockListField<TValues extends FieldValues>({
+  assets = [],
   blockIndex,
   field,
   form,
   name,
 }: {
+  assets?: readonly MediaAsset[];
   blockIndex: number;
   field: BlockFieldDefinition;
   form: UseFormReturn<TValues>;
@@ -361,6 +389,7 @@ function BlockListField<TValues extends FieldValues>({
           <FieldGroup>
             {item.map((nested) => (
               <BlockField
+                assets={assets}
                 blockIndex={blockIndex}
                 field={nested}
                 form={form}
@@ -461,6 +490,40 @@ export function editableBlocks(
           : withEditableFields(migrated.data, option.fields),
     };
   });
+}
+
+/** The assets the blocks themselves point at.
+ *
+ *  Collected on save rather than asked of the operator: a picture chosen in a
+ *  block and then not listed as a reference would be an asset the page shows
+ *  and nothing keeps alive. */
+export function mediaIdsInBlocks(blocks: readonly BlockFormValues[]): string[] {
+  const found = new Set<string>();
+  for (const block of blocks) {
+    for (const field of blockOption(block.block_type)?.fields ?? []) {
+      collectMedia(block.data, field, found);
+    }
+  }
+  return [...found];
+}
+
+function collectMedia(
+  data: JsonObject,
+  field: BlockFieldDefinition,
+  found: Set<string>,
+): void {
+  if (field.kind === "list") {
+    const rows = readAt(data, field.path);
+    if (!Array.isArray(rows)) return;
+    for (const row of rows) {
+      if (!isObject(row)) continue;
+      for (const nested of field.item ?? []) collectMedia(row, nested, found);
+    }
+    return;
+  }
+  if (field.kind !== "media") return;
+  const value = readAt(data, field.path);
+  if (typeof value === "string" && value !== "") found.add(value);
 }
 
 export function blockPayload(block: BlockFormValues) {

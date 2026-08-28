@@ -16,11 +16,14 @@
   "blocks": [
     {
       "block_type": "core.hero",
-      "schema_version": 2,
+      "schema_version": 3,
       "data": {
         "title": "Konkretna obietnica dla jednej grupy klientów",
         "text": "Powiedz w jednym zdaniu, jaki problem rozwiązujesz i dla kogo. Im węziej, tym skuteczniej.",
-        "action": { "label": "Umów wizytę", "href": "/kontakt/" }
+        "action": {
+          "label": "Umów wizytę",
+          "href": "/kontakt/"
+        }
       }
     },
     {

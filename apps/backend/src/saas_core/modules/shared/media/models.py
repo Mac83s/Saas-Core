@@ -20,6 +20,7 @@ class MediaAssetState(models.TextChoices):
 
 class MediaReferenceOwner(models.TextChoices):
     PAGE_VERSION = "sites.page_version", "Wersja strony"
+    CONTENT_ENTRY_VERSION = "sites.content_entry_version", "Wersja wpisu"
     PUBLICATION = "sites.publication", "Publikacja"
 
 

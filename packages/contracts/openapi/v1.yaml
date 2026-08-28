@@ -4650,9 +4650,15 @@ components:
           items:
             type: object
             additionalProperties: {}
+        media_asset_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
       required:
       - blocks
       - entry_id
+      - media_asset_ids
       - version
     ContentEntryDraftSave:
       type: object
@@ -4660,6 +4666,12 @@ components:
         expected_version:
           type: integer
           minimum: 0
+        media_asset_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 50
         blocks:
           type: array
           items:

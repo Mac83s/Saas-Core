@@ -16,11 +16,14 @@
   "blocks": [
     {
       "block_type": "core.hero",
-      "schema_version": 2,
+      "schema_version": 3,
       "data": {
         "title": "Nazwa firmy i czym się zajmuje",
         "text": "Jedno zdanie, które odpowiada na pytanie „co wy właściwie robicie”.",
-        "action": { "label": "Zobacz ofertę", "href": "/oferta/" }
+        "action": {
+          "label": "Zobacz ofertę",
+          "href": "/oferta/"
+        }
       }
     },
     {

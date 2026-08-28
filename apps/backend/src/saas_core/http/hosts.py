@@ -15,6 +15,8 @@ PUBLIC_SITE_ROUTES = (
     "/api/v1/public/site/sitemap.xml",
     "/api/v1/public/site/robots.txt",
 )
+# Media is addressed by asset id, so the tuple above cannot list it.
+PUBLIC_MEDIA_PREFIX = "/api/v1/public/site/media/"
 
 
 class DynamicHostValidationMiddleware:
@@ -26,7 +28,10 @@ class DynamicHostValidationMiddleware:
         domain, _port = split_domain_port(str(raw_host).casefold())
         if not domain:
             raise DisallowedHost("Nagłówek Host ma nieprawidłowy format.")
-        if request.path_info not in PUBLIC_SITE_ROUTES and not validate_host(
+        public = request.path_info in PUBLIC_SITE_ROUTES or request.path_info.startswith(
+            PUBLIC_MEDIA_PREFIX
+        )
+        if not public and not validate_host(
             domain,
             settings.CONFIGURED_ALLOWED_HOSTS,
         ):

@@ -81,6 +81,15 @@ def _entry_payload(entry: ContentEntry) -> dict[str, Any]:
     }
 
 
+def _draft_payload(draft: Any) -> dict[str, Any]:
+    return {
+        "entry_id": str(draft.entry.id),
+        "version": draft.entry.version,
+        "blocks": draft.version.blocks if draft.version else [],
+        "media_asset_ids": [str(asset_id) for asset_id in draft.media_asset_ids],
+    }
+
+
 def _publication_payload(publication: ContentEntryPublication) -> dict[str, Any]:
     return {
         "id": str(publication.id),
@@ -202,12 +211,7 @@ class ContentEntryDraftView(APIView):
         },
     )
     def get(self, _request: Request, entry_id: UUID) -> Response:
-        draft = get_entry_draft(entry_id=entry_id)
-        return Response({
-            "entry_id": str(draft.entry.id),
-            "version": draft.entry.version,
-            "blocks": draft.version.blocks if draft.version else [],
-        })
+        return Response(_draft_payload(get_entry_draft(entry_id=entry_id)))
 
     @extend_schema(
         operation_id="sites_entry_draft_save",
@@ -230,15 +234,11 @@ class ContentEntryDraftView(APIView):
             entry_id=entry_id,
             expected_version=serializer.validated_data["expected_version"],
             blocks=serializer.validated_data["blocks"],
+            media_asset_ids=serializer.validated_data.get("media_asset_ids", []),
             idempotency_key=request.headers.get("Idempotency-Key", ""),
         )
-        draft = get_entry_draft(entry_id=entry_id)
         return Response(
-            {
-                "entry_id": str(draft.entry.id),
-                "version": draft.entry.version,
-                "blocks": draft.version.blocks if draft.version else [],
-            },
+            _draft_payload(get_entry_draft(entry_id=entry_id)),
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
 

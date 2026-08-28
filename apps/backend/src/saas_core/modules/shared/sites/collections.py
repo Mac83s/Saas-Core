@@ -17,6 +17,11 @@ from django.utils import timezone
 from rest_framework.exceptions import APIException, NotFound
 
 from saas_core.modules.core.identity.models import User
+from saas_core.modules.core.organizations.api import (
+    ResourceReferenceRejected,
+    list_resource_reference_ids,
+    record_resource_references,
+)
 from saas_core.modules.core.organizations.audit import record_audit
 from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
@@ -35,9 +40,11 @@ from .models import (
 from .permissions import SITE_CONTENT_EDIT, SITE_PUBLISH, SITES_ENABLED
 from .services import (
     DRAFTABLE_POLICIES,
+    MEDIA_ASSET_RESOURCE_TYPE,
     DraftVersionConflict,
     PageAutomationForbidden,
     PageEditingLocked,
+    SiteMediaReferenceUnavailable,
     SiteNotFound,
     SitesIdempotencyConflict,
     _idempotency_key,
@@ -52,6 +59,7 @@ ENTRY_PUBLISHED = "sites.entry.published"
 ENTRY_WITHDRAWN = "sites.entry.withdrawn"
 COLLECTION_POLICY_SET = "sites.collection.automation_policy_set"
 COLLECTION_NAVIGATION_SET = "sites.collection.navigation_set"
+ENTRY_VERSION_REFERENCE_OWNER = "sites.content_entry_version"
 ENTRY_SNAPSHOT_SCHEMA_VERSION = 1
 
 
@@ -87,6 +95,7 @@ class EntryNotReady(APIException):
 class EntryDraft:
     entry: ContentEntry
     version: ContentEntryVersion | None
+    media_asset_ids: tuple[UUID, ...] = ()
 
 
 def _assert_entry_writable(
@@ -305,7 +314,20 @@ def get_entry_draft(*, entry_id: UUID) -> EntryDraft:
     assert_within_grant(
         context, site_id=entry.site_id, collection_id=entry.collection_id
     )
-    return EntryDraft(entry=entry, version=entry.current_draft)
+    return EntryDraft(
+        entry=entry,
+        version=entry.current_draft,
+        media_asset_ids=(
+            list_resource_reference_ids(
+                context=context,
+                resource_type=MEDIA_ASSET_RESOURCE_TYPE,
+                owner_type=ENTRY_VERSION_REFERENCE_OWNER,
+                owner_id=entry.current_draft.id,
+            )
+            if entry.current_draft is not None
+            else ()
+        ),
+    )
 
 
 @transaction.atomic
@@ -314,6 +336,7 @@ def save_entry_draft(
     entry_id: UUID,
     expected_version: int,
     blocks: list[dict[str, Any]],
+    media_asset_ids: list[UUID] | None = None,
     idempotency_key: str,
 ) -> tuple[ContentEntryVersion, bool]:
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
@@ -371,6 +394,17 @@ def save_entry_draft(
             context.credential_id if _is_automation(context) else None
         ),
     )
+    normalized_media_ids = tuple(sorted(set(media_asset_ids or []), key=str))
+    try:
+        record_resource_references(
+            context=context,
+            resource_type=MEDIA_ASSET_RESOURCE_TYPE,
+            owner_type=ENTRY_VERSION_REFERENCE_OWNER,
+            owner_id=version.id,
+            resource_ids=normalized_media_ids,
+        )
+    except ResourceReferenceRejected as error:
+        raise SiteMediaReferenceUnavailable from error
     entry.version = version.number
     entry.current_draft = version
     entry.save(update_fields=["version", "current_draft", "updated_at"])
@@ -423,6 +457,12 @@ def publish_entry(
     if entry.current_draft is None or not entry.current_draft.blocks:
         raise EntryNotReady
 
+    published_media_ids = list_resource_reference_ids(
+        context=context,
+        resource_type=MEDIA_ASSET_RESOURCE_TYPE,
+        owner_type=ENTRY_VERSION_REFERENCE_OWNER,
+        owner_id=entry.current_draft.id,
+    )
     snapshot = {
         "schema_version": ENTRY_SNAPSHOT_SCHEMA_VERSION,
         "entry_id": str(entry.id),
@@ -437,6 +477,9 @@ def publish_entry(
         "noindex": entry.noindex,
         "version": entry.current_draft.number,
         "blocks": entry.current_draft.blocks,
+        # Read by the public media endpoint: an asset is fetchable by a visitor
+        # only while something published names it.
+        "media_asset_ids": [str(asset_id) for asset_id in published_media_ids],
     }
     last = (
         ContentEntryPublication.all_objects.filter(

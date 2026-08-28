@@ -1546,7 +1546,11 @@ export async function getContentEntryDraft(
 
 export async function saveContentEntryDraft(
   entryId: string,
-  input: { expected_version: number; blocks: Record<string, unknown>[] },
+  input: {
+    expected_version: number;
+    blocks: Record<string, unknown>[];
+    media_asset_ids?: string[];
+  },
   idempotencyKey: string,
 ): Promise<ContentEntryDraft> {
   const csrfToken = await getCsrfToken();

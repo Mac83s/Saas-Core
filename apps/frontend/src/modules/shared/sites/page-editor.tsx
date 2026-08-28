@@ -88,6 +88,7 @@ import {
   blockOptions,
   blockPayload,
   editableBlocks,
+  mediaIdsInBlocks,
   emptyBlock,
   registry,
   toSiteBlock,
@@ -379,7 +380,15 @@ export function PageEditor({
     const input = {
       expected_version: draft.version,
       blocks: values.blocks.map(blockPayload),
-      media_asset_ids: values.media_asset_ids,
+      // A picture chosen inside a block is referenced whether or not the
+      // operator also listed it below: an asset the page shows and nothing
+      // keeps alive is one storage is free to reclaim.
+      media_asset_ids: [
+        ...new Set([
+          ...values.media_asset_ids,
+          ...mediaIdsInBlocks(values.blocks),
+        ]),
+      ],
     };
     try {
       const saved = await savePageDraft(
@@ -636,6 +645,7 @@ export function PageEditor({
               )}
               {blocks.fields.map((field, index) => (
                 <BlockFields
+                  assets={assets}
                   form={draftForm}
                   index={index}
                   key={field.id}

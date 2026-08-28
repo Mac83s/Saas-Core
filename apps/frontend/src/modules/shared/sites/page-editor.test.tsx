@@ -148,7 +148,7 @@ beforeEach(() => {
     blocks: [
       {
         ...draft.blocks[0],
-        schema_version: 2,
+        schema_version: 3,
         data: { title: "Nowy nagłówek", text: "Opis hero" },
       },
     ],
@@ -179,7 +179,9 @@ test("migruje hero v1 i zapisuje nową wersję draftu przez aktualny kontrakt", 
     blocks: [
       {
         block_type: "core.hero",
-        schema_version: 2,
+        // Saved at the current contract version: the editor migrates a v1
+        // draft on load, so what leaves the panel is always the latest.
+        schema_version: 3,
         data: { title: "Nowy nagłówek", text: "Opis hero" },
       },
     ],

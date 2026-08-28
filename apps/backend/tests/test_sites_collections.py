@@ -1037,3 +1037,172 @@ def test_only_a_person_links_a_collection_into_the_menu() -> None:
         pytest.raises(PageAutomationForbidden),
     ):
         set_collection_navigation(collection_id=collection.data["id"], show=True)
+
+
+def test_published_media_is_public_and_unpublished_media_is_not(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An id in a URL must not be a read handle on any organization's media.
+
+    Ids are guessable enough that "nobody will try" is not a security argument,
+    so the rule is narrow: an asset is public only while something published
+    names it.
+    """
+    from django.test import override_settings
+    from rest_framework.test import APIClient as PublicClient
+
+    from saas_core.modules.shared.sites.models import ContentEntryVersion
+    from test_media_api import MemoryStorage
+    from test_sites_api import create_media_asset
+
+    client, organization, user = sites_client(slug="blog-media", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    entry = create_entry(
+        client, collection.data["id"], slug="ze-zdjeciem", idempotency_key="media-entry"
+    )
+    asset = create_media_asset(organization, user)
+    storage = MemoryStorage()
+    storage.objects[asset.object_key] = (b"\x89PNG\r\n\x1a\n", "image/png")
+    monkeypatch.setattr(
+        "saas_core.modules.shared.sites.public_media.get_object_storage",
+        lambda: storage,
+    )
+
+    saved = client.put(
+        f"/api/v1/sites/entries/{entry.data['id']}/draft/",
+        {
+            "expected_version": 0,
+            "blocks": [
+                {
+                    "block_type": "core.hero",
+                    "schema_version": 3,
+                    "data": {
+                        "title": "Wpis ze zdjęciem",
+                        "image": {"asset_id": str(asset.id), "alt": "Zdjęcie"},
+                    },
+                }
+            ],
+            "media_asset_ids": [str(asset.id)],
+        },
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+        HTTP_IDEMPOTENCY_KEY="media-draft",
+    )
+    assert saved.status_code == 201
+    assert saved.data["media_asset_ids"] == [str(asset.id)]
+    assert ContentEntryVersion.all_objects.filter(entry_id=entry.data["id"]).count() == 1
+
+    platform = _verified_platform_domain(site.data["id"])
+    media_path = f"/api/v1/public/site/media/{asset.id}/"
+
+    # Nothing is published yet, so the picture is still private.
+    unpublished = PublicClient().get(media_path, HTTP_HOST=platform.hostname)
+    assert unpublished.status_code == 404
+
+    publish(client, entry.data["id"], idempotency_key="media-publish")
+
+    with override_settings(PUBLIC_SITE_SCHEME="https"):
+        served = PublicClient().get(media_path, HTTP_HOST=platform.hostname)
+    assert served.status_code == 200
+    assert served["Cache-Control"] == "public, max-age=31536000, immutable"
+    assert served.content == b"\x89PNG\r\n\x1a\n"
+
+    # A different site's visitor must not reach it, whatever id they guess.
+    other_client, _, _ = sites_client(slug="blog-media-other", role_key="owner")
+    other_site = create_site(other_client)
+    other_platform = _verified_platform_domain(other_site.data["id"])
+    stranger = PublicClient().get(media_path, HTTP_HOST=other_platform.hostname)
+    assert stranger.status_code == 404
+
+
+def test_hero_keeps_rendering_when_it_has_no_picture() -> None:
+    """v2 heroes were saved before images existed and must survive untouched."""
+    from saas_core.modules.shared.sites.block_contracts import validate_site_block
+
+    validate_site_block(
+        block_type="core.hero",
+        schema_version=2,
+        data={"title": "Bez zdjęcia"},
+    )
+    validate_site_block(
+        block_type="core.hero",
+        schema_version=3,
+        data={"title": "Bez zdjęcia"},
+    )
+
+
+def test_public_media_reads_the_asset_inside_the_tenant_setting() -> None:
+    """`media_mediaasset` enforces row-level security, so reading the asset
+    before `SET LOCAL app.organization_id` finds nothing and every picture on
+    every published page answers 404.
+
+    The test database connects as an owner that bypasses RLS, which is why a
+    green suite said nothing the first time. This asserts the statement order,
+    which stays observable either way.
+    """
+    from django.db import connection
+    from django.test import Client, override_settings
+    from django.test.utils import CaptureQueriesContext
+
+    from test_media_api import MemoryStorage
+    from test_sites_api import create_media_asset
+
+    client, organization, user = sites_client(slug="media-order", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    entry = create_entry(
+        client, collection.data["id"], slug="obrazek", idempotency_key="order-media"
+    )
+    asset = create_media_asset(organization, user)
+    client.put(
+        f"/api/v1/sites/entries/{entry.data['id']}/draft/",
+        {
+            "expected_version": 0,
+            "blocks": [
+                {
+                    "block_type": "core.rich_text",
+                    "schema_version": 1,
+                    "data": {"text": "Treść wpisu z obrazkiem."},
+                }
+            ],
+            "media_asset_ids": [str(asset.id)],
+        },
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+        HTTP_IDEMPOTENCY_KEY="order-media-draft",
+    )
+    publish(client, entry.data["id"], idempotency_key="order-media-publish")
+    platform = _verified_platform_domain(site.data["id"])
+
+    storage = MemoryStorage()
+    storage.objects[asset.object_key] = (b"\x89PNG\r\n\x1a\n", "image/png")
+    with (
+        override_settings(PUBLIC_SITE_SCHEME="https"),
+        CaptureQueriesContext(connection) as captured,
+    ):
+        import saas_core.modules.shared.sites.public_media as media_module
+
+        original = media_module.get_object_storage
+        media_module.get_object_storage = lambda: storage
+        try:
+            response = Client().get(
+                f"/api/v1/public/site/media/{asset.id}/",
+                HTTP_HOST=platform.hostname,
+            )
+        finally:
+            media_module.get_object_storage = original
+    assert response.status_code == 200
+
+    statements = [query["sql"] for query in captured.captured_queries]
+    tenant_set = next(
+        index
+        for index, sql in enumerate(statements)
+        if "app.organization_id" in sql and "SET LOCAL" in sql.upper()
+    )
+    asset_read = next(
+        index
+        for index, sql in enumerate(statements)
+        if 'FROM "media_mediaasset"' in sql and sql.upper().startswith("SELECT")
+    )
+    assert tenant_set < asset_read

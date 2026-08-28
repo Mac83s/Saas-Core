@@ -255,6 +255,9 @@ test("saves the entry draft and confirms it", async () => {
   expect(saveContentEntryDraft.mock.calls[0]?.[1]).toEqual({
     expected_version: 2,
     blocks: [],
+    // Collected from the blocks themselves, so an article with no picture
+    // sends an empty list rather than omitting the field.
+    media_asset_ids: [],
   });
   expect((await screen.findByRole("status")).textContent).toContain(
     "Szkic został zapisany.",

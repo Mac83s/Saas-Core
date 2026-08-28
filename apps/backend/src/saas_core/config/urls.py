@@ -5,6 +5,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from saas_core.modules.shared.sites.public_views import (
     CaddyDomainAuthorizationView,
     PublicSiteFeedView,
+    PublicSiteMediaView,
     PublicSitePageView,
     PublicSiteRobotsView,
     PublicSiteSitemapView,
@@ -49,6 +50,11 @@ urlpatterns = [
         "api/v1/public/site/robots.txt",
         PublicSiteRobotsView.as_view(),
         name="public-site-robots",
+    ),
+    path(
+        "api/v1/public/site/media/<uuid:asset_id>/",
+        PublicSiteMediaView.as_view(),
+        name="public-site-media",
     ),
     path("api/v1/media/", include("saas_core.modules.shared.media.urls")),
     path(

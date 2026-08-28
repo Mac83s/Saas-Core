@@ -26,6 +26,13 @@ export type HeroV2Data = JsonObject & {
   };
 };
 
+export type HeroV3Data = HeroV2Data & {
+  image?: {
+    asset_id: string;
+    alt: string;
+  };
+};
+
 export type RichTextV1Data = JsonObject & {
   text: string;
 };
@@ -107,7 +114,7 @@ export type BlockCategory =
   | "booking"
   | "footer";
 
-export type BlockFieldKind = "text" | "textarea" | "url" | "list";
+export type BlockFieldKind = "text" | "textarea" | "url" | "list" | "media";
 
 /** How one editable value inside a block is presented. Deliberately data, not a
  *  component: the same manifest is loaded by the public renderer, which must not

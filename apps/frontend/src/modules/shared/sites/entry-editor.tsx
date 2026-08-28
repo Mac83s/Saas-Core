@@ -13,8 +13,10 @@ import { z } from "zod";
 
 import {
   getContentEntryDraft,
+  listMediaAssets,
   saveContentEntryDraft,
   type ContentEntry,
+  type MediaAsset,
 } from "@saas-core/api-client";
 import { Button } from "@saas-core/ui/components/button";
 import {
@@ -41,6 +43,7 @@ import {
   blockPayload,
   editableBlocks,
   emptyBlock,
+  mediaIdsInBlocks,
   type BlockOption,
 } from "./block-form";
 import { mutationKey, type MutationReceipt } from "./idempotency";
@@ -67,6 +70,7 @@ export function EntryEditor({
   const [conflict, setConflict] = useState(false);
   const [problem, setProblem] = useState<string>();
   const [selectedBlock, setSelectedBlock] = useState<BlockOption | null>(null);
+  const [assets, setAssets] = useState<MediaAsset[]>([]);
   const receipt = useRef<MutationReceipt | undefined>(undefined);
 
   const form = useForm<EntryDraftValues>({
@@ -79,8 +83,12 @@ export function EntryEditor({
     setLoading(true);
     setProblem(undefined);
     try {
-      const draft = await getContentEntryDraft(entry.id);
+      const [draft, media] = await Promise.all([
+        getContentEntryDraft(entry.id),
+        listMediaAssets(),
+      ]);
       setVersion(draft.version);
+      setAssets(media.items);
       form.reset({ blocks: editableBlocks(asBlocks(draft.blocks)) });
       setConflict(false);
     } catch (error) {
@@ -94,10 +102,11 @@ export function EntryEditor({
   // must not set it again from inside the effect.
   useEffect(() => {
     let mounted = true;
-    void getContentEntryDraft(entry.id)
-      .then((draft) => {
+    void Promise.all([getContentEntryDraft(entry.id), listMediaAssets()])
+      .then(([draft, media]) => {
         if (!mounted) return;
         setVersion(draft.version);
+        setAssets(media.items);
         form.reset({ blocks: editableBlocks(asBlocks(draft.blocks)) });
       })
       .catch((error: unknown) => {
@@ -117,6 +126,9 @@ export function EntryEditor({
     const payload = {
       expected_version: version,
       blocks: values.blocks.map(blockPayload),
+      // Collected from the blocks rather than asked of the operator: a picture
+      // the article shows has to be a reference, or storage may reclaim it.
+      media_asset_ids: mediaIdsInBlocks(values.blocks),
     };
     try {
       const draft = await saveContentEntryDraft(
@@ -247,6 +259,7 @@ export function EntryEditor({
             )}
             {blocks.fields.map((field, index) => (
               <BlockFields
+                assets={assets}
                 form={form}
                 index={index}
                 isFirst={index === 0}
