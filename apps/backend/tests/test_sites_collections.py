@@ -1496,3 +1496,255 @@ def test_page_type_is_a_person_s_call_and_reaches_the_listing() -> None:
         pytest.raises(PageAutomationForbidden),
     ):
         set_page_type(page_id=page.data["id"], page_type="article")
+
+
+def _publishable_page(client, site_id: str, *, key: str, slug: str, title: str):
+    from test_sites_api import create_page, save_draft, save_translation
+
+    page = create_page(client, site_id, key=key, idempotency_key=f"w963-{key}")
+    save_draft(
+        client,
+        page.data["id"],
+        expected_version=0,
+        idempotency_key=f"w963-{key}-draft",
+        heading=title,
+    )
+    save_translation(
+        client,
+        page.data["id"],
+        "pl",
+        expected_version=0,
+        slug=slug,
+        title=title,
+        description=f"Opis strony {title}",
+        idempotency_key=f"w963-{key}-pl",
+    )
+    return page
+
+
+def test_reordering_the_menu_never_moves_a_page_s_address() -> None:
+    """The whole point of a hierarchy is that rearranging it is cheap. It stops
+    being cheap the moment a reorder costs every page its URL."""
+    from django.test import override_settings
+    from rest_framework.test import APIClient as PublicClient
+
+    from test_sites_api import navigation_request, publish_site_request
+
+    client, _, _ = sites_client(slug="w963-reorder", role_key="owner")
+    site = create_site(client)
+    home = _publishable_page(client, site.data["id"], key="home", slug="start", title="Start")
+    offer = _publishable_page(
+        client, site.data["id"], key="oferta", slug="oferta", title="Oferta"
+    )
+    navigation_request(
+        client,
+        site.data["id"],
+        expected_version=0,
+        items=[
+            {"page_id": home.data["id"], "parent_page_id": None, "visible": True},
+            {"page_id": offer.data["id"], "parent_page_id": None, "visible": True},
+        ],
+    )
+    publish_site_request(client, site.data["id"], idempotency_key="w963-publish-1")
+    platform = _verified_platform_domain(site.data["id"])
+
+    # Reorder and nest, publish again, and ask for the same address.
+    navigation_request(
+        client,
+        site.data["id"],
+        expected_version=1,
+        items=[
+            {"page_id": offer.data["id"], "parent_page_id": None, "visible": True},
+            {
+                "page_id": home.data["id"],
+                "parent_page_id": offer.data["id"],
+                "visible": True,
+            },
+        ],
+    )
+    publish_site_request(client, site.data["id"], idempotency_key="w963-publish-2")
+
+    with override_settings(PUBLIC_SITE_SCHEME="https"):
+        served = PublicClient().get(
+            "/api/v1/public/site/",
+            {"path": "/start/"},
+            HTTP_HOST=platform.hostname,
+        )
+    assert served.status_code == 200
+    assert served.json()["canonical_url"].endswith("/start/")
+    # The trail follows the tree, so nesting is visible without the URL moving.
+    assert [item["path"] for item in served.json()["breadcrumbs"]] == [
+        "/oferta/",
+        "/start/",
+    ]
+
+
+def test_changing_a_published_url_leaves_a_redirect_and_an_audit_entry() -> None:
+    """Every link, bookmark and search result points at the published address,
+    so moving it without a redirect is how a site loses its ranking."""
+    from django.test import override_settings
+    from rest_framework.test import APIClient as PublicClient
+
+    from saas_core.modules.core.organizations.models import OrganizationAuditEntry
+    from test_sites_api import publish_site_request
+
+    client, _, _ = sites_client(slug="w963-url", role_key="owner")
+    site = create_site(client)
+    page = _publishable_page(
+        client, site.data["id"], key="oferta", slug="oferta", title="Oferta"
+    )
+    publish_site_request(client, site.data["id"], idempotency_key="w963-url-publish")
+    platform = _verified_platform_domain(site.data["id"])
+
+    # The slug locks on publication; this is the one door past it.
+    refused = client.put(
+        f"/api/v1/sites/pages/{page.data['id']}/url/",
+        {"locale": "pl", "slug": "uslugi", "reason": ""},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    assert refused.status_code == 400
+
+    moved = client.put(
+        f"/api/v1/sites/pages/{page.data['id']}/url/",
+        {"locale": "pl", "slug": "uslugi", "reason": "Nowa nazwa działu."},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    assert moved.status_code == 200
+    assert moved.data["from_path"] == "/oferta/"
+    assert moved.data["to_path"] == "/uslugi/"
+    assert OrganizationAuditEntry.objects.filter(action="sites.page.url_changed").exists()
+
+    listed = client.get(f"/api/v1/sites/{site.data['id']}/redirects/")
+    assert [item["from_path"] for item in listed.json()] == ["/oferta/"]
+
+    # Until the site is published again the old address still serves the page:
+    # a redirect a visitor gets has to come from the snapshot, not the draft.
+    publish_site_request(client, site.data["id"], idempotency_key="w963-url-publish-2")
+
+    with override_settings(PUBLIC_SITE_SCHEME="https"):
+        old = PublicClient().get(
+            "/api/v1/public/site/",
+            {"path": "/oferta/"},
+            HTTP_HOST=platform.hostname,
+        )
+        new = PublicClient().get(
+            "/api/v1/public/site/",
+            {"path": "/uslugi/"},
+            HTTP_HOST=platform.hostname,
+        )
+    assert old.status_code == 308
+    assert old["Location"].endswith("/uslugi/")
+    assert new.status_code == 200
+
+
+def test_moving_a_page_twice_does_not_build_a_redirect_chain() -> None:
+    """Two hops lose a little of whatever the first was carrying, and search
+    engines stop following long chains."""
+    from saas_core.modules.shared.sites.models import SiteRedirect
+    from test_sites_api import publish_site_request
+
+    client, _, _ = sites_client(slug="w963-chain", role_key="owner")
+    site = create_site(client)
+    page = _publishable_page(
+        client, site.data["id"], key="oferta", slug="pierwszy", title="Oferta"
+    )
+    publish_site_request(client, site.data["id"], idempotency_key="w963-chain-publish")
+
+    for slug in ("drugi", "trzeci"):
+        assert (
+            client.put(
+                f"/api/v1/sites/pages/{page.data['id']}/url/",
+                {"locale": "pl", "slug": slug, "reason": f"Zmiana na {slug}."},
+                format="json",
+                HTTP_X_CSRFTOKEN=csrf_value(client),
+            ).status_code
+            == 200
+        )
+
+    targets = dict(
+        SiteRedirect.all_objects.filter(site_id=site.data["id"]).values_list(
+            "from_path", "to_path"
+        )
+    )
+    assert targets == {"/pierwszy/": "/trzeci/", "/drugi/": "/trzeci/"}
+
+
+def test_rolling_navigation_back_keeps_newer_page_drafts() -> None:
+    """A rollback restores what was published, and a draft written since is not
+    that — losing it would make rollback something nobody dares press."""
+    from test_sites_api import navigation_request, publish_site_request, save_draft
+
+    client, _, _ = sites_client(slug="w963-rollback", role_key="owner")
+    site = create_site(client)
+    home = _publishable_page(client, site.data["id"], key="home", slug="start", title="Start")
+    navigation_request(
+        client,
+        site.data["id"],
+        expected_version=0,
+        items=[{"page_id": home.data["id"], "parent_page_id": None, "visible": True}],
+    )
+    first = publish_site_request(
+        client, site.data["id"], idempotency_key="w963-rb-publish-1"
+    )
+    assert first.status_code == 201
+
+    navigation_request(
+        client,
+        site.data["id"],
+        expected_version=1,
+        items=[{"page_id": home.data["id"], "parent_page_id": None, "visible": False}],
+    )
+    publish_site_request(client, site.data["id"], idempotency_key="w963-rb-publish-2")
+
+    # A newer draft, written after both publications.
+    save_draft(
+        client,
+        home.data["id"],
+        expected_version=1,
+        idempotency_key="w963-rb-newer-draft",
+        heading="Treść napisana po publikacji",
+    )
+    draft_before = client.get(f"/api/v1/sites/pages/{home.data['id']}/draft/").json()
+
+    rollback = client.post(
+        f"/api/v1/sites/{site.data['id']}/publications/{first.data['id']}/rollback/",
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+        HTTP_IDEMPOTENCY_KEY="w963-rb-rollback",
+    )
+    assert rollback.status_code == 201
+
+    draft_after = client.get(f"/api/v1/sites/pages/{home.data['id']}/draft/").json()
+    assert draft_after["version"] == draft_before["version"]
+    assert draft_after["blocks"] == draft_before["blocks"]
+
+
+def test_a_credential_cannot_move_a_published_url() -> None:
+    from saas_core.modules.core.organizations.context import activate_tenant_context
+    from saas_core.modules.shared.sites.services import (
+        PageAutomationForbidden,
+        change_page_url,
+    )
+    from test_sites_api import automation_context, publish_site_request
+
+    client, organization, user = sites_client(slug="w963-url-key", role_key="owner")
+    site = create_site(client)
+    page = _publishable_page(
+        client, site.data["id"], key="oferta", slug="oferta", title="Oferta"
+    )
+    publish_site_request(client, site.data["id"], idempotency_key="w963-key-publish")
+
+    # Moving a URL costs whatever ranking it had, and whether that trade is
+    # worth it is not an optimiser's decision to make for its customer.
+    with (
+        activate_tenant_context(automation_context(organization.id, user.id)),
+        pytest.raises(PageAutomationForbidden),
+    ):
+        change_page_url(
+            page_id=page.data["id"],
+            locale="pl",
+            slug="przejete",
+            reason="Automatyczna zmiana.",
+        )

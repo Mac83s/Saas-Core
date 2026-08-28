@@ -1194,6 +1194,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/{site_id}/redirects/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["sites_redirects_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/capabilities/": {
         parameters: {
             query?: never;
@@ -1472,6 +1488,28 @@ export interface paths {
         get?: never;
         /** @description See `SitePurposeView`: a person marks what a page is. */
         put: operations["sites_page_type_set"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/pages/{page_id}/url/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * @description Moves a published page, leaving a redirect behind.
+         *
+         *     Session-only. The slug lock exists because every link and search result
+         *     points at the published address; this is the single audited way past it.
+         */
+        put: operations["sites_page_url_change"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2172,6 +2210,11 @@ export interface components {
          * @enum {string}
          */
         PageTypeEnum: "homepage" | "landing" | "service" | "about" | "contact" | "legal" | "article_index" | "article";
+        PageUrlChange: {
+            locale: components["schemas"]["LocaleEnum"];
+            slug: string;
+            reason: string;
+        };
         PasswordResetConfirm: {
             token: string;
             password: string;
@@ -2263,6 +2306,9 @@ export interface components {
                 [key: string]: unknown;
             }[];
             navigation: components["schemas"]["PublicNavigationLink"][];
+            breadcrumbs: {
+                [key: string]: unknown;
+            }[];
         };
         PublicationAuthor: {
             /** Format: uuid */
@@ -2459,6 +2505,14 @@ export interface components {
         };
         SitePurpose: {
             purpose: components["schemas"]["PurposeEnum"];
+        };
+        SiteRedirect: {
+            /** Format: uuid */
+            id: string;
+            locale: string;
+            from_path: string;
+            to_path: string;
+            reason: string;
         };
         SiteSummary: {
             /** Format: uuid */
@@ -6198,6 +6252,43 @@ export interface operations {
             };
         };
     };
+    sites_redirects_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteRedirect"][];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     sites_capabilities_retrieve: {
         parameters: {
             query?: never;
@@ -7381,6 +7472,65 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_page_url_change: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PageUrlChange"];
+                "application/x-www-form-urlencoded": components["schemas"]["PageUrlChange"];
+                "multipart/form-data": components["schemas"]["PageUrlChange"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteRedirect"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

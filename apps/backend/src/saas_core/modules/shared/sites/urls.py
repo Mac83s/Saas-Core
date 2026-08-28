@@ -29,17 +29,29 @@ from .views import (
     PageTranslationListView,
     PageTranslationView,
     PageTypeView,
+    PageUrlView,
     SiteListCreateView,
     SiteLocalizationReportView,
     SiteNavigationView,
     SitePublicationCreateView,
     SitePublicationRollbackView,
     SitePurposeView,
+    SiteRedirectListView,
 )
 
 app_name = "sites"
 
 urlpatterns = [
+    path(
+        "pages/<uuid:page_id>/url/",
+        PageUrlView.as_view(),
+        name="page-url",
+    ),
+    path(
+        "<uuid:site_id>/redirects/",
+        SiteRedirectListView.as_view(),
+        name="site-redirects",
+    ),
     path(
         "pages/<uuid:page_id>/type/",
         PageTypeView.as_view(),

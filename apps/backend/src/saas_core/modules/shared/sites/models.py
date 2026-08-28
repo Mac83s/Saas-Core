@@ -659,6 +659,66 @@ class PageTranslationMutation(TenantScopedModel):
         raise ValidationError("Zapis mutacji tłumaczenia jest niemutowalny.")
 
 
+class SiteRedirect(TenantScopedModel):
+    """One address that now answers somewhere else.
+
+    Kept per site and per locale because the same slug means different pages in
+    different languages. `page` is nullable: a redirect outlives the page that
+    caused it, and a page deleted later must not take its incoming links with
+    it.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name="redirects")
+    page = models.ForeignKey(
+        "Page",
+        on_delete=models.SET_NULL,
+        related_name="redirects",
+        null=True,
+        blank=True,
+    )
+    locale = models.CharField(max_length=10)
+    from_path = models.CharField(max_length=300)
+    to_path = models.CharField(max_length=300)
+    reason = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_site_redirects",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "site_id", "from_path")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "site", "from_path"],
+                name="sites_redirect_org_site_from_uq",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(from_path=models.F("to_path")),
+                name="sites_redirect_not_self_ck",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["organization", "site", "to_path"],
+                name="sites_redirect_target_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.from_path} -> {self.to_path}"
+
+    def clean(self) -> None:
+        super().clean()
+        if self.site_id and self.site.organization_id != self.organization_id:
+            raise ValidationError({"site": "Przekierowanie należy do innej organizacji."})
+
+
 class PageVersion(TenantScopedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     page = models.ForeignKey(Page, on_delete=models.PROTECT, related_name="versions")

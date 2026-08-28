@@ -16,6 +16,7 @@ const page: PublicSitePage = {
     en: "https://clinic.example.test/en/offer",
   },
   x_default: "https://clinic.example.test/oferta",
+  breadcrumbs: [{ title: "Oferta", path: "/oferta/" }],
   title: "Oferta",
   description: "Opis oferty",
   social_title: "Oferta social",

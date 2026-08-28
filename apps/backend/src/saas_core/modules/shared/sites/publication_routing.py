@@ -101,11 +101,25 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
                 requested_path=normalized_path,
             )
         except PublicSiteNotFound:
-            page, locale_document, publication = _find_collection_index(
-                organization_id=domain.organization_id,
-                site_id=domain.site_id,
-                requested_path=normalized_path,
-            )
+            try:
+                page, locale_document, publication = _find_collection_index(
+                    organization_id=domain.organization_id,
+                    site_id=domain.site_id,
+                    requested_path=normalized_path,
+                )
+            except PublicSiteNotFound:
+                # Nothing answers here any more, but something used to. A
+                # visitor following an old link, and a search engine holding an
+                # old address, both deserve better than a 404.
+                target = _redirect_target(
+                    publication=domain.site.current_publication,
+                    requested_path=normalized_path,
+                )
+                if target is None:
+                    raise
+                raise PublicSiteMoved(
+                    f"{settings.PUBLIC_SITE_SCHEME}://{canonical.hostname}{target}"
+                ) from None
     canonical_path = str(locale_document["canonical_path"])
     return PublicPage(
         hostname=hostname,
@@ -145,6 +159,16 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         ),
         "blocks": page.page["blocks"],
         "navigation": _navigation_links(publication_snapshot, page.locale),
+        # Derived from the menu, never stored: a stored trail is wrong the
+        # moment somebody reorders the tree, and the whole point of the
+        # hierarchy is that reordering is cheap.
+        "breadcrumbs": _breadcrumbs(
+            publication_snapshot,
+            locale=page.locale,
+            page_id=str(page.page.get("page_id", "")),
+            title=selected_locale["title"],
+            path=page.canonical_path,
+        ),
     }
 
 
@@ -444,6 +468,55 @@ def _index_item(item: dict[str, Any]) -> dict[str, Any]:
     if item["published_at"] is not None:
         listed["published_at"] = item["published_at"].isoformat()
     return listed
+
+
+def _breadcrumbs(
+    snapshot: dict[str, Any],
+    *,
+    locale: str,
+    page_id: str,
+    title: str,
+    path: str,
+) -> list[dict[str, Any]]:
+    """The trail from the top of the menu down to this page.
+
+    An article is not in the menu at all, and a page nobody put there is not
+    either; both get a trail of just themselves rather than a broken one.
+    """
+    links = {link["page_id"]: link for link in _navigation_links(snapshot, locale)}
+    here = links.get(page_id)
+    if here is None:
+        return [{"title": title, "path": path}]
+    trail: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    current: dict[str, Any] | None = here
+    while current is not None and current["page_id"] not in seen:
+        seen.add(current["page_id"])
+        trail.append({"title": current["title"], "path": current["path"]})
+        parent_id = current.get("parent_page_id")
+        current = links.get(str(parent_id)) if parent_id else None
+    trail.reverse()
+    return trail
+
+
+class PublicSiteMoved(Exception):
+    """The address moved. Carries where to, so the view can answer 308."""
+
+    def __init__(self, location: str) -> None:
+        super().__init__(location)
+        self.location = location
+
+
+def _redirect_target(*, publication: Any, requested_path: str) -> str | None:
+    if publication is None:
+        return None
+    wanted = _comparable_path(requested_path)
+    for entry in publication.snapshot.get("redirects", []):
+        if not isinstance(entry, dict):
+            continue
+        if _comparable_path(str(entry.get("from_path", ""))) == wanted:
+            return str(entry.get("to_path", "")) or None
+    return None
 
 
 def _published_translations(*, organization_id: Any, entry: ContentEntry) -> dict[str, str]:

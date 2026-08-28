@@ -33,6 +33,7 @@ from .serializers import (
     PageTranslationSaveSerializer,
     PageTranslationSerializer,
     PageTypeSerializer,
+    PageUrlChangeSerializer,
     SiteCreateSerializer,
     SiteListSerializer,
     SiteLocalizationReportSerializer,
@@ -42,12 +43,14 @@ from .serializers import (
     SitePublicationSerializer,
     SitePublishSerializer,
     SitePurposeSerializer,
+    SiteRedirectSerializer,
     SiteRollbackSerializer,
     SiteSummarySerializer,
 )
 from .services import (
     PageDraft,
     SiteNavigation,
+    change_page_url,
     create_page,
     create_site,
     get_draft,
@@ -58,6 +61,7 @@ from .services import (
     list_page_translations,
     list_pages,
     list_site_publications,
+    list_site_redirects,
     list_sites,
     publish_site,
     rollback_site,
@@ -735,3 +739,64 @@ class PageTypeView(APIView):
             page_id=page_id, page_type=serializer.validated_data["page_type"]
         )
         return Response(_page_summary(page))
+
+
+def _redirect_payload(redirect: Any) -> dict[str, Any]:
+    return {
+        "id": redirect.id,
+        "locale": redirect.locale,
+        "from_path": redirect.from_path,
+        "to_path": redirect.to_path,
+        "reason": redirect.reason,
+    }
+
+
+class PageUrlView(APIView):
+    """Moves a published page, leaving a redirect behind.
+
+    Session-only. The slug lock exists because every link and search result
+    points at the published address; this is the single audited way past it.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_page_url_change",
+        tags=["sites"],
+        request=PageUrlChangeSerializer,
+        responses={
+            200: SiteRedirectSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def put(self, request: Request, page_id: UUID) -> Response:
+        serializer = PageUrlChangeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        _translation, redirect = change_page_url(
+            page_id=page_id,
+            locale=serializer.validated_data["locale"],
+            slug=serializer.validated_data["slug"],
+            reason=serializer.validated_data["reason"],
+        )
+        return Response(_redirect_payload(redirect))
+
+
+class SiteRedirectListView(APIView):
+    permission_classes = [IsSessionOrApiKey]
+
+    @extend_schema(
+        operation_id="sites_redirects_list",
+        tags=["sites"],
+        responses={
+            200: SiteRedirectSerializer(many=True),
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, _request: Request, site_id: UUID) -> Response:
+        return Response([
+            _redirect_payload(item) for item in list_site_redirects(site_id=site_id)
+        ])

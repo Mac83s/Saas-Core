@@ -19,6 +19,7 @@ from .public_feeds import (
 )
 from .public_media import serve_public_media
 from .publication_routing import (
+    PublicSiteMoved,
     PublicSiteNotFound,
     public_page_payload,
     resolve_public_page,
@@ -63,7 +64,16 @@ class PublicSitePageView(APIView):
     )
     def get(self, request: Request) -> Response:
         host = str(request.META.get("HTTP_HOST", ""))
-        page = resolve_public_page(host=host, path=request.query_params.get("path", ""))
+        try:
+            page = resolve_public_page(
+                host=host, path=request.query_params.get("path", "")
+            )
+        except PublicSiteMoved as moved:
+            # The address changed deliberately and the old one still answers,
+            # permanently, so a search engine can move the ranking across.
+            response = Response(status=308)
+            response["Location"] = moved.location
+            return response
         if page.redirect_url is not None:
             response = Response(status=308)
             response["Location"] = page.redirect_url

@@ -148,6 +148,7 @@ class PublicSitePageSerializer(serializers.Serializer[dict[str, Any]]):
     design_tokens = serializers.DictField()
     blocks = serializers.ListField(child=serializers.DictField())
     navigation = PublicNavigationLinkSerializer(many=True)
+    breadcrumbs = serializers.ListField(child=serializers.DictField())
 
 
 class NavigationItemSerializer(serializers.Serializer[dict[str, Any]]):
@@ -263,6 +264,22 @@ class PageCreateSerializer(serializers.Serializer[dict[str, Any]]):
         r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
         max_length=80,
     )
+
+
+class PageUrlChangeSerializer(serializers.Serializer[dict[str, Any]]):
+    locale = serializers.ChoiceField(choices=["pl", "en"])
+    slug = serializers.RegexField(r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=80)
+    # Required, and stored: six months later the audit is the only thing that
+    # explains why a ranking address moved.
+    reason = serializers.CharField(max_length=500, trim_whitespace=True)
+
+
+class SiteRedirectSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    locale = serializers.CharField()
+    from_path = serializers.CharField()
+    to_path = serializers.CharField()
+    reason = serializers.CharField(allow_blank=True)
 
 
 class PageTypeSerializer(serializers.Serializer[dict[str, Any]]):

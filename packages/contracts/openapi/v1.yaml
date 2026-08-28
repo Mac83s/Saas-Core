@@ -3266,6 +3266,41 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/{site_id}/redirects/:
+    get:
+      operationId: sites_redirects_list
+      parameters:
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SiteRedirect'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/capabilities/:
     get:
       operationId: sites_capabilities_retrieve
@@ -4408,6 +4443,68 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/pages/{page_id}/url/:
+    put:
+      operationId: sites_page_url_change
+      description: |-
+        Moves a published page, leaving a redirect behind.
+
+        Session-only. The slug lock exists because every link and search result
+        points at the published address; this is the single audited way past it.
+      parameters:
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PageUrlChange'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PageUrlChange'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PageUrlChange'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteRedirect'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
           content:
             application/json:
               schema:
@@ -6162,6 +6259,22 @@ components:
         * `legal` - legal
         * `article_index` - article_index
         * `article` - article
+    PageUrlChange:
+      type: object
+      properties:
+        locale:
+          $ref: '#/components/schemas/LocaleEnum'
+        slug:
+          type: string
+          maxLength: 80
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        reason:
+          type: string
+          maxLength: 500
+      required:
+      - locale
+      - reason
+      - slug
     PasswordResetConfirm:
       type: object
       properties:
@@ -6360,8 +6473,14 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PublicNavigationLink'
+        breadcrumbs:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
       required:
       - blocks
+      - breadcrumbs
       - canonical_url
       - description
       - design_tokens
@@ -6859,6 +6978,26 @@ components:
           $ref: '#/components/schemas/PurposeEnum'
       required:
       - purpose
+    SiteRedirect:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        locale:
+          type: string
+        from_path:
+          type: string
+        to_path:
+          type: string
+        reason:
+          type: string
+      required:
+      - from_path
+      - id
+      - locale
+      - reason
+      - to_path
     SiteSummary:
       type: object
       properties:

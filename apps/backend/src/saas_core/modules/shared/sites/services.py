@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
@@ -40,7 +41,11 @@ from saas_core.modules.shared.media.api import (
 from saas_core.observability import correlation_id
 
 from .block_contracts import validate_site_block
-from .localization import SiteLocalizationReport, build_localization_report
+from .localization import (
+    SiteLocalizationReport,
+    build_localization_report,
+    localized_path,
+)
 from .models import (
     ContentAutomationGrant,
     ContentCollection,
@@ -56,6 +61,7 @@ from .models import (
     Site,
     SiteOutboxEvent,
     SitePurpose,
+    SiteRedirect,
     canonical_json_hash,
 )
 from .permissions import SITE_CONTENT_EDIT, SITE_PUBLISH, SITES_ENABLED, SITES_MAX
@@ -69,6 +75,7 @@ SITE_ROLLED_BACK = "sites.site.rolled_back"
 SITE_NAVIGATION_SAVED = "sites.navigation.saved"
 SITE_PURPOSE_SET = "sites.site.purpose_set"
 PAGE_TYPE_SET = "sites.page.type_set"
+PAGE_URL_CHANGED = "sites.page.url_changed"
 PAGE_AUTOMATION_POLICY_SET = "sites.page.automation_policy_set"
 PAGE_TEMPLATE_IMPORTED = "sites.page.template_imported"
 SITE_PUBLISHED_EVENT = "sites.site.published"
@@ -125,6 +132,29 @@ class AutomationGrantMissing(APIException):
     status_code = 403
     default_detail = "Klucz nie ma grantu obejmującego ten zasób."
     default_code = "automation_grant_missing"
+
+
+class RedirectReasonRequired(APIException):
+    status_code = 400
+    default_detail = "Zmiana adresu wymaga uzasadnienia."
+    default_code = "redirect_reason_required"
+
+
+class RedirectTargetUnchanged(APIException):
+    status_code = 400
+    default_detail = "Nowy adres jest taki sam jak obecny."
+    default_code = "redirect_target_unchanged"
+
+
+class TranslationSlugInvalid(APIException):
+    status_code = 400
+    default_detail = "Slug może zawierać małe litery, cyfry i łączniki."
+    default_code = "translation_slug_invalid"
+
+
+class TranslationNotFound(NotFound):
+    default_detail = "Tłumaczenie strony nie istnieje."
+    default_code = "translation_not_found"
 
 
 class PageInvalidType(APIException):
@@ -1760,6 +1790,19 @@ def _publication_snapshot(
         "default_locale": site.default_locale,
         "design_tokens": DEFAULT_DESIGN_TOKENS,
         "navigation": navigation,
+        # Redirects travel with the publication for the same reason pages do:
+        # what a visitor gets has to come from the snapshot, not from a working
+        # copy somebody is halfway through editing.
+        "redirects": [
+            {
+                "from_path": redirect.from_path,
+                "to_path": redirect.to_path,
+                "locale": redirect.locale,
+            }
+            for redirect in SiteRedirect.all_objects.filter(
+                organization_id=site.organization_id, site_id=site.id
+            ).order_by("from_path")
+        ],
         "pages": [
             {
                 "page_id": str(page.id),
@@ -1894,3 +1937,138 @@ def set_page_type(*, page_id: UUID, page_type: str) -> Page:
             metadata={"page_type": page_type},
         )
     return page
+
+
+@transaction.atomic
+def change_page_url(
+    *,
+    page_id: UUID,
+    locale: str,
+    slug: str,
+    reason: str,
+) -> tuple[PageTranslation, SiteRedirect]:
+    """Moves a published page to a new address, leaving a redirect behind.
+
+    The slug lock exists because every link, bookmark and search result points
+    at the published address. This is the single deliberate way past it: a
+    person, a stated reason, an audit entry, and an address that keeps
+    answering.
+    """
+    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    if _is_automation(context):
+        # Moving a URL costs whatever ranking it had. Whether that trade is
+        # worth it is not a decision an optimiser makes for its customer.
+        raise PageAutomationForbidden
+    normalized_reason = reason.strip()
+    if not normalized_reason:
+        raise RedirectReasonRequired
+    normalized_locale = locale.strip().lower()
+    normalized_slug = slug.strip().lower()
+    if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", normalized_slug):
+        raise TranslationSlugInvalid
+
+    translation = (
+        PageTranslation.all_objects.select_for_update()
+        .select_related("page", "site")
+        .filter(
+            organization_id=context.organization_id,
+            page_id=page_id,
+            locale=normalized_locale,
+        )
+        .first()
+    )
+    if translation is None:
+        raise TranslationNotFound
+    site = Site.all_objects.select_for_update().get(
+        pk=translation.site_id, organization_id=context.organization_id
+    )
+    if translation.slug == normalized_slug:
+        raise RedirectTargetUnchanged
+    if PageTranslation.all_objects.filter(
+        organization_id=context.organization_id,
+        site_id=site.id,
+        locale=normalized_locale,
+        slug=normalized_slug,
+    ).exclude(pk=translation.id).exists():
+        raise TranslationSlugConflict
+
+    old_path = localized_path(
+        default_locale=site.default_locale,
+        locale=normalized_locale,
+        slug=translation.slug,
+    )
+    new_path = localized_path(
+        default_locale=site.default_locale,
+        locale=normalized_locale,
+        slug=normalized_slug,
+    )
+
+    # The lock is a database trigger, not just an application rule, so this
+    # path has to open it deliberately and close it again — two statements in
+    # one transaction. Written as one update the trigger would still refuse it,
+    # and that refusal is what stops a published address moving by accident.
+    locked_at = translation.slug_locked_at
+    if locked_at is not None:
+        PageTranslation.all_objects.filter(pk=translation.id).update(
+            slug_locked_at=None
+        )
+    PageTranslation.all_objects.filter(pk=translation.id).update(
+        slug=normalized_slug,
+        version=translation.version + 1,
+        slug_locked_at=locked_at,
+        updated_at=timezone.now(),
+    )
+    translation.refresh_from_db()
+
+    # An address that already pointed here follows the page rather than
+    # becoming a second hop: two redirects in a row lose a little of whatever
+    # the first one was carrying, and search engines stop following long chains.
+    SiteRedirect.all_objects.filter(
+        organization_id=context.organization_id,
+        site_id=site.id,
+        to_path=old_path,
+    ).update(to_path=new_path, updated_at=timezone.now())
+
+    redirect, _created = SiteRedirect.all_objects.update_or_create(
+        organization_id=context.organization_id,
+        site_id=site.id,
+        from_path=old_path,
+        defaults={
+            "page_id": page_id,
+            "locale": normalized_locale,
+            "to_path": new_path,
+            "reason": normalized_reason,
+            "created_by_id": context.actor_id,
+        },
+    )
+    record_audit(
+        organization=Organization.objects.get(pk=context.organization_id),
+        action=PAGE_URL_CHANGED,
+        actor=User.objects.get(pk=context.actor_id),
+        target_type="page",
+        target_id=page_id,
+        metadata={
+            "locale": normalized_locale,
+            "from_path": old_path,
+            "to_path": new_path,
+            "reason": normalized_reason,
+        },
+    )
+    return translation, redirect
+
+
+def list_site_redirects(*, site_id: UUID) -> list[SiteRedirect]:
+    context = authorize_entitled(
+        SITE_CONTENT_EDIT,
+        SITES_ENABLED,
+        operation=FeatureOperation.READ,
+    )
+    if not Site.all_objects.filter(
+        pk=site_id, organization_id=context.organization_id
+    ).exists():
+        raise SiteNotFound
+    return list(
+        SiteRedirect.all_objects.filter(
+            organization_id=context.organization_id, site_id=site_id
+        ).order_by("from_path")
+    )
