@@ -2192,3 +2192,17 @@ def test_site_publication_refuses_automation_while_a_proposal_waits() -> None:
         pytest.raises(PageAutomationForbidden),
     ):
         publish_site(site_id=site.data["id"], idempotency_key="automation-publishes")
+
+
+def test_contract_directories_are_checked_before_the_workers_start() -> None:
+    """A contract directory that never reached the image used to surface as a
+    500 the first time somebody clicked, long after the deploy said success."""
+    from django.test import override_settings
+
+    from saas_core.modules.shared.sites.apps import check_content_contracts
+
+    assert check_content_contracts() == []
+
+    with override_settings(PAGE_TEMPLATE_CONTRACTS_PATH="/does/not/exist"):
+        errors = check_content_contracts()
+    assert [error.id for error in errors] == ["sites.E002"]

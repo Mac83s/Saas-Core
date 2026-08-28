@@ -27,6 +27,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 COPY apps/backend/manage.py ./manage.py
 COPY apps/backend/src ./src
 COPY packages/contracts/site-blocks ./contracts/site-blocks
+COPY packages/contracts/page-templates ./contracts/page-templates
 COPY deployments/${DEPLOYMENT}/deployment.json ./deployment.json
 
 RUN --mount=type=cache,target=/root/.cache/uv \
@@ -46,6 +47,7 @@ RUN groupadd --gid ${APP_GID} app && \
 ENV DJANGO_SETTINGS_MODULE=saas_core.config.settings.container \
     DEPLOYMENT_PROFILE_PATH=/app/deployment.json \
     SITE_BLOCK_CONTRACTS_PATH=/app/contracts/site-blocks \
+    PAGE_TEMPLATE_CONTRACTS_PATH=/app/contracts/page-templates \
     PATH=/opt/venv/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app/src \

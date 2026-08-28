@@ -43,6 +43,7 @@ etapie aktualizuj checklistę fali oraz Memex. Nie oznaczaj bramki jako ukończo
 bez testu lub jednoznacznego artefaktu będącego dowodem.
 
 <!-- memex:begin -->
+
 ## memex — project memory
 
 This repo is connected to a memex vault as project `saas-core`. The vault holds
@@ -50,24 +51,29 @@ what past sessions learned. Read `.claude/skills/memex/SKILL.md` (or
 `.agents/skills/memex/SKILL.md`) for the reasoning; the triggers below are not optional.
 
 **Starting work on anything non-trivial**
+
 1. `memex_pack(target: "<the task in your own words>")` — before grepping or reading source.
 2. Only go to source files when the pack genuinely lacks it, and say so when it does.
 
 **You made a durable decision** (an architecture choice, a rejected alternative, a constraint)
+
 1. `memex_remember(action: "record", …)` with `covers:` and an `origin:`.
-2. Record the *why*, not just the what — the reasoning is the expensive half.
+2. Record the _why_, not just the what — the reasoning is the expensive half.
 3. Do NOT put it in your own memory: that reaches nobody else, no other machine, no other agent.
 
 **A recorded decision turns out to be wrong or superseded**
+
 1. `memex_remember(action: "update")` to refine one that still holds.
 2. `memex_remember(action: "retire", superseded_by: …)` when it no longer does.
 3. Never leave a stale decision recorded — it is injected into every future pack as current.
 
 **The human tells you how they want to be worked with** (a language, a format, a standing correction)
+
 1. `memex_remember(action: "prefer", what: "<the rule, one line>")` — it reaches their sessions only.
 2. A preference is about one person; a rule the whole project must follow is a decision, above.
 
 **End of a session that changed files, produced evidence, or corrected you**
+
 1. One compact `memex_work(action: "worklog", …)`. Not one per step.
 2. Observable results in `changes`, commands and tests in `evidence`. Never chain-of-thought.
 

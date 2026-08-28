@@ -113,13 +113,14 @@ function renderDocument(
   registry: BlockRegistry,
   navigation: readonly NavigationLink[] = [],
   navigationLabel = "Menu",
+  contentElement: "main" | "div" = "main",
 ): ReactElement {
   return createElement(
     "div",
     { className: designTokenClassName(tokens) },
     renderNavigation(navigation, navigationLabel),
     createElement(
-      "main",
+      contentElement,
       null,
       ...blocks.map((block, index) => registry.render(block, String(index))),
     ),
@@ -133,7 +134,18 @@ export function renderDraftPreview(
   if (document.kind !== "draft-preview" || document.versionId.length === 0) {
     throw new TypeError("Preview wymaga jawnej wersji draftu.");
   }
-  return renderDocument(document.blocks, document.designTokens, registry);
+  // A preview is always embedded inside another page — the panel, a template
+  // gallery, a dialog — and HTML allows one non-hidden `main` per document.
+  // Emitting a landmark here would put several on the operator's screen and
+  // leave a screen reader with no way to say which one is the page.
+  return renderDocument(
+    document.blocks,
+    document.designTokens,
+    registry,
+    [],
+    "Menu",
+    "div",
+  );
 }
 
 export function renderPublishedPage(

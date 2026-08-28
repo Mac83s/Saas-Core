@@ -452,3 +452,48 @@ describe("allowlisted renderer", () => {
     ).toThrow("Renderer publiczny wymaga zweryfikowanej publikacji");
   });
 });
+
+describe("preview landmarks", () => {
+  it("keeps `main` for a publication and drops it for an embedded preview", () => {
+    const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
+    const blocks = [
+      {
+        block_type: "core.rich_text" as const,
+        schema_version: 1,
+        data: { text: "Treść" },
+      },
+    ];
+
+    const published = renderToStaticMarkup(
+      renderPublishedPage(
+        {
+          kind: "publication",
+          publicationId: "pub-1",
+          snapshotHash: "a".repeat(64),
+          designTokens: tokens,
+          blocks,
+        },
+        registry,
+      ),
+    );
+    const preview = renderToStaticMarkup(
+      renderDraftPreview(
+        {
+          kind: "draft-preview",
+          versionId: "draft-v1",
+          designTokens: tokens,
+          blocks,
+        },
+        registry,
+      ),
+    );
+
+    // The published page is the document, so it owns the landmark. A preview is
+    // always embedded in one — the panel, the template gallery, a dialog — and
+    // a second non-hidden `main` leaves a screen reader unable to say which one
+    // is the page.
+    expect(published).toContain("<main>");
+    expect(preview).not.toContain("<main>");
+    expect(preview).toContain('data-block-type="core.rich_text"');
+  });
+});
