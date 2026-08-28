@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from django.http import HttpRequest, HttpResponse, HttpResponseNotFound
+from django.views import View
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
@@ -8,7 +10,12 @@ from rest_framework.views import APIView
 
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
-from .publication_routing import public_page_payload, resolve_public_page
+from .public_feeds import (
+    render_site_feed,
+    render_site_robots,
+    render_site_sitemap,
+)
+from .publication_routing import PublicSiteNotFound, public_page_payload, resolve_public_page
 from .serializers import PublicSitePageSerializer
 from .tls import authorize_tls_hostname
 
@@ -55,3 +62,39 @@ class PublicSitePageView(APIView):
             response["Location"] = page.redirect_url
             return response
         return Response(public_page_payload(page))
+
+
+class PublicSiteFeedView(View):
+    """Plain Django, deliberately.
+
+    DRF negotiates a renderer before the handler runs and this view has none to
+    offer — it builds the document itself. A feed reader (and our own proxy)
+    sends `Accept: application/xml`, which DRF answered 406 without ever
+    reaching the code below.
+    """
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        try:
+            return render_site_feed(host=str(request.META.get("HTTP_HOST", "")))
+        except PublicSiteNotFound:
+            return HttpResponseNotFound()
+
+
+class PublicSiteSitemapView(View):
+    """See `PublicSiteFeedView`: plain Django for the same reason."""
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        try:
+            return render_site_sitemap(host=str(request.META.get("HTTP_HOST", "")))
+        except PublicSiteNotFound:
+            return HttpResponseNotFound()
+
+
+class PublicSiteRobotsView(View):
+    """See `PublicSiteFeedView`: plain Django, no renderer to negotiate."""
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        try:
+            return render_site_robots(host=str(request.META.get("HTTP_HOST", "")))
+        except PublicSiteNotFound:
+            return HttpResponseNotFound()

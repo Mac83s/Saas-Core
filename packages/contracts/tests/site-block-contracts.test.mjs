@@ -34,6 +34,9 @@ test("site block manifest references valid canonical schemas", async () => {
       "core.pricing",
       "core.booking",
       "core.footer",
+      // Not one of the nine ADR-031 sections an operator picks from: the blog
+      // index is built from it, and the server fills it in.
+      "core.entry_list",
     ],
   );
 

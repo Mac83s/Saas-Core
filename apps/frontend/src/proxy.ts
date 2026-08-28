@@ -58,5 +58,14 @@ function isControlHostname(hostname: string): boolean {
 }
 
 export const config = {
-  matcher: "/((?!api|healthz|site-renderer|_next|_vercel|.*\\..*).*)",
+  matcher: [
+    "/((?!api|healthz|site-renderer|_next|_vercel|.*\\..*).*)",
+    // The dot exclusion above exists to let static assets through
+    // untouched, but it also swallowed the two addresses a feed reader and
+    // a crawler ask for by name. They are public-site paths and need the
+    // same rewrite as any other page on that host.
+    "/rss.xml",
+    "/sitemap.xml",
+    "/robots.txt",
+  ],
 };

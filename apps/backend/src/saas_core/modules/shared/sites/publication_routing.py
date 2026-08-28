@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from typing import Any
 
@@ -10,6 +11,7 @@ from saas_core.modules.core.organizations.models import OrganizationStatus
 
 from .domains import InvalidHostname, normalize_hostname
 from .models import (
+    ContentCollection,
     ContentEntry,
     ContentEntryState,
     Domain,
@@ -87,14 +89,22 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
             raise PublicSiteNotFound
         page, locale_document = _find_page(publication.snapshot, normalized_path)
     except PublicSiteNotFound:
-        # Not a page, so it may be a collection entry. Entries publish on their
-        # own (ADR-035 §1) and are therefore absent from the site snapshot; the
-        # entry's own publication then stands in for the site's.
-        page, locale_document, publication = _find_entry(
-            organization_id=domain.organization_id,
-            site_id=domain.site_id,
-            requested_path=normalized_path,
-        )
+        # Not a page, so it may be a collection entry, or the collection's own
+        # index. Entries publish on their own (ADR-035 §1) and are therefore
+        # absent from the site snapshot; the entry's own publication then stands
+        # in for the site's.
+        try:
+            page, locale_document, publication = _find_entry(
+                organization_id=domain.organization_id,
+                site_id=domain.site_id,
+                requested_path=normalized_path,
+            )
+        except PublicSiteNotFound:
+            page, locale_document, publication = _find_collection_index(
+                organization_id=domain.organization_id,
+                site_id=domain.site_id,
+                requested_path=normalized_path,
+            )
     canonical_path = str(locale_document["canonical_path"])
     return PublicPage(
         hostname=hostname,
@@ -231,6 +241,162 @@ def _find_entry(
             publication,
         )
     raise PublicSiteNotFound
+
+
+def published_entries(*, organization_id: Any, site_id: Any) -> list[dict[str, Any]]:
+    """Every published entry of a site, newest first, as plain snapshot data.
+
+    The feed, the sitemap and the blog index are the same projection read three
+    ways (ADR-035 section 7), so they read it from one place rather than each
+    growing its own idea of what is published.
+    """
+    rows = ContentEntry.all_objects.select_related("current_publication").filter(
+        organization_id=organization_id,
+        site_id=site_id,
+        state=ContentEntryState.PUBLISHED,
+        current_publication__isnull=False,
+    )
+    items: list[dict[str, Any]] = []
+    for entry in rows:
+        publication = entry.current_publication
+        if publication is None:
+            continue
+        snapshot = publication.snapshot
+        if bool(snapshot.get("noindex", False)):
+            continue
+        items.append({
+            "collection_id": str(entry.collection_id),
+            "title": str(snapshot["title"]),
+            "path": str(snapshot["path"]),
+            "locale": str(snapshot["locale"]),
+            "excerpt": str(snapshot.get("excerpt", "")),
+            "published_at": entry.published_at,
+        })
+    # A missing timestamp sorts last rather than crashing the comparison: an
+    # entry published before the column existed is still published.
+    items.sort(
+        key=lambda item: (item["published_at"] is not None, item["published_at"]),
+        reverse=True,
+    )
+    return items
+
+
+INDEX_EMPTY_TEXT = {
+    "pl": "Nie ma jeszcze zadnego wpisu.",
+    "en": "No entries yet.",
+}
+
+
+@dataclass(frozen=True, slots=True)
+class _IndexPublication:
+    """Stands in for a `Publication` on a page nobody published.
+
+    The index has no snapshot of its own — it is recomputed on every request —
+    but the payload builder and the renderer both expect a publication to name
+    and to hash. The hash is derived from what the index actually shows, so a
+    cache keyed on it still invalidates when an article appears.
+    """
+
+    collection: ContentCollection
+    entries: list[dict[str, Any]]
+
+    @property
+    def id(self) -> Any:
+        return self.collection.id
+
+    @property
+    def snapshot(self) -> dict[str, Any]:
+        return {}
+
+    @property
+    def snapshot_hash(self) -> str:
+        digest = hashlib.sha256()
+        digest.update(str(self.collection.id).encode())
+        for item in self.entries:
+            digest.update(item["path"].encode())
+            digest.update(item["title"].encode())
+        return digest.hexdigest()
+
+
+def _find_collection_index(
+    *,
+    organization_id: Any,
+    site_id: Any,
+    requested_path: str,
+) -> tuple[dict[str, Any], dict[str, Any], Any]:
+    """The blog's own address, built from what is published rather than edited.
+
+    ADR-035 section 7 calls the index a reproducible projection: nobody
+    maintains a page listing the articles, because such a page is wrong the
+    moment an article is published and nobody remembers to update it.
+    """
+    wanted = _comparable_path(requested_path)
+    collection = next(
+        (
+            candidate
+            for candidate in ContentCollection.all_objects.filter(
+                organization_id=organization_id, site_id=site_id
+            )
+            if _comparable_path("/" + candidate.base_path + "/") == wanted
+        ),
+        None,
+    )
+    if collection is None:
+        raise PublicSiteNotFound
+    entries = [
+        item
+        for item in published_entries(organization_id=organization_id, site_id=site_id)
+        if item["collection_id"] == str(collection.id)
+    ]
+    # An index with nothing on it is still the blog's address. Answering 404
+    # would break the link in the menu until the first article lands.
+    locale = entries[0]["locale"] if entries else settings.LANGUAGE_CODE.split("-")[0]
+    path = "/" + collection.base_path + "/"
+    locale_document: dict[str, Any] = {
+        "locale": locale,
+        "translation_id": None,
+        "version": 1,
+        "slug": collection.base_path,
+        "path": path,
+        "canonical_path": path,
+        "title": collection.name,
+        "description": "",
+        "social_title": collection.name,
+        "social_description": "",
+        "fallback_fields": [],
+    }
+    block = {
+        "block_type": "core.entry_list",
+        "schema_version": 1,
+        "data": {
+            "title": collection.name,
+            "empty_text": INDEX_EMPTY_TEXT.get(locale, INDEX_EMPTY_TEXT["pl"]),
+            "items": [_index_item(item) for item in entries],
+        },
+    }
+    return (
+        {
+            "page_id": str(collection.id),
+            "key": collection.key,
+            "blocks": [block],
+            "media_asset_ids": [],
+            "locales": [locale_document],
+            "hreflang": {locale: path},
+            "x_default": path,
+            "noindex": False,
+        },
+        locale_document,
+        _IndexPublication(collection=collection, entries=entries),
+    )
+
+
+def _index_item(item: dict[str, Any]) -> dict[str, Any]:
+    listed: dict[str, Any] = {"title": item["title"], "path": item["path"]}
+    if item["excerpt"]:
+        listed["excerpt"] = item["excerpt"]
+    if item["published_at"] is not None:
+        listed["published_at"] = item["published_at"].isoformat()
+    return listed
 
 
 def _normalize_path(value: str) -> str:

@@ -743,3 +743,202 @@ def test_api_key_row_is_read_only_after_the_tenant_setting() -> None:
         if 'FROM "notifications_apikey"' in sql and sql.upper().startswith("SELECT")
     )
     assert tenant_set < key_read
+
+
+def _verified_platform_domain(site_id: str) -> object:
+    from saas_core.modules.shared.sites.models import (
+        Domain,
+        DomainKind,
+        DomainStatus,
+        DomainTlsStatus,
+    )
+
+    platform = Domain.all_objects.get(site_id=site_id, kind=DomainKind.PLATFORM)
+    Domain.all_objects.filter(pk=platform.pk).update(
+        status=DomainStatus.VERIFIED, tls_status=DomainTlsStatus.ELIGIBLE
+    )
+    return platform
+
+
+def test_blog_index_lists_published_entries_without_anyone_editing_it() -> None:
+    """ADR-035 §7: the index is a projection, not a page somebody maintains.
+
+    A hand-kept list is wrong the moment an article is published and nobody
+    remembers to update it, which is every time.
+    """
+    from django.test import override_settings
+    from rest_framework.test import APIClient as PublicClient
+
+    client, _, _ = sites_client(slug="blog-index", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    platform = _verified_platform_domain(site.data["id"])
+
+    with override_settings(PUBLIC_SITE_SCHEME="https"):
+        empty = PublicClient().get(
+            "/api/v1/public/site/",
+            {"path": "/blog/"},
+            HTTP_HOST=platform.hostname,
+        )
+    # An empty blog still has an address: answering 404 would break the link in
+    # the menu until the first article lands.
+    assert empty.status_code == 200
+    assert empty.json()["blocks"][0]["block_type"] == "core.entry_list"
+    assert empty.json()["blocks"][0]["data"]["items"] == []
+
+    entry = create_entry(
+        client, collection.data["id"], slug="pierwszy", idempotency_key="index-entry"
+    )
+    save_entry_draft(
+        client,
+        entry.data["id"],
+        expected_version=0,
+        text="Treść pierwszego wpisu.",
+        idempotency_key="index-entry-draft",
+    )
+    publish(client, entry.data["id"], idempotency_key="index-entry-publish")
+
+    with override_settings(PUBLIC_SITE_SCHEME="https"):
+        listed = PublicClient().get(
+            "/api/v1/public/site/",
+            {"path": "/blog/"},
+            HTTP_HOST=platform.hostname,
+        )
+    items = listed.json()["blocks"][0]["data"]["items"]
+    assert [item["path"] for item in items] == ["/blog/pierwszy/"]
+    assert items[0]["title"] == "Pierwszy"
+    assert listed.json()["canonical_url"].endswith("/blog/")
+
+
+def test_feed_and_sitemap_expose_what_a_crawler_cannot_reach_by_links() -> None:
+    """A crawler that only follows links never reaches an article the menu does
+    not point at, which is every article once the front page moves on."""
+    from django.test import override_settings
+    from rest_framework.test import APIClient as PublicClient
+
+    client, _, _ = sites_client(slug="blog-feed", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    entry = create_entry(
+        client, collection.data["id"], slug="wpis", idempotency_key="feed-entry"
+    )
+    save_entry_draft(
+        client,
+        entry.data["id"],
+        expected_version=0,
+        text="Treść wpisu w kanale.",
+        idempotency_key="feed-entry-draft",
+    )
+    publish(client, entry.data["id"], idempotency_key="feed-entry-publish")
+    platform = _verified_platform_domain(site.data["id"])
+
+    with override_settings(PUBLIC_SITE_SCHEME="https"):
+        # The same `Accept` a feed reader and our own proxy send. Asking
+        # with DRF's permissive default hid a 406 that every real client got.
+        feed = PublicClient().get(
+            "/api/v1/public/site/feed.xml",
+            HTTP_HOST=platform.hostname,
+            HTTP_ACCEPT="application/xml",
+        )
+        sitemap = PublicClient().get(
+            "/api/v1/public/site/sitemap.xml",
+            HTTP_HOST=platform.hostname,
+            HTTP_ACCEPT="application/xml",
+        )
+
+    assert feed.status_code == 200
+    assert feed["Content-Type"].startswith("application/rss+xml")
+    feed_body = feed.content.decode()
+    assert "<rss version=\"2.0\">" in feed_body
+    assert "https://" + platform.hostname + "/blog/wpis/" in feed_body
+    # RFC 822 day and month names, never the server locale's — a Polish locale
+    # would emit "pon" and every reader would reject the date.
+    assert any(day in feed_body for day in ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"))
+
+    assert sitemap.status_code == 200
+    sitemap_body = sitemap.content.decode()
+    assert "https://" + platform.hostname + "/blog/" in sitemap_body
+    assert "https://" + platform.hostname + "/blog/wpis/" in sitemap_body
+
+
+def test_feed_escapes_entry_titles_rather_than_emitting_raw_markup() -> None:
+    from django.test import override_settings
+    from rest_framework.test import APIClient as PublicClient
+
+    client, _, _ = sites_client(slug="blog-escape", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    hostile = client.post(
+        "/api/v1/sites/collections/" + collection.data["id"] + "/entries/",
+        {"slug": "wrogi", "locale": "pl", "title": "<script>alert(1)</script>"},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+        HTTP_IDEMPOTENCY_KEY="escape-entry",
+    )
+    save_entry_draft(
+        client,
+        hostile.data["id"],
+        expected_version=0,
+        text="Treść.",
+        idempotency_key="escape-draft",
+    )
+    publish(client, hostile.data["id"], idempotency_key="escape-publish")
+    platform = _verified_platform_domain(site.data["id"])
+
+    with override_settings(PUBLIC_SITE_SCHEME="https"):
+        feed = PublicClient().get(
+            "/api/v1/public/site/feed.xml",
+            HTTP_HOST=platform.hostname,
+            HTTP_ACCEPT="application/xml",
+        )
+    body = feed.content.decode()
+    assert "&lt;script&gt;" in body
+    assert "<script>" not in body
+
+
+def test_public_projections_refuse_a_host_they_do_not_know() -> None:
+    """The host is the whole routing key, so an unknown one must not fall back
+    to some other organization's articles."""
+    from rest_framework.test import APIClient as PublicClient
+
+    feed = PublicClient().get(
+        "/api/v1/public/site/feed.xml",
+        HTTP_HOST="nieznany.example.test",
+        HTTP_ACCEPT="application/xml",
+    )
+    sitemap = PublicClient().get(
+        "/api/v1/public/site/sitemap.xml",
+        HTTP_HOST="nieznany.example.test",
+        HTTP_ACCEPT="application/xml",
+    )
+    assert feed.status_code == 404
+    assert sitemap.status_code == 404
+
+
+def test_robots_points_a_crawler_at_the_sitemap() -> None:
+    """Nobody submits a sitemap by hand for a small client's site, so the only
+    way a crawler learns it exists is this line."""
+    from django.test import override_settings
+    from rest_framework.test import APIClient as PublicClient
+
+    client, _, _ = sites_client(slug="blog-robots", role_key="owner")
+    site = create_site(client)
+    platform = _verified_platform_domain(site.data["id"])
+
+    with override_settings(PUBLIC_SITE_SCHEME="https"):
+        robots = PublicClient().get(
+            "/api/v1/public/site/robots.txt",
+            HTTP_HOST=platform.hostname,
+            HTTP_ACCEPT="text/plain",
+        )
+    assert robots.status_code == 200
+    assert robots["Content-Type"].startswith("text/plain")
+    body = robots.content.decode()
+    assert "Sitemap: https://" + platform.hostname + "/sitemap.xml" in body
+
+    unknown = PublicClient().get(
+        "/api/v1/public/site/robots.txt",
+        HTTP_HOST="nieznany.example.test",
+        HTTP_ACCEPT="text/plain",
+    )
+    assert unknown.status_code == 404

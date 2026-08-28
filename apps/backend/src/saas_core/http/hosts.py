@@ -7,7 +7,14 @@ from django.core.exceptions import DisallowedHost
 from django.http import HttpRequest, HttpResponse
 from django.http.request import split_domain_port, validate_host
 
-PUBLIC_SITE_ROUTE = "/api/v1/public/site/"
+# Every public projection is addressed by the visitor's own host, so none of
+# them can be answered under the panel's allow-list.
+PUBLIC_SITE_ROUTES = (
+    "/api/v1/public/site/",
+    "/api/v1/public/site/feed.xml",
+    "/api/v1/public/site/sitemap.xml",
+    "/api/v1/public/site/robots.txt",
+)
 
 
 class DynamicHostValidationMiddleware:
@@ -19,7 +26,7 @@ class DynamicHostValidationMiddleware:
         domain, _port = split_domain_port(str(raw_host).casefold())
         if not domain:
             raise DisallowedHost("Nagłówek Host ma nieprawidłowy format.")
-        if request.path_info != PUBLIC_SITE_ROUTE and not validate_host(
+        if request.path_info not in PUBLIC_SITE_ROUTES and not validate_host(
             domain,
             settings.CONFIGURED_ALLOWED_HOSTS,
         ):

@@ -1,6 +1,7 @@
 import { createElement } from "react";
 
 import contactV1Schema from "@saas-core/contracts/site-blocks/core.contact.v1.schema.json";
+import entryListV1Schema from "@saas-core/contracts/site-blocks/core.entry_list.v1.schema.json";
 import bookingV1Schema from "@saas-core/contracts/site-blocks/core.booking.v1.schema.json";
 import faqV1Schema from "@saas-core/contracts/site-blocks/core.faq.v1.schema.json";
 import featureListV1Schema from "@saas-core/contracts/site-blocks/core.feature_list.v1.schema.json";
@@ -14,6 +15,7 @@ import testimonialsV1Schema from "@saas-core/contracts/site-blocks/core.testimon
 import type {
   BookingV1Data,
   ContactV1Data,
+  EntryListV1Data,
   FaqV1Data,
   FeatureListV1Data,
   FooterV1Data,
@@ -248,6 +250,48 @@ function FooterBlock({ data }: { data: JsonObject }) {
   );
 }
 
+/** The blog index, and any "latest posts" section an operator places by hand.
+ *  The items are a projection of what is published (ADR-035 §7), so the block
+ *  renders whatever it is handed rather than reaching for data itself. */
+function EntryListBlock({ data }: { data: JsonObject }) {
+  const list = data as EntryListV1Data;
+  return createElement(
+    "section",
+    {
+      className: "site-block site-block--entry-list",
+      "data-block-type": "core.entry_list",
+    },
+    list.title === undefined ? null : createElement("h2", null, list.title),
+    list.items.length === 0
+      ? createElement("p", null, list.empty_text ?? "")
+      : createElement(
+          "ul",
+          null,
+          list.items.map((item, index) =>
+            createElement(
+              "li",
+              { key: index },
+              createElement(
+                "a",
+                { href: item.path },
+                createElement("h3", null, item.title),
+              ),
+              item.published_at === undefined
+                ? null
+                : createElement(
+                    "time",
+                    { dateTime: item.published_at },
+                    item.published_at.slice(0, 10),
+                  ),
+              item.excerpt === undefined
+                ? null
+                : createElement("p", null, item.excerpt),
+            ),
+          ),
+        ),
+  );
+}
+
 function migrateHeroV1ToV2(data: Readonly<JsonObject>): JsonObject {
   const hero = data as HeroV1Data;
   const migrated: HeroV2Data = { title: hero.heading };
@@ -431,6 +475,18 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
           { path: ["action", "href"], kind: "url", labelKey: "actionHref" },
         ],
       },
+    },
+    {
+      type: "core.entry_list",
+      latestVersion: 1,
+      schemas: [{ version: 1, schema: entryListV1Schema }],
+      migrators: {},
+      component: EntryListBlock,
+      // Deliberately absent from the catalogue. ADR-031 froze the nine sections
+      // an operator picks from, and this block is not one of them: it is the
+      // projection the blog index is built from, filled by the server rather
+      // than typed by hand. Offering it in the picker would be a change to an
+      // accepted decision, which belongs in a new ADR rather than here.
     },
     {
       type: "core.footer",

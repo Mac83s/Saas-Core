@@ -64,6 +64,13 @@
       "schemas": {
         "1": "core.footer.v1.schema.json"
       }
+    },
+    {
+      "type": "core.entry_list",
+      "latestVersion": 1,
+      "schemas": {
+        "1": "core.entry_list.v1.schema.json"
+      }
     }
   ],
   "designTokens": "design-tokens.v1.schema.json"

@@ -68,6 +68,17 @@ export type FooterV1Data = JsonObject & {
   links?: { label: string; href: string }[];
 };
 
+export type EntryListV1Data = JsonObject & {
+  title?: string;
+  empty_text?: string;
+  items: {
+    title: string;
+    path: string;
+    excerpt?: string;
+    published_at?: string;
+  }[];
+};
+
 export type DesignTokensV1 = JsonObject & {
   schemaVersion: 1;
   palette: "neutral" | "blue" | "emerald";

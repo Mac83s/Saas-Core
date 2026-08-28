@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/site-blocks/core.entry_list.v1.schema.json",
+  "title": "Core entry list block v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["items"],
+  "properties": {
+    "title": { "type": "string", "maxLength": 160 },
+    "empty_text": { "type": "string", "maxLength": 200 },
+    "items": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title", "path"],
+        "properties": {
+          "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^/[A-Za-z0-9/_-]*$"
+          },
+          "excerpt": { "type": "string", "maxLength": 320 },
+          "published_at": { "type": "string", "maxLength": 40 }
+        }
+      }
+    }
+  }
+}
