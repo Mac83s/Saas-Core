@@ -20,6 +20,8 @@ export function sitesErrorMessage(error: unknown, t: Translate): string {
       return t("conflict");
     case "domain_hostname_conflict":
       return t("subdomainReason_taken");
+    case "entry_translation_exists":
+      return t("entryTranslationExists");
     case "domain_quarantined":
       return t("subdomainReason_quarantined");
     default:

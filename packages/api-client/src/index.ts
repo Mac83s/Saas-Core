@@ -1529,6 +1529,43 @@ export async function createContentEntry(
   return data;
 }
 
+export async function listEntryTranslations(
+  entryId: string,
+): Promise<ContentEntry[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/entries/{entry_id}/translations/",
+    {
+      params: { path: { entry_id: entryId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createEntryTranslation(
+  entryId: string,
+  input: { slug: string; locale: "pl" | "en"; title: string },
+  idempotencyKey: string,
+): Promise<ContentEntry> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/entries/{entry_id}/translations/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { entry_id: entryId },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export async function getContentEntryDraft(
   entryId: string,
 ): Promise<ContentEntryDraft> {

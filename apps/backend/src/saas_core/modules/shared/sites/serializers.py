@@ -209,11 +209,18 @@ class ContentEntrySerializer(serializers.Serializer[dict[str, Any]]):
     published_at = serializers.DateTimeField(allow_null=True)
     noindex = serializers.BooleanField()
     draft_author = serializers.CharField(allow_null=True)
+    translation_group = serializers.UUIDField()
 
 
 class ContentEntryListSerializer(serializers.Serializer[dict[str, Any]]):
     items = ContentEntrySerializer(many=True)
     next_cursor = serializers.UUIDField(allow_null=True)
+
+
+class ContentEntryTranslationCreateSerializer(serializers.Serializer[dict[str, Any]]):
+    slug = serializers.RegexField(r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=140)
+    locale = serializers.ChoiceField(choices=["pl", "en"])
+    title = serializers.CharField(max_length=200, trim_whitespace=True)
 
 
 class ContentEntryCreateSerializer(serializers.Serializer[dict[str, Any]]):

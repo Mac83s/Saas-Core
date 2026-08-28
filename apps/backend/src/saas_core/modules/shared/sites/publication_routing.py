@@ -17,6 +17,7 @@ from .models import (
     Domain,
     DomainStatus,
     Publication,
+    Site,
 )
 
 DEFAULT_PUBLIC_DESIGN_TOKENS = {
@@ -234,6 +235,9 @@ def _find_entry(
             "social_description": snapshot.get("excerpt", ""),
             "fallback_fields": [],
         }
+        siblings = _published_translations(
+            organization_id=organization_id, entry=entry
+        )
         return (
             {
                 "page_id": snapshot["entry_id"],
@@ -241,10 +245,10 @@ def _find_entry(
                 "blocks": snapshot["blocks"],
                 "media_asset_ids": snapshot.get("media_asset_ids", []),
                 "locales": [locale_document],
-                # A single-language article has no alternates to advertise;
-                # claiming otherwise would point search engines at nothing.
-                "hreflang": {snapshot["locale"]: snapshot["path"]},
-                "x_default": snapshot["path"],
+                # Only languages that are actually published: advertising a
+                # translation still in draft points a search engine at a 404.
+                "hreflang": siblings,
+                "x_default": siblings.get(snapshot["locale"], snapshot["path"]),
                 "noindex": bool(snapshot.get("noindex", False)),
             },
             locale_document,
@@ -276,6 +280,7 @@ def published_entries(*, organization_id: Any, site_id: Any) -> list[dict[str, A
             continue
         items.append({
             "collection_id": str(entry.collection_id),
+            "translation_group": str(entry.translation_group),
             "title": str(snapshot["title"]),
             "path": str(snapshot["path"]),
             "locale": str(snapshot["locale"]),
@@ -289,6 +294,27 @@ def published_entries(*, organization_id: Any, site_id: Any) -> list[dict[str, A
         reverse=True,
     )
     return items
+
+
+def one_per_article(
+    entries: list[dict[str, Any]], preferred_locale: str
+) -> list[dict[str, Any]]:
+    """Collapses an article's language versions to the one worth listing.
+
+    Listing both would show the reader the same article twice under two
+    titles. The site's own language wins; a translation-only article still
+    appears, because something published should never be invisible.
+    """
+    chosen: dict[str, dict[str, Any]] = {}
+    for item in entries:
+        group = item["translation_group"]
+        current = chosen.get(group)
+        if current is None or (
+            current["locale"] != preferred_locale
+            and item["locale"] == preferred_locale
+        ):
+            chosen[group] = item
+    return [item for item in entries if chosen.get(item["translation_group"]) is item]
 
 
 INDEX_EMPTY_TEXT = {
@@ -353,14 +379,25 @@ def _find_collection_index(
     )
     if collection is None:
         raise PublicSiteNotFound
-    entries = [
-        item
-        for item in published_entries(organization_id=organization_id, site_id=site_id)
-        if item["collection_id"] == str(collection.id)
-    ]
+    site_locale = (
+        Site.all_objects.filter(pk=site_id, organization_id=organization_id)
+        .values_list("default_locale", flat=True)
+        .first()
+        or settings.LANGUAGE_CODE.split("-")[0]
+    )
+    entries = one_per_article(
+        [
+            item
+            for item in published_entries(
+                organization_id=organization_id, site_id=site_id
+            )
+            if item["collection_id"] == str(collection.id)
+        ],
+        site_locale,
+    )
     # An index with nothing on it is still the blog's address. Answering 404
     # would break the link in the menu until the first article lands.
-    locale = entries[0]["locale"] if entries else settings.LANGUAGE_CODE.split("-")[0]
+    locale = site_locale
     path = "/" + collection.base_path + "/"
     locale_document: dict[str, Any] = {
         "locale": locale,
@@ -407,6 +444,27 @@ def _index_item(item: dict[str, Any]) -> dict[str, Any]:
     if item["published_at"] is not None:
         listed["published_at"] = item["published_at"].isoformat()
     return listed
+
+
+def _published_translations(*, organization_id: Any, entry: ContentEntry) -> dict[str, str]:
+    """Address per language for one article, published versions only.
+
+    Each language is its own entry (they are different texts, written and
+    published at different times), so the group is what makes them one article
+    to a search engine.
+    """
+    addresses: dict[str, str] = {}
+    for sibling in ContentEntry.all_objects.select_related("current_publication").filter(
+        organization_id=organization_id,
+        translation_group=entry.translation_group,
+        state=ContentEntryState.PUBLISHED,
+        current_publication__isnull=False,
+    ):
+        publication = sibling.current_publication
+        if publication is None:
+            continue
+        addresses[str(publication.snapshot["locale"])] = str(publication.snapshot["path"])
+    return addresses
 
 
 def _normalize_path(value: str) -> str:

@@ -445,7 +445,15 @@
     "blogInMenuHint": "Link pojawi się na końcu menu po najbliższej publikacji witryny. Bloga nie da się dziś zagnieździć ani wstawić między podstrony.",
     "noImage": "Bez obrazu",
     "imageAsset": "Obraz",
-    "imageAlt": "Opis obrazu"
+    "imageAlt": "Opis obrazu",
+    "entryTranslations": "Wersje językowe",
+    "entryTranslationsDescription": "Każdy język to osobny tekst z własną publikacją. Wyszukiwarki dostaną informację, że to ten sam artykuł.",
+    "entryAddTranslation": "Dodaj wersję językową",
+    "entryTranslationOf": "Wersja {locale} artykułu {title}",
+    "entryTranslationExists": "Ten artykuł ma już wersję w tym języku.",
+    "entryTranslationTitle": "Tytuł wersji językowej",
+    "entryTranslationSlug": "Adres wersji językowej",
+    "entryTranslationLocale": "Język wersji"
   },
   "BillingSupport": {
     "navigation": "Billing i dostęp",

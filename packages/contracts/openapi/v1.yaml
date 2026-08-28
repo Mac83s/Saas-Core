@@ -3675,6 +3675,108 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/entries/{entry_id}/translations/:
+    get:
+      operationId: sites_entry_translations_list
+      parameters:
+      - in: path
+        name: entry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ContentEntry'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: sites_entry_translation_create
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: entry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContentEntryTranslationCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ContentEntryTranslationCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ContentEntryTranslationCreate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentEntry'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentEntry'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/onboarding/:
     get:
       operationId: sites_onboarding_retrieve
@@ -4608,6 +4710,9 @@ components:
           type:
           - string
           - 'null'
+        translation_group:
+          type: string
+          format: uuid
       required:
       - author_name
       - collection_id
@@ -4620,6 +4725,7 @@ components:
       - slug
       - state
       - title
+      - translation_group
       - version
     ContentEntryCreate:
       type: object
@@ -4713,6 +4819,22 @@ components:
       - id
       - sequence
       - snapshot_hash
+    ContentEntryTranslationCreate:
+      type: object
+      properties:
+        slug:
+          type: string
+          maxLength: 140
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+        locale:
+          $ref: '#/components/schemas/LocaleEnum'
+        title:
+          type: string
+          maxLength: 200
+      required:
+      - locale
+      - slug
+      - title
     CsrfToken:
       type: object
       properties:

@@ -16,9 +16,11 @@ from saas_core.modules.shared.notifications.api_key_middleware import IsSessionO
 from .collections import (
     create_collection,
     create_entry,
+    create_entry_translation,
     get_entry_draft,
     list_collections,
     list_entries,
+    list_entry_translations,
     publish_entry,
     save_entry_draft,
     set_collection_automation_policy,
@@ -37,6 +39,7 @@ from .serializers import (
     ContentEntryListSerializer,
     ContentEntryPublicationSerializer,
     ContentEntrySerializer,
+    ContentEntryTranslationCreateSerializer,
     CursorQuerySerializer,
     PageSummarySerializer,
 )
@@ -78,6 +81,7 @@ def _entry_payload(entry: ContentEntry) -> dict[str, Any]:
         "published_at": entry.published_at,
         "noindex": entry.noindex,
         "draft_author": _draft_author(entry.current_draft),
+        "translation_group": str(entry.translation_group),
     }
 
 
@@ -371,3 +375,48 @@ class ContentCollectionNavigationView(APIView):
             show=serializer.validated_data["show_in_navigation"],
         )
         return Response(_collection_payload(collection))
+
+
+class ContentEntryTranslationView(APIView):
+    permission_classes = [IsSessionOrApiKey]
+
+    @extend_schema(
+        operation_id="sites_entry_translations_list",
+        tags=["sites"],
+        responses={
+            200: ContentEntrySerializer(many=True),
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, _request: Request, entry_id: UUID) -> Response:
+        return Response([
+            _entry_payload(item) for item in list_entry_translations(entry_id=entry_id)
+        ])
+
+    @extend_schema(
+        operation_id="sites_entry_translation_create",
+        tags=["sites"],
+        parameters=[IDEMPOTENCY_PARAMETER],
+        request=ContentEntryTranslationCreateSerializer,
+        responses={
+            200: ContentEntrySerializer,
+            201: ContentEntrySerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request, entry_id: UUID) -> Response:
+        serializer = ContentEntryTranslationCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        translation, created = create_entry_translation(
+            entry_id=entry_id,
+            **serializer.validated_data,
+            idempotency_key=request.headers.get("Idempotency-Key", ""),
+        )
+        return Response(
+            _entry_payload(translation),
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )

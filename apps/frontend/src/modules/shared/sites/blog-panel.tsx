@@ -52,6 +52,7 @@ import { NativeSelect } from "@saas-core/ui/components/native-select";
 
 import { AutomationPolicyField } from "./automation-policy";
 import { EntryEditor } from "./entry-editor";
+import { EntryTranslations } from "./entry-translations";
 import { mutationKey, type MutationReceipt } from "./idempotency";
 import { sitesErrorMessage } from "./problem";
 import { slugifyTitle } from "./slug";
@@ -520,6 +521,16 @@ export function BlogPanel({ siteId }: { siteId: string }) {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {entry && (
+        <EntryTranslations
+          entry={entry}
+          key={`translations-${entry.id}`}
+          onCreated={() => {
+            if (collectionId) void loadEntries(collectionId);
+          }}
+        />
       )}
 
       {entry && (

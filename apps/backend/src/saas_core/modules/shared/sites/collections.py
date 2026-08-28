@@ -57,6 +57,7 @@ ENTRY_CREATED = "sites.entry.created"
 ENTRY_DRAFT_SAVED = "sites.entry.draft_saved"
 ENTRY_PUBLISHED = "sites.entry.published"
 ENTRY_WITHDRAWN = "sites.entry.withdrawn"
+ENTRY_TRANSLATION_CREATED = "sites.entry.translation_created"
 COLLECTION_POLICY_SET = "sites.collection.automation_policy_set"
 COLLECTION_NAVIGATION_SET = "sites.collection.navigation_set"
 ENTRY_VERSION_REFERENCE_OWNER = "sites.content_entry_version"
@@ -77,6 +78,12 @@ class EntrySlugConflict(APIException):
     status_code = 409
     default_detail = "Adres wpisu jest już używany w tej kolekcji i locale."
     default_code = "content_entry_slug_conflict"
+
+
+class EntryTranslationExists(APIException):
+    status_code = 409
+    default_detail = "Ten artykuł ma już wersję w tym języku."
+    default_code = "entry_translation_exists"
 
 
 class CollectionInvalidPolicy(APIException):
@@ -609,3 +616,104 @@ def set_collection_navigation(*, collection_id: UUID, show: bool) -> ContentColl
             metadata={"show_in_navigation": show},
         )
     return collection
+
+
+@transaction.atomic
+def create_entry_translation(
+    *,
+    entry_id: UUID,
+    locale: str,
+    slug: str,
+    title: str,
+    idempotency_key: str,
+) -> tuple[ContentEntry, bool]:
+    """Starts the same article in another language.
+
+    A separate entry rather than another field on this one: the two texts are
+    written at different times, published at different times, and one of them
+    often never exists. Sharing only the group id is what lets each keep its
+    own lifecycle while still being one article to a search engine.
+    """
+    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    normalized_key = _idempotency_key(idempotency_key)
+    source = (
+        ContentEntry.all_objects.select_related("collection")
+        .filter(pk=entry_id, organization_id=context.organization_id)
+        .first()
+    )
+    if source is None:
+        raise EntryNotFound
+    _assert_entry_writable(source, source.collection)
+    if locale == source.locale:
+        raise EntryTranslationExists
+    existing = ContentEntry.all_objects.filter(
+        organization_id=context.organization_id,
+        collection_id=source.collection_id,
+        created_by_id=context.actor_id,
+        idempotency_key=normalized_key,
+    ).first()
+    if existing is not None:
+        return existing, False
+    if ContentEntry.all_objects.filter(
+        organization_id=context.organization_id,
+        translation_group=source.translation_group,
+        locale=locale,
+    ).exists():
+        raise EntryTranslationExists
+
+    request_hash = canonical_json_hash({
+        "entry_id": str(entry_id),
+        "locale": locale,
+        "slug": slug,
+        "title": title,
+    })
+    translation = ContentEntry.all_objects.create(
+        organization_id=context.organization_id,
+        collection=source.collection,
+        site_id=source.site_id,
+        slug=slug,
+        locale=locale,
+        translation_group=source.translation_group,
+        title=title,
+        created_by_id=context.actor_id,
+        idempotency_key=normalized_key,
+        request_hash=request_hash,
+    )
+    record_audit(
+        organization=Organization.objects.get(pk=context.organization_id),
+        action=ENTRY_TRANSLATION_CREATED,
+        actor=User.objects.get(pk=context.actor_id),
+        target_type="content_entry",
+        target_id=translation.id,
+        metadata={
+            "source_entry_id": str(source.id),
+            "translation_group": str(source.translation_group),
+            "locale": locale,
+        },
+    )
+    return translation, True
+
+
+def list_entry_translations(*, entry_id: UUID) -> list[ContentEntry]:
+    """Every language version of one article, the source included."""
+    context = authorize_entitled(
+        SITE_CONTENT_EDIT,
+        SITES_ENABLED,
+        operation=FeatureOperation.READ,
+    )
+    source = ContentEntry.all_objects.filter(
+        pk=entry_id, organization_id=context.organization_id
+    ).first()
+    if source is None:
+        raise EntryNotFound
+    assert_within_grant(
+        context, site_id=source.site_id, collection_id=source.collection_id
+    )
+    return list(
+        ContentEntry.all_objects.select_related("current_draft")
+        .filter(
+            organization_id=context.organization_id,
+            translation_group=source.translation_group,
+        )
+        .order_by("locale")
+    )

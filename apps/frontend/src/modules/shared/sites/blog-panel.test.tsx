@@ -19,6 +19,8 @@ const {
   setCollectionAutomationPolicy,
   setCollectionNavigation,
   withdrawContentEntry,
+  listEntryTranslations,
+  createEntryTranslation,
 } = vi.hoisted(() => ({
   createContentCollection: vi.fn(),
   createContentEntry: vi.fn(),
@@ -30,6 +32,8 @@ const {
   setCollectionAutomationPolicy: vi.fn(),
   setCollectionNavigation: vi.fn(),
   withdrawContentEntry: vi.fn(),
+  listEntryTranslations: vi.fn(),
+  createEntryTranslation: vi.fn(),
 }));
 
 vi.mock("@saas-core/api-client", async (importOriginal) => ({
@@ -44,6 +48,8 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   setCollectionAutomationPolicy,
   setCollectionNavigation,
   withdrawContentEntry,
+  listEntryTranslations,
+  createEntryTranslation,
 }));
 
 const siteId = "019ff20d-a000-7000-8000-000000000010";
@@ -74,6 +80,7 @@ const entry = {
   published_at: null,
   noindex: false,
   draft_author: null,
+  translation_group: "019ff20d-a000-7000-8000-000000000040",
 };
 
 function renderPanel() {
@@ -88,6 +95,14 @@ beforeEach(() => {
   vi.clearAllMocks();
   listContentCollections.mockResolvedValue([collection]);
   listContentEntries.mockResolvedValue({ items: [entry], next_cursor: null });
+  listEntryTranslations.mockResolvedValue([entry]);
+  createEntryTranslation.mockResolvedValue({
+    ...entry,
+    id: "translated",
+    locale: "en",
+    slug: "in-english",
+    title: "In English",
+  });
   getContentEntryDraft.mockResolvedValue({
     entry_id: entryId,
     version: 2,
@@ -314,4 +329,36 @@ test("links the blog into the site menu and says when it takes effect", async ()
   // The menu a visitor sees comes from the last publication, so promising an
   // immediate change would be a lie.
   expect(screen.getByText(/po najbliższej publikacji witryny/)).not.toBeNull();
+});
+
+test("adds a language version and keeps it a separate publication", async () => {
+  renderPanel();
+
+  expect(await screen.findByText("Pierwszy wpis")).not.toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Edytuj wpis Pierwszy wpis" }),
+  );
+
+  expect(await screen.findByText("Wersje językowe")).not.toBeNull();
+  // Labelled distinctly from the "new entry" form: two fields with the same
+  // accessible name on one screen is a real problem, not a test problem.
+  fireEvent.change(screen.getByLabelText("Tytuł wersji językowej"), {
+    target: { value: "In English" },
+  });
+  await waitFor(() =>
+    expect(
+      (screen.getByLabelText("Adres wersji językowej") as HTMLInputElement)
+        .value,
+    ).toBe("in-english"),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "Dodaj wersję językową" }),
+  );
+
+  await waitFor(() => expect(createEntryTranslation).toHaveBeenCalledOnce());
+  expect(createEntryTranslation.mock.calls[0]?.[1]).toEqual({
+    locale: "en",
+    slug: "in-english",
+    title: "In English",
+  });
 });

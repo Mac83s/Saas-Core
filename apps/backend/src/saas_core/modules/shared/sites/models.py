@@ -985,6 +985,10 @@ class ContentEntry(TenantScopedModel):
         max_length=10,
         choices=[("pl", "Polski"), ("en", "English")],
     )
+    # Entries sharing this are the same article in different languages. A new
+    # entry starts as its own group of one, so an article that never gets
+    # translated needs no special case anywhere.
+    translation_group = models.UUIDField(default=uuid.uuid7, editable=False)
     title = models.CharField(max_length=200)
     excerpt = models.CharField(max_length=400, blank=True)
     author_name = models.CharField(max_length=120, blank=True)
@@ -1043,11 +1047,22 @@ class ContentEntry(TenantScopedModel):
                 fields=["organization", "collection", "created_by", "idempotency_key"],
                 name="sites_entry_org_coll_actor_idem_uq",
             ),
+            # One article per language: a second Polish version of the same
+            # article would leave hreflang pointing at two addresses for one
+            # language, which search engines read as a mistake.
+            models.UniqueConstraint(
+                fields=["organization", "translation_group", "locale"],
+                name="sites_entry_org_group_locale_uq",
+            ),
         ]
         indexes = [
             models.Index(
                 fields=["organization", "collection", "state", "-published_at"],
                 name="sites_entry_index_idx",
+            ),
+            models.Index(
+                fields=["organization", "translation_group"],
+                name="sites_entry_group_idx",
             ),
         ]
 

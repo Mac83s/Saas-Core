@@ -445,7 +445,15 @@
     "blogInMenuHint": "The link appears at the end of the menu after the next publication. The blog cannot yet be nested or placed between pages.",
     "noImage": "No image",
     "imageAsset": "Image",
-    "imageAlt": "Image description"
+    "imageAlt": "Image description",
+    "entryTranslations": "Language versions",
+    "entryTranslationsDescription": "Each language is its own text with its own publication. Search engines are told they are the same article.",
+    "entryAddTranslation": "Add a language version",
+    "entryTranslationOf": "{locale} version of {title}",
+    "entryTranslationExists": "This article already has a version in that language.",
+    "entryTranslationTitle": "Language version title",
+    "entryTranslationSlug": "Language version address",
+    "entryTranslationLocale": "Version language"
   },
   "BillingSupport": {
     "navigation": "Billing & access",

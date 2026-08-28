@@ -1206,3 +1206,103 @@ def test_public_media_reads_the_asset_inside_the_tenant_setting() -> None:
         if 'FROM "media_mediaasset"' in sql and sql.upper().startswith("SELECT")
     )
     assert tenant_set < asset_read
+
+
+def test_an_article_gets_a_second_language_that_publishes_on_its_own() -> None:
+    """The Polish and English texts are two different texts, written and
+    published at different times, so each keeps its own lifecycle."""
+    from django.test import override_settings
+    from rest_framework.test import APIClient as PublicClient
+
+    client, _, _ = sites_client(slug="entry-i18n", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    polish = create_entry(
+        client, collection.data["id"], slug="po-polsku", idempotency_key="i18n-pl"
+    )
+    save_entry_draft(
+        client,
+        polish.data["id"],
+        expected_version=0,
+        text="Treść po polsku.",
+        idempotency_key="i18n-pl-draft",
+    )
+    publish(client, polish.data["id"], idempotency_key="i18n-pl-publish")
+
+    english = client.post(
+        f"/api/v1/sites/entries/{polish.data['id']}/translations/",
+        {"locale": "en", "slug": "in-english", "title": "In English"},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+        HTTP_IDEMPOTENCY_KEY="i18n-en",
+    )
+    assert english.status_code == 201
+    assert english.data["translation_group"] == polish.data["translation_group"]
+    assert english.data["locale"] == "en"
+
+    platform = _verified_platform_domain(site.data["id"])
+    with override_settings(PUBLIC_SITE_SCHEME="https"):
+        served = PublicClient().get(
+            "/api/v1/public/site/",
+            {"path": "/blog/po-polsku/"},
+            HTTP_HOST=platform.hostname,
+        )
+    # The English version is still a draft, so advertising it would point a
+    # search engine at a 404.
+    assert list(served.json()["hreflang"]) == ["pl"]
+
+    save_entry_draft(
+        client,
+        english.data["id"],
+        expected_version=0,
+        text="Text in English.",
+        idempotency_key="i18n-en-draft",
+    )
+    publish(client, english.data["id"], idempotency_key="i18n-en-publish")
+
+    with override_settings(PUBLIC_SITE_SCHEME="https"):
+        both = PublicClient().get(
+            "/api/v1/public/site/",
+            {"path": "/blog/po-polsku/"},
+            HTTP_HOST=platform.hostname,
+        )
+        index = PublicClient().get(
+            "/api/v1/public/site/",
+            {"path": "/blog/"},
+            HTTP_HOST=platform.hostname,
+        )
+    assert sorted(both.json()["hreflang"]) == ["en", "pl"]
+    assert both.json()["hreflang"]["en"].endswith("/blog/in-english/")
+
+    # One row per article, not one per language: listing both would show the
+    # reader the same article twice under two titles.
+    items = index.json()["blocks"][0]["data"]["items"]
+    assert [item["path"] for item in items] == ["/blog/po-polsku/"]
+
+
+def test_a_language_cannot_be_added_to_the_same_article_twice() -> None:
+    client, _, _ = sites_client(slug="entry-i18n-dup", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    entry = create_entry(
+        client, collection.data["id"], slug="jeden", idempotency_key="dup-pl"
+    )
+
+    def translate(slug: str, idempotency_key: str) -> Any:
+        return client.post(
+            f"/api/v1/sites/entries/{entry.data['id']}/translations/",
+            {"locale": "en", "slug": slug, "title": "In English"},
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_value(client),
+            HTTP_IDEMPOTENCY_KEY=idempotency_key,
+        )
+
+    assert translate("first", "dup-en-1").status_code == 201
+    # A second English version would leave hreflang naming two addresses for
+    # one language, which a search engine reads as a mistake.
+    second = translate("second", "dup-en-2")
+    assert second.status_code == 409
+    assert second.data["code"] == "entry_translation_exists"
+
+    listed = client.get(f"/api/v1/sites/entries/{entry.data['id']}/translations/")
+    assert sorted(item["locale"] for item in listed.data) == ["en", "pl"]
