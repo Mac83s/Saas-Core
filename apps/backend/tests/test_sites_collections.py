@@ -1748,3 +1748,35 @@ def test_a_credential_cannot_move_a_published_url() -> None:
             slug="przejete",
             reason="Automatyczna zmiana.",
         )
+
+
+def test_moving_a_page_back_to_an_address_it_used_to_have() -> None:
+    """Somebody renames a page, decides against it, and renames it back. The
+    address that answers directly must not also redirect away from itself."""
+    from saas_core.modules.shared.sites.models import SiteRedirect
+    from test_sites_api import publish_site_request
+
+    client, _, _ = sites_client(slug="w963-back", role_key="owner")
+    site = create_site(client)
+    page = _publishable_page(
+        client, site.data["id"], key="oferta", slug="oferta", title="Oferta"
+    )
+    publish_site_request(client, site.data["id"], idempotency_key="w963-back-publish")
+
+    for slug, reason in (("uslugi", "Nowa nazwa."), ("oferta", "Jednak stara.")):
+        assert (
+            client.put(
+                f"/api/v1/sites/pages/{page.data['id']}/url/",
+                {"locale": "pl", "slug": slug, "reason": reason},
+                format="json",
+                HTTP_X_CSRFTOKEN=csrf_value(client),
+            ).status_code
+            == 200
+        )
+
+    targets = dict(
+        SiteRedirect.all_objects.filter(site_id=site.data["id"]).values_list(
+            "from_path", "to_path"
+        )
+    )
+    assert targets == {"/uslugi/": "/oferta/"}

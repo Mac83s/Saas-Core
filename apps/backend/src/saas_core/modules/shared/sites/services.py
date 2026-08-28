@@ -2020,6 +2020,15 @@ def change_page_url(
     )
     translation.refresh_from_db()
 
+    # The new address answers directly from now on, so nothing may still point
+    # away from it. Without this a page moved back to a name it once had would
+    # leave a redirect from that name to itself, which the database refuses.
+    SiteRedirect.all_objects.filter(
+        organization_id=context.organization_id,
+        site_id=site.id,
+        from_path=new_path,
+    ).delete()
+
     # An address that already pointed here follows the page rather than
     # becoming a second hop: two redirects in a row lose a little of whatever
     # the first one was carrying, and search engines stop following long chains.
