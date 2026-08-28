@@ -333,3 +333,97 @@ def test_withdrawn_entry_disappears_from_the_public_site() -> None:
     # Withdrawal has to take effect for readers immediately, not at the next
     # site publication.
     assert after.status_code == 404
+
+
+def test_api_key_reaches_the_blog_and_is_bounded_by_its_scopes() -> None:
+    """SeoContentRank authenticates with a key, not a session.
+
+    The panel's own endpoints are reused deliberately: one set of domain rules
+    for both channels, with the key deciding how far the caller gets.
+    """
+    from django.contrib.auth.hashers import make_password
+    from django.test import Client
+
+    from saas_core.modules.shared.notifications.models import (
+        ApiKey,
+        ApiKeyCredentialRoute,
+    )
+    from saas_core.modules.shared.sites.models import ContentCollection
+
+    client, organization, user = sites_client(slug="api-key-blog", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    entry = create_entry(
+        client, collection.data["id"], slug="wpis-scr", idempotency_key="scr-entry"
+    )
+
+    raw = "sc_live_" + "k" * 32
+    api_key = ApiKey.all_objects.create(
+        organization=organization,
+        name="SeoContentRank",
+        prefix=raw[:18],
+        secret_hash=make_password(raw),
+        scopes=["content:read", "content:draft"],
+        created_by=user,
+    )
+    ApiKeyCredentialRoute.objects.create(
+        prefix=raw[:18],
+        api_key_id=api_key.id,
+        organization_id=organization.id,
+        secret_hash=api_key.secret_hash,
+        scopes=["content:read", "content:draft"],
+    )
+    body = {
+        "expected_version": 0,
+        "blocks": [
+            {
+                "block_type": "core.rich_text",
+                "schema_version": 1,
+                "data": {"text": "Treść napisana przez automatyzację."},
+            }
+        ],
+    }
+    keyed = Client()
+    unauthenticated = keyed.get(f"/api/v1/sites/entries/{entry.data['id']}/draft/")
+    bad_key = keyed.get(
+        f"/api/v1/sites/entries/{entry.data['id']}/draft/",
+        HTTP_AUTHORIZATION="Bearer sc_live_" + "x" * 32,
+    )
+    read = keyed.get(
+        f"/api/v1/sites/entries/{entry.data['id']}/draft/",
+        HTTP_AUTHORIZATION=f"Bearer {raw}",
+    )
+    # The collection is `manual`, so a valid key still cannot write.
+    refused = keyed.put(
+        f"/api/v1/sites/entries/{entry.data['id']}/draft/",
+        data=body,
+        content_type="application/json",
+        HTTP_AUTHORIZATION=f"Bearer {raw}",
+        HTTP_IDEMPOTENCY_KEY="scr-refused",
+    )
+    ContentCollection.all_objects.filter(pk=collection.data["id"]).update(
+        automation_policy=PageAutomationPolicy.AUTOMATED
+    )
+    written = keyed.put(
+        f"/api/v1/sites/entries/{entry.data['id']}/draft/",
+        data=body,
+        content_type="application/json",
+        HTTP_AUTHORIZATION=f"Bearer {raw}",
+        HTTP_IDEMPOTENCY_KEY="scr-written",
+    )
+    # The key carries no publish scope, so publishing is refused at the door.
+    published = keyed.post(
+        f"/api/v1/sites/entries/{entry.data['id']}/publication/",
+        data={},
+        content_type="application/json",
+        HTTP_AUTHORIZATION=f"Bearer {raw}",
+        HTTP_IDEMPOTENCY_KEY="scr-publish",
+    )
+
+    assert unauthenticated.status_code == 403
+    assert bad_key.status_code == 401
+    assert read.status_code == 200
+    assert refused.status_code == 403
+    assert refused.json()["code"] == "page_automation_forbidden"
+    assert written.status_code == 201
+    assert published.status_code == 401

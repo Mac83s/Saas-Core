@@ -5,12 +5,12 @@ from uuid import UUID
 
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
+from saas_core.modules.shared.notifications.api_key_middleware import IsSessionOrApiKey
 
 from .collections import (
     create_collection,
@@ -81,7 +81,7 @@ def _publication_payload(publication: ContentEntryPublication) -> dict[str, Any]
 
 
 class ContentCollectionListCreateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsSessionOrApiKey]
 
     @extend_schema(
         operation_id="sites_collections_list",
@@ -126,7 +126,7 @@ class ContentCollectionListCreateView(APIView):
 
 
 class ContentEntryListCreateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsSessionOrApiKey]
 
     @extend_schema(
         operation_id="sites_entries_list",
@@ -179,7 +179,7 @@ class ContentEntryListCreateView(APIView):
 
 
 class ContentEntryDraftView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsSessionOrApiKey]
 
     @extend_schema(
         operation_id="sites_entry_draft_retrieve",
@@ -233,7 +233,7 @@ class ContentEntryDraftView(APIView):
 
 
 class ContentEntryPublicationView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsSessionOrApiKey]
 
     @extend_schema(
         operation_id="sites_entry_publish",

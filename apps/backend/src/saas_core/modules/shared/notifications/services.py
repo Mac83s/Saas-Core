@@ -54,7 +54,16 @@ NOTIFICATIONS_PREFERENCES = "notifications.preferences"
 NOTIFICATIONS_MANAGE = "notifications.manage"
 NOTIFICATIONS_SUPPORT = "notifications.support"
 INTEGRATIONS_MANAGE = "integrations.manage"
-ALLOWED_API_SCOPES = frozenset({"notifications:read", "notifications:write", "webhooks:manage"})
+ALLOWED_API_SCOPES = frozenset({
+    "notifications:read",
+    "notifications:write",
+    "webhooks:manage",
+    # Content scopes for SeoContentRank (ADR-035). Split by what they let the
+    # holder do, so a key issued for analysis cannot publish.
+    "content:read",
+    "content:draft",
+    "content:publish",
+})
 ALLOWED_WEBHOOK_EVENTS = frozenset({"sites.site.published", "notifications.message.status"})
 EXPORT_TOKEN_SALT = "saas-core.notifications.export.v1"
 

@@ -194,6 +194,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "saas_core.modules.core.identity.middleware.ManagedUserSessionMiddleware",
+    "saas_core.modules.shared.notifications.api_key_middleware.ApiKeyTenantContextMiddleware",
     "saas_core.modules.core.organizations.middleware.TenantContextMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
