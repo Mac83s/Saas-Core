@@ -20,6 +20,7 @@ const {
   completeMediaUpload,
   getPageDraft,
   getPageDraftPreview,
+  importPageTemplate,
   initiateMediaUpload,
   listMediaAssets,
   listPageTranslations,
@@ -29,6 +30,7 @@ const {
   completeMediaUpload: vi.fn(),
   getPageDraft: vi.fn(),
   getPageDraftPreview: vi.fn(),
+  importPageTemplate: vi.fn(),
   initiateMediaUpload: vi.fn(),
   listMediaAssets: vi.fn(),
   listPageTranslations: vi.fn(),
@@ -41,6 +43,7 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   completeMediaUpload,
   getPageDraft,
   getPageDraftPreview,
+  importPageTemplate,
   initiateMediaUpload,
   listMediaAssets,
   listPageTranslations,
@@ -109,6 +112,35 @@ beforeEach(() => {
     items: [translation],
   });
   listMediaAssets.mockResolvedValue({ items: [], next_cursor: null });
+  importPageTemplate.mockResolvedValue({
+    ...draft,
+    version: 2,
+    draft_id: "019ff20d-a000-7000-8000-000000000025",
+    blocks: [
+      {
+        ...draft.blocks[0],
+        schema_version: 2,
+        data: {
+          title: "Twoje imię i to, w czym pomagasz",
+          text: "Przykładowa treść",
+        },
+      },
+      {
+        id: "019ff20d-a000-7000-8000-000000000026",
+        position: 1,
+        block_type: "core.rich_text",
+        schema_version: 1,
+        data: { text: "Kilka zdań o sobie" },
+      },
+      {
+        id: "019ff20d-a000-7000-8000-000000000027",
+        position: 2,
+        block_type: "core.contact",
+        schema_version: 1,
+        data: { title: "Kontakt", email: "kontakt@example.com" },
+      },
+    ],
+  });
   savePageDraft.mockResolvedValue({
     ...draft,
     version: 2,
@@ -214,9 +246,10 @@ test("dodaje sekcję z powtarzalną listą i zapisuje jej wpisy", async () => {
   });
 });
 
-test("wypełnia pustą stronę szablonem i zapisuje jego sekcje", async () => {
+test("importuje szablon do wersjonowanego draftu przez API", async () => {
   getPageDraft.mockResolvedValue({ ...draft, blocks: [] });
-  renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
+  const onChanged = vi.fn().mockResolvedValue(undefined);
+  renderEditor("pl", polishMessages, onChanged);
 
   // An empty page offers templates instead of a bare "no sections" message.
   fireEvent.click(
@@ -224,18 +257,15 @@ test("wypełnia pustą stronę szablonem i zapisuje jego sekcje", async () => {
   );
 
   expect(await screen.findByDisplayValue(/Twoje imię/)).not.toBeNull();
-  fireEvent.click(
-    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
-  );
-
-  await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
-  // The recipe seeds valid blocks, so it saves without the operator having to
-  // fix anything first.
-  expect(
-    savePageDraft.mock.calls[0]?.[1].blocks.map(
-      (block: { block_type: string }) => block.block_type,
-    ),
-  ).toEqual(["core.hero", "core.rich_text", "core.contact"]);
+  expect(importPageTemplate).toHaveBeenCalledOnce();
+  expect(importPageTemplate.mock.calls[0]?.[0]).toBe(page.id);
+  expect(importPageTemplate.mock.calls[0]?.[1]).toEqual({
+    expected_version: 1,
+    template_id: "core.profile",
+    template_version: 1,
+  });
+  expect(savePageDraft).not.toHaveBeenCalled();
+  expect(onChanged).toHaveBeenCalledOnce();
 });
 
 test("nie wysyła sekcji FAQ bez ani jednego wpisu", async () => {

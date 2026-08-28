@@ -23,6 +23,7 @@ from .serializers import (
     PageDraftSerializer,
     PageListSerializer,
     PageSummarySerializer,
+    PageTemplateImportSerializer,
     PageTranslationListSerializer,
     PageTranslationSaveSerializer,
     PageTranslationSerializer,
@@ -46,6 +47,7 @@ from .services import (
     get_draft_preview,
     get_site_localization_report,
     get_site_navigation,
+    import_page_template,
     list_page_translations,
     list_pages,
     list_site_publications,
@@ -222,6 +224,38 @@ class PageDraftView(APIView):
         serializer = DraftSaveSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         result = save_draft(
+            page_id=page_id,
+            **serializer.validated_data,
+            idempotency_key=request.headers.get("Idempotency-Key", ""),
+        )
+        return Response(
+            _draft_summary(page_id),
+            status=(status.HTTP_201_CREATED if result.created else status.HTTP_200_OK),
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class PageTemplateImportView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_page_template_import",
+        tags=["sites"],
+        parameters=[IDEMPOTENCY_PARAMETER],
+        request=PageTemplateImportSerializer,
+        responses={
+            200: PageDraftSerializer,
+            201: PageDraftSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request, page_id: UUID) -> Response:
+        serializer = PageTemplateImportSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = import_page_template(
             page_id=page_id,
             **serializer.validated_data,
             idempotency_key=request.headers.get("Idempotency-Key", ""),

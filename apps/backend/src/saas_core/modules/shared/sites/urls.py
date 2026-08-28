@@ -22,6 +22,7 @@ from .views import (
     PageDraftPreviewView,
     PageDraftView,
     PageListCreateView,
+    PageTemplateImportView,
     PageTranslationListView,
     PageTranslationView,
     SiteListCreateView,
@@ -113,6 +114,11 @@ urlpatterns = [
         name="publication-rollback",
     ),
     path("pages/<uuid:page_id>/draft/", PageDraftView.as_view(), name="page-draft"),
+    path(
+        "pages/<uuid:page_id>/template-import/",
+        PageTemplateImportView.as_view(),
+        name="page-template-import",
+    ),
     path(
         "pages/<uuid:page_id>/preview/<uuid:version_id>/",
         PageDraftPreviewView.as_view(),

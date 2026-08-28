@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 from datetime import timedelta
+from pathlib import Path
+from shutil import copytree
 from typing import Any
 from uuid import uuid7
 
@@ -16,6 +18,7 @@ from django.db import (
     connection,
     transaction,
 )
+from django.test import override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -31,6 +34,7 @@ from saas_core.modules.core.organizations.models import (
 from saas_core.modules.shared.billing.models import (
     AccessMode,
     EntitlementSnapshot,
+    Feature,
     QuotaUsage,
     SubscriptionState,
 )
@@ -164,6 +168,28 @@ def save_draft(
                 },
             ],
             "media_asset_ids": media_asset_ids or [],
+        },
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+        HTTP_IDEMPOTENCY_KEY=idempotency_key,
+    )
+
+
+def import_page_template(
+    client: APIClient,
+    page_id: str,
+    *,
+    expected_version: int,
+    idempotency_key: str,
+    template_id: str = "core.profile",
+    template_version: int = 1,
+) -> Any:
+    return client.post(
+        f"/api/v1/sites/pages/{page_id}/template-import/",
+        {
+            "expected_version": expected_version,
+            "template_id": template_id,
+            "template_version": template_version,
         },
         format="json",
         HTTP_X_CSRFTOKEN=csrf_value(client),
@@ -481,6 +507,122 @@ def test_page_and_draft_are_tenant_scoped_versioned_and_idempotent() -> None:
         ).count()
         == 2
     )
+
+
+def test_page_template_import_uses_draft_versioning_and_is_tenant_scoped() -> None:
+    client, organization, _ = sites_client(slug="sites-template-import")
+    foreign_client, _, _ = sites_client(slug="sites-template-foreign")
+    site = create_site(client)
+    page = create_page(client, site.data["id"])
+
+    imported = import_page_template(
+        client,
+        page.data["id"],
+        expected_version=0,
+        idempotency_key="template-profile-v1",
+    )
+    repeated = import_page_template(
+        client,
+        page.data["id"],
+        expected_version=0,
+        idempotency_key="template-profile-v1",
+    )
+    changed_replay = import_page_template(
+        client,
+        page.data["id"],
+        expected_version=0,
+        idempotency_key="template-profile-v1",
+        template_id="core.company",
+    )
+    stale = import_page_template(
+        client,
+        page.data["id"],
+        expected_version=0,
+        idempotency_key="template-stale",
+    )
+    unknown = import_page_template(
+        client,
+        page.data["id"],
+        expected_version=1,
+        idempotency_key="template-unknown",
+        template_version=99,
+    )
+    foreign = import_page_template(
+        foreign_client,
+        page.data["id"],
+        expected_version=1,
+        idempotency_key="template-foreign",
+    )
+
+    assert imported.status_code == 201
+    assert imported.data["version"] == 1
+    assert [block["block_type"] for block in imported.data["blocks"]] == [
+        "core.hero",
+        "core.rich_text",
+        "core.contact",
+    ]
+    assert repeated.status_code == 200
+    assert repeated.data["draft_id"] == imported.data["draft_id"]
+    assert changed_replay.status_code == 409
+    assert changed_replay.data["code"] == "sites_idempotency_conflict"
+    assert stale.status_code == 409
+    assert stale.data["code"] == "draft_version_conflict"
+    assert unknown.status_code == 404
+    assert unknown.data["code"] == "page_template_not_found"
+    assert foreign.status_code == 404
+    assert foreign.data["code"] == "page_not_found"
+    assert PageVersion.all_objects.filter(organization=organization).count() == 1
+    assert (
+        OrganizationAuditEntry.objects.filter(
+            organization=organization,
+            action="sites.page.template_imported",
+        ).count()
+        == 1
+    )
+
+
+def test_page_template_import_enforces_recipe_entitlements(tmp_path: Path) -> None:
+    from saas_core.modules.shared.sites.page_templates import page_template_catalog
+
+    client, organization, _ = sites_client(slug="sites-template-entitlement")
+    site = create_site(client)
+    page = create_page(client, site.data["id"])
+    Feature.objects.create(
+        key="sites.templates.company",
+        name="Company templates",
+        module="sites",
+    )
+    snapshot = EntitlementSnapshot.all_objects.get(organization=organization)
+    snapshot.features["sites.templates.company"] = False
+    snapshot.save(update_fields=["features", "updated_at"])
+
+    source = Path(settings.PAGE_TEMPLATE_CONTRACTS_PATH)
+    contracts = tmp_path / "page-templates"
+    copytree(source, contracts)
+    recipe_path = contracts / "core.company.v1.json"
+    recipe = json.loads(recipe_path.read_text(encoding="utf-8"))
+    recipe["requiredEntitlements"] = [
+        "sites.enabled",
+        "sites.templates.company",
+    ]
+    recipe_path.write_text(json.dumps(recipe), encoding="utf-8")
+
+    page_template_catalog.cache_clear()
+    try:
+        with override_settings(PAGE_TEMPLATE_CONTRACTS_PATH=contracts):
+            denied = import_page_template(
+                client,
+                page.data["id"],
+                expected_version=0,
+                idempotency_key="template-company-denied",
+                template_id="core.company",
+            )
+    finally:
+        page_template_catalog.cache_clear()
+
+    assert denied.status_code == 403
+    assert denied.data["code"] == "entitlement_required"
+    assert PageVersion.all_objects.filter(organization=organization).count() == 0
 
 
 def test_draft_uses_canonical_block_contracts_after_authorization() -> None:

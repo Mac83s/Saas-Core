@@ -6,6 +6,7 @@ from .block_contracts import (
     UnknownSiteBlockVersion,
     validate_site_block,
 )
+from .page_templates import PageTemplate, PageTemplateNotFound, page_template_catalog
 from .services import (
     DraftVersionConflict,
     MutationResult,
@@ -31,6 +32,7 @@ from .services import (
     get_draft,
     get_draft_preview,
     get_site_localization_report,
+    import_page_template,
     list_page_translations,
     list_pages,
     list_sites,
@@ -46,6 +48,8 @@ __all__ = [
     "PageDraft",
     "PageKeyConflict",
     "PageNotFound",
+    "PageTemplate",
+    "PageTemplateNotFound",
     "PageVersionNotFound",
     "PageTranslations",
     "SiteNotFound",
@@ -67,9 +71,11 @@ __all__ = [
     "get_draft",
     "get_draft_preview",
     "get_site_localization_report",
+    "import_page_template",
     "list_page_translations",
     "list_pages",
     "list_sites",
+    "page_template_catalog",
     "publish_site",
     "save_draft",
     "save_page_translation",

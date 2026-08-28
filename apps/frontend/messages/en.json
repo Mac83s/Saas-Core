@@ -305,7 +305,7 @@
     "add": "Add",
     "emptyBlocks": "The draft has no blocks. Choose a controlled block type above.",
     "startFromTemplate": "Start from a template",
-    "startFromTemplateDescription": "A template drops in ready-made sections with example copy. Nothing is saved until you press save.",
+    "startFromTemplateDescription": "A template creates a new draft version with ready-made sections and example copy. You can edit it afterwards.",
     "useTemplate": "Use this template",
     "useNamedTemplate": "Use the {name} template",
     "heading": "Heading",

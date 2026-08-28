@@ -16,6 +16,13 @@ const backendPython = path.join(
   repositoryRoot,
   "apps/backend/.venv/bin/python",
 );
+const backendCommand =
+  process.platform === "win32"
+    ? {
+        command: "uv",
+        prefix: ["run", "--isolated", "--project", "apps/backend", "python"],
+      }
+    : { command: backendPython, prefix: [] };
 const openapiTypescriptCli = path.join(
   repositoryRoot,
   "node_modules/openapi-typescript/bin/cli.js",
@@ -44,7 +51,8 @@ const normalized = async (filePath) =>
   (await readFile(filePath, "utf8")).replaceAll("\r\n", "\n");
 
 try {
-  run(backendPython, [
+  run(backendCommand.command, [
+    ...backendCommand.prefix,
     "apps/backend/manage.py",
     "spectacular",
     "--file",

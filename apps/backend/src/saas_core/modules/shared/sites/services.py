@@ -60,6 +60,7 @@ SITE_PUBLISHED = "sites.site.published"
 SITE_ROLLED_BACK = "sites.site.rolled_back"
 SITE_NAVIGATION_SAVED = "sites.navigation.saved"
 PAGE_AUTOMATION_POLICY_SET = "sites.page.automation_policy_set"
+PAGE_TEMPLATE_IMPORTED = "sites.page.template_imported"
 SITE_PUBLISHED_EVENT = "sites.site.published"
 MEDIA_ASSET_RESOURCE_TYPE = "shared.media.asset"
 PAGE_VERSION_REFERENCE_OWNER = "sites.page_version"
@@ -620,6 +621,7 @@ def save_draft(
     blocks: list[dict[str, Any]],
     media_asset_ids: list[UUID],
     idempotency_key: str,
+    request_context: dict[str, Any] | None = None,
 ) -> MutationResult[PageVersion]:
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
     normalized_key = _idempotency_key(idempotency_key)
@@ -642,12 +644,15 @@ def save_draft(
         "blocks": normalized_blocks,
         "media_asset_ids": [str(asset_id) for asset_id in normalized_media_asset_ids],
     })
-    request_hash = canonical_json_hash({
+    request_payload: dict[str, Any] = {
         "page_id": str(page_id),
         "expected_version": expected_version,
         "blocks": normalized_blocks,
         "media_asset_ids": [str(asset_id) for asset_id in normalized_media_asset_ids],
-    })
+    }
+    if request_context is not None:
+        request_payload["context"] = request_context
+    request_hash = canonical_json_hash(request_payload)
     existing = PageVersion.all_objects.filter(
         organization_id=context.organization_id,
         page_id=page_id,
@@ -742,6 +747,53 @@ def save_draft(
         },
     )
     return MutationResult(version, True)
+
+
+@transaction.atomic
+def import_page_template(
+    *,
+    page_id: UUID,
+    template_id: str,
+    template_version: int,
+    expected_version: int,
+    idempotency_key: str,
+) -> MutationResult[PageVersion]:
+    from .page_templates import page_template_catalog
+
+    authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    template = page_template_catalog().get(
+        template_id=template_id,
+        version=template_version,
+    )
+    for entitlement in template.required_entitlements:
+        authorize_entitled(SITE_CONTENT_EDIT, entitlement)
+    result = save_draft(
+        page_id=page_id,
+        expected_version=expected_version,
+        blocks=template.draft_blocks(),
+        media_asset_ids=[],
+        idempotency_key=idempotency_key,
+        request_context={
+            "operation": "page_template_import",
+            "template_id": template.id,
+            "template_version": template.version,
+        },
+    )
+    if result.created:
+        context = require_tenant_context()
+        record_audit(
+            organization=Organization.objects.get(pk=context.organization_id),
+            action=PAGE_TEMPLATE_IMPORTED,
+            actor=User.objects.get(pk=context.actor_id),
+            target_type="page_version",
+            target_id=result.value.id,
+            metadata={
+                "page_id": str(page_id),
+                "template_id": template.id,
+                "template_version": template.version,
+            },
+        )
+    return result
 
 
 def list_page_translations(*, page_id: UUID) -> PageTranslations:

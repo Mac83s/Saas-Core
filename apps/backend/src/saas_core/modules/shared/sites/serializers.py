@@ -304,6 +304,15 @@ class DraftSaveSerializer(serializers.Serializer[dict[str, Any]]):
         return value
 
 
+class PageTemplateImportSerializer(serializers.Serializer[dict[str, Any]]):
+    expected_version = serializers.IntegerField(min_value=0)
+    template_id = serializers.RegexField(
+        r"^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$",
+        max_length=120,
+    )
+    template_version = serializers.IntegerField(min_value=1)
+
+
 class PageBlockSerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     position = serializers.IntegerField()

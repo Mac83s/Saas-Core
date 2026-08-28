@@ -46,6 +46,8 @@ export type PageCreateInput = components["schemas"]["PageCreate"];
 export type PageList = components["schemas"]["PageList"];
 export type PageDraft = components["schemas"]["PageDraft"];
 export type DraftSaveInput = components["schemas"]["DraftSave"];
+export type PageTemplateImportInput =
+  components["schemas"]["PageTemplateImport"];
 export type PageTranslation = components["schemas"]["PageTranslation"];
 export type PageTranslationList = components["schemas"]["PageTranslationList"];
 export type PageTranslationSaveInput =
@@ -829,6 +831,28 @@ export async function savePageDraft(
   const csrfToken = await getCsrfToken();
   const { data, error, response } = await client.PUT(
     "/api/v1/sites/pages/{page_id}/draft/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { page_id: pageId },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function importPageTemplate(
+  pageId: string,
+  input: PageTemplateImportInput,
+  idempotencyKey: string,
+): Promise<PageDraft> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/pages/{page_id}/template-import/",
     {
       params: {
         header: { "Idempotency-Key": idempotencyKey },

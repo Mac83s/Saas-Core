@@ -57,48 +57,42 @@ sesji z dostępem do hosta, domeny, GHCR i GitHub Environment.
 ## Dowody walidacji
 
 - pełna bramka backendu: Ruff, import-linter, brak dryfu migracji, Mypy 0 błędów
-  w 221 plikach i **336 testów**;
-- regresja Sites: **37 testów**, w tym claim race, reserved names, kwarantanna,
-  rate limit, exact-tenant, permission/entitlement, CSRF, idempotencja, audyt,
-  append-only i redirect 308;
-- pełne testy workspace'u JS oraz `api:check` przeszły;
-- testy komponentowe kreatora i panelu: **9 testów**, PL/EN, wznowienie,
-  konflikt wersji, sugestia adresu i axe;
-- produkcyjny build Next.js przeszedł w obrazie Node.js 24;
-- Playwright: **1/1**, pełna ścieżka onboarding → domena opcjonalna → treść →
-  preview → publikacja → rollback;
-- `format:check`, pełny lint, typecheck i `git diff --check` są zielone.
+  w 231 plikach i **358 testów**;
+- import szablonu: **2 testy** obejmujące optimistic lock, idempotentne
+  ponowienie, konflikt zmienionego replaya, exact-tenant, brak recepty, audit i
+  odmowę przy brakującym entitlementcie;
+- pełne testy workspace'u JS: contracts **10**, UI **8**, site-blocks **11**,
+  frontend **71**; lint, typecheck, build Next.js i `api:check` przeszły;
+- skrypt `api:check` uruchamia teraz izolowane środowisko backendu również na
+  Windows zamiast próbować wykonać linuksowy `.venv/bin/python`;
+- wcześniejszy Playwright **1/1** nadal dokumentuje pełną ścieżkę onboarding →
+  domena opcjonalna → treść → preview → publikacja → rollback;
+- `git diff --check` jest zielone.
 
 Lokalny host ma Node.js 22 i emituje ostrzeżenie `engines`; właściwy runtime
 Node.js 24 został potwierdzony buildem obrazu frontendowego. Testy backendu
 wymagają zdrowego PostgreSQL i Redis. Pełny pytest może przy zamykaniu zgłosić
 ostrzeżenie o dwóch sesjach testowej bazy pozostawionych chwilowo przez testy
-wielowątkowych wyścigów; wynik pozostaje 336/336.
+wielowątkowych wyścigów; wynik pozostaje 358/358.
 
 ## Następny cel wykonawczy
 
-Frontendowa część W9.5.4 jest dostarczona (commity `404fa60`, `e3eabd5`,
-`dba53f3`): bloki opisują swoją kategorię ADR-031 i pola w manifeście,
-`defineSiteBlockManifest` sprawdza każdą ścieżkę pola względem kanonicznego JSON
-Schema, edytor renderuje formularz z tego katalogu, a pusta strona proponuje trzy
-wersjonowane szablony (`core.profile`, `core.specialist_landing`,
-`core.company`) z `packages/contracts/page-templates`. Dodanie sekcji to dziś
-wpis w manifeście plus schemat; edytor nie zna żadnego bloku po nazwie.
-Biblioteka ma 5 z 9 kategorii — brakuje Zaufanie, Cennik, Rezerwacja, Stopka.
+W9.5.4 ma już trzy kanoniczne recepty, katalog sekcji oraz backendowy import.
+`PageTemplate` jest niemutowalnym modelem domenowym ładowanym z
+`packages/contracts/page-templates`, nie drugą tabelą z kopią recept. Endpoint
+`POST /api/v1/sites/pages/{page_id}/template-import/` tworzy zwykłą
+`PageVersion` przez `save_draft`; panel używa endpointu bezpośrednio, więc
+`requiredEntitlements` nie da się ominąć ścieżką UI.
 
-**Backendu tej fali nie dało się dotknąć w tej sesji:** `.venv` jest linuksowe
-(WSL), Windows nie ma Django, a kontenery SaaS Core nie działały. Praca po
-stronie serwera wymaga sesji z działającym backendem. Do zrobienia:
+Do zamknięcia W9.5.4:
 
-1. model `PageTemplate` i endpoint importu recepty do draftu, bez obchodzenia
-   istniejącego wersjonowania i optimistic locka — recepty i ich walidacja już
-   są, backend ma je konsumować, nie definiować od nowa;
-2. egzekwowanie `requiredEntitlements` recepty w API (frontend filtruje tylko
-   po to, by nie proponować czegoś, co API odrzuci);
-3. idempotentna materializacja mediów recepty jako tenantowych `MediaAsset`
-   (ADR-031) — dzisiejsze szablony celowo nie zawierają mediów;
-4. lokalizowane miniatury i preview;
-5. dowody PL/EN, mobile, klawiatura, axe, exact-tenant i idempotentny import.
+1. rozszerzyć kontrakt recepty o zatwierdzone media i wdrożyć ich idempotentną
+   materializację jako tenantowych `MediaAsset`; dzisiejsze recepty celowo nie
+   mają mediów;
+2. przygotować lokalizowane miniatury i preview;
+3. uzupełnić bibliotekę z 5 do 9 kategorii o Zaufanie, Cennik, Rezerwację i
+   Stopkę;
+4. wykonać dowody mobile, klawiatura i axe dla wyboru oraz importu szablonu.
 
 Znane długi frontendu, nietknięte przez te commity:
 
@@ -136,10 +130,17 @@ Zbudowane i działające na lokalnym stacku:
   revoke.
 
 Dowody ostatniego przyrostu: Ruff, import-linter, brak dryfu migracji i Mypy
-przeszły; pełny backend ma **356/356 testów**, pełny workspace JS jest zielony
+przeszły; pełny backend ma **358/358 testów**, pełny workspace JS jest zielony
 (frontend **71/71**), a świeżo wygenerowane OpenAPI i klient TypeScript są
 identyczne z wersjami kanonicznymi. Lokalny Node 22 nadal emituje znane
 ostrzeżenie `engines`; wymagany runtime projektu to Node 24.
+
+Słownik grantu jest zamrożony w obu projektach: jedyna nazwa czwartego trybu to
+`autonomous`; historyczne `auto_publish_limited` nie jest aliasem i ma być
+odrzucane fail-closed. Ograniczenie autonomii wynika z obowiązkowych limitów
+grantu, a niezależna polityka treści `manual` / `proposed` / `automated` może
+wyłącznie zawężać grant. SaaS Core utrwalił to w `73e9df5`, a SeoContentRank w
+`97f1ab2`.
 
 Do zrobienia w W9.6, w kolejności zależności:
 

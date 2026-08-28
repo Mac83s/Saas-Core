@@ -305,7 +305,7 @@
     "add": "Dodaj",
     "emptyBlocks": "Draft nie ma bloków. Wybierz kontrolowany typ bloku powyżej.",
     "startFromTemplate": "Zacznij od szablonu",
-    "startFromTemplateDescription": "Szablon wstawia gotowe sekcje z przykładową treścią. Nic nie zostaje zapisane, dopóki nie klikniesz zapisu.",
+    "startFromTemplateDescription": "Szablon utworzy nową wersję szkicu z gotowymi sekcjami i przykładową treścią. Potem możesz ją dowolnie edytować.",
     "useTemplate": "Użyj tego szablonu",
     "useNamedTemplate": "Użyj szablonu {name}",
     "heading": "Nagłówek",

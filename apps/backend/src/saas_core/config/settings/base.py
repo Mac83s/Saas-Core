@@ -136,6 +136,12 @@ SITE_BLOCK_CONTRACTS_PATH = Path(
         BASE_DIR.parent.parent / "packages" / "contracts" / "site-blocks",
     )
 )
+PAGE_TEMPLATE_CONTRACTS_PATH = Path(
+    os.environ.get(
+        "PAGE_TEMPLATE_CONTRACTS_PATH",
+        BASE_DIR.parent.parent / "packages" / "contracts" / "page-templates",
+    )
+)
 
 
 def secret_setting(name: str, default: str = "") -> str:

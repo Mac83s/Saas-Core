@@ -24,6 +24,7 @@ import {
   completeMediaUpload,
   getPageDraft,
   getPageDraftPreview,
+  importPageTemplate,
   initiateMediaUpload,
   listMediaAssets,
   listPageTranslations,
@@ -36,7 +37,6 @@ import {
 } from "@saas-core/api-client";
 import {
   availablePageTemplates,
-  pageTemplateBlocks,
   renderDraftPreview,
   type PageTemplate,
 } from "@saas-core/site-blocks";
@@ -129,6 +129,7 @@ export function PageEditor({
   const draftReceipt = useRef<MutationReceipt | undefined>(undefined);
   const translationReceipt = useRef<MutationReceipt | undefined>(undefined);
   const uploadReceipt = useRef<MutationReceipt | undefined>(undefined);
+  const templateReceipt = useRef<MutationReceipt | undefined>(undefined);
 
   const draftForm = useForm<DraftValues>({
     resolver: zodResolver(draftSchema),
@@ -157,18 +158,42 @@ export function PageEditor({
   );
   const templateLocale = locale === "en" ? "en" : "pl";
 
-  /** Seeds the recipe into the draft form. Nothing is saved until the operator
-   *  reviews it and presses save, so a template applied by mistake costs a
-   *  reload, not a version. */
   const applyTemplate = useCallback(
-    (template: PageTemplate) => {
-      draftForm.setValue(
-        "blocks",
-        editableBlocks(pageTemplateBlocks(template, registry)),
-        { shouldDirty: true },
-      );
+    async (template: PageTemplate) => {
+      if (!draft) return;
+      const input = {
+        expected_version: draft.version,
+        template_id: template.id,
+        template_version: template.version,
+      };
+      setLoading(true);
+      setProblem(undefined);
+      setDraftConflict(false);
+      try {
+        const imported = await importPageTemplate(
+          page.id,
+          input,
+          mutationKey(templateReceipt, `template-${page.id}`, input),
+        );
+        templateReceipt.current = undefined;
+        setDraft(imported);
+        draftForm.reset(draftValues(imported));
+        setPreview(undefined);
+        await onChanged();
+      } catch (error) {
+        if (
+          error instanceof ApiProblemError &&
+          error.problem.code === "draft_version_conflict"
+        ) {
+          setDraftConflict(true);
+          return;
+        }
+        setProblem(sitesErrorMessage(error, t));
+      } finally {
+        setLoading(false);
+      }
     },
-    [draftForm],
+    [draft, draftForm, onChanged, page.id, t],
   );
 
   const applyLoadedData = useCallback(
@@ -492,7 +517,8 @@ export function PageEditor({
                               aria-label={t("useNamedTemplate", {
                                 name: template.labels[templateLocale].name,
                               })}
-                              onClick={() => applyTemplate(template)}
+                              disabled={loading}
+                              onClick={() => void applyTemplate(template)}
                               type="button"
                               variant="outline"
                             >
