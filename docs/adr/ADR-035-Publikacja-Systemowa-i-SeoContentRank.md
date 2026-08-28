@@ -109,6 +109,13 @@ Grant ma jawnie wybrany tryb:
 - `autonomous` — SeoContentRank publikuje samodzielnie w granicach polityki
   strony, bez zatwierdzania pojedynczej zmiany przez człowieka.
 
+**`autonomous` jest jedyną nazwą kontraktową czwartego trybu.** Historyczne
+`auto_publish_limited` nie jest aliasem i ma być odrzucane jak każdy nieznany
+tryb. „Limited” opisuje obowiązkowe ograniczenia grantu — zasób, limity zmian i
+objętości, dozwolone okna, komendy i cele linków oraz kill switch — a nie osobny
+poziom uprawnienia. Rozdzielenie nazwy trybu od jego ograniczeń nie pozostawia
+miejsca na późniejszą, przypadkowo „nielimitowaną” autonomię.
+
 Tryb autonomiczny jest docelowym trybem pracy usługi, nie wyjątkiem: sens
 produktu polega na tym, że treść jest utrzymywana bez udziału klienta.
 Odpowiedzialność za poprawność publikowanej treści przenosi się wtedy na
@@ -127,18 +134,20 @@ Automatyzacja i człowiek nie edytują tej samej treści równocześnie. Rozstrz
 to dwie niezależne rzeczy.
 
 **Polityka strony — trwała.** Każda strona i każda kolekcja ma jawną politykę:
-`automated` (SeoContentRank może zapisywać) albo `manual` (wyłącznie ludzie).
-To jest właściwy mechanizm zakresu, nie wyjątek awaryjny: typowa konfiguracja
-oddaje automatyzacji blog i wskazane podstrony ofertowe, a stronę główną,
-cennik i treści prawne zostawia człowiekowi. Polityka jest ustawiana w panelu
-i zmienia ją człowiek, nigdy integracja.
+`manual` pozwala automatyzacji tylko czytać stan w zakresie grantu, `proposed`
+pozwala jej zapisać draft, który publikuje człowiek, a `automated` pozwala
+wykonać także publikację, jeżeli dopuszcza ją tryb grantu. Grant wyznacza sufit,
+a polityka powierzchni może go tylko obniżyć: `draft_write` nigdy nie publikuje,
+`publish_with_approval` publikuje wyłącznie po ważnym approval digest, natomiast
+`autonomous` nie wymaga akceptacji pojedynczej zmiany. Politykę ustawia w panelu
+człowiek; integracja nigdy jej nie zmienia.
 
 **Blokada edycji — chwilowa.** Gdy człowiek otwiera edytor strony o polityce
-`automated`, strona dostaje blokadę z krótkim TTL, odświeżaną dopóki edytor jest
-otwarty. Zapis z SeoContentRank w tym czasie jest odrzucany kodem, który niesie
-czas wygaśnięcia blokady, więc integracja wie, kiedy spróbować ponownie. Jest to
-przypadek rzadki i celowo rozstrzygany na korzyść człowieka: automat może
-poczekać, człowiek w trakcie pisania nie.
+`proposed` albo `automated`, strona dostaje blokadę z krótkim TTL, odświeżaną
+dopóki edytor jest otwarty. Zapis z SeoContentRank w tym czasie jest odrzucany
+kodem, który niesie czas wygaśnięcia blokady, więc integracja wie, kiedy
+spróbować ponownie. Jest to przypadek rzadki i celowo rozstrzygany na korzyść
+człowieka: automat może poczekać, człowiek w trakcie pisania nie.
 
 Blokada nie zastępuje polityki. Strona `manual` jest niedostępna dla
 automatyzacji zawsze, także gdy nikt jej nie edytuje.
