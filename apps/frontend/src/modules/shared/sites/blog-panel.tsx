@@ -27,6 +27,7 @@ import {
   listContentEntries,
   publishContentEntry,
   setCollectionAutomationPolicy,
+  setCollectionNavigation,
   withdrawContentEntry,
   type ContentCollection,
   type ContentEntry,
@@ -322,6 +323,38 @@ export function BlogPanel({ siteId }: { siteId: string }) {
                   </NativeSelect>
                 </Field>
               )}
+
+              {/* The menu a visitor sees comes from the last publication, so
+                  the change lands when the site is published — the same rule
+                  every other content change follows. */}
+              <label className="flex items-start gap-2 rounded-lg border p-3 text-sm">
+                <input
+                  checked={collection.show_in_navigation}
+                  className="mt-1"
+                  disabled={busy}
+                  onChange={(event) => {
+                    const show = event.target.checked;
+                    void run(async () => {
+                      const updated = await setCollectionNavigation(
+                        collection.id,
+                        show,
+                      );
+                      setCollections((current) =>
+                        current.map((item) =>
+                          item.id === updated.id ? updated : item,
+                        ),
+                      );
+                    });
+                  }}
+                  type="checkbox"
+                />
+                <span>
+                  <span className="font-medium">{t("blogInMenu")}</span>
+                  <span className="block text-muted-foreground">
+                    {t("blogInMenuHint")}
+                  </span>
+                </span>
+              </label>
 
               <AutomationPolicyField
                 busy={busy}

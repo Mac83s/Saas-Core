@@ -43,6 +43,7 @@ from .block_contracts import validate_site_block
 from .localization import SiteLocalizationReport, build_localization_report
 from .models import (
     ContentAutomationGrant,
+    ContentCollection,
     NavigationItem,
     Page,
     PageAutomationPolicy,
@@ -1689,7 +1690,7 @@ def _navigation_snapshot(
     # Addressed by page, not by navigation-item id: the public payload and the
     # panel both speak in pages, and mixing the two id spaces silently drops
     # every nested entry when the renderer tries to match them up.
-    return [
+    entries: list[dict[str, Any]] = [
         {
             "page_id": str(item.page_id),
             "parent_page_id": (
@@ -1700,6 +1701,25 @@ def _navigation_snapshot(
         for item in items
         if item.id in kept and reachable(item)
     ]
+    # A collection carries its own title and address because it has no page in
+    # the snapshot to look them up from. Older snapshots simply have no entries
+    # of this shape, so the renderer's page lookup keeps working unchanged.
+    position = len(entries)
+    for collection in ContentCollection.all_objects.filter(
+        organization_id=organization_id,
+        site_id=site.id,
+        show_in_navigation=True,
+    ).order_by("base_path"):
+        entries.append({
+            "page_id": None,
+            "parent_page_id": None,
+            "position": position,
+            "collection_id": str(collection.id),
+            "title": collection.name,
+            "path": "/" + collection.base_path + "/",
+        })
+        position += 1
+    return entries
 
 
 def _publication_snapshot(

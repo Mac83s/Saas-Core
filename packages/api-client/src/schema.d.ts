@@ -1188,6 +1188,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/collections/{collection_id}/navigation/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["sites_collection_navigation_set"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/collections/{collection_id}/policy/": {
         parameters: {
             query?: never;
@@ -1520,6 +1536,9 @@ export interface components {
         CheckoutCreate: {
             plan: string;
         };
+        CollectionNavigation: {
+            show_in_navigation: boolean;
+        };
         ContentCollection: {
             /** Format: uuid */
             id: string;
@@ -1530,6 +1549,7 @@ export interface components {
             kind: string;
             base_path: string;
             automation_policy: string;
+            show_in_navigation: boolean;
         };
         ContentCollectionCreate: {
             key: string;
@@ -6094,6 +6114,57 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_collection_navigation_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CollectionNavigation"];
+                "application/x-www-form-urlencoded": components["schemas"]["CollectionNavigation"];
+                "multipart/form-data": components["schemas"]["CollectionNavigation"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentCollection"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

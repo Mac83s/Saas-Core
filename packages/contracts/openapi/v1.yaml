@@ -3320,6 +3320,57 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/collections/{collection_id}/navigation/:
+    put:
+      operationId: sites_collection_navigation_set
+      parameters:
+      - in: path
+        name: collection_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CollectionNavigation'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CollectionNavigation'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CollectionNavigation'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentCollection'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/collections/{collection_id}/policy/:
     put:
       operationId: sites_collection_policy_set
@@ -4454,6 +4505,13 @@ components:
           pattern: ^[-a-zA-Z0-9_]+$
       required:
       - plan
+    CollectionNavigation:
+      type: object
+      properties:
+        show_in_navigation:
+          type: boolean
+      required:
+      - show_in_navigation
     ContentCollection:
       type: object
       properties:
@@ -4473,6 +4531,8 @@ components:
           type: string
         automation_policy:
           type: string
+        show_in_navigation:
+          type: boolean
       required:
       - automation_policy
       - base_path
@@ -4480,6 +4540,7 @@ components:
       - key
       - kind
       - name
+      - show_in_navigation
       - site_id
     ContentCollectionCreate:
       type: object

@@ -22,11 +22,13 @@ from .collections import (
     publish_entry,
     save_entry_draft,
     set_collection_automation_policy,
+    set_collection_navigation,
     withdraw_entry,
 )
 from .models import ContentCollection, ContentEntry, ContentEntryPublication
 from .serializers import (
     AutomationPolicySerializer,
+    CollectionNavigationSerializer,
     ContentCollectionCreateSerializer,
     ContentCollectionSerializer,
     ContentEntryCreateSerializer,
@@ -58,6 +60,7 @@ def _collection_payload(collection: ContentCollection) -> dict[str, Any]:
         "kind": collection.kind,
         "base_path": collection.base_path,
         "automation_policy": collection.automation_policy,
+        "show_in_navigation": collection.show_in_navigation,
     }
 
 
@@ -344,3 +347,27 @@ class PageAutomationPolicyView(APIView):
             "created_at": page.created_at,
             "updated_at": page.updated_at,
         })
+
+
+class ContentCollectionNavigationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_collection_navigation_set",
+        tags=["sites"],
+        request=CollectionNavigationSerializer,
+        responses={
+            200: ContentCollectionSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def put(self, request: Request, collection_id: UUID) -> Response:
+        serializer = CollectionNavigationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        collection = set_collection_navigation(
+            collection_id=collection_id,
+            show=serializer.validated_data["show_in_navigation"],
+        )
+        return Response(_collection_payload(collection))

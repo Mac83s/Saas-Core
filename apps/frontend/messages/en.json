@@ -440,7 +440,9 @@
     "automationProposedHint": "The integration prepares content as a draft, but you decide whether it is published.",
     "blogProposal": "Proposal",
     "entryProposalHint": "Automation prepared this draft. Publishing it is how you accept the proposal.",
-    "pageProposalWaiting": "Automation prepared a proposal for this page. Open the Content tab to review it."
+    "pageProposalWaiting": "Automation prepared a proposal for this page. Open the Content tab to review it.",
+    "blogInMenu": "Show the blog in the site menu",
+    "blogInMenuHint": "The link appears at the end of the menu after the next publication. The blog cannot yet be nested or placed between pages."
   },
   "BillingSupport": {
     "navigation": "Billing & access",

@@ -163,6 +163,16 @@ def _navigation_links(snapshot: dict[str, Any], locale: str) -> list[dict[str, A
     for entry in snapshot.get("navigation", []):
         if not isinstance(entry, dict):
             continue
+        if entry.get("collection_id") is not None:
+            # A collection has one name in one language, so there is nothing to
+            # resolve per locale and nothing that can be missing.
+            links.append({
+                "page_id": str(entry["collection_id"]),
+                "parent_page_id": None,
+                "title": str(entry.get("title", "")),
+                "path": str(entry.get("path", "")),
+            })
+            continue
         raw_page = pages_by_id.get(str(entry.get("page_id")))
         if raw_page is None:
             continue

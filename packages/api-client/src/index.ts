@@ -1474,6 +1474,24 @@ export async function setPageAutomationPolicy(
   return data;
 }
 
+export async function setCollectionNavigation(
+  collectionId: string,
+  show: boolean,
+): Promise<ContentCollection> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/sites/collections/{collection_id}/navigation/",
+    {
+      params: { path: { collection_id: collectionId } },
+      body: { show_in_navigation: show },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export async function listContentEntries(
   collectionId: string,
 ): Promise<{ items: ContentEntry[]; next_cursor: string | null }> {

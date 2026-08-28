@@ -17,6 +17,7 @@ const {
   publishContentEntry,
   saveContentEntryDraft,
   setCollectionAutomationPolicy,
+  setCollectionNavigation,
   withdrawContentEntry,
 } = vi.hoisted(() => ({
   createContentCollection: vi.fn(),
@@ -27,6 +28,7 @@ const {
   publishContentEntry: vi.fn(),
   saveContentEntryDraft: vi.fn(),
   setCollectionAutomationPolicy: vi.fn(),
+  setCollectionNavigation: vi.fn(),
   withdrawContentEntry: vi.fn(),
 }));
 
@@ -40,6 +42,7 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   publishContentEntry,
   saveContentEntryDraft,
   setCollectionAutomationPolicy,
+  setCollectionNavigation,
   withdrawContentEntry,
 }));
 
@@ -55,6 +58,7 @@ const collection = {
   kind: "blog",
   base_path: "blog",
   automation_policy: "manual",
+  show_in_navigation: false,
 };
 
 const entry = {
@@ -97,6 +101,10 @@ beforeEach(() => {
     snapshot_hash: "a".repeat(64),
   });
   withdrawContentEntry.mockResolvedValue({ ...entry, state: "draft" });
+  setCollectionNavigation.mockResolvedValue({
+    ...collection,
+    show_in_navigation: true,
+  });
   setCollectionAutomationPolicy.mockResolvedValue({
     ...collection,
     automation_policy: "automated",
@@ -289,4 +297,18 @@ test("offers the middle setting and marks what the automation proposed", async (
   expect(
     await screen.findByText(/Publikacja oznacza akceptację propozycji/),
   ).not.toBeNull();
+});
+
+test("links the blog into the site menu and says when it takes effect", async () => {
+  renderPanel();
+
+  expect(await screen.findByText("Pierwszy wpis")).not.toBeNull();
+  fireEvent.click(screen.getByLabelText(/Pokaż blog w menu witryny/));
+
+  await waitFor(() =>
+    expect(setCollectionNavigation).toHaveBeenCalledWith(collectionId, true),
+  );
+  // The menu a visitor sees comes from the last publication, so promising an
+  // immediate change would be a lie.
+  expect(screen.getByText(/po najbliższej publikacji witryny/)).not.toBeNull();
 });

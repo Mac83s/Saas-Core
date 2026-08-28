@@ -440,7 +440,9 @@
     "automationProposedHint": "Integracja przygotowuje treść jako szkic, ale to Ty decydujesz, czy zostanie opublikowana.",
     "blogProposal": "Propozycja",
     "entryProposalHint": "Ten szkic przygotowała automatyzacja. Publikacja oznacza akceptację propozycji.",
-    "pageProposalWaiting": "Automatyzacja przygotowała propozycję treści tej podstrony. Otwórz zakładkę Treść, aby ją obejrzeć."
+    "pageProposalWaiting": "Automatyzacja przygotowała propozycję treści tej podstrony. Otwórz zakładkę Treść, aby ją obejrzeć.",
+    "blogInMenu": "Pokaż blog w menu witryny",
+    "blogInMenuHint": "Link pojawi się na końcu menu po najbliższej publikacji witryny. Bloga nie da się dziś zagnieździć ani wstawić między podstrony."
   },
   "BillingSupport": {
     "navigation": "Billing i dostęp",

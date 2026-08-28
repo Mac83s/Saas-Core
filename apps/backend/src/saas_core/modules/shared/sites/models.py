@@ -912,6 +912,9 @@ class ContentCollection(TenantScopedModel):
     )
     # The path the index lives at: "blog" gives /blog/ and /blog/<entry>/.
     base_path = models.SlugField(max_length=80)
+    # Appended to the end of the published menu when set. See the module note
+    # on why this is a flag rather than a navigation item.
+    show_in_navigation = models.BooleanField(default=False)
     automation_policy = models.CharField(
         max_length=16,
         choices=PageAutomationPolicy.choices,

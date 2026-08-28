@@ -176,6 +176,7 @@ class ContentCollectionSerializer(serializers.Serializer[dict[str, Any]]):
     kind = serializers.CharField()
     base_path = serializers.CharField()
     automation_policy = serializers.CharField()
+    show_in_navigation = serializers.BooleanField()
 
 
 class ContentCollectionCreateSerializer(serializers.Serializer[dict[str, Any]]):
@@ -183,6 +184,10 @@ class ContentCollectionCreateSerializer(serializers.Serializer[dict[str, Any]]):
     name = serializers.CharField(max_length=160, trim_whitespace=True)
     kind = serializers.ChoiceField(choices=["blog", "news", "guide"], default="blog")
     base_path = serializers.RegexField(r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=80)
+
+
+class CollectionNavigationSerializer(serializers.Serializer[dict[str, Any]]):
+    show_in_navigation = serializers.BooleanField()
 
 
 class AutomationPolicySerializer(serializers.Serializer[dict[str, Any]]):

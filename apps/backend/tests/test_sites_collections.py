@@ -942,3 +942,98 @@ def test_robots_points_a_crawler_at_the_sitemap() -> None:
         HTTP_ACCEPT="text/plain",
     )
     assert unknown.status_code == 404
+
+
+def test_collection_can_be_linked_from_the_published_menu() -> None:
+    """Without this the blog exists at its own address and nothing on the site
+    points at it, so a visitor never finds it."""
+    from django.test import override_settings
+    from rest_framework.test import APIClient as PublicClient
+
+    from test_sites_api import (
+        create_page,
+        navigation_request,
+        publish_site_request,
+        save_draft,
+        save_translation,
+    )
+
+    client, _, _ = sites_client(slug="blog-menu", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    page = create_page(client, site.data["id"])
+    save_draft(
+        client,
+        page.data["id"],
+        expected_version=0,
+        idempotency_key="menu-draft",
+        heading="Strona startowa",
+    )
+    save_translation(
+        client,
+        page.data["id"],
+        "pl",
+        expected_version=0,
+        slug="start",
+        title="Start",
+        description="Strona startowa",
+        idempotency_key="menu-translation-pl",
+    )
+    navigation_request(
+        client,
+        site.data["id"],
+        expected_version=0,
+        items=[{"page_id": page.data["id"], "parent_page_id": None, "visible": True}],
+    )
+    linked = client.put(
+        f"/api/v1/sites/collections/{collection.data['id']}/navigation/",
+        {"show_in_navigation": True},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    assert linked.status_code == 200
+    assert linked.data["show_in_navigation"] is True
+
+    publish_site_request(client, site.data["id"], idempotency_key="menu-publish")
+    platform = _verified_platform_domain(site.data["id"])
+
+    with override_settings(PUBLIC_SITE_SCHEME="https"):
+        home = PublicClient().get(
+            "/api/v1/public/site/",
+            {"path": "/start/"},
+            HTTP_HOST=platform.hostname,
+        )
+    menu = home.json()["navigation"]
+    assert [item["path"] for item in menu] == ["/start/", "/blog/"]
+    assert menu[-1]["title"] == "Blog"
+
+
+def test_only_a_person_links_a_collection_into_the_menu() -> None:
+    """The menu is what a visitor is steered by, so a credential must not be
+    able to put its own surface into it."""
+    from saas_core.modules.core.organizations.context import activate_tenant_context
+    from saas_core.modules.shared.sites.collections import set_collection_navigation
+    from saas_core.modules.shared.sites.services import PageAutomationForbidden
+    from test_sites_api import automation_context
+
+    client, organization, user = sites_client(slug="blog-menu-guard", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+
+    from django.test import Client as PlainClient
+
+    # The endpoint is session-only, so a credential never reaches the service.
+    refused = PlainClient().put(
+        f"/api/v1/sites/collections/{collection.data['id']}/navigation/",
+        data='{"show_in_navigation": true}',
+        content_type="application/json",
+    )
+    assert refused.status_code == 403
+
+    # And the service refuses one too, so a later channel cannot reopen the gap
+    # by forgetting what the route knew.
+    with (
+        activate_tenant_context(automation_context(organization.id, user.id)),
+        pytest.raises(PageAutomationForbidden),
+    ):
+        set_collection_navigation(collection_id=collection.data["id"], show=True)

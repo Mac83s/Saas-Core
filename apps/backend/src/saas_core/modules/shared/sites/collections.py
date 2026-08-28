@@ -51,6 +51,7 @@ ENTRY_DRAFT_SAVED = "sites.entry.draft_saved"
 ENTRY_PUBLISHED = "sites.entry.published"
 ENTRY_WITHDRAWN = "sites.entry.withdrawn"
 COLLECTION_POLICY_SET = "sites.collection.automation_policy_set"
+COLLECTION_NAVIGATION_SET = "sites.collection.navigation_set"
 ENTRY_SNAPSHOT_SCHEMA_VERSION = 1
 
 
@@ -529,4 +530,39 @@ def set_collection_automation_policy(
         target_id=collection.id,
         metadata={"automation_policy": policy},
     )
+    return collection
+
+
+@transaction.atomic
+def set_collection_navigation(*, collection_id: UUID, show: bool) -> ContentCollection:
+    """Whether the published menu links to this collection.
+
+    Publishing the site is what makes the change visible, exactly as it is for
+    a page: the menu a visitor sees comes from the snapshot, never from the
+    working copy.
+    """
+    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    # The menu is what a visitor is steered by, so an integration must not be
+    # able to put its own surface into it — the same limit the policy switch
+    # has, and enforced here as well as on the route.
+    if _is_automation(context):
+        raise PageAutomationForbidden
+    collection = (
+        ContentCollection.all_objects.select_for_update()
+        .filter(pk=collection_id, organization_id=context.organization_id)
+        .first()
+    )
+    if collection is None:
+        raise CollectionNotFound
+    if collection.show_in_navigation != show:
+        collection.show_in_navigation = show
+        collection.save(update_fields=["show_in_navigation", "updated_at"])
+        record_audit(
+            organization=Organization.objects.get(pk=context.organization_id),
+            action=COLLECTION_NAVIGATION_SET,
+            actor=User.objects.get(pk=context.actor_id),
+            target_type="content_collection",
+            target_id=collection.id,
+            metadata={"show_in_navigation": show},
+        )
     return collection
