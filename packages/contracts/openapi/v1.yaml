@@ -3220,6 +3220,16 @@ paths:
           type: string
           format: uuid
         required: true
+      - in: query
+        name: cursor
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: limit
+        schema:
+          type: integer
+        description: Liczba elementów od 1 do 100; domyślnie 50.
       tags:
       - sites
       security:
@@ -3305,6 +3315,60 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/collections/{collection_id}/policy/:
+    put:
+      operationId: sites_collection_policy_set
+      description: |-
+        Changing who may write a collection is a person's decision, so this is
+        session-only — a credential must not be able to widen its own reach.
+      parameters:
+      - in: path
+        name: collection_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AutomationPolicy'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AutomationPolicy'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AutomationPolicy'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentCollection'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
           content:
             application/json:
               schema:
@@ -3781,6 +3845,57 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/pages/{page_id}/policy/:
+    put:
+      operationId: sites_page_policy_set
+      parameters:
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AutomationPolicy'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AutomationPolicy'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AutomationPolicy'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageSummary'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/pages/{page_id}/preview/{version_id}/:
     get:
       operationId: sites_page_draft_preview_retrieve
@@ -4155,6 +4270,21 @@ components:
             $ref: '#/components/schemas/Appointment'
       required:
       - items
+    AutomationPolicy:
+      type: object
+      properties:
+        automation_policy:
+          $ref: '#/components/schemas/AutomationPolicyEnum'
+      required:
+      - automation_policy
+    AutomationPolicyEnum:
+      enum:
+      - manual
+      - automated
+      type: string
+      description: |-
+        * `manual` - manual
+        * `automated` - automated
     BillingSession:
       type: object
       properties:
@@ -5398,6 +5528,8 @@ components:
           type:
           - string
           - 'null'
+        automation_policy:
+          type: string
         created_at:
           type: string
           format: date-time
@@ -5405,6 +5537,7 @@ components:
           type: string
           format: date-time
       required:
+      - automation_policy
       - created_at
       - current_draft_hash
       - current_draft_id

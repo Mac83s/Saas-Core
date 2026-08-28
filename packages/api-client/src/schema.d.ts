@@ -1188,6 +1188,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/collections/{collection_id}/policy/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * @description Changing who may write a collection is a person's decision, so this is
+         *     session-only — a credential must not be able to widen its own reach.
+         */
+        put: operations["sites_collection_policy_set"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/domains/{domain_id}/actions/": {
         parameters: {
             query?: never;
@@ -1277,6 +1297,22 @@ export interface paths {
         };
         get: operations["sites_page_draft_retrieve"];
         put: operations["sites_page_draft_save"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/pages/{page_id}/policy/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["sites_page_policy_set"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1423,6 +1459,15 @@ export interface components {
         AppointmentList: {
             items: components["schemas"]["Appointment"][];
         };
+        AutomationPolicy: {
+            automation_policy: components["schemas"]["AutomationPolicyEnum"];
+        };
+        /**
+         * @description * `manual` - manual
+         *     * `automated` - automated
+         * @enum {string}
+         */
+        AutomationPolicyEnum: "manual" | "automated";
         BillingSession: {
             id: string;
             /** Format: uri */
@@ -1903,6 +1948,7 @@ export interface components {
             /** Format: uuid */
             current_draft_id: string | null;
             current_draft_hash: string | null;
+            automation_policy: string;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -5925,7 +5971,11 @@ export interface operations {
     };
     sites_entries_list: {
         parameters: {
-            query?: never;
+            query?: {
+                cursor?: string;
+                /** @description Liczba elementów od 1 do 100; domyślnie 50. */
+                limit?: number;
+            };
             header?: never;
             path: {
                 collection_id: string;
@@ -6020,6 +6070,57 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_collection_policy_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                collection_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutomationPolicy"];
+                "application/x-www-form-urlencoded": components["schemas"]["AutomationPolicy"];
+                "multipart/form-data": components["schemas"]["AutomationPolicy"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentCollection"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6533,6 +6634,57 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_page_policy_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutomationPolicy"];
+                "application/x-www-form-urlencoded": components["schemas"]["AutomationPolicy"];
+                "multipart/form-data": components["schemas"]["AutomationPolicy"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageSummary"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

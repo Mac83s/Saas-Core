@@ -49,6 +49,7 @@ ENTRY_CREATED = "sites.entry.created"
 ENTRY_DRAFT_SAVED = "sites.entry.draft_saved"
 ENTRY_PUBLISHED = "sites.entry.published"
 ENTRY_WITHDRAWN = "sites.entry.withdrawn"
+COLLECTION_POLICY_SET = "sites.collection.automation_policy_set"
 ENTRY_SNAPSHOT_SCHEMA_VERSION = 1
 
 
@@ -66,6 +67,12 @@ class EntrySlugConflict(APIException):
     status_code = 409
     default_detail = "Adres wpisu jest już używany w tej kolekcji i locale."
     default_code = "content_entry_slug_conflict"
+
+
+class CollectionInvalidPolicy(APIException):
+    status_code = 400
+    default_detail = "Nieznana polityka automatyzacji."
+    default_code = "collection_invalid_policy"
 
 
 class EntryNotReady(APIException):
@@ -472,3 +479,34 @@ def withdraw_entry(*, entry_id: UUID) -> ContentEntry:
         metadata={},
     )
     return entry
+
+
+@transaction.atomic
+def set_collection_automation_policy(
+    *, collection_id: UUID, policy: str
+) -> ContentCollection:
+    """Only a person changes this, for the same reason as a page: a credential
+    able to widen its own reach would not be a limit."""
+    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    if _is_automation(context):
+        raise PageAutomationForbidden
+    if policy not in PageAutomationPolicy.values:
+        raise CollectionInvalidPolicy
+    collection = (
+        ContentCollection.all_objects.select_for_update()
+        .filter(pk=collection_id, organization_id=context.organization_id)
+        .first()
+    )
+    if collection is None:
+        raise CollectionNotFound
+    collection.automation_policy = policy
+    collection.save(update_fields=["automation_policy", "updated_at"])
+    record_audit(
+        organization=Organization.objects.get(pk=context.organization_id),
+        action=COLLECTION_POLICY_SET,
+        actor=User.objects.get(pk=context.actor_id),
+        target_type="content_collection",
+        target_id=collection.id,
+        metadata={"automation_policy": policy},
+    )
+    return collection

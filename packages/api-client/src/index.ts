@@ -55,6 +55,11 @@ export type SiteLocalizationReport =
 export type SitePublication = components["schemas"]["SitePublication"];
 export type SitePublicationList = components["schemas"]["SitePublicationList"];
 export type SiteNavigation = components["schemas"]["SiteNavigation"];
+export type ContentCollection = components["schemas"]["ContentCollection"];
+export type ContentEntry = components["schemas"]["ContentEntry"];
+export type ContentEntryDraft = components["schemas"]["ContentEntryDraft"];
+export type ContentEntryPublication =
+  components["schemas"]["ContentEntryPublication"];
 export type SiteNavigationItem = components["schemas"]["NavigationItem"];
 export type SiteNavigationSaveInput =
   components["schemas"]["SiteNavigationSave"];
@@ -1357,6 +1362,194 @@ export async function saveSiteNavigation(
     {
       params: { path: { site_id: siteId } },
       body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function listContentCollections(
+  siteId: string,
+): Promise<ContentCollection[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/{site_id}/collections/",
+    {
+      params: { path: { site_id: siteId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createContentCollection(
+  siteId: string,
+  input: {
+    key: string;
+    name: string;
+    kind: "blog" | "news" | "guide";
+    base_path: string;
+  },
+  idempotencyKey: string,
+): Promise<ContentCollection> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/{site_id}/collections/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { site_id: siteId },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function setCollectionAutomationPolicy(
+  collectionId: string,
+  policy: "manual" | "automated",
+): Promise<ContentCollection> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/sites/collections/{collection_id}/policy/",
+    {
+      params: { path: { collection_id: collectionId } },
+      body: { automation_policy: policy },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function setPageAutomationPolicy(
+  pageId: string,
+  policy: "manual" | "automated",
+): Promise<PageSummary> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/sites/pages/{page_id}/policy/",
+    {
+      params: { path: { page_id: pageId } },
+      body: { automation_policy: policy },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function listContentEntries(
+  collectionId: string,
+): Promise<{ items: ContentEntry[]; next_cursor: string | null }> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/collections/{collection_id}/entries/",
+    {
+      params: { path: { collection_id: collectionId }, query: { limit: 100 } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createContentEntry(
+  collectionId: string,
+  input: { slug: string; locale: "pl" | "en"; title: string },
+  idempotencyKey: string,
+): Promise<ContentEntry> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/collections/{collection_id}/entries/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { collection_id: collectionId },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function getContentEntryDraft(
+  entryId: string,
+): Promise<ContentEntryDraft> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/entries/{entry_id}/draft/",
+    {
+      params: { path: { entry_id: entryId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function saveContentEntryDraft(
+  entryId: string,
+  input: { expected_version: number; blocks: Record<string, unknown>[] },
+  idempotencyKey: string,
+): Promise<ContentEntryDraft> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/sites/entries/{entry_id}/draft/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { entry_id: entryId },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function publishContentEntry(
+  entryId: string,
+  idempotencyKey: string,
+): Promise<ContentEntryPublication> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/entries/{entry_id}/publication/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { entry_id: entryId },
+      },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function withdrawContentEntry(
+  entryId: string,
+): Promise<ContentEntry> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.DELETE(
+    "/api/v1/sites/entries/{entry_id}/publication/",
+    {
+      params: { path: { entry_id: entryId } },
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
     },

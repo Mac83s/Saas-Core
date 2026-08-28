@@ -2,9 +2,11 @@ from django.urls import path
 
 from .collection_views import (
     ContentCollectionListCreateView,
+    ContentCollectionPolicyView,
     ContentEntryDraftView,
     ContentEntryListCreateView,
     ContentEntryPublicationView,
+    PageAutomationPolicyView,
 )
 from .domain_views import (
     SiteDomainActionView,
@@ -74,6 +76,16 @@ urlpatterns = [
         "collections/<uuid:collection_id>/entries/",
         ContentEntryListCreateView.as_view(),
         name="entry-list-create",
+    ),
+    path(
+        "collections/<uuid:collection_id>/policy/",
+        ContentCollectionPolicyView.as_view(),
+        name="collection-policy",
+    ),
+    path(
+        "pages/<uuid:page_id>/policy/",
+        PageAutomationPolicyView.as_view(),
+        name="page-policy",
     ),
     path(
         "entries/<uuid:entry_id>/draft/",

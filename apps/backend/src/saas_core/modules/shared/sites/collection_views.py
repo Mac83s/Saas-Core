@@ -5,6 +5,7 @@ from uuid import UUID
 
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -20,10 +21,12 @@ from .collections import (
     list_entries,
     publish_entry,
     save_entry_draft,
+    set_collection_automation_policy,
     withdraw_entry,
 )
 from .models import ContentCollection, ContentEntry, ContentEntryPublication
 from .serializers import (
+    AutomationPolicySerializer,
     ContentCollectionCreateSerializer,
     ContentCollectionSerializer,
     ContentEntryCreateSerializer,
@@ -33,7 +36,10 @@ from .serializers import (
     ContentEntryPublicationSerializer,
     ContentEntrySerializer,
     CursorQuerySerializer,
+    PageSummarySerializer,
 )
+from .services import set_page_automation_policy
+from .views import CURSOR_PARAMETER, LIMIT_PARAMETER
 
 IDEMPOTENCY_PARAMETER = OpenApiParameter(
     name="Idempotency-Key",
@@ -131,6 +137,7 @@ class ContentEntryListCreateView(APIView):
     @extend_schema(
         operation_id="sites_entries_list",
         tags=["sites"],
+        parameters=[CURSOR_PARAMETER, LIMIT_PARAMETER],
         responses={
             200: ContentEntryListSerializer,
             403: ProblemDetailsSerializer,
@@ -269,3 +276,69 @@ class ContentEntryPublicationView(APIView):
     )
     def delete(self, _request: Request, entry_id: UUID) -> Response:
         return Response(_entry_payload(withdraw_entry(entry_id=entry_id)))
+
+
+class ContentCollectionPolicyView(APIView):
+    """Changing who may write a collection is a person's decision, so this is
+    session-only — a credential must not be able to widen its own reach."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_collection_policy_set",
+        tags=["sites"],
+        request=AutomationPolicySerializer,
+        responses={
+            200: ContentCollectionSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def put(self, request: Request, collection_id: UUID) -> Response:
+        serializer = AutomationPolicySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        collection = set_collection_automation_policy(
+            collection_id=collection_id,
+            policy=serializer.validated_data["automation_policy"],
+        )
+        return Response(_collection_payload(collection))
+
+
+class PageAutomationPolicyView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_page_policy_set",
+        tags=["sites"],
+        request=AutomationPolicySerializer,
+        responses={
+            200: PageSummarySerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def put(self, request: Request, page_id: UUID) -> Response:
+        serializer = AutomationPolicySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        page = set_page_automation_policy(
+            page_id=page_id,
+            policy=serializer.validated_data["automation_policy"],
+        )
+        return Response({
+            "id": str(page.id),
+            "site_id": str(page.site_id),
+            "name": page.name,
+            "key": page.key,
+            "version": page.version,
+            "current_draft_id": (
+                str(page.current_draft_id) if page.current_draft_id else None
+            ),
+            "current_draft_hash": (
+                page.current_draft.content_hash if page.current_draft else None
+            ),
+            "automation_policy": page.automation_policy,
+            "created_at": page.created_at,
+            "updated_at": page.updated_at,
+        })

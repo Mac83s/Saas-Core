@@ -13,7 +13,10 @@ import {
 } from "react-hook-form";
 import {
   ArrowRightIcon,
+  BotIcon,
   FileTextIcon,
+  HandIcon,
+  NewspaperIcon,
   Globe2Icon,
   LockKeyholeIcon,
   PlusIcon,
@@ -25,6 +28,7 @@ import { z } from "zod";
 import {
   ApiProblemError,
   createSitePage,
+  setPageAutomationPolicy,
   getSiteLocalizationReport,
   listSitePages,
   listSitePublications,
@@ -73,6 +77,7 @@ import { sitesErrorMessage } from "./problem";
 import { slugifyTitle } from "./slug";
 import { Link } from "#i18n/navigation";
 import { mutationKey, type MutationReceipt } from "./idempotency";
+import { BlogPanel } from "./blog-panel";
 import { DomainPanel } from "./domain-panel";
 import { NavigationEditor } from "./navigation-editor";
 import { PageEditor } from "./page-editor";
@@ -571,6 +576,10 @@ export function SitesPanel({
           <TabsTab disabled={!selectedPage} value="content">
             {t("modeContent")}
           </TabsTab>
+          <TabsTab value="blog">
+            <NewspaperIcon aria-hidden="true" />
+            {t("modeBlog")}
+          </TabsTab>
           <TabsTab value="publish">
             <RocketIcon aria-hidden="true" />
             {t("modePublish")}
@@ -642,6 +651,18 @@ export function SitesPanel({
                     />
                   </div>
                 )}
+                {selectedPage && (
+                  <PageAutomationSwitch
+                    onChanged={(updated) =>
+                      setPages((current) =>
+                        current.map((item) =>
+                          item.id === updated.id ? updated : item,
+                        ),
+                      )
+                    }
+                    page={selectedPage}
+                  />
+                )}
               </CardContent>
             </Card>
 
@@ -680,6 +701,16 @@ export function SitesPanel({
           )}
         </TabsPanel>
 
+        <TabsPanel value="blog">
+          {selectedSiteId ? (
+            <BlogPanel key={selectedSiteId} siteId={selectedSiteId} />
+          ) : (
+            <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+              {t("chooseSitePrompt")}
+            </p>
+          )}
+        </TabsPanel>
+
         <TabsPanel className="space-y-6" value="publish">
           <ReadinessCard
             loading={loading}
@@ -702,6 +733,69 @@ export function SitesPanel({
         </TabsPanel>
       </Tabs>
     </section>
+  );
+}
+
+/** ADR-035 §4a: handing a page to automation, and taking it back, is a
+ *  person's decision. The endpoint behind this refuses API keys, so the switch
+ *  is the only way the state changes. */
+function PageAutomationSwitch({
+  onChanged,
+  page,
+}: {
+  onChanged: (page: PageSummary) => void;
+  page: PageSummary;
+}) {
+  const t = useTranslations("Sites");
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string>();
+  const automated = page.automation_policy === "automated";
+
+  return (
+    <div className="space-y-2 rounded-lg border p-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="space-y-1">
+          <p className="font-medium">{t("automationTitle")}</p>
+          <p className="text-sm text-muted-foreground">
+            {automated
+              ? t("automationAutomatedHint")
+              : t("automationManualHint")}
+          </p>
+        </div>
+        <Button
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            setProblem(undefined);
+            void setPageAutomationPolicy(
+              page.id,
+              automated ? "manual" : "automated",
+            )
+              .then(onChanged)
+              .catch((error: unknown) => {
+                setProblem(sitesErrorMessage(error, t));
+              })
+              .finally(() => {
+                setBusy(false);
+              });
+          }}
+          type="button"
+          variant="outline"
+        >
+          {automated ? (
+            <HandIcon aria-hidden="true" />
+          ) : (
+            <BotIcon aria-hidden="true" />
+          )}
+          {automated ? t("automationTakeBack") : t("automationHandOver")}
+        </Button>
+      </div>
+      {problem && (
+        <p className="text-sm text-destructive" role="alert">
+          {problem}
+        </p>
+      )}
+    </div>
   );
 }
 

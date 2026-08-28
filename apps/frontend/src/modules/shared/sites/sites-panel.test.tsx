@@ -74,6 +74,7 @@ const page = {
   version: 1,
   current_draft_id: "019ff20d-a000-7000-8000-000000000003",
   current_draft_hash: "a".repeat(64),
+  automation_policy: "manual",
   created_at: "2026-08-11T12:00:00Z",
   updated_at: "2026-08-11T12:00:00Z",
 };
@@ -314,7 +315,7 @@ test("rozdziela zadania na tryby zamiast jednego długiego widoku", async () => 
   const modes = screen
     .getAllByRole("tab")
     .map((tab) => tab.textContent?.trim());
-  expect(modes).toEqual(["Podstrony", "Treść", "Publikacja", "Adres"]);
+  expect(modes).toEqual(["Podstrony", "Treść", "Blog", "Publikacja", "Adres"]);
 
   // Publishing and the address are done once, so they must not sit on the
   // screen used for daily editing.

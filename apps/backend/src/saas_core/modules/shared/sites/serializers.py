@@ -185,6 +185,10 @@ class ContentCollectionCreateSerializer(serializers.Serializer[dict[str, Any]]):
     base_path = serializers.RegexField(r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=80)
 
 
+class AutomationPolicySerializer(serializers.Serializer[dict[str, Any]]):
+    automation_policy = serializers.ChoiceField(choices=["manual", "automated"])
+
+
 class ContentEntrySerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     collection_id = serializers.UUIDField()
@@ -249,6 +253,7 @@ class PageSummarySerializer(serializers.Serializer[dict[str, Any]]):
     version = serializers.IntegerField()
     current_draft_id = serializers.UUIDField(allow_null=True)
     current_draft_hash = serializers.CharField(allow_null=True)
+    automation_policy = serializers.CharField()
     created_at = serializers.DateTimeField()
     updated_at = serializers.DateTimeField()
 

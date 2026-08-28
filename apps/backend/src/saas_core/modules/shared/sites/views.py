@@ -493,6 +493,7 @@ def _page_summary(page: Page) -> dict[str, Any]:
         "version": page.version,
         "current_draft_id": page.current_draft_id,
         "current_draft_hash": draft.content_hash if draft is not None else None,
+        "automation_policy": page.automation_policy,
         "created_at": page.created_at,
         "updated_at": page.updated_at,
     }
