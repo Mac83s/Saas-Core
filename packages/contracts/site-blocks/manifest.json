@@ -36,6 +36,34 @@
       "schemas": {
         "1": "core.contact.v1.schema.json"
       }
+    },
+    {
+      "type": "core.testimonials",
+      "latestVersion": 1,
+      "schemas": {
+        "1": "core.testimonials.v1.schema.json"
+      }
+    },
+    {
+      "type": "core.pricing",
+      "latestVersion": 1,
+      "schemas": {
+        "1": "core.pricing.v1.schema.json"
+      }
+    },
+    {
+      "type": "core.booking",
+      "latestVersion": 1,
+      "schemas": {
+        "1": "core.booking.v1.schema.json"
+      }
+    },
+    {
+      "type": "core.footer",
+      "latestVersion": 1,
+      "schemas": {
+        "1": "core.footer.v1.schema.json"
+      }
     }
   ],
   "designTokens": "design-tokens.v1.schema.json"

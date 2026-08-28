@@ -47,6 +47,27 @@ export type ContactV1Data = JsonObject & {
   address?: string;
 };
 
+export type TestimonialsV1Data = JsonObject & {
+  title?: string;
+  items: { quote: string; author: string; role?: string }[];
+};
+
+export type PricingV1Data = JsonObject & {
+  title?: string;
+  items: { name: string; price: string; description?: string }[];
+};
+
+export type BookingV1Data = JsonObject & {
+  title: string;
+  text?: string;
+  action: { label: string; href: string };
+};
+
+export type FooterV1Data = JsonObject & {
+  text: string;
+  links?: { label: string; href: string }[];
+};
+
 export type DesignTokensV1 = JsonObject & {
   schemaVersion: 1;
   palette: "neutral" | "blue" | "emerald";

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/site-blocks/core.footer.v1.schema.json",
+  "title": "Core footer block v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["text"],
+  "properties": {
+    "text": { "type": "string", "minLength": 1, "maxLength": 300 },
+    "links": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "href"],
+        "properties": {
+          "label": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "href": {
+            "type": "string",
+            "maxLength": 500,
+            "pattern": "^(?:/|https://|mailto:|tel:)"
+          }
+        }
+      }
+    }
+  }
+}

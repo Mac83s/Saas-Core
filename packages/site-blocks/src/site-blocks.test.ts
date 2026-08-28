@@ -183,6 +183,58 @@ describe("site block registry", () => {
         data: { email: "not-an-address" },
       }),
     ).toThrow(InvalidBlockDataError);
+    expect(() =>
+      registry.validate({
+        block_type: "core.testimonials",
+        schema_version: 1,
+        data: { items: [{ quote: "Pomogło.", author: "Anna" }] },
+      }),
+    ).not.toThrow();
+    expect(() =>
+      registry.validate({
+        block_type: "core.pricing",
+        schema_version: 1,
+        data: { items: [{ name: "Konsultacja", price: "200 zł" }] },
+      }),
+    ).not.toThrow();
+    expect(() =>
+      registry.validate({
+        block_type: "core.booking",
+        schema_version: 1,
+        data: {
+          title: "Umów termin",
+          action: { label: "Rezerwuj", href: "javascript:alert(1)" },
+        },
+      }),
+    ).toThrow(InvalidBlockDataError);
+    expect(() =>
+      registry.validate({
+        block_type: "core.footer",
+        schema_version: 1,
+        data: { text: "© Firma", links: [{ label: "Regulamin" }] },
+      }),
+    ).toThrow(InvalidBlockDataError);
+  });
+
+  it("covers every ADR-031 catalogue category exactly once", () => {
+    const categories = coreSiteBlockManifest.blocks.flatMap((block) =>
+      block.catalog === undefined ? [] : [block.catalog.category],
+    );
+
+    expect(categories).toHaveLength(9);
+    expect(new Set(categories)).toEqual(
+      new Set([
+        "start",
+        "about",
+        "offer",
+        "trust",
+        "pricing",
+        "faq",
+        "contact",
+        "booking",
+        "footer",
+      ]),
+    );
   });
 });
 
@@ -311,6 +363,78 @@ describe("allowlisted renderer", () => {
 
     expect(first).toMatchSnapshot();
     expect(second).toBe(first);
+  });
+
+  it("renders the four catalogue additions as controlled semantic markup", () => {
+    const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
+    const markup = renderToStaticMarkup(
+      renderDraftPreview(
+        {
+          kind: "draft-preview",
+          versionId: "draft-new-categories",
+          designTokens: tokens,
+          blocks: [
+            {
+              block_type: "core.testimonials",
+              schema_version: 1,
+              data: {
+                title: "Opinie",
+                items: [
+                  {
+                    quote: "<script>nie wykonuj</script>",
+                    author: "Anna",
+                    role: "Klientka",
+                  },
+                ],
+              },
+            },
+            {
+              block_type: "core.pricing",
+              schema_version: 1,
+              data: {
+                items: [
+                  {
+                    name: "Konsultacja",
+                    price: "200 zł",
+                    description: "60 minut",
+                  },
+                ],
+              },
+            },
+            {
+              block_type: "core.booking",
+              schema_version: 1,
+              data: {
+                title: "Umów termin",
+                action: { label: "Rezerwuj", href: "/rezerwacja/" },
+              },
+            },
+            {
+              block_type: "core.footer",
+              schema_version: 1,
+              data: {
+                text: "© Firma",
+                links: [
+                  { label: "Regulamin", href: "/regulamin/" },
+                  { label: "Partner", href: "https://example.com/" },
+                ],
+              },
+            },
+          ],
+        },
+        registry,
+      ),
+    );
+
+    expect(markup).toContain('data-block-type="core.testimonials"');
+    expect(markup).toContain("<blockquote>");
+    expect(markup).toContain("&lt;script&gt;nie wykonuj&lt;/script&gt;");
+    expect(markup).toContain('data-block-type="core.pricing"');
+    expect(markup).toContain('data-block-type="core.booking"');
+    expect(markup).toContain('href="/rezerwacja/"');
+    expect(markup).toContain('data-block-type="core.footer"');
+    expect(markup).toContain('href="https://example.com/" rel="noreferrer"');
+    expect(markup).not.toContain("<script>");
   });
 
   it("keeps explicit draft preview separate from public publication input", () => {

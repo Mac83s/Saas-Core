@@ -30,6 +30,10 @@ test("site block manifest references valid canonical schemas", async () => {
       "core.feature_list",
       "core.faq",
       "core.contact",
+      "core.testimonials",
+      "core.pricing",
+      "core.booking",
+      "core.footer",
     ],
   );
 

@@ -90,9 +90,14 @@ Do zamknięcia W9.5.4:
    materializację jako tenantowych `MediaAsset`; dzisiejsze recepty celowo nie
    mają mediów;
 2. przygotować lokalizowane miniatury i preview;
-3. uzupełnić bibliotekę z 5 do 9 kategorii o Zaufanie, Cennik, Rezerwację i
-   Stopkę;
-4. wykonać dowody mobile, klawiatura i axe dla wyboru oraz importu szablonu.
+3. wykonać dowody mobile, klawiatura i axe dla wyboru oraz importu szablonu.
+
+Biblioteka sekcji ma już 9 z 9 kategorii ADR-031. `core.testimonials`,
+`core.pricing`, `core.booking` i `core.footer` mają kanoniczne JSON Schema,
+deklaratywne pola edytora PL/EN i kontrolowane renderery. Rezerwacja pozostaje
+bezpiecznym CTA — blok nie osadza skryptu ani zewnętrznego widgetu. Kontrakty
+mają **10/10**, site-blocks **13/13**, frontend **71/71**; lint, typecheck i
+build Next.js przeszły.
 
 Znane długi frontendu, nietknięte przez te commity:
 

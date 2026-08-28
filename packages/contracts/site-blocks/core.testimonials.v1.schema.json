@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/site-blocks/core.testimonials.v1.schema.json",
+  "title": "Core testimonials block v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["items"],
+  "properties": {
+    "title": { "type": "string", "maxLength": 120 },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["quote", "author"],
+        "properties": {
+          "quote": { "type": "string", "minLength": 1, "maxLength": 1000 },
+          "author": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "role": { "type": "string", "maxLength": 160 }
+        }
+      }
+    }
+  }
+}

@@ -1,22 +1,34 @@
 import { createElement } from "react";
 
 import contactV1Schema from "@saas-core/contracts/site-blocks/core.contact.v1.schema.json";
+import bookingV1Schema from "@saas-core/contracts/site-blocks/core.booking.v1.schema.json";
 import faqV1Schema from "@saas-core/contracts/site-blocks/core.faq.v1.schema.json";
 import featureListV1Schema from "@saas-core/contracts/site-blocks/core.feature_list.v1.schema.json";
+import footerV1Schema from "@saas-core/contracts/site-blocks/core.footer.v1.schema.json";
 import heroV1Schema from "@saas-core/contracts/site-blocks/core.hero.v1.schema.json";
 import heroV2Schema from "@saas-core/contracts/site-blocks/core.hero.v2.schema.json";
+import pricingV1Schema from "@saas-core/contracts/site-blocks/core.pricing.v1.schema.json";
 import richTextV1Schema from "@saas-core/contracts/site-blocks/core.rich_text.v1.schema.json";
+import testimonialsV1Schema from "@saas-core/contracts/site-blocks/core.testimonials.v1.schema.json";
 
 import type {
+  BookingV1Data,
   ContactV1Data,
   FaqV1Data,
   FeatureListV1Data,
+  FooterV1Data,
   HeroV1Data,
   HeroV2Data,
   JsonObject,
+  PricingV1Data,
   RichTextV1Data,
   SiteBlockManifest,
+  TestimonialsV1Data,
 } from "./types";
+
+function externalRel(href: string): "noreferrer" | undefined {
+  return href.startsWith("https://") ? "noreferrer" : undefined;
+}
 
 function HeroBlock({ data }: { data: JsonObject }) {
   const hero = data as HeroV2Data;
@@ -34,7 +46,7 @@ function HeroBlock({ data }: { data: JsonObject }) {
           "a",
           {
             href: action.href,
-            rel: action.href.startsWith("https://") ? "noreferrer" : undefined,
+            rel: externalRel(action.href),
           },
           action.label,
         )
@@ -122,6 +134,117 @@ function ContactBlock({ data }: { data: JsonObject }) {
         : null,
       contact.address ? createElement("p", null, contact.address) : null,
     ),
+  );
+}
+
+function TestimonialsBlock({ data }: { data: JsonObject }) {
+  const testimonials = data as TestimonialsV1Data;
+  return createElement(
+    "section",
+    {
+      className: "site-block site-block--testimonials",
+      "data-block-type": "core.testimonials",
+    },
+    testimonials.title ? createElement("h2", null, testimonials.title) : null,
+    createElement(
+      "ul",
+      null,
+      testimonials.items.map((item, index) =>
+        createElement(
+          "li",
+          { key: index },
+          createElement(
+            "blockquote",
+            null,
+            createElement("p", null, item.quote),
+            createElement(
+              "footer",
+              null,
+              createElement("cite", null, item.author),
+              item.role ? createElement("span", null, item.role) : null,
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+function PricingBlock({ data }: { data: JsonObject }) {
+  const pricing = data as PricingV1Data;
+  return createElement(
+    "section",
+    {
+      className: "site-block site-block--pricing",
+      "data-block-type": "core.pricing",
+    },
+    pricing.title ? createElement("h2", null, pricing.title) : null,
+    createElement(
+      "ul",
+      null,
+      pricing.items.map((item, index) =>
+        createElement(
+          "li",
+          { key: index },
+          createElement(
+            "article",
+            null,
+            createElement("h3", null, item.name),
+            createElement("p", { className: "site-block__price" }, item.price),
+            item.description
+              ? createElement("p", null, item.description)
+              : null,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+function BookingBlock({ data }: { data: JsonObject }) {
+  const booking = data as BookingV1Data;
+  return createElement(
+    "section",
+    {
+      className: "site-block site-block--booking",
+      "data-block-type": "core.booking",
+    },
+    createElement("h2", null, booking.title),
+    booking.text ? createElement("p", null, booking.text) : null,
+    createElement(
+      "a",
+      { href: booking.action.href, rel: externalRel(booking.action.href) },
+      booking.action.label,
+    ),
+  );
+}
+
+function FooterBlock({ data }: { data: JsonObject }) {
+  const footer = data as FooterV1Data;
+  return createElement(
+    "footer",
+    {
+      className: "site-block site-block--footer",
+      "data-block-type": "core.footer",
+    },
+    createElement("p", null, footer.text),
+    footer.links === undefined
+      ? null
+      : createElement(
+          "ul",
+          null,
+          footer.links.map((link, index) =>
+            createElement(
+              "li",
+              { key: index },
+              createElement(
+                "a",
+                { href: link.href, rel: externalRel(link.href) },
+                link.label,
+              ),
+            ),
+          ),
+        ),
   );
 }
 
@@ -233,6 +356,102 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
           { path: ["email"], kind: "text", labelKey: "contactEmail" },
           { path: ["phone"], kind: "text", labelKey: "contactPhone" },
           { path: ["address"], kind: "textarea", labelKey: "contactAddress" },
+        ],
+      },
+    },
+    {
+      type: "core.testimonials",
+      latestVersion: 1,
+      schemas: [{ version: 1, schema: testimonialsV1Schema }],
+      migrators: {},
+      component: TestimonialsBlock,
+      catalog: {
+        category: "trust",
+        labelKey: "testimonialsBlock",
+        fields: [
+          { path: ["title"], kind: "text", labelKey: "heading" },
+          {
+            path: ["items"],
+            kind: "list",
+            labelKey: "testimonialItems",
+            item: [
+              {
+                path: ["quote"],
+                kind: "textarea",
+                labelKey: "testimonialQuote",
+              },
+              { path: ["author"], kind: "text", labelKey: "testimonialAuthor" },
+              { path: ["role"], kind: "text", labelKey: "testimonialRole" },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      type: "core.pricing",
+      latestVersion: 1,
+      schemas: [{ version: 1, schema: pricingV1Schema }],
+      migrators: {},
+      component: PricingBlock,
+      catalog: {
+        category: "pricing",
+        labelKey: "pricingBlock",
+        fields: [
+          { path: ["title"], kind: "text", labelKey: "heading" },
+          {
+            path: ["items"],
+            kind: "list",
+            labelKey: "pricingItems",
+            item: [
+              { path: ["name"], kind: "text", labelKey: "pricingName" },
+              { path: ["price"], kind: "text", labelKey: "pricingPrice" },
+              {
+                path: ["description"],
+                kind: "textarea",
+                labelKey: "pricingDescription",
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      type: "core.booking",
+      latestVersion: 1,
+      schemas: [{ version: 1, schema: bookingV1Schema }],
+      migrators: {},
+      component: BookingBlock,
+      catalog: {
+        category: "booking",
+        labelKey: "bookingBlock",
+        fields: [
+          { path: ["title"], kind: "text", labelKey: "heading" },
+          { path: ["text"], kind: "textarea", labelKey: "text" },
+          { path: ["action", "label"], kind: "text", labelKey: "actionLabel" },
+          { path: ["action", "href"], kind: "url", labelKey: "actionHref" },
+        ],
+      },
+    },
+    {
+      type: "core.footer",
+      latestVersion: 1,
+      schemas: [{ version: 1, schema: footerV1Schema }],
+      migrators: {},
+      component: FooterBlock,
+      catalog: {
+        category: "footer",
+        labelKey: "footerBlock",
+        fields: [
+          { path: ["text"], kind: "textarea", labelKey: "footerText" },
+          {
+            path: ["links"],
+            kind: "list",
+            labelKey: "footerLinks",
+            item: [
+              { path: ["label"], kind: "text", labelKey: "linkLabel" },
+              { path: ["href"], kind: "url", labelKey: "linkHref" },
+            ],
+          },
         ],
       },
     },
