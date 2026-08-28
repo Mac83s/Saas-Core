@@ -1,0 +1,38 @@
+{
+  "contract_version": 1,
+  "idempotency_key": "scr-2026-08-28-linking-01",
+  "target": {
+    "kind": "site_page",
+    "site_id": "019ff20d-a000-7000-8000-000000000001",
+    "page_id": "019ff20d-a000-7000-8000-000000000004",
+    "locale": "pl"
+  },
+  "base": {
+    "version": 2,
+    "snapshot_hash": "sha256:c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+    "observed_at": "2026-08-28T09:10:00Z"
+  },
+  "rationale": {
+    "summary": "Strona usługi nie ma linku z artykułu, który zbiera ruch na tę samą frazę.",
+    "risk": "low",
+    "sources": [
+      {
+        "kind": "competitor_analysis",
+        "reference": "gap/internal-linking#service-cluster",
+        "observed_at": "2026-08-25T12:00:00Z"
+      }
+    ]
+  },
+  "commands": [
+    {
+      "command": "internal_link.add",
+      "position": 2,
+      "target_path": "/fizjoterapia-kregoslupa/",
+      "anchor_text": "konsultacja fizjoterapeutyczna"
+    },
+    {
+      "command": "block.reorder",
+      "order": [0, 2, 1]
+    }
+  ]
+}

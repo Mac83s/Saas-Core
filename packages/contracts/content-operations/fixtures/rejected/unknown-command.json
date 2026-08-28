@@ -1,0 +1,38 @@
+{
+  "contract_version": 1,
+  "idempotency_key": "scr-2026-08-28-unknown-command",
+  "target": {
+    "kind": "site_page",
+    "site_id": "019ff20d-a000-7000-8000-000000000001",
+    "page_id": "019ff20d-a000-7000-8000-000000000002",
+    "locale": "pl"
+  },
+  "base": {
+    "version": 4,
+    "snapshot_hash": "sha256:a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+    "observed_at": "2026-08-28T09:00:00Z"
+  },
+  "rationale": {
+    "summary": "Strona usługi nie odpowiada na frazę, po której trafia na nią ruch.",
+    "risk": "low",
+    "expected_outcome": "Zgodność treści z intencją wyszukiwania dla frazy głównej.",
+    "sources": [
+      {
+        "kind": "search_console",
+        "reference": "query=fizjoterapia+kregoslupa;position=14.2",
+        "observed_at": "2026-08-27T22:00:00Z"
+      },
+      {
+        "kind": "seositeaudit",
+        "reference": "run/019ff1c0-0000-7000-8000-000000000009#thin-content",
+        "observed_at": "2026-08-27T20:00:00Z"
+      }
+    ]
+  },
+  "commands": [
+    {
+      "command": "page.delete",
+      "page_id": "019ff20d-a000-7000-8000-000000000002"
+    }
+  ]
+}

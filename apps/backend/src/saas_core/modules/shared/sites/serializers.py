@@ -307,6 +307,7 @@ class ContentCapabilitiesSerializer(serializers.Serializer[dict[str, Any]]):
     """Shape and limits, never unpublished content."""
 
     contract_version = serializers.IntegerField()
+    minimum_contract_version = serializers.IntegerField()
     locales = serializers.DictField()
     block_schemas = serializers.ListField(child=serializers.DictField())
     content_types = serializers.DictField()

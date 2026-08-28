@@ -7,7 +7,8 @@
     "./deployment.schema.json": "./deployment.schema.json",
     "./module.schema.json": "./module.schema.json",
     "./site-blocks/*": "./site-blocks/*",
-    "./page-templates/*": "./page-templates/*"
+    "./page-templates/*": "./page-templates/*",
+    "./content-operations/*": "./content-operations/*"
   },
   "scripts": {
     "lint": "node scripts/deployment-check.mjs --profile core-only && node scripts/deployment-check.mjs --profile medplano",

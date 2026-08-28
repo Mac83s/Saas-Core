@@ -1,0 +1,48 @@
+{
+  "contract_version": 1,
+  "idempotency_key": "scr-2026-08-28-entry-cwiczenia-01",
+  "target": {
+    "kind": "content_entry",
+    "site_id": "019ff20d-a000-7000-8000-000000000001",
+    "collection_id": "019ff20d-a000-7000-8000-000000000003",
+    "locale": "pl"
+  },
+  "base": {
+    "version": 0,
+    "snapshot_hash": "sha256:b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+    "observed_at": "2026-08-28T09:05:00Z"
+  },
+  "rationale": {
+    "summary": "Brak treści odpowiadającej na pytanie, które generuje ruch informacyjny.",
+    "risk": "low",
+    "sources": [
+      {
+        "kind": "keyword_research",
+        "reference": "cluster/cwiczenia-na-kregoslup;volume=2400",
+        "observed_at": "2026-08-26T10:00:00Z"
+      }
+    ]
+  },
+  "commands": [
+    {
+      "command": "entry.create",
+      "slug": "cwiczenia-na-bol-kregoslupa",
+      "title": "Ćwiczenia na ból kręgosłupa"
+    },
+    {
+      "command": "block.insert",
+      "position": 0,
+      "block": {
+        "type": "core.rich_text",
+        "schema_version": 1,
+        "data": {
+          "text": "Trzy ćwiczenia, które fizjoterapeuci zalecają najczęściej przy bólu lędźwiowym."
+        }
+      }
+    },
+    {
+      "command": "publication.schedule",
+      "publish_at": "2026-08-29T07:00:00Z"
+    }
+  ]
+}

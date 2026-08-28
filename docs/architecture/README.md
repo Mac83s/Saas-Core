@@ -12,6 +12,12 @@ kontrakt.
 | [auth-and-tenant-context.md](auth-and-tenant-context.md) | sesja, CSRF i zmiana organizacji |
 | [api-and-events.md](api-and-events.md) | REST, błędy, OpenAPI, outbox i webhooki |
 | [testing-strategy.md](testing-strategy.md) | poziomy testów oraz bramki CI |
+| [`packages/contracts/content-operations/`](../../packages/contracts/content-operations/) | kontrakt zmian treści dla SeoContentRank (W9.6.0) |
+
+Prozę kontraktu z SeoContentRank — słownik, podział odpowiedzialności i
+politykę wersjonowania — współredagujemy w
+`SeoContentRank/Plan/saas-core-connector-plan.md`; tutaj żyje jego
+wykonywalna połowa: schematy i fixture.
 
 Źródłem prawdy dla wersji technologii pozostaje
 [ADR-019](../adr/ADR-019-Baseline-Technologiczny.md), a dla systemu UI

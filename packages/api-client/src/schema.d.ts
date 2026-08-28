@@ -1679,6 +1679,7 @@ export interface components {
         /** @description Shape and limits, never unpublished content. */
         ContentCapabilities: {
             contract_version: number;
+            minimum_contract_version: number;
             locales: {
                 [key: string]: unknown;
             };

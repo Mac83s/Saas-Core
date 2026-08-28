@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "contractVersion": 1,
+  "minimumContractVersion": 1,
+  "documents": {
+    "ContentChangeSet": {
+      "1": "content-change-set.v1.schema.json"
+    }
+  },
+  "commands": [
+    "page.create",
+    "entry.create",
+    "translation.update",
+    "block.insert",
+    "block.replace",
+    "block.remove",
+    "block.reorder",
+    "internal_link.add",
+    "publication.schedule"
+  ],
+  "grantModes": [
+    "suggest_only",
+    "draft_write",
+    "publish_with_approval",
+    "autonomous"
+  ],
+  "automationPolicies": ["manual", "proposed", "automated"],
+  "surfaceKinds": ["site_page", "content_entry"],
+  "rejectedValues": ["auto_publish_limited"]
+}

@@ -4884,6 +4884,8 @@ components:
       properties:
         contract_version:
           type: integer
+        minimum_contract_version:
+          type: integer
         locales:
           type: object
           additionalProperties: {}
@@ -4910,6 +4912,7 @@ components:
       - content_types
       - contract_version
       - locales
+      - minimum_contract_version
       - quotas
       - sites
     ContentCollection:

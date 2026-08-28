@@ -42,6 +42,12 @@ from .permissions import SITE_CONTENT_EDIT, SITES_ENABLED, SITES_MAX
 #: connector that does not recognise it must stop rather than guess.
 CONTENT_CONTRACT_VERSION = 1
 
+#: The oldest contract this deployment still accepts. Raising it turns away
+#: connectors that were working yesterday, so it moves only after every
+#: connected connector reports the newer version — the calendar alone is not
+#: enough when the connector on the other side is our own product.
+MINIMUM_CONTENT_CONTRACT_VERSION = 1
+
 #: Quotas worth reporting: the ones a content operation can actually exhaust.
 REPORTED_QUOTAS = ("storage.bytes", SITES_MAX)
 
@@ -64,6 +70,7 @@ def read_content_capabilities() -> dict[str, Any]:
     )
     return {
         "contract_version": CONTENT_CONTRACT_VERSION,
+        "minimum_contract_version": MINIMUM_CONTENT_CONTRACT_VERSION,
         "locales": {
             "default": settings.SITES_DEFAULT_LOCALE,
             "supported": list(settings.SITES_SUPPORTED_LOCALES),

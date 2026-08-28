@@ -1,0 +1,41 @@
+{
+  "accepted": {
+    "rewrite-service-page-copy.json": "Metadata and one block replaced on a published service page.",
+    "publish-blog-entry.json": "A new blog entry created, filled and scheduled in one set.",
+    "add-internal-link.json": "An internal link into an existing canonical target, plus a full reorder."
+  },
+  "rejected": {
+    "unknown-command.json": {
+      "by": "envelope",
+      "why": "A command outside the allowlist. Deleting content always needs a person, and an unknown name must fail closed rather than be ignored."
+    },
+    "slug-in-translation-update.json": {
+      "by": "envelope",
+      "why": "Moving a published address is a human-only, separately audited workflow, so the field does not exist here at all."
+    },
+    "rationale-without-sources.json": {
+      "by": "envelope",
+      "why": "A proposal with no source is an opinion presented as an analysis."
+    },
+    "raw-html-in-block.json": {
+      "by": "block_schema",
+      "why": "Blocks carry data, never markup. The envelope only fixes the command shape, so this one is caught by the canonical block schema — which is the point of validating twice."
+    },
+    "page-target-carrying-collection.json": {
+      "by": "envelope",
+      "why": "One change set addresses one surface. The two publish differently, so a mixed target has no defined effect."
+    },
+    "base-without-snapshot-hash.json": {
+      "by": "envelope",
+      "why": "Without the hash there is no proof the sender read the state it claims to be changing."
+    },
+    "reorder-repeating-a-position.json": {
+      "by": "envelope",
+      "why": "An order that names a block twice has no single meaning."
+    },
+    "contract-version-below-one.json": {
+      "by": "envelope",
+      "why": "A version the server cannot map to a contract stops the change set instead of defaulting."
+    }
+  }
+}
