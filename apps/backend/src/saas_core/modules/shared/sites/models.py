@@ -8,6 +8,7 @@ from typing import Any
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 from saas_core.modules.core.organizations.tenancy import TenantScopedModel
 
@@ -1127,6 +1128,102 @@ class ContentEntryPublication(TenantScopedModel):
                 name="sites_entrypub_org_actor_idem_uq",
             ),
         ]
+
+
+class AutomationGrantMode(models.TextChoices):
+    SUGGEST_ONLY = "suggest_only", "Tylko propozycje"
+    DRAFT_WRITE = "draft_write", "Zapis draftu"
+    PUBLISH_WITH_APPROVAL = "publish_with_approval", "Publikacja po akceptacji"
+    AUTONOMOUS = "autonomous", "Autonomiczna publikacja"
+
+
+class ContentAutomationGrant(TenantScopedModel):
+    """What one credential may touch, and until when (ADR-035 §4).
+
+    Without this a key reaches every collection in its organization. That is
+    tolerable while the platform operator is the only holder, and not tolerable
+    the moment a key is issued against a customer site — the agreement with the
+    customer is usually "the blog", not "the website".
+
+    A grant names either a whole site or a single collection. Leaving both unset
+    is not allowed: an unbounded grant is the thing this model exists to prevent.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    # Not a foreign key: the credential lives in shared.notifications, and a
+    # cross-module foreign key would tie the two tables' lifecycles together.
+    credential_id = models.UUIDField()
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.CASCADE,
+        related_name="automation_grants",
+        null=True,
+        blank=True,
+    )
+    collection = models.ForeignKey(
+        ContentCollection,
+        on_delete=models.CASCADE,
+        related_name="automation_grants",
+        null=True,
+        blank=True,
+    )
+    mode = models.CharField(
+        max_length=32,
+        choices=AutomationGrantMode.choices,
+        default=AutomationGrantMode.SUGGEST_ONLY,
+    )
+    expires_at = models.DateTimeField(null=True, blank=True)
+    # Emergency revoke: set once and the grant is dead, without deleting the
+    # row, so the audit trail survives the incident that caused it.
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_automation_grants",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "credential_id", "id")
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(site__isnull=False, collection__isnull=True)
+                    | models.Q(site__isnull=True, collection__isnull=False)
+                ),
+                name="sites_grant_exactly_one_target_ck",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["organization", "credential_id"],
+                name="sites_grant_org_credential_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.credential_id}:{self.mode}"
+
+    def clean(self) -> None:
+        super().clean()
+        site = self.site if self.site_id else None
+        if site is not None and site.organization_id != self.organization_id:
+            raise ValidationError({"site": "Grant należy do innej organizacji."})
+        collection = self.collection if self.collection_id else None
+        if (
+            collection is not None
+            and collection.organization_id != self.organization_id
+        ):
+            raise ValidationError({"collection": "Grant należy do innej organizacji."})
+
+    @property
+    def active(self) -> bool:
+        if self.revoked_at is not None:
+            return False
+        return self.expires_at is None or self.expires_at > timezone.now()
 
 
 class SiteOutboxEvent(TenantScopedModel):

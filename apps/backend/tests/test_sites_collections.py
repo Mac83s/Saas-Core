@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import uuid7
 
 import pytest
 from django.core.cache import cache
@@ -195,11 +196,25 @@ def test_collection_policy_decides_whether_automation_may_write_entries() -> Non
             "data": {"text": "Treść od automatyzacji."},
         }
     ]
+    # The grant is what this credential was hired for; the policy is a separate
+    # gate on top of it. This test isolates the policy, so the grant is present.
+    from saas_core.modules.shared.sites.models import ContentAutomationGrant
+
+    credential_id = uuid7()
+    ContentAutomationGrant.all_objects.create(
+        organization=organization,
+        credential_id=credential_id,
+        collection_id=collection.data["id"],
+        mode="autonomous",
+        created_by=user,
+    )
 
     # The policy lives on the collection: opening the blog to automation does
     # not open the rest of the site.
     with (
-        activate_tenant_context(automation_context(organization.id, user.id)),
+        activate_tenant_context(
+            automation_context(organization.id, user.id, credential_id=credential_id)
+        ),
         pytest.raises(PageAutomationForbidden),
     ):
         save(
@@ -214,7 +229,9 @@ def test_collection_policy_decides_whether_automation_may_write_entries() -> Non
     ContentCollection.all_objects.filter(pk=collection.data["id"]).update(
         automation_policy=PageAutomationPolicy.AUTOMATED
     )
-    with activate_tenant_context(automation_context(organization.id, user.id)):
+    with activate_tenant_context(
+        automation_context(organization.id, user.id, credential_id=credential_id)
+    ):
         version, created = save(
             entry_id=entry.data["id"],
             expected_version=0,
@@ -348,7 +365,10 @@ def test_api_key_reaches_the_blog_and_is_bounded_by_its_scopes() -> None:
         ApiKey,
         ApiKeyCredentialRoute,
     )
-    from saas_core.modules.shared.sites.models import ContentCollection
+    from saas_core.modules.shared.sites.models import (
+        ContentAutomationGrant,
+        ContentCollection,
+    )
 
     client, organization, user = sites_client(slug="api-key-blog", role_key="owner")
     site = create_site(client)
@@ -373,6 +393,20 @@ def test_api_key_reaches_the_blog_and_is_bounded_by_its_scopes() -> None:
         secret_hash=api_key.secret_hash,
         scopes=["content:read", "content:draft"],
     )
+    # A key with no grant reaches nothing: authenticating proves which
+    # organization is calling, not what it was hired to do.
+    ungranted = Client().get(
+        f"/api/v1/sites/entries/{entry.data['id']}/draft/",
+        HTTP_AUTHORIZATION=f"Bearer {raw}",
+    )
+    ContentAutomationGrant.all_objects.create(
+        organization=organization,
+        credential_id=api_key.id,
+        collection_id=collection.data["id"],
+        mode="autonomous",
+        created_by=user,
+    )
+
     body = {
         "expected_version": 0,
         "blocks": [
@@ -420,6 +454,8 @@ def test_api_key_reaches_the_blog_and_is_bounded_by_its_scopes() -> None:
         HTTP_IDEMPOTENCY_KEY="scr-publish",
     )
 
+    assert ungranted.status_code == 403
+    assert ungranted.json()["code"] == "automation_grant_missing"
     assert unauthenticated.status_code == 403
     assert bad_key.status_code == 401
     assert read.status_code == 200
@@ -427,3 +463,102 @@ def test_api_key_reaches_the_blog_and_is_bounded_by_its_scopes() -> None:
     assert refused.json()["code"] == "page_automation_forbidden"
     assert written.status_code == 201
     assert published.status_code == 401
+
+
+def test_grant_bounds_the_credential_by_resource_expiry_and_revocation() -> None:
+    """The grant is what stands between "we hold the key" and "a customer's
+    whole site is reachable by an integration"."""
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    from saas_core.modules.core.organizations.context import activate_tenant_context
+    from saas_core.modules.shared.sites.collections import get_entry_draft
+    from saas_core.modules.shared.sites.models import ContentAutomationGrant
+    from saas_core.modules.shared.sites.services import AutomationGrantMissing
+    from test_sites_api import automation_context
+
+    client, organization, user = sites_client(slug="grant-scope", role_key="owner")
+    site = create_site(client)
+    blog = create_collection(client, site.data["id"], idempotency_key="grant-blog")
+    news = create_collection(
+        client,
+        site.data["id"],
+        key="aktualnosci",
+        base_path="aktualnosci",
+        idempotency_key="grant-news",
+    )
+    blog_entry = create_entry(
+        client, blog.data["id"], slug="wpis-bloga", idempotency_key="grant-e1"
+    )
+    news_entry = create_entry(
+        client, news.data["id"], slug="wpis-news", idempotency_key="grant-e2"
+    )
+
+    credential_id = uuid7()
+    grant = ContentAutomationGrant.all_objects.create(
+        organization=organization,
+        credential_id=credential_id,
+        collection_id=blog.data["id"],
+        mode="autonomous",
+        created_by=user,
+    )
+    context = automation_context(
+        organization.id, user.id, credential_id=credential_id
+    )
+
+    with activate_tenant_context(context):
+        granted = get_entry_draft(entry_id=blog_entry.data["id"])
+        # A collection grant covers that collection only. Giving away the blog
+        # must not give away the news section beside it.
+        with pytest.raises(AutomationGrantMissing):
+            get_entry_draft(entry_id=news_entry.data["id"])
+
+    grant.expires_at = timezone.now() - timedelta(seconds=1)
+    grant.save(update_fields=["expires_at"])
+    with activate_tenant_context(context), pytest.raises(AutomationGrantMissing):
+        get_entry_draft(entry_id=blog_entry.data["id"])
+
+    # Emergency revoke: immediate, and the row survives for the audit trail.
+    grant.expires_at = None
+    grant.revoked_at = timezone.now()
+    grant.save(update_fields=["expires_at", "revoked_at"])
+    with activate_tenant_context(context), pytest.raises(AutomationGrantMissing):
+        get_entry_draft(entry_id=blog_entry.data["id"])
+
+    assert str(granted.entry.id) == str(blog_entry.data["id"])
+    assert ContentAutomationGrant.all_objects.filter(pk=grant.pk).exists()
+
+
+def test_site_grant_covers_its_collections_but_a_collection_grant_does_not_widen() -> (
+    None
+):
+    from saas_core.modules.core.organizations.context import activate_tenant_context
+    from saas_core.modules.shared.sites.collections import get_entry_draft
+    from saas_core.modules.shared.sites.models import ContentAutomationGrant
+    from test_sites_api import automation_context
+
+    client, organization, user = sites_client(slug="grant-site", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    entry = create_entry(
+        client, collection.data["id"], slug="wpis", idempotency_key="site-grant-e"
+    )
+
+    credential_id = uuid7()
+    ContentAutomationGrant.all_objects.create(
+        organization=organization,
+        credential_id=credential_id,
+        site_id=site.data["id"],
+        mode="autonomous",
+        created_by=user,
+    )
+
+    with activate_tenant_context(
+        automation_context(organization.id, user.id, credential_id=credential_id)
+    ):
+        draft = get_entry_draft(entry_id=entry.data["id"])
+
+    # A whole-site grant reaches the collections inside it, which is what makes
+    # it the wider of the two and worth choosing deliberately.
+    assert str(draft.entry.id) == str(entry.data["id"])

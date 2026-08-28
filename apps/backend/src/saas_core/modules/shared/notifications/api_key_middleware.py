@@ -124,6 +124,7 @@ class ApiKeyTenantContextMiddleware:
             role_key="integration",
             permissions=frozenset(permissions),
             principal_kind=API_KEY_PRINCIPAL,
+            credential_id=api_key.id,
         )
         with transaction.atomic():
             cast(Any, request).tenant_context = context

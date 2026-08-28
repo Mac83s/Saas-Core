@@ -41,6 +41,7 @@ from .services import (
     SitesIdempotencyConflict,
     _idempotency_key,
     _is_automation,
+    assert_within_grant,
 )
 
 COLLECTION_CREATED = "sites.collection.created"
@@ -85,6 +86,9 @@ def _assert_entry_writable(entry: ContentEntry, collection: ContentCollection) -
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
     if not _is_automation(context):
         return
+    assert_within_grant(
+        context, site_id=collection.site_id, collection_id=collection.id
+    )
     if collection.automation_policy != PageAutomationPolicy.AUTOMATED:
         raise PageAutomationForbidden
     if (
@@ -264,12 +268,18 @@ def get_entry_draft(*, entry_id: UUID) -> EntryDraft:
         operation=FeatureOperation.READ,
     )
     entry = (
-        ContentEntry.all_objects.select_related("current_draft")
+        ContentEntry.all_objects.select_related("current_draft", "collection")
         .filter(pk=entry_id, organization_id=context.organization_id)
         .first()
     )
     if entry is None:
         raise EntryNotFound
+    # A draft is unpublished work. An integration reads it only where it was
+    # granted the collection — otherwise a key issued for one blog could survey
+    # everything the customer has not published yet.
+    assert_within_grant(
+        context, site_id=entry.site_id, collection_id=entry.collection_id
+    )
     return EntryDraft(entry=entry, version=entry.current_draft)
 
 

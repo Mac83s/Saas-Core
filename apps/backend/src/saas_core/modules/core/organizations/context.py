@@ -27,6 +27,10 @@ class TenantContext:
     role_key: str
     permissions: frozenset[str]
     principal_kind: str = "membership"
+    # Which credential is acting, when one is. `core` deliberately does not know
+    # what kind of credential that is — it only carries the id so a module that
+    # does can narrow what this request may touch.
+    credential_id: UUID | None = None
 
     def has_permission(self, permission: str) -> bool:
         return permission in self.permissions

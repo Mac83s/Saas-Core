@@ -1632,7 +1632,24 @@ def test_navigation_rejects_trees_the_renderer_could_not_show() -> None:
     assert Site.all_objects.get(pk=site_id).navigation_version == 0
 
 
-def automation_context(organization_id: Any, actor_id: Any) -> Any:
+def grant_for_site(organization: Any, user: Any, site_id: Any) -> Any:
+    """Grants a synthetic credential one whole site, and returns its id."""
+    from saas_core.modules.shared.sites.models import ContentAutomationGrant
+
+    credential_id = uuid7()
+    ContentAutomationGrant.all_objects.create(
+        organization=organization,
+        credential_id=credential_id,
+        site_id=site_id,
+        mode="autonomous",
+        created_by=user,
+    )
+    return credential_id
+
+
+def automation_context(
+    organization_id: Any, actor_id: Any, *, credential_id: Any = None
+) -> Any:
     """A principal that is not a signed-in person — what an integration gets."""
     from saas_core.modules.core.organizations.context import TenantContext
 
@@ -1643,6 +1660,7 @@ def automation_context(organization_id: Any, actor_id: Any) -> Any:
         role_key="integration",
         permissions=frozenset({"site.content.edit"}),
         principal_kind="api_key",
+        credential_id=credential_id,
     )
 
 
@@ -1670,7 +1688,13 @@ def test_automation_may_only_write_pages_the_operator_opened() -> None:
     site = create_site(client)
     page_response = create_page(client, site.data["id"], idempotency_key="policy-page")
     page = Page.all_objects.get(pk=page_response.data["id"])
-    context = automation_context(organization.id, user.id)
+    # The grant says which site this credential was hired for; the policy is a
+    # separate gate. This test isolates the policy, so the grant is present.
+    context = automation_context(
+        organization.id,
+        user.id,
+        credential_id=grant_for_site(organization, user, site.data["id"]),
+    )
 
     # Default is manual: an integration cannot grant itself a page.
     assert page.automation_policy == PageAutomationPolicy.MANUAL
@@ -1703,7 +1727,11 @@ def test_manual_editing_lock_holds_the_automation_off_until_it_lapses() -> None:
             "editing_locked_by",
         ]
     )
-    context = automation_context(organization.id, user.id)
+    context = automation_context(
+        organization.id,
+        user.id,
+        credential_id=grant_for_site(organization, user, site.data["id"]),
+    )
 
     with pytest.raises(PageEditingLocked) as locked:
         assert_page_writable(page, context)

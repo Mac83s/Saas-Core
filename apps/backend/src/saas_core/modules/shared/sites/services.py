@@ -37,6 +37,7 @@ from saas_core.observability import correlation_id
 from .block_contracts import validate_site_block
 from .localization import SiteLocalizationReport, build_localization_report
 from .models import (
+    ContentAutomationGrant,
     NavigationItem,
     Page,
     PageAutomationPolicy,
@@ -107,6 +108,12 @@ class NavigationInvalidTree(APIException):
     status_code = 400
     default_detail = "Nawigacja zawiera nieprawidłowe drzewo pozycji."
     default_code = "navigation_invalid_tree"
+
+
+class AutomationGrantMissing(APIException):
+    status_code = 403
+    default_detail = "Klucz nie ma grantu obejmującego ten zasób."
+    default_code = "automation_grant_missing"
 
 
 class PageAutomationForbidden(APIException):
@@ -491,11 +498,45 @@ def _is_automation(context: TenantContext) -> bool:
     return context.principal_kind != "membership"
 
 
+def assert_within_grant(
+    context: TenantContext,
+    *,
+    site_id: UUID,
+    collection_id: UUID | None = None,
+) -> None:
+    """Checks that this credential was granted this resource (ADR-035 §4).
+
+    A credential with no grant reaches nothing. That is the point: authenticating
+    proves which organization is calling, not what it was hired to do, and the
+    agreement with a customer is normally "the blog" rather than "the website".
+    """
+    if not _is_automation(context):
+        return
+    if context.credential_id is None:
+        raise AutomationGrantMissing
+    grants = ContentAutomationGrant.all_objects.filter(
+        organization_id=context.organization_id,
+        credential_id=context.credential_id,
+        revoked_at__isnull=True,
+    )
+    for grant in grants:
+        if not grant.active:
+            continue
+        # A site-wide grant covers its collections; a collection grant covers
+        # only itself, never the pages around it.
+        if grant.site_id is not None and grant.site_id == site_id:
+            return
+        if collection_id is not None and grant.collection_id == collection_id:
+            return
+    raise AutomationGrantMissing
+
+
 def assert_page_writable(page: Page, context: TenantContext) -> None:
     """Refuses an automated write the operator has not allowed, or that would
     land on a page a person currently has open."""
     if not _is_automation(context):
         return
+    assert_within_grant(context, site_id=page.site_id)
     if page.automation_policy != PageAutomationPolicy.AUTOMATED:
         raise PageAutomationForbidden
     if page.editing_locked_until is not None and page.editing_locked_until > timezone.now():
