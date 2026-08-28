@@ -14,6 +14,7 @@ from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 from saas_core.modules.shared.notifications.api_key_middleware import IsSessionOrApiKey
 
 from .collections import (
+    cancel_entry_publication_schedule,
     create_collection,
     create_entry,
     create_entry_translation,
@@ -23,6 +24,7 @@ from .collections import (
     list_entry_translations,
     publish_entry,
     save_entry_draft,
+    schedule_entry_publication,
     set_collection_automation_policy,
     set_collection_navigation,
     withdraw_entry,
@@ -41,6 +43,8 @@ from .serializers import (
     ContentEntrySerializer,
     ContentEntryTranslationCreateSerializer,
     CursorQuerySerializer,
+    EntryScheduleSerializer,
+    EntryScheduleStateSerializer,
     PageSummarySerializer,
 )
 from .services import set_page_automation_policy
@@ -419,4 +423,54 @@ class ContentEntryTranslationView(APIView):
         return Response(
             _entry_payload(translation),
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+
+def _schedule_payload(entry: Any) -> dict[str, Any]:
+    return {
+        "entry_id": entry.id,
+        "schedule_state": entry.schedule_state,
+        "scheduled_publish_at": entry.scheduled_publish_at,
+        "schedule_error": entry.schedule_error,
+    }
+
+
+class EntryScheduleView(APIView):
+    """Asks for an article to go live later, or calls that off."""
+
+    permission_classes = [IsSessionOrApiKey]
+
+    @extend_schema(
+        operation_id="sites_entry_schedule_set",
+        tags=["sites"],
+        request=EntryScheduleSerializer,
+        responses={
+            200: EntryScheduleStateSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def put(self, request: Request, entry_id: UUID) -> Response:
+        serializer = EntryScheduleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        entry = schedule_entry_publication(
+            entry_id=entry_id, publish_at=serializer.validated_data["publish_at"]
+        )
+        return Response(_schedule_payload(entry))
+
+    @extend_schema(
+        operation_id="sites_entry_schedule_cancel",
+        tags=["sites"],
+        responses={
+            200: EntryScheduleStateSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def delete(self, _request: Request, entry_id: UUID) -> Response:
+        return Response(
+            _schedule_payload(cancel_entry_publication_schedule(entry_id=entry_id))
         )

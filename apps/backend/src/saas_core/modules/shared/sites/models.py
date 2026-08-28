@@ -1071,6 +1071,21 @@ class ContentCollection(TenantScopedModel):
         super().save(*args, **kwargs)
 
 
+class EntryScheduleState(models.TextChoices):
+    """Why an article is, or is not, waiting to be published.
+
+    `CANCELLED` and `FAILED` are kept rather than cleared: an operator who
+    scheduled something for Monday needs to see on Tuesday that it did not
+    happen, and why. Silently returning to `NONE` would make a failed
+    publication indistinguishable from one nobody ever scheduled.
+    """
+
+    NONE = "none", "Bez planu"
+    PENDING = "pending", "Zaplanowana"
+    CANCELLED = "cancelled", "Anulowana"
+    FAILED = "failed", "Nieudana"
+
+
 class ContentEntry(TenantScopedModel):
     """One article, with its own draft pointer, version and publication, so it
     moves through the lifecycle independently of its neighbours."""
@@ -1118,6 +1133,24 @@ class ContentEntry(TenantScopedModel):
     # the index orders by this rather than by when the button was pressed.
     published_at = models.DateTimeField(null=True, blank=True)
     noindex = models.BooleanField(default=False)
+    scheduled_publish_at = models.DateTimeField(null=True, blank=True)
+    schedule_state = models.CharField(
+        max_length=16,
+        choices=EntryScheduleState.choices,
+        default=EntryScheduleState.NONE,
+    )
+    schedule_error = models.TextField(blank=True)
+    scheduled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="scheduled_content_entries",
+        null=True,
+        blank=True,
+    )
+    # The membership, not just the user: when the task finally runs it has to
+    # ask again whether this person may still publish here. A signed task
+    # payload cannot serve for this — it expires long before next Monday.
+    scheduled_membership_id = models.UUIDField(null=True, blank=True)
     editing_locked_until = models.DateTimeField(null=True, blank=True)
     editing_locked_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -1156,11 +1189,29 @@ class ContentEntry(TenantScopedModel):
                 fields=["organization", "translation_group", "locale"],
                 name="sites_entry_org_group_locale_uq",
             ),
+            # A pending schedule without a moment or without an authorising
+            # membership is one the worker could only guess at.
+            models.CheckConstraint(
+                condition=(
+                    ~models.Q(schedule_state="pending")
+                    | models.Q(
+                        scheduled_publish_at__isnull=False,
+                        scheduled_membership_id__isnull=False,
+                    )
+                ),
+                name="sites_entry_pending_schedule_complete_ck",
+            ),
         ]
         indexes = [
             models.Index(
                 fields=["organization", "collection", "state", "-published_at"],
                 name="sites_entry_index_idx",
+            ),
+            # The due scan runs across every tenant, so it must not be a table
+            # sweep once the archive is large.
+            models.Index(
+                fields=["schedule_state", "scheduled_publish_at"],
+                name="sites_entry_due_schedule_idx",
             ),
             models.Index(
                 fields=["organization", "translation_group"],
@@ -1361,10 +1412,22 @@ class ContentAutomationGrant(TenantScopedModel):
 
 class SiteOutboxEvent(TenantScopedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    # Exactly one of the two: a site publication covers the whole site, an
+    # entry publication covers one article, and a subscriber needs to know
+    # which it was told about.
     publication = models.OneToOneField(
         Publication,
         on_delete=models.PROTECT,
         related_name="outbox_event",
+        null=True,
+        blank=True,
+    )
+    entry_publication = models.OneToOneField(
+        "ContentEntryPublication",
+        on_delete=models.PROTECT,
+        related_name="outbox_event",
+        null=True,
+        blank=True,
     )
     event_type = models.CharField(max_length=120)
     version = models.PositiveIntegerField(default=1)
@@ -1388,6 +1451,13 @@ class SiteOutboxEvent(TenantScopedModel):
                 condition=models.Q(version__gte=1),
                 name="sites_outbox_version_positive_ck",
             ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(publication__isnull=False, entry_publication__isnull=True)
+                    | models.Q(publication__isnull=True, entry_publication__isnull=False)
+                ),
+                name="sites_outbox_exactly_one_subject_ck",
+            ),
         ]
         indexes = [
             models.Index(
@@ -1401,9 +1471,23 @@ class SiteOutboxEvent(TenantScopedModel):
 
     def clean(self) -> None:
         super().clean()
-        if self.publication_id and self.publication.organization_id != self.organization_id:
+        if (
+            self.publication_id
+            and self.publication is not None
+            and self.publication.organization_id != self.organization_id
+        ):
             raise ValidationError({
                 "publication": "Zdarzenie wskazuje publikację innej organizacji."
+            })
+        if (
+            self.entry_publication_id
+            and self.entry_publication is not None
+            and self.entry_publication.organization_id != self.organization_id
+        ):
+            raise ValidationError({
+                "entry_publication": (
+                    "Zdarzenie wskazuje publikację wpisu innej organizacji."
+                )
             })
         if not isinstance(self.payload, dict):
             raise ValidationError({"payload": "Payload zdarzenia musi być obiektem JSON."})

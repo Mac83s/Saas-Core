@@ -9,8 +9,9 @@ to follow.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid7
 
 from django.db import transaction
 from django.utils import timezone
@@ -23,8 +24,10 @@ from saas_core.modules.core.organizations.api import (
     record_resource_references,
 )
 from saas_core.modules.core.organizations.audit import record_audit
+from saas_core.modules.core.organizations.context import require_tenant_context
 from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
+from saas_core.observability import correlation_id
 
 from .block_contracts import validate_site_block
 from .localization import entry_path
@@ -34,8 +37,10 @@ from .models import (
     ContentEntryPublication,
     ContentEntryState,
     ContentEntryVersion,
+    EntryScheduleState,
     PageAutomationPolicy,
     Site,
+    SiteOutboxEvent,
     canonical_json_hash,
 )
 from .permissions import SITE_CONTENT_EDIT, SITE_PUBLISH, SITES_ENABLED
@@ -50,6 +55,7 @@ from .services import (
     SitesIdempotencyConflict,
     _idempotency_key,
     _is_automation,
+    _schedule_site_outbox_delivery,
     assert_within_grant,
 )
 
@@ -57,6 +63,10 @@ COLLECTION_CREATED = "sites.collection.created"
 ENTRY_CREATED = "sites.entry.created"
 ENTRY_DRAFT_SAVED = "sites.entry.draft_saved"
 ENTRY_PUBLISHED = "sites.entry.published"
+ENTRY_PUBLISHED_EVENT = "sites.entry.published"
+ENTRY_PUBLICATION_SCHEDULED = "sites.entry.publication_scheduled"
+ENTRY_SCHEDULE_CANCELLED = "sites.entry.schedule_cancelled"
+ENTRY_SCHEDULE_FAILED = "sites.entry.schedule_failed"
 ENTRY_WITHDRAWN = "sites.entry.withdrawn"
 ENTRY_TRANSLATION_CREATED = "sites.entry.translation_created"
 COLLECTION_POLICY_SET = "sites.collection.automation_policy_set"
@@ -527,7 +537,203 @@ def publish_entry(
         target_id=entry.id,
         metadata={"sequence": publication.sequence},
     )
+    active_correlation_id = correlation_id.get()
+    event = SiteOutboxEvent.all_objects.create(
+        organization_id=context.organization_id,
+        entry_publication=publication,
+        event_type=ENTRY_PUBLISHED_EVENT,
+        version=1,
+        actor_id=context.actor_id,
+        correlation_id=(
+            UUID(active_correlation_id) if active_correlation_id else uuid7()
+        ),
+        causation_id=f"sites-entry-publish:{publication.id}",
+        payload={
+            "entry_id": str(entry.id),
+            "collection_id": str(entry.collection_id),
+            "publication_id": str(publication.id),
+            "sequence": publication.sequence,
+            "snapshot_hash": publication.snapshot_hash,
+            "path": snapshot["path"],
+            "locale": entry.locale,
+        },
+    )
+    # After commit, so a subscriber never hears about a publication a rolled
+    # back transaction took away again.
+    _schedule_site_outbox_delivery(event)
     return publication, True
+
+
+class ScheduleInPast(APIException):
+    status_code = 400
+    default_detail = "Termin publikacji musi być w przyszłości."
+    default_code = "entry_schedule_in_past"
+
+
+class ScheduleNotPending(APIException):
+    status_code = 409
+    default_detail = "Ten wpis nie ma zaplanowanej publikacji."
+    default_code = "entry_schedule_not_pending"
+
+
+@transaction.atomic
+def schedule_entry_publication(
+    *, entry_id: UUID, publish_at: datetime
+) -> ContentEntry:
+    """Asks for this article to go live at a stated moment.
+
+    The check that the author may publish happens twice: now, so a refusal is
+    immediate and visible, and again when the moment arrives, because access
+    can be withdrawn in between and a queue is not a way around that.
+    """
+    context = authorize_entitled(SITE_PUBLISH, SITES_ENABLED)
+    entry = (
+        ContentEntry.all_objects.select_for_update(of=("self",))
+        .select_related("collection", "current_draft")
+        .filter(pk=entry_id, organization_id=context.organization_id)
+        .first()
+    )
+    if entry is None:
+        raise EntryNotFound
+    _assert_entry_writable(entry, entry.collection, publishing=True)
+    if entry.current_draft is None or not entry.current_draft.blocks:
+        raise EntryNotReady
+    if publish_at <= timezone.now():
+        raise ScheduleInPast
+
+    entry.scheduled_publish_at = publish_at
+    entry.schedule_state = EntryScheduleState.PENDING
+    entry.schedule_error = ""
+    entry.scheduled_by_id = context.actor_id
+    entry.scheduled_membership_id = context.membership_id
+    entry.save(
+        update_fields=[
+            "scheduled_publish_at",
+            "schedule_state",
+            "schedule_error",
+            "scheduled_by",
+            "scheduled_membership_id",
+            "updated_at",
+        ]
+    )
+    record_audit(
+        organization=Organization.objects.get(pk=context.organization_id),
+        action=ENTRY_PUBLICATION_SCHEDULED,
+        actor=User.objects.get(pk=context.actor_id),
+        target_type="content_entry",
+        target_id=entry.id,
+        metadata={"publish_at": publish_at.isoformat()},
+    )
+    return entry
+
+
+@transaction.atomic
+def cancel_entry_publication_schedule(*, entry_id: UUID) -> ContentEntry:
+    context = authorize_entitled(SITE_PUBLISH, SITES_ENABLED)
+    entry = (
+        ContentEntry.all_objects.select_for_update(of=("self",))
+        .select_related("collection")
+        .filter(pk=entry_id, organization_id=context.organization_id)
+        .first()
+    )
+    if entry is None:
+        raise EntryNotFound
+    if entry.schedule_state != EntryScheduleState.PENDING:
+        raise ScheduleNotPending
+    # The moment is kept rather than cleared: an operator looking at this
+    # tomorrow needs to see what was cancelled, not an empty field.
+    entry.schedule_state = EntryScheduleState.CANCELLED
+    entry.save(update_fields=["schedule_state", "updated_at"])
+    record_audit(
+        organization=Organization.objects.get(pk=context.organization_id),
+        action=ENTRY_SCHEDULE_CANCELLED,
+        actor=User.objects.get(pk=context.actor_id),
+        target_type="content_entry",
+        target_id=entry.id,
+        metadata={
+            "publish_at": (
+                entry.scheduled_publish_at.isoformat()
+                if entry.scheduled_publish_at
+                else None
+            )
+        },
+    )
+    return entry
+
+
+def due_scheduled_entries(*, limit: int = 100) -> list[dict[str, str]]:
+    """Every article whose moment has arrived, across every tenant.
+
+    Deliberately unscoped, and deliberately returning only identifiers: the
+    caller has no tenant context yet, and establishing one per entry is what
+    the worker does next.
+    """
+    rows = (
+        ContentEntry.all_objects.filter(
+            schedule_state=EntryScheduleState.PENDING,
+            scheduled_publish_at__lte=timezone.now(),
+        )
+        .order_by("scheduled_publish_at", "id")
+        .values("id", "organization_id", "scheduled_membership_id", "scheduled_by_id")[
+            :limit
+        ]
+    )
+    return [
+        {
+            "entry_id": str(row["id"]),
+            "organization_id": str(row["organization_id"]),
+            "membership_id": str(row["scheduled_membership_id"]),
+            "actor_id": str(row["scheduled_by_id"]),
+        }
+        for row in rows
+        if row["scheduled_membership_id"] and row["scheduled_by_id"]
+    ]
+
+
+def run_scheduled_publication(*, entry_id: UUID) -> ContentEntryPublication | None:
+    """Publishes one article whose time has come, inside an established tenant.
+
+    Idempotent through the publication's own key: the key is derived from the
+    entry and the moment it was scheduled for, so a retried task finds the
+    publication it already made rather than making a second one.
+    """
+    context = require_tenant_context()
+    entry = (
+        ContentEntry.all_objects.select_for_update(of=("self",))
+        .filter(pk=entry_id, organization_id=context.organization_id)
+        .first()
+    )
+    if entry is None or entry.schedule_state != EntryScheduleState.PENDING:
+        # Cancelled between the scan and the run, or already handled. Not an
+        # error: a queue that shouts about work somebody withdrew is a queue
+        # people learn to ignore.
+        return None
+    moment = entry.scheduled_publish_at
+    key = f"schedule:{entry.id}:{moment.isoformat() if moment else 'none'}"
+    try:
+        publication, _created = publish_entry(entry_id=entry.id, idempotency_key=key)
+    except APIException as error:
+        ContentEntry.all_objects.filter(pk=entry.id).update(
+            schedule_state=EntryScheduleState.FAILED,
+            schedule_error=str(getattr(error, "detail", error))[:500],
+            updated_at=timezone.now(),
+        )
+        record_audit(
+            organization=Organization.objects.get(pk=context.organization_id),
+            action=ENTRY_SCHEDULE_FAILED,
+            actor=User.objects.get(pk=context.actor_id),
+            target_type="content_entry",
+            target_id=entry.id,
+            metadata={"code": getattr(error, "default_code", "error")},
+        )
+        return None
+    ContentEntry.all_objects.filter(pk=entry.id).update(
+        schedule_state=EntryScheduleState.NONE,
+        scheduled_publish_at=None,
+        schedule_error="",
+        updated_at=timezone.now(),
+    )
+    return publication
 
 
 @transaction.atomic

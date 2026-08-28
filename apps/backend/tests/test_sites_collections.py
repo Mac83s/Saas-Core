@@ -2071,3 +2071,221 @@ def test_publishing_one_article_costs_the_same_whatever_the_archive_holds() -> N
     # on the archive at all, or the thousandth article is the one that stops
     # working.
     assert full_archive == empty_archive
+
+
+def _ready_entry(client: APIClient, collection_id: str, marker: str) -> Any:
+    entry = create_entry(
+        client, collection_id, slug=f"wpis-{marker}", idempotency_key=f"s-{marker}"
+    )
+    save_entry_draft(
+        client,
+        entry.data["id"],
+        expected_version=0,
+        text="Treść zaplanowana.",
+        idempotency_key=f"s-draft-{marker}",
+    )
+    return entry
+
+
+def schedule(client: APIClient, entry_id: str, publish_at: str) -> Any:
+    return client.put(
+        f"/api/v1/sites/entries/{entry_id}/schedule/",
+        {"publish_at": publish_at},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+
+
+def test_a_scheduled_article_publishes_when_its_moment_arrives() -> None:
+    """The whole point: an operator writes on Friday and the article appears on
+    Monday morning without anybody being at a keyboard."""
+    from django.utils import timezone
+
+    from saas_core.modules.shared.sites.models import EntryScheduleState
+    from saas_core.modules.shared.sites.tasks import publish_due_entries
+
+    client, _, _ = sites_client(slug="schedule", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    entry = _ready_entry(client, collection.data["id"], "poniedzialek")
+    moment = timezone.now() + timedelta(hours=2)
+
+    scheduled = schedule(client, entry.data["id"], moment.isoformat())
+    assert scheduled.status_code == 200
+    assert scheduled.data["schedule_state"] == "pending"
+
+    # Nothing is due yet, so nothing happens — the article is still a draft.
+    assert publish_due_entries() == 0
+    assert ContentEntry.all_objects.get(pk=entry.data["id"]).state == (
+        ContentEntryState.DRAFT
+    )
+
+    # Move the moment into the past rather than waiting two hours.
+    ContentEntry.all_objects.filter(pk=entry.data["id"]).update(
+        scheduled_publish_at=timezone.now() - timedelta(minutes=1)
+    )
+    assert publish_due_entries() == 1
+
+    published = ContentEntry.all_objects.get(pk=entry.data["id"])
+    assert published.state == ContentEntryState.PUBLISHED
+    assert published.current_publication_id is not None
+    # The schedule is spent, not left pending for the scan to find again.
+    assert published.schedule_state == EntryScheduleState.NONE
+    assert published.scheduled_publish_at is None
+
+
+def test_running_the_scan_twice_publishes_the_article_once() -> None:
+    """At-least-once delivery is the normal case for a queue, so publishing has
+    to be idempotent rather than merely rare-to-repeat."""
+    from django.utils import timezone
+
+    from saas_core.modules.shared.sites.models import ContentEntryPublication
+    from saas_core.modules.shared.sites.tasks import (
+        publish_due_entries,
+        publish_scheduled_entry,
+    )
+
+    client, organization, user = sites_client(slug="schedule-twice", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    entry = _ready_entry(client, collection.data["id"], "raz")
+    schedule(
+        client,
+        entry.data["id"],
+        (timezone.now() + timedelta(hours=1)).isoformat(),
+    )
+    row = ContentEntry.all_objects.get(pk=entry.data["id"])
+    ContentEntry.all_objects.filter(pk=row.pk).update(
+        scheduled_publish_at=timezone.now() - timedelta(minutes=1)
+    )
+
+    assert publish_due_entries() == 1
+    # Replay the exact task the scan dispatched, as a redelivery would.
+    publish_scheduled_entry(
+        str(row.pk),
+        str(row.organization_id),
+        str(row.scheduled_membership_id),
+        str(row.scheduled_by_id),
+    )
+
+    assert (
+        ContentEntryPublication.all_objects.filter(entry_id=row.pk).count() == 1
+    )
+
+
+def test_cancelling_a_schedule_keeps_the_moment_it_cancelled() -> None:
+    from django.utils import timezone
+
+    from saas_core.modules.shared.sites.tasks import publish_due_entries
+
+    client, _, _ = sites_client(slug="schedule-cancel", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    entry = _ready_entry(client, collection.data["id"], "odwolany")
+    schedule(
+        client,
+        entry.data["id"],
+        (timezone.now() + timedelta(hours=1)).isoformat(),
+    )
+
+    cancelled = client.delete(
+        f"/api/v1/sites/entries/{entry.data['id']}/schedule/",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    assert cancelled.status_code == 200
+    assert cancelled.data["schedule_state"] == "cancelled"
+    # Kept, not cleared: tomorrow the operator needs to see what was called off.
+    assert cancelled.data["scheduled_publish_at"] is not None
+
+    ContentEntry.all_objects.filter(pk=entry.data["id"]).update(
+        scheduled_publish_at=timezone.now() - timedelta(minutes=1)
+    )
+    assert publish_due_entries() == 0
+    assert ContentEntry.all_objects.get(pk=entry.data["id"]).state == (
+        ContentEntryState.DRAFT
+    )
+
+    # And cancelling twice is a conflict, not a silent no-op.
+    assert (
+        client.delete(
+            f"/api/v1/sites/entries/{entry.data['id']}/schedule/",
+            HTTP_X_CSRFTOKEN=csrf_value(client),
+        ).status_code
+        == 409
+    )
+
+
+def test_a_schedule_does_not_survive_the_author_losing_access() -> None:
+    """A queue must not be a way around access being withdrawn."""
+    from django.utils import timezone
+
+    from saas_core.modules.core.organizations.models import (
+        Membership,
+        MembershipStatus,
+    )
+    from saas_core.modules.shared.sites.tasks import publish_due_entries
+
+    client, organization, user = sites_client(slug="schedule-gone", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    entry = _ready_entry(client, collection.data["id"], "bez-dostepu")
+    schedule(
+        client,
+        entry.data["id"],
+        (timezone.now() + timedelta(hours=1)).isoformat(),
+    )
+    ContentEntry.all_objects.filter(pk=entry.data["id"]).update(
+        scheduled_publish_at=timezone.now() - timedelta(minutes=1)
+    )
+
+    Membership.objects.filter(organization_id=organization.id, user_id=user.id).update(
+        status=MembershipStatus.SUSPENDED
+    )
+
+    # The scan still finds it — it has no opinion on memberships — but the run
+    # refuses, and the article stays a draft.
+    assert publish_due_entries() == 1
+    assert ContentEntry.all_objects.get(pk=entry.data["id"]).state == (
+        ContentEntryState.DRAFT
+    )
+
+
+def test_scheduling_in_the_past_is_refused() -> None:
+    from django.utils import timezone
+
+    client, _, _ = sites_client(slug="schedule-past", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    entry = _ready_entry(client, collection.data["id"], "wczoraj")
+
+    # Not silently published: "publish at a time that has passed" is much more
+    # likely a typo than a request to publish immediately.
+    response = schedule(
+        client,
+        entry.data["id"],
+        (timezone.now() - timedelta(hours=1)).isoformat(),
+    )
+    assert response.status_code == 400
+    assert response.data["code"] == "entry_schedule_in_past"
+
+
+def test_publishing_an_entry_leaves_an_outbox_event() -> None:
+    from saas_core.modules.shared.sites.models import SiteOutboxEvent
+
+    client, _, _ = sites_client(slug="entry-outbox", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    entry = _ready_entry(client, collection.data["id"], "outbox")
+    assert publish(
+        client, entry.data["id"], idempotency_key="outbox-publish"
+    ).status_code == 201
+
+    event = SiteOutboxEvent.all_objects.filter(
+        event_type="sites.entry.published"
+    ).first()
+    assert event is not None
+    # One subject, not both: a subscriber has to know whether it was told about
+    # a whole site or one article.
+    assert event.publication_id is None
+    assert event.entry_publication_id is not None
+    assert event.payload["path"].endswith("/wpis-outbox/")

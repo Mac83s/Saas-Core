@@ -8,6 +8,7 @@ from .collection_views import (
     ContentEntryListCreateView,
     ContentEntryPublicationView,
     ContentEntryTranslationView,
+    EntryScheduleView,
     PageAutomationPolicyView,
 )
 from .domain_views import (
@@ -140,6 +141,11 @@ urlpatterns = [
         "entries/<uuid:entry_id>/translations/",
         ContentEntryTranslationView.as_view(),
         name="entry-translations",
+    ),
+    path(
+        "entries/<uuid:entry_id>/schedule/",
+        EntryScheduleView.as_view(),
+        name="entry-schedule",
     ),
     path(
         "entries/<uuid:entry_id>/publication/",

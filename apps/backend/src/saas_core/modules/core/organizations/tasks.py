@@ -87,30 +87,75 @@ def tenant_task_context(
                     set_local_organization_id(context.organization_id)
                     yield context
                 return
-            membership = (
-                Membership.objects.select_for_update()
-                .select_related("organization", "role")
-                .filter(
-                    pk=contract.membership_id,
-                    organization_id=contract.organization_id,
-                    user_id=contract.actor_id,
-                    status=MembershipStatus.ACTIVE,
-                    organization__status__in=[
-                        OrganizationStatus.ONBOARDING,
-                        OrganizationStatus.ACTIVE,
-                    ],
-                )
-                .filter(
-                    Q(role__organization__isnull=True)
-                    | Q(role__organization_id=F("organization_id"))
-                )
-                .first()
+            membership = _active_membership(
+                organization_id=contract.organization_id,
+                membership_id=contract.membership_id,
+                actor_id=contract.actor_id,
             )
             if membership is None:
                 raise InvalidTenantTaskContext(
                     "Tenant task context nie wskazuje aktywnego membership."
                 )
 
+            context = context_from_membership(membership)
+            with activate_tenant_context(context):
+                set_local_organization_id(context.organization_id)
+                yield context
+    finally:
+        correlation_id.reset(correlation_token)
+
+
+def _active_membership(
+    *, organization_id: Any, membership_id: Any, actor_id: Any
+) -> Membership | None:
+    return (
+        Membership.objects.select_for_update()
+        .select_related("organization", "role")
+        .filter(
+            pk=membership_id,
+            organization_id=organization_id,
+            user_id=actor_id,
+            status=MembershipStatus.ACTIVE,
+            organization__status__in=[
+                OrganizationStatus.ONBOARDING,
+                OrganizationStatus.ACTIVE,
+            ],
+        )
+        .filter(
+            Q(role__organization__isnull=True)
+            | Q(role__organization_id=F("organization_id"))
+        )
+        .first()
+    )
+
+
+@contextmanager
+def deferred_tenant_context(
+    *,
+    organization_id: Any,
+    membership_id: Any,
+    actor_id: Any,
+    causation_id: str,
+) -> Iterator[TenantContext]:
+    """Acts as a person who authorised something that runs much later.
+
+    A signed task payload cannot serve here: it expires long before a
+    publication scheduled for next week fires. The stored membership is asked
+    again at the moment of running instead, so somebody who has since lost
+    access does not get one more publication out of the queue.
+    """
+    correlation_token = correlation_id.set(str(uuid7()))
+    try:
+        with transaction.atomic():
+            membership = _active_membership(
+                organization_id=organization_id,
+                membership_id=membership_id,
+                actor_id=actor_id,
+            )
+            if membership is None:
+                raise InvalidTenantTaskContext(
+                    f"{causation_id}: membership nie jest już aktywny."
+                )
             context = context_from_membership(membership)
             with activate_tenant_context(context):
                 set_local_organization_id(context.organization_id)

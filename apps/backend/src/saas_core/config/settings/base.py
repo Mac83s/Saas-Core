@@ -455,6 +455,12 @@ CELERY_BEAT_SCHEDULE = {
         "task": "saas_core.modules.shared.sites.tasks.schedule_domain_verifications",
         "schedule": 60.0,
     },
+    # Every minute, so "publish at 7:00" means 7:00 and not some time that
+    # morning. The scan is indexed and returns nothing on a quiet site.
+    "sites-publish-due-entries": {
+        "task": "saas_core.modules.shared.sites.tasks.publish_due_entries",
+        "schedule": 60.0,
+    },
     "billing-process-lifecycle": {
         "task": "saas_core.modules.shared.billing.tasks.process_billing_lifecycle",
         "schedule": 60.0,

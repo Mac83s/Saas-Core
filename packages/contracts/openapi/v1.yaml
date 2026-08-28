@@ -3793,6 +3793,103 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/entries/{entry_id}/schedule/:
+    put:
+      operationId: sites_entry_schedule_set
+      description: Asks for an article to go live later, or calls that off.
+      parameters:
+      - in: path
+        name: entry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EntrySchedule'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EntrySchedule'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EntrySchedule'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntryScheduleState'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    delete:
+      operationId: sites_entry_schedule_cancel
+      description: Asks for an article to go live later, or calls that off.
+      parameters:
+      - in: path
+        name: entry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntryScheduleState'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/entries/{entry_id}/translations/:
     get:
       operationId: sites_entry_translations_list
@@ -5474,6 +5571,34 @@ components:
       - plan_version
       - subscription_state
       - version
+    EntrySchedule:
+      type: object
+      properties:
+        publish_at:
+          type: string
+          format: date-time
+      required:
+      - publish_at
+    EntryScheduleState:
+      type: object
+      properties:
+        entry_id:
+          type: string
+          format: uuid
+        schedule_state:
+          type: string
+        scheduled_publish_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        schedule_error:
+          type: string
+      required:
+      - entry_id
+      - schedule_error
+      - schedule_state
+      - scheduled_publish_at
     GenericMessage:
       type: object
       properties:

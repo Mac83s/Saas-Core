@@ -71,3 +71,63 @@ def publish_site_outbox_event_task(
             "sites_outbox_task_context_rejected",
             extra={"security_event": "sites.outbox_task_context_rejected"},
         )
+
+
+@shared_task(  # type: ignore[untyped-decorator]
+    name="saas_core.modules.shared.sites.tasks.publish_scheduled_entry",
+)
+def publish_scheduled_entry(
+    entry_id: str,
+    organization_id: str,
+    membership_id: str,
+    actor_id: str,
+) -> None:
+    """Publishes one article whose scheduled moment has passed.
+
+    The tenant context is rebuilt from the stored membership rather than from a
+    signed payload: a publication scheduled for next week outlives any signed
+    contract, and asking again is also what stops somebody who has since lost
+    access from getting one more publication out of the queue.
+    """
+    from saas_core.modules.core.organizations.tasks import deferred_tenant_context
+
+    from .collections import run_scheduled_publication
+
+    try:
+        parsed_entry_id = UUID(entry_id)
+    except (TypeError, ValueError):
+        logger.warning(
+            "sites_schedule_task_identifier_rejected",
+            extra={"security_event": "sites.schedule_task_identifier_rejected"},
+        )
+        return
+    try:
+        with deferred_tenant_context(
+            organization_id=organization_id,
+            membership_id=membership_id,
+            actor_id=actor_id,
+            causation_id=f"sites-entry-schedule:{parsed_entry_id}",
+        ):
+            run_scheduled_publication(entry_id=parsed_entry_id)
+    except InvalidTenantTaskContext:
+        logger.warning(
+            "sites_schedule_task_context_rejected",
+            extra={"security_event": "sites.schedule_task_context_rejected"},
+        )
+
+
+@shared_task(  # type: ignore[untyped-decorator]
+    name="saas_core.modules.shared.sites.tasks.publish_due_entries",
+)
+def publish_due_entries() -> int:
+    from .collections import due_scheduled_entries
+
+    due = due_scheduled_entries()
+    for item in due:
+        publish_scheduled_entry.delay(
+            item["entry_id"],
+            item["organization_id"],
+            item["membership_id"],
+            item["actor_id"],
+        )
+    return len(due)

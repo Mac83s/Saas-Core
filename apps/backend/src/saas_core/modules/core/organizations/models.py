@@ -79,8 +79,6 @@ class Organization(models.Model):
                 condition=models.Q(workspace_kind="platform"),
                 name="organizations_single_platform_uq",
             ),
-        ]
-        constraints = [
             models.UniqueConstraint(Lower("slug"), name="organizations_slug_ci_unique"),
             models.CheckConstraint(
                 condition=(

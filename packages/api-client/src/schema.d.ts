@@ -1334,6 +1334,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/entries/{entry_id}/schedule/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Asks for an article to go live later, or calls that off. */
+        put: operations["sites_entry_schedule_set"];
+        post?: never;
+        /** @description Asks for an article to go live later, or calls that off. */
+        delete: operations["sites_entry_schedule_cancel"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/entries/{entry_id}/translations/": {
         parameters: {
             query?: never;
@@ -1898,6 +1916,18 @@ export interface components {
             computed_at: string;
             /** Format: date-time */
             effective_until: string | null;
+        };
+        EntrySchedule: {
+            /** Format: date-time */
+            publish_at: string;
+        };
+        EntryScheduleState: {
+            /** Format: uuid */
+            entry_id: string;
+            schedule_state: string;
+            /** Format: date-time */
+            scheduled_publish_at: string | null;
+            schedule_error: string;
         };
         GenericMessage: {
             detail: string;
@@ -6813,6 +6843,110 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_entry_schedule_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntrySchedule"];
+                "application/x-www-form-urlencoded": components["schemas"]["EntrySchedule"];
+                "multipart/form-data": components["schemas"]["EntrySchedule"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryScheduleState"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_entry_schedule_cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntryScheduleState"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

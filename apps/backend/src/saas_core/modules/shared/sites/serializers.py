@@ -268,6 +268,17 @@ class PageCreateSerializer(serializers.Serializer[dict[str, Any]]):
     )
 
 
+class EntryScheduleSerializer(serializers.Serializer[dict[str, Any]]):
+    publish_at = serializers.DateTimeField()
+
+
+class EntryScheduleStateSerializer(serializers.Serializer[dict[str, Any]]):
+    entry_id = serializers.UUIDField()
+    schedule_state = serializers.CharField()
+    scheduled_publish_at = serializers.DateTimeField(allow_null=True)
+    schedule_error = serializers.CharField(allow_blank=True)
+
+
 class PageUrlChangeSerializer(serializers.Serializer[dict[str, Any]]):
     locale = serializers.ChoiceField(choices=["pl", "en"])
     slug = serializers.RegexField(r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=80)
