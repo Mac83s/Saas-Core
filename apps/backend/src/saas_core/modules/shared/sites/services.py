@@ -76,6 +76,7 @@ SITE_NAVIGATION_SAVED = "sites.navigation.saved"
 SITE_PURPOSE_SET = "sites.site.purpose_set"
 PAGE_TYPE_SET = "sites.page.type_set"
 PAGE_URL_CHANGED = "sites.page.url_changed"
+REDIRECT_DELETED = "sites.redirect.deleted"
 PAGE_AUTOMATION_POLICY_SET = "sites.page.automation_policy_set"
 PAGE_TEMPLATE_IMPORTED = "sites.page.template_imported"
 SITE_PUBLISHED_EVENT = "sites.site.published"
@@ -144,6 +145,11 @@ class RedirectTargetUnchanged(APIException):
     status_code = 400
     default_detail = "Nowy adres jest taki sam jak obecny."
     default_code = "redirect_target_unchanged"
+
+
+class RedirectNotFound(NotFound):
+    default_detail = "Przekierowanie nie istnieje."
+    default_code = "redirect_not_found"
 
 
 class TranslationSlugInvalid(APIException):
@@ -2064,6 +2070,35 @@ def change_page_url(
         },
     )
     return translation, redirect
+
+
+def delete_site_redirect(*, redirect_id: UUID) -> None:
+    """Drops one redirect for good.
+
+    Needed because a mistyped slug otherwise leaves a permanent redirect from
+    an address nobody ever linked to. Session-only and audited like the change
+    that created it: whatever still points at the old address stops arriving.
+    """
+    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    if _is_automation(context):
+        raise PageAutomationForbidden
+    redirect = SiteRedirect.all_objects.filter(
+        pk=redirect_id, organization_id=context.organization_id
+    ).first()
+    if redirect is None:
+        raise RedirectNotFound
+    site_id = redirect.site_id
+    from_path = redirect.from_path
+    to_path = redirect.to_path
+    redirect.delete()
+    record_audit(
+        organization=Organization.objects.get(pk=context.organization_id),
+        action=REDIRECT_DELETED,
+        actor=User.objects.get(pk=context.actor_id),
+        target_type="site",
+        target_id=site_id,
+        metadata={"from_path": from_path, "to_path": to_path},
+    )
 
 
 def list_site_redirects(*, site_id: UUID) -> list[SiteRedirect]:

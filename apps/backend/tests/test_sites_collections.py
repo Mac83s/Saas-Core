@@ -1780,3 +1780,42 @@ def test_moving_a_page_back_to_an_address_it_used_to_have() -> None:
         )
     )
     assert targets == {"/uslugi/": "/oferta/"}
+
+
+def test_a_redirect_can_be_removed_and_the_removal_is_audited() -> None:
+    """A mistyped slug otherwise leaves a permanent redirect from an address
+    nobody ever linked to, and nothing in the product could remove it."""
+    from saas_core.modules.core.organizations.models import OrganizationAuditEntry
+    from saas_core.modules.shared.sites.models import SiteRedirect
+    from test_sites_api import publish_site_request
+
+    client, _, _ = sites_client(slug="w963-drop", role_key="owner")
+    site = create_site(client)
+    page = _publishable_page(
+        client, site.data["id"], key="oferta", slug="oferta", title="Oferta"
+    )
+    publish_site_request(client, site.data["id"], idempotency_key="w963-drop-publish")
+    moved = client.put(
+        f"/api/v1/sites/pages/{page.data['id']}/url/",
+        {"locale": "pl", "slug": "ofreta", "reason": "Literówka."},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    assert moved.status_code == 200
+
+    dropped = client.delete(
+        f"/api/v1/sites/redirects/{moved.data['id']}/",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    assert dropped.status_code == 204
+    assert not SiteRedirect.all_objects.filter(site_id=site.data["id"]).exists()
+    assert OrganizationAuditEntry.objects.filter(
+        action="sites.redirect.deleted"
+    ).exists()
+    assert (
+        client.delete(
+            f"/api/v1/sites/redirects/{moved.data['id']}/",
+            HTTP_X_CSRFTOKEN=csrf_value(client),
+        ).status_code
+        == 404
+    )

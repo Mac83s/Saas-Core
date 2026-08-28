@@ -472,7 +472,9 @@
     "changeUrlSubmit": "Zmień adres i zostaw przekierowanie",
     "redirects": "Przekierowania",
     "redirectsDescription": "Adresy, pod którymi ta strona odpowiadała wcześniej, i miejsca, do których teraz prowadzą.",
-    "redirectsEmpty": "Żaden adres nie był jeszcze zmieniany."
+    "redirectsEmpty": "Żaden adres nie był jeszcze zmieniany.",
+    "redirectDelete": "Usuń przekierowanie z {path}",
+    "redirectDeleteHint": "Usunięcie przekierowania sprawia, że stary adres przestaje prowadzić do strony."
   },
   "BillingSupport": {
     "navigation": "Billing i dostęp",

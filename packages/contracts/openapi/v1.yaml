@@ -4510,6 +4510,38 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/redirects/{redirect_id}/:
+    delete:
+      operationId: sites_redirect_delete
+      description: |-
+        Removes one redirect. Session-only: dropping it costs whatever still
+        follows the old address, which is a person's call.
+      parameters:
+      - in: path
+        name: redirect_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/subdomain-availability/:
     get:
       operationId: sites_subdomain_availability

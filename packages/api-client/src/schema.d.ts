@@ -1517,6 +1517,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/redirects/{redirect_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * @description Removes one redirect. Session-only: dropping it costs whatever still
+         *     follows the old address, which is a person's call.
+         */
+        delete: operations["sites_redirect_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/subdomain-availability/": {
         parameters: {
             query?: never;
@@ -7531,6 +7551,42 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_redirect_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                redirect_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

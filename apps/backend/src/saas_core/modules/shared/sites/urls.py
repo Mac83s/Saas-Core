@@ -37,6 +37,7 @@ from .views import (
     SitePublicationRollbackView,
     SitePurposeView,
     SiteRedirectListView,
+    SiteRedirectView,
 )
 
 app_name = "sites"
@@ -46,6 +47,11 @@ urlpatterns = [
         "pages/<uuid:page_id>/url/",
         PageUrlView.as_view(),
         name="page-url",
+    ),
+    path(
+        "redirects/<uuid:redirect_id>/",
+        SiteRedirectView.as_view(),
+        name="redirect-detail",
     ),
     path(
         "<uuid:site_id>/redirects/",

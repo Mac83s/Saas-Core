@@ -53,6 +53,7 @@ from .services import (
     change_page_url,
     create_page,
     create_site,
+    delete_site_redirect,
     get_draft,
     get_draft_preview,
     get_site_localization_report,
@@ -800,3 +801,23 @@ class SiteRedirectListView(APIView):
         return Response([
             _redirect_payload(item) for item in list_site_redirects(site_id=site_id)
         ])
+
+
+class SiteRedirectView(APIView):
+    """Removes one redirect. Session-only: dropping it costs whatever still
+    follows the old address, which is a person's call."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_redirect_delete",
+        tags=["sites"],
+        responses={
+            204: None,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def delete(self, _request: Request, redirect_id: UUID) -> Response:
+        delete_site_redirect(redirect_id=redirect_id)
+        return Response(status=204)

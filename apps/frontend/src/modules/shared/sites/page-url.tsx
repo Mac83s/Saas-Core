@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowRightIcon, LinkIcon } from "lucide-react";
+import { ArrowRightIcon, LinkIcon, Trash2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { z } from "zod";
 
 import {
   changePageUrl,
+  deleteSiteRedirect,
   listSiteRedirects,
   type PageUrlChangeInput,
   type SiteRedirect,
@@ -168,6 +169,7 @@ export function PageUrlDialog({
 export function SiteRedirectsCard({ siteId }: { siteId: string }) {
   const t = useTranslations("Sites");
   const [redirects, setRedirects] = useState<SiteRedirect[]>([]);
+  const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string>();
 
   useEffect(() => {
@@ -199,13 +201,41 @@ export function SiteRedirectsCard({ siteId }: { siteId: string }) {
         {redirects.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t("redirectsEmpty")}</p>
         ) : (
-          <ul className="space-y-3">
+          <ul aria-describedby="redirects-hint" className="space-y-3">
             {redirects.map((redirect) => (
               <li className="space-y-1 rounded-lg border p-3" key={redirect.id}>
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <code className="break-all">{redirect.from_path}</code>
                   <ArrowRightIcon aria-hidden="true" className="size-4" />
                   <code className="break-all">{redirect.to_path}</code>
+                  <Button
+                    aria-label={t("redirectDelete", {
+                      path: redirect.from_path,
+                    })}
+                    className="ms-auto"
+                    disabled={busy}
+                    onClick={() => {
+                      setBusy(true);
+                      setProblem(undefined);
+                      void deleteSiteRedirect(redirect.id)
+                        .then(() => {
+                          setRedirects((current) =>
+                            current.filter((item) => item.id !== redirect.id),
+                          );
+                        })
+                        .catch((error: unknown) => {
+                          setProblem(sitesErrorMessage(error, t));
+                        })
+                        .finally(() => {
+                          setBusy(false);
+                        });
+                    }}
+                    size="icon-sm"
+                    type="button"
+                    variant="ghost"
+                  >
+                    <Trash2Icon aria-hidden="true" />
+                  </Button>
                 </div>
                 {redirect.reason && (
                   <p className="text-sm text-muted-foreground">
@@ -215,6 +245,11 @@ export function SiteRedirectsCard({ siteId }: { siteId: string }) {
               </li>
             ))}
           </ul>
+        )}
+        {redirects.length > 0 && (
+          <p className="mt-3 text-sm text-muted-foreground" id="redirects-hint">
+            {t("redirectDeleteHint")}
+          </p>
         )}
       </CardContent>
     </Card>

@@ -1522,6 +1522,19 @@ export async function listSiteRedirects(
   return data;
 }
 
+export async function deleteSiteRedirect(redirectId: string): Promise<void> {
+  const csrfToken = await getCsrfToken();
+  const { error, response } = await client.DELETE(
+    "/api/v1/sites/redirects/{redirect_id}/",
+    {
+      params: { path: { redirect_id: redirectId } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error) throwProblem(error, response);
+}
+
 export async function setPageAutomationPolicy(
   pageId: string,
   policy: AutomationPolicy,

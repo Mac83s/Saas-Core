@@ -472,7 +472,9 @@
     "changeUrlSubmit": "Change address and leave a redirect",
     "redirects": "Redirects",
     "redirectsDescription": "Addresses this site used to answer on, and where they now lead.",
-    "redirectsEmpty": "No address has been changed yet."
+    "redirectsEmpty": "No address has been changed yet.",
+    "redirectDelete": "Remove the redirect from {path}",
+    "redirectDeleteHint": "Removing a redirect stops the old address leading anywhere."
   },
   "BillingSupport": {
     "navigation": "Billing & access",

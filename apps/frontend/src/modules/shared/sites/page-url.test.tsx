@@ -12,14 +12,18 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import polishMessages from "../../../../messages/pl.json";
 import { PageUrlDialog, SiteRedirectsCard } from "./page-url";
 
-const { changePageUrl, listSiteRedirects } = vi.hoisted(() => ({
-  changePageUrl: vi.fn(),
-  listSiteRedirects: vi.fn(),
-}));
+const { changePageUrl, deleteSiteRedirect, listSiteRedirects } = vi.hoisted(
+  () => ({
+    changePageUrl: vi.fn(),
+    deleteSiteRedirect: vi.fn(),
+    listSiteRedirects: vi.fn(),
+  }),
+);
 
 vi.mock("@saas-core/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@saas-core/api-client")>()),
   changePageUrl,
+  deleteSiteRedirect,
   listSiteRedirects,
 }));
 
@@ -36,6 +40,7 @@ const redirect = {
 beforeEach(() => {
   vi.clearAllMocks();
   changePageUrl.mockResolvedValue(redirect);
+  deleteSiteRedirect.mockResolvedValue(undefined);
   listSiteRedirects.mockResolvedValue([redirect]);
 });
 
@@ -101,4 +106,27 @@ test("wypisuje przekierowania i przechodzi axe", async () => {
 
   const result = await axe.run(rendered.container);
   expect(result.violations).toHaveLength(0);
+});
+
+test("usuwa przekierowanie, którego nikt już nie potrzebuje", async () => {
+  render(
+    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+      <SiteRedirectsCard siteId={siteId} />
+    </NextIntlClientProvider>,
+  );
+
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Usuń przekierowanie z /oferta/",
+    }),
+  );
+
+  await waitFor(() => expect(deleteSiteRedirect).toHaveBeenCalledOnce());
+  expect(deleteSiteRedirect.mock.calls[0]?.[0]).toBe(redirect.id);
+  // Gone from the list without a reload: a row that answers is a lie.
+  await waitFor(() =>
+    expect(
+      screen.getByText("Żaden adres nie był jeszcze zmieniany."),
+    ).not.toBeNull(),
+  );
 });
