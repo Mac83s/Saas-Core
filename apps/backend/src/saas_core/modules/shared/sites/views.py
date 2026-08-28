@@ -13,10 +13,15 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
+from saas_core.modules.shared.notifications.api_key_middleware import (
+    IsSessionOrApiKey,
+)
 
+from .capabilities import read_content_capabilities
 from .localization import LocaleResolution, SiteLocalizationReport
 from .models import Page, PageBlock, PageTranslation, Publication, Site
 from .serializers import (
+    ContentCapabilitiesSerializer,
     CursorQuerySerializer,
     DraftSaveSerializer,
     PageCreateSerializer,
@@ -35,6 +40,7 @@ from .serializers import (
     SitePublicationListSerializer,
     SitePublicationSerializer,
     SitePublishSerializer,
+    SitePurposeSerializer,
     SiteRollbackSerializer,
     SiteSummarySerializer,
 )
@@ -57,6 +63,7 @@ from .services import (
     save_draft,
     save_page_translation,
     save_site_navigation,
+    set_site_purpose,
 )
 
 IDEMPOTENCY_PARAMETER = OpenApiParameter(
@@ -510,6 +517,7 @@ def _site_summary(site: Site) -> dict[str, Any]:
         "id": site.id,
         "name": site.name,
         "slug": site.slug,
+        "purpose": site.purpose,
         "default_locale": site.default_locale,
         "current_publication_id": site.current_publication_id,
         "created_at": site.created_at,
@@ -539,6 +547,7 @@ def _page_summary(page: Page) -> dict[str, Any]:
         "version": page.version,
         "current_draft_id": page.current_draft_id,
         "current_draft_hash": draft.content_hash if draft is not None else None,
+        "page_type": page.page_type,
         "automation_policy": page.automation_policy,
         "draft_author": _draft_author(draft),
         "created_at": page.created_at,
@@ -647,3 +656,55 @@ def _locale_resolution(locale: LocaleResolution) -> dict[str, Any]:
         "complete": locale.complete,
         "slug_locked": locale.slug_locked,
     }
+
+
+class ContentCapabilitiesView(APIView):
+    """What this tenant's content surface can do.
+
+    Readable by the panel and by an integration with a read scope: a connector
+    with no database has no other way to learn which blocks, languages and
+    limits it is working against, and finding out by having a write refused is
+    a worse answer.
+    """
+
+    permission_classes = [IsSessionOrApiKey]
+
+    @extend_schema(
+        operation_id="sites_capabilities_retrieve",
+        tags=["sites"],
+        responses={
+            200: ContentCapabilitiesSerializer,
+            403: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, _request: Request) -> Response:
+        return Response(read_content_capabilities())
+
+
+class SitePurposeView(APIView):
+    """Marks what a site is for.
+
+    Session-only: the label is what inventory and SeoContentRank reason about,
+    so a credential able to set it could describe a customer's site as ours.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_purpose_set",
+        tags=["sites"],
+        request=SitePurposeSerializer,
+        responses={
+            200: SiteSummarySerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def put(self, request: Request, site_id: UUID) -> Response:
+        serializer = SitePurposeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        site = set_site_purpose(
+            site_id=site_id, purpose=serializer.validated_data["purpose"]
+        )
+        return Response(_site_summary(site))

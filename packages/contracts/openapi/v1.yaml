@@ -3210,6 +3210,89 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/{site_id}/purpose/:
+    put:
+      operationId: sites_purpose_set
+      description: |-
+        Marks what a site is for.
+
+        Session-only: the label is what inventory and SeoContentRank reason about,
+        so a credential able to set it could describe a customer's site as ours.
+      parameters:
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SitePurpose'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SitePurpose'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SitePurpose'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteSummary'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/capabilities/:
+    get:
+      operationId: sites_capabilities_retrieve
+      description: |-
+        What this tenant's content surface can do.
+
+        Readable by the panel and by an integration with a read scope: a connector
+        with no database has no other way to learn which blocks, languages and
+        limits it is working against, and finding out by having a write refused is
+        a worse answer.
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentCapabilities'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/collections/{collection_id}/entries/:
     get:
       operationId: sites_entries_list
@@ -4614,6 +4697,40 @@ components:
           type: boolean
       required:
       - show_in_navigation
+    ContentCapabilities:
+      type: object
+      description: Shape and limits, never unpublished content.
+      properties:
+        contract_version:
+          type: integer
+        locales:
+          type: object
+          additionalProperties: {}
+        block_schemas:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        content_types:
+          type: object
+          additionalProperties: {}
+        quotas:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        sites:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+      required:
+      - block_schemas
+      - content_types
+      - contract_version
+      - locales
+      - quotas
+      - sites
     ContentCollection:
       type: object
       properties:
@@ -5800,6 +5917,8 @@ components:
           type:
           - string
           - 'null'
+        page_type:
+          type: string
         automation_policy:
           type: string
         draft_author:
@@ -5821,6 +5940,7 @@ components:
       - id
       - key
       - name
+      - page_type
       - site_id
       - updated_at
       - version
@@ -6187,6 +6307,16 @@ components:
       required:
       - email
       - id
+    PurposeEnum:
+      enum:
+      - customer
+      - platform_marketing
+      - platform_blog
+      type: string
+      description: |-
+        * `customer` - customer
+        * `platform_marketing` - platform_marketing
+        * `platform_blog` - platform_blog
     ReasonEnum:
       enum:
       - available
@@ -6643,6 +6773,13 @@ components:
       required:
       - items
       - next_cursor
+    SitePurpose:
+      type: object
+      properties:
+        purpose:
+          $ref: '#/components/schemas/PurposeEnum'
+      required:
+      - purpose
     SiteSummary:
       type: object
       properties:
@@ -6652,6 +6789,8 @@ components:
         name:
           type: string
         slug:
+          type: string
+        purpose:
           type: string
         default_locale:
           type: string
@@ -6672,6 +6811,7 @@ components:
       - default_locale
       - id
       - name
+      - purpose
       - slug
       - updated_at
     Slot:

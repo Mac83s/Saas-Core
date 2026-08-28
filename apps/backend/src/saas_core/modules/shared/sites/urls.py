@@ -21,6 +21,7 @@ from .onboarding_views import (
     SubdomainAvailabilityView,
 )
 from .views import (
+    ContentCapabilitiesView,
     PageDraftPreviewView,
     PageDraftView,
     PageListCreateView,
@@ -32,11 +33,22 @@ from .views import (
     SiteNavigationView,
     SitePublicationCreateView,
     SitePublicationRollbackView,
+    SitePurposeView,
 )
 
 app_name = "sites"
 
 urlpatterns = [
+    path(
+        "<uuid:site_id>/purpose/",
+        SitePurposeView.as_view(),
+        name="site-purpose",
+    ),
+    path(
+        "capabilities/",
+        ContentCapabilitiesView.as_view(),
+        name="content-capabilities",
+    ),
     path(
         "subdomain-availability/",
         SubdomainAvailabilityView.as_view(),

@@ -23,6 +23,38 @@ def canonical_json_hash(value: Any) -> str:
     return hashlib.sha256(serialized).hexdigest()
 
 
+class SitePurpose(models.TextChoices):
+    """Whose site this is, and what it is for.
+
+    Read by inventory and by SeoContentRank. Deliberately not read by the
+    renderer or the publication path — those treat every site identically, and
+    a label that changed how something renders would make the platform's own
+    pages a second, less-tested code path.
+    """
+
+    CUSTOMER = "customer", "Strona klienta"
+    PLATFORM_MARKETING = "platform_marketing", "Strona marketingowa platformy"
+    PLATFORM_BLOG = "platform_blog", "Blog platformy"
+
+
+class PageType(models.TextChoices):
+    """What kind of page this is, in the vocabulary SEO tooling uses.
+
+    An optimiser needs to know that a page is the contact page before it starts
+    rewriting it like a landing page. The list is the one W9.6.2 fixes; it is
+    metadata about intent, and nothing in the rendering path branches on it.
+    """
+
+    HOMEPAGE = "homepage", "Strona główna"
+    LANDING = "landing", "Landing"
+    SERVICE = "service", "Usługa"
+    ABOUT = "about", "O nas"
+    CONTACT = "contact", "Kontakt"
+    LEGAL = "legal", "Dokument prawny"
+    ARTICLE_INDEX = "article_index", "Indeks artykułów"
+    ARTICLE = "article", "Artykuł"
+
+
 class Site(TenantScopedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     name = models.CharField(max_length=160)
@@ -31,6 +63,11 @@ class Site(TenantScopedModel):
         max_length=10,
         choices=[("pl", "Polski"), ("en", "English")],
         default="pl",
+    )
+    purpose = models.CharField(
+        max_length=32,
+        choices=SitePurpose.choices,
+        default=SitePurpose.CUSTOMER,
     )
     current_publication = models.ForeignKey(
         "Publication",
@@ -381,6 +418,11 @@ class Page(TenantScopedModel):
     site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name="pages")
     name = models.CharField(max_length=160)
     key = models.SlugField(max_length=80)
+    page_type = models.CharField(
+        max_length=32,
+        choices=PageType.choices,
+        default=PageType.LANDING,
+    )
     version = models.PositiveBigIntegerField(default=0)
     automation_policy = models.CharField(
         max_length=16,

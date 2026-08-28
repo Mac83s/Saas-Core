@@ -1172,6 +1172,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/{site_id}/purpose/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * @description Marks what a site is for.
+         *
+         *     Session-only: the label is what inventory and SeoContentRank reason about,
+         *     so a credential able to set it could describe a customer's site as ours.
+         */
+        put: operations["sites_purpose_set"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/capabilities/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description What this tenant's content surface can do.
+         *
+         *     Readable by the panel and by an integration with a read scope: a connector
+         *     with no database has no other way to learn which blocks, languages and
+         *     limits it is working against, and finding out by having a write refused is
+         *     a worse answer.
+         */
+        get: operations["sites_capabilities_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/collections/{collection_id}/entries/": {
         parameters: {
             query?: never;
@@ -1554,6 +1600,25 @@ export interface components {
         };
         CollectionNavigation: {
             show_in_navigation: boolean;
+        };
+        /** @description Shape and limits, never unpublished content. */
+        ContentCapabilities: {
+            contract_version: number;
+            locales: {
+                [key: string]: unknown;
+            };
+            block_schemas: {
+                [key: string]: unknown;
+            }[];
+            content_types: {
+                [key: string]: unknown;
+            };
+            quotas: {
+                [key: string]: unknown;
+            }[];
+            sites: {
+                [key: string]: unknown;
+            }[];
         };
         ContentCollection: {
             /** Format: uuid */
@@ -2011,6 +2076,7 @@ export interface components {
             /** Format: uuid */
             current_draft_id: string | null;
             current_draft_hash: string | null;
+            page_type: string;
             automation_policy: string;
             draft_author: string | null;
             /** Format: date-time */
@@ -2172,6 +2238,13 @@ export interface components {
             /** Format: email */
             email: string;
         };
+        /**
+         * @description * `customer` - customer
+         *     * `platform_marketing` - platform_marketing
+         *     * `platform_blog` - platform_blog
+         * @enum {string}
+         */
+        PurposeEnum: "customer" | "platform_marketing" | "platform_blog";
         /**
          * @description * `available` - available
          *     * `invalid` - invalid
@@ -2352,11 +2425,15 @@ export interface components {
             /** Format: uuid */
             next_cursor: string | null;
         };
+        SitePurpose: {
+            purpose: components["schemas"]["PurposeEnum"];
+        };
         SiteSummary: {
             /** Format: uuid */
             id: string;
             name: string;
             slug: string;
+            purpose: string;
             default_locale: string;
             /** Format: uuid */
             current_publication_id: string | null;
@@ -6029,6 +6106,84 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_purpose_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SitePurpose"];
+                "application/x-www-form-urlencoded": components["schemas"]["SitePurpose"];
+                "multipart/form-data": components["schemas"]["SitePurpose"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteSummary"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_capabilities_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentCapabilities"];
+                };
+            };
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

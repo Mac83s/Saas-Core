@@ -1306,3 +1306,152 @@ def test_a_language_cannot_be_added_to_the_same_article_twice() -> None:
 
     listed = client.get(f"/api/v1/sites/entries/{entry.data['id']}/translations/")
     assert sorted(item["locale"] for item in listed.data) == ["en", "pl"]
+
+
+def test_capabilities_describe_shape_and_limits_without_any_draft() -> None:
+    """SeoContentRank has no database, so this read is how it learns what is
+    possible — and it must not become a way to survey unpublished work."""
+    from saas_core.modules.shared.sites.capabilities import CONTENT_CONTRACT_VERSION
+
+    client, _, _ = sites_client(slug="capabilities", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    entry = create_entry(
+        client, collection.data["id"], slug="sekret", idempotency_key="cap-entry"
+    )
+    save_entry_draft(
+        client,
+        entry.data["id"],
+        expected_version=0,
+        text="Treść, której nikt jeszcze nie opublikował.",
+        idempotency_key="cap-draft",
+    )
+
+    response = client.get("/api/v1/sites/capabilities/")
+    assert response.status_code == 200
+    body = response.json()
+
+    assert body["contract_version"] == CONTENT_CONTRACT_VERSION
+    assert body["locales"]["default"] in body["locales"]["supported"]
+    block_types = {item["block_type"] for item in body["block_schemas"]}
+    assert "core.hero" in block_types
+    hero = next(item for item in body["block_schemas"] if item["block_type"] == "core.hero")
+    assert hero["latest_version"] == max(hero["versions"])
+    assert "article" in body["content_types"]["page_types"]
+    assert "platform_blog" in body["content_types"]["site_purposes"]
+    assert {item["key"] for item in body["quotas"]} == {"storage.bytes", "sites.max"}
+    listed = next(
+        item for item in body["sites"] if item["site_id"] == str(site.data["id"])
+    )
+    assert listed["purpose"] == "customer"
+    assert listed["published"] is False
+
+    # The unpublished text must appear nowhere in the reply, at any depth.
+    assert "Treść, której nikt jeszcze nie opublikował." not in response.content.decode()
+    assert "sekret" not in response.content.decode()
+
+
+def test_capabilities_never_reach_across_the_tenant_boundary() -> None:
+    first_client, _, _ = sites_client(slug="cap-first", role_key="owner")
+    first_site = create_site(first_client)
+    second_client, _, _ = sites_client(slug="cap-second", role_key="owner")
+    second_site = create_site(second_client)
+
+    body = second_client.get("/api/v1/sites/capabilities/").json()
+    listed = {item["site_id"] for item in body["sites"]}
+    assert str(second_site.data["id"]) in listed
+    assert str(first_site.data["id"]) not in listed
+
+
+def test_the_label_changes_nothing_about_how_a_page_is_published() -> None:
+    """A platform article is rendered by exactly the code that renders a
+    customer's; the day one of them branches on the label is the day the two
+    surfaces start drifting apart."""
+    from django.test import override_settings
+    from rest_framework.test import APIClient as PublicClient
+
+    from saas_core.modules.shared.sites.models import Page, PageType, Site, SitePurpose
+
+    client, _, _ = sites_client(slug="label-neutral", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    entry = create_entry(
+        client, collection.data["id"], slug="artykul", idempotency_key="label-entry"
+    )
+    save_entry_draft(
+        client,
+        entry.data["id"],
+        expected_version=0,
+        text="Ta sama treść niezależnie od etykiety.",
+        idempotency_key="label-draft",
+    )
+    publish(client, entry.data["id"], idempotency_key="label-publish")
+    platform = _verified_platform_domain(site.data["id"])
+
+    with override_settings(PUBLIC_SITE_SCHEME="https"):
+        as_customer = PublicClient().get(
+            "/api/v1/public/site/",
+            {"path": "/blog/artykul/"},
+            HTTP_HOST=platform.hostname,
+        )
+
+    # Relabel both the site and its pages, publish nothing new, ask again.
+    Site.all_objects.filter(pk=site.data["id"]).update(
+        purpose=SitePurpose.PLATFORM_BLOG
+    )
+    Page.all_objects.filter(site_id=site.data["id"]).update(
+        page_type=PageType.ARTICLE
+    )
+    with override_settings(PUBLIC_SITE_SCHEME="https"):
+        as_platform = PublicClient().get(
+            "/api/v1/public/site/",
+            {"path": "/blog/artykul/"},
+            HTTP_HOST=platform.hostname,
+        )
+
+    assert as_customer.status_code == as_platform.status_code == 200
+    assert as_customer.json() == as_platform.json()
+
+
+def test_a_customer_cannot_label_their_site_as_the_platform() -> None:
+    """The label is what inventory reasons about, so claiming to be us in it
+    would be claiming to be us everywhere that reads it."""
+    client, _, _ = sites_client(slug="label-guard", role_key="owner")
+    site = create_site(client)
+
+    refused = client.put(
+        f"/api/v1/sites/{site.data['id']}/purpose/",
+        {"purpose": "platform_marketing"},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    assert refused.status_code == 403
+    assert refused.data["code"] == "site_purpose_mismatch"
+
+    # Its own purpose is fine and is a no-op it may repeat.
+    allowed = client.put(
+        f"/api/v1/sites/{site.data['id']}/purpose/",
+        {"purpose": "customer"},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    assert allowed.status_code == 200
+    assert allowed.data["purpose"] == "customer"
+
+
+def test_a_credential_cannot_relabel_the_surface_it_writes() -> None:
+    from saas_core.modules.core.organizations.context import activate_tenant_context
+    from saas_core.modules.shared.sites.services import (
+        PageAutomationForbidden,
+        set_site_purpose,
+    )
+    from test_sites_api import automation_context
+
+    client, organization, user = sites_client(slug="label-key", role_key="owner")
+    site = create_site(client)
+
+    with (
+        activate_tenant_context(automation_context(organization.id, user.id)),
+        pytest.raises(PageAutomationForbidden),
+    ):
+        set_site_purpose(site_id=site.data["id"], purpose="platform_blog")

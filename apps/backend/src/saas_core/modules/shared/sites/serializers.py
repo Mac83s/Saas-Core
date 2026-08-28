@@ -77,6 +77,7 @@ class SiteSummarySerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     name = serializers.CharField()
     slug = serializers.CharField()
+    purpose = serializers.CharField()
     default_locale = serializers.CharField()
     current_publication_id = serializers.UUIDField(allow_null=True)
     created_at = serializers.DateTimeField()
@@ -264,6 +265,23 @@ class PageCreateSerializer(serializers.Serializer[dict[str, Any]]):
     )
 
 
+class SitePurposeSerializer(serializers.Serializer[dict[str, Any]]):
+    purpose = serializers.ChoiceField(
+        choices=["customer", "platform_marketing", "platform_blog"]
+    )
+
+
+class ContentCapabilitiesSerializer(serializers.Serializer[dict[str, Any]]):
+    """Shape and limits, never unpublished content."""
+
+    contract_version = serializers.IntegerField()
+    locales = serializers.DictField()
+    block_schemas = serializers.ListField(child=serializers.DictField())
+    content_types = serializers.DictField()
+    quotas = serializers.ListField(child=serializers.DictField())
+    sites = serializers.ListField(child=serializers.DictField())
+
+
 class PageSummarySerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     site_id = serializers.UUIDField()
@@ -272,6 +290,7 @@ class PageSummarySerializer(serializers.Serializer[dict[str, Any]]):
     version = serializers.IntegerField()
     current_draft_id = serializers.UUIDField(allow_null=True)
     current_draft_hash = serializers.CharField(allow_null=True)
+    page_type = serializers.CharField()
     automation_policy = serializers.CharField()
     # "person" or "automation": who wrote the draft that is waiting. Without it
     # a proposal is indistinguishable from the operator's own unsaved work.

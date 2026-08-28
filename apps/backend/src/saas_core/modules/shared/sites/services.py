@@ -26,7 +26,7 @@ from saas_core.modules.core.organizations.context import (
     TenantContext,
     require_tenant_context,
 )
-from saas_core.modules.core.organizations.models import Organization
+from saas_core.modules.core.organizations.models import Organization, WorkspaceKind
 from saas_core.modules.core.organizations.tasks import issue_tenant_task_contract
 from saas_core.modules.shared.billing.api import (
     FeatureOperation,
@@ -54,6 +54,7 @@ from .models import (
     Publication,
     Site,
     SiteOutboxEvent,
+    SitePurpose,
     canonical_json_hash,
 )
 from .permissions import SITE_CONTENT_EDIT, SITE_PUBLISH, SITES_ENABLED, SITES_MAX
@@ -65,6 +66,7 @@ PAGE_TRANSLATION_SAVED = "sites.page.translation_saved"
 SITE_PUBLISHED = "sites.site.published"
 SITE_ROLLED_BACK = "sites.site.rolled_back"
 SITE_NAVIGATION_SAVED = "sites.navigation.saved"
+SITE_PURPOSE_SET = "sites.site.purpose_set"
 PAGE_AUTOMATION_POLICY_SET = "sites.page.automation_policy_set"
 PAGE_TEMPLATE_IMPORTED = "sites.page.template_imported"
 SITE_PUBLISHED_EVENT = "sites.site.published"
@@ -121,6 +123,18 @@ class AutomationGrantMissing(APIException):
     status_code = 403
     default_detail = "Klucz nie ma grantu obejmującego ten zasób."
     default_code = "automation_grant_missing"
+
+
+class SiteInvalidPurpose(APIException):
+    status_code = 400
+    default_detail = "Nieznane przeznaczenie strony."
+    default_code = "site_invalid_purpose"
+
+
+class SitePurposeMismatch(APIException):
+    status_code = 403
+    default_detail = "Przeznaczenie nie odpowiada rodzajowi workspace'u."
+    default_code = "site_purpose_mismatch"
 
 
 class PageAutomationForbidden(APIException):
@@ -1792,3 +1806,48 @@ def _same_request[T: Site | Page | PageVersion](value: T, request_hash: str) -> 
     if value.request_hash != request_hash:
         raise SitesIdempotencyConflict
     return value
+
+
+@transaction.atomic
+def set_site_purpose(*, site_id: UUID, purpose: str) -> Site:
+    """Marks what a site is for.
+
+    Session-only at the route, and refused for a credential here as well: the
+    label is what inventory and SeoContentRank reason about, so an integration
+    able to relabel its own surface could describe a customer's site as ours.
+    """
+    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    if _is_automation(context):
+        raise PageAutomationForbidden
+    if purpose not in SitePurpose.values:
+        raise SiteInvalidPurpose
+    site = (
+        Site.all_objects.select_for_update()
+        .filter(pk=site_id, organization_id=context.organization_id)
+        .first()
+    )
+    if site is None:
+        raise SiteNotFound
+    organization = Organization.objects.get(pk=context.organization_id)
+    platform_workspace = organization.workspace_kind == WorkspaceKind.PLATFORM
+    platform_purpose = purpose in {
+        SitePurpose.PLATFORM_MARKETING,
+        SitePurpose.PLATFORM_BLOG,
+    }
+    if platform_purpose != platform_workspace:
+        # The label has to agree with whose workspace this is, in both
+        # directions: a customer cannot claim to be the platform, and the
+        # platform's own site is not a customer's.
+        raise SitePurposeMismatch
+    if site.purpose != purpose:
+        site.purpose = purpose
+        site.save(update_fields=["purpose", "updated_at"])
+        record_audit(
+            organization=organization,
+            action=SITE_PURPOSE_SET,
+            actor=User.objects.get(pk=context.actor_id),
+            target_type="site",
+            target_id=site.id,
+            metadata={"purpose": purpose},
+        )
+    return site
