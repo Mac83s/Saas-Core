@@ -57,6 +57,8 @@ export type SiteLocalizationReport =
 export type SitePublication = components["schemas"]["SitePublication"];
 export type SitePublicationList = components["schemas"]["SitePublicationList"];
 export type SiteNavigation = components["schemas"]["SiteNavigation"];
+export type SiteRedirect = components["schemas"]["SiteRedirect"];
+export type PageUrlChangeInput = components["schemas"]["PageUrlChange"];
 export type ContentCollection = components["schemas"]["ContentCollection"];
 export type ContentEntry = components["schemas"]["ContentEntry"];
 export type ContentEntryDraft = components["schemas"]["ContentEntryDraft"];
@@ -1478,6 +1480,42 @@ export async function setPageType(
       body: { page_type: pageType },
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Moves a published page, leaving a permanent redirect behind.
+ *
+ *  Session-only by design: the endpoint refuses API keys, because whether a
+ *  ranking address is worth moving is not an optimiser's call to make. */
+export async function changePageUrl(
+  pageId: string,
+  input: PageUrlChangeInput,
+): Promise<SiteRedirect> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/sites/pages/{page_id}/url/",
+    {
+      params: { path: { page_id: pageId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function listSiteRedirects(
+  siteId: string,
+): Promise<SiteRedirect[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/{site_id}/redirects/",
+    {
+      params: { path: { site_id: siteId } },
+      credentials: "same-origin",
     },
   );
   if (error || !data) throwProblem(error, response);

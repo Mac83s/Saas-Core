@@ -95,6 +95,7 @@ import {
   type BlockOption,
 } from "./block-form";
 import { mutationKey, type MutationReceipt } from "./idempotency";
+import { PageUrlDialog } from "./page-url";
 import { sitesErrorMessage } from "./problem";
 
 const designTokens = {
@@ -356,6 +357,22 @@ export function PageEditor({
       mounted = false;
     };
   }, [applyLoadedData, page.id, t]);
+
+  // The URL change happens outside both forms and bumps the translation
+  // version, so the loaded copy has to come back or the next metadata save
+  // would collide with a version it never saw.
+  const reloadTranslations = useCallback(async () => {
+    const loaded = await listPageTranslations(page.id);
+    setTranslations(loaded.items);
+    translationReceipt.current = undefined;
+    setTranslationConflict(false);
+    translationForm.reset(
+      translationValues(
+        loaded.items.find((item) => item.locale === locale),
+        page.key,
+      ),
+    );
+  }, [locale, page.id, page.key, translationForm]);
 
   const reloadDraft = useCallback(async () => {
     setLoading(true);
@@ -927,7 +944,15 @@ export function PageEditor({
                 })}
               </Badge>
               {selectedTranslation?.slug_locked && (
-                <Badge variant="secondary">{t("slugLocked")}</Badge>
+                <>
+                  <Badge variant="secondary">{t("slugLocked")}</Badge>
+                  <PageUrlDialog
+                    locale={locale}
+                    onChanged={reloadTranslations}
+                    pageId={page.id}
+                    slug={selectedTranslation.slug}
+                  />
+                </>
               )}
             </div>
           </form>

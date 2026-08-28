@@ -463,7 +463,16 @@
     "pageType_contact": "Contact",
     "pageType_legal": "Legal document",
     "pageType_article_index": "Article index",
-    "pageType_article": "Article"
+    "pageType_article": "Article",
+    "changeUrl": "Change address",
+    "changeUrlDescription": "The old address keeps working — visitors and search engines are permanently redirected to the new one.",
+    "changeUrlReason": "Why are you changing the address?",
+    "changeUrlReasonRequired": "State why the address is changing.",
+    "changeUrlPublishHint": "The change reaches the live site only after you publish again.",
+    "changeUrlSubmit": "Change address and leave a redirect",
+    "redirects": "Redirects",
+    "redirectsDescription": "Addresses this site used to answer on, and where they now lead.",
+    "redirectsEmpty": "No address has been changed yet."
   },
   "BillingSupport": {
     "navigation": "Billing & access",

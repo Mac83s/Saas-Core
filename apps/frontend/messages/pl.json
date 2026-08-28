@@ -463,7 +463,16 @@
     "pageType_contact": "Kontakt",
     "pageType_legal": "Dokument prawny",
     "pageType_article_index": "Indeks artykułów",
-    "pageType_article": "Artykuł"
+    "pageType_article": "Artykuł",
+    "changeUrl": "Zmień adres",
+    "changeUrlDescription": "Stary adres nadal będzie działał — odwiedzający i wyszukiwarki zostaną trwale przekierowani pod nowy.",
+    "changeUrlReason": "Dlaczego zmieniasz adres?",
+    "changeUrlReasonRequired": "Podaj powód zmiany adresu.",
+    "changeUrlPublishHint": "Zmiana zadziała na żywej stronie dopiero po ponownej publikacji.",
+    "changeUrlSubmit": "Zmień adres i zostaw przekierowanie",
+    "redirects": "Przekierowania",
+    "redirectsDescription": "Adresy, pod którymi ta strona odpowiadała wcześniej, i miejsca, do których teraz prowadzą.",
+    "redirectsEmpty": "Żaden adres nie był jeszcze zmieniany."
   },
   "BillingSupport": {
     "navigation": "Billing i dostęp",

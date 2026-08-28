@@ -83,6 +83,7 @@ import { BlogPanel } from "./blog-panel";
 import { DomainPanel } from "./domain-panel";
 import { NavigationEditor } from "./navigation-editor";
 import { PageEditor } from "./page-editor";
+import { SiteRedirectsCard } from "./page-url";
 import { PublicationHistory } from "./publication-history";
 import { SiteOnboardingWizard } from "./site-onboarding";
 
@@ -753,9 +754,15 @@ export function SitesPanel({
           />
         </TabsPanel>
 
-        <TabsPanel value="address">
+        <TabsPanel className="space-y-6" value="address">
           {selectedSiteId && (
-            <DomainPanel key={selectedSiteId} siteId={selectedSiteId} />
+            <>
+              <DomainPanel key={selectedSiteId} siteId={selectedSiteId} />
+              <SiteRedirectsCard
+                key={`redirects-${selectedSiteId}`}
+                siteId={selectedSiteId}
+              />
+            </>
           )}
         </TabsPanel>
       </Tabs>
