@@ -453,7 +453,17 @@
     "entryTranslationExists": "Ten artykuł ma już wersję w tym języku.",
     "entryTranslationTitle": "Tytuł wersji językowej",
     "entryTranslationSlug": "Adres wersji językowej",
-    "entryTranslationLocale": "Język wersji"
+    "entryTranslationLocale": "Język wersji",
+    "pageTypeLabel": "Rodzaj podstrony",
+    "pageTypeHint": "Nie zmienia wyglądu strony. Mówi narzędziom SEO, czym ta podstrona jest, żeby nie optymalizowały kontaktu jak landingu.",
+    "pageType_homepage": "Strona główna",
+    "pageType_landing": "Landing",
+    "pageType_service": "Usługa",
+    "pageType_about": "O nas",
+    "pageType_contact": "Kontakt",
+    "pageType_legal": "Dokument prawny",
+    "pageType_article_index": "Indeks artykułów",
+    "pageType_article": "Artykuł"
   },
   "BillingSupport": {
     "navigation": "Billing i dostęp",

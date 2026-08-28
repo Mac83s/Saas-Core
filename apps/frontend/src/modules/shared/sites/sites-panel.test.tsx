@@ -28,6 +28,7 @@ const {
   listSitePublications,
   listSites,
   publishSite,
+  setPageType,
 } = vi.hoisted(() => ({
   createSitePage: vi.fn(),
   getPageDraft: vi.fn(),
@@ -40,6 +41,7 @@ const {
   listSitePublications: vi.fn(),
   listSites: vi.fn(),
   publishSite: vi.fn(),
+  setPageType: vi.fn(),
 }));
 
 vi.mock("@saas-core/api-client", async (importOriginal) => ({
@@ -55,6 +57,7 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   listSitePublications,
   listSites,
   publishSite,
+  setPageType,
 }));
 
 const site = {
@@ -361,3 +364,26 @@ function entitlementProblem() {
     correlation_id: null,
   });
 }
+
+test("marks what a page is without changing how it looks", async () => {
+  setPageType.mockResolvedValue({ ...page, page_type: "contact" });
+  render(
+    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+      <SitesPanel />
+    </NextIntlClientProvider>,
+  );
+
+  // The control belongs to the selected page, so wait for the selection the
+  // panel makes on load before reaching for it.
+  expect(await screen.findByDisplayValue("Start")).not.toBeNull();
+  fireEvent.change(await screen.findByLabelText("Rodzaj podstrony"), {
+    target: { value: "contact" },
+  });
+
+  await waitFor(() =>
+    expect(setPageType).toHaveBeenCalledWith(page.id, "contact"),
+  );
+  // Said plainly in the panel, because a control that looks like a layout
+  // switch and is not would be worse than no control.
+  expect(screen.getByText(/Nie zmienia wyglądu strony/)).not.toBeNull();
+});

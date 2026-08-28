@@ -265,6 +265,21 @@ class PageCreateSerializer(serializers.Serializer[dict[str, Any]]):
     )
 
 
+class PageTypeSerializer(serializers.Serializer[dict[str, Any]]):
+    page_type = serializers.ChoiceField(
+        choices=[
+            "homepage",
+            "landing",
+            "service",
+            "about",
+            "contact",
+            "legal",
+            "article_index",
+            "article",
+        ]
+    )
+
+
 class SitePurposeSerializer(serializers.Serializer[dict[str, Any]]):
     purpose = serializers.ChoiceField(
         choices=["customer", "platform_marketing", "platform_blog"]

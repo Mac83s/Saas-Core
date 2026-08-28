@@ -50,6 +50,7 @@ from .models import (
     PageBlock,
     PageTranslation,
     PageTranslationMutation,
+    PageType,
     PageVersion,
     Publication,
     Site,
@@ -67,6 +68,7 @@ SITE_PUBLISHED = "sites.site.published"
 SITE_ROLLED_BACK = "sites.site.rolled_back"
 SITE_NAVIGATION_SAVED = "sites.navigation.saved"
 SITE_PURPOSE_SET = "sites.site.purpose_set"
+PAGE_TYPE_SET = "sites.page.type_set"
 PAGE_AUTOMATION_POLICY_SET = "sites.page.automation_policy_set"
 PAGE_TEMPLATE_IMPORTED = "sites.page.template_imported"
 SITE_PUBLISHED_EVENT = "sites.site.published"
@@ -123,6 +125,12 @@ class AutomationGrantMissing(APIException):
     status_code = 403
     default_detail = "Klucz nie ma grantu obejmującego ten zasób."
     default_code = "automation_grant_missing"
+
+
+class PageInvalidType(APIException):
+    status_code = 400
+    default_detail = "Nieznany typ podstrony."
+    default_code = "page_invalid_type"
 
 
 class SiteInvalidPurpose(APIException):
@@ -1851,3 +1859,38 @@ def set_site_purpose(*, site_id: UUID, purpose: str) -> Site:
             metadata={"purpose": purpose},
         )
     return site
+
+
+@transaction.atomic
+def set_page_type(*, page_id: UUID, page_type: str) -> Page:
+    """Marks what kind of page this is.
+
+    A person's call, like the automation policy: the type is what an optimiser
+    reasons about, so a credential able to set it could re-describe the page it
+    is about to rewrite.
+    """
+    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    if _is_automation(context):
+        raise PageAutomationForbidden
+    if page_type not in PageType.values:
+        raise PageInvalidType
+    page = (
+        Page.all_objects.select_for_update(of=("self",))
+        .select_related("current_draft")
+        .filter(pk=page_id, organization_id=context.organization_id)
+        .first()
+    )
+    if page is None:
+        raise PageNotFound
+    if page.page_type != page_type:
+        page.page_type = page_type
+        page.save(update_fields=["page_type", "updated_at"])
+        record_audit(
+            organization=Organization.objects.get(pk=context.organization_id),
+            action=PAGE_TYPE_SET,
+            actor=User.objects.get(pk=context.actor_id),
+            target_type="page",
+            target_id=page.id,
+            metadata={"page_type": page_type},
+        )
+    return page

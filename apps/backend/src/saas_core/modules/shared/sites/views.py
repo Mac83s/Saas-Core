@@ -32,6 +32,7 @@ from .serializers import (
     PageTranslationListSerializer,
     PageTranslationSaveSerializer,
     PageTranslationSerializer,
+    PageTypeSerializer,
     SiteCreateSerializer,
     SiteListSerializer,
     SiteLocalizationReportSerializer,
@@ -63,6 +64,7 @@ from .services import (
     save_draft,
     save_page_translation,
     save_site_navigation,
+    set_page_type,
     set_site_purpose,
 )
 
@@ -708,3 +710,28 @@ class SitePurposeView(APIView):
             site_id=site_id, purpose=serializer.validated_data["purpose"]
         )
         return Response(_site_summary(site))
+
+
+class PageTypeView(APIView):
+    """See `SitePurposeView`: a person marks what a page is."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_page_type_set",
+        tags=["sites"],
+        request=PageTypeSerializer,
+        responses={
+            200: PageSummarySerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def put(self, request: Request, page_id: UUID) -> Response:
+        serializer = PageTypeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        page = set_page_type(
+            page_id=page_id, page_type=serializer.validated_data["page_type"]
+        )
+        return Response(_page_summary(page))

@@ -1456,6 +1456,34 @@ export async function setCollectionAutomationPolicy(
   return data;
 }
 
+export type PageTypeValue =
+  | "homepage"
+  | "landing"
+  | "service"
+  | "about"
+  | "contact"
+  | "legal"
+  | "article_index"
+  | "article";
+
+export async function setPageType(
+  pageId: string,
+  pageType: PageTypeValue,
+): Promise<PageSummary> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/sites/pages/{page_id}/type/",
+    {
+      params: { path: { page_id: pageId } },
+      body: { page_type: pageType },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export async function setPageAutomationPolicy(
   pageId: string,
   policy: AutomationPolicy,

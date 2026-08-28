@@ -27,6 +27,7 @@ import {
   ApiProblemError,
   createSitePage,
   setPageAutomationPolicy,
+  setPageType,
   getSiteLocalizationReport,
   listSitePages,
   listSitePublications,
@@ -34,6 +35,7 @@ import {
   publishSite,
   rollbackSitePublication,
   type PageSummary,
+  type PageTypeValue,
   type SiteLocalizationReport,
   type SitePublication,
   type SiteSummary,
@@ -63,6 +65,7 @@ import {
   FieldLabel,
 } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
+import { NativeSelect } from "@saas-core/ui/components/native-select";
 import {
   Tabs,
   TabsIndicator,
@@ -84,6 +87,19 @@ import { PublicationHistory } from "./publication-history";
 import { SiteOnboardingWizard } from "./site-onboarding";
 
 type PageValues = { name: string; key: string };
+
+/** The eight types W9.6.2 fixes, in the order an operator thinks about a
+ *  site: the front page first, the legal pages last. */
+const PAGE_TYPES: readonly PageTypeValue[] = [
+  "homepage",
+  "landing",
+  "service",
+  "about",
+  "contact",
+  "article_index",
+  "article",
+  "legal",
+];
 
 export function SitesPanel({
   canManageBilling = false,
@@ -651,6 +667,18 @@ export function SitesPanel({
                   </div>
                 )}
                 {selectedPage && (
+                  <PageTypeField
+                    onChanged={(updated) =>
+                      setPages((current) =>
+                        current.map((item) =>
+                          item.id === updated.id ? updated : item,
+                        ),
+                      )
+                    }
+                    page={selectedPage}
+                  />
+                )}
+                {selectedPage && (
                   <PageAutomationSwitch
                     onChanged={(updated) =>
                       setPages((current) =>
@@ -732,6 +760,61 @@ export function SitesPanel({
         </TabsPanel>
       </Tabs>
     </section>
+  );
+}
+
+/** What kind of page this is, in the vocabulary SEO tooling uses.
+ *
+ *  Nothing about the page renders differently — the type is what an optimiser
+ *  reasons about, and one told that the contact page is a landing page will
+ *  rewrite it like one. */
+function PageTypeField({
+  onChanged,
+  page,
+}: {
+  onChanged: (page: PageSummary) => void;
+  page: PageSummary;
+}) {
+  const t = useTranslations("Sites");
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string>();
+
+  return (
+    <div className="space-y-2 rounded-lg border p-3">
+      <Field>
+        <FieldLabel htmlFor="page-type">{t("pageTypeLabel")}</FieldLabel>
+        <NativeSelect
+          disabled={busy}
+          id="page-type"
+          onChange={(event) => {
+            const next = event.target.value as PageTypeValue;
+            setBusy(true);
+            setProblem(undefined);
+            void setPageType(page.id, next)
+              .then(onChanged)
+              .catch((error: unknown) => {
+                setProblem(sitesErrorMessage(error, t));
+              })
+              .finally(() => {
+                setBusy(false);
+              });
+          }}
+          value={page.page_type}
+        >
+          {PAGE_TYPES.map((value) => (
+            <option key={value} value={value}>
+              {t(`pageType_${value}`)}
+            </option>
+          ))}
+        </NativeSelect>
+      </Field>
+      <p className="text-sm text-muted-foreground">{t("pageTypeHint")}</p>
+      {problem && (
+        <p className="text-sm text-destructive" role="alert">
+          {problem}
+        </p>
+      )}
+    </div>
   );
 }
 

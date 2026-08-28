@@ -453,7 +453,17 @@
     "entryTranslationExists": "This article already has a version in that language.",
     "entryTranslationTitle": "Language version title",
     "entryTranslationSlug": "Language version address",
-    "entryTranslationLocale": "Version language"
+    "entryTranslationLocale": "Version language",
+    "pageTypeLabel": "Page kind",
+    "pageTypeHint": "Changes nothing about how the page looks. It tells SEO tooling what this page is, so a contact page is not optimised like a landing page.",
+    "pageType_homepage": "Home page",
+    "pageType_landing": "Landing",
+    "pageType_service": "Service",
+    "pageType_about": "About",
+    "pageType_contact": "Contact",
+    "pageType_legal": "Legal document",
+    "pageType_article_index": "Article index",
+    "pageType_article": "Article"
   },
   "BillingSupport": {
     "navigation": "Billing & access",

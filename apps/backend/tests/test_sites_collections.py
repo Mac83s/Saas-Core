@@ -1455,3 +1455,44 @@ def test_a_credential_cannot_relabel_the_surface_it_writes() -> None:
         pytest.raises(PageAutomationForbidden),
     ):
         set_site_purpose(site_id=site.data["id"], purpose="platform_blog")
+
+
+def test_page_type_is_a_person_s_call_and_reaches_the_listing() -> None:
+    """An optimiser told the contact page is a landing page will rewrite it
+    like one, so the type has to be settable — and only by a person."""
+    from saas_core.modules.core.organizations.context import activate_tenant_context
+    from saas_core.modules.shared.sites.services import (
+        PageAutomationForbidden,
+        set_page_type,
+    )
+    from test_sites_api import automation_context, create_page
+
+    client, organization, user = sites_client(slug="page-type", role_key="owner")
+    site = create_site(client)
+    page = create_page(client, site.data["id"])
+
+    changed = client.put(
+        f"/api/v1/sites/pages/{page.data['id']}/type/",
+        {"page_type": "contact"},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    assert changed.status_code == 200
+    assert changed.data["page_type"] == "contact"
+
+    listed = client.get(f"/api/v1/sites/{site.data['id']}/pages/")
+    assert listed.json()["items"][0]["page_type"] == "contact"
+
+    unknown = client.put(
+        f"/api/v1/sites/pages/{page.data['id']}/type/",
+        {"page_type": "nieznany"},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    assert unknown.status_code == 400
+
+    with (
+        activate_tenant_context(automation_context(organization.id, user.id)),
+        pytest.raises(PageAutomationForbidden),
+    ):
+        set_page_type(page_id=page.data["id"], page_type="article")

@@ -1462,6 +1462,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/pages/{page_id}/type/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description See `SitePurposeView`: a person marks what a page is. */
+        put: operations["sites_page_type_set"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/subdomain-availability/": {
         parameters: {
             query?: never;
@@ -2140,6 +2157,21 @@ export interface components {
             /** @default false */
             allow_social_description_fallback: boolean;
         };
+        PageType: {
+            page_type: components["schemas"]["PageTypeEnum"];
+        };
+        /**
+         * @description * `homepage` - homepage
+         *     * `landing` - landing
+         *     * `service` - service
+         *     * `about` - about
+         *     * `contact` - contact
+         *     * `legal` - legal
+         *     * `article_index` - article_index
+         *     * `article` - article
+         * @enum {string}
+         */
+        PageTypeEnum: "homepage" | "landing" | "service" | "about" | "contact" | "legal" | "article_index" | "article";
         PasswordResetConfirm: {
             token: string;
             password: string;
@@ -7298,6 +7330,57 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_page_type_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PageType"];
+                "application/x-www-form-urlencoded": components["schemas"]["PageType"];
+                "multipart/form-data": components["schemas"]["PageType"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageSummary"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

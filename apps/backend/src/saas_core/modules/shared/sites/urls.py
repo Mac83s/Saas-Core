@@ -28,6 +28,7 @@ from .views import (
     PageTemplateImportView,
     PageTranslationListView,
     PageTranslationView,
+    PageTypeView,
     SiteListCreateView,
     SiteLocalizationReportView,
     SiteNavigationView,
@@ -39,6 +40,11 @@ from .views import (
 app_name = "sites"
 
 urlpatterns = [
+    path(
+        "pages/<uuid:page_id>/type/",
+        PageTypeView.as_view(),
+        name="page-type",
+    ),
     path(
         "<uuid:site_id>/purpose/",
         SitePurposeView.as_view(),
