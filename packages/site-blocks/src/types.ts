@@ -169,6 +169,20 @@ export interface NavigationLink {
   readonly path: string;
 }
 
+export interface IndexPagination {
+  readonly page: number;
+  readonly pages: number;
+  readonly previous_path: string | null;
+  readonly next_path: string | null;
+}
+
+export interface PaginationLabels {
+  readonly label: string;
+  readonly previous: string;
+  readonly next: string;
+  readonly position: (page: number, pages: number) => string;
+}
+
 export interface PublishedPageDocument {
   readonly kind: "publication";
   readonly publicationId: string;
@@ -178,6 +192,10 @@ export interface PublishedPageDocument {
   readonly navigation?: readonly NavigationLink[];
   /** Accessible name for the menu, in the visitor's language. */
   readonly navigationLabel?: string;
+  /** Present on a collection index. Without the links a reader reaches only
+   *  the newest articles; the rest exist but nothing on the page leads there. */
+  readonly pagination?: IndexPagination | null;
+  readonly paginationLabels?: PaginationLabels;
 }
 
 export interface PageTemplateLabel {

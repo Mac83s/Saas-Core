@@ -149,6 +149,8 @@ class PublicSitePageSerializer(serializers.Serializer[dict[str, Any]]):
     blocks = serializers.ListField(child=serializers.DictField())
     navigation = PublicNavigationLinkSerializer(many=True)
     breadcrumbs = serializers.ListField(child=serializers.DictField())
+    pagination = serializers.DictField(allow_null=True)
+    article = serializers.DictField(allow_null=True)
 
 
 class NavigationItemSerializer(serializers.Serializer[dict[str, Any]]):

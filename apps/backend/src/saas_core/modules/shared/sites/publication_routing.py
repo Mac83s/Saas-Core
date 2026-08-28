@@ -10,6 +10,7 @@ from rest_framework.exceptions import NotFound, ValidationError
 from saas_core.modules.core.organizations.models import OrganizationStatus
 
 from .domains import InvalidHostname, normalize_hostname
+from .localization import collection_index_path
 from .models import (
     ContentCollection,
     ContentEntry,
@@ -169,6 +170,28 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
             title=selected_locale["title"],
             path=page.canonical_path,
         ),
+        # Present only where they mean something: an index has pages, an
+        # article has an author and dates, a plain page has neither.
+        "pagination": _absolute_pagination(page.page.get("pagination"), canonical_origin),
+        "article": page.page.get("article"),
+    }
+
+
+def _absolute_pagination(
+    pagination: dict[str, Any] | None, origin: str
+) -> dict[str, Any] | None:
+    if pagination is None:
+        return None
+    return {
+        **pagination,
+        "previous_url": (
+            f"{origin}{pagination['previous_path']}"
+            if pagination["previous_path"]
+            else None
+        ),
+        "next_url": (
+            f"{origin}{pagination['next_path']}" if pagination["next_path"] else None
+        ),
     }
 
 
@@ -274,6 +297,17 @@ def _find_entry(
                 "hreflang": siblings,
                 "x_default": siblings.get(snapshot["locale"], snapshot["path"]),
                 "noindex": bool(snapshot.get("noindex", False)),
+                # What a reader and a search engine both want to know about an
+                # article and never about a page: who wrote it and when.
+                "article": {
+                    "author_name": str(snapshot.get("author_name", "")),
+                    "published_at": (
+                        entry.published_at.isoformat()
+                        if entry.published_at is not None
+                        else None
+                    ),
+                    "updated_at": publication.created_at.isoformat(),
+                },
             },
             locale_document,
             publication,
@@ -309,7 +343,13 @@ def published_entries(*, organization_id: Any, site_id: Any) -> list[dict[str, A
             "path": str(snapshot["path"]),
             "locale": str(snapshot["locale"]),
             "excerpt": str(snapshot.get("excerpt", "")),
+            "author_name": str(snapshot.get("author_name", "")),
             "published_at": entry.published_at,
+            # When the article last changed, which is when its current
+            # publication was created — not when the row was last touched, as
+            # any edit to a draft would move that without changing what a
+            # reader sees.
+            "updated_at": publication.created_at,
         })
     # A missing timestamp sorts last rather than crashing the comparison: an
     # entry published before the column existed is still published.
@@ -390,25 +430,32 @@ def _find_collection_index(
     maintains a page listing the articles, because such a page is wrong the
     moment an article is published and nobody remembers to update it.
     """
-    wanted = _comparable_path(requested_path)
-    collection = next(
-        (
-            candidate
-            for candidate in ContentCollection.all_objects.filter(
-                organization_id=organization_id, site_id=site_id
-            )
-            if _comparable_path("/" + candidate.base_path + "/") == wanted
-        ),
-        None,
-    )
-    if collection is None:
-        raise PublicSiteNotFound
+    wanted, requested_page = _split_index_page(requested_path)
     site_locale = (
         Site.all_objects.filter(pk=site_id, organization_id=organization_id)
         .values_list("default_locale", flat=True)
         .first()
         or settings.LANGUAGE_CODE.split("-")[0]
     )
+    collection = next(
+        (
+            candidate
+            for candidate in ContentCollection.all_objects.filter(
+                organization_id=organization_id, site_id=site_id
+            )
+            if _comparable_path(
+                collection_index_path(
+                    default_locale=site_locale,
+                    locale=site_locale,
+                    base_path=candidate.base_path,
+                )
+            )
+            == wanted
+        ),
+        None,
+    )
+    if collection is None:
+        raise PublicSiteNotFound
     entries = one_per_article(
         [
             item
@@ -422,7 +469,19 @@ def _find_collection_index(
     # An index with nothing on it is still the blog's address. Answering 404
     # would break the link in the menu until the first article lands.
     locale = site_locale
-    path = "/" + collection.base_path + "/"
+    first_path = collection_index_path(
+        default_locale=site_locale, locale=locale, base_path=collection.base_path
+    )
+    page_size = settings.SITES_ENTRY_INDEX_PAGE_SIZE
+    total_pages = max(1, -(-len(entries) // page_size))
+    # A page past the end is not an empty page, it is a wrong address. Answering
+    # 200 there would put an unbounded number of thin duplicates in the index.
+    if requested_page > total_pages:
+        raise PublicSiteNotFound
+    window = entries[(requested_page - 1) * page_size : requested_page * page_size]
+    path = first_path if requested_page == 1 else index_page_path(
+        first_path, locale, requested_page
+    )
     locale_document: dict[str, Any] = {
         "locale": locale,
         "translation_id": None,
@@ -442,7 +501,7 @@ def _find_collection_index(
         "data": {
             "title": collection.name,
             "empty_text": INDEX_EMPTY_TEXT.get(locale, INDEX_EMPTY_TEXT["pl"]),
-            "items": [_index_item(item) for item in entries],
+            "items": [_index_item(item) for item in window],
         },
     }
     return (
@@ -455,10 +514,63 @@ def _find_collection_index(
             "hreflang": {locale: path},
             "x_default": path,
             "noindex": False,
+            # Each page is canonical to itself. Pointing every page at the
+            # first would tell a search engine that page four does not exist,
+            # and the articles reachable only from it would go with it.
+            "pagination": {
+                "page": requested_page,
+                "pages": total_pages,
+                "previous_path": (
+                    None
+                    if requested_page == 1
+                    else (
+                        first_path
+                        if requested_page == 2
+                        else index_page_path(first_path, locale, requested_page - 1)
+                    )
+                ),
+                "next_path": (
+                    None
+                    if requested_page >= total_pages
+                    else index_page_path(first_path, locale, requested_page + 1)
+                ),
+            },
         },
         locale_document,
-        _IndexPublication(collection=collection, entries=entries),
+        _IndexPublication(collection=collection, entries=window),
     )
+
+
+#: The segment that carries the page number, in the reader's language. A Polish
+#: blog emitting `/blog/page/2/` reads as a leak of the machinery.
+INDEX_PAGE_SEGMENT = {"pl": "strona", "en": "page"}
+
+
+def index_page_path(first_path: str, locale: str, page: int) -> str:
+    segment = INDEX_PAGE_SEGMENT.get(locale, INDEX_PAGE_SEGMENT["pl"])
+    return f"{first_path}{segment}/{page}/"
+
+
+def _split_index_page(requested_path: str) -> tuple[str, int]:
+    """Separates `/blog/strona/3/` into the index address and the page number.
+
+    Both spellings are accepted whatever the site's language: a link written by
+    hand in the other one should still land somewhere sensible.
+    """
+    normalized = _comparable_path(requested_path)
+    parts = [part for part in normalized.split("/") if part]
+    if len(parts) >= 3 and parts[-2] in set(INDEX_PAGE_SEGMENT.values()):
+        try:
+            page = int(parts[-1])
+        except ValueError:
+            return normalized, 1
+        if page < 1:
+            return normalized, 1
+        # Comparable, like every other path in this module: the caller
+        # matches it against a collection address, and "/blog" and "/blog/"
+        # must not be two different answers.
+        return _comparable_path("/" + "/".join(parts[:-2]) + "/"), page
+    return normalized, 1
 
 
 def _index_item(item: dict[str, Any]) -> dict[str, Any]:

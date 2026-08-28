@@ -2330,6 +2330,12 @@ export interface components {
             breadcrumbs: {
                 [key: string]: unknown;
             }[];
+            pagination: {
+                [key: string]: unknown;
+            } | null;
+            article: {
+                [key: string]: unknown;
+            } | null;
         };
         PublicationAuthor: {
             /** Format: uuid */

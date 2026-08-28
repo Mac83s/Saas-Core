@@ -46,6 +46,25 @@ def localized_path(*, default_locale: str, locale: str, slug: str) -> str:
     return f"/{locale}/{slug}/"
 
 
+def entry_path(*, default_locale: str, locale: str, base_path: str, slug: str) -> str:
+    """Where one article answers.
+
+    The language prefix is not decoration: without it a Polish article and its
+    English translation both claim `/blog/<slug>/`, and which one a visitor gets
+    depends on row order. Pages already resolve this the same way.
+    """
+    inner = f"{base_path}/{slug}"
+    if locale == default_locale:
+        return f"/{inner}/"
+    return f"/{locale}/{inner}/"
+
+
+def collection_index_path(*, default_locale: str, locale: str, base_path: str) -> str:
+    if locale == default_locale:
+        return f"/{base_path}/"
+    return f"/{locale}/{base_path}/"
+
+
 def build_localization_report(
     *,
     site: Site,

@@ -130,6 +130,14 @@ if (
     or PUBLIC_SITE_SCHEME not in {"http", "https"}
 ):
     raise ImproperlyConfigured("Konfiguracja domen i DNS jest nieprawidłowa")
+#: How many articles one page of a blog index carries. A blog outgrows one page
+#: quickly, and a single page listing a thousand entries is slow to render, slow
+#: to read and crawled as one enormous document.
+SITES_ENTRY_INDEX_PAGE_SIZE = int(
+    os.environ.get("SITES_ENTRY_INDEX_PAGE_SIZE", "10")
+)
+if not 1 <= SITES_ENTRY_INDEX_PAGE_SIZE <= 100:
+    raise ImproperlyConfigured("SITES_ENTRY_INDEX_PAGE_SIZE musi być z zakresu 1-100")
 SITE_BLOCK_CONTRACTS_PATH = Path(
     os.environ.get(
         "SITE_BLOCK_CONTRACTS_PATH",

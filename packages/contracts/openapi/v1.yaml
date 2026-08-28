@@ -6513,7 +6513,18 @@ components:
           items:
             type: object
             additionalProperties: {}
+        pagination:
+          type:
+          - object
+          - 'null'
+          additionalProperties: {}
+        article:
+          type:
+          - object
+          - 'null'
+          additionalProperties: {}
       required:
+      - article
       - blocks
       - breadcrumbs
       - canonical_url
@@ -6522,6 +6533,7 @@ components:
       - hreflang
       - locale
       - navigation
+      - pagination
       - publication_id
       - snapshot_hash
       - social_description

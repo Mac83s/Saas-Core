@@ -10,8 +10,18 @@ from django.http import HttpResponse
 from saas_core.modules.core.organizations.models import OrganizationStatus
 
 from .domains import InvalidHostname, normalize_hostname
+from .localization import collection_index_path
 from .models import ContentCollection, Domain, DomainStatus
-from .publication_routing import PublicSiteNotFound, published_entries
+from .publication_routing import (
+    PublicSiteNotFound,
+    index_page_path,
+    one_per_article,
+    published_entries,
+)
+
+#: How many articles a feed carries. A reader wants what is new; handing it
+#: ten thousand items makes a slow response nobody reads to the end.
+FEED_LIMIT = 50
 
 
 def _resolve_site(host: str) -> tuple[Any, str]:
@@ -51,7 +61,7 @@ def render_site_feed(*, host: str) -> HttpResponse:
     domain, origin = _resolve_site(host)
     entries = published_entries(
         organization_id=domain.organization_id, site_id=domain.site_id
-    )
+    )[:FEED_LIMIT]
     items = []
     for entry in entries:
         parts = [
@@ -64,6 +74,13 @@ def render_site_feed(*, host: str) -> HttpResponse:
         ]
         if entry["excerpt"]:
             parts.append("<description>" + escape(entry["excerpt"]) + "</description>")
+        if entry["author_name"]:
+            # `dc:creator` rather than RSS's own `author`, which is specified as
+            # an email address: publishing a person's address to satisfy a
+            # schema is not a trade worth making.
+            parts.append(
+                "<dc:creator>" + escape(entry["author_name"]) + "</dc:creator>"
+            )
         if entry["published_at"] is not None:
             parts.append(
                 "<pubDate>"
@@ -74,7 +91,7 @@ def render_site_feed(*, host: str) -> HttpResponse:
 
     document = (
         '<?xml version="1.0" encoding="UTF-8"?>'
-        '<rss version="2.0">'
+        '<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">'
         "<channel>"
         "<title>" + escape(domain.site.name) + "</title>"
         "<link>" + escape(origin + "/") + "</link>"
@@ -101,14 +118,36 @@ def render_site_sitemap(*, host: str) -> HttpResponse:
             for raw_locale in raw_page.get("locales", []):
                 if isinstance(raw_locale, dict) and raw_locale.get("path"):
                     locations.append(origin + str(raw_locale["path"]))
+    entries = published_entries(
+        organization_id=domain.organization_id, site_id=domain.site_id
+    )
+    site_locale = domain.site.default_locale
     for collection in ContentCollection.all_objects.filter(
         organization_id=domain.organization_id, site_id=domain.site_id
     ):
-        locations.append(origin + "/" + collection.base_path + "/")
-    for entry in published_entries(
-        organization_id=domain.organization_id, site_id=domain.site_id
-    ):
+        first = collection_index_path(
+            default_locale=site_locale,
+            locale=site_locale,
+            base_path=collection.base_path,
+        )
+        locations.append(origin + first)
+        # Every page of the index, not just the first. An article that has
+        # scrolled off page one is otherwise reachable by no link a crawler
+        # follows, which on a blog is most of the archive.
+        listed = one_per_article(
+            [item for item in entries if item["collection_id"] == str(collection.id)],
+            site_locale,
+        )
+        pages = max(1, -(-len(listed) // settings.SITES_ENTRY_INDEX_PAGE_SIZE))
+        for number in range(2, pages + 1):
+            locations.append(origin + index_page_path(first, site_locale, number))
+    for entry in entries:
         locations.append(origin + entry["path"])
+    last_changed = {
+        origin + entry["path"]: entry["updated_at"]
+        for entry in entries
+        if entry["updated_at"] is not None
+    }
 
     seen: set[str] = set()
     urls = []
@@ -116,7 +155,13 @@ def render_site_sitemap(*, host: str) -> HttpResponse:
         if location in seen:
             continue
         seen.add(location)
-        urls.append("<url><loc>" + escape(location) + "</loc></url>")
+        changed = last_changed.get(location)
+        stamp = (
+            "<lastmod>" + escape(changed.date().isoformat()) + "</lastmod>"
+            if changed is not None
+            else ""
+        )
+        urls.append("<url><loc>" + escape(location) + "</loc>" + stamp + "</url>")
     document = (
         '<?xml version="1.0" encoding="UTF-8"?>'
         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'

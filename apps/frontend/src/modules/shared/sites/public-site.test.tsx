@@ -55,6 +55,8 @@ const page: PublicSitePage = {
       path: "/oferta/konsultacje/",
     },
   ],
+  pagination: null,
+  article: null,
 };
 
 test("renderuje tylko kontrolowane bloki opublikowanego snapshotu", async () => {
@@ -107,4 +109,54 @@ test("pomija menu, gdy publikacja go nie zawiera", () => {
   render(<PublicSiteRenderer page={{ ...page, navigation: [] }} />);
 
   expect(screen.queryByRole("navigation")).toBeNull();
+});
+
+test("prowadzi czytelnika do dalszych stron indeksu", async () => {
+  const rendered = render(
+    <PublicSiteRenderer
+      page={{
+        ...page,
+        pagination: {
+          page: 2,
+          pages: 5,
+          previous_path: "/blog/",
+          next_path: "/blog/strona/3/",
+          previous_url: "https://clinic.example.test/blog/",
+          next_url: "https://clinic.example.test/blog/strona/3/",
+        },
+      }}
+    />,
+  );
+
+  // Without these links the archive is reachable only from the sitemap, which
+  // is to say only by a crawler.
+  const pagination = screen.getByRole("navigation", { name: "Strony" });
+  expect(pagination.textContent).toContain("Strona 2 z 5");
+  expect(pagination.querySelector("a[rel='prev']")?.getAttribute("href")).toBe(
+    "/blog/",
+  );
+  expect(pagination.querySelector("a[rel='next']")?.getAttribute("href")).toBe(
+    "/blog/strona/3/",
+  );
+  expect((await axe.run(rendered.container)).violations).toHaveLength(0);
+});
+
+test("nie pokazuje stronicowania, gdy strona jest tylko jedna", () => {
+  render(
+    <PublicSiteRenderer
+      page={{
+        ...page,
+        pagination: {
+          page: 1,
+          pages: 1,
+          previous_path: null,
+          next_path: null,
+          previous_url: null,
+          next_url: null,
+        },
+      }}
+    />,
+  );
+
+  expect(screen.queryByRole("navigation", { name: "Strony" })).toBeNull();
 });

@@ -8,6 +8,7 @@ import {
   createSiteBlockRegistry,
   renderPublishedPage,
   type DesignTokensV1,
+  type IndexPagination,
   type SiteBlock,
 } from "@saas-core/site-blocks";
 
@@ -104,6 +105,21 @@ export function PublicSiteRenderer({ page }: { page: PublicSitePage }) {
       // The visitor is reading one language; the menu's accessible name has to
       // be in it too, not in the panel's language.
       navigationLabel: page.locale === "en" ? "Menu" : "Menu witryny",
+      pagination: page.pagination as IndexPagination | null,
+      paginationLabels:
+        page.locale === "en"
+          ? {
+              label: "Pages",
+              previous: "Previous",
+              next: "Next",
+              position: (current, total) => `Page ${current} of ${total}`,
+            }
+          : {
+              label: "Strony",
+              previous: "Poprzednia",
+              next: "Następna",
+              position: (current, total) => `Strona ${current} z ${total}`,
+            },
     },
     registry,
   );

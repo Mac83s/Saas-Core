@@ -27,6 +27,7 @@ from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 
 from .block_contracts import validate_site_block
+from .localization import entry_path
 from .models import (
     ContentCollection,
     ContentEntry,
@@ -454,7 +455,7 @@ def publish_entry(
         # FOR UPDATE on the nullable side of an outer join, and the row we need
         # to lock is the entry itself.
         ContentEntry.all_objects.select_for_update(of=("self",))
-        .select_related("collection", "current_draft")
+        .select_related("collection", "current_draft", "site")
         .filter(pk=entry_id, organization_id=context.organization_id)
         .first()
     )
@@ -477,7 +478,12 @@ def publish_entry(
         "base_path": entry.collection.base_path,
         "locale": entry.locale,
         "slug": entry.slug,
-        "path": f"/{entry.collection.base_path}/{entry.slug}/",
+        "path": entry_path(
+            default_locale=entry.site.default_locale,
+            locale=entry.locale,
+            base_path=entry.collection.base_path,
+            slug=entry.slug,
+        ),
         "title": entry.title,
         "excerpt": entry.excerpt,
         "author_name": entry.author_name,

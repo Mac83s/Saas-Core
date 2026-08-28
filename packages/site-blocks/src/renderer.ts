@@ -9,6 +9,8 @@ import type {
   DesignTokensV1,
   DraftPreviewDocument,
   NavigationLink,
+  IndexPagination,
+  PaginationLabels,
   PublishedPageDocument,
   SiteBlock,
 } from "./types";
@@ -107,6 +109,54 @@ function renderNavigation(
   );
 }
 
+/** Previous and next only. A numbered strip of a hundred pages is a wall of
+ *  links nobody uses, and every one of those pages is already in the sitemap,
+ *  which is how a crawler reaches them. */
+function renderPagination(
+  pagination: IndexPagination | null | undefined,
+  labels: PaginationLabels,
+): ReactElement | null {
+  if (!pagination || pagination.pages <= 1) return null;
+  const links: ReactElement[] = [];
+  if (pagination.previous_path !== null) {
+    links.push(
+      createElement(
+        "a",
+        { key: "previous", rel: "prev", href: pagination.previous_path },
+        labels.previous,
+      ),
+    );
+  }
+  links.push(
+    createElement(
+      "span",
+      { key: "position" },
+      labels.position(pagination.page, pagination.pages),
+    ),
+  );
+  if (pagination.next_path !== null) {
+    links.push(
+      createElement(
+        "a",
+        { key: "next", rel: "next", href: pagination.next_path },
+        labels.next,
+      ),
+    );
+  }
+  return createElement(
+    "nav",
+    { className: "site-pagination", "aria-label": labels.label },
+    ...links,
+  );
+}
+
+const DEFAULT_PAGINATION_LABELS: PaginationLabels = {
+  label: "Strony",
+  previous: "Poprzednia",
+  next: "Następna",
+  position: (page, pages) => `Strona ${page} z ${pages}`,
+};
+
 function renderDocument(
   blocks: readonly SiteBlock[],
   tokens: DesignTokensV1,
@@ -114,6 +164,8 @@ function renderDocument(
   navigation: readonly NavigationLink[] = [],
   navigationLabel = "Menu",
   contentElement: "main" | "div" = "main",
+  pagination: IndexPagination | null = null,
+  paginationLabels: PaginationLabels = DEFAULT_PAGINATION_LABELS,
 ): ReactElement {
   return createElement(
     "div",
@@ -123,6 +175,7 @@ function renderDocument(
       contentElement,
       null,
       ...blocks.map((block, index) => registry.render(block, String(index))),
+      renderPagination(pagination, paginationLabels),
     ),
   );
 }
@@ -165,5 +218,8 @@ export function renderPublishedPage(
     registry,
     document.navigation ?? [],
     document.navigationLabel ?? "Menu",
+    "main",
+    document.pagination ?? null,
+    document.paginationLabels ?? DEFAULT_PAGINATION_LABELS,
   );
 }

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any
 from uuid import uuid7
 
@@ -849,7 +850,7 @@ def test_feed_and_sitemap_expose_what_a_crawler_cannot_reach_by_links() -> None:
     assert feed.status_code == 200
     assert feed["Content-Type"].startswith("application/rss+xml")
     feed_body = feed.content.decode()
-    assert "<rss version=\"2.0\">" in feed_body
+    assert '<rss version="2.0" xmlns:dc=' in feed_body
     assert "https://" + platform.hostname + "/blog/wpis/" in feed_body
     # RFC 822 day and month names, never the server locale's — a Polish locale
     # would emit "pon" and every reader would reject the date.
@@ -1819,3 +1820,254 @@ def test_a_redirect_can_be_removed_and_the_removal_is_audited() -> None:
         ).status_code
         == 404
     )
+
+
+def test_a_translation_does_not_shadow_the_article_it_was_made_from() -> None:
+    """Both languages once claimed the same address and which one a visitor got
+    depended on row order."""
+    from django.test import override_settings
+    from rest_framework.test import APIClient as PublicClient
+
+    client, _, _ = sites_client(slug="entry-locale", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    platform = _verified_platform_domain(site.data["id"])
+
+    source = create_entry(
+        client, collection.data["id"], slug="wpis", idempotency_key="locale-source"
+    )
+    save_entry_draft(
+        client,
+        source.data["id"],
+        expected_version=0,
+        text="Treść po polsku.",
+        idempotency_key="locale-source-draft",
+    )
+    publish(client, source.data["id"], idempotency_key="locale-source-publish")
+
+    # Deliberately the same slug: an editor translating an article usually
+    # keeps the address, and nothing in the model stops them.
+    translation = client.post(
+        f"/api/v1/sites/entries/{source.data['id']}/translations/",
+        {"locale": "en", "slug": "wpis", "title": "Entry"},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+        HTTP_IDEMPOTENCY_KEY="locale-translation",
+    )
+    assert translation.status_code == 201
+    save_entry_draft(
+        client,
+        translation.data["id"],
+        expected_version=0,
+        text="Text in English.",
+        idempotency_key="locale-translation-draft",
+    )
+    publish(client, translation.data["id"], idempotency_key="locale-translation-publish")
+
+    with override_settings(PUBLIC_SITE_SCHEME="https"):
+        polish = PublicClient().get(
+            "/api/v1/public/site/", {"path": "/blog/wpis/"}, HTTP_HOST=platform.hostname
+        )
+        english = PublicClient().get(
+            "/api/v1/public/site/",
+            {"path": "/en/blog/wpis/"},
+            HTTP_HOST=platform.hostname,
+        )
+    assert polish.status_code == 200
+    assert english.status_code == 200
+    assert polish.json()["blocks"][0]["data"]["text"] == "Treść po polsku."
+    assert english.json()["blocks"][0]["data"]["text"] == "Text in English."
+    # And each names the other, so a search engine sees one article in two
+    # languages rather than two competing for one address.
+    assert set(polish.json()["hreflang"]) == {"pl", "en"}
+    assert polish.json()["hreflang"]["en"].endswith("/en/blog/wpis/")
+
+
+def _bulk_published_entries(collection_id: str, site_id: str, count: int) -> None:
+    """Writes `count` published entries straight to the database.
+
+    Going through the API `count` times would test the API, not the archive,
+    and would take minutes. What is under test here is what happens to reading
+    and publishing once the archive is large.
+    """
+    from django.utils import timezone
+
+    from saas_core.modules.shared.sites.models import (
+        ContentCollection,
+        ContentEntryPublication,
+        ContentEntryState,
+        ContentEntryVersion,
+    )
+
+    collection = ContentCollection.all_objects.select_related("site").get(
+        pk=collection_id
+    )
+    organization_id = collection.organization_id
+    actor_id = collection.created_by_id
+    now = timezone.now()
+    entries = [
+        ContentEntry(
+            organization_id=organization_id,
+            collection=collection,
+            site_id=site_id,
+            slug=f"archiwum-{number:05d}",
+            locale="pl",
+            title=f"Archiwalny wpis {number}",
+            excerpt="Zajawka.",
+            author_name="Redakcja",
+            state=ContentEntryState.PUBLISHED,
+            version=1,
+            published_at=now - timedelta(minutes=number),
+            created_by_id=actor_id,
+            idempotency_key=f"bulk-{number}",
+            request_hash="0" * 64,
+        )
+        for number in range(count)
+    ]
+    ContentEntry.all_objects.bulk_create(entries, batch_size=500)
+
+    versions = [
+        ContentEntryVersion(
+            organization_id=organization_id,
+            entry=entry,
+            number=1,
+            blocks=[
+                {
+                    "block_type": "core.rich_text",
+                    "schema_version": 1,
+                    "data": {"text": "Treść archiwalna."},
+                }
+            ],
+            created_by_id=actor_id,
+            idempotency_key=f"bulk-version-{entry.slug}",
+            request_hash="0" * 64,
+        )
+        for entry in entries
+    ]
+    ContentEntryVersion.all_objects.bulk_create(versions, batch_size=500)
+
+    publications = [
+        ContentEntryPublication(
+            organization_id=organization_id,
+            entry=entry,
+            sequence=1,
+            snapshot={
+                "schema_version": 1,
+                "entry_id": str(entry.id),
+                "collection_key": collection.key,
+                "base_path": collection.base_path,
+                "locale": entry.locale,
+                "slug": entry.slug,
+                "path": f"/{collection.base_path}/{entry.slug}/",
+                "title": entry.title,
+                "excerpt": entry.excerpt,
+                "author_name": entry.author_name,
+                "noindex": False,
+                "version": 1,
+                "blocks": version.blocks,
+                "media_asset_ids": [],
+            },
+            snapshot_hash="0" * 64,
+            created_by_id=actor_id,
+            idempotency_key=f"bulk-publication-{entry.slug}",
+        )
+        for entry, version in zip(entries, versions, strict=True)
+    ]
+    ContentEntryPublication.all_objects.bulk_create(publications, batch_size=500)
+    for entry, version, publication in zip(
+        entries, versions, publications, strict=True
+    ):
+        entry.current_draft = version
+        entry.current_publication = publication
+    ContentEntry.all_objects.bulk_update(
+        entries, ["current_draft", "current_publication"], batch_size=500
+    )
+
+
+def test_a_large_archive_paginates_instead_of_answering_with_one_huge_page() -> None:
+    """A thousand articles on one page is slow to render, slow to read, and
+    crawled as a single enormous document."""
+    from django.test import override_settings
+    from rest_framework.test import APIClient as PublicClient
+
+    client, _, _ = sites_client(slug="archive", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    platform = _verified_platform_domain(site.data["id"])
+    _bulk_published_entries(collection.data["id"], site.data["id"], 1000)
+
+    with override_settings(PUBLIC_SITE_SCHEME="https"):
+        first = PublicClient().get(
+            "/api/v1/public/site/", {"path": "/blog/"}, HTTP_HOST=platform.hostname
+        )
+        second = PublicClient().get(
+            "/api/v1/public/site/",
+            {"path": "/blog/strona/2/"},
+            HTTP_HOST=platform.hostname,
+        )
+        past_the_end = PublicClient().get(
+            "/api/v1/public/site/",
+            {"path": "/blog/strona/500/"},
+            HTTP_HOST=platform.hostname,
+        )
+
+    assert first.status_code == 200
+    listed = first.json()["blocks"][0]["data"]["items"]
+    assert len(listed) == 10
+    # Newest first, and the newest is the one published most recently.
+    assert listed[0]["title"] == "Archiwalny wpis 0"
+    assert first.json()["pagination"]["pages"] == 100
+    assert first.json()["pagination"]["previous_path"] is None
+    assert first.json()["pagination"]["next_path"] == "/blog/strona/2/"
+
+    assert second.status_code == 200
+    assert second.json()["blocks"][0]["data"]["items"][0]["title"] == (
+        "Archiwalny wpis 10"
+    )
+    # Page two is canonical to itself: pointing it at page one would tell a
+    # search engine that ninety of the hundred pages do not exist.
+    assert second.json()["canonical_url"].endswith("/blog/strona/2/")
+    assert second.json()["pagination"]["previous_path"] == "/blog/"
+
+    # A page past the end is a wrong address, not an empty one. Answering 200
+    # would put an unbounded number of thin duplicates into the index.
+    assert past_the_end.status_code == 404
+
+
+def test_publishing_one_article_costs_the_same_whatever_the_archive_holds() -> None:
+    """The promise collections exist to keep (ADR-035 §1), measured rather than
+    assumed: the same work for the first article and the thousand-and-first."""
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    client, _, _ = sites_client(slug="archive-cost", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    collection_id = collection.data["id"]
+
+    def publish_one(marker: str) -> int:
+        entry = create_entry(
+            client, collection_id, slug=f"wpis-{marker}", idempotency_key=f"c-{marker}"
+        )
+        save_entry_draft(
+            client,
+            entry.data["id"],
+            expected_version=0,
+            text="Treść.",
+            idempotency_key=f"c-draft-{marker}",
+        )
+        with CaptureQueriesContext(connection) as captured:
+            response = publish(
+                client, entry.data["id"], idempotency_key=f"c-publish-{marker}"
+            )
+        assert response.status_code == 201
+        return len(captured.captured_queries)
+
+    empty_archive = publish_one("pierwszy")
+    _bulk_published_entries(collection_id, site.data["id"], 1000)
+    full_archive = publish_one("po-tysiacu")
+
+    # Not "roughly the same": the statements a publication runs must not depend
+    # on the archive at all, or the thousandth article is the one that stops
+    # working.
+    assert full_archive == empty_archive
