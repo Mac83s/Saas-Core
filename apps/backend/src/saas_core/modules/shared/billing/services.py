@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -19,6 +20,9 @@ from saas_core.modules.core.organizations.models import (
     OrganizationAuditAction,
 )
 from saas_core.modules.core.organizations.permissions import BILLING_MANAGE
+from saas_core.modules.core.organizations.platform_workspace import (
+    assert_not_platform,
+)
 
 from .models import (
     BillingCheckout,
@@ -84,10 +88,22 @@ class PortalResult:
     url: str
 
 
+def _refuse_platform_workspace(organization_id: UUID) -> None:
+    """The deployment does not sell itself a subscription.
+
+    Checked in the three customer-facing entry points rather than in the panel:
+    a trial, a checkout or a portal session opened against the platform's own
+    workspace would put its marketing pages behind a Stripe customer that
+    nobody is ever going to pay.
+    """
+    assert_not_platform(Organization.objects.get(pk=organization_id))
+
+
 def activate_customer_trial(*, checkout_session_id: str) -> TrialActivationResult:
     """Activate the selected plan after Stripe confirms Setup Checkout."""
 
-    authorize(BILLING_MANAGE, owner_only=True)
+    context = authorize(BILLING_MANAGE, owner_only=True)
+    _refuse_platform_workspace(context.organization_id)
     from .lifecycle import activate_trial_for_product
 
     return activate_trial_for_product(
@@ -99,6 +115,7 @@ def activate_customer_trial(*, checkout_session_id: str) -> TrialActivationResul
 
 def create_setup_checkout(*, plan_key: str, idempotency_key: str) -> CheckoutResult:
     context = authorize(BILLING_MANAGE, owner_only=True)
+    _refuse_platform_workspace(context.organization_id)
     normalized_key = idempotency_key.strip()
     if not normalized_key or len(normalized_key) > 120:
         raise BillingCheckoutConflict
@@ -221,6 +238,7 @@ def create_setup_checkout(*, plan_key: str, idempotency_key: str) -> CheckoutRes
 
 def create_customer_portal() -> PortalResult:
     context = authorize(BILLING_MANAGE, owner_only=True)
+    _refuse_platform_workspace(context.organization_id)
     if settings.BILLING_PROVIDER == "simulated":
         raise BillingPortalUnavailable
     organization = Organization.objects.get(pk=context.organization_id)

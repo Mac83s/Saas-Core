@@ -7,9 +7,13 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
-from saas_core.modules.core.organizations.models import Organization
+from saas_core.modules.core.organizations.models import (
+    Organization,
+    WorkspaceKind,
+)
 
 from .models import (
+    AccessMode,
     EntitlementGrant,
     EntitlementSnapshot,
     Feature,
@@ -17,6 +21,7 @@ from .models import (
     PlanVersion,
     QuotaDefinition,
     StripePriceMapping,
+    SubscriptionState,
 )
 
 
@@ -154,4 +159,78 @@ def _write_entitlement_snapshot(
     snapshot.version += 1
     snapshot.computed_at = timezone.now()
     snapshot.save()
+    return snapshot
+
+
+def refresh_internal_snapshot(
+    organization: Organization,
+    *,
+    at: datetime | None = None,
+) -> EntitlementSnapshot:
+    """Rebuilds a snapshot from audited overrides alone, with no plan behind it.
+
+    Only for a workspace the deployment owns. A customer without a plan has no
+    entitlements by design, and giving them one here would turn a billing state
+    into a free upgrade.
+    """
+    if organization.workspace_kind != WorkspaceKind.PLATFORM:
+        raise ValueError("Snapshot bez planu jest zastrzeżony dla workspace'u platformy.")
+    checked_at = at or timezone.now()
+    features: dict[str, Any] = {}
+    quotas: dict[str, Any] = {}
+    sources: dict[str, dict[str, Any]] = {}
+    overrides = (
+        EntitlementGrant.all_objects.select_related("feature", "quota_definition")
+        .filter(
+            organization=organization,
+            source=GrantSource.OVERRIDE,
+            revoked_at__isnull=True,
+            valid_from__lte=checked_at,
+        )
+        .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=checked_at))
+        .order_by("valid_from", "created_at", "id")
+    )
+    for grant in overrides:
+        if grant.feature_id:
+            key = cast(Feature, grant.feature).key
+            features[key] = cast(bool, grant.enabled)
+        else:
+            key = cast(QuotaDefinition, grant.quota_definition).key
+            quotas[key] = cast(int, grant.limit_value)
+        sources[key] = {
+            "kind": "override",
+            "ref": str(grant.id),
+            "reason": grant.reason,
+            "granted_by": str(grant.granted_by_id),
+            "valid_from": grant.valid_from.isoformat(),
+            "expires_at": grant.expires_at.isoformat() if grant.expires_at else None,
+            "fallback_value": None,
+            "fallback_source": None,
+        }
+
+    snapshot = (
+        EntitlementSnapshot.all_objects.select_for_update()
+        .filter(organization=organization)
+        .first()
+    )
+    values = {
+        "plan_version": None,
+        "subscription_state": SubscriptionState.UNCONFIGURED,
+        # Not blocked and not read-only: the workspace is the deployment's own
+        # and its access does not depend on a payment that will never happen.
+        "access_mode": AccessMode.FULL,
+        "features": features,
+        "quotas": quotas,
+        "sources": sources,
+        "effective_until": None,
+        "computed_at": checked_at,
+    }
+    if snapshot is None:
+        return EntitlementSnapshot.all_objects.create(
+            organization=organization, **values
+        )
+    for field, value in values.items():
+        setattr(snapshot, field, value)
+    snapshot.version += 1
+    snapshot.save(update_fields=[*values, "version", "updated_at"])
     return snapshot

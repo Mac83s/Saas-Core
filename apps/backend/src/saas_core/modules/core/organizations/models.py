@@ -23,6 +23,10 @@ class OrganizationStatus(models.TextChoices):
 class WorkspaceKind(models.TextChoices):
     PERSONAL = "personal", "Osobista"
     BUSINESS = "business", "Firmowa"
+    # The deployment's own publisher. Not offered by the create-organization
+    # API — an operator provisions exactly one, and everything else about it
+    # stays an ordinary tenant so no query has to know it is special.
+    PLATFORM = "platform", "Workspace platformy"
 
 
 class Organization(models.Model):
@@ -66,6 +70,16 @@ class Organization(models.Model):
 
     class Meta:
         ordering = ("name",)
+        constraints = [
+            # One publisher per deployment, enforced where it cannot be raced:
+            # two deploys running the provisioning command at once would
+            # otherwise each create their own.
+            models.UniqueConstraint(
+                fields=["workspace_kind"],
+                condition=models.Q(workspace_kind="platform"),
+                name="organizations_single_platform_uq",
+            ),
+        ]
         constraints = [
             models.UniqueConstraint(Lower("slug"), name="organizations_slug_ci_unique"),
             models.CheckConstraint(

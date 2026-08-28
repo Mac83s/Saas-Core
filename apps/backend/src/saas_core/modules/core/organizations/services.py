@@ -24,8 +24,10 @@ from .models import (
     OrganizationAuditAction,
     OrganizationStatus,
     Role,
+    WorkspaceKind,
 )
 from .permissions import ORGANIZATION_ARCHIVE, SETTINGS_MANAGE
+from .platform_workspace import PlatformWorkspaceForbidden
 
 
 class OrganizationNotFound(NotFound):
@@ -94,6 +96,10 @@ def create_organization(
     currency: str,
 ) -> OrganizationAccess:
     user = cast(User, request.user)
+    if workspace_kind == WorkspaceKind.PLATFORM:
+        # The serializer does not offer it either; this is the second lock, on
+        # the service every channel goes through.
+        raise PlatformWorkspaceForbidden
     organization = Organization(
         name=name,
         slug=slug,

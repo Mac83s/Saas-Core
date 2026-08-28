@@ -26,6 +26,7 @@ from .models import (
     InvitationStatus,
     Membership,
     MembershipStatus,
+    Organization,
     OrganizationAuditAction,
     OrganizationStatus,
     Role,
@@ -37,6 +38,7 @@ from .permissions import (
     ORGANIZATION_READ,
     OWNERSHIP_TRANSFER,
 )
+from .platform_workspace import assert_not_platform
 from .tasks import issue_tenant_task_contract, send_organization_invitation
 
 LIMITED_ROLE_KEYS = {"viewer", "staff"}
@@ -117,6 +119,12 @@ def create_invitation(
     role_key: str,
 ) -> Invitation:
     context = _authorize_member_management()
+    # Nobody is invited into the platform's own workspace. Its members are put
+    # there deliberately by an operator, which is also the only way the MFA
+    # requirement below can be relied on.
+    assert_not_platform(
+        Organization.objects.get(pk=context.organization_id)
+    )
     actor = cast(User, request.user)
     normalized_email = User.objects.normalize_email(email)
     role = _assignable_role(
@@ -208,6 +216,7 @@ def accept_invitation(*, request: HttpRequest, token: str) -> Membership:
         or invitation.role.organization_id not in {None, invitation.organization_id}
     ):
         raise InvalidInvitationToken
+    assert_not_platform(invitation.organization)
     if User.objects.normalize_email(user.email) != invitation.email:
         raise InvitationEmailMismatch
     if Membership.objects.filter(

@@ -6,6 +6,7 @@ from django.db import transaction
 from django.db.models import F, Q
 from django.http import HttpRequest, HttpResponse
 
+from saas_core.modules.core.identity.mfa import has_confirmed_mfa
 from saas_core.modules.core.identity.models import User
 
 from .context import (
@@ -14,7 +15,7 @@ from .context import (
     context_from_membership,
     set_local_organization_id,
 )
-from .models import Membership, MembershipStatus, OrganizationStatus
+from .models import Membership, MembershipStatus, OrganizationStatus, WorkspaceKind
 
 ACTIVE_ORGANIZATION_SESSION_KEY = "organizations_active_organization_id"
 TENANT_CONTEXT_EXEMPT_PATHS = {
@@ -73,6 +74,15 @@ class TenantContextMiddleware:
             .first()
         )
         if membership is None:
+            request.session.pop(ACTIVE_ORGANIZATION_SESSION_KEY, None)
+            return None
+        # The platform's own workspace publishes every product's marketing
+        # pages, so a stolen password there is worth more than one customer's
+        # site. The requirement sits on entering the workspace rather than on a
+        # list of "high-risk" endpoints, because that list is never complete.
+        if membership.organization.workspace_kind == WorkspaceKind.PLATFORM and (
+            not has_confirmed_mfa(user)
+        ):
             request.session.pop(ACTIVE_ORGANIZATION_SESSION_KEY, None)
             return None
         return context_from_membership(membership)

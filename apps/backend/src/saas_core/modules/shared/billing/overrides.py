@@ -14,10 +14,11 @@ from saas_core.modules.core.organizations.context import require_tenant_context
 from saas_core.modules.core.organizations.models import (
     Organization,
     OrganizationAuditAction,
+    WorkspaceKind,
 )
 
 from .models import EntitlementGrant, Feature, GrantSource, QuotaDefinition
-from .snapshots import refresh_entitlement_snapshot
+from .snapshots import refresh_entitlement_snapshot, refresh_internal_snapshot
 
 
 class BillingOperatorRequired(PermissionDenied):
@@ -115,7 +116,13 @@ def create_entitlement_override(
         expires_at=expires_at,
     )
     if starts_at <= checked_at:
-        refresh_entitlement_snapshot(organization, at=checked_at)
+        # The platform workspace has no plan to recompute against, so its
+        # snapshot is built from these overrides alone. Same audited path,
+        # same entitlement check afterwards.
+        if organization.workspace_kind == WorkspaceKind.PLATFORM:
+            refresh_internal_snapshot(organization, at=checked_at)
+        else:
+            refresh_entitlement_snapshot(organization, at=checked_at)
     record_audit(
         organization=organization,
         action=OrganizationAuditAction.BILLING_OVERRIDE_CREATED,
