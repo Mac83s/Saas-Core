@@ -334,6 +334,50 @@ class SitePurposeSerializer(serializers.Serializer[dict[str, Any]]):
     )
 
 
+class ChangeSetProposalSerializer(serializers.Serializer[dict[str, Any]]):
+    """The envelope is checked against the frozen JSON Schema, not here.
+
+    A DRF serializer mirroring it would be a second description of the same
+    contract, and the two would drift the first time one was edited alone.
+    """
+
+    change_set = serializers.DictField()
+
+
+class ChangeSetApplySerializer(serializers.Serializer[dict[str, Any]]):
+    change_set = serializers.DictField()
+    approval_digest = serializers.CharField(required=False, allow_blank=False)
+
+
+class ChangeSetDiffSerializer(serializers.Serializer[dict[str, Any]]):
+    resource_id = serializers.UUIDField()
+    base_version = serializers.IntegerField()
+    commands = serializers.ListField(child=serializers.CharField())
+    blocks_before = serializers.ListField(child=serializers.DictField())
+    blocks_after = serializers.ListField(child=serializers.DictField())
+    translation_fields = serializers.DictField()
+    publish_at = serializers.CharField(allow_null=True)
+    approval_digest = serializers.CharField()
+    digest_expires_at = serializers.DateTimeField()
+
+
+class ChangeSetResultSerializer(serializers.Serializer[dict[str, Any]]):
+    resource_id = serializers.UUIDField()
+    base_version = serializers.IntegerField()
+    applied_commands = serializers.ListField(child=serializers.CharField())
+    approval_digest = serializers.CharField()
+    published = serializers.BooleanField()
+
+
+class ContentInventorySerializer(serializers.Serializer[dict[str, Any]]):
+    """Everything the caller may act on, as of one moment."""
+
+    contract_version = serializers.IntegerField()
+    minimum_contract_version = serializers.IntegerField()
+    observed_at = serializers.DateTimeField()
+    sites = serializers.ListField(child=serializers.DictField())
+
+
 class ContentCapabilitiesSerializer(serializers.Serializer[dict[str, Any]]):
     """Shape and limits, never unpublished content."""
 

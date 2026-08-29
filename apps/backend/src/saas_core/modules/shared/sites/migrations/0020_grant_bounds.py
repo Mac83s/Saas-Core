@@ -4,6 +4,31 @@ from django.conf import settings
 from django.db import migrations, models
 
 
+def demote_unbounded_autonomy(_apps, schema_editor):
+    """An autonomous grant that never carried bounds must not survive as one.
+
+    Inventing limits for it would be inventing policy nobody agreed to, so the
+    grant drops to `suggest_only`: the automation keeps reading and loses the
+    right to publish until an operator re-issues it with explicit bounds. That
+    is the correct outcome for a grant that was unbounded in the first place.
+
+    Written as SQL rather than through the ORM: this model's managers are
+    tenant-scoped, and a historical model has no tenant context to scope by.
+    """
+    schema_editor.execute(
+        """
+        UPDATE sites_contentautomationgrant
+        SET mode = 'suggest_only'
+        WHERE mode = 'autonomous'
+          AND (
+            max_changes_per_day IS NULL
+            OR max_payload_bytes IS NULL
+            OR expires_at IS NULL
+          )
+        """
+    )
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -37,6 +62,10 @@ class Migration(migrations.Migration):
             model_name='contentautomationgrant',
             name='window_start',
             field=models.TimeField(blank=True, null=True),
+        ),
+        migrations.RunPython(
+            demote_unbounded_autonomy,
+            migrations.RunPython.noop,
         ),
         migrations.AddConstraint(
             model_name='contentautomationgrant',

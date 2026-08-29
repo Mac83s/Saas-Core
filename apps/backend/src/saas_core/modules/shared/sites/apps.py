@@ -32,6 +32,10 @@ def check_content_contracts(**_kwargs: object) -> list[Error]:
             settings.PAGE_TEMPLATE_CONTRACTS_PATH,
             "sites.E002",
         ),
+        "CONTENT_OPERATIONS_CONTRACTS_PATH": (
+            settings.CONTENT_OPERATIONS_CONTRACTS_PATH,
+            "sites.E003",
+        ),
     }
     errors: list[Error] = []
     for name, (value, code) in expected.items():

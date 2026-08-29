@@ -28,6 +28,7 @@ COPY apps/backend/manage.py ./manage.py
 COPY apps/backend/src ./src
 COPY packages/contracts/site-blocks ./contracts/site-blocks
 COPY packages/contracts/page-templates ./contracts/page-templates
+COPY packages/contracts/content-operations ./contracts/content-operations
 COPY deployments/${DEPLOYMENT}/deployment.json ./deployment.json
 
 RUN --mount=type=cache,target=/root/.cache/uv \
@@ -48,6 +49,7 @@ ENV DJANGO_SETTINGS_MODULE=saas_core.config.settings.container \
     DEPLOYMENT_PROFILE_PATH=/app/deployment.json \
     SITE_BLOCK_CONTRACTS_PATH=/app/contracts/site-blocks \
     PAGE_TEMPLATE_CONTRACTS_PATH=/app/contracts/page-templates \
+    CONTENT_OPERATIONS_CONTRACTS_PATH=/app/contracts/content-operations \
     PATH=/opt/venv/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app/src \

@@ -18,10 +18,22 @@ from saas_core.modules.shared.notifications.api_key_middleware import (
 )
 
 from .capabilities import read_content_capabilities
+from .change_sets import (
+    apply_change_set,
+    change_set_diff,
+    plan_change_set,
+    validate_change_set,
+)
+from .inventory import inventory_etag, read_inventory
 from .localization import LocaleResolution, SiteLocalizationReport
 from .models import Page, PageBlock, PageTranslation, Publication, Site
 from .serializers import (
+    ChangeSetApplySerializer,
+    ChangeSetDiffSerializer,
+    ChangeSetProposalSerializer,
+    ChangeSetResultSerializer,
     ContentCapabilitiesSerializer,
+    ContentInventorySerializer,
     CursorQuerySerializer,
     DraftSaveSerializer,
     PageCreateSerializer,
@@ -663,6 +675,138 @@ def _locale_resolution(locale: LocaleResolution) -> dict[str, Any]:
         "complete": locale.complete,
         "slug_locked": locale.slug_locked,
     }
+
+
+class ChangeSetProposalView(APIView):
+    """What this change set would do, and nothing more.
+
+    Answering with the diff we would apply — rather than with the sender's
+    account of its own intent — is what makes an approval mean something. The
+    same plan produces both this preview and the later effect.
+    """
+
+    permission_classes = [IsSessionOrApiKey]
+
+    @extend_schema(
+        operation_id="sites_change_set_preview",
+        tags=["sites"],
+        request=ChangeSetProposalSerializer,
+        responses={
+            200: ChangeSetDiffSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+            422: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = ChangeSetProposalSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        document = serializer.validated_data["change_set"]
+        context = _change_set_context(document)
+        plan = plan_change_set(document, context)
+        return Response(change_set_diff(document, plan, context))
+
+
+class ChangeSetApplyView(APIView):
+    """Turns an accepted change set into a new draft, never into a mutation."""
+
+    permission_classes = [IsSessionOrApiKey]
+
+    @extend_schema(
+        operation_id="sites_change_set_apply",
+        tags=["sites"],
+        request=ChangeSetApplySerializer,
+        parameters=[IDEMPOTENCY_PARAMETER],
+        responses={
+            201: ChangeSetResultSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+            422: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = ChangeSetApplySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        document = serializer.validated_data["change_set"]
+        context = _change_set_context(document)
+        result = apply_change_set(
+            document,
+            context,
+            idempotency_key=_idempotency_header(request, document),
+            approval_digest=serializer.validated_data.get("approval_digest"),
+        )
+        return Response(result, status=status.HTTP_201_CREATED)
+
+
+def _change_set_context(document: Any) -> Any:
+    """The tenant this call already established, after the envelope is sound.
+
+    Validated first so a malformed document is refused the same way whoever
+    sent it can reproduce, before anything is looked up.
+    """
+    from saas_core.modules.core.organizations.context import require_tenant_context
+
+    validate_change_set(document)
+    return require_tenant_context()
+
+
+def _idempotency_header(request: Request, document: Any) -> str:
+    """The sender's key, or the one the document already carries.
+
+    A change set names its own idempotency key, so a connector that forgets the
+    header still cannot create two drafts from one intent.
+    """
+    header = str(request.headers.get("Idempotency-Key", "")).strip()
+    if header:
+        return header
+    return str(document.get("idempotency_key", ""))
+
+
+class ContentInventoryView(APIView):
+    """One read, one moment, one hash.
+
+    A connector that assembled its picture endpoint by endpoint would be
+    planning against a state that never existed — the pages from one moment and
+    the collections from another. The ETag then lets it ask "has anything I act
+    on changed?" without paying for the whole answer.
+    """
+
+    permission_classes = [IsSessionOrApiKey]
+
+    @extend_schema(
+        operation_id="sites_inventory_retrieve",
+        tags=["sites"],
+        parameters=[
+            OpenApiParameter(
+                name="If-None-Match",
+                location=OpenApiParameter.HEADER,
+                required=False,
+                type=str,
+                description="ETag z poprzedniego odczytu; 304 gdy nic się nie zmieniło.",
+            )
+        ],
+        responses={
+            200: ContentInventorySerializer,
+            304: None,
+            403: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, request: Request) -> Response:
+        inventory = read_inventory()
+        etag = inventory_etag(inventory)
+        if request.headers.get("If-None-Match") == etag:
+            # Nothing the caller acts on has moved. The moment it was read has,
+            # which is exactly why the timestamp is outside the hash.
+            not_modified = Response(status=304)
+            not_modified["ETag"] = etag
+            return not_modified
+        response = Response(inventory)
+        response["ETag"] = etag
+        return response
 
 
 class ContentCapabilitiesView(APIView):

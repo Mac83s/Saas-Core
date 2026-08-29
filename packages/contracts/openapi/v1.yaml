@@ -3328,6 +3328,133 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/changes/:
+    post:
+      operationId: sites_change_set_preview
+      description: |-
+        What this change set would do, and nothing more.
+
+        Answering with the diff we would apply — rather than with the sender's
+        account of its own intent — is what makes an approval mean something. The
+        same plan produces both this preview and the later effect.
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeSetProposal'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ChangeSetProposal'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ChangeSetProposal'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangeSetDiff'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/changes/apply/:
+    post:
+      operationId: sites_change_set_apply
+      description: Turns an accepted change set into a new draft, never into a mutation.
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: Klucz bezpiecznego ponowienia mutacji w zakresie organizacji
+          i użytkownika.
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeSetApply'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ChangeSetApply'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ChangeSetApply'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangeSetResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/collections/{collection_id}/entries/:
     get:
       operationId: sites_entries_list
@@ -4092,6 +4219,41 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/inventory/:
+    get:
+      operationId: sites_inventory_retrieve
+      description: |-
+        One read, one moment, one hash.
+
+        A connector that assembled its picture endpoint by endpoint would be
+        planning against a state that never existed — the pages from one moment and
+        the collections from another. The ETag then lets it ask "has anything I act
+        on changed?" without paying for the whole answer.
+      parameters:
+      - in: header
+        name: If-None-Match
+        schema:
+          type: string
+        description: ETag z poprzedniego odczytu; 304 gdy nic się nie zmieniło.
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentInventory'
+          description: ''
+        '304':
+          description: No response body
+        '403':
           content:
             application/json:
               schema:
@@ -5064,6 +5226,95 @@ components:
         * `staff` - staff
         * `service` - service
         * `resource` - resource
+    ChangeSetApply:
+      type: object
+      properties:
+        change_set:
+          type: object
+          additionalProperties: {}
+        approval_digest:
+          type: string
+      required:
+      - change_set
+    ChangeSetDiff:
+      type: object
+      properties:
+        resource_id:
+          type: string
+          format: uuid
+        base_version:
+          type: integer
+        commands:
+          type: array
+          items:
+            type: string
+        blocks_before:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        blocks_after:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        translation_fields:
+          type: object
+          additionalProperties: {}
+        publish_at:
+          type:
+          - string
+          - 'null'
+        approval_digest:
+          type: string
+        digest_expires_at:
+          type: string
+          format: date-time
+      required:
+      - approval_digest
+      - base_version
+      - blocks_after
+      - blocks_before
+      - commands
+      - digest_expires_at
+      - publish_at
+      - resource_id
+      - translation_fields
+    ChangeSetProposal:
+      type: object
+      description: |-
+        The envelope is checked against the frozen JSON Schema, not here.
+
+        A DRF serializer mirroring it would be a second description of the same
+        contract, and the two would drift the first time one was edited alone.
+      properties:
+        change_set:
+          type: object
+          additionalProperties: {}
+      required:
+      - change_set
+    ChangeSetResult:
+      type: object
+      properties:
+        resource_id:
+          type: string
+          format: uuid
+        base_version:
+          type: integer
+        applied_commands:
+          type: array
+          items:
+            type: string
+        approval_digest:
+          type: string
+        published:
+          type: boolean
+      required:
+      - applied_commands
+      - approval_digest
+      - base_version
+      - published
+      - resource_id
     CheckoutCreate:
       type: object
       properties:
@@ -5361,6 +5612,27 @@ components:
       - locale
       - slug
       - title
+    ContentInventory:
+      type: object
+      description: Everything the caller may act on, as of one moment.
+      properties:
+        contract_version:
+          type: integer
+        minimum_contract_version:
+          type: integer
+        observed_at:
+          type: string
+          format: date-time
+        sites:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+      required:
+      - contract_version
+      - minimum_contract_version
+      - observed_at
+      - sites
     ContentTag:
       type: object
       properties:

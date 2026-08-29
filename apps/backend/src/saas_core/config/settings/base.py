@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -156,6 +157,18 @@ PAGE_TEMPLATE_CONTRACTS_PATH = Path(
         "PAGE_TEMPLATE_CONTRACTS_PATH",
         BASE_DIR.parent.parent / "packages" / "contracts" / "page-templates",
     )
+)
+CONTENT_OPERATIONS_CONTRACTS_PATH = Path(
+    os.environ.get(
+        "CONTENT_OPERATIONS_CONTRACTS_PATH",
+        BASE_DIR.parent.parent / "packages" / "contracts" / "content-operations",
+    )
+)
+#: How long an approval digest stands. Long enough for a person to look at the
+#: diff and decide, short enough that an approval cannot be banked and spent
+#: against a site that has moved on since.
+CONTENT_APPROVAL_DIGEST_TTL = timedelta(
+    minutes=int(os.environ.get("CONTENT_APPROVAL_DIGEST_TTL_MINUTES", "30"))
 )
 
 

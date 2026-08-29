@@ -23,7 +23,10 @@ from .onboarding_views import (
     SubdomainAvailabilityView,
 )
 from .views import (
+    ChangeSetApplyView,
+    ChangeSetProposalView,
     ContentCapabilitiesView,
+    ContentInventoryView,
     PageDraftPreviewView,
     PageDraftView,
     PageListCreateView,
@@ -69,6 +72,13 @@ urlpatterns = [
         "<uuid:site_id>/purpose/",
         SitePurposeView.as_view(),
         name="site-purpose",
+    ),
+    path("inventory/", ContentInventoryView.as_view(), name="content-inventory"),
+    path("changes/", ChangeSetProposalView.as_view(), name="change-set-preview"),
+    path(
+        "changes/apply/",
+        ChangeSetApplyView.as_view(),
+        name="change-set-apply",
     ),
     path(
         "capabilities/",

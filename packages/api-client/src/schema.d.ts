@@ -1234,6 +1234,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/changes/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description What this change set would do, and nothing more.
+         *
+         *     Answering with the diff we would apply — rather than with the sender's
+         *     account of its own intent — is what makes an approval mean something. The
+         *     same plan produces both this preview and the later effect.
+         */
+        post: operations["sites_change_set_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/changes/apply/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Turns an accepted change set into a new draft, never into a mutation. */
+        post: operations["sites_change_set_apply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/collections/{collection_id}/entries/": {
         parameters: {
             query?: never;
@@ -1392,6 +1432,30 @@ export interface paths {
         get: operations["sites_entry_translations_list"];
         put?: never;
         post: operations["sites_entry_translation_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/inventory/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description One read, one moment, one hash.
+         *
+         *     A connector that assembled its picture endpoint by endpoint would be
+         *     planning against a state that never existed — the pages from one moment and
+         *     the collections from another. The ETag then lets it ask "has anything I act
+         *     on changed?" without paying for the whole answer.
+         */
+        get: operations["sites_inventory_retrieve"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1718,6 +1782,50 @@ export interface components {
          * @enum {string}
          */
         CatalogCreateKindEnum: "location" | "staff" | "service" | "resource";
+        ChangeSetApply: {
+            change_set: {
+                [key: string]: unknown;
+            };
+            approval_digest?: string;
+        };
+        ChangeSetDiff: {
+            /** Format: uuid */
+            resource_id: string;
+            base_version: number;
+            commands: string[];
+            blocks_before: {
+                [key: string]: unknown;
+            }[];
+            blocks_after: {
+                [key: string]: unknown;
+            }[];
+            translation_fields: {
+                [key: string]: unknown;
+            };
+            publish_at: string | null;
+            approval_digest: string;
+            /** Format: date-time */
+            digest_expires_at: string;
+        };
+        /**
+         * @description The envelope is checked against the frozen JSON Schema, not here.
+         *
+         *     A DRF serializer mirroring it would be a second description of the same
+         *     contract, and the two would drift the first time one was edited alone.
+         */
+        ChangeSetProposal: {
+            change_set: {
+                [key: string]: unknown;
+            };
+        };
+        ChangeSetResult: {
+            /** Format: uuid */
+            resource_id: string;
+            base_version: number;
+            applied_commands: string[];
+            approval_digest: string;
+            published: boolean;
+        };
         CheckoutCreate: {
             plan: string;
         };
@@ -1834,6 +1942,16 @@ export interface components {
             slug: string;
             locale: components["schemas"]["LocaleEnum"];
             title: string;
+        };
+        /** @description Everything the caller may act on, as of one moment. */
+        ContentInventory: {
+            contract_version: number;
+            minimum_contract_version: number;
+            /** Format: date-time */
+            observed_at: string;
+            sites: {
+                [key: string]: unknown;
+            }[];
         };
         ContentTag: {
             slug: string;
@@ -6417,6 +6535,139 @@ export interface operations {
             };
         };
     };
+    sites_change_set_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeSetProposal"];
+                "application/x-www-form-urlencoded": components["schemas"]["ChangeSetProposal"];
+                "multipart/form-data": components["schemas"]["ChangeSetProposal"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeSetDiff"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_change_set_apply: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia mutacji w zakresie organizacji i użytkownika. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeSetApply"];
+                "application/x-www-form-urlencoded": components["schemas"]["ChangeSetApply"];
+                "multipart/form-data": components["schemas"]["ChangeSetApply"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeSetResult"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     sites_entries_list: {
         parameters: {
             query?: {
@@ -7193,6 +7444,43 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_inventory_retrieve: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description ETag z poprzedniego odczytu; 304 gdy nic się nie zmieniło. */
+                "If-None-Match"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentInventory"];
+                };
+            };
+            /** @description No response body */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };
