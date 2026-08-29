@@ -494,7 +494,9 @@
     "tagsSave": "Save subjects",
     "tagsHint": "Each subject gets its own archive page, such as /blog/tag/advice/. The address follows from the name, so you never type it.",
     "tagsTooMany": "An entry can carry at most ten subjects.",
-    "tagsNameInvalid": "A subject name cannot be empty."
+    "tagsNameInvalid": "A subject name cannot be empty.",
+    "blogRepublish": "Publish {title} again",
+    "blogRepublishShort": "Publish again"
   },
   "BillingSupport": {
     "navigation": "Billing & access",

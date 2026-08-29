@@ -87,6 +87,14 @@ def _entry_payload(entry: ContentEntry) -> dict[str, Any]:
         "state": entry.state,
         "version": entry.version,
         "published_at": entry.published_at,
+        # Which publication is live. The panel keys a republish on it, so
+        # pressing the button twice in a row is one publication while
+        # pressing it again after the first has landed is a second.
+        "publication_id": (
+            str(entry.current_publication_id)
+            if entry.current_publication_id
+            else None
+        ),
         "noindex": entry.noindex,
         "draft_author": _draft_author(entry.current_draft),
         "translation_group": str(entry.translation_group),

@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
 from uuid import UUID, uuid7
+from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.db import transaction
@@ -47,8 +49,10 @@ from .localization import (
     localized_path,
 )
 from .models import (
+    AutomationGrantMode,
     ContentAutomationGrant,
     ContentCollection,
+    ContentEntryVersion,
     NavigationItem,
     Page,
     PageAutomationPolicy,
@@ -179,6 +183,56 @@ class SitePurposeMismatch(APIException):
     status_code = 403
     default_detail = "Przeznaczenie nie odpowiada rodzajowi workspace'u."
     default_code = "site_purpose_mismatch"
+
+
+class AutomationGrantModeUnknown(APIException):
+    status_code = 403
+    default_detail = "Tryb grantu nie jest obsługiwany przez tę wersję."
+    default_code = "automation_grant_mode_unknown"
+
+
+class AutomationSuggestOnly(APIException):
+    status_code = 403
+    default_detail = "Ten grant pozwala tylko proponować, nie zapisywać."
+    default_code = "automation_suggest_only"
+
+
+class AutomationApprovalRequired(APIException):
+    status_code = 403
+    default_detail = "Publikacja tym grantem wymaga akceptacji człowieka."
+    default_code = "automation_approval_required"
+
+
+class AutomationAutonomyNotPiloted(APIException):
+    status_code = 403
+    default_detail = (
+        "Tryb autonomiczny działa na razie tylko w workspace platformowym."
+    )
+    default_code = "automation_autonomy_not_piloted"
+
+
+class AutomationOutsideWindow(APIException):
+    status_code = 409
+    default_detail = "Poza dozwolonym oknem czasowym tego grantu."
+    default_code = "automation_outside_window"
+
+
+class AutomationPayloadTooLarge(APIException):
+    status_code = 400
+    default_detail = "Zmiana przekracza dozwoloną objętość."
+    default_code = "automation_payload_too_large"
+
+
+class AutomationChangeLimitReached(APIException):
+    status_code = 429
+    default_detail = "Dzienny limit zmian tego grantu został wyczerpany."
+    default_code = "automation_change_limit_reached"
+
+
+class PersonRequired(APIException):
+    status_code = 403
+    default_detail = "Ta operacja wymaga decyzji człowieka."
+    default_code = "person_required"
 
 
 class PageAutomationForbidden(APIException):
@@ -563,20 +617,41 @@ def _is_automation(context: TenantContext) -> bool:
     return context.principal_kind != "membership"
 
 
+#: Modes in which an automation may publish without a person approving the
+#: individual change. `publish_with_approval` is deliberately absent: the
+#: approval digest it needs is W9.6.6, so until then it refuses rather than
+#: quietly behaving like `autonomous`.
+PUBLISHING_MODES = frozenset({AutomationGrantMode.AUTONOMOUS})
+
+#: Modes in which an automation may write a draft at all.
+WRITING_MODES = frozenset({
+    AutomationGrantMode.DRAFT_WRITE,
+    AutomationGrantMode.PUBLISH_WITH_APPROVAL,
+    AutomationGrantMode.AUTONOMOUS,
+})
+
+
 def assert_within_grant(
     context: TenantContext,
     *,
     site_id: UUID,
     collection_id: UUID | None = None,
-) -> None:
+    writing: bool = False,
+    publishing: bool = False,
+    payload_bytes: int | None = None,
+) -> ContentAutomationGrant | None:
     """Checks that this credential was granted this resource (ADR-035 §4).
 
     A credential with no grant reaches nothing. That is the point: authenticating
     proves which organization is calling, not what it was hired to do, and the
     agreement with a customer is normally "the blog" rather than "the website".
+
+    The grant's mode and bounds are checked here too, so every caller gets them
+    without having to remember: one place decides what an automation may do,
+    and a new endpoint cannot forget to ask.
     """
     if not _is_automation(context):
-        return
+        return None
     if context.credential_id is None:
         raise AutomationGrantMissing
     grants = ContentAutomationGrant.all_objects.filter(
@@ -589,11 +664,84 @@ def assert_within_grant(
             continue
         # A site-wide grant covers its collections; a collection grant covers
         # only itself, never the pages around it.
-        if grant.site_id is not None and grant.site_id == site_id:
-            return
-        if collection_id is not None and grant.collection_id == collection_id:
-            return
+        matches = (grant.site_id is not None and grant.site_id == site_id) or (
+            collection_id is not None and grant.collection_id == collection_id
+        )
+        if not matches:
+            continue
+        _assert_grant_permits(
+            grant,
+            context,
+            writing=writing or publishing,
+            publishing=publishing,
+            payload_bytes=payload_bytes,
+        )
+        return grant
     raise AutomationGrantMissing
+
+
+def _assert_grant_permits(
+    grant: ContentAutomationGrant,
+    context: TenantContext,
+    *,
+    writing: bool,
+    publishing: bool,
+    payload_bytes: int | None,
+) -> None:
+    # An unknown mode is not a permissive one. A value this build does not
+    # implement — `auto_publish_limited`, or anything a future version writes —
+    # stops the call rather than falling back to the nearest thing it knows.
+    if grant.mode not in set(AutomationGrantMode.values):
+        raise AutomationGrantModeUnknown
+    if publishing:
+        if grant.mode not in PUBLISHING_MODES:
+            raise AutomationApprovalRequired
+        # ADR-035 §4: autonomy starts on our own content, where a bad article
+        # costs us rather than a customer who never asked for the experiment.
+        # A setting rather than a hard rule, because lifting the pilot is a
+        # decision somebody makes and records once it has been earned.
+        if settings.SITES_AUTONOMOUS_PILOT_ONLY and not Organization.objects.filter(
+            pk=context.organization_id, workspace_kind=WorkspaceKind.PLATFORM
+        ).exists():
+            raise AutomationAutonomyNotPiloted
+    elif writing and grant.mode not in WRITING_MODES:
+        raise AutomationSuggestOnly
+    if not writing:
+        # `suggest_only` exists to read the state it is proposing against, and
+        # a window is about when an automation may act rather than when it may
+        # look. Reading stops at the scope check above.
+        return
+
+    organization = Organization.objects.get(pk=context.organization_id)
+    local_now = timezone.localtime(
+        timezone.now(), ZoneInfo(organization.timezone or "UTC")
+    )
+    if not grant.within_window(local_now.time()):
+        raise AutomationOutsideWindow(
+            detail=(
+                "Ten klucz działa między "
+                f"{grant.window_start} a {grant.window_end} czasu klienta."
+            )
+        )
+    if (
+        payload_bytes is not None
+        and grant.max_payload_bytes is not None
+        and payload_bytes > grant.max_payload_bytes
+    ):
+        raise AutomationPayloadTooLarge
+    if grant.max_changes_per_day is not None and writing and not publishing:
+        since = timezone.now() - timedelta(days=1)
+        written = PageVersion.all_objects.filter(
+            organization_id=context.organization_id,
+            created_by_credential=context.credential_id,
+            created_at__gte=since,
+        ).count() + ContentEntryVersion.all_objects.filter(
+            organization_id=context.organization_id,
+            created_by_credential=context.credential_id,
+            created_at__gte=since,
+        ).count()
+        if written >= grant.max_changes_per_day:
+            raise AutomationChangeLimitReached
 
 
 #: Policies under which an automation may write a draft. `PROPOSED` allows the
@@ -605,14 +753,49 @@ DRAFTABLE_POLICIES = frozenset({
 })
 
 
+#: Page types an automation never writes, whatever its grant or the surface
+#: policy says. A wrong sentence on a legal page or a price list is a different
+#: kind of wrong from a clumsy blog post, and no mode buys past it.
+PERSON_ONLY_PAGE_TYPES = frozenset({PageType.LEGAL})
+
+#: Blocks that carry commitments to a customer's customers rather than prose.
+PERSON_ONLY_BLOCK_TYPES = frozenset({"core.pricing"})
+
+
+def assert_person_required(context: TenantContext, what: str) -> None:
+    """Refuses an automation outright, with the reason in the message.
+
+    These are the operations ADR-035 §4 keeps for a person no matter which mode
+    the grant carries: domains, the main menu, legal pages, the price list,
+    removals and anything site-wide. A grant is a limit on what an integration
+    may do routinely, not a way of buying past the short list of things nobody
+    wants a machine deciding alone.
+    """
+    if not _is_automation(context):
+        return
+    raise PersonRequired(detail=f"{what} wymaga decyzji człowieka.")
+
+
 def assert_page_writable(
-    page: Page, context: TenantContext, *, publishing: bool = False
+    page: Page,
+    context: TenantContext,
+    *,
+    publishing: bool = False,
+    payload_bytes: int | None = None,
 ) -> None:
     """Refuses an automated write the operator has not allowed, or that would
     land on a page a person currently has open."""
     if not _is_automation(context):
         return
-    assert_within_grant(context, site_id=page.site_id)
+    assert_within_grant(
+        context,
+        site_id=page.site_id,
+        writing=True,
+        publishing=publishing,
+        payload_bytes=payload_bytes,
+    )
+    if page.page_type in PERSON_ONLY_PAGE_TYPES:
+        assert_person_required(context, "Strona prawna")
     allowed = (
         {PageAutomationPolicy.AUTOMATED} if publishing else DRAFTABLE_POLICIES
     )
@@ -738,7 +921,16 @@ def save_draft(
         raise PageNotFound from error
     # Checked here rather than in the view, so every channel that saves a draft
     # inherits it — the panel, the automation, and anything added later.
-    assert_page_writable(page, context)
+    assert_page_writable(
+        page,
+        context,
+        payload_bytes=len(json.dumps(blocks, ensure_ascii=False, separators=(",", ":"))),
+    )
+    if any(
+        isinstance(block, dict) and block.get("block_type") in PERSON_ONLY_BLOCK_TYPES
+        for block in blocks
+    ):
+        assert_person_required(context, "Cennik")
     existing = PageVersion.all_objects.filter(
         organization_id=context.organization_id,
         page_id=page.id,
@@ -1158,7 +1350,10 @@ def save_site_navigation(
     partial moves into a tree neither of them intended. The version guards the
     menu as a whole.
     """
+    # The menu is what a visitor is steered by; an integration able to rewrite
+    # it could route a customer's traffic wherever it liked.
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    assert_person_required(context, "Główna nawigacja")
     site = (
         Site.all_objects.select_for_update()
         .filter(pk=site_id, organization_id=context.organization_id)
@@ -1283,9 +1478,9 @@ def publish_site(*, site_id: UUID, idempotency_key: str) -> SitePublication:
         )
         .order_by("id")
     )
-    # A site-wide publication would otherwise let an automation ship its own
-    # proposal: the page policy governs the draft, but publication is site-wide.
-    # Somebody has to accept a proposal, and it is not the party that made it.
+    # Publishing a whole site is the bulk operation ADR-035 §4 keeps for a
+    # person: it ships every page at once, including ones nobody looked at.
+    assert_person_required(context, "Publikacja całej witryny")
     if _is_automation(context) and any(
         page.automation_policy == PageAutomationPolicy.PROPOSED for page in pages
     ):

@@ -6,6 +6,7 @@ from uuid import uuid7
 
 import pytest
 from django.core.cache import cache
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from saas_core.modules.shared.sites.models import (
@@ -181,7 +182,9 @@ def test_publishing_is_idempotent_and_withdrawal_keeps_the_history() -> None:
 def test_collection_policy_decides_whether_automation_may_write_entries() -> None:
     from saas_core.modules.core.organizations.context import activate_tenant_context
     from saas_core.modules.shared.sites.collections import save_entry_draft as save
-    from saas_core.modules.shared.sites.services import PageAutomationForbidden
+    from saas_core.modules.shared.sites.services import (
+        PageAutomationForbidden,
+    )
     from test_sites_api import automation_context
 
     client, organization, user = sites_client(slug="entry-policy", role_key="owner")
@@ -207,6 +210,9 @@ def test_collection_policy_decides_whether_automation_may_write_entries() -> Non
         credential_id=credential_id,
         collection_id=collection.data["id"],
         mode="autonomous",
+        expires_at=timezone.now() + timedelta(days=7),
+        max_changes_per_day=50,
+        max_payload_bytes=100_000,
         created_by=user,
     )
 
@@ -405,6 +411,9 @@ def test_api_key_reaches_the_blog_and_is_bounded_by_its_scopes() -> None:
         credential_id=api_key.id,
         collection_id=collection.data["id"],
         mode="autonomous",
+        expires_at=timezone.now() + timedelta(days=7),
+        max_changes_per_day=50,
+        max_payload_bytes=100_000,
         created_by=user,
     )
 
@@ -501,7 +510,7 @@ def test_grant_bounds_the_credential_by_resource_expiry_and_revocation() -> None
         organization=organization,
         credential_id=credential_id,
         collection_id=blog.data["id"],
-        mode="autonomous",
+        mode="suggest_only",
         created_by=user,
     )
     context = automation_context(
@@ -551,7 +560,7 @@ def test_site_grant_covers_its_collections_but_a_collection_grant_does_not_widen
         organization=organization,
         credential_id=credential_id,
         site_id=site.data["id"],
-        mode="autonomous",
+        mode="suggest_only",
         created_by=user,
     )
 
@@ -568,6 +577,8 @@ def test_site_grant_covers_its_collections_but_a_collection_grant_does_not_widen
 def test_proposed_policy_lets_automation_draft_but_not_publish() -> None:
     """The middle setting: a cautious client wants the article written for them
     and still decides for themselves whether readers ever see it."""
+    from django.test import override_settings
+
     from saas_core.modules.core.organizations.context import activate_tenant_context
     from saas_core.modules.shared.sites.collections import (
         publish_entry,
@@ -579,7 +590,10 @@ def test_proposed_policy_lets_automation_draft_but_not_publish() -> None:
         ContentCollection,
         ContentEntryVersion,
     )
-    from saas_core.modules.shared.sites.services import PageAutomationForbidden
+    from saas_core.modules.shared.sites.services import (
+        PageAutomationForbidden,
+        PersonRequired,
+    )
     from test_sites_api import automation_context
 
     client, organization, user = sites_client(slug="entry-proposed", role_key="owner")
@@ -594,13 +608,19 @@ def test_proposed_policy_lets_automation_draft_but_not_publish() -> None:
         credential_id=credential_id,
         collection_id=collection.data["id"],
         mode="autonomous",
+        expires_at=timezone.now() + timedelta(days=7),
+        max_changes_per_day=50,
+        max_payload_bytes=100_000,
         created_by=user,
     )
     ContentCollection.all_objects.filter(pk=collection.data["id"]).update(
         automation_policy=PageAutomationPolicy.PROPOSED
     )
 
-    with activate_tenant_context(
+    # The pilot gate is lifted here on purpose: this test is about the
+    # surface policy, and leaving the gate on would make it pass for the
+    # wrong reason.
+    with override_settings(SITES_AUTONOMOUS_PILOT_ONLY=False), activate_tenant_context(
         automation_context(
             organization.id,
             user.id,
@@ -627,7 +647,8 @@ def test_proposed_policy_lets_automation_draft_but_not_publish() -> None:
             publish_entry(
                 entry_id=entry.data["id"], idempotency_key="proposal-publish"
             )
-        with pytest.raises(PageAutomationForbidden):
+        # Withdrawal is a removal, which no grant reaches (ADR-035 §4).
+        with pytest.raises(PersonRequired):
             withdraw_entry(entry_id=entry.data["id"])
 
     stored = ContentEntryVersion.all_objects.get(pk=version.id)
@@ -722,6 +743,9 @@ def test_api_key_row_is_read_only_after_the_tenant_setting() -> None:
         credential_id=api_key.id,
         collection_id=collection.data["id"],
         mode="autonomous",
+        expires_at=timezone.now() + timedelta(days=7),
+        max_changes_per_day=50,
+        max_payload_bytes=100_000,
         created_by=user,
     )
 
@@ -1014,7 +1038,9 @@ def test_only_a_person_links_a_collection_into_the_menu() -> None:
     able to put its own surface into it."""
     from saas_core.modules.core.organizations.context import activate_tenant_context
     from saas_core.modules.shared.sites.collections import set_collection_navigation
-    from saas_core.modules.shared.sites.services import PageAutomationForbidden
+    from saas_core.modules.shared.sites.services import (
+        PageAutomationForbidden,
+    )
     from test_sites_api import automation_context
 
     client, organization, user = sites_client(slug="blog-menu-guard", role_key="owner")
@@ -2497,3 +2523,457 @@ def test_tags_travel_in_the_publication_not_the_draft() -> None:
         )
     assert [tag["slug"] for tag in article.json()["article"]["tags"]] == ["porady"]
     assert old_archive.status_code == 200
+
+
+def _grant(
+    organization_id: Any,
+    credential_id: Any,
+    actor_id: Any,
+    *,
+    collection_id: Any,
+    mode: str,
+    **fields: Any,
+) -> Any:
+    from saas_core.modules.shared.sites.models import ContentAutomationGrant
+
+    return ContentAutomationGrant.all_objects.create(
+        organization_id=organization_id,
+        credential_id=credential_id,
+        collection_id=collection_id,
+        mode=mode,
+        created_by_id=actor_id,
+        **fields,
+    )
+
+
+def _automation(organization_id: Any, actor_id: Any, credential_id: Any) -> Any:
+    from test_sites_api import automation_context
+
+    return automation_context(
+        organization_id, actor_id, credential_id=credential_id, may_publish=True
+    )
+
+
+def test_suggest_only_may_read_the_state_it_proposes_against_but_not_write() -> None:
+    """The default mode has to be useful: a proposal computed against a state
+    the connector could not read would be a guess."""
+    from saas_core.modules.core.organizations.context import activate_tenant_context
+    from saas_core.modules.shared.sites.collections import (
+        get_entry_draft,
+        save_entry_draft,
+    )
+    from saas_core.modules.shared.sites.services import AutomationSuggestOnly
+
+    client, organization, user = sites_client(slug="grant-suggest", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    entry = create_entry(
+        client, collection.data["id"], slug="wpis", idempotency_key="g-suggest"
+    )
+    save_entry_draft_via_api = save_entry_draft
+    client.put(
+        f"/api/v1/sites/collections/{collection.data['id']}/policy/",
+        {"automation_policy": "automated"},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    credential_id = uuid7()
+    _grant(
+        organization.id,
+        credential_id,
+        user.id,
+        collection_id=collection.data["id"],
+        mode="suggest_only",
+    )
+
+    context = _automation(organization.id, user.id, credential_id)
+    with activate_tenant_context(context):
+        # Reading is the whole point of the mode.
+        assert get_entry_draft(entry_id=entry.data["id"]).entry.slug == "wpis"
+        with pytest.raises(AutomationSuggestOnly):
+            save_entry_draft_via_api(
+                entry_id=entry.data["id"],
+                expected_version=0,
+                blocks=[
+                    {
+                        "block_type": "core.rich_text",
+                        "schema_version": 1,
+                        "data": {"text": "Propozycja."},
+                    }
+                ],
+                idempotency_key="g-suggest-write",
+            )
+
+
+def test_an_unknown_grant_mode_stops_the_call_rather_than_falling_back() -> None:
+    """`auto_publish_limited` is the precedent: a value this build does not
+    implement must fail closed, not resolve to the nearest thing it knows."""
+    from saas_core.modules.core.organizations.context import activate_tenant_context
+    from saas_core.modules.shared.sites.collections import get_entry_draft
+    from saas_core.modules.shared.sites.models import ContentAutomationGrant
+    from saas_core.modules.shared.sites.services import AutomationGrantModeUnknown
+
+    client, organization, user = sites_client(slug="grant-unknown", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    entry = create_entry(
+        client, collection.data["id"], slug="wpis", idempotency_key="g-unknown"
+    )
+    credential_id = uuid7()
+    grant = _grant(
+        organization.id,
+        credential_id,
+        user.id,
+        collection_id=collection.data["id"],
+        mode="suggest_only",
+    )
+    # Written straight to the column, as an older or newer peer would.
+    ContentAutomationGrant.all_objects.filter(pk=grant.pk).update(
+        mode="auto_publish_limited"
+    )
+
+    context = _automation(organization.id, user.id, credential_id)
+    with (
+        activate_tenant_context(context),
+        pytest.raises(AutomationGrantModeUnknown),
+    ):
+        get_entry_draft(entry_id=entry.data["id"])
+
+
+def test_autonomous_publication_is_refused_outside_the_platform_workspace() -> None:
+    """ADR-035 §4: autonomy starts on our own content, where a bad article
+    costs us rather than a customer who never asked for the experiment."""
+    from datetime import timedelta as _timedelta
+
+    from django.utils import timezone
+
+    from saas_core.modules.core.organizations.context import activate_tenant_context
+    from saas_core.modules.shared.sites.collections import publish_entry
+    from saas_core.modules.shared.sites.services import (
+        AutomationAutonomyNotPiloted,
+    )
+
+    client, organization, user = sites_client(slug="grant-autonomy", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    client.put(
+        f"/api/v1/sites/collections/{collection.data['id']}/policy/",
+        {"automation_policy": "automated"},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    entry = create_entry(
+        client, collection.data["id"], slug="wpis", idempotency_key="g-autonomy"
+    )
+    save_entry_draft(
+        client,
+        entry.data["id"],
+        expected_version=0,
+        text="Treść.",
+        idempotency_key="g-autonomy-draft",
+    )
+    credential_id = uuid7()
+    _grant(
+        organization.id,
+        credential_id,
+        user.id,
+        collection_id=collection.data["id"],
+        mode="autonomous",
+        expires_at=timezone.now() + _timedelta(days=7),
+        max_changes_per_day=10,
+        max_payload_bytes=10_000,
+    )
+
+    context = _automation(organization.id, user.id, credential_id)
+    with (
+        activate_tenant_context(context),
+        pytest.raises(AutomationAutonomyNotPiloted),
+    ):
+        publish_entry(entry_id=entry.data["id"], idempotency_key="g-autonomy-publish")
+
+
+def test_a_grant_outside_its_window_waits_rather_than_writing() -> None:
+    from datetime import time as _time
+
+    from saas_core.modules.core.organizations.context import activate_tenant_context
+    from saas_core.modules.shared.sites.collections import save_entry_draft as _save
+    from saas_core.modules.shared.sites.services import AutomationOutsideWindow
+
+    client, organization, user = sites_client(slug="grant-window", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    client.put(
+        f"/api/v1/sites/collections/{collection.data['id']}/policy/",
+        {"automation_policy": "automated"},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    entry = create_entry(
+        client, collection.data["id"], slug="wpis", idempotency_key="g-window"
+    )
+    credential_id = uuid7()
+    # A window that cannot contain now, whatever the hour: one minute wide, and
+    # moved to the far side of the clock from the current time.
+    from django.utils import timezone as _tz
+
+    now = _tz.localtime(_tz.now()).time()
+    start = _time((now.hour + 6) % 24, 0)
+    end = _time((now.hour + 6) % 24, 1)
+    _grant(
+        organization.id,
+        credential_id,
+        user.id,
+        collection_id=collection.data["id"],
+        mode="draft_write",
+        window_start=start,
+        window_end=end,
+    )
+
+    context = _automation(organization.id, user.id, credential_id)
+    with activate_tenant_context(context), pytest.raises(AutomationOutsideWindow):
+        _save(
+            entry_id=entry.data["id"],
+            expected_version=0,
+            blocks=[
+                {
+                    "block_type": "core.rich_text",
+                    "schema_version": 1,
+                    "data": {"text": "Poza oknem."},
+                }
+            ],
+            idempotency_key="g-window-write",
+        )
+
+
+def test_a_write_larger_than_the_grant_allows_is_refused() -> None:
+    from saas_core.modules.core.organizations.context import activate_tenant_context
+    from saas_core.modules.shared.sites.collections import save_entry_draft as _save
+    from saas_core.modules.shared.sites.services import AutomationPayloadTooLarge
+
+    client, organization, user = sites_client(slug="grant-volume", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    client.put(
+        f"/api/v1/sites/collections/{collection.data['id']}/policy/",
+        {"automation_policy": "automated"},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    entry = create_entry(
+        client, collection.data["id"], slug="wpis", idempotency_key="g-volume"
+    )
+    credential_id = uuid7()
+    _grant(
+        organization.id,
+        credential_id,
+        user.id,
+        collection_id=collection.data["id"],
+        mode="draft_write",
+        max_payload_bytes=200,
+    )
+
+    context = _automation(organization.id, user.id, credential_id)
+    # A hundred small edits and one enormous rewrite are different risks
+    # wearing the same number, so volume is bounded separately from count.
+    with activate_tenant_context(context), pytest.raises(AutomationPayloadTooLarge):
+        _save(
+            entry_id=entry.data["id"],
+            expected_version=0,
+            blocks=[
+                {
+                    "block_type": "core.rich_text",
+                    "schema_version": 1,
+                    "data": {"text": "x" * 5000},
+                }
+            ],
+            idempotency_key="g-volume-write",
+        )
+
+
+def test_the_daily_change_limit_stops_the_next_write() -> None:
+    from saas_core.modules.core.organizations.context import activate_tenant_context
+    from saas_core.modules.shared.sites.collections import save_entry_draft as _save
+    from saas_core.modules.shared.sites.services import AutomationChangeLimitReached
+
+    client, organization, user = sites_client(slug="grant-count", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    client.put(
+        f"/api/v1/sites/collections/{collection.data['id']}/policy/",
+        {"automation_policy": "automated"},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    entry = create_entry(
+        client, collection.data["id"], slug="wpis", idempotency_key="g-count"
+    )
+    credential_id = uuid7()
+    _grant(
+        organization.id,
+        credential_id,
+        user.id,
+        collection_id=collection.data["id"],
+        mode="draft_write",
+        max_changes_per_day=1,
+    )
+
+    context = _automation(organization.id, user.id, credential_id)
+    with activate_tenant_context(context):
+        _save(
+            entry_id=entry.data["id"],
+            expected_version=0,
+            blocks=[
+                {
+                    "block_type": "core.rich_text",
+                    "schema_version": 1,
+                    "data": {"text": "Pierwsza."},
+                }
+            ],
+            idempotency_key="g-count-one",
+        )
+        with pytest.raises(AutomationChangeLimitReached):
+            _save(
+                entry_id=entry.data["id"],
+                expected_version=1,
+                blocks=[
+                    {
+                        "block_type": "core.rich_text",
+                        "schema_version": 1,
+                        "data": {"text": "Druga."},
+                    }
+                ],
+                idempotency_key="g-count-two",
+            )
+
+
+def test_the_database_refuses_an_autonomous_grant_without_bounds() -> None:
+    """ADR-035 §4: "limited" describes what every autonomous grant carries. A
+    grant that publishes unattended has to say how much it may do."""
+    from django.db import IntegrityError
+
+    from saas_core.modules.shared.sites.models import ContentAutomationGrant
+
+    client, organization, user = sites_client(slug="grant-bounds", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+
+    with pytest.raises(IntegrityError):
+        ContentAutomationGrant.all_objects.create(
+            organization_id=organization.id,
+            credential_id=uuid7(),
+            collection_id=collection.data["id"],
+            mode="autonomous",
+            created_by_id=user.id,
+        )
+
+
+def test_the_short_list_of_person_only_operations_holds_against_any_grant() -> None:
+    """ADR-035 §4 keeps six things for a person whatever the grant says. A
+    limit that the widest mode can buy past is not a limit."""
+    from django.test import override_settings
+
+    from saas_core.modules.core.organizations.context import activate_tenant_context
+    from saas_core.modules.shared.sites.collections import withdraw_entry
+    from saas_core.modules.shared.sites.domain_services import create_custom_domain
+    from saas_core.modules.shared.sites.models import PageType
+    from saas_core.modules.shared.sites.services import (
+        PersonRequired,
+        publish_site,
+        save_draft,
+        save_site_navigation,
+    )
+    from test_sites_api import create_page
+
+    client, organization, user = sites_client(slug="person-only", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    client.put(
+        f"/api/v1/sites/collections/{collection.data['id']}/policy/",
+        {"automation_policy": "automated"},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    entry = create_entry(
+        client, collection.data["id"], slug="wpis", idempotency_key="po-entry"
+    )
+    save_entry_draft(
+        client,
+        entry.data["id"],
+        expected_version=0,
+        text="Treść.",
+        idempotency_key="po-draft",
+    )
+    publish(client, entry.data["id"], idempotency_key="po-publish")
+
+    legal = create_page(client, site.data["id"], key="regulamin", idempotency_key="po-legal")
+    client.put(
+        f"/api/v1/sites/pages/{legal.data['id']}/type/",
+        {"page_type": PageType.LEGAL},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    Page = __import__(
+        "saas_core.modules.shared.sites.models", fromlist=["Page"]
+    ).Page
+    Page.all_objects.filter(site_id=site.data["id"]).update(
+        automation_policy=PageAutomationPolicy.AUTOMATED
+    )
+
+    credential_id = uuid7()
+    _grant(
+        organization.id,
+        credential_id,
+        user.id,
+        collection_id=collection.data["id"],
+        mode="autonomous",
+        expires_at=timezone.now() + timedelta(days=7),
+        max_changes_per_day=100,
+        max_payload_bytes=1_000_000,
+    )
+    from saas_core.modules.shared.sites.models import ContentAutomationGrant
+
+    ContentAutomationGrant.all_objects.create(
+        organization_id=organization.id,
+        credential_id=credential_id,
+        site_id=site.data["id"],
+        mode="autonomous",
+        expires_at=timezone.now() + timedelta(days=7),
+        max_changes_per_day=100,
+        max_payload_bytes=1_000_000,
+        created_by_id=user.id,
+    )
+
+    context = _automation(organization.id, user.id, credential_id)
+    # The widest grant this product issues, and the pilot gate lifted, so what
+    # refuses below refuses on its own merits.
+    with override_settings(SITES_AUTONOMOUS_PILOT_ONLY=False), activate_tenant_context(
+        context
+    ):
+        with pytest.raises(PersonRequired):
+            create_custom_domain(
+                site_id=site.data["id"],
+                hostname="www.example.test",
+                idempotency_key="po-domain",
+            )
+        with pytest.raises(PersonRequired):
+            save_site_navigation(
+                site_id=site.data["id"], expected_version=0, items=[]
+            )
+        with pytest.raises(PersonRequired):
+            publish_site(site_id=site.data["id"], idempotency_key="po-site-publish")
+        with pytest.raises(PersonRequired):
+            withdraw_entry(entry_id=entry.data["id"])
+        with pytest.raises(PersonRequired):
+            save_draft(
+                page_id=legal.data["id"],
+                expected_version=0,
+                blocks=[
+                    {
+                        "block_type": "core.rich_text",
+                        "schema_version": 1,
+                        "data": {"text": "Nowy regulamin."},
+                    }
+                ],
+                media_asset_ids=[],
+                idempotency_key="po-legal-draft",
+            )

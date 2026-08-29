@@ -1784,6 +1784,8 @@ export interface components {
             version: number;
             /** Format: date-time */
             published_at: string | null;
+            /** Format: uuid */
+            publication_id: string | null;
             noindex: boolean;
             draft_author: string | null;
             /** Format: uuid */

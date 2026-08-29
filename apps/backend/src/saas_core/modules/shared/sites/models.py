@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 import hashlib
 import json
 import uuid
@@ -1451,6 +1452,21 @@ class ContentAutomationGrant(TenantScopedModel):
         default=AutomationGrantMode.SUGGEST_ONLY,
     )
     expires_at = models.DateTimeField(null=True, blank=True)
+    #: How many drafts this credential may write in a rolling day. Publishing an
+    #: existing draft is not another change; writing one is.
+    max_changes_per_day = models.PositiveIntegerField(null=True, blank=True)
+    #: How large one write may be. A limit on volume as well as on count,
+    #: because a hundred small edits and one enormous rewrite are different
+    #: risks wearing the same number.
+    max_payload_bytes = models.PositiveIntegerField(null=True, blank=True)
+    #: The hours of the customer's own day when this credential may act. Both
+    #: or neither; an end before the start reads as a window over midnight.
+    window_start = models.TimeField(null=True, blank=True)
+    window_end = models.TimeField(null=True, blank=True)
+    #: Hostnames an automation may link out to. Empty means internal links
+    #: only, which is the safe default: a link is a recommendation made in the
+    #: customer's name.
+    allowed_link_hosts = models.JSONField(default=list, blank=True)
     # Emergency revoke: set once and the grant is dead, without deleting the
     # row, so the audit trail survives the incident that caused it.
     revoked_at = models.DateTimeField(null=True, blank=True)
@@ -1473,6 +1489,28 @@ class ContentAutomationGrant(TenantScopedModel):
                     | models.Q(site__isnull=True, collection__isnull=False)
                 ),
                 name="sites_grant_exactly_one_target_ck",
+            ),
+            # ADR-035 §4: "limited" describes the bounds every autonomous grant
+            # carries, not a separate permission level. A grant that publishes
+            # without anyone approving each change has to say how much it may
+            # do, or the name means nothing.
+            models.CheckConstraint(
+                condition=(
+                    ~models.Q(mode="autonomous")
+                    | models.Q(
+                        max_changes_per_day__isnull=False,
+                        max_payload_bytes__isnull=False,
+                        expires_at__isnull=False,
+                    )
+                ),
+                name="sites_grant_autonomous_bounded_ck",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(window_start__isnull=True, window_end__isnull=True)
+                    | models.Q(window_start__isnull=False, window_end__isnull=False)
+                ),
+                name="sites_grant_window_complete_ck",
             ),
         ]
         indexes = [
@@ -1502,6 +1540,18 @@ class ContentAutomationGrant(TenantScopedModel):
         if self.revoked_at is not None:
             return False
         return self.expires_at is None or self.expires_at > timezone.now()
+
+    def within_window(self, moment: datetime.time) -> bool:
+        """Whether the customer's clock currently permits this credential.
+
+        A window whose end is before its start runs over midnight, which is how
+        anybody would read "22:00-06:00" written on paper.
+        """
+        if self.window_start is None or self.window_end is None:
+            return True
+        if self.window_start <= self.window_end:
+            return self.window_start <= moment <= self.window_end
+        return moment >= self.window_start or moment <= self.window_end
 
 
 class SiteOutboxEvent(TenantScopedModel):

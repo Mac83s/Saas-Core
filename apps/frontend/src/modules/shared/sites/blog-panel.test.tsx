@@ -87,6 +87,7 @@ const entry = {
   state: "draft",
   version: 2,
   published_at: null,
+  publication_id: null,
   noindex: false,
   draft_author: null,
   translation_group: "019ff20d-a000-7000-8000-000000000040",
@@ -439,4 +440,32 @@ test("zapisuje tematy wpisane po przecinku", async () => {
   await waitFor(() => expect(setContentEntryTags).toHaveBeenCalledOnce());
   // Trimmed, and empty pieces dropped: a trailing comma is a typo, not a tag.
   expect(setContentEntryTags.mock.calls[0]?.[1]).toEqual(["Porady", "Dieta"]);
+});
+
+test("publikuje ponownie wpis, ktorego tresc zmienila sie po publikacji", async () => {
+  listContentEntries.mockResolvedValue({
+    items: [
+      {
+        ...entry,
+        state: "published",
+        publication_id: "019ff20d-a000-7000-8000-000000000050",
+      },
+    ],
+    next_cursor: null,
+  });
+  publishContentEntry.mockResolvedValue({
+    id: "019ff20d-a000-7000-8000-0000000000f1",
+  });
+  renderPanel();
+
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Opublikuj ponownie wpis Pierwszy wpis",
+    }),
+  );
+
+  // Without this the only way to publish a change to a live article was to
+  // withdraw it first, which takes it off the site in the meantime.
+  await waitFor(() => expect(publishContentEntry).toHaveBeenCalledOnce());
+  expect(publishContentEntry.mock.calls[0]?.[0]).toBe(entryId);
 });

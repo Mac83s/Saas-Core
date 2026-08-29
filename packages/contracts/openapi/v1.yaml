@@ -5207,6 +5207,11 @@ components:
           - string
           - 'null'
           format: date-time
+        publication_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
         noindex:
           type: boolean
         draft_author:
@@ -5237,6 +5242,7 @@ components:
       - id
       - locale
       - noindex
+      - publication_id
       - published_at
       - schedule_error
       - schedule_state

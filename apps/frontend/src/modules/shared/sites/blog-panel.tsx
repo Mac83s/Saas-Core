@@ -208,8 +208,12 @@ export function BlogPanel({ siteId }: { siteId: string }) {
     void run(async () => {
       await publishContentEntry(
         target.id,
+        // Keyed on the live publication too: pressing the button twice in a
+        // row is one publication, pressing it again after the first has landed
+        // is a second, which is exactly what republishing means.
         mutationKey(publishReceipt, `publish-${target.id}`, {
           version: target.version,
+          publication: target.publication_id,
         }),
       );
       if (collectionId) await loadEntries(collectionId);
@@ -420,16 +424,32 @@ export function BlogPanel({ siteId }: { siteId: string }) {
                         {t("blogEditShort")}
                       </Button>
                       {item.state === "published" ? (
-                        <Button
-                          aria-label={t("blogWithdraw", { title: item.title })}
-                          disabled={busy}
-                          onClick={() => withdraw(item)}
-                          size="sm"
-                          type="button"
-                          variant="outline"
-                        >
-                          {t("blogWithdrawShort")}
-                        </Button>
+                        <>
+                          <Button
+                            aria-label={t("blogRepublish", {
+                              title: item.title,
+                            })}
+                            disabled={busy}
+                            onClick={() => publish(item)}
+                            size="sm"
+                            type="button"
+                            variant="outline"
+                          >
+                            {t("blogRepublishShort")}
+                          </Button>
+                          <Button
+                            aria-label={t("blogWithdraw", {
+                              title: item.title,
+                            })}
+                            disabled={busy}
+                            onClick={() => withdraw(item)}
+                            size="sm"
+                            type="button"
+                            variant="outline"
+                          >
+                            {t("blogWithdrawShort")}
+                          </Button>
+                        </>
                       ) : (
                         <Button
                           aria-label={t("blogPublish", { title: item.title })}

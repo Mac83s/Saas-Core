@@ -2019,6 +2019,9 @@ def grant_for_site(organization: Any, user: Any, site_id: Any) -> Any:
         credential_id=credential_id,
         site_id=site_id,
         mode="autonomous",
+        expires_at=timezone.now() + timedelta(days=7),
+        max_changes_per_day=50,
+        max_payload_bytes=100_000,
         created_by=user,
     )
     return credential_id
@@ -2134,7 +2137,7 @@ def test_manual_editing_lock_holds_the_automation_off_until_it_lapses() -> None:
     assert_page_writable(page, context)
 
 
-def test_site_publication_refuses_automation_while_a_proposal_waits() -> None:
+def test_site_publication_is_never_an_automations_to_make() -> None:
     """Publishing the site would otherwise ship the automation's own proposal:
     the page policy governs the draft, but a publication is site-wide."""
     from saas_core.modules.core.organizations.context import activate_tenant_context
@@ -2144,7 +2147,7 @@ def test_site_publication_refuses_automation_while_a_proposal_waits() -> None:
         PageAutomationPolicy,
     )
     from saas_core.modules.shared.sites.services import (
-        PageAutomationForbidden,
+        PersonRequired,
         publish_site,
     )
 
@@ -2174,6 +2177,9 @@ def test_site_publication_refuses_automation_while_a_proposal_waits() -> None:
         credential_id=credential_id,
         site_id=site.data["id"],
         mode="autonomous",
+        expires_at=timezone.now() + timedelta(days=7),
+        max_changes_per_day=50,
+        max_payload_bytes=100_000,
         created_by=user,
     )
     Page.all_objects.filter(site_id=site.data["id"]).update(
@@ -2189,7 +2195,7 @@ def test_site_publication_refuses_automation_while_a_proposal_waits() -> None:
                 may_publish=True,
             )
         ),
-        pytest.raises(PageAutomationForbidden),
+        pytest.raises(PersonRequired),
     ):
         publish_site(site_id=site.data["id"], idempotency_key="automation-publishes")
 

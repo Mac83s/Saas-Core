@@ -8,6 +8,7 @@ to follow.
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from datetime import datetime
@@ -59,6 +60,7 @@ from .services import (
     _idempotency_key,
     _is_automation,
     _schedule_site_outbox_delivery,
+    assert_person_required,
     assert_within_grant,
 )
 
@@ -120,11 +122,16 @@ class EntryDraft:
     media_asset_ids: tuple[UUID, ...] = ()
 
 
+def _blocks_size(blocks: Any) -> int:
+    return len(json.dumps(blocks, ensure_ascii=False, separators=(",", ":")))
+
+
 def _assert_entry_writable(
     entry: ContentEntry,
     collection: ContentCollection,
     *,
     publishing: bool = False,
+    payload_bytes: int | None = None,
 ) -> None:
     """Same two rules as pages (ADR-035 §4a), applied to the collection: the
     policy lives on the collection, the momentary lock on the entry.
@@ -136,7 +143,12 @@ def _assert_entry_writable(
     if not _is_automation(context):
         return
     assert_within_grant(
-        context, site_id=collection.site_id, collection_id=collection.id
+        context,
+        site_id=collection.site_id,
+        collection_id=collection.id,
+        writing=True,
+        publishing=publishing,
+        payload_bytes=payload_bytes,
     )
     allowed = (
         {PageAutomationPolicy.AUTOMATED} if publishing else DRAFTABLE_POLICIES
@@ -400,7 +412,13 @@ def save_entry_draft(
     )
     if entry is None:
         raise EntryNotFound
-    _assert_entry_writable(entry, entry.collection)
+    # The volume of one write, measured on what is actually stored rather than
+    # on the request body, so a limit cannot be dodged with whitespace.
+    _assert_entry_writable(
+        entry,
+        entry.collection,
+        payload_bytes=_blocks_size(blocks),
+    )
     if entry.version != expected_version:
         raise DraftVersionConflict
     version = ContentEntryVersion.all_objects.create(
@@ -855,6 +873,9 @@ def withdraw_entry(*, entry_id: UUID) -> ContentEntry:
     """Takes an article off the public site without destroying its history: the
     publication rows stay, so republishing is a normal publish, not a restore."""
     context = authorize_entitled(SITE_PUBLISH, SITES_ENABLED)
+    # Taking content off a customer's site is a removal, and ADR-035 §4 keeps
+    # removals for a person however wide the grant is.
+    assert_person_required(context, "Wycofanie wpisu")
     entry = (
         ContentEntry.all_objects.select_for_update()
         .select_related("collection")

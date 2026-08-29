@@ -28,6 +28,7 @@ from .models import (
     canonical_json_hash,
 )
 from .permissions import CUSTOM_DOMAIN_ENABLED, SITE_PUBLISH, SITES_ENABLED
+from .services import assert_person_required
 
 DOMAIN_CREATED = "sites.domain.created"
 DOMAIN_DISABLED = "sites.domain.disabled"
@@ -363,6 +364,9 @@ def change_platform_domain(
     idempotency_key: str,
 ) -> MutationResult[Domain]:
     context = authorize_entitled(SITE_PUBLISH, SITES_ENABLED)
+    # A domain decides where a customer's whole site answers from. ADR-035
+    # §4 keeps it for a person whatever the grant says.
+    assert_person_required(context, "Zmiana domeny")
     namespaced_key = _namespaced_idempotency_key("platform-change", idempotency_key)
     normalized_label = normalize_platform_label(label)
     if _is_reserved_platform_label(normalized_label):
@@ -459,6 +463,9 @@ def create_custom_domain(
     idempotency_key: str,
 ) -> MutationResult[Domain]:
     context = authorize_entitled(SITE_PUBLISH, SITES_ENABLED)
+    # A domain decides where a customer's whole site answers from. ADR-035
+    # §4 keeps it for a person whatever the grant says.
+    assert_person_required(context, "Zmiana domeny")
     authorize_entitled(SITE_PUBLISH, CUSTOM_DOMAIN_ENABLED)
     normalized_key = _idempotency_key(idempotency_key)
     normalized_hostname = _validated_custom_hostname(hostname)
@@ -527,6 +534,9 @@ def mutate_domain(
     idempotency_key: str,
 ) -> MutationResult[Domain]:
     context = authorize_entitled(SITE_PUBLISH, SITES_ENABLED)
+    # A domain decides where a customer's whole site answers from. ADR-035
+    # §4 keeps it for a person whatever the grant says.
+    assert_person_required(context, "Zmiana domeny")
     normalized_key = _idempotency_key(idempotency_key)
     request_hash = canonical_json_hash({"domain_id": str(domain_id), "action": action})
     try:

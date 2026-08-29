@@ -494,7 +494,9 @@
     "tagsSave": "Zapisz tematy",
     "tagsHint": "Każdy temat dostaje własną stronę zbiorczą, np. /blog/tag/porady/. Adres powstaje z nazwy — nie musisz go wpisywać.",
     "tagsTooMany": "Wpis może mieć najwyżej dziesięć tematów.",
-    "tagsNameInvalid": "Nazwa tematu nie może być pusta."
+    "tagsNameInvalid": "Nazwa tematu nie może być pusta.",
+    "blogRepublish": "Opublikuj ponownie wpis {title}",
+    "blogRepublishShort": "Opublikuj ponownie"
   },
   "BillingSupport": {
     "navigation": "Billing i dostęp",

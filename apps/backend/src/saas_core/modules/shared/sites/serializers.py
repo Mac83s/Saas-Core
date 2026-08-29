@@ -216,6 +216,7 @@ class ContentEntrySerializer(serializers.Serializer[dict[str, Any]]):
     state = serializers.CharField()
     version = serializers.IntegerField()
     published_at = serializers.DateTimeField(allow_null=True)
+    publication_id = serializers.UUIDField(allow_null=True)
     noindex = serializers.BooleanField()
     draft_author = serializers.CharField(allow_null=True)
     translation_group = serializers.UUIDField()

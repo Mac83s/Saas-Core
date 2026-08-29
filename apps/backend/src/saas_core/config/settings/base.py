@@ -133,6 +133,13 @@ if (
 #: How many articles one page of a blog index carries. A blog outgrows one page
 #: quickly, and a single page listing a thousand entries is slow to render, slow
 #: to read and crawled as one enormous document.
+#: Whether autonomous publication is still confined to the deployment's own
+#: publisher workspace. ADR-035 §4 asks for a documented pilot before it
+#: reaches customer sites, and lifting a pilot should be a decision somebody
+#: makes and records, not a code change and a deploy.
+SITES_AUTONOMOUS_PILOT_ONLY = os.environ.get(
+    "SITES_AUTONOMOUS_PILOT_ONLY", "true"
+).strip().lower() not in {"0", "false", "no"}
 SITES_ENTRY_INDEX_PAGE_SIZE = int(
     os.environ.get("SITES_ENTRY_INDEX_PAGE_SIZE", "10")
 )
