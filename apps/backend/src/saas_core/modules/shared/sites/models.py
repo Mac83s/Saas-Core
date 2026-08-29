@@ -1071,6 +1071,100 @@ class ContentCollection(TenantScopedModel):
         super().save(*args, **kwargs)
 
 
+class ContentTag(TenantScopedModel):
+    """One subject, shared by every collection on a site.
+
+    Deliberately one flat taxonomy rather than separate categories and tags.
+    Two vocabularies mean two archive shapes, two panel fields and a rule about
+    which one is "the main one"; for a business blog that distinction buys
+    nothing a reader can see. An entry's tags are an unordered set, sorted by
+    slug wherever they are listed.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    site = models.ForeignKey(
+        Site, on_delete=models.CASCADE, related_name="content_tags"
+    )
+    slug = models.SlugField(max_length=80)
+    name = models.CharField(max_length=120)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="created_content_tags",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "site_id", "slug")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "site", "slug"],
+                name="sites_tag_org_site_slug_uq",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["organization", "site", "slug"],
+                name="sites_tag_org_site_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.site_id}:{self.slug}"
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        self.slug = self.slug.strip().lower()
+        super().save(*args, **kwargs)
+
+
+class ContentEntryTag(TenantScopedModel):
+    """Explicit rather than an implicit many-to-many table.
+
+    An auto-created join table carries no `organization_id`, which would make
+    it the one table in this module where a mistaken join could cross tenants
+    without anything to filter on.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    entry = models.ForeignKey(
+        "ContentEntry", on_delete=models.CASCADE, related_name="tag_links"
+    )
+    tag = models.ForeignKey(
+        ContentTag, on_delete=models.CASCADE, related_name="entry_links"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "entry_id", "tag_id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "entry", "tag"],
+                name="sites_entry_tag_org_entry_tag_uq",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["organization", "tag", "entry"],
+                name="sites_entry_tag_lookup_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.entry_id}:{self.tag_id}"
+
+    def clean(self) -> None:
+        super().clean()
+        if self.tag_id and self.tag.organization_id != self.organization_id:
+            raise ValidationError({"tag": "Tag należy do innej organizacji."})
+        if self.entry_id and self.entry.organization_id != self.organization_id:
+            raise ValidationError({"entry": "Wpis należy do innej organizacji."})
+
+
 class EntryScheduleState(models.TextChoices):
     """Why an article is, or is not, waiting to be published.
 

@@ -487,7 +487,14 @@
     "scheduleFailedReason": "Powód: {reason}",
     "scheduleAlreadyPublished": "Ten wpis jest już opublikowany.",
     "scheduleInPast": "Termin publikacji musi być w przyszłości.",
-    "scheduleNotPending": "Ten wpis nie ma już zaplanowanej publikacji."
+    "scheduleNotPending": "Ten wpis nie ma już zaplanowanej publikacji.",
+    "tagsTitle": "Tematy wpisu",
+    "tagsLabel": "Tematy, po przecinku",
+    "tagsPlaceholder": "porady, kręgosłup, dieta",
+    "tagsSave": "Zapisz tematy",
+    "tagsHint": "Każdy temat dostaje własną stronę zbiorczą, np. /blog/tag/porady/. Adres powstaje z nazwy — nie musisz go wpisywać.",
+    "tagsTooMany": "Wpis może mieć najwyżej dziesięć tematów.",
+    "tagsNameInvalid": "Nazwa tematu nie może być pusta."
   },
   "BillingSupport": {
     "navigation": "Billing i dostęp",

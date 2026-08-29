@@ -14,10 +14,12 @@ from .domains import InvalidHostname, normalize_hostname
 from .localization import collection_index_path
 from .models import ContentCollection, Domain, DomainStatus
 from .publication_routing import (
+    TAG_INDEX_THRESHOLD,
     PublicSiteNotFound,
     index_page_path,
     one_per_article,
     published_entries,
+    tag_archive_path,
 )
 
 #: How many articles a feed carries. A reader wants what is new; handing it
@@ -199,6 +201,20 @@ def render_site_sitemap(*, host: str) -> HttpResponse:
         pages = max(1, -(-len(listed) // settings.SITES_ENTRY_INDEX_PAGE_SIZE))
         for number in range(2, pages + 1):
             locations.append(origin + index_page_path(first, site_locale, number))
+        # One address per subject that has enough articles to be worth
+        # indexing. Below that the archive exists for readers but asks not to
+        # be indexed, so listing it would contradict the page itself.
+        counts: dict[str, int] = {}
+        for item in listed:
+            for tag in item["tags"]:
+                slug = str(tag.get("slug", ""))
+                if slug:
+                    counts[slug] = counts.get(slug, 0) + 1
+        for slug, count in sorted(counts.items()):
+            if count >= TAG_INDEX_THRESHOLD:
+                locations.append(
+                    origin + tag_archive_path(index_path=first, slug=slug)
+                )
     for entry in entries:
         locations.append(origin + entry["path"])
     last_changed = {

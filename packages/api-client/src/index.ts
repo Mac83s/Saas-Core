@@ -63,6 +63,7 @@ export type ContentCollection = components["schemas"]["ContentCollection"];
 export type ContentEntry = components["schemas"]["ContentEntry"];
 export type ContentEntryDraft = components["schemas"]["ContentEntryDraft"];
 export type EntrySchedule = components["schemas"]["EntryScheduleState"];
+export type ContentTag = components["schemas"]["ContentTag"];
 export type ContentEntryPublication =
   components["schemas"]["ContentEntryPublication"];
 export type SiteNavigationItem = components["schemas"]["NavigationItem"];
@@ -1711,6 +1712,28 @@ export async function publishContentEntry(
  *
  *  The moment is sent as an absolute instant, so "Monday 07:00" means the
  *  operator's Monday and not the server's. */
+/** Replaces the whole set of subjects an article is filed under.
+ *
+ *  Names, not addresses: the operator writes what a reader sees and the
+ *  address follows from it. */
+export async function setContentEntryTags(
+  entryId: string,
+  names: string[],
+): Promise<ContentTag[]> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/sites/entries/{entry_id}/tags/",
+    {
+      params: { path: { entry_id: entryId } },
+      body: { names },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export async function scheduleContentEntry(
   entryId: string,
   publishAt: string,

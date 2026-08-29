@@ -487,7 +487,14 @@
     "scheduleFailedReason": "Reason: {reason}",
     "scheduleAlreadyPublished": "This entry is already published.",
     "scheduleInPast": "The publication time has to be in the future.",
-    "scheduleNotPending": "This entry no longer has a scheduled publication."
+    "scheduleNotPending": "This entry no longer has a scheduled publication.",
+    "tagsTitle": "What this entry is about",
+    "tagsLabel": "Subjects, comma separated",
+    "tagsPlaceholder": "advice, spine, diet",
+    "tagsSave": "Save subjects",
+    "tagsHint": "Each subject gets its own archive page, such as /blog/tag/advice/. The address follows from the name, so you never type it.",
+    "tagsTooMany": "An entry can carry at most ten subjects.",
+    "tagsNameInvalid": "A subject name cannot be empty."
   },
   "BillingSupport": {
     "navigation": "Billing & access",

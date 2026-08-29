@@ -18,6 +18,7 @@ from .collections import (
     create_collection,
     create_entry,
     create_entry_translation,
+    entry_tags,
     get_entry_draft,
     list_collections,
     list_entries,
@@ -27,6 +28,7 @@ from .collections import (
     schedule_entry_publication,
     set_collection_automation_policy,
     set_collection_navigation,
+    set_entry_tags,
     withdraw_entry,
 )
 from .models import ContentCollection, ContentEntry, ContentEntryPublication
@@ -42,9 +44,11 @@ from .serializers import (
     ContentEntryPublicationSerializer,
     ContentEntrySerializer,
     ContentEntryTranslationCreateSerializer,
+    ContentTagSerializer,
     CursorQuerySerializer,
     EntryScheduleSerializer,
     EntryScheduleStateSerializer,
+    EntryTagsSaveSerializer,
     PageSummarySerializer,
 )
 from .services import set_page_automation_policy
@@ -92,6 +96,10 @@ def _entry_payload(entry: ContentEntry) -> dict[str, Any]:
         "schedule_state": entry.schedule_state,
         "scheduled_publish_at": entry.scheduled_publish_at,
         "schedule_error": entry.schedule_error,
+        "tags": [
+            {"slug": link.tag.slug, "name": link.tag.name}
+            for link in sorted(entry.tag_links.all(), key=lambda item: item.tag.slug)
+        ],
     }
 
 
@@ -480,3 +488,49 @@ class EntryScheduleView(APIView):
         return Response(
             _schedule_payload(cancel_entry_publication_schedule(entry_id=entry_id))
         )
+
+
+class EntryTagsView(APIView):
+    """What one article is about, replaced as a whole set.
+
+    Replacing rather than adding is what makes it safe to send the same list
+    twice: an automation replaying a change set must not slowly accumulate
+    every subject it has ever suggested.
+    """
+
+    permission_classes = [IsSessionOrApiKey]
+
+    @extend_schema(
+        operation_id="sites_entry_tags_set",
+        tags=["sites"],
+        request=EntryTagsSaveSerializer,
+        responses={
+            200: ContentTagSerializer(many=True),
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def put(self, request: Request, entry_id: UUID) -> Response:
+        serializer = EntryTagsSaveSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        tags = set_entry_tags(
+            entry_id=entry_id, names=serializer.validated_data["names"]
+        )
+        return Response([{"slug": tag.slug, "name": tag.name} for tag in tags])
+
+    @extend_schema(
+        operation_id="sites_entry_tags_list",
+        tags=["sites"],
+        responses={
+            200: ContentTagSerializer(many=True),
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, _request: Request, entry_id: UUID) -> Response:
+        return Response([
+            {"slug": tag.slug, "name": tag.name}
+            for tag in entry_tags(entry_id=entry_id)
+        ])

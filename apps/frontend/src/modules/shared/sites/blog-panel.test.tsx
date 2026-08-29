@@ -18,6 +18,7 @@ const {
   saveContentEntryDraft,
   scheduleContentEntry,
   cancelContentEntrySchedule,
+  setContentEntryTags,
   setCollectionAutomationPolicy,
   setCollectionNavigation,
   withdrawContentEntry,
@@ -33,6 +34,7 @@ const {
   saveContentEntryDraft: vi.fn(),
   scheduleContentEntry: vi.fn(),
   cancelContentEntrySchedule: vi.fn(),
+  setContentEntryTags: vi.fn(),
   setCollectionAutomationPolicy: vi.fn(),
   setCollectionNavigation: vi.fn(),
   withdrawContentEntry: vi.fn(),
@@ -51,6 +53,7 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   saveContentEntryDraft,
   scheduleContentEntry,
   cancelContentEntrySchedule,
+  setContentEntryTags,
   setCollectionAutomationPolicy,
   setCollectionNavigation,
   withdrawContentEntry,
@@ -90,6 +93,7 @@ const entry = {
   schedule_state: "none",
   scheduled_publish_at: null,
   schedule_error: "",
+  tags: [],
 };
 
 function renderPanel() {
@@ -417,4 +421,22 @@ test("pokazuje, że zaplanowana publikacja się nie udała", async () => {
     screen.getByText("Powód: Plan nie obejmuje publikacji."),
   ).not.toBeNull();
   expect((await axe.run(rendered.container)).violations).toHaveLength(0);
+});
+
+test("zapisuje tematy wpisane po przecinku", async () => {
+  setContentEntryTags.mockResolvedValue([
+    { slug: "porady", name: "Porady" },
+    { slug: "dieta", name: "Dieta" },
+  ]);
+  renderPanel();
+  fireEvent.click(await screen.findByRole("button", { name: /Edytuj/ }));
+
+  fireEvent.change(await screen.findByLabelText("Tematy, po przecinku"), {
+    target: { value: " Porady , Dieta ,, " },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz tematy" }));
+
+  await waitFor(() => expect(setContentEntryTags).toHaveBeenCalledOnce());
+  // Trimmed, and empty pieces dropped: a trailing comma is a typo, not a tag.
+  expect(setContentEntryTags.mock.calls[0]?.[1]).toEqual(["Porady", "Dieta"]);
 });

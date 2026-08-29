@@ -2340,3 +2340,160 @@ def test_the_atom_feed_carries_dates_a_reader_cannot_misread() -> None:
             HTTP_ACCEPT="application/xml",
         )
     assert "/blog/wpis-atom/" in rss.content.decode()
+
+
+def set_tags(client: APIClient, entry_id: str, names: list[str]) -> Any:
+    return client.put(
+        f"/api/v1/sites/entries/{entry_id}/tags/",
+        {"names": names},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+
+
+def _tagged_entry(
+    client: APIClient, collection_id: str, marker: str, names: list[str]
+) -> Any:
+    entry = create_entry(
+        client, collection_id, slug=f"wpis-{marker}", idempotency_key=f"t-{marker}"
+    )
+    save_entry_draft(
+        client,
+        entry.data["id"],
+        expected_version=0,
+        text=f"Treść {marker}.",
+        idempotency_key=f"t-draft-{marker}",
+    )
+    assert set_tags(client, entry.data["id"], names).status_code == 200
+    publish(client, entry.data["id"], idempotency_key=f"t-publish-{marker}")
+    return entry
+
+
+def test_tags_are_named_by_the_editor_and_addressed_by_a_derived_slug() -> None:
+    """The operator types what a reader sees; the address follows from it, so
+    the two cannot drift apart."""
+    client, _, _ = sites_client(slug="tags", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    entry = create_entry(
+        client, collection.data["id"], slug="wpis", idempotency_key="tag-entry"
+    )
+
+    response = set_tags(client, entry.data["id"], ["Porady zdrowotne", "Kręgosłup"])
+    assert response.status_code == 200
+    # Polish letters fold: an address has to survive being read aloud.
+    assert [tag["slug"] for tag in response.json()] == [
+        "kregoslup",
+        "porady-zdrowotne",
+    ]
+
+    # Sending the set again replaces rather than accumulates, which is what
+    # makes it safe for an automation to replay the same change.
+    again = set_tags(client, entry.data["id"], ["Porady zdrowotne"])
+    assert [tag["slug"] for tag in again.json()] == ["porady-zdrowotne"]
+    listed = client.get(f"/api/v1/sites/entries/{entry.data['id']}/tags/")
+    assert [tag["slug"] for tag in listed.json()] == ["porady-zdrowotne"]
+
+    # And one spelling wins, so a tag does not end up holding half its archive
+    # under a second address.
+    mixed = set_tags(client, entry.data["id"], ["Porady", "porady", "PORADY"])
+    assert [tag["slug"] for tag in mixed.json()] == ["porady"]
+
+
+def test_a_tag_archive_lists_only_what_carries_that_tag() -> None:
+    from django.test import override_settings
+    from rest_framework.test import APIClient as PublicClient
+
+    client, _, _ = sites_client(slug="tag-archive", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    platform = _verified_platform_domain(site.data["id"])
+    _tagged_entry(client, collection.data["id"], "jeden", ["Porady"])
+    _tagged_entry(client, collection.data["id"], "dwa", ["Porady", "Dieta"])
+    _tagged_entry(client, collection.data["id"], "trzy", ["Dieta"])
+
+    with override_settings(PUBLIC_SITE_SCHEME="https"):
+        archive = PublicClient().get(
+            "/api/v1/public/site/",
+            {"path": "/blog/tag/porady/"},
+            HTTP_HOST=platform.hostname,
+        )
+        missing = PublicClient().get(
+            "/api/v1/public/site/",
+            {"path": "/blog/tag/nieistnieje/"},
+            HTTP_HOST=platform.hostname,
+        )
+
+    assert archive.status_code == 200
+    listed = archive.json()["blocks"][0]["data"]["items"]
+    assert sorted(item["path"] for item in listed) == [
+        "/blog/wpis-dwa/",
+        "/blog/wpis-jeden/",
+    ]
+    assert archive.json()["canonical_url"].endswith("/blog/tag/porady/")
+    # Two articles is not a topic page, so the archive serves readers but asks
+    # not to be indexed.
+    assert archive.json()["title"] == "Wpisy oznaczone: Porady"
+
+    # A subject nobody has written about is a wrong address, not an empty page.
+    assert missing.status_code == 404
+
+
+def test_a_tag_archive_appears_in_the_sitemap_only_once_it_is_a_topic() -> None:
+    from django.test import override_settings
+    from rest_framework.test import APIClient as PublicClient
+
+    client, _, _ = sites_client(slug="tag-sitemap", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    platform = _verified_platform_domain(site.data["id"])
+    for index in range(2):
+        _tagged_entry(client, collection.data["id"], f"cienki-{index}", ["Rzadki"])
+
+    with override_settings(PUBLIC_SITE_SCHEME="https"):
+        thin = PublicClient().get(
+            "/api/v1/public/site/sitemap.xml",
+            HTTP_HOST=platform.hostname,
+            HTTP_ACCEPT="application/xml",
+        )
+    assert "/blog/tag/rzadki/" not in thin.content.decode()
+
+    _tagged_entry(client, collection.data["id"], "cienki-2", ["Rzadki"])
+    with override_settings(PUBLIC_SITE_SCHEME="https"):
+        grown = PublicClient().get(
+            "/api/v1/public/site/sitemap.xml",
+            HTTP_HOST=platform.hostname,
+            HTTP_ACCEPT="application/xml",
+        )
+    # Three articles make it a topic page rather than a thin duplicate of the
+    # index, and only then is it worth pointing a crawler at.
+    assert "/blog/tag/rzadki/" in grown.content.decode()
+
+
+def test_tags_travel_in_the_publication_not_the_draft() -> None:
+    """What a visitor sees is what was published, tags included."""
+    from django.test import override_settings
+    from rest_framework.test import APIClient as PublicClient
+
+    client, _, _ = sites_client(slug="tag-snapshot", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    platform = _verified_platform_domain(site.data["id"])
+    entry = _tagged_entry(client, collection.data["id"], "migawka", ["Porady"])
+
+    # Change the tags without publishing again.
+    assert set_tags(client, entry.data["id"], ["Inne"]).status_code == 200
+
+    with override_settings(PUBLIC_SITE_SCHEME="https"):
+        article = PublicClient().get(
+            "/api/v1/public/site/",
+            {"path": "/blog/wpis-migawka/"},
+            HTTP_HOST=platform.hostname,
+        )
+        old_archive = PublicClient().get(
+            "/api/v1/public/site/",
+            {"path": "/blog/tag/porady/"},
+            HTTP_HOST=platform.hostname,
+        )
+    assert [tag["slug"] for tag in article.json()["article"]["tags"]] == ["porady"]
+    assert old_archive.status_code == 200

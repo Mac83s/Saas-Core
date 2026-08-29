@@ -1352,6 +1352,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/entries/{entry_id}/tags/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description What one article is about, replaced as a whole set.
+         *
+         *     Replacing rather than adding is what makes it safe to send the same list
+         *     twice: an automation replaying a change set must not slowly accumulate
+         *     every subject it has ever suggested.
+         */
+        get: operations["sites_entry_tags_list"];
+        /**
+         * @description What one article is about, replaced as a whole set.
+         *
+         *     Replacing rather than adding is what makes it safe to send the same list
+         *     twice: an automation replaying a change set must not slowly accumulate
+         *     every subject it has ever suggested.
+         */
+        put: operations["sites_entry_tags_set"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/entries/{entry_id}/translations/": {
         parameters: {
             query?: never;
@@ -1762,6 +1792,7 @@ export interface components {
             /** Format: date-time */
             scheduled_publish_at: string | null;
             schedule_error: string;
+            tags: components["schemas"]["ContentTag"][];
         };
         ContentEntryCreate: {
             slug: string;
@@ -1801,6 +1832,10 @@ export interface components {
             slug: string;
             locale: components["schemas"]["LocaleEnum"];
             title: string;
+        };
+        ContentTag: {
+            slug: string;
+            name: string;
         };
         CsrfToken: {
             csrf_token: string;
@@ -1932,6 +1967,9 @@ export interface components {
             /** Format: date-time */
             scheduled_publish_at: string | null;
             schedule_error: string;
+        };
+        EntryTagsSave: {
+            names: string[];
         };
         GenericMessage: {
             detail: string;
@@ -6932,6 +6970,102 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EntryScheduleState"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_entry_tags_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentTag"][];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_entry_tags_set: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EntryTagsSave"];
+                "application/x-www-form-urlencoded": components["schemas"]["EntryTagsSave"];
+                "multipart/form-data": components["schemas"]["EntryTagsSave"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentTag"][];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
             403: {

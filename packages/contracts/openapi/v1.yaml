@@ -3890,6 +3890,111 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/entries/{entry_id}/tags/:
+    get:
+      operationId: sites_entry_tags_list
+      description: |-
+        What one article is about, replaced as a whole set.
+
+        Replacing rather than adding is what makes it safe to send the same list
+        twice: an automation replaying a change set must not slowly accumulate
+        every subject it has ever suggested.
+      parameters:
+      - in: path
+        name: entry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ContentTag'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    put:
+      operationId: sites_entry_tags_set
+      description: |-
+        What one article is about, replaced as a whole set.
+
+        Replacing rather than adding is what makes it safe to send the same list
+        twice: an automation replaying a change set must not slowly accumulate
+        every subject it has ever suggested.
+      parameters:
+      - in: path
+        name: entry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EntryTagsSave'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/EntryTagsSave'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/EntryTagsSave'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ContentTag'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/entries/{entry_id}/translations/:
     get:
       operationId: sites_entry_translations_list
@@ -5120,6 +5225,10 @@ components:
           format: date-time
         schedule_error:
           type: string
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContentTag'
       required:
       - author_name
       - collection_id
@@ -5134,6 +5243,7 @@ components:
       - scheduled_publish_at
       - slug
       - state
+      - tags
       - title
       - translation_group
       - version
@@ -5245,6 +5355,16 @@ components:
       - locale
       - slug
       - title
+    ContentTag:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+      required:
+      - name
+      - slug
     CsrfToken:
       type: object
       properties:
@@ -5611,6 +5731,17 @@ components:
       - schedule_error
       - schedule_state
       - scheduled_publish_at
+    EntryTagsSave:
+      type: object
+      properties:
+        names:
+          type: array
+          items:
+            type: string
+            maxLength: 120
+          maxItems: 10
+      required:
+      - names
     GenericMessage:
       type: object
       properties:

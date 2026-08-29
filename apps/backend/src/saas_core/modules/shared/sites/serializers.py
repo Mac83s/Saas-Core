@@ -200,6 +200,11 @@ class AutomationPolicySerializer(serializers.Serializer[dict[str, Any]]):
     )
 
 
+class ContentTagSerializer(serializers.Serializer[dict[str, Any]]):
+    slug = serializers.CharField()
+    name = serializers.CharField()
+
+
 class ContentEntrySerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     collection_id = serializers.UUIDField()
@@ -217,6 +222,7 @@ class ContentEntrySerializer(serializers.Serializer[dict[str, Any]]):
     schedule_state = serializers.CharField()
     scheduled_publish_at = serializers.DateTimeField(allow_null=True)
     schedule_error = serializers.CharField(allow_blank=True)
+    tags = ContentTagSerializer(many=True)
 
 
 class ContentEntryListSerializer(serializers.Serializer[dict[str, Any]]):
@@ -268,6 +274,14 @@ class PageCreateSerializer(serializers.Serializer[dict[str, Any]]):
     key = serializers.RegexField(
         r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
         max_length=80,
+    )
+
+
+class EntryTagsSaveSerializer(serializers.Serializer[dict[str, Any]]):
+    # Names, not slugs: the operator types what a reader will see and the
+    # address is derived, so the two cannot drift apart.
+    names = serializers.ListField(
+        child=serializers.CharField(max_length=120), max_length=10
     )
 
 

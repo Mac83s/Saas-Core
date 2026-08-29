@@ -109,6 +109,25 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
                     requested_path=normalized_path,
                 )
             except PublicSiteNotFound:
+                try:
+                    # A subject's own archive, which is a projection like the
+                    # index rather than a page anybody edits.
+                    page, locale_document, publication = _find_tag_archive(
+                        organization_id=domain.organization_id,
+                        site_id=domain.site_id,
+                        requested_path=normalized_path,
+                    )
+                except PublicSiteNotFound:
+                    pass
+                else:
+                    return _resolved(
+                        canonical=canonical,
+                        hostname=hostname,
+                        locale_document=locale_document,
+                        page=page,
+                        path=normalized_path,
+                        publication=publication,
+                    )
                 # Nothing answers here any more, but something used to. A
                 # visitor following an old link, and a search engine holding an
                 # old address, both deserve better than a 404.
@@ -121,12 +140,30 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
                 raise PublicSiteMoved(
                     f"{settings.PUBLIC_SITE_SCHEME}://{canonical.hostname}{target}"
                 ) from None
-    canonical_path = str(locale_document["canonical_path"])
+    return _resolved(
+        canonical=canonical,
+        hostname=hostname,
+        locale_document=locale_document,
+        page=page,
+        path=normalized_path,
+        publication=publication,
+    )
+
+
+def _resolved(
+    *,
+    canonical: Any,
+    hostname: str,
+    locale_document: dict[str, Any],
+    page: dict[str, Any],
+    path: str,
+    publication: Any,
+) -> PublicPage:
     return PublicPage(
         hostname=hostname,
         canonical_hostname=canonical.hostname,
-        requested_path=normalized_path,
-        canonical_path=canonical_path,
+        requested_path=path,
+        canonical_path=str(locale_document["canonical_path"]),
         locale=str(locale_document["locale"]),
         publication=publication,
         page={**page, "selected_locale": locale_document},
@@ -307,6 +344,11 @@ def _find_entry(
                         else None
                     ),
                     "updated_at": publication.created_at.isoformat(),
+                    "tags": [
+                        tag
+                        for tag in snapshot.get("tags", [])
+                        if isinstance(tag, dict) and tag.get("slug")
+                    ],
                 },
             },
             locale_document,
@@ -344,6 +386,11 @@ def published_entries(*, organization_id: Any, site_id: Any) -> list[dict[str, A
             "locale": str(snapshot["locale"]),
             "excerpt": str(snapshot.get("excerpt", "")),
             "author_name": str(snapshot.get("author_name", "")),
+            "tags": [
+                tag
+                for tag in snapshot.get("tags", [])
+                if isinstance(tag, dict) and tag.get("slug")
+            ],
             "published_at": entry.published_at,
             # When the article last changed, which is when its current
             # publication was created — not when the row was last touched, as
@@ -541,6 +588,30 @@ def _find_collection_index(
     )
 
 
+#: One segment for every site, in both languages, because a tag address has to
+#: survive being read aloud and retyped.
+TAG_SEGMENT = "tag"
+
+TAG_INDEX_TITLE = {"pl": "Wpisy oznaczone: {name}", "en": "Entries tagged: {name}"}
+
+#: Below this many articles a subject archive is a thin duplicate of the
+#: index rather than a topic page worth indexing on its own.
+TAG_INDEX_THRESHOLD = 3
+
+
+def tag_archive_path(*, index_path: str, slug: str) -> str:
+    return f"{index_path}{TAG_SEGMENT}/{slug}/"
+
+
+def _split_tag_archive(requested_path: str) -> tuple[str, str] | None:
+    """Separates `/blog/tag/porady/` into the index address and the tag."""
+    normalized = _comparable_path(requested_path)
+    parts = [part for part in normalized.split("/") if part]
+    if len(parts) >= 3 and parts[-2] == TAG_SEGMENT:
+        return _comparable_path("/" + "/".join(parts[:-2]) + "/"), parts[-1]
+    return None
+
+
 #: The segment that carries the page number, in the reader's language. A Polish
 #: blog emitting `/blog/page/2/` reads as a leak of the machinery.
 INDEX_PAGE_SEGMENT = {"pl": "strona", "en": "page"}
@@ -571,6 +642,151 @@ def _split_index_page(requested_path: str) -> tuple[str, int]:
         # must not be two different answers.
         return _comparable_path("/" + "/".join(parts[:-2]) + "/"), page
     return normalized, 1
+
+
+def _find_tag_archive(
+    *,
+    organization_id: Any,
+    site_id: Any,
+    requested_path: str,
+) -> tuple[dict[str, Any], dict[str, Any], Any]:
+    """Every published article on one subject, at one address.
+
+    A projection like the collection index, and for the same reason: a page
+    somebody maintains by hand is wrong from the first article they forget to
+    add to it. An empty tag is a 404 rather than an empty page — unlike the
+    blog's own address, nothing links to a subject nobody has written about.
+    """
+    # The page suffix comes off first, so an archive paginates exactly like the
+    # collection index rather than growing into one enormous page again.
+    without_page, requested_page = _split_index_page(requested_path)
+    split = _split_tag_archive(without_page)
+    if split is None:
+        raise PublicSiteNotFound
+    index_path, slug = split
+    site_locale = (
+        Site.all_objects.filter(pk=site_id, organization_id=organization_id)
+        .values_list("default_locale", flat=True)
+        .first()
+        or settings.LANGUAGE_CODE.split("-")[0]
+    )
+    collection = next(
+        (
+            candidate
+            for candidate in ContentCollection.all_objects.filter(
+                organization_id=organization_id, site_id=site_id
+            )
+            if _comparable_path(
+                collection_index_path(
+                    default_locale=site_locale,
+                    locale=site_locale,
+                    base_path=candidate.base_path,
+                )
+            )
+            == index_path
+        ),
+        None,
+    )
+    if collection is None:
+        raise PublicSiteNotFound
+
+    entries = one_per_article(
+        [
+            item
+            for item in published_entries(
+                organization_id=organization_id, site_id=site_id
+            )
+            if item["collection_id"] == str(collection.id)
+            and any(tag.get("slug") == slug for tag in item["tags"])
+        ],
+        site_locale,
+    )
+    if not entries:
+        raise PublicSiteNotFound
+    page_size = settings.SITES_ENTRY_INDEX_PAGE_SIZE
+    total_pages = max(1, -(-len(entries) // page_size))
+    if requested_page > total_pages:
+        raise PublicSiteNotFound
+    window = entries[(requested_page - 1) * page_size : requested_page * page_size]
+
+    name = next(
+        (
+            str(tag.get("name") or slug)
+            for item in entries
+            for tag in item["tags"]
+            if tag.get("slug") == slug
+        ),
+        slug,
+    )
+    first_path = collection_index_path(
+        default_locale=site_locale, locale=site_locale, base_path=collection.base_path
+    )
+    archive_path = tag_archive_path(index_path=first_path, slug=slug)
+    path = (
+        archive_path
+        if requested_page == 1
+        else index_page_path(archive_path, site_locale, requested_page)
+    )
+    title = TAG_INDEX_TITLE.get(site_locale, TAG_INDEX_TITLE["pl"]).format(name=name)
+    locale_document: dict[str, Any] = {
+        "locale": site_locale,
+        "translation_id": None,
+        "version": 1,
+        "slug": slug,
+        "path": path,
+        "canonical_path": path,
+        "title": title,
+        "description": "",
+        "social_title": title,
+        "social_description": "",
+        "fallback_fields": [],
+    }
+    block = {
+        "block_type": "core.entry_list",
+        "schema_version": 1,
+        "data": {
+            "title": title,
+            "empty_text": INDEX_EMPTY_TEXT.get(site_locale, INDEX_EMPTY_TEXT["pl"]),
+            "items": [_index_item(item) for item in window],
+        },
+    }
+    return (
+        {
+            "page_id": str(collection.id),
+            "key": f"{collection.key}-tag-{slug}",
+            "blocks": [block],
+            "media_asset_ids": [],
+            "locales": [locale_document],
+            "hreflang": {site_locale: path},
+            "x_default": path,
+            # A subject with one or two articles is a thin duplicate of the
+            # index, not a topic page; below the threshold the archive still
+            # serves readers but asks not to be indexed.
+            "noindex": len(entries) < TAG_INDEX_THRESHOLD,
+            "pagination": {
+                "page": requested_page,
+                "pages": total_pages,
+                "previous_path": (
+                    None
+                    if requested_page == 1
+                    else (
+                        archive_path
+                        if requested_page == 2
+                        else index_page_path(
+                            archive_path, site_locale, requested_page - 1
+                        )
+                    )
+                ),
+                "next_path": (
+                    None
+                    if requested_page >= total_pages
+                    else index_page_path(archive_path, site_locale, requested_page + 1)
+                ),
+            },
+        },
+        locale_document,
+        _IndexPublication(collection=collection, entries=window),
+    )
 
 
 def _index_item(item: dict[str, Any]) -> dict[str, Any]:

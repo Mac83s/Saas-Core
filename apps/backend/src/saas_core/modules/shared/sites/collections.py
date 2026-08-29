@@ -8,6 +8,7 @@ to follow.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -36,7 +37,9 @@ from .models import (
     ContentEntry,
     ContentEntryPublication,
     ContentEntryState,
+    ContentEntryTag,
     ContentEntryVersion,
+    ContentTag,
     EntryScheduleState,
     PageAutomationPolicy,
     Site,
@@ -62,6 +65,7 @@ from .services import (
 COLLECTION_CREATED = "sites.collection.created"
 ENTRY_CREATED = "sites.entry.created"
 ENTRY_DRAFT_SAVED = "sites.entry.draft_saved"
+ENTRY_TAGS_SET = "sites.entry.tags_set"
 ENTRY_PUBLISHED = "sites.entry.published"
 ENTRY_PUBLISHED_EVENT = "sites.entry.published"
 ENTRY_PUBLICATION_SCHEDULED = "sites.entry.publication_scheduled"
@@ -498,6 +502,15 @@ def publish_entry(
         "excerpt": entry.excerpt,
         "author_name": entry.author_name,
         "noindex": entry.noindex,
+        # Carried in the snapshot rather than read live: what a visitor sees
+        # has to be what was published, including which archives list it.
+        "tags": [
+            {"slug": tag.slug, "name": tag.name}
+            for tag in ContentTag.all_objects.filter(
+                organization_id=context.organization_id,
+                entry_links__entry_id=entry.id,
+            ).order_by("slug")
+        ],
         "version": entry.current_draft.number,
         "blocks": entry.current_draft.blocks,
         # Read by the public media endpoint: an asset is fetchable by a visitor
@@ -562,6 +575,107 @@ def publish_entry(
     # back transaction took away again.
     _schedule_site_outbox_delivery(event)
     return publication, True
+
+
+class TooManyTags(APIException):
+    status_code = 400
+    default_detail = "Wpis może mieć najwyżej dziesięć tagów."
+    default_code = "entry_too_many_tags"
+
+
+class TagNameInvalid(APIException):
+    status_code = 400
+    default_detail = "Nazwa tagu nie może być pusta."
+    default_code = "entry_tag_name_invalid"
+
+
+def tag_slug(name: str) -> str:
+    """A tag's address, derived from its name rather than typed twice.
+
+    Polish letters fold to their ASCII shapes: an address a person cannot read
+    aloud over the phone is one they will not link to.
+    """
+    folded = name.strip().lower()
+    for source_char, target in (
+        ("ą", "a"), ("ć", "c"), ("ę", "e"), ("ł", "l"), ("ń", "n"),
+        ("ó", "o"), ("ś", "s"), ("ź", "z"), ("ż", "z"),
+    ):
+        folded = folded.replace(source_char, target)
+    slug = re.sub(r"[^a-z0-9]+", "-", folded).strip("-")
+    return slug[:80]
+
+
+@transaction.atomic
+def set_entry_tags(*, entry_id: UUID, names: list[str]) -> list[ContentTag]:
+    """Replaces the whole set rather than adding to it.
+
+    A caller sending the tags it wants cannot accidentally leave one behind,
+    which is what makes this safe to call from an automation replaying the same
+    change set twice.
+    """
+    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    entry = (
+        ContentEntry.all_objects.select_for_update(of=("self",))
+        .select_related("collection")
+        .filter(pk=entry_id, organization_id=context.organization_id)
+        .first()
+    )
+    if entry is None:
+        raise EntryNotFound
+    _assert_entry_writable(entry, entry.collection)
+
+    wanted: dict[str, str] = {}
+    for raw in names:
+        slug = tag_slug(raw)
+        if not slug:
+            raise TagNameInvalid
+        # First spelling wins, so "Porady" and "porady" are one tag rather than
+        # two addresses holding half the archive each.
+        wanted.setdefault(slug, raw.strip())
+    if len(wanted) > 10:
+        raise TooManyTags
+
+    tags: list[ContentTag] = []
+    for slug, name in wanted.items():
+        tag, _created = ContentTag.all_objects.get_or_create(
+            organization_id=context.organization_id,
+            site_id=entry.site_id,
+            slug=slug,
+            defaults={"name": name, "created_by_id": context.actor_id},
+        )
+        tags.append(tag)
+    # One order everywhere — the listing, the snapshot and this reply — so
+    # nothing downstream reads meaning into a sequence nothing preserves.
+    tags.sort(key=lambda item: item.slug)
+
+    ContentEntryTag.all_objects.filter(
+        organization_id=context.organization_id, entry_id=entry.id
+    ).exclude(tag_id__in=[tag.id for tag in tags]).delete()
+    for tag in tags:
+        ContentEntryTag.all_objects.get_or_create(
+            organization_id=context.organization_id, entry_id=entry.id, tag_id=tag.id
+        )
+    record_audit(
+        organization=Organization.objects.get(pk=context.organization_id),
+        action=ENTRY_TAGS_SET,
+        actor=User.objects.get(pk=context.actor_id),
+        target_type="content_entry",
+        target_id=entry.id,
+        metadata={"tags": [tag.slug for tag in tags]},
+    )
+    return tags
+
+
+def entry_tags(*, entry_id: UUID) -> list[ContentTag]:
+    context = authorize_entitled(
+        SITE_CONTENT_EDIT, SITES_ENABLED, operation=FeatureOperation.READ
+    )
+    return list(
+        ContentTag.all_objects.filter(
+            organization_id=context.organization_id,
+            entry_links__entry_id=entry_id,
+        ).order_by("slug")
+    )
 
 
 class ScheduleInPast(APIException):
