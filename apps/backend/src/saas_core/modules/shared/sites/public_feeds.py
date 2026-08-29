@@ -6,6 +6,7 @@ from xml.sax.saxutils import escape
 
 from django.conf import settings
 from django.http import HttpResponse
+from django.utils import timezone
 
 from saas_core.modules.core.organizations.models import OrganizationStatus
 
@@ -102,6 +103,63 @@ def render_site_feed(*, host: str) -> HttpResponse:
     return HttpResponse(document, content_type="application/rss+xml; charset=utf-8")
 
 
+def render_site_atom(*, host: str) -> HttpResponse:
+    """The same articles as the RSS feed, in the format some readers insist on.
+
+    Atom is not a nicer RSS: it fixes two things this content actually needs.
+    Dates are RFC 3339, so a reader never has to guess at a locale-dependent
+    month name, and an entry carries an author element that is a name rather
+    than an email address.
+    """
+    domain, origin = _resolve_site(host)
+    entries = published_entries(
+        organization_id=domain.organization_id, site_id=domain.site_id
+    )[:FEED_LIMIT]
+    # The feed's own `updated` is the newest article's, and "now" when there is
+    # none: a feed that claims to change every time it is fetched teaches a
+    # reader to stop trusting the field.
+    stamps = [
+        entry["updated_at"] for entry in entries if entry["updated_at"] is not None
+    ]
+    updated = max(stamps) if stamps else timezone.now()
+
+    items = []
+    for entry in entries:
+        address = origin + entry["path"]
+        parts = [
+            "<id>" + escape(address) + "</id>",
+            "<title>" + escape(entry["title"]) + "</title>",
+            '<link rel="alternate" href="' + escape(address) + '"/>',
+            "<updated>" + escape(_rfc3339(entry["updated_at"] or updated)) + "</updated>",
+        ]
+        if entry["published_at"] is not None:
+            parts.append(
+                "<published>" + escape(_rfc3339(entry["published_at"])) + "</published>"
+            )
+        if entry["author_name"]:
+            parts.append(
+                "<author><name>" + escape(entry["author_name"]) + "</name></author>"
+            )
+        if entry["excerpt"]:
+            parts.append(
+                '<summary type="text">' + escape(entry["excerpt"]) + "</summary>"
+            )
+        items.append("<entry>" + "".join(parts) + "</entry>")
+
+    document = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<feed xmlns="http://www.w3.org/2005/Atom">'
+        "<id>" + escape(origin + "/atom.xml") + "</id>"
+        "<title>" + escape(domain.site.name) + "</title>"
+        "<updated>" + escape(_rfc3339(updated)) + "</updated>"
+        '<link rel="self" href="' + escape(origin + "/atom.xml") + '"/>'
+        '<link rel="alternate" href="' + escape(origin + "/") + '"/>'
+        + "".join(items)
+        + "</feed>"
+    )
+    return HttpResponse(document, content_type="application/atom+xml; charset=utf-8")
+
+
 def render_site_sitemap(*, host: str) -> HttpResponse:
     """Published pages, collection indexes and entries, in one urlset.
 
@@ -188,6 +246,15 @@ _MONTHS = (
     "Jan", "Feb", "Mar", "Apr", "May", "Jun",
     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 )
+
+
+def _rfc3339(value: Any) -> str:
+    """Atom's date format, which is ISO 8601 with a timezone that is present.
+
+    Built from an aware UTC value rather than whatever the row carried, so the
+    offset is always `+00:00` and never the server's accidental local zone.
+    """
+    return str(value.astimezone(UTC).isoformat())
 
 
 def _rfc822(value: Any) -> str:

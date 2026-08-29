@@ -79,6 +79,14 @@ test("buduje canonical, hreflang i Open Graph z odpowiedzi API", () => {
     ...page.hreflang,
     "x-default": page.x_default,
   });
+  expect(metadata.alternates?.types).toEqual({
+    "application/rss+xml": [
+      { url: "https://clinic.example.test/rss.xml", title: page.title },
+    ],
+    "application/atom+xml": [
+      { url: "https://clinic.example.test/atom.xml", title: page.title },
+    ],
+  });
   expect(metadata.openGraph).toMatchObject({
     title: page.social_title,
     description: page.social_description,

@@ -16,6 +16,8 @@ const {
   listContentEntries,
   publishContentEntry,
   saveContentEntryDraft,
+  scheduleContentEntry,
+  cancelContentEntrySchedule,
   setCollectionAutomationPolicy,
   setCollectionNavigation,
   withdrawContentEntry,
@@ -29,6 +31,8 @@ const {
   listContentEntries: vi.fn(),
   publishContentEntry: vi.fn(),
   saveContentEntryDraft: vi.fn(),
+  scheduleContentEntry: vi.fn(),
+  cancelContentEntrySchedule: vi.fn(),
   setCollectionAutomationPolicy: vi.fn(),
   setCollectionNavigation: vi.fn(),
   withdrawContentEntry: vi.fn(),
@@ -45,6 +49,8 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   listContentEntries,
   publishContentEntry,
   saveContentEntryDraft,
+  scheduleContentEntry,
+  cancelContentEntrySchedule,
   setCollectionAutomationPolicy,
   setCollectionNavigation,
   withdrawContentEntry,
@@ -81,6 +87,9 @@ const entry = {
   noindex: false,
   draft_author: null,
   translation_group: "019ff20d-a000-7000-8000-000000000040",
+  schedule_state: "none",
+  scheduled_publish_at: null,
+  schedule_error: "",
 };
 
 function renderPanel() {
@@ -361,4 +370,51 @@ test("adds a language version and keeps it a separate publication", async () => 
     slug: "in-english",
     title: "In English",
   });
+});
+
+test("planuje publikację wpisu na wskazaną godzinę", async () => {
+  scheduleContentEntry.mockResolvedValue({
+    entry_id: entryId,
+    schedule_state: "pending",
+    scheduled_publish_at: "2026-09-01T05:00:00Z",
+    schedule_error: "",
+  });
+  renderPanel();
+  fireEvent.click(await screen.findByRole("button", { name: /Edytuj/ }));
+
+  const field = await screen.findByLabelText("Opublikuj o godzinie");
+  fireEvent.change(field, { target: { value: "2026-09-01T07:00" } });
+  fireEvent.click(screen.getByRole("button", { name: "Zaplanuj publikację" }));
+
+  await waitFor(() => expect(scheduleContentEntry).toHaveBeenCalledOnce());
+  expect(scheduleContentEntry.mock.calls[0]?.[0]).toBe(entryId);
+  // Sent as an absolute instant: "Monday 07:00" has to mean the operator's
+  // Monday, not the server's.
+  expect(scheduleContentEntry.mock.calls[0]?.[1]).toBe(
+    new Date("2026-09-01T07:00").toISOString(),
+  );
+});
+
+test("pokazuje, że zaplanowana publikacja się nie udała", async () => {
+  listContentEntries.mockResolvedValue({
+    items: [
+      {
+        ...entry,
+        schedule_state: "failed",
+        scheduled_publish_at: "2026-08-24T05:00:00Z",
+        schedule_error: "Plan nie obejmuje publikacji.",
+      },
+    ],
+    next_cursor: null,
+  });
+  const rendered = renderPanel();
+  fireEvent.click(await screen.findByRole("button", { name: /Edytuj/ }));
+
+  // A failed publication has to look different from one nobody scheduled, or
+  // the operator learns about it from a reader.
+  expect(await screen.findByText("Publikacja się nie udała")).not.toBeNull();
+  expect(
+    screen.getByText("Powód: Plan nie obejmuje publikacji."),
+  ).not.toBeNull();
+  expect((await axe.run(rendered.container)).violations).toHaveLength(0);
 });

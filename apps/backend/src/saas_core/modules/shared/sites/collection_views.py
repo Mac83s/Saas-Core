@@ -86,6 +86,12 @@ def _entry_payload(entry: ContentEntry) -> dict[str, Any]:
         "noindex": entry.noindex,
         "draft_author": _draft_author(entry.current_draft),
         "translation_group": str(entry.translation_group),
+        # Carried in the listing rather than fetched per row: an operator
+        # scanning a blog needs to see at a glance which article is waiting and
+        # which one failed on Monday morning.
+        "schedule_state": entry.schedule_state,
+        "scheduled_publish_at": entry.scheduled_publish_at,
+        "schedule_error": entry.schedule_error,
     }
 
 

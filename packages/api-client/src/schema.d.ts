@@ -1758,6 +1758,10 @@ export interface components {
             draft_author: string | null;
             /** Format: uuid */
             translation_group: string;
+            schedule_state: string;
+            /** Format: date-time */
+            scheduled_publish_at: string | null;
+            schedule_error: string;
         };
         ContentEntryCreate: {
             slug: string;

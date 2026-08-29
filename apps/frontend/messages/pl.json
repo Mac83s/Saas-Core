@@ -474,7 +474,20 @@
     "redirectsDescription": "Adresy, pod którymi ta strona odpowiadała wcześniej, i miejsca, do których teraz prowadzą.",
     "redirectsEmpty": "Żaden adres nie był jeszcze zmieniany.",
     "redirectDelete": "Usuń przekierowanie z {path}",
-    "redirectDeleteHint": "Usunięcie przekierowania sprawia, że stary adres przestaje prowadzić do strony."
+    "redirectDeleteHint": "Usunięcie przekierowania sprawia, że stary adres przestaje prowadzić do strony.",
+    "scheduleTitle": "Publikacja z terminem",
+    "scheduleWhen": "Opublikuj o godzinie",
+    "scheduleSet": "Zaplanuj publikację",
+    "scheduleMove": "Zmień termin",
+    "scheduleCancel": "Odwołaj termin",
+    "scheduleHint": "Wpis pojawi się na stronie sam, o wskazanej godzinie. Termin liczy się według Twojego zegara.",
+    "scheduleStatePending": "Zaplanowana",
+    "scheduleStateCancelled": "Termin odwołany",
+    "scheduleStateFailed": "Publikacja się nie udała",
+    "scheduleFailedReason": "Powód: {reason}",
+    "scheduleAlreadyPublished": "Ten wpis jest już opublikowany.",
+    "scheduleInPast": "Termin publikacji musi być w przyszłości.",
+    "scheduleNotPending": "Ten wpis nie ma już zaplanowanej publikacji."
   },
   "BillingSupport": {
     "navigation": "Billing i dostęp",

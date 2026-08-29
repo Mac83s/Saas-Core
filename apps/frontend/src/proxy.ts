@@ -65,6 +65,7 @@ export const config = {
     // a crawler ask for by name. They are public-site paths and need the
     // same rewrite as any other page on that host.
     "/rss.xml",
+    "/atom.xml",
     "/sitemap.xml",
     "/robots.txt",
   ],

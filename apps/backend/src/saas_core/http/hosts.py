@@ -12,6 +12,7 @@ from django.http.request import split_domain_port, validate_host
 PUBLIC_SITE_ROUTES = (
     "/api/v1/public/site/",
     "/api/v1/public/site/feed.xml",
+    "/api/v1/public/site/atom.xml",
     "/api/v1/public/site/sitemap.xml",
     "/api/v1/public/site/robots.txt",
 )

@@ -5111,6 +5111,15 @@ components:
         translation_group:
           type: string
           format: uuid
+        schedule_state:
+          type: string
+        scheduled_publish_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        schedule_error:
+          type: string
       required:
       - author_name
       - collection_id
@@ -5120,6 +5129,9 @@ components:
       - locale
       - noindex
       - published_at
+      - schedule_error
+      - schedule_state
+      - scheduled_publish_at
       - slug
       - state
       - title

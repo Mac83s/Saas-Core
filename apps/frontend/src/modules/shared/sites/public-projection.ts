@@ -58,7 +58,7 @@ function requestBackend(
 
 export async function getPublicProjection(
   host: string,
-  resource: "feed.xml" | "sitemap.xml" | "robots.txt",
+  resource: "feed.xml" | "atom.xml" | "sitemap.xml" | "robots.txt",
 ): Promise<ProjectionResult> {
   const backend = process.env.BACKEND_INTERNAL_URL ?? "http://127.0.0.1:8000";
   const response = await requestBackend(

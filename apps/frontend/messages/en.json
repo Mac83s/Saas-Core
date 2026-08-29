@@ -474,7 +474,20 @@
     "redirectsDescription": "Addresses this site used to answer on, and where they now lead.",
     "redirectsEmpty": "No address has been changed yet.",
     "redirectDelete": "Remove the redirect from {path}",
-    "redirectDeleteHint": "Removing a redirect stops the old address leading anywhere."
+    "redirectDeleteHint": "Removing a redirect stops the old address leading anywhere.",
+    "scheduleTitle": "Publish at a set time",
+    "scheduleWhen": "Publish at",
+    "scheduleSet": "Schedule publication",
+    "scheduleMove": "Change the time",
+    "scheduleCancel": "Call it off",
+    "scheduleHint": "The entry appears on the site on its own, at the time you set. The time follows your own clock.",
+    "scheduleStatePending": "Scheduled",
+    "scheduleStateCancelled": "Called off",
+    "scheduleStateFailed": "Publication failed",
+    "scheduleFailedReason": "Reason: {reason}",
+    "scheduleAlreadyPublished": "This entry is already published.",
+    "scheduleInPast": "The publication time has to be in the future.",
+    "scheduleNotPending": "This entry no longer has a scheduled publication."
   },
   "BillingSupport": {
     "navigation": "Billing & access",

@@ -2289,3 +2289,54 @@ def test_publishing_an_entry_leaves_an_outbox_event() -> None:
     assert event.publication_id is None
     assert event.entry_publication_id is not None
     assert event.payload["path"].endswith("/wpis-outbox/")
+
+
+def test_the_atom_feed_carries_dates_a_reader_cannot_misread() -> None:
+    """Some readers only take Atom, and its dates are RFC 3339 rather than the
+    RFC 822 spelling whose month names follow whatever locale wrote them."""
+    from django.test import override_settings
+    from rest_framework.test import APIClient as PublicClient
+
+    client, _, _ = sites_client(slug="atom", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    platform = _verified_platform_domain(site.data["id"])
+    entry = create_entry(
+        client, collection.data["id"], slug="wpis-atom", idempotency_key="atom-entry"
+    )
+    ContentEntry.all_objects.filter(pk=entry.data["id"]).update(
+        author_name="Redakcja", excerpt="Zajawka wpisu."
+    )
+    save_entry_draft(
+        client,
+        entry.data["id"],
+        expected_version=0,
+        text="Treść wpisu.",
+        idempotency_key="atom-draft",
+    )
+    publish(client, entry.data["id"], idempotency_key="atom-publish")
+
+    with override_settings(PUBLIC_SITE_SCHEME="https"):
+        feed = PublicClient().get(
+            "/api/v1/public/site/atom.xml",
+            HTTP_HOST=platform.hostname,
+            HTTP_ACCEPT="application/atom+xml",
+        )
+
+    assert feed.status_code == 200
+    assert feed["Content-Type"].startswith("application/atom+xml")
+    body = feed.content.decode()
+    assert '<feed xmlns="http://www.w3.org/2005/Atom">' in body
+    assert "<title>Wpis Atom</title>" in body
+    # An author is a name here, not the email address RSS 2.0 asks for.
+    assert "<author><name>Redakcja</name></author>" in body
+    assert "<summary type=\"text\">Zajawka wpisu.</summary>" in body
+    assert '<link rel="self" href="https://' in body
+    # Both feeds describe the same archive, so they list the same article.
+    with override_settings(PUBLIC_SITE_SCHEME="https"):
+        rss = PublicClient().get(
+            "/api/v1/public/site/feed.xml",
+            HTTP_HOST=platform.hostname,
+            HTTP_ACCEPT="application/xml",
+        )
+    assert "/blog/wpis-atom/" in rss.content.decode()

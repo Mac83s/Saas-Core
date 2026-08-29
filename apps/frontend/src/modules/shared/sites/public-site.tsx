@@ -84,6 +84,22 @@ export function publicSiteMetadata(page: PublicSitePage): Metadata {
     alternates: {
       canonical: page.canonical_url,
       languages: { ...page.hreflang, "x-default": page.x_default },
+      // Without these a reader's browser has no way to find either feed: the
+      // addresses exist, and nothing on the page says so.
+      types: {
+        "application/rss+xml": [
+          {
+            url: new URL("/rss.xml", page.canonical_url).toString(),
+            title: page.title,
+          },
+        ],
+        "application/atom+xml": [
+          {
+            url: new URL("/atom.xml", page.canonical_url).toString(),
+            title: page.title,
+          },
+        ],
+      },
     },
     openGraph: {
       title: page.social_title || page.title,

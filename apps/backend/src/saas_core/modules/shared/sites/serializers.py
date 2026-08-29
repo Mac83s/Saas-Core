@@ -214,6 +214,9 @@ class ContentEntrySerializer(serializers.Serializer[dict[str, Any]]):
     noindex = serializers.BooleanField()
     draft_author = serializers.CharField(allow_null=True)
     translation_group = serializers.UUIDField()
+    schedule_state = serializers.CharField()
+    scheduled_publish_at = serializers.DateTimeField(allow_null=True)
+    schedule_error = serializers.CharField(allow_blank=True)
 
 
 class ContentEntryListSerializer(serializers.Serializer[dict[str, Any]]):

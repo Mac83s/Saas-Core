@@ -4,6 +4,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from saas_core.modules.shared.sites.public_views import (
     CaddyDomainAuthorizationView,
+    PublicSiteAtomView,
     PublicSiteFeedView,
     PublicSiteMediaView,
     PublicSitePageView,
@@ -40,6 +41,11 @@ urlpatterns = [
         "api/v1/public/site/feed.xml",
         PublicSiteFeedView.as_view(),
         name="public-site-feed",
+    ),
+    path(
+        "api/v1/public/site/atom.xml",
+        PublicSiteAtomView.as_view(),
+        name="public-site-atom",
     ),
     path(
         "api/v1/public/site/sitemap.xml",

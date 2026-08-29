@@ -52,6 +52,7 @@ import { NativeSelect } from "@saas-core/ui/components/native-select";
 
 import { AutomationPolicyField } from "./automation-policy";
 import { EntryEditor } from "./entry-editor";
+import { EntrySchedule } from "./entry-schedule";
 import { EntryTranslations } from "./entry-translations";
 import { mutationKey, type MutationReceipt } from "./idempotency";
 import { sitesErrorMessage } from "./problem";
@@ -521,6 +522,16 @@ export function BlogPanel({ siteId }: { siteId: string }) {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {entry && (
+        <EntrySchedule
+          entry={entry}
+          key={`schedule-${entry.id}-${entry.schedule_state}`}
+          onChanged={async () => {
+            if (collectionId) await loadEntries(collectionId);
+          }}
+        />
       )}
 
       {entry && (

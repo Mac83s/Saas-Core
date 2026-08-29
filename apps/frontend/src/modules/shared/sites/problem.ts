@@ -22,6 +22,10 @@ export function sitesErrorMessage(error: unknown, t: Translate): string {
       return t("subdomainReason_taken");
     case "entry_translation_exists":
       return t("entryTranslationExists");
+    case "entry_schedule_in_past":
+      return t("scheduleInPast");
+    case "entry_schedule_not_pending":
+      return t("scheduleNotPending");
     case "domain_quarantined":
       return t("subdomainReason_quarantined");
     default:

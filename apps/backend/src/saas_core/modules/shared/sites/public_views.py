@@ -13,6 +13,7 @@ from rest_framework.views import APIView
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
 from .public_feeds import (
+    render_site_atom,
     render_site_feed,
     render_site_robots,
     render_site_sitemap,
@@ -93,6 +94,16 @@ class PublicSiteFeedView(View):
     def get(self, request: HttpRequest) -> HttpResponse:
         try:
             return render_site_feed(host=str(request.META.get("HTTP_HOST", "")))
+        except PublicSiteNotFound:
+            return HttpResponseNotFound()
+
+
+class PublicSiteAtomView(View):
+    """See `PublicSiteFeedView`: plain Django for the same reason."""
+
+    def get(self, request: HttpRequest) -> HttpResponse:
+        try:
+            return render_site_atom(host=str(request.META.get("HTTP_HOST", "")))
         except PublicSiteNotFound:
             return HttpResponseNotFound()
 

@@ -62,6 +62,7 @@ export type PageUrlChangeInput = components["schemas"]["PageUrlChange"];
 export type ContentCollection = components["schemas"]["ContentCollection"];
 export type ContentEntry = components["schemas"]["ContentEntry"];
 export type ContentEntryDraft = components["schemas"]["ContentEntryDraft"];
+export type EntrySchedule = components["schemas"]["EntryScheduleState"];
 export type ContentEntryPublication =
   components["schemas"]["ContentEntryPublication"];
 export type SiteNavigationItem = components["schemas"]["NavigationItem"];
@@ -1698,6 +1699,44 @@ export async function publishContentEntry(
         header: { "Idempotency-Key": idempotencyKey },
         path: { entry_id: entryId },
       },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Asks for this article to go live at a stated moment.
+ *
+ *  The moment is sent as an absolute instant, so "Monday 07:00" means the
+ *  operator's Monday and not the server's. */
+export async function scheduleContentEntry(
+  entryId: string,
+  publishAt: string,
+): Promise<EntrySchedule> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/sites/entries/{entry_id}/schedule/",
+    {
+      params: { path: { entry_id: entryId } },
+      body: { publish_at: publishAt },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function cancelContentEntrySchedule(
+  entryId: string,
+): Promise<EntrySchedule> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.DELETE(
+    "/api/v1/sites/entries/{entry_id}/schedule/",
+    {
+      params: { path: { entry_id: entryId } },
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
     },
