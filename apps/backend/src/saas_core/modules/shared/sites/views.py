@@ -27,6 +27,7 @@ from .change_sets import (
 from .inventory import inventory_etag, read_inventory
 from .localization import LocaleResolution, SiteLocalizationReport
 from .models import Page, PageBlock, PageTranslation, Publication, Site
+from .operations import read_operation_status
 from .serializers import (
     ChangeSetApplySerializer,
     ChangeSetDiffSerializer,
@@ -36,6 +37,7 @@ from .serializers import (
     ContentInventorySerializer,
     CursorQuerySerializer,
     DraftSaveSerializer,
+    OperationStatusSerializer,
     PageCreateSerializer,
     PageDraftSerializer,
     PageListSerializer,
@@ -764,6 +766,33 @@ def _idempotency_header(request: Request, document: Any) -> str:
     if header:
         return header
     return str(document.get("idempotency_key", ""))
+
+
+class OperationStatusView(APIView):
+    """What the request carrying this key actually did.
+
+    A connector whose connection died mid-mutation has two bad options: retry
+    and risk a second effect, or give up and leave the two systems disagreeing.
+    This is the third — asking, and getting an answer that costs nothing.
+
+    `found: false` with a 200 is the right answer for a key nobody has seen. A
+    404 would be indistinguishable from "this endpoint does not exist", which
+    is exactly the ambiguity the caller came here to resolve.
+    """
+
+    permission_classes = [IsSessionOrApiKey]
+
+    @extend_schema(
+        operation_id="sites_operation_status_retrieve",
+        tags=["sites"],
+        responses={
+            200: OperationStatusSerializer,
+            403: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, _request: Request, idempotency_key: str) -> Response:
+        return Response(read_operation_status(idempotency_key=idempotency_key))
 
 
 class ContentInventoryView(APIView):

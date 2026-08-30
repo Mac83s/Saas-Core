@@ -4372,6 +4372,48 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/operations/{idempotency_key}/:
+    get:
+      operationId: sites_operation_status_retrieve
+      description: |-
+        What the request carrying this key actually did.
+
+        A connector whose connection died mid-mutation has two bad options: retry
+        and risk a second effect, or give up and leave the two systems disagreeing.
+        This is the third — asking, and getting an answer that costs nothing.
+
+        `found: false` with a 200 is the right answer for a key nobody has seen. A
+        404 would be indistinguishable from "this endpoint does not exist", which
+        is exactly the ambiguity the caller came here to resolve.
+      parameters:
+      - in: path
+        name: idempotency_key
+        schema:
+          type: string
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationStatus'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/pages/{page_id}/draft/:
     get:
       operationId: sites_page_draft_retrieve
@@ -6403,6 +6445,35 @@ components:
           default: true
       required:
       - page_id
+    NullEnum:
+      type: 'null'
+    OperationStatus:
+      type: object
+      properties:
+        idempotency_key:
+          type: string
+        found:
+          type: boolean
+        resource_type:
+          oneOf:
+          - $ref: '#/components/schemas/ResourceTypeEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        resource_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        created_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+      required:
+      - created_at
+      - found
+      - idempotency_key
+      - resource_id
+      - resource_type
     OrganizationArchived:
       type: object
       properties:
@@ -7163,6 +7234,24 @@ components:
       - id
       - kind
       - name
+    ResourceTypeEnum:
+      enum:
+      - page
+      - page_version
+      - site_publication
+      - content_collection
+      - content_entry
+      - content_entry_version
+      - content_entry_publication
+      type: string
+      description: |-
+        * `page` - page
+        * `page_version` - page_version
+        * `site_publication` - site_publication
+        * `content_collection` - content_collection
+        * `content_entry` - content_entry
+        * `content_entry_version` - content_entry_version
+        * `content_entry_publication` - content_entry_publication
     ScheduleCreate:
       type: object
       properties:

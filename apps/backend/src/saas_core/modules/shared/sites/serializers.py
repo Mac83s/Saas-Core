@@ -369,6 +369,25 @@ class ChangeSetResultSerializer(serializers.Serializer[dict[str, Any]]):
     published = serializers.BooleanField()
 
 
+class OperationStatusSerializer(serializers.Serializer[dict[str, Any]]):
+    idempotency_key = serializers.CharField()
+    found = serializers.BooleanField()
+    resource_type = serializers.ChoiceField(
+        choices=[
+            "page",
+            "page_version",
+            "site_publication",
+            "content_collection",
+            "content_entry",
+            "content_entry_version",
+            "content_entry_publication",
+        ],
+        allow_null=True,
+    )
+    resource_id = serializers.UUIDField(allow_null=True)
+    created_at = serializers.DateTimeField(allow_null=True)
+
+
 class ContentInventorySerializer(serializers.Serializer[dict[str, Any]]):
     """Everything the caller may act on, as of one moment."""
 

@@ -1494,6 +1494,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/operations/{idempotency_key}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description What the request carrying this key actually did.
+         *
+         *     A connector whose connection died mid-mutation has two bad options: retry
+         *     and risk a second effect, or give up and leave the two systems disagreeing.
+         *     This is the third — asking, and getting an answer that costs nothing.
+         *
+         *     `found: false` with a 200 is the right answer for a key nobody has seen. A
+         *     404 would be indistinguishable from "this endpoint does not exist", which
+         *     is exactly the ambiguity the caller came here to resolve.
+         */
+        get: operations["sites_operation_status_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/pages/{page_id}/draft/": {
         parameters: {
             query?: never;
@@ -2249,6 +2276,16 @@ export interface components {
             /** @default true */
             visible: boolean;
         };
+        NullEnum: null;
+        OperationStatus: {
+            idempotency_key: string;
+            found: boolean;
+            resource_type: components["schemas"]["ResourceTypeEnum"] | components["schemas"]["NullEnum"];
+            /** Format: uuid */
+            resource_id: string | null;
+            /** Format: date-time */
+            created_at: string | null;
+        };
         OrganizationArchived: {
             status: components["schemas"]["OrganizationArchivedStatusEnum"];
         };
@@ -2568,6 +2605,17 @@ export interface components {
             name: string;
             kind: string;
         };
+        /**
+         * @description * `page` - page
+         *     * `page_version` - page_version
+         *     * `site_publication` - site_publication
+         *     * `content_collection` - content_collection
+         *     * `content_entry` - content_entry
+         *     * `content_entry_version` - content_entry_version
+         *     * `content_entry_publication` - content_entry_publication
+         * @enum {string}
+         */
+        ResourceTypeEnum: "page" | "page_version" | "site_publication" | "content_collection" | "content_entry" | "content_entry_version" | "content_entry_publication";
         ScheduleCreate: {
             kind: components["schemas"]["ScheduleCreateKindEnum"];
             /** Format: uuid */
@@ -7601,6 +7649,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_operation_status_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                idempotency_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OperationStatus"];
                 };
             };
             403: {
