@@ -443,6 +443,9 @@ class ContentCapabilitiesSerializer(serializers.Serializer[dict[str, Any]]):
 
     contract_version = serializers.IntegerField()
     minimum_contract_version = serializers.IntegerField()
+    contract_versions = serializers.ListField(child=serializers.CharField())
+    commands = serializers.ListField(child=serializers.CharField())
+    grant = serializers.DictField(allow_null=True)
     locales = serializers.DictField()
     block_schemas = serializers.ListField(child=serializers.DictField())
     content_types = serializers.DictField()

@@ -16,6 +16,7 @@ from django.core.cache import cache
 from django.utils import timezone
 
 from test_sites_api import create_page, create_site, csrf_value, sites_client
+from test_sites_collections import create_collection
 
 pytestmark = pytest.mark.django_db
 
@@ -352,3 +353,125 @@ def test_rejecting_a_proposal_puts_the_draft_back_to_what_it_was() -> None:
         == versions_before
     )
     assert client.get("/api/v1/sites/proposals/").json() == []
+
+
+def test_capabilities_answers_the_handshake_a_connector_needs() -> None:
+    """SeoContentRank refuses to act on a target that has not told it the mode,
+    the commands and the contract versions. Without them it cannot start."""
+    from saas_core.modules.shared.sites.capabilities import supported_commands
+
+    client, _, _ = sites_client(slug="handshake", role_key="owner")
+    create_site(client)
+
+    answer = client.get("/api/v1/sites/capabilities/")
+    assert answer.status_code == 200
+    body = answer.json()
+    assert body["contract_versions"] == ["1"]
+    # Derived from the frozen schema, so the answer cannot disagree with the
+    # contract it describes.
+    assert body["commands"] == supported_commands()
+    assert "block.replace" in body["commands"]
+    # A person is not a credential, so there is no grant to describe.
+    assert body["grant"] is None
+
+
+def test_a_credential_learns_the_narrowest_mode_it_holds() -> None:
+    """A connector that keeps one mode per connection must not be able to
+    escalate by reading this field, so the summary reports the least of them."""
+    from datetime import timedelta
+
+    from django.contrib.auth.hashers import make_password
+    from django.test import Client
+    from django.utils import timezone
+
+    from saas_core.modules.shared.notifications.models import (
+        ApiKey,
+        ApiKeyCredentialRoute,
+    )
+    from saas_core.modules.shared.sites.models import ContentAutomationGrant
+
+    client, organization, user = sites_client(slug="handshake-key", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+
+    raw = "sc_live_" + "h" * 32
+    api_key = ApiKey.all_objects.create(
+        organization=organization,
+        name="SeoContentRank",
+        prefix=raw[:18],
+        secret_hash=make_password(raw),
+        scopes=["content:read", "content:draft"],
+        created_by=user,
+    )
+    ApiKeyCredentialRoute.objects.create(
+        prefix=raw[:18],
+        api_key_id=api_key.id,
+        organization_id=organization.id,
+        secret_hash=api_key.secret_hash,
+        scopes=["content:read", "content:draft"],
+    )
+    ContentAutomationGrant.all_objects.create(
+        organization=organization,
+        credential_id=api_key.id,
+        collection_id=collection.data["id"],
+        mode="draft_write",
+        expires_at=timezone.now() + timedelta(days=7),
+        created_by=user,
+    )
+    ContentAutomationGrant.all_objects.create(
+        organization=organization,
+        credential_id=api_key.id,
+        site_id=site.data["id"],
+        mode="suggest_only",
+        created_by=user,
+    )
+
+    answered = Client().get(
+        "/api/v1/sites/capabilities/", HTTP_AUTHORIZATION=f"Bearer {raw}"
+    )
+    assert answered.status_code == 200
+    grant = answered.json()["grant"]
+    # Two grants, two modes. The headline is the narrower one; the exact answer
+    # per resource is in `scopes`, for a connector that reads it.
+    assert grant["mode"] == "suggest_only"
+    assert sorted(scope["mode"] for scope in grant["scopes"]) == [
+        "draft_write",
+        "suggest_only",
+    ]
+
+
+def test_a_credential_hired_for_nothing_is_told_so_plainly() -> None:
+    from django.contrib.auth.hashers import make_password
+    from django.test import Client
+
+    from saas_core.modules.shared.notifications.models import (
+        ApiKey,
+        ApiKeyCredentialRoute,
+    )
+
+    client, organization, user = sites_client(slug="handshake-bare", role_key="owner")
+    create_site(client)
+
+    raw = "sc_live_" + "n" * 32
+    api_key = ApiKey.all_objects.create(
+        organization=organization,
+        name="SeoContentRank",
+        prefix=raw[:18],
+        secret_hash=make_password(raw),
+        scopes=["content:read"],
+        created_by=user,
+    )
+    ApiKeyCredentialRoute.objects.create(
+        prefix=raw[:18],
+        api_key_id=api_key.id,
+        organization_id=organization.id,
+        secret_hash=api_key.secret_hash,
+        scopes=["content:read"],
+    )
+
+    answered = Client().get(
+        "/api/v1/sites/capabilities/", HTTP_AUTHORIZATION=f"Bearer {raw}"
+    )
+    # Authenticated and hired for nothing. Saying so at handshake is kinder
+    # than letting the connector find out one refusal at a time.
+    assert answered.json()["grant"] == {"mode": None, "scopes": []}

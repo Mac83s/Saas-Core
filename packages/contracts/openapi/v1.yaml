@@ -5592,6 +5592,19 @@ components:
           type: integer
         minimum_contract_version:
           type: integer
+        contract_versions:
+          type: array
+          items:
+            type: string
+        commands:
+          type: array
+          items:
+            type: string
+        grant:
+          type:
+          - object
+          - 'null'
+          additionalProperties: {}
         locales:
           type: object
           additionalProperties: {}
@@ -5615,8 +5628,11 @@ components:
             additionalProperties: {}
       required:
       - block_schemas
+      - commands
       - content_types
       - contract_version
+      - contract_versions
+      - grant
       - locales
       - minimum_contract_version
       - quotas

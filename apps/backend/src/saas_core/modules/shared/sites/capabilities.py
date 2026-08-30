@@ -28,6 +28,8 @@ from saas_core.modules.shared.billing.api import (
 
 from .block_contracts import site_block_contracts
 from .models import (
+    AutomationGrantMode,
+    ContentAutomationGrant,
     ContentCollectionKind,
     Domain,
     DomainStatus,
@@ -71,6 +73,22 @@ def read_content_capabilities() -> dict[str, Any]:
     return {
         "contract_version": CONTENT_CONTRACT_VERSION,
         "minimum_contract_version": MINIMUM_CONTENT_CONTRACT_VERSION,
+        # Every version still accepted, spelled out. A connector holding one
+        # number has to decide whether its own is acceptable, and deriving the
+        # range from two integers is a rule it would have to reimplement.
+        "contract_versions": [
+            str(version)
+            for version in range(
+                MINIMUM_CONTENT_CONTRACT_VERSION, CONTENT_CONTRACT_VERSION + 1
+            )
+        ],
+        # Read out of the schema rather than kept as a second list: a
+        # capabilities response that disagrees with the contract is worse than
+        # none, because a client believes it.
+        "commands": supported_commands(),
+        # What this particular caller may do. A session gets `null` — the
+        # question only means something for a credential.
+        "grant": _grant_summary(context),
         "locales": {
             "default": settings.SITES_DEFAULT_LOCALE,
             "supported": list(settings.SITES_SUPPORTED_LOCALES),
@@ -92,6 +110,67 @@ def read_content_capabilities() -> dict[str, Any]:
         },
         "quotas": [_quota(key) for key in REPORTED_QUOTAS],
         "sites": [_site(site, organization_id=context.organization_id) for site in sites],
+    }
+
+
+def supported_commands() -> list[str]:
+    """The command names the frozen contract defines, taken from the contract.
+
+    SeoContentRank derives its own list from the same file, so the two cannot
+    disagree about what may be sent.
+    """
+    from .change_sets import change_set_validator
+
+    # The validator types its schema as bool-or-mapping, since JSON Schema
+    # allows `true`/`false` as whole schemas. Ours is an object.
+    schema: dict[str, Any] = dict(change_set_validator().schema)  # type: ignore[arg-type]
+    defs = schema["$defs"]
+    names = []
+    for branch in defs["command"]["oneOf"]:
+        definition = defs[branch["$ref"].rsplit("/", 1)[-1]]
+        names.append(str(definition["properties"]["command"]["const"]))
+    return sorted(names)
+
+
+def _grant_summary(context: Any) -> dict[str, Any] | None:
+    """What this credential was hired to do, as the connector must mirror it.
+
+    `mode` is the narrowest of the active grants, not the widest. A connector
+    that understands only one mode per connection then cannot escalate by
+    reading this field — and one that reads `scopes` gets the exact answer per
+    resource.
+    """
+    from .services import _is_automation
+
+    if not _is_automation(context) or context.credential_id is None:
+        return None
+    grants = [
+        grant
+        for grant in ContentAutomationGrant.all_objects.filter(
+            organization_id=context.organization_id,
+            credential_id=context.credential_id,
+            revoked_at__isnull=True,
+        ).select_related("site", "collection")
+        if grant.active
+    ]
+    if not grants:
+        # Authenticated and hired for nothing. Saying so plainly is kinder than
+        # letting the connector discover it one refusal at a time.
+        return {"mode": None, "scopes": []}
+    order = list(AutomationGrantMode.values)
+    return {
+        "mode": min(grants, key=lambda grant: order.index(grant.mode)).mode,
+        "scopes": [
+            {
+                "kind": "site" if grant.site_id else "collection",
+                "id": str(grant.site_id or grant.collection_id),
+                "mode": grant.mode,
+                "expires_at": (
+                    grant.expires_at.isoformat() if grant.expires_at else None
+                ),
+            }
+            for grant in grants
+        ],
     }
 
 

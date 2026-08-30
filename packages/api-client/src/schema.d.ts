@@ -1965,6 +1965,11 @@ export interface components {
         ContentCapabilities: {
             contract_version: number;
             minimum_contract_version: number;
+            contract_versions: string[];
+            commands: string[];
+            grant: {
+                [key: string]: unknown;
+            } | null;
             locales: {
                 [key: string]: unknown;
             };
