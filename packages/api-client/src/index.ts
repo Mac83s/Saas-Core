@@ -58,6 +58,8 @@ export type SitePublication = components["schemas"]["SitePublication"];
 export type SitePublicationList = components["schemas"]["SitePublicationList"];
 export type SiteNavigation = components["schemas"]["SiteNavigation"];
 export type SiteRedirect = components["schemas"]["SiteRedirect"];
+export type AutomationConnection =
+  components["schemas"]["AutomationConnection"];
 export type PageUrlChangeInput = components["schemas"]["PageUrlChange"];
 export type ContentCollection = components["schemas"]["ContentCollection"];
 export type ContentEntry = components["schemas"]["ContentEntry"];
@@ -1535,6 +1537,35 @@ export async function deleteSiteRedirect(redirectId: string): Promise<void> {
     },
   );
   if (error) throwProblem(error, response);
+}
+
+export async function listAutomationConnections(): Promise<
+  AutomationConnection[]
+> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/connections/",
+    { credentials: "same-origin" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function revokeAutomationGrant(
+  grantId: string,
+  reason: string,
+): Promise<AutomationConnection[]> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/connections/{grant_id}/revoke/",
+    {
+      params: { path: { grant_id: grantId } },
+      body: { reason },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
 }
 
 export async function setPageAutomationPolicy(
