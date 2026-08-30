@@ -16,6 +16,7 @@ import {
   FileTextIcon,
   NewspaperIcon,
   Globe2Icon,
+  PlugZapIcon,
   LockKeyholeIcon,
   PlusIcon,
   RefreshCwIcon,
@@ -79,6 +80,7 @@ import { slugifyTitle } from "./slug";
 import { Link } from "#i18n/navigation";
 import { mutationKey, type MutationReceipt } from "./idempotency";
 import { AutomationPolicyField } from "./automation-policy";
+import { AutomationConnectionsPanel } from "./connections-panel";
 import { BlogPanel } from "./blog-panel";
 import { DomainPanel } from "./domain-panel";
 import { NavigationEditor } from "./navigation-editor";
@@ -604,6 +606,10 @@ export function SitesPanel({
             <Globe2Icon aria-hidden="true" />
             {t("modeAddress")}
           </TabsTab>
+          <TabsTab value="integrations">
+            <PlugZapIcon aria-hidden="true" />
+            {t("modeIntegrations")}
+          </TabsTab>
           <TabsIndicator />
         </TabsList>
 
@@ -752,6 +758,10 @@ export function SitesPanel({
             onRollback={(target) => void rollbackPublication(target)}
             publications={publications}
           />
+        </TabsPanel>
+
+        <TabsPanel className="space-y-6" value="integrations">
+          <AutomationConnectionsPanel />
         </TabsPanel>
 
         <TabsPanel className="space-y-6" value="address">

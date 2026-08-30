@@ -320,7 +320,14 @@ test("rozdziela zadania na tryby zamiast jednego długiego widoku", async () => 
   const modes = screen
     .getAllByRole("tab")
     .map((tab) => tab.textContent?.trim());
-  expect(modes).toEqual(["Podstrony", "Treść", "Blog", "Publikacja", "Adres"]);
+  expect(modes).toEqual([
+    "Podstrony",
+    "Treść",
+    "Blog",
+    "Publikacja",
+    "Adres",
+    "Integracje",
+  ]);
 
   // Publishing and the address are done once, so they must not sit on the
   // screen used for daily editing.
