@@ -64,7 +64,50 @@ ALLOWED_API_SCOPES = frozenset({
     "content:draft",
     "content:publish",
 })
-ALLOWED_WEBHOOK_EVENTS = frozenset({"sites.site.published", "notifications.message.status"})
+#: What may travel to a subscriber, per event type. Deliberately the one
+#: place that decides both: the fields a delivery carries and, below, the
+#: types an operator may subscribe to at all. They were separate lists, and
+#: an event added to one but not the other reaches nobody while looking
+#: entirely wired up.
+EVENT_PAYLOAD_ALLOWLISTS: dict[str, set[str]] = {
+    "sites.site.published": {"site_id", "publication_id", "sequence", "snapshot_hash"},
+    # A rollback carries the publication it restored, which is the whole
+    # reason a subscriber cares: it says which state the site went back to.
+    "sites.site.rolled_back": {
+        "site_id",
+        "publication_id",
+        "sequence",
+        "snapshot_hash",
+        "source_publication_id",
+    },
+    "sites.entry.published": {
+        "entry_id",
+        "collection_id",
+        "publication_id",
+        "sequence",
+        "snapshot_hash",
+        "path",
+        "locale",
+    },
+    # Identifiers and versions only. The text of a draft is the customer's
+    # unpublished work and does not travel to a subscriber.
+    "sites.page.draft_saved": {
+        "resource_type",
+        "resource_id",
+        "version",
+        "credential_id",
+    },
+    "sites.entry.draft_saved": {
+        "resource_type",
+        "resource_id",
+        "version",
+        "credential_id",
+    },
+    "sites.automation_grant.revoked": {"grant_id", "credential_id", "mode"},
+    "notifications.message.status": {"message_id", "status"},
+}
+
+ALLOWED_WEBHOOK_EVENTS = frozenset(EVENT_PAYLOAD_ALLOWLISTS)
 EXPORT_TOKEN_SALT = "saas-core.notifications.export.v1"
 
 
@@ -657,44 +700,7 @@ def _audit(*, action: str, target: Any, metadata: dict[str, Any] | None = None) 
 
 
 def _allowlisted_event_payload(event_type: str, payload: dict[str, Any]) -> dict[str, Any]:
-    allowlists = {
-        "sites.site.published": {"site_id", "publication_id", "sequence", "snapshot_hash"},
-        # A rollback carries the publication it restored, which is the whole
-        # reason a subscriber cares: it says which state the site went back to.
-        "sites.site.rolled_back": {
-            "site_id",
-            "publication_id",
-            "sequence",
-            "snapshot_hash",
-            "source_publication_id",
-        },
-        "sites.entry.published": {
-            "entry_id",
-            "collection_id",
-            "publication_id",
-            "sequence",
-            "snapshot_hash",
-            "path",
-            "locale",
-        },
-        # Identifiers and versions only. The text of a draft is the customer's
-        # unpublished work and does not travel to a subscriber.
-        "sites.page.draft_saved": {
-            "resource_type",
-            "resource_id",
-            "version",
-            "credential_id",
-        },
-        "sites.entry.draft_saved": {
-            "resource_type",
-            "resource_id",
-            "version",
-            "credential_id",
-        },
-        "sites.automation_grant.revoked": {"grant_id", "credential_id", "mode"},
-        "notifications.message.status": {"message_id", "status"},
-    }
-    allowed = allowlists.get(event_type)
+    allowed = EVENT_PAYLOAD_ALLOWLISTS.get(event_type)
     if allowed is None:
         raise ValidationError("Typ zdarzenia nie jest publicznym kontraktem webhooka.")
     return {key: payload[key] for key in sorted(allowed) if key in payload}

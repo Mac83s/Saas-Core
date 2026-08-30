@@ -44,6 +44,8 @@ def test_every_registered_event_type_has_a_payload_allowlist() -> None:
     """
     from saas_core.modules.core.organizations.events import _handlers
     from saas_core.modules.shared.notifications.services import (
+        ALLOWED_WEBHOOK_EVENTS,
+        EVENT_PAYLOAD_ALLOWLISTS,
         _allowlisted_event_payload,
     )
 
@@ -52,11 +54,21 @@ def test_every_registered_event_type_has_a_payload_allowlist() -> None:
         for event_type, _version in _handlers
         if event_type.startswith("sites.")
     }
+    described = {
+        event_type
+        for event_type in EVENT_PAYLOAD_ALLOWLISTS
+        if event_type.startswith("sites.")
+    }
     assert registered, "no sites events are registered at all"
+    # Both directions. A type registered with no allowlist stops its own
+    # delivery; a type described but never registered is dispatched to nobody
+    # and marked delivered. From the far end both look like "it did not arrive".
+    assert registered == described
     for event_type in sorted(registered):
-        # Raises when the type has no allowlist, which is exactly the failure
-        # this test exists to catch before a deploy does.
         _allowlisted_event_payload(event_type, {})
+    # And an operator has to be able to subscribe to each of them, which used
+    # to be a third list nothing kept in step.
+    assert described <= ALLOWED_WEBHOOK_EVENTS
 
 
 def test_a_rollback_says_it_is_a_rollback() -> None:
@@ -239,3 +251,64 @@ def test_revoking_a_grant_stops_the_credential_and_tells_the_subscriber() -> Non
     revoked = _events("sites.automation_grant.revoked")
     assert len(revoked) == 1
     assert revoked[0].payload["credential_id"] == str(credential_id)
+
+
+def test_a_published_entry_reaches_a_subscribed_endpoint_once() -> None:
+    """The whole chain, not just the registry: outbox row, dispatch, delivery.
+
+    Deliveries deduplicate on (endpoint, event), so an at-least-once queue
+    cannot turn one publication into two notifications.
+    """
+    from saas_core.modules.core.organizations.context import (
+        activate_tenant_context,
+        context_from_membership,
+    )
+    from saas_core.modules.core.organizations.models import Membership
+    from saas_core.modules.shared.notifications.models import (
+        WebhookDelivery,
+        WebhookEndpoint,
+    )
+    from saas_core.modules.shared.sites.services import publish_site_outbox_event
+    from test_sites_collections import create_collection, create_entry, publish
+    from test_sites_collections import save_entry_draft as save_entry_draft_request
+
+    client, organization, user = sites_client(slug="events-delivery", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    entry = create_entry(
+        client, collection.data["id"], slug="wpis", idempotency_key="ev-del-entry"
+    )
+    save_entry_draft_request(
+        client,
+        entry.data["id"],
+        expected_version=0,
+        text="Tresc wpisu.",
+        idempotency_key="ev-del-draft",
+    )
+
+    WebhookEndpoint.all_objects.create(
+        organization=organization,
+        name="SeoContentRank",
+        url="https://connector.example.test/hooks",
+        signing_secret_ciphertext="x",
+        secret_hint="hint",
+        events=["sites.entry.published"],
+        created_by=user,
+    )
+    publish(client, entry.data["id"], idempotency_key="ev-del-publish")
+
+    event = SiteOutboxEvent.all_objects.get(event_type="sites.entry.published")
+    membership = Membership.objects.select_related("organization", "role").get(
+        organization_id=organization.id, user_id=user.id
+    )
+    with activate_tenant_context(context_from_membership(membership)):
+        publish_site_outbox_event(event_id=event.id)
+        # A redelivery of the same outbox row, as an at-least-once queue does.
+        publish_site_outbox_event(event_id=event.id)
+
+    deliveries = list(WebhookDelivery.all_objects.filter(event_id=event.id))
+    assert len(deliveries) == 1
+    assert deliveries[0].event_type == "sites.entry.published"
+    # The article's text is not among the things that would be sent.
+    assert "blocks" not in deliveries[0].payload
+    assert deliveries[0].payload["path"].endswith("/wpis/")
