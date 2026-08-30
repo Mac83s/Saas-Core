@@ -29,6 +29,7 @@ from .views import (
     ChangeSetProposalView,
     ContentCapabilitiesView,
     ContentInventoryView,
+    ContentProposalDiscardView,
     ContentProposalListView,
     OperationStatusView,
     PageDraftPreviewView,
@@ -93,6 +94,11 @@ urlpatterns = [
         name="automation-grant-revoke",
     ),
     path("proposals/", ContentProposalListView.as_view(), name="content-proposals"),
+    path(
+        "proposals/<uuid:proposal_id>/discard/",
+        ContentProposalDiscardView.as_view(),
+        name="content-proposal-discard",
+    ),
     path("inventory/", ContentInventoryView.as_view(), name="content-inventory"),
     path("changes/", ChangeSetProposalView.as_view(), name="change-set-preview"),
     path(

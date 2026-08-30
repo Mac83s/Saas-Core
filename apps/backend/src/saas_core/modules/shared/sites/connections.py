@@ -14,17 +14,27 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
+from django.db import transaction
 from django.db.models import Max
+from rest_framework.exceptions import APIException, NotFound
 
+from saas_core.modules.core.identity.models import User
+from saas_core.modules.core.organizations.audit import record_audit
+from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 
 from .models import (
     ContentAutomationGrant,
+    ContentEntry,
     ContentEntryVersion,
     ContentProposal,
+    Page,
     PageVersion,
 )
 from .permissions import SITE_CONTENT_EDIT, SITES_ENABLED
+from .services import assert_person_required
+
+PROPOSAL_DISCARDED = "sites.proposal.discarded"
 
 
 def list_automation_connections() -> list[dict[str, Any]]:
@@ -155,3 +165,86 @@ def _last_activity(organization_id: Any, credential_ids: list[UUID]) -> dict[UUI
             if current is None or row["last"] > current:
                 seen[credential_id] = row["last"]
     return seen
+
+
+class ProposalNotFound(NotFound):
+    default_detail = "Propozycja nie istnieje."
+    default_code = "proposal_not_found"
+
+
+class ProposalSuperseded(APIException):
+    status_code = 409
+    default_detail = "Draft zmienił się od czasu tej propozycji."
+    default_code = "proposal_superseded"
+
+
+@transaction.atomic
+def discard_proposal(*, proposal_id: UUID) -> dict[str, Any]:
+    """Puts the draft back to the version before the proposal arrived.
+
+    Rejecting has to mean something, and the only honest meaning available is
+    "undo what the automation wrote". Nothing is deleted: versions are
+    immutable and stay, and the pointer moves back — so a rejection can be
+    looked at afterwards, and the text that was proposed is still on record.
+
+    A person's own edit after the proposal supersedes it. Reverting then would
+    throw away work nobody asked us to touch, so it refuses instead.
+    """
+    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    assert_person_required(context, "Odrzucenie propozycji")
+    proposal = ContentProposal.all_objects.filter(
+        pk=proposal_id, organization_id=context.organization_id
+    ).first()
+    if proposal is None:
+        raise ProposalNotFound
+
+    resource: Any
+    if proposal.resource_type == "site_page":
+        resource = Page.all_objects.select_for_update().filter(
+            pk=proposal.resource_id, organization_id=context.organization_id
+        ).first()
+        version_model: Any = PageVersion
+        audit_target = "page"
+    else:
+        resource = ContentEntry.all_objects.select_for_update().filter(
+            pk=proposal.resource_id, organization_id=context.organization_id
+        ).first()
+        version_model = ContentEntryVersion
+        audit_target = "content_entry"
+    if resource is None:
+        raise ProposalNotFound
+    if resource.version != proposal.version:
+        raise ProposalSuperseded
+
+    field = "page_id" if proposal.resource_type == "site_page" else "entry_id"
+    previous = (
+        version_model.all_objects.filter(
+            organization_id=context.organization_id,
+            **{field: proposal.resource_id},
+        )
+        .filter(number__lt=proposal.version)
+        .order_by("-number")
+        .first()
+    )
+    resource.current_draft = previous
+    resource.version = previous.number if previous is not None else 0
+    resource.save(update_fields=["current_draft", "version", "updated_at"])
+
+    record_audit(
+        organization=Organization.objects.get(pk=context.organization_id),
+        action=PROPOSAL_DISCARDED,
+        actor=User.objects.get(pk=context.actor_id),
+        target_type=audit_target,
+        target_id=proposal.resource_id,
+        metadata={
+            "proposal_id": str(proposal.id),
+            "discarded_version": proposal.version,
+            "restored_version": resource.version,
+        },
+    )
+    proposal.delete()
+    return {
+        "resource_type": proposal.resource_type,
+        "resource_id": str(proposal.resource_id),
+        "restored_version": resource.version,
+    }

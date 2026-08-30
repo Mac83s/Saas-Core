@@ -5020,6 +5020,51 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/proposals/{proposal_id}/discard/:
+    post:
+      operationId: sites_content_proposal_discard
+      description: |-
+        Rejecting a proposal, which has to mean something.
+
+        The only honest meaning available is "undo what the automation wrote": the
+        draft goes back to the version before it arrived. Nothing is deleted, so a
+        rejection can still be looked at afterwards.
+      parameters:
+      - in: path
+        name: proposal_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalDiscardResult'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/redirects/{redirect_id}/:
     delete:
       operationId: sites_redirect_delete
@@ -7261,6 +7306,20 @@ components:
       - status
       - title
       - type
+    ProposalDiscardResult:
+      type: object
+      properties:
+        resource_type:
+          type: string
+        resource_id:
+          type: string
+          format: uuid
+        restored_version:
+          type: integer
+      required:
+      - resource_id
+      - resource_type
+      - restored_version
     ProviderStatus:
       type: object
       properties:

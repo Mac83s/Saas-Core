@@ -423,6 +423,12 @@ class ContentProposalSerializer(serializers.Serializer[dict[str, Any]]):
     created_at = serializers.DateTimeField()
 
 
+class ProposalDiscardResultSerializer(serializers.Serializer[dict[str, Any]]):
+    resource_type = serializers.CharField()
+    resource_id = serializers.UUIDField()
+    restored_version = serializers.IntegerField()
+
+
 class ContentInventorySerializer(serializers.Serializer[dict[str, Any]]):
     """Everything the caller may act on, as of one moment."""
 

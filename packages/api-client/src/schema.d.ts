@@ -1712,6 +1712,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/proposals/{proposal_id}/discard/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Rejecting a proposal, which has to mean something.
+         *
+         *     The only honest meaning available is "undo what the automation wrote": the
+         *     draft goes back to the version before it arrived. Nothing is deleted, so a
+         *     rejection can still be looked at afterwards.
+         */
+        post: operations["sites_content_proposal_discard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/redirects/{redirect_id}/": {
         parameters: {
             query?: never;
@@ -2613,6 +2636,12 @@ export interface components {
             code: string;
             detail: unknown;
             correlation_id: string | null;
+        };
+        ProposalDiscardResult: {
+            resource_type: string;
+            /** Format: uuid */
+            resource_id: string;
+            restored_version: number;
         };
         ProviderStatus: {
             event_id: string;
@@ -8411,6 +8440,51 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_content_proposal_discard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalDiscardResult"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

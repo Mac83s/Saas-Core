@@ -256,3 +256,99 @@ def test_a_proposal_keeps_the_reasoning_a_person_needs_to_judge_it() -> None:
     # paraphrase of it.
     assert proposal["sources"][0]["kind"] == "search_console"
     assert "position=14.2" in proposal["sources"][0]["reference"]
+
+
+def test_rejecting_a_proposal_puts_the_draft_back_to_what_it_was() -> None:
+    """Rejecting has to mean something, and the only honest meaning available
+    is "undo what the automation wrote"."""
+    from saas_core.modules.core.organizations.context import activate_tenant_context
+    from saas_core.modules.shared.sites.change_sets import apply_change_set
+    from saas_core.modules.shared.sites.models import (
+        Page,
+        PageAutomationPolicy,
+        PageVersion,
+    )
+    from test_sites_api import automation_context
+    from test_sites_api import save_draft as save_draft_request
+
+    client, organization, user = sites_client(slug="conn-reject", role_key="owner")
+    site = create_site(client)
+    page = create_page(client, site.data["id"], idempotency_key="rej-page")
+    save_draft_request(
+        client,
+        page.data["id"],
+        expected_version=0,
+        idempotency_key="rej-draft",
+        heading="Tekst, ktory napisal czlowiek",
+    )
+    credential_id = uuid7()
+    _grant(organization, user, site.data["id"], credential_id=credential_id)
+    Page.all_objects.filter(pk=page.data["id"]).update(
+        automation_policy=PageAutomationPolicy.AUTOMATED
+    )
+
+    document = {
+        "contract_version": 1,
+        "idempotency_key": f"rej-{uuid7()}",
+        "target": {
+            "kind": "site_page",
+            "site_id": str(site.data["id"]),
+            "page_id": str(page.data["id"]),
+            "locale": "pl",
+        },
+        "base": {
+            "version": 1,
+            "snapshot_hash": "sha256:" + "d4" * 32,
+            "observed_at": "2026-08-30T09:00:00Z",
+        },
+        "rationale": {
+            "summary": "Propozycja do odrzucenia.",
+            "risk": "high",
+            "sources": [
+                {
+                    "kind": "editorial",
+                    "reference": "brief/2026-08",
+                    "observed_at": "2026-08-29T10:00:00Z",
+                }
+            ],
+        },
+        "commands": [
+            {
+                "command": "block.replace",
+                "position": 0,
+                "block": {
+                    "type": "core.rich_text",
+                    "schema_version": 1,
+                    "data": {"text": "Tekst od automatyzacji."},
+                },
+            }
+        ],
+    }
+    context = automation_context(organization.id, user.id, credential_id=credential_id)
+    with activate_tenant_context(context):
+        apply_change_set(document, context, idempotency_key="rej-apply")
+
+    queued = client.get("/api/v1/sites/proposals/").json()
+    proposal = next(
+        item for item in queued if item["resource_id"] == str(page.data["id"])
+    )
+    versions_before = PageVersion.all_objects.filter(page_id=page.data["id"]).count()
+
+    discarded = client.post(
+        f"/api/v1/sites/proposals/{proposal['proposal_id']}/discard/",
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    assert discarded.status_code == 200
+    assert discarded.json()["restored_version"] == 1
+
+    draft = client.get(f"/api/v1/sites/pages/{page.data['id']}/draft/").json()
+    assert draft["version"] == 1
+    assert draft["blocks"][0]["data"]["heading"] == "Tekst, ktory napisal czlowiek"
+    # Nothing is deleted: the rejected text stays on record, so a rejection can
+    # be looked at afterwards.
+    assert (
+        PageVersion.all_objects.filter(page_id=page.data["id"]).count()
+        == versions_before
+    )
+    assert client.get("/api/v1/sites/proposals/").json() == []

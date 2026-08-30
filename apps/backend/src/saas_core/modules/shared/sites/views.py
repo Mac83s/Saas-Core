@@ -24,7 +24,11 @@ from .change_sets import (
     plan_change_set,
     validate_change_set,
 )
-from .connections import list_automation_connections, list_pending_proposals
+from .connections import (
+    discard_proposal,
+    list_automation_connections,
+    list_pending_proposals,
+)
 from .inventory import inventory_etag, read_inventory
 from .localization import LocaleResolution, SiteLocalizationReport
 from .models import Page, PageBlock, PageTranslation, Publication, Site
@@ -52,6 +56,7 @@ from .serializers import (
     PageTranslationSerializer,
     PageTypeSerializer,
     PageUrlChangeSerializer,
+    ProposalDiscardResultSerializer,
     SiteCreateSerializer,
     SiteListSerializer,
     SiteLocalizationReportSerializer,
@@ -863,6 +868,33 @@ class ContentProposalListView(APIView):
     )
     def get(self, _request: Request) -> Response:
         return Response(list_pending_proposals())
+
+
+class ContentProposalDiscardView(APIView):
+    """Rejecting a proposal, which has to mean something.
+
+    The only honest meaning available is "undo what the automation wrote": the
+    draft goes back to the version before it arrived. Nothing is deleted, so a
+    rejection can still be looked at afterwards.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_content_proposal_discard",
+        tags=["sites"],
+        # Nothing to send: the proposal id in the path is the whole request,
+        # and without saying so the view drops out of the schema entirely.
+        request=None,
+        responses={
+            200: ProposalDiscardResultSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, _request: Request, proposal_id: UUID) -> Response:
+        return Response(discard_proposal(proposal_id=proposal_id))
 
 
 class ContentInventoryView(APIView):
