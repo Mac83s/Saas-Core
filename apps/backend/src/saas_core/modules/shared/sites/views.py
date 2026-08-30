@@ -28,6 +28,7 @@ from .connections import (
     discard_proposal,
     list_automation_connections,
     list_pending_proposals,
+    read_proposal,
 )
 from .inventory import inventory_etag, read_inventory
 from .localization import LocaleResolution, SiteLocalizationReport
@@ -41,6 +42,7 @@ from .serializers import (
     ChangeSetResultSerializer,
     ContentCapabilitiesSerializer,
     ContentInventorySerializer,
+    ContentProposalDetailSerializer,
     ContentProposalSerializer,
     CursorQuerySerializer,
     DraftSaveSerializer,
@@ -868,6 +870,28 @@ class ContentProposalListView(APIView):
     )
     def get(self, _request: Request) -> Response:
         return Response(list_pending_proposals())
+
+
+class ContentProposalDetailView(APIView):
+    """One proposal, with the diff rebuilt from what is stored.
+
+    An operator deciding should be looking at what a visitor would get, not at
+    the sender's description of what it asked for.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_content_proposal_retrieve",
+        tags=["sites"],
+        responses={
+            200: ContentProposalDetailSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, _request: Request, proposal_id: UUID) -> Response:
+        return Response(read_proposal(proposal_id=proposal_id))
 
 
 class ContentProposalDiscardView(APIView):

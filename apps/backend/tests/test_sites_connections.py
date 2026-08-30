@@ -475,3 +475,89 @@ def test_a_credential_hired_for_nothing_is_told_so_plainly() -> None:
     # Authenticated and hired for nothing. Saying so at handshake is kinder
     # than letting the connector find out one refusal at a time.
     assert answered.json()["grant"] == {"mode": None, "scopes": []}
+
+
+def test_a_proposal_diff_is_rebuilt_from_what_is_stored() -> None:
+    """An operator deciding should be looking at what a visitor would get, not
+    at the sender's description of what it asked for."""
+    from saas_core.modules.core.organizations.context import activate_tenant_context
+    from saas_core.modules.shared.sites.change_sets import apply_change_set
+    from saas_core.modules.shared.sites.models import Page, PageAutomationPolicy
+    from test_sites_api import automation_context
+    from test_sites_api import save_draft as save_draft_request
+
+    client, organization, user = sites_client(slug="conn-diff", role_key="owner")
+    site = create_site(client)
+    page = create_page(client, site.data["id"], idempotency_key="diff-page")
+    save_draft_request(
+        client,
+        page.data["id"],
+        expected_version=0,
+        idempotency_key="diff-draft",
+        heading="Naglowek sprzed propozycji",
+    )
+    credential_id = uuid7()
+    _grant(organization, user, site.data["id"], credential_id=credential_id)
+    Page.all_objects.filter(pk=page.data["id"]).update(
+        automation_policy=PageAutomationPolicy.AUTOMATED
+    )
+
+    document = {
+        "contract_version": 1,
+        "idempotency_key": f"diff-{uuid7()}",
+        "target": {
+            "kind": "site_page",
+            "site_id": str(site.data["id"]),
+            "page_id": str(page.data["id"]),
+            "locale": "pl",
+        },
+        "base": {
+            "version": 1,
+            "snapshot_hash": "sha256:" + "e5" * 32,
+            "observed_at": "2026-08-30T09:00:00Z",
+        },
+        "rationale": {
+            "summary": "Zajawka nie odpowiada na intencje frazy.",
+            "risk": "low",
+            "sources": [
+                {
+                    "kind": "search_console",
+                    "reference": "query=fizjoterapia",
+                    "observed_at": "2026-08-29T22:00:00Z",
+                }
+            ],
+        },
+        "commands": [
+            {
+                "command": "block.insert",
+                "position": 0,
+                "block": {
+                    "type": "core.rich_text",
+                    "schema_version": 1,
+                    "data": {"text": "Akapit dopisany przez optymalizator."},
+                },
+            }
+        ],
+    }
+    context = automation_context(organization.id, user.id, credential_id=credential_id)
+    with activate_tenant_context(context):
+        apply_change_set(document, context, idempotency_key="diff-apply")
+
+    listed = client.get("/api/v1/sites/proposals/").json()
+    proposal_id = next(
+        item["proposal_id"]
+        for item in listed
+        if item["resource_id"] == str(page.data["id"])
+    )
+    detail = client.get(f"/api/v1/sites/proposals/{proposal_id}/")
+    assert detail.status_code == 200
+    body = detail.json()
+
+    # One block more after than before: the diff comes from the two stored
+    # versions, so it says what a visitor would actually get.
+    assert len(body["blocks_after"]) == len(body["blocks_before"]) + 1
+    assert body["blocks_after"][0]["data"]["text"] == (
+        "Akapit dopisany przez optymalizator."
+    )
+    assert body["sources"][0]["kind"] == "search_console"
+    assert body["risk"] == "low"

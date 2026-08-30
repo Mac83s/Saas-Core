@@ -5020,6 +5020,44 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/proposals/{proposal_id}/:
+    get:
+      operationId: sites_content_proposal_retrieve
+      description: |-
+        One proposal, with the diff rebuilt from what is stored.
+
+        An operator deciding should be looking at what a visitor would get, not at
+        the sender's description of what it asked for.
+      parameters:
+      - in: path
+        name: proposal_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentProposalDetail'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/proposals/{proposal_id}/discard/:
     post:
       operationId: sites_content_proposal_discard
@@ -5939,6 +5977,67 @@ components:
           type: string
           format: date-time
       required:
+      - commands
+      - created_at
+      - credential_id
+      - expected_outcome
+      - proposal_id
+      - resource_id
+      - resource_type
+      - risk
+      - sources
+      - summary
+      - version
+    ContentProposalDetail:
+      type: object
+      description: The queue row plus the two block lists an operator compares.
+      properties:
+        proposal_id:
+          type: string
+          format: uuid
+        resource_type:
+          type: string
+        resource_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        credential_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        summary:
+          type: string
+        risk:
+          type: string
+        expected_outcome:
+          type: string
+        sources:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        commands:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        blocks_before:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        blocks_after:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+      required:
+      - blocks_after
+      - blocks_before
       - commands
       - created_at
       - credential_id

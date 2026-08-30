@@ -423,6 +423,13 @@ class ContentProposalSerializer(serializers.Serializer[dict[str, Any]]):
     created_at = serializers.DateTimeField()
 
 
+class ContentProposalDetailSerializer(ContentProposalSerializer):
+    """The queue row plus the two block lists an operator compares."""
+
+    blocks_before = serializers.ListField(child=serializers.DictField())
+    blocks_after = serializers.ListField(child=serializers.DictField())
+
+
 class ProposalDiscardResultSerializer(serializers.Serializer[dict[str, Any]]):
     resource_type = serializers.CharField()
     resource_id = serializers.UUIDField()

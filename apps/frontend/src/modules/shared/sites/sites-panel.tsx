@@ -85,6 +85,7 @@ import { BlogPanel } from "./blog-panel";
 import { DomainPanel } from "./domain-panel";
 import { NavigationEditor } from "./navigation-editor";
 import { PageEditor } from "./page-editor";
+import { ProposalsQueue } from "./proposals-queue";
 import { SiteRedirectsCard } from "./page-url";
 import { PublicationHistory } from "./publication-history";
 import { SiteOnboardingWizard } from "./site-onboarding";
@@ -761,6 +762,7 @@ export function SitesPanel({
         </TabsPanel>
 
         <TabsPanel className="space-y-6" value="integrations">
+          <ProposalsQueue />
           <AutomationConnectionsPanel />
         </TabsPanel>
 

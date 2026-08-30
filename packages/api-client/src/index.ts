@@ -60,6 +60,9 @@ export type SiteNavigation = components["schemas"]["SiteNavigation"];
 export type SiteRedirect = components["schemas"]["SiteRedirect"];
 export type AutomationConnection =
   components["schemas"]["AutomationConnection"];
+export type ContentProposal = components["schemas"]["ContentProposal"];
+export type ContentProposalDetail =
+  components["schemas"]["ContentProposalDetail"];
 export type PageUrlChangeInput = components["schemas"]["PageUrlChange"];
 export type ContentCollection = components["schemas"]["ContentCollection"];
 export type ContentEntry = components["schemas"]["ContentEntry"];
@@ -1532,6 +1535,49 @@ export async function deleteSiteRedirect(redirectId: string): Promise<void> {
     "/api/v1/sites/redirects/{redirect_id}/",
     {
       params: { path: { redirect_id: redirectId } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error) throwProblem(error, response);
+}
+
+export async function listContentProposals(): Promise<ContentProposal[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/proposals/",
+    {
+      credentials: "same-origin",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function readContentProposal(
+  proposalId: string,
+): Promise<ContentProposalDetail> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/proposals/{proposal_id}/",
+    {
+      params: { path: { proposal_id: proposalId } },
+      credentials: "same-origin",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Rejecting puts the draft back to the version before the proposal arrived.
+ *
+ *  Nothing is deleted, so a rejected proposal can still be read afterwards. */
+export async function discardContentProposal(
+  proposalId: string,
+): Promise<void> {
+  const csrfToken = await getCsrfToken();
+  const { error, response } = await client.POST(
+    "/api/v1/sites/proposals/{proposal_id}/discard/",
+    {
+      params: { path: { proposal_id: proposalId } },
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
     },

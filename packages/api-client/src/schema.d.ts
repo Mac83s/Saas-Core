@@ -1712,6 +1712,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/proposals/{proposal_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description One proposal, with the diff rebuilt from what is stored.
+         *
+         *     An operator deciding should be looking at what a visitor would get, not at
+         *     the sender's description of what it asked for.
+         */
+        get: operations["sites_content_proposal_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/proposals/{proposal_id}/discard/": {
         parameters: {
             query?: never;
@@ -2105,6 +2127,32 @@ export interface components {
             commands: string[];
             /** Format: date-time */
             created_at: string;
+        };
+        /** @description The queue row plus the two block lists an operator compares. */
+        ContentProposalDetail: {
+            /** Format: uuid */
+            proposal_id: string;
+            resource_type: string;
+            /** Format: uuid */
+            resource_id: string;
+            version: number;
+            /** Format: uuid */
+            credential_id: string | null;
+            summary: string;
+            risk: string;
+            expected_outcome: string;
+            sources: {
+                [key: string]: unknown;
+            }[];
+            commands: string[];
+            /** Format: date-time */
+            created_at: string;
+            blocks_before: {
+                [key: string]: unknown;
+            }[];
+            blocks_after: {
+                [key: string]: unknown;
+            }[];
         };
         ContentTag: {
             slug: string;
@@ -8445,6 +8493,43 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_content_proposal_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentProposalDetail"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

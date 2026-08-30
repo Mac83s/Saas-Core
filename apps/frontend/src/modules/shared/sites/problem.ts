@@ -22,6 +22,10 @@ export function sitesErrorMessage(error: unknown, t: Translate): string {
       return t("subdomainReason_taken");
     case "entry_translation_exists":
       return t("entryTranslationExists");
+    case "proposal_not_found":
+      return t("proposalNotFound");
+    case "proposal_superseded":
+      return t("proposalSuperseded");
     case "entry_too_many_tags":
       return t("tagsTooMany");
     case "entry_tag_name_invalid":
