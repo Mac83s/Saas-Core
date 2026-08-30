@@ -1166,6 +1166,57 @@ class ContentEntryTag(TenantScopedModel):
             raise ValidationError({"entry": "Wpis należy do innej organizacji."})
 
 
+class ContentProposal(TenantScopedModel):
+    """The reasoning behind one automation-authored draft.
+
+    A separate table rather than columns on the version: those are append-only
+    behind a database trigger, and a proposal is about a version rather than
+    part of it. It also keeps one shape for both surfaces instead of the same
+    four fields twice.
+
+    Without this the queue can only offer "an integration changed this" and a
+    diff, which is not enough for anybody to say yes or no honestly.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    resource_type = models.CharField(max_length=32)
+    resource_id = models.UUIDField()
+    #: The version this reasoning produced. A later version supersedes it
+    #: rather than overwriting it: what was argued last week is still what was
+    #: argued, even after somebody proposed something else.
+    version = models.PositiveBigIntegerField()
+    credential_id = models.UUIDField(null=True, blank=True)
+    summary = models.TextField()
+    risk = models.CharField(max_length=16)
+    expected_outcome = models.TextField(blank=True)
+    #: Where the recommendation came from, as the change set stated it. Kept
+    #: verbatim so the panel can show what SeoContentRank claimed rather than
+    #: our paraphrase of it.
+    sources = models.JSONField(default=list)
+    commands = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "-created_at", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "resource_type", "resource_id", "version"],
+                name="sites_proposal_org_resource_version_uq",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["organization", "resource_type", "resource_id"],
+                name="sites_proposal_resource_idx",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.resource_type}:{self.resource_id}@{self.version}"
+
+
 class EntryScheduleState(models.TextChoices):
     """Why an article is, or is not, waiting to be published.
 

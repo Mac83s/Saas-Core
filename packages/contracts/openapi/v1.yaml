@@ -3670,6 +3670,87 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/connections/:
+    get:
+      operationId: sites_automation_connections_list
+      description: |-
+        Who may act here, how far they reach, and when they last did.
+
+        Session-only: this is the supervision screen, and a credential able to read
+        the list of credentials could map its own way to a wider one.
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AutomationConnection'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/connections/{grant_id}/revoke/:
+    post:
+      operationId: sites_automation_grant_revoke
+      description: The emergency stop, one click from the list it appears in.
+      parameters:
+      - in: path
+        name: grant_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GrantRevoke'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GrantRevoke'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GrantRevoke'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AutomationConnection'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/domains/{domain_id}/actions/:
     post:
       operationId: sites_domains_action
@@ -4916,6 +4997,29 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/proposals/:
+    get:
+      operationId: sites_content_proposals_list
+      description: Drafts an automation wrote that nobody has published yet.
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ContentProposal'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/redirects/{redirect_id}/:
     delete:
       operationId: sites_redirect_delete
@@ -5163,6 +5267,68 @@ components:
             $ref: '#/components/schemas/Appointment'
       required:
       - items
+    AutomationConnection:
+      type: object
+      properties:
+        grant_id:
+          type: string
+          format: uuid
+        credential_id:
+          type: string
+          format: uuid
+        mode:
+          type: string
+        scope:
+          type: object
+          additionalProperties: {}
+        expires_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        revoked_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        active:
+          type: boolean
+        max_changes_per_day:
+          type:
+          - integer
+          - 'null'
+        max_payload_bytes:
+          type:
+          - integer
+          - 'null'
+        window_start:
+          type:
+          - string
+          - 'null'
+          format: time
+        window_end:
+          type:
+          - string
+          - 'null'
+          format: time
+        last_activity_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+      required:
+      - active
+      - credential_id
+      - expires_at
+      - grant_id
+      - last_activity_at
+      - max_changes_per_day
+      - max_payload_bytes
+      - mode
+      - revoked_at
+      - scope
+      - window_end
+      - window_start
     AutomationPolicy:
       type: object
       properties:
@@ -5675,6 +5841,54 @@ components:
       - minimum_contract_version
       - observed_at
       - sites
+    ContentProposal:
+      type: object
+      properties:
+        proposal_id:
+          type: string
+          format: uuid
+        resource_type:
+          type: string
+        resource_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        credential_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        summary:
+          type: string
+        risk:
+          type: string
+        expected_outcome:
+          type: string
+        sources:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        commands:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - commands
+      - created_at
+      - credential_id
+      - expected_outcome
+      - proposal_id
+      - resource_id
+      - resource_type
+      - risk
+      - sources
+      - summary
+      - version
     ContentTag:
       type: object
       properties:
@@ -6069,6 +6283,14 @@ components:
           type: string
       required:
       - detail
+    GrantRevoke:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+      required:
+      - reason
     Health:
       type: object
       properties:

@@ -24,19 +24,23 @@ from .change_sets import (
     plan_change_set,
     validate_change_set,
 )
+from .connections import list_automation_connections, list_pending_proposals
 from .inventory import inventory_etag, read_inventory
 from .localization import LocaleResolution, SiteLocalizationReport
 from .models import Page, PageBlock, PageTranslation, Publication, Site
 from .operations import read_operation_status
 from .serializers import (
+    AutomationConnectionSerializer,
     ChangeSetApplySerializer,
     ChangeSetDiffSerializer,
     ChangeSetProposalSerializer,
     ChangeSetResultSerializer,
     ContentCapabilitiesSerializer,
     ContentInventorySerializer,
+    ContentProposalSerializer,
     CursorQuerySerializer,
     DraftSaveSerializer,
+    GrantRevokeSerializer,
     OperationStatusSerializer,
     PageCreateSerializer,
     PageDraftSerializer,
@@ -79,6 +83,7 @@ from .services import (
     list_site_redirects,
     list_sites,
     publish_site,
+    revoke_automation_grant,
     rollback_site,
     save_draft,
     save_page_translation,
@@ -793,6 +798,71 @@ class OperationStatusView(APIView):
     )
     def get(self, _request: Request, idempotency_key: str) -> Response:
         return Response(read_operation_status(idempotency_key=idempotency_key))
+
+
+class AutomationConnectionListView(APIView):
+    """Who may act here, how far they reach, and when they last did.
+
+    Session-only: this is the supervision screen, and a credential able to read
+    the list of credentials could map its own way to a wider one.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_automation_connections_list",
+        tags=["sites"],
+        responses={
+            200: AutomationConnectionSerializer(many=True),
+            403: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, _request: Request) -> Response:
+        return Response(list_automation_connections())
+
+
+class AutomationGrantRevokeView(APIView):
+    """The emergency stop, one click from the list it appears in."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_automation_grant_revoke",
+        tags=["sites"],
+        request=GrantRevokeSerializer,
+        responses={
+            200: AutomationConnectionSerializer(many=True),
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request, grant_id: UUID) -> Response:
+        serializer = GrantRevokeSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        revoke_automation_grant(
+            grant_id=grant_id, reason=serializer.validated_data["reason"]
+        )
+        # The whole list back, so the screen cannot show a stale row next to
+        # the one it just changed.
+        return Response(list_automation_connections())
+
+
+class ContentProposalListView(APIView):
+    """Drafts an automation wrote that nobody has published yet."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_content_proposals_list",
+        tags=["sites"],
+        responses={
+            200: ContentProposalSerializer(many=True),
+            403: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, _request: Request) -> Response:
+        return Response(list_pending_proposals())
 
 
 class ContentInventoryView(APIView):

@@ -1326,6 +1326,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/connections/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Who may act here, how far they reach, and when they last did.
+         *
+         *     Session-only: this is the supervision screen, and a credential able to read
+         *     the list of credentials could map its own way to a wider one.
+         */
+        get: operations["sites_automation_connections_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/connections/{grant_id}/revoke/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The emergency stop, one click from the list it appears in. */
+        post: operations["sites_automation_grant_revoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/domains/{domain_id}/actions/": {
         parameters: {
             query?: never;
@@ -1656,6 +1695,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/proposals/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Drafts an automation wrote that nobody has published yet. */
+        get: operations["sites_content_proposals_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/redirects/{redirect_id}/": {
         parameters: {
             query?: never;
@@ -1766,6 +1822,29 @@ export interface components {
         };
         AppointmentList: {
             items: components["schemas"]["Appointment"][];
+        };
+        AutomationConnection: {
+            /** Format: uuid */
+            grant_id: string;
+            /** Format: uuid */
+            credential_id: string;
+            mode: string;
+            scope: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            expires_at: string | null;
+            /** Format: date-time */
+            revoked_at: string | null;
+            active: boolean;
+            max_changes_per_day: number | null;
+            max_payload_bytes: number | null;
+            /** Format: time */
+            window_start: string | null;
+            /** Format: time */
+            window_end: string | null;
+            /** Format: date-time */
+            last_activity_at: string | null;
         };
         AutomationPolicy: {
             automation_policy: components["schemas"]["AutomationPolicyEnum"];
@@ -1980,6 +2059,25 @@ export interface components {
                 [key: string]: unknown;
             }[];
         };
+        ContentProposal: {
+            /** Format: uuid */
+            proposal_id: string;
+            resource_type: string;
+            /** Format: uuid */
+            resource_id: string;
+            version: number;
+            /** Format: uuid */
+            credential_id: string | null;
+            summary: string;
+            risk: string;
+            expected_outcome: string;
+            sources: {
+                [key: string]: unknown;
+            }[];
+            commands: string[];
+            /** Format: date-time */
+            created_at: string;
+        };
         ContentTag: {
             slug: string;
             name: string;
@@ -2120,6 +2218,9 @@ export interface components {
         };
         GenericMessage: {
             detail: string;
+        };
+        GrantRevoke: {
+            reason: string;
         };
         Health: {
             status: components["schemas"]["HealthStatusEnum"];
@@ -6928,6 +7029,84 @@ export interface operations {
             };
         };
     };
+    sites_automation_connections_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutomationConnection"][];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_automation_grant_revoke: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                grant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantRevoke"];
+                "application/x-www-form-urlencoded": components["schemas"]["GrantRevoke"];
+                "multipart/form-data": components["schemas"]["GrantRevoke"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutomationConnection"][];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     sites_domains_action: {
         parameters: {
             query?: never;
@@ -8205,6 +8384,33 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_content_proposals_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentProposal"][];
+                };
+            };
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

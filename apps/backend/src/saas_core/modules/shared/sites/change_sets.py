@@ -41,6 +41,7 @@ from .metrics import (
 from .models import (
     ContentCollection,
     ContentEntry,
+    ContentProposal,
     Page,
     PageBlock,
     PageTranslation,
@@ -488,6 +489,24 @@ def _apply_change_set(
             blocks=plan.blocks,
             idempotency_key=idempotency_key,
         )
+    # The reasoning outlives the request. Without it the queue can offer only
+    # "an integration changed this" and a diff, which is not enough for anybody
+    # to say yes or no honestly.
+    rationale = document["rationale"]
+    ContentProposal.all_objects.update_or_create(
+        organization_id=context.organization_id,
+        resource_type=plan.target_kind,
+        resource_id=plan.resource_id,
+        version=plan.base_version + 1,
+        defaults={
+            "credential_id": context.credential_id,
+            "summary": rationale["summary"],
+            "risk": rationale["risk"],
+            "expected_outcome": rationale.get("expected_outcome", ""),
+            "sources": rationale["sources"],
+            "commands": plan.commands,
+        },
+    )
     return {
         "resource_id": str(plan.resource_id),
         "base_version": plan.base_version,

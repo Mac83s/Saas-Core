@@ -388,6 +388,41 @@ class OperationStatusSerializer(serializers.Serializer[dict[str, Any]]):
     created_at = serializers.DateTimeField(allow_null=True)
 
 
+class AutomationConnectionSerializer(serializers.Serializer[dict[str, Any]]):
+    grant_id = serializers.UUIDField()
+    credential_id = serializers.UUIDField()
+    mode = serializers.CharField()
+    scope = serializers.DictField()
+    expires_at = serializers.DateTimeField(allow_null=True)
+    revoked_at = serializers.DateTimeField(allow_null=True)
+    active = serializers.BooleanField()
+    max_changes_per_day = serializers.IntegerField(allow_null=True)
+    max_payload_bytes = serializers.IntegerField(allow_null=True)
+    window_start = serializers.TimeField(allow_null=True)
+    window_end = serializers.TimeField(allow_null=True)
+    last_activity_at = serializers.DateTimeField(allow_null=True)
+
+
+class GrantRevokeSerializer(serializers.Serializer[dict[str, Any]]):
+    # Required, and stored: an emergency stop nobody wrote a reason for is one
+    # nobody can explain a week later.
+    reason = serializers.CharField(max_length=500, trim_whitespace=True)
+
+
+class ContentProposalSerializer(serializers.Serializer[dict[str, Any]]):
+    proposal_id = serializers.UUIDField()
+    resource_type = serializers.CharField()
+    resource_id = serializers.UUIDField()
+    version = serializers.IntegerField()
+    credential_id = serializers.UUIDField(allow_null=True)
+    summary = serializers.CharField()
+    risk = serializers.CharField()
+    expected_outcome = serializers.CharField(allow_blank=True)
+    sources = serializers.ListField(child=serializers.DictField())
+    commands = serializers.ListField(child=serializers.CharField())
+    created_at = serializers.DateTimeField()
+
+
 class ContentInventorySerializer(serializers.Serializer[dict[str, Any]]):
     """Everything the caller may act on, as of one moment."""
 

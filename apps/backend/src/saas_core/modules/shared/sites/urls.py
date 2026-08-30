@@ -23,10 +23,13 @@ from .onboarding_views import (
     SubdomainAvailabilityView,
 )
 from .views import (
+    AutomationConnectionListView,
+    AutomationGrantRevokeView,
     ChangeSetApplyView,
     ChangeSetProposalView,
     ContentCapabilitiesView,
     ContentInventoryView,
+    ContentProposalListView,
     OperationStatusView,
     PageDraftPreviewView,
     PageDraftView,
@@ -79,6 +82,17 @@ urlpatterns = [
         OperationStatusView.as_view(),
         name="operation-status",
     ),
+    path(
+        "connections/",
+        AutomationConnectionListView.as_view(),
+        name="automation-connections",
+    ),
+    path(
+        "connections/<uuid:grant_id>/revoke/",
+        AutomationGrantRevokeView.as_view(),
+        name="automation-grant-revoke",
+    ),
+    path("proposals/", ContentProposalListView.as_view(), name="content-proposals"),
     path("inventory/", ContentInventoryView.as_view(), name="content-inventory"),
     path("changes/", ChangeSetProposalView.as_view(), name="change-set-preview"),
     path(
