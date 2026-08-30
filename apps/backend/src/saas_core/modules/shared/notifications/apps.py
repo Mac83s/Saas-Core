@@ -12,4 +12,15 @@ class NotificationsConfig(AppConfig):
 
         from .services import consume_domain_event
 
-        register_domain_event_handler("sites.site.published", 1, consume_domain_event)
+        # Every type here needs a payload allowlist in `services.py` as well:
+        # an unregistered event is silently delivered nowhere, and an
+        # unallowlisted one stops the delivery instead.
+        for event_type in (
+            "sites.site.published",
+            "sites.site.rolled_back",
+            "sites.entry.published",
+            "sites.page.draft_saved",
+            "sites.entry.draft_saved",
+            "sites.automation_grant.revoked",
+        ):
+            register_domain_event_handler(event_type, 1, consume_domain_event)

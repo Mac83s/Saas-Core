@@ -62,6 +62,7 @@ from .services import (
     _schedule_site_outbox_delivery,
     assert_person_required,
     assert_within_grant,
+    emit_draft_saved_event,
 )
 
 COLLECTION_CREATED = "sites.collection.created"
@@ -70,6 +71,7 @@ ENTRY_DRAFT_SAVED = "sites.entry.draft_saved"
 ENTRY_TAGS_SET = "sites.entry.tags_set"
 ENTRY_PUBLISHED = "sites.entry.published"
 ENTRY_PUBLISHED_EVENT = "sites.entry.published"
+ENTRY_DRAFT_SAVED_EVENT = "sites.entry.draft_saved"
 ENTRY_PUBLICATION_SCHEDULED = "sites.entry.publication_scheduled"
 ENTRY_SCHEDULE_CANCELLED = "sites.entry.schedule_cancelled"
 ENTRY_SCHEDULE_FAILED = "sites.entry.schedule_failed"
@@ -448,6 +450,13 @@ def save_entry_draft(
     entry.version = version.number
     entry.current_draft = version
     entry.save(update_fields=["version", "current_draft", "updated_at"])
+    emit_draft_saved_event(
+        context=context,
+        event_type=ENTRY_DRAFT_SAVED_EVENT,
+        resource_type="content_entry",
+        resource_id=entry.id,
+        version=version.number,
+    )
     record_audit(
         organization=Organization.objects.get(pk=context.organization_id),
         action=ENTRY_DRAFT_SAVED,

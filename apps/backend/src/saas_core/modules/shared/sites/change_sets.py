@@ -14,9 +14,12 @@ patch format.
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
+from time import perf_counter
 from typing import Any
 from uuid import UUID
 
@@ -30,6 +33,11 @@ from saas_core.modules.core.organizations.context import TenantContext
 
 from .block_contracts import validate_site_block
 from .capabilities import CONTENT_CONTRACT_VERSION, MINIMUM_CONTENT_CONTRACT_VERSION
+from .metrics import (
+    CHANGE_SET_LATENCY,
+    CHANGE_SET_REFUSALS,
+    CHANGE_SET_RESULTS,
+)
 from .models import (
     ContentCollection,
     ContentEntry,
@@ -75,6 +83,34 @@ class ChangeSetPositionInvalid(APIException):
     status_code = 422
     default_detail = "Komenda wskazuje pozycję bloku, której nie ma w wersji bazowej."
     default_code = "change_set_position_invalid"
+
+
+@contextmanager
+def _recorded(operation: str) -> Iterator[None]:
+    """Counts how each request ended, and how long it took to decide.
+
+    Wrapped around the whole decision rather than sprinkled at each refusal:
+    a code path that forgets to count is worse than no metric, because the
+    dashboard then quietly under-reports exactly the failure being introduced.
+    """
+    started = perf_counter()
+    try:
+        yield
+    except APIException as refusal:
+        CHANGE_SET_REFUSALS.labels(
+            code=str(getattr(refusal, "default_code", "error"))
+        ).inc()
+        CHANGE_SET_RESULTS.labels(operation=operation, outcome="refused").inc()
+        raise
+    except Exception:
+        CHANGE_SET_RESULTS.labels(operation=operation, outcome="error").inc()
+        raise
+    else:
+        CHANGE_SET_RESULTS.labels(operation=operation, outcome="accepted").inc()
+    finally:
+        CHANGE_SET_LATENCY.labels(operation=operation).observe(
+            perf_counter() - started
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -159,6 +195,13 @@ def plan_change_set(document: dict[str, Any], context: TenantContext) -> ChangeS
     resolved against one list rather than applied one command at a time — the
     order the commands arrive in cannot change what "position 2" means.
     """
+    with _recorded("plan"):
+        return _plan_change_set(document, context)
+
+
+def _plan_change_set(
+    document: dict[str, Any], context: TenantContext
+) -> ChangeSetPlan:
     validate_change_set(document)
     target = document["target"]
     site = Site.all_objects.filter(
@@ -405,10 +448,26 @@ def apply_change_set(
     optimistic locking, audit and media references all live there, and a second
     write path would be a second place for one of them to be forgotten.
     """
+    with _recorded("apply"):
+        return _apply_change_set(
+            document,
+            context,
+            idempotency_key=idempotency_key,
+            approval_digest=approval_digest,
+        )
+
+
+def _apply_change_set(
+    document: dict[str, Any],
+    context: TenantContext,
+    *,
+    idempotency_key: str,
+    approval_digest: str | None,
+) -> dict[str, Any]:
     from .collections import save_entry_draft
     from .services import save_draft
 
-    plan = plan_change_set(document, context)
+    plan = _plan_change_set(document, context)
     if approval_digest is not None and approval_digest != plan.digest:
         # The payload moved after somebody approved it, or the approval belongs
         # to a different change. Either way it is not this one.

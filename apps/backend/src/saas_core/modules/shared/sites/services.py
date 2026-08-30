@@ -48,6 +48,7 @@ from .localization import (
     build_localization_report,
     localized_path,
 )
+from .metrics import OUTBOX_EVENTS
 from .models import (
     AutomationGrantMode,
     ContentAutomationGrant,
@@ -84,6 +85,13 @@ REDIRECT_DELETED = "sites.redirect.deleted"
 PAGE_AUTOMATION_POLICY_SET = "sites.page.automation_policy_set"
 PAGE_TEMPLATE_IMPORTED = "sites.page.template_imported"
 SITE_PUBLISHED_EVENT = "sites.site.published"
+#: A rollback is a publication in mechanism and the opposite of one in meaning.
+#: Sending it as `sites.site.published` left a subscriber unable to tell that
+#: its own change had just been undone.
+SITE_ROLLED_BACK_EVENT = "sites.site.rolled_back"
+PAGE_DRAFT_SAVED_EVENT = "sites.page.draft_saved"
+GRANT_REVOKED_EVENT = "sites.automation_grant.revoked"
+GRANT_REVOKED = "sites.automation_grant.revoked"
 MEDIA_ASSET_RESOURCE_TYPE = "shared.media.asset"
 PAGE_VERSION_REFERENCE_OWNER = "sites.page_version"
 PUBLICATION_REFERENCE_OWNER = "sites.publication"
@@ -987,6 +995,13 @@ def save_draft(
     )
     if updated != 1:
         raise DraftVersionConflict
+    emit_draft_saved_event(
+        context=context,
+        event_type=PAGE_DRAFT_SAVED_EVENT,
+        resource_type="site_page",
+        resource_id=page.id,
+        version=version.number,
+    )
     record_audit(
         organization=page.site.organization,
         action=PAGE_DRAFT_SAVED,
@@ -1750,7 +1765,7 @@ def rollback_site(
     event = SiteOutboxEvent.all_objects.create(
         organization_id=context.organization_id,
         publication=publication,
-        event_type=SITE_PUBLISHED_EVENT,
+        event_type=SITE_ROLLED_BACK_EVENT,
         version=1,
         actor=actor,
         correlation_id=UUID(active_correlation_id) if active_correlation_id else uuid7(),
@@ -1781,7 +1796,93 @@ def rollback_site(
     return SitePublication(publication, True)
 
 
+def emit_draft_saved_event(
+    *,
+    context: TenantContext,
+    event_type: str,
+    resource_type: str,
+    resource_id: UUID,
+    version: int,
+) -> None:
+    """Tells a subscriber that a proposal landed.
+
+    Only for automation-authored drafts. A person saving their own work does
+    not need to be told about it, and an operator's queue is meant to show what
+    arrived while they were not looking.
+    """
+    if not _is_automation(context):
+        return
+    active_correlation_id = correlation_id.get()
+    event = SiteOutboxEvent.all_objects.create(
+        organization_id=context.organization_id,
+        event_type=event_type,
+        version=1,
+        actor_id=context.actor_id,
+        correlation_id=(
+            UUID(active_correlation_id) if active_correlation_id else uuid7()
+        ),
+        causation_id=f"sites-draft:{resource_id}:{version}",
+        payload={
+            "resource_type": resource_type,
+            "resource_id": str(resource_id),
+            "version": version,
+            "credential_id": str(context.credential_id) if context.credential_id else "",
+        },
+    )
+    _schedule_site_outbox_delivery(event)
+
+
+@transaction.atomic
+def revoke_automation_grant(*, grant_id: UUID, reason: str) -> ContentAutomationGrant:
+    """Stops a credential now, without deleting the row.
+
+    The emergency stop of ADR-035 §4: the grant stays for the audit trail that
+    the incident will need, and the revocation reaches a subscriber so the
+    connector learns it has been cut off rather than discovering it one 403 at
+    a time.
+    """
+    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    assert_person_required(context, "Odwołanie grantu")
+    grant = (
+        ContentAutomationGrant.all_objects.select_for_update()
+        .filter(pk=grant_id, organization_id=context.organization_id)
+        .first()
+    )
+    if grant is None:
+        raise AutomationGrantMissing
+    if grant.revoked_at is None:
+        grant.revoked_at = timezone.now()
+        grant.save(update_fields=["revoked_at", "updated_at"])
+    active_correlation_id = correlation_id.get()
+    event = SiteOutboxEvent.all_objects.create(
+        organization_id=context.organization_id,
+        event_type=GRANT_REVOKED_EVENT,
+        version=1,
+        actor_id=context.actor_id,
+        correlation_id=(
+            UUID(active_correlation_id) if active_correlation_id else uuid7()
+        ),
+        causation_id=f"sites-grant-revoked:{grant.id}",
+        payload={
+            "grant_id": str(grant.id),
+            "credential_id": str(grant.credential_id),
+            "mode": grant.mode,
+        },
+    )
+    _schedule_site_outbox_delivery(event)
+    record_audit(
+        organization=Organization.objects.get(pk=context.organization_id),
+        action=GRANT_REVOKED,
+        actor=User.objects.get(pk=context.actor_id),
+        target_type="content_automation_grant",
+        target_id=grant.id,
+        metadata={"reason": reason[:500]},
+    )
+    return grant
+
+
 def _schedule_site_outbox_delivery(event: SiteOutboxEvent) -> None:
+    OUTBOX_EVENTS.labels(event_type=event.event_type).inc()
     task_contract = issue_tenant_task_contract(causation_id=f"sites-outbox:{event.id}")
 
     def enqueue_outbox() -> None:

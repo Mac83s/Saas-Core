@@ -659,6 +659,39 @@ def _audit(*, action: str, target: Any, metadata: dict[str, Any] | None = None) 
 def _allowlisted_event_payload(event_type: str, payload: dict[str, Any]) -> dict[str, Any]:
     allowlists = {
         "sites.site.published": {"site_id", "publication_id", "sequence", "snapshot_hash"},
+        # A rollback carries the publication it restored, which is the whole
+        # reason a subscriber cares: it says which state the site went back to.
+        "sites.site.rolled_back": {
+            "site_id",
+            "publication_id",
+            "sequence",
+            "snapshot_hash",
+            "source_publication_id",
+        },
+        "sites.entry.published": {
+            "entry_id",
+            "collection_id",
+            "publication_id",
+            "sequence",
+            "snapshot_hash",
+            "path",
+            "locale",
+        },
+        # Identifiers and versions only. The text of a draft is the customer's
+        # unpublished work and does not travel to a subscriber.
+        "sites.page.draft_saved": {
+            "resource_type",
+            "resource_id",
+            "version",
+            "credential_id",
+        },
+        "sites.entry.draft_saved": {
+            "resource_type",
+            "resource_id",
+            "version",
+            "credential_id",
+        },
+        "sites.automation_grant.revoked": {"grant_id", "credential_id", "mode"},
         "notifications.message.status": {"message_id", "status"},
     }
     allowed = allowlists.get(event_type)

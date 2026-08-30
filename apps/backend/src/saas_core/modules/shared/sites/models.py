@@ -1595,12 +1595,17 @@ class SiteOutboxEvent(TenantScopedModel):
                 condition=models.Q(version__gte=1),
                 name="sites_outbox_version_positive_ck",
             ),
+            # At most one, not exactly one: a draft was written and a grant was
+            # revoked are both events worth telling a subscriber about, and
+            # neither is about a publication. What kind of event it is has
+            # always been `event_type`; these columns exist so a publication
+            # row cannot be deleted out from under an event that names it.
             models.CheckConstraint(
                 condition=(
-                    models.Q(publication__isnull=False, entry_publication__isnull=True)
-                    | models.Q(publication__isnull=True, entry_publication__isnull=False)
+                    models.Q(publication__isnull=True)
+                    | models.Q(entry_publication__isnull=True)
                 ),
-                name="sites_outbox_exactly_one_subject_ck",
+                name="sites_outbox_at_most_one_subject_ck",
             ),
         ]
         indexes = [
