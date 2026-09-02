@@ -22,10 +22,23 @@ a import-linter był czerwony przez jeden import Core → Shared, usunięty tego
 samego dnia. Etapy poniżej uwzględniają ten stan.
 
 Plan kończy się dopiero wtedy, gdy z jednego repozytorium można zbudować i
-niezależnie wdrożyć co najmniej `core-only` i MedPlano, a pełna ścieżka
-użytkownika obejmuje profil, stronę, rezerwację oraz opcjonalną płatność z
-prowizją platformy. Skills deweloperskie mają w tym czasie ograniczać koszt
-ponownego poznawania repozytorium i zapobiegać omijaniu jego kontraktów.
+niezależnie wdrożyć co najmniej `core-only` i generyczny profil `business`, z
+którego później powstają serwisy — MedPlano, tanie strony i kolejne — na tej
+samej głównej funkcjonalności. Pełna ścieżka użytkownika obejmuje profil,
+stronę i rezerwację; płatność z prowizją platformy dołącza po bazie. Skills
+deweloperskie mają w tym czasie ograniczać koszt ponownego poznawania
+repozytorium i zapobiegać omijaniu jego kontraktów.
+
+**Decyzje właściciela z 2026-09-02.** MedPlano przestaje być priorytetem;
+szczegóły verticala wrócą później. Bazę zamyka **P0–P3**: kontrakty, realna
+kompozycja deploymentów, skills z walidatorem oraz pełna tożsamość (profile i
+konto klienta). P4 (ceny i polityki Booking) i płatności za wizyty (Connect,
+ADR-037 — Deferred) są po bazie. Realny Stripe dla abonamentów (W9.5.2S)
+wchodzi poza kolejnością etapów, gdy tylko właściciel dostarczy konto Stripe
+(zapowiedziane na 2026-09-03). Drugim deploymentem dowodowym P1 jest
+`business`; RLS rozstrzyga ADR-039 (reguła per tabela w deskryptorze); zmiany
+skills wchodzą bez przeglądu, z powiadomieniem (ADR-038). Kolejność:
+P0 → P1 → P2 → P3.
 
 ## 2. Niezmienne decyzje
 
@@ -65,9 +78,9 @@ podstawie zatwierdzonych kontraktów.
 | P2 | fundament autonomicznych Agent Skills | 1–2 tygodnie | wykonywanie dalszych fal przez skills | końcówka P1 |
 | P3 | tożsamość profilu i konto klienta | 2–3 tygodnie | pełny self-service i historia klienta | bezpieczne elementy W9.5.5–W9.5.6 |
 | P4 | produktowe domknięcie Booking | 2–4 tygodnie | płatność wizytowa | W9.6 i Site Studio |
-| P5 | realny Stripe subskrypcji (W9.5.2S), Appointment Commerce i Stripe Connect | 4–6 tygodni | płatny pilot | W9.5.7 po ustabilizowaniu komend |
+| P5 | W9.5.2S — gdy właściciel dostarczy konto Stripe (poza kolejnością); Appointment Commerce i Connect — po bazie | 4–6 tygodni | płatny pilot | W9.5.7 po ustabilizowaniu komend |
 | P6 | Site Studio, generator AI i skills produktowe | 4–7 tygodni | pełny cel W9.5 | późna część P4–P5 |
-| P7 | Vertical Medical i pilot MedPlano | 2–3 tygodnie | go-live | wyłącznie prace niezmieniające kontraktów P3–P6 |
+| P7 | pierwszy serwis na bazie (MedPlano — odłożone decyzją z 2026-09-02) | 2–3 tygodnie | go-live | wyłącznie prace niezmieniające kontraktów P3–P6 |
 | P8 | staging, rollout W9.6, hardening i go-live | 2–3 tygodnie | produkcja | brak dla bramek krytycznych |
 
 Szeregowo etapy sumują się do około 19–31 tygodni, czyli od 4,5 do 7 miesięcy.
@@ -77,15 +90,20 @@ sumy, a nie wobec pojedynczego etapu, należy planować termin płatnego pilota.
 
 ## 4. P0 — decyzje i kontrakty po audycie
 
-- [ ] zatwierdzić ADR rozdzielający `User`, `Organization`, `PublicProfile` i
-  tenantowego `Customer`, wraz z zasadami dobrowolnej aktywacji konta klienta;
-- [ ] zdecydować, czy pierwsze wydanie ma konta wyłącznie per platforma; wspólne
-  SSO pozostawić poza zakresem, dopóki nie powstanie jawny kontrakt;
-- [ ] zatwierdzić ADR płatności wizytowych: usługodawca jako merchant of record,
+- [x] zatwierdzić ADR rozdzielający `User`, `Organization`, `PublicProfile` i
+  tenantowego `Customer`, wraz z zasadami dobrowolnej aktywacji konta klienta —
+  ADR-036 Accepted 2026-09-02;
+- [x] zdecydować, czy pierwsze wydanie ma konta wyłącznie per platforma; wspólne
+  SSO pozostawić poza zakresem, dopóki nie powstanie jawny kontrakt — tak,
+  per platforma (ADR-036 §2);
+- [x] zatwierdzić ADR płatności wizytowych: usługodawca jako merchant of record,
   operator, prowizja, depozyt lub pełna płatność, zwroty, spory, no-show,
-  podatki i dokumenty sprzedaży;
-- [ ] zatwierdzić ADR repozytoryjnych Agent Skills: źródło prawdy, routing,
-  walidacja, aktualizacja, granice autonomii i rollback;
+  podatki i dokumenty sprzedaży — ADR-037 zapisany i jawnie odłożony
+  (Deferred) razem z P4/P5 poza bazę;
+- [x] zatwierdzić ADR repozytoryjnych Agent Skills: źródło prawdy, routing,
+  walidacja, aktualizacja, granice autonomii i rollback — ADR-038 Accepted;
+- [x] rozstrzygnąć rozjazd RLS w `shared.sites` wobec ADR-022 — ADR-039
+  Accepted: RLS domyślnie, tabele publiczne z deklaracji w deskryptorze;
 - [ ] zamrozić publiczne komendy aplikacyjne wymagane przez profile, Booking,
   Commerce i `shared.assistant`; AI nie otrzymuje osobnej ścieżki zapisu;
 - [ ] przypisać każdy brak po audycie do P1–P8 i wskazać bramkę dowodową zamiast
@@ -93,10 +111,11 @@ sumy, a nie wobec pojedynczego etapu, należy planować termin płatnego pilota.
 
 ### Bramka P0
 
-- [ ] nowe decyzje są zatwierdzone lub jawnie oznaczone jako blokujące;
+- [x] nowe decyzje są zatwierdzone lub jawnie oznaczone jako blokujące —
+  ADR-036/038/039 Accepted, ADR-037 Deferred z warunkiem powrotu;
 - [ ] diagram właścicieli danych nie ma współdzielonej bazy między platformami;
 - [ ] scenariusze płatności i zwrotów mają właściciela prawnego/księgowego;
-- [ ] zakres pierwszych skills oraz ich źródła są jednoznaczne.
+- [x] zakres pierwszych skills oraz ich źródła są jednoznaczne — tabela w 6.2.
 
 ## 5. P1 — realna kompozycja produktów
 
@@ -107,6 +126,15 @@ sumy, a nie wobec pojedynczego etapu, należy planować termin płatnego pilota.
   graf zależności, ale nie sprawdza istnienia aplikacji, więc profil `core-only`
   nie mógłby dziś wystartować w realnej kompozycji. Dodać test w obie strony:
   każdy zadeklarowany app jest importowalny, a każdy zainstalowany ma deskryptor;
+- [ ] dodać profil `business` (pełny zestaw Shared, bez verticala, plany
+  `profile`/`starter`/`pro`) jako drugi prawdziwy produkt; profil `medplano`
+  przenieść do `deployments/_planned/`, a deskryptory `vertical.medical` i
+  `config.medplano` usunąć z katalogu do czasu powstania kodu; dodać
+  deskryptor `core.health`; rozstrzygnąć `core.audit` (deskryptor bez
+  aplikacji — audyt żyje dziś w `core.organizations` i `core.identity`);
+- [ ] wdrożyć ADR-039: pole `backend.publicTables` w schemacie deskryptora,
+  klasyfikacja tabel Sites na podstawie zapytań renderera, migracja RLS dla
+  tabel prywatnych i test kontraktowy na prawdziwym PostgreSQL;
 - [ ] sprawić, aby `deployment.json` rzeczywiście składał backendowe Django apps,
   URL-e, zadania i frontendowe route/menu, a nie tylko walidował deskryptory;
 - [x] usunąć niedozwolony import Core → Shared — jedyne naruszenie było w
@@ -127,7 +155,7 @@ sumy, a nie wobec pojedynczego etapu, należy planować termin płatnego pilota.
 
 ### Bramka P1
 
-- [ ] build i smoke test `core-only` oraz `medplano` dowodzą różnych aktywnych
+- [ ] build i smoke test `core-only` oraz `business` dowodzą różnych aktywnych
   powierzchni API/UI;
 - [ ] żaden wyłączony moduł nie rejestruje routingu, workera ani schedulera;
 - [ ] test importów i kontraktów modułów jest zielony;
@@ -336,6 +364,8 @@ ani automatycznie autoryzować działań produkcyjnych.
 
 ## 11. P7–P8 — Vertical Medical, staging i go-live
 
+- [ ] MedPlano nie jest priorytetem od 2026-09-02; W10 i `develop-medplano`
+  czekają na decyzję właściciela po domknięciu bazy (P0–P3);
 - [ ] wykonać W10 dopiero po minimalnych bramkach P1–P5 wymaganych przez zakres
   płatnego pilota;
 - [ ] stworzyć `develop-medplano` z kontraktu realnego verticala i deploymentu,
@@ -382,8 +412,10 @@ ani automatycznie autoryzować działań produkcyjnych.
 - ADR-027–ADR-031 — strony, domeny, komunikacja, Booking i Site Studio;
 - ADR-033 — produktowy asystent AI, narzędzia, zgody i głos;
 - ADR-035 — publikacja i granice automatyzacji;
-- ADR-036, ADR-037, ADR-038 — decyzje P0: tożsamość i konto klienta,
-  Appointment Commerce, repozytoryjne Agent Skills (Proposed, do zatwierdzenia);
+- ADR-036 (Accepted), ADR-037 (Deferred), ADR-038 (Accepted) — decyzje P0:
+  tożsamość i konto klienta, Appointment Commerce, repozytoryjne Agent Skills;
+- ADR-039 (Accepted) — dwa reżimy izolacji: RLS domyślnie, tabele publiczne z
+  deklaracji w deskryptorze;
 - oficjalny model SaaS Platforms w Stripe Connect:
   https://docs.stripe.com/connect/saas-platforms-and-marketplaces;
 - Mollie Connect jako kandydat drugiego adaptera:

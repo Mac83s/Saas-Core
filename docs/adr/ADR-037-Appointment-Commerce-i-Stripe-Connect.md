@@ -1,7 +1,10 @@
 # ADR-037 — Appointment Commerce i Stripe Connect
 
-**Status:** Proposed — wymaga decyzji właściciela i przeglądu prawno-księgowego
-przed P4 (cena i polityka płatności usługi) oraz P5 (moduł i provider)
+**Status:** Deferred — 2026-09-02 właściciel zdjął MedPlano z priorytetu i
+wyłączył P4/P5 z zakresu bazy; ADR wraca do rozpatrzenia (wraz z przeglądem
+prawno-księgowym), gdy pierwszy serwis na bazie potrzebuje płatności za wizyty.
+Nie dotyczy realnego Stripe dla abonamentów SaaS (W9.5.2S, ADR-032/ADR-034),
+który wchodzi, gdy tylko właściciel dostarczy konto Stripe
 **Data:** 2026-09-02
 **Właściciel:** zespół SaaS Core
 **Nie zmienia:** ADR-026, ADR-032 i ADR-034 — billing abonamentu SaaS pozostaje
@@ -28,7 +31,7 @@ przegląd prawny i księgowy ma go potwierdzić albo obalić przed P5.
 ### 1. Osobny moduł `shared.commerce`
 
 - nowy moduł `shared.commerce` z deskryptorem `dependsOn:
-  ["core.organizations", "core.audit", "shared.billing", "shared.booking",
+  ["core.organizations", "shared.billing", "shared.booking",
   "shared.notifications"]` (billing dla entitlementów, booking dla wizyt,
   notifications dla kolejki i outboxu), `urlPrefix: /api/v1/commerce`,
   permissions `commerce.payments.read`, `commerce.payments.manage`,

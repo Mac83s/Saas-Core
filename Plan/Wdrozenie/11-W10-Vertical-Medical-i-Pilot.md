@@ -1,6 +1,8 @@
 # W10 — Vertical Medical i pilot MedPlano
 
-**Status:** blocked by W5–W9.5, minimalne bramki P1–P5 planu poaudytowego i privacy review
+**Status:** deferred — od 2026-09-02 MedPlano nie jest priorytetem; fala wraca
+decyzją właściciela po domknięciu bazy (P0–P3 planu poaudytowego), nadal za
+bramkami P1–P5 i privacy review
 **Szacunek:** 2–3 tygodnie  
 **Poprzednicy:** W5, W6, W7, W8, W9, W9.5 oraz wymagany zakresem pilota
 fragment [planu poaudytowego](13-PLAN-ROZWOJU-PO-AUDYCIE-I-AGENT-SKILLS.md)

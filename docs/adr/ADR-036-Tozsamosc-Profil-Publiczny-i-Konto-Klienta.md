@@ -1,7 +1,8 @@
 # ADR-036 — tożsamość: `User`, `Organization`, `PublicProfile` i konto klienta
 
-**Status:** Proposed — wymaga decyzji właściciela przed P3 planu poaudytowego
+**Status:** Accepted
 **Data:** 2026-09-02
+**Zatwierdzono:** 2026-09-02 — rozstrzygnięcia właściciela zapisane na końcu
 **Właściciel:** zespół SaaS Core
 **Rozszerza:** ADR-023 (sesje), ADR-030 (`Customer` niezależny od `User`),
 ADR-031 (panel klienta) — żadnej z tych decyzji nie zastępuje
@@ -27,7 +28,7 @@ oraz reguł, kiedy i jak `Customer` może zostać połączony z `User`. Plan
 poaudytowy (P0, P3) wymaga rozstrzygnięcia tych trzech rzeczy przed zmianą
 modeli. Dodatkowo nierozstrzygnięte jest, czy konta są per platforma.
 
-## Proponowana decyzja
+## Decyzja
 
 ### 1. `User` pozostaje wyłącznie kontem
 
@@ -45,7 +46,7 @@ przez współdzieloną bazę ani replikację użytkowników.
 ### 3. `PublicProfile` w nowym module `shared.profiles`
 
 - nowy moduł `shared.profiles` z deskryptorem `dependsOn: ["core.organizations",
-  "core.audit", "shared.media"]`, `urlPrefix: /api/v1/profiles`, permission
+  "shared.media"]`, `urlPrefix: /api/v1/profiles`, permission
   `profiles.manage`, bez własnego entitlementu (publikację ogranicza plan przez
   `sites.enabled`);
 - `PublicProfile` jest `TenantScopedModel` z RLS: `subject_kind` ∈
@@ -136,21 +137,21 @@ eksport i usunięcie konta.
 - przyszłe wizyty muszą być anulowane przed usunięciem konta; system pokazuje
   to jawnie, nie usuwa ich po cichu.
 
-## Decyzje wymagające właściciela
+## Rozstrzygnięcia właściciela (2026-09-02)
 
-1. **Konta per platforma w pierwszym wydaniu** — rekomendacja: tak; SSO dopiero
-   z osobnym kontraktem.
-2. **Profile osób w pierwszym wydaniu** — czy pilot potrzebuje profili
-   specjalistów (MedPlano: lekarze), czy wystarczy profil organizacji.
-   Rekomendacja: oba, bo katalog lekarzy jest rdzeniem MedPlano.
-3. **Domyślny okres retencji danych klienta** po ostatniej wizycie, gdy klient
-   nie żąda usunięcia. Rekomendacja: 24 miesiące, konfigurowalne per
-   deployment; dokumenty sprzedaży według osobnych przepisów (ADR-037).
-4. **Czy aktywacja konta klienta wchodzi do zakresu pilota**, czy pilot działa
-   wyłącznie na rezerwacji gościnnej. Rekomendacja: gościnna w pilocie,
-   konto klienta w P3 zgodnie z planem — to nie zmienia modeli, tylko kolejność.
-5. **Zbiory permission dla nowych ról** — do zatwierdzenia jako tabela w
-   `docs/architecture/auth-and-tenant-context.md` przed migracją.
+1. **Konta per platforma** — tak; SSO dopiero z osobnym kontraktem.
+2. **Profile osób** — tak, obok profilu organizacji; `StaffMember` dostaje
+   link do profilu. Baza ma obsłużyć każdy przyszły serwis z zespołem, nie
+   tylko MedPlano.
+3. **Retencja danych klienta** — 24 miesiące od ostatniej wizyty jako domyślna,
+   konfigurowalna per deployment; dokumenty sprzedaży według osobnych przepisów
+   (ADR-037, gdy wróci).
+4. **Konto klienta** — w zakresie bazy: pełny P3 z `Customer.user`,
+   principalem `customer`, panelem „moje wizyty", eksportem i usunięciem konta
+   oraz `PolicyAcknowledgement`.
+5. **Zbiory permission dla nowych ról** — nadal otwarte; tabela w
+   `docs/architecture/auth-and-tenant-context.md` do zatwierdzenia przed
+   migracją ról w P3.
 
 ## Konsekwencje
 

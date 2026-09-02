@@ -1,7 +1,8 @@
 # ADR-038 — repozytoryjne Agent Skills: cykl życia i granice autonomii
 
-**Status:** Proposed — wymaga zatwierdzenia przed P2 planu poaudytowego
+**Status:** Accepted
 **Data:** 2026-09-02
+**Zatwierdzono:** 2026-09-02 — rozstrzygnięcia właściciela zapisane na końcu
 **Właściciel:** zespół SaaS Core
 **Uzupełnia:** ADR-033 § „Runtime i rozszerzalność" — Codex CLI, Claude Code i
 repozytoryjne skills są narzędziami developmentu, nie produktu
@@ -23,7 +24,7 @@ były utrzymywane przez agentów bez ręcznej edycji przez właściciela, ale be
 prawa do zmiany ADR-ów, użycia sekretów, wdrożeń produkcyjnych ani operacji
 nieodwracalnych.
 
-## Proponowana decyzja
+## Decyzja
 
 ### 1. Dwa systemy skills, dwa katalogi
 
@@ -125,13 +126,16 @@ Meta-skill wykonuje zamknięty cykl:
    kontrolne („po zmianie endpointu skill każe uruchomić `api:schema`,
    `api:client` i `api:check`"), sprawdzane przez skrypt, nie przez model;
 6. **dowód i commit** — osobny commit `chore(skills): …` z diffem, wynikiem
-   walidatora i wpisem worklogu; cofnięcie to zwykły `git revert`.
+   walidatora i wpisem worklogu; cofnięcie to zwykły `git revert`;
+7. **powiadomienie** — wpis w worklogu Memex i jedno zdanie w HANDOFF
+   („zmieniono skill X, bo zmieniło się Y"), żeby właściciel widział zmianę
+   bez czytania diffu.
 
 Meta-skill nie może: zmienić statusu ADR-u, dodać permission lub entitlementu,
 wpisać sekretu, przestawić `requires_human` z `true` na `false` ani wyłączyć
 walidacji. Przejście parsera nie jest dowodem poprawności — walidator i
 scenariusze są niezależną bramką, a diff pozostaje przeglądalny dla człowieka,
-choć jego przegląd nie jest warunkiem merge'u (decyzja właściciela nr 1).
+choć jego przegląd nie jest warunkiem merge'u (rozstrzygnięcie nr 1).
 
 ### 7. Granice autonomii
 
@@ -156,15 +160,14 @@ Do worklogu Memex trafia per sesja: użyte skills, czy dobór był automatyczny,
 liczba korekt po review, nieudane bramki i regresje, których źródłem była
 nieaktualna instrukcja. Bez zewnętrznej telemetrii i bez danych osobowych.
 
-## Decyzje wymagające właściciela
+## Rozstrzygnięcia właściciela (2026-09-02)
 
-1. czy zmiany skills przez meta-skill wchodzą na `main` bez przeglądu człowieka
-   (z revertem jako zabezpieczeniem), czy wymagają PR z akceptacją —
-   rekomendacja: bez przeglądu, bo inaczej właściciel wraca do roli
-   synchronizatora, którą plan wyklucza;
-2. czy Codex dostaje adapter w `.codex/`, czy czyta `.agents/skills/` natywnie —
-   do sprawdzenia w P2 na realnym kliencie;
-3. limit rozmiaru skilla (rekomendacja 150 linii) i długości opisu (200 znaków).
+1. zmiany skills przez meta-skill wchodzą na `main` **bez przeglądu**, z
+   revertem jako bezpiecznikiem i z powiadomieniem (worklog Memex + zdanie w
+   HANDOFF) — punkt 7 cyklu;
+2. adapter dla Codex — do sprawdzenia w P2 na realnym kliencie; decyzja
+   techniczna bez udziału właściciela;
+3. limity przyjęte: 150 linii na skill, 200 znaków opisu.
 
 ## Konsekwencje
 

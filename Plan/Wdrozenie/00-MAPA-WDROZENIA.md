@@ -55,6 +55,11 @@ zależności oraz równoległy tor autonomicznych Agent Skills opisuje
 nie zastępuje fal powyżej: dodaje poprzedniki wymagane przed płatnym pilotem i
 go-live.
 
+Od 2026-09-02 MedPlano nie jest priorytetem. Celem jest Core, z którego później
+powstają serwisy (MedPlano, tanie strony i kolejne) na tej samej głównej
+funkcjonalności; bazę zamyka P0–P3 planu poaudytowego, a drugim deploymentem
+dowodowym jest generyczny profil `business`.
+
 Szacunki dotyczą 1–2 doświadczonych programistów i zostaną skorygowane po W0.
 W5 i W6 mogą częściowo biec równolegle dopiero wtedy, gdy W4 jest stabilne.
 
