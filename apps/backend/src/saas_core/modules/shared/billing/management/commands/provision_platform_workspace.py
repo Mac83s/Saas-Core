@@ -4,6 +4,11 @@ An operator action, not a signup: the workspace that carries the product's
 marketing pages and blog is never created by somebody filling in a form, and it
 is never billed. Running this twice is safe — it reports what already existed
 rather than making a second one.
+
+It lives in ``shared.billing`` rather than ``core.organizations`` because the
+half that needs a home is the entitlement grant: creating the workspace itself
+is a Core service (``ensure_platform_workspace``), but granting it features goes
+through the billing override path, and Core must not import Shared.
 """
 
 from __future__ import annotations
@@ -28,6 +33,10 @@ from saas_core.modules.core.organizations.models import (
 from saas_core.modules.core.organizations.platform_workspace import (
     PlatformWorkspaceConflict,
     ensure_platform_workspace,
+)
+from saas_core.modules.shared.billing.overrides import (
+    OverrideTargetConflict,
+    create_entitlement_override,
 )
 
 #: What the platform's own site needs to exist at all. Granted through the same
@@ -96,11 +105,6 @@ class Command(BaseCommand):
     def _grant_internal_features(
         self, *, organization_id: Any, membership_id: Any, operator: User
     ) -> list[str]:
-        from saas_core.modules.shared.billing.overrides import (
-            OverrideTargetConflict,
-            create_entitlement_override,
-        )
-
         context = TenantContext(
             organization_id=organization_id,
             membership_id=membership_id,
