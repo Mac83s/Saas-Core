@@ -26,25 +26,10 @@ MODULES_PATH = Path(settings.SITE_BLOCK_CONTRACTS_PATH).parent / "modules"
 
 # Debt the rule already knows about, listed so it cannot grow and cannot
 # linger: a table added here that later gains RLS fails the test until the
-# entry is removed. shared.billing predates ADR-022's RLS list and its
-# lifecycle sweeps, webhook processor and reconciliation read across tenants
-# with no context helper at all, so its policies arrive with the P1 item that
-# rewrites those paths — not as a migration slipped in beside this test.
-KNOWN_OPEN_PRIVATE_TABLES: dict[str, frozenset[str]] = {
-    "saas_core.modules.shared.billing": frozenset({
-        "billing_billingcheckout",
-        "billing_billinginvoicedocument",
-        "billing_billinglifecycleaction",
-        "billing_billingnotice",
-        "billing_billingreconciliation",
-        "billing_billingsubscription",
-        "billing_billingtrialactivation",
-        "billing_entitlementgrant",
-        "billing_entitlementsnapshot",
-        "billing_quotareservation",
-        "billing_quotausage",
-    }),
-}
+# entry is removed. It is empty — shared.billing, the last module without
+# policies, got them in billing.0013 once its sweeps could work one
+# organization at a time. Add an entry only with the plan item that removes it.
+KNOWN_OPEN_PRIVATE_TABLES: dict[str, frozenset[str]] = {}
 
 pytestmark = pytest.mark.django_db
 

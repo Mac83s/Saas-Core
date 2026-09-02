@@ -8,6 +8,7 @@ from .overrides import expire_entitlement_overrides
 from .processor import StripeEventProcessingError, process_stripe_event
 from .quotas import release_expired_quota_reservations
 from .reconciliation import run_reconciliation_batch
+from .tenant_scope import billing_tenant_scope
 
 
 @shared_task(  # type: ignore[untyped-decorator]
@@ -55,5 +56,6 @@ def release_expired_reservations() -> int:
     retry_jitter=True,
     retry_kwargs={"max_retries": 5},
 )
-def issue_invoice_document(document_id: str) -> None:
-    process_invoice_document(document_id)
+def issue_invoice_document(document_id: str, organization_id: str) -> None:
+    with billing_tenant_scope(organization_id):
+        process_invoice_document(document_id)

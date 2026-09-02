@@ -98,8 +98,9 @@ def queue_paid_invoice(
         completed_at=timezone.now() if validation_error else None,
     )
     if not validation_error:
+        organization_id = document.organization_id
         transaction.on_commit(
-            lambda: _enqueue_invoice_task(document.id),
+            lambda: _enqueue_invoice_task(document.id, organization_id),
             robust=True,
         )
     return document
@@ -246,9 +247,7 @@ def _invoice_lines(value: Any) -> list[dict[str, Any]]:
             "amount_minor": amount,
             "currency": currency.upper(),
             "quantity": (
-                quantity
-                if isinstance(quantity, int) and not isinstance(quantity, bool)
-                else None
+                quantity if isinstance(quantity, int) and not isinstance(quantity, bool) else None
             ),
         })
     return result
@@ -272,10 +271,12 @@ def _request_from_json(value: Any) -> CanonicalInvoiceRequest:
         raise InvoiceAdapterError("Kanoniczne żądanie faktury jest niekompletne.") from error
 
 
-def _enqueue_invoice_task(document_id: UUID) -> None:
+def _enqueue_invoice_task(document_id: UUID, organization_id: UUID) -> None:
     from .tasks import issue_invoice_document
 
-    issue_invoice_document.delay(str(document_id))
+    # The document row carries forced row-level security, so the worker is told
+    # which tenant it is for; it cannot look that up first (ADR-039).
+    issue_invoice_document.delay(str(document_id), str(organization_id))
 
 
 def _string(value: Any) -> str | None:

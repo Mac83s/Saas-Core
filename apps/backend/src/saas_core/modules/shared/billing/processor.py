@@ -8,6 +8,7 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
+from saas_core.modules.core.organizations.context import set_local_organization_id
 from saas_core.modules.core.organizations.models import BillingProfile
 
 from .invoicing import queue_paid_invoice
@@ -24,6 +25,7 @@ from .models import (
     WebhookProcessingStatus,
 )
 from .snapshots import update_entitlement_snapshot
+from .tenant_scope import organization_id_for_customer
 
 SUBSCRIPTION_EVENTS = {
     "customer.subscription.created",
@@ -65,6 +67,14 @@ def process_stripe_event(event_id: UUID | str) -> StripeWebhookEvent | None:
     try:
         with transaction.atomic():
             event = StripeWebhookEvent.objects.select_for_update().get(pk=event_id)
+            # The event row itself is not tenant data, but everything the
+            # handlers touch is. Stripe names the customer, and the customer
+            # names the tenant, so the organization is resolved from a table
+            # without row-level security before any tenant row is read
+            # (ADR-039).
+            organization_id = _event_organization_id(event)
+            if organization_id is not None:
+                set_local_organization_id(organization_id)
             _dispatch(event)
             if event.status == WebhookProcessingStatus.PROCESSING:
                 event.status = WebhookProcessingStatus.PROCESSED
@@ -94,6 +104,24 @@ def process_stripe_event(event_id: UUID | str) -> StripeWebhookEvent | None:
         raise StripeEventProcessingError("Nie udało się przetworzyć eventu Stripe.") from error
 
 
+def _event_organization_id(event: StripeWebhookEvent) -> UUID | None:
+    """Resolves the tenant of an event before its rows are touched.
+
+    Returns ``None`` for an event type this processor ignores; those never read
+    a tenant table, and refusing them here would turn "not interesting" into
+    "broken".
+    """
+    if event.event_type not in (
+        {"checkout.session.completed"} | SUBSCRIPTION_EVENTS | INVOICE_EVENTS
+    ):
+        return None
+    customer_id = _stripe_id(_data_object(event).get("customer"), "customer")
+    organization_id = organization_id_for_customer(customer_id)
+    if organization_id is None:
+        raise StripeEventProcessingError("Event dotyczy nieznanego Stripe Customer.")
+    return organization_id
+
+
 def _dispatch(event: StripeWebhookEvent) -> None:
     if event.event_type == "checkout.session.completed":
         _handle_checkout(event)
@@ -112,16 +140,7 @@ def _handle_checkout(event: StripeWebhookEvent) -> None:
     data = _data_object(event)
     checkout_id = _required_string(data, "id")
     customer_id = _stripe_id(data.get("customer"), "customer")
-    checkout_organization_id = (
-        BillingCheckout.all_objects.filter(stripe_checkout_session_id=checkout_id)
-        .values_list("organization_id", flat=True)
-        .first()
-    )
-    if checkout_organization_id is None:
-        raise StripeEventProcessingError("Checkout Stripe nie ma lokalnego intentu.")
-    profile = BillingProfile.objects.select_for_update().get(
-        organization_id=checkout_organization_id
-    )
+    profile = BillingProfile.objects.select_for_update().get(external_customer_id=customer_id)
     checkout = (
         BillingCheckout.all_objects.select_for_update()
         .select_related("price_mapping")

@@ -94,16 +94,28 @@ Konsekwencja dla komend operatorskich: `issue_content_grant` i
 tenanta nie da się odczytać klucza ani grantu — a odczyt „nieoznaczony" przed
 `SET LOCAL` zwracałby pusty wynik zamiast błędu.
 
-### 5. Stan wdrożenia i znany dług
+### 5. Stan wdrożenia
 
-Test kontraktowy ujawnił, że `shared.billing` nie ma RLS na żadnej z 11 tabel
-tenantowych — moduł powstał przed listą RLS z ADR-022 i nie ma helpera
-kontekstu; lifecycle, procesor webhooków i rekonsyliacja czytają przez
-wszystkie organizacje. Zamiast dopisać migrację obok testu, dług jest zapisany
-w `KNOWN_OPEN_PRIVATE_TABLES` (lista może tylko maleć: tabela, która dostanie
-RLS, musi z niej zniknąć, inaczej test pada) i ma osobną pozycję w P1: najpierw
-przepisanie ścieżek cross-tenant na iterację po organizacjach z `SET LOCAL`,
-potem migracja.
+Reguła obowiązuje wszędzie od 2026-09-03. `shared.billing` był ostatnim
+modułem bez polityk: powstał przed listą RLS z ADR-022 i nie miał helpera
+kontekstu, a lifecycle, procesor webhooków, rekonsyliacja, wygaszanie
+override'ów i zwalnianie rezerwacji czytały przez wszystkie organizacje naraz.
+Kolejność naprawy była odwrotna niż w migracji: najpierw
+`billing/tenant_scope.py` i przepisanie tych pięciu ścieżek na pracę
+organizacja po organizacji, potem `billing.0013` z politykami na 11 tabelach i
+sześcioma wyzwalaczami relacji.
+
+Indeksem przemiatania jest `Organization`, nie `BillingProfile`: profil
+billingowy powstaje tylko dla organizacji utworzonych przez serwis
+onboardingu, więc użycie go po cichu pomijałoby pozostałe. Lista nie jest
+filtrowana po statusie — organizacja zawieszona to dokładnie ta, której grace
+period właśnie wygasa.
+
+Cena jest jawna: przemiatanie kosztuje jedno zapytanie na organizację nawet
+wtedy, gdy nic nie jest wymagalne. Rekonsyliacja i tak musi odwiedzić każdą
+subskrypcję, więc najcięższy przebieg miał już ten kształt. `KNOWN_OPEN_PRIVATE_TABLES`
+w teście jest puste i wpis wolno tam dodać wyłącznie razem z pozycją planu,
+która go usuwa.
 
 ## Konsekwencje
 

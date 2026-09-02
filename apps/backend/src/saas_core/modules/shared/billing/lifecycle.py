@@ -37,6 +37,7 @@ from .models import (
 )
 from .provider import BillingProviderError, ProviderSubscription, get_billing_provider
 from .snapshots import update_entitlement_snapshot
+from .tenant_scope import billing_organization_ids, billing_tenant_scope
 
 SOURCE_TYPE_RE = re.compile(r"^[a-z][a-z0-9_.-]*$")
 logger = logging.getLogger(__name__)
@@ -372,30 +373,40 @@ def process_due_lifecycle_actions(
     if limit <= 0:
         raise ValueError("Limit akcji lifecycle musi być dodatni.")
     checked_at = at or timezone.now()
-    action_ids = list(
-        BillingLifecycleAction.all_objects.filter(
-            status=LifecycleActionStatus.PENDING,
-            due_at__lte=checked_at,
-        )
-        .order_by("due_at", "id")
-        .values_list("id", flat=True)[:limit]
-    )
     handled = 0
-    for action_id in action_ids:
-        try:
-            if _process_lifecycle_action(action_id, checked_at):
-                handled += 1
-        except Exception as error:
-            _record_lifecycle_failure(action_id, error)
-            logger.exception(
-                "billing_lifecycle_action_failed",
-                extra={"lifecycle_action_id": str(action_id)},
+    remaining = limit
+    # One organization at a time: the action table forces row-level security,
+    # so a sweep that asked for every due action at once would be answered
+    # with nothing at all (ADR-039).
+    for organization_id in billing_organization_ids():
+        if remaining <= 0:
+            break
+        with billing_tenant_scope(organization_id):
+            action_ids = list(
+                BillingLifecycleAction.all_objects.filter(
+                    organization_id=organization_id,
+                    status=LifecycleActionStatus.PENDING,
+                    due_at__lte=checked_at,
+                )
+                .order_by("due_at", "id")
+                .values_list("id", flat=True)[:remaining]
             )
+        remaining -= len(action_ids)
+        for action_id in action_ids:
+            try:
+                if _process_lifecycle_action(organization_id, action_id, checked_at):
+                    handled += 1
+            except Exception as error:
+                _record_lifecycle_failure(organization_id, action_id, error)
+                logger.exception(
+                    "billing_lifecycle_action_failed",
+                    extra={"lifecycle_action_id": str(action_id)},
+                )
     return handled
 
 
-def _process_lifecycle_action(action_id: UUID, checked_at: datetime) -> bool:
-    with transaction.atomic():
+def _process_lifecycle_action(organization_id: UUID, action_id: UUID, checked_at: datetime) -> bool:
+    with billing_tenant_scope(organization_id):
         action = (
             BillingLifecycleAction.all_objects.select_for_update()
             .select_related(
@@ -552,8 +563,8 @@ def _transition_to_read_only(
     )
 
 
-def _record_lifecycle_failure(action_id: UUID, error: Exception) -> None:
-    with transaction.atomic():
+def _record_lifecycle_failure(organization_id: UUID, action_id: UUID, error: Exception) -> None:
+    with billing_tenant_scope(organization_id):
         action = (
             BillingLifecycleAction.all_objects.select_for_update()
             .filter(pk=action_id, status=LifecycleActionStatus.PENDING)

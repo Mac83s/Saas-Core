@@ -18,6 +18,7 @@ from .models import (
     QuotaReservationState,
     QuotaUsage,
 )
+from .tenant_scope import billing_organization_ids, billing_tenant_scope
 
 
 class QuotaUnavailable(PermissionDenied):
@@ -237,21 +238,32 @@ def release_expired_quota_reservations(
     batch_size: int = 100,
 ) -> int:
     checked_at = at or datetime.now(UTC)
-    ids = list(
-        QuotaReservation.all_objects.filter(
-            state=QuotaReservationState.RESERVED,
-            expires_at__lte=checked_at,
-        )
-        .order_by("expires_at", "id")
-        .values_list("id", flat=True)[:batch_size]
-    )
     released = 0
-    for reservation_id in ids:
-        released += _release_expired_reservation(reservation_id=reservation_id, at=checked_at)
+    remaining = batch_size
+    # Reservations force row-level security, so the sweep walks organizations
+    # instead of asking for every expired reservation at once (ADR-039).
+    for organization_id in billing_organization_ids():
+        if remaining <= 0:
+            break
+        with billing_tenant_scope(organization_id):
+            ids = list(
+                QuotaReservation.all_objects.filter(
+                    organization_id=organization_id,
+                    state=QuotaReservationState.RESERVED,
+                    expires_at__lte=checked_at,
+                )
+                .order_by("expires_at", "id")
+                .values_list("id", flat=True)[:remaining]
+            )
+        remaining -= len(ids)
+        for reservation_id in ids:
+            with billing_tenant_scope(organization_id):
+                released += _release_expired_reservation(
+                    reservation_id=reservation_id, at=checked_at
+                )
     return released
 
 
-@transaction.atomic
 def _release_expired_reservation(*, reservation_id: UUID, at: datetime) -> int:
     reservation = (
         QuotaReservation.all_objects.select_for_update()

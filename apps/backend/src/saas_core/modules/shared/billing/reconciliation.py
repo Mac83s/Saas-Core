@@ -6,7 +6,6 @@ from uuid import UUID
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
-from django.db import transaction
 from django.utils import timezone
 
 from saas_core.modules.core.organizations.audit import record_audit
@@ -32,6 +31,7 @@ from .provider import (
     get_billing_provider,
 )
 from .snapshots import update_entitlement_snapshot
+from .tenant_scope import billing_organization_ids, billing_tenant_scope
 
 
 def run_reconciliation_batch(*, at: datetime | None = None, limit: int | None = None) -> int:
@@ -42,51 +42,67 @@ def run_reconciliation_batch(*, at: datetime | None = None, limit: int | None = 
     if batch_limit <= 0:
         raise ValueError("Limit rekonsyliacji musi być dodatni.")
     scheduled_for = _schedule_bucket(checked_at)
-    subscription_ids = list(
-        BillingSubscription.all_objects.order_by("updated_at", "id").values_list("id", flat=True)[
-            :batch_limit
-        ]
-    )
     handled = 0
-    for subscription_id in subscription_ids:
-        subscription = BillingSubscription.all_objects.get(pk=subscription_id)
-        reconciliation, _ = BillingReconciliation.all_objects.get_or_create(
-            organization_id=subscription.organization_id,
-            subscription=subscription,
-            scheduled_for=scheduled_for,
-            defaults={"baseline_version": subscription.version},
-        )
-        if reconciliation.status != ReconciliationStatus.PENDING:
-            continue
-        if _run_reconciliation(reconciliation.id, checked_at):
-            handled += 1
+    remaining = batch_limit
+    # Subscriptions force row-level security, so the batch walks organizations
+    # rather than asking for everybody's subscriptions at once (ADR-039).
+    for organization_id in billing_organization_ids():
+        if remaining <= 0:
+            break
+        with billing_tenant_scope(organization_id):
+            subscription_ids = list(
+                BillingSubscription.all_objects.filter(organization_id=organization_id)
+                .order_by("updated_at", "id")
+                .values_list("id", flat=True)[:remaining]
+            )
+        remaining -= len(subscription_ids)
+        for subscription_id in subscription_ids:
+            with billing_tenant_scope(organization_id):
+                subscription = BillingSubscription.all_objects.get(pk=subscription_id)
+                reconciliation, _ = BillingReconciliation.all_objects.get_or_create(
+                    organization_id=subscription.organization_id,
+                    subscription=subscription,
+                    scheduled_for=scheduled_for,
+                    defaults={"baseline_version": subscription.version},
+                )
+                pending = reconciliation.status == ReconciliationStatus.PENDING
+                reconciliation_id = reconciliation.id
+            if not pending:
+                continue
+            if _run_reconciliation(organization_id, reconciliation_id, checked_at):
+                handled += 1
     return handled
 
 
-def _run_reconciliation(reconciliation_id: UUID, checked_at: datetime) -> bool:
-    reconciliation = BillingReconciliation.all_objects.select_related(
-        "subscription",
-    ).get(pk=reconciliation_id)
+def _run_reconciliation(
+    organization_id: UUID, reconciliation_id: UUID, checked_at: datetime
+) -> bool:
+    with billing_tenant_scope(organization_id):
+        reconciliation = BillingReconciliation.all_objects.select_related(
+            "subscription",
+        ).get(pk=reconciliation_id)
+        stripe_subscription_id = reconciliation.subscription.stripe_subscription_id
     try:
-        remote = get_billing_provider().retrieve_subscription(
-            reconciliation.subscription.stripe_subscription_id
-        )
+        # Deliberately outside the tenant scope: a provider call must not hold
+        # a transaction open for as long as the network takes.
+        remote = get_billing_provider().retrieve_subscription(stripe_subscription_id)
     except (BillingProviderError, ImproperlyConfigured) as error:
-        _record_failure(reconciliation.id, error, checked_at)
+        _record_failure(organization_id, reconciliation_id, error, checked_at)
         return False
     try:
-        return _apply_remote_snapshot(reconciliation.id, remote, checked_at)
+        return _apply_remote_snapshot(organization_id, reconciliation_id, remote, checked_at)
     except Exception as error:
-        _record_failure(reconciliation.id, error, checked_at)
+        _record_failure(organization_id, reconciliation_id, error, checked_at)
         return False
 
 
 def _apply_remote_snapshot(
+    organization_id: UUID,
     reconciliation_id: UUID,
     remote: ProviderSubscriptionSnapshot,
     checked_at: datetime,
 ) -> bool:
-    with transaction.atomic():
+    with billing_tenant_scope(organization_id):
         reconciliation = (
             BillingReconciliation.all_objects.select_for_update()
             .select_related("organization", "subscription")
@@ -205,11 +221,12 @@ def _apply_remote_snapshot(
 
 
 def _record_failure(
+    organization_id: UUID,
     reconciliation_id: UUID,
     error: Exception,
     checked_at: datetime,
 ) -> None:
-    with transaction.atomic():
+    with billing_tenant_scope(organization_id):
         reconciliation = BillingReconciliation.all_objects.select_for_update().get(
             pk=reconciliation_id
         )

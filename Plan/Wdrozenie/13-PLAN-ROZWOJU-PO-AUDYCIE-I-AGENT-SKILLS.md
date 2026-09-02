@@ -133,14 +133,12 @@ sumy, a nie wobec pojedynczego etapu, należy planować termin płatnego pilota.
   `tests/test_tenant_isolation_regimes.py` na prawdziwym PostgreSQL; komendy
   `issue_content_grant`/`revoke_content_grant` ustawiają tenant przed odczytem
   i wymagają `--organization` (2026-09-02);
-- [ ] domknąć ADR-039 dla `shared.billing`: 11 tabel tenantowych bez RLS
-  (checkout, subskrypcja, trial, lifecycle, notice, rekonsyliacja, faktury,
-  granty i snapshoty entitlementów, kwoty). Moduł nie ma żadnego helpera
-  kontekstu, a lifecycle, procesor webhooków i rekonsyliacja czytają
-  `all_objects` przez wszystkie organizacje — przed migracją te ścieżki muszą
-  iterować po organizacjach z `SET LOCAL` per tenant, a webhook wyznaczać
-  organizację z indeksu routingu przed odczytem. Dług jest zapisany jawnie w
-  `KNOWN_OPEN_PRIVATE_TABLES` testu i może tylko maleć;
+- [x] domknąć ADR-039 dla `shared.billing` — `billing/tenant_scope.py`, pięć
+  przemiatań pracujących organizacja po organizacji, procesor Stripe
+  wyznaczający tenant z `BillingProfile` przed odczytem, zadanie faktury
+  dostające `organization_id` w payloadzie oraz migracja `billing.0013` z
+  politykami na 11 tabelach i sześcioma wyzwalaczami relacji;
+  `KNOWN_OPEN_PRIVATE_TABLES` jest puste (2026-09-03);
 - [ ] sprawić, aby `deployment.json` rzeczywiście składał backendowe Django apps,
   URL-e, zadania i frontendowe route/menu, a nie tylko walidował deskryptory;
 - [x] usunąć niedozwolony import Core → Shared — jedyne naruszenie było w

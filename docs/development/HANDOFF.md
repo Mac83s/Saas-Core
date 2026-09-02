@@ -40,19 +40,32 @@ PostgreSQL, a `issue_content_grant`/`revoke_content_grant` wymagają
 `--organization` i ustawiają tenant przed pierwszym odczytem (test kolejności
 zapytań w `tests/test_sites_grant_commands.py`).
 
-**Znany dług RLS:** `shared.billing` nie ma RLS na żadnej z 11 tabel
-tenantowych i nie ma helpera kontekstu; lifecycle, procesor webhooków i
-rekonsyliacja czytają przez wszystkie organizacje. Dług jest zapisany w
-`KNOWN_OPEN_PRIVATE_TABLES` (lista może tylko maleć) i jest osobną pozycją P1.
+ADR-039 obowiązuje też w `shared.billing` (2026-09-03). Nowy
+`billing/tenant_scope.py` daje `billing_tenant_scope` i `billing_organization_ids`;
+pięć przemiatań (lifecycle, rekonsyliacja, wygaszanie override'ów, zwalnianie
+rezerwacji, faktury) pracuje organizacja po organizacji, procesor Stripe
+wyznacza tenant z `BillingProfile` po `external_customer_id` przed dotknięciem
+tabeli tenantowej, a zadanie faktury dostaje `organization_id` w payloadzie.
+Migracja `billing.0013` zakłada polityki na 11 tabelach i sześć wyzwalaczy
+relacji rodzic–dziecko. `KNOWN_OPEN_PRIVATE_TABLES` w teście izolacji jest
+puste — wpis wolno tam dodać wyłącznie razem z pozycją planu, która go usuwa.
 
-Do zrobienia w P1, w tej kolejności: (1) RLS w billing — najpierw przepisać
-ścieżki cross-tenant na iterację po organizacjach z `SET LOCAL`, webhook ma
-wyznaczać organizację z indeksu routingu przed odczytem, potem migracja;
-(2) `deployment.json` składa `INSTALLED_APPS`, URL-e, zadania i frontendowe
-route/menu — dziś `INSTALLED_APPS` jest stałą listą, więc `core-only` ma
-zainstalowane wszystkie moduły Shared; (3) artefakt modułów i hash profilu;
-(4) macierz wersja/migracje/rollback. Potem P2 (skills, `pnpm ai:validate`,
-CI) i P3.
+Uwaga wykonawcza: indeksem przemiatania jest `Organization`, nie
+`BillingProfile` — profil powstaje tylko dla organizacji z serwisu onboardingu,
+więc użycie go pomijałoby resztę (to był pierwszy błąd tej zmiany, złapany
+przez testy lifecycle).
+
+Do zrobienia w P1, w tej kolejności: (1) `deployment.json` składa
+`INSTALLED_APPS`, URL-e, zadania i frontendowe route/menu — dziś
+`INSTALLED_APPS` jest stałą listą, więc `core-only` ma zainstalowane wszystkie
+moduły Shared; (2) artefakt modułów i hash profilu; (3) macierz
+wersja/migracje/rollback. Potem P2 (skills, `pnpm ai:validate`, CI) i P3.
+
+Właściciel zamówił też **kredyty** (2026-09-03): pula kupowana przez naszych
+klientów (organizacje) obok abonamentu, zużywana per operacja. Wyłącznie dla
+naszych klientów — kredyty dla klientów końcowych tych firm są poza zakresem.
+Dziś w kodzie nie ma pojęcia kredytu, są tylko limity planu (`QuotaDefinition`,
+`QuotaUsage`, `QuotaReservation`). To następna pozycja po billingu.
 
 Testy backendu da się uruchomić z Windows bez WSL: venv poza repo przez
 `UV_PROJECT_ENVIRONMENT=<katalog>` (`uv sync --project apps/backend`), hasło
@@ -144,6 +157,10 @@ grace/read-only, runbook aktywacji i rollbacku.
 
 ## Dowody walidacji
 
+- 2026-09-03 (P1, ADR-039 w billing): pełna suita backendu **463 passed** na
+  lokalnym PostgreSQL, w tym nowe `tests/test_billing_isolation.py` (6);
+  `makemigrations --check` bez zmian po `billing.0013`; import-linter 1 kept,
+  0 broken; Mypy 0 błędów w 261 plikach; Ruff czysty;
 - 2026-09-02 (P1, ADR-039): `tests/test_tenant_isolation_regimes.py` 3/3,
   `tests/test_module_catalog.py` 3/3 i `tests/test_platform_workspace.py`
   4/4 na prawdziwym PostgreSQL (Windows venv, Docker Desktop) — dowód dla

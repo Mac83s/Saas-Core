@@ -19,6 +19,7 @@ from saas_core.modules.core.organizations.models import (
 
 from .models import EntitlementGrant, Feature, GrantSource, QuotaDefinition
 from .snapshots import refresh_entitlement_snapshot, refresh_internal_snapshot
+from .tenant_scope import billing_organization_ids, billing_tenant_scope
 
 
 class BillingOperatorRequired(PermissionDenied):
@@ -141,9 +142,7 @@ def create_entitlement_override(
 
 
 @transaction.atomic
-def revoke_entitlement_override(
-    *, actor: User, grant_id: UUID, reason: str
-) -> EntitlementGrant:
+def revoke_entitlement_override(*, actor: User, grant_id: UUID, reason: str) -> EntitlementGrant:
     context = require_tenant_context()
     _authorize_operator(actor)
     normalized_reason = reason.strip()
@@ -173,22 +172,37 @@ def revoke_entitlement_override(
 
 def expire_entitlement_overrides(*, at: datetime | None = None, batch_size: int = 100) -> int:
     checked_at = at or timezone.now()
-    ids = list(
-        EntitlementGrant.all_objects.filter(
-            source=GrantSource.OVERRIDE,
-            revoked_at__isnull=True,
-            expires_at__lte=checked_at,
-        )
-        .order_by("expires_at", "id")
-        .values_list("id", flat=True)[:batch_size]
-    )
-    for grant_id in ids:
-        _expire_override(grant_id=grant_id, at=checked_at)
-    return len(ids)
+    expired = 0
+    remaining = batch_size
+    # Grants force row-level security, so the sweep walks organizations
+    # instead of asking for every expired grant at once (ADR-039).
+    for organization_id in billing_organization_ids():
+        if remaining <= 0:
+            break
+        with billing_tenant_scope(organization_id):
+            ids = list(
+                EntitlementGrant.all_objects.filter(
+                    organization_id=organization_id,
+                    source=GrantSource.OVERRIDE,
+                    revoked_at__isnull=True,
+                    expires_at__lte=checked_at,
+                )
+                .order_by("expires_at", "id")
+                .values_list("id", flat=True)[:remaining]
+            )
+        remaining -= len(ids)
+        for grant_id in ids:
+            _expire_override(organization_id=organization_id, grant_id=grant_id, at=checked_at)
+        expired += len(ids)
+    return expired
 
 
-@transaction.atomic
-def _expire_override(*, grant_id: UUID, at: datetime) -> None:
+def _expire_override(*, organization_id: UUID, grant_id: UUID, at: datetime) -> None:
+    with billing_tenant_scope(organization_id):
+        _expire_override_in_scope(grant_id=grant_id, at=at)
+
+
+def _expire_override_in_scope(*, grant_id: UUID, at: datetime) -> None:
     grant = (
         EntitlementGrant.all_objects.select_for_update()
         .select_related("organization")

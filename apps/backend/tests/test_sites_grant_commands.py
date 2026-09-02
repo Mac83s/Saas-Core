@@ -13,6 +13,7 @@ from typing import Any
 
 import pytest
 from django.contrib.auth.hashers import make_password
+from django.core.cache import cache
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db import connection
@@ -22,6 +23,13 @@ from test_platform_workspace import confirm_mfa, operator
 from test_sites_api import create_site, sites_client
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture(autouse=True)
+def clear_cache() -> None:
+    """Each test signs several people in; the login limiter lives in the cache."""
+    cache.clear()
+
 
 GUARDED_TABLES = ("notifications_apikey", "sites_contentautomationgrant")
 
