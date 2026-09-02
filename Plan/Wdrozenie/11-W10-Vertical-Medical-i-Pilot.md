@@ -1,8 +1,9 @@
 # W10 — Vertical Medical i pilot MedPlano
 
-**Status:** blocked by W5–W9.5 and privacy review
+**Status:** blocked by W5–W9.5, minimalne bramki P1–P5 planu poaudytowego i privacy review
 **Szacunek:** 2–3 tygodnie  
-**Poprzednicy:** W5, W6, W7, W8, W9, W9.5
+**Poprzednicy:** W5, W6, W7, W8, W9, W9.5 oraz wymagany zakresem pilota
+fragment [planu poaudytowego](13-PLAN-ROZWOJU-PO-AUDYCIE-I-AGENT-SKILLS.md)
 **Rezultat:** pierwszy gabinet przechodzi pełny onboarding MedPlano
 
 ## 1. Granica produktu

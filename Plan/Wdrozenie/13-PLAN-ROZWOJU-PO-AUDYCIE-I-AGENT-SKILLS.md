@@ -1,0 +1,329 @@
+# Plan rozwoju po audycie i autonomiczne Agent Skills
+
+**Status:** approved for execution
+**Data:** 2026-09-02
+**Właściciel:** zespół SaaS Core
+**Zakres:** domknięcie fundamentu wieloproduktowego, profili, rezerwacji,
+płatności wizytowych, Site Studio i AI oraz ustanowienie repozytoryjnych Agent
+Skills utrzymywanych przez agentów bez ręcznej edycji przez właściciela produktu
+
+## 1. Cel i relacja do istniejących fal
+
+Ten dokument porządkuje dalszą realizację po audycie. Nie zastępuje
+szczegółowych checklist W9.5, W9.6, W10 ani W11. Ustala ich brakujące
+poprzedniki, kolejność oraz równoległy tor Agent Skills.
+
+Plan kończy się dopiero wtedy, gdy z jednego repozytorium można zbudować i
+niezależnie wdrożyć co najmniej `core-only` i MedPlano, a pełna ścieżka
+użytkownika obejmuje profil, stronę, rezerwację oraz opcjonalną płatność z
+prowizją platformy. Skills deweloperskie mają w tym czasie ograniczać koszt
+ponownego poznawania repozytorium i zapobiegać omijaniu jego kontraktów.
+
+## 2. Niezmienne decyzje
+
+1. SaaS Core, moduły Shared, verticale i konfiguracje produktów pozostają w
+   jednym monorepo zgodnie z ADR-021. Nie tworzymy kopii ani forka Core dla
+   każdej platformy.
+2. Każda platforma otrzymuje osobny deployment, wersjonowany obraz, domenę,
+   PostgreSQL, storage, Redis/kolejki, sekrety, backup i monitoring. Jeden commit
+   może być wdrażany do produktów w różnym terminie; deployment przypina
+   konkretny tag lub digest obrazu.
+3. Dane produktowe platform nie są współdzielone. Ewentualne wspólne logowanie
+   między platformami wymaga w przyszłości osobnego kontraktu tożsamości/SSO i
+   nie jest realizowane przez wspólną bazę aplikacji.
+4. Osobne repozytorium powstaje tylko dla samodzielnej usługi o niezależnym
+   cyklu życia, granicy bezpieczeństwa albo stosie technicznym. Taka usługa ma
+   własną bazę i integruje się przez wersjonowane API lub zdarzenia.
+5. Billing abonamentu za SaaS i płatności klienta za wizytę pozostają osobnymi
+   domenami. Płatności wizytowe nie rozszerzają po cichu `shared.billing`.
+6. Repozytoryjne Agent Skills służą developmentowi i administracji. Skills
+   produktowe asystenta klienta są częścią `shared.assistant` i podlegają
+   TenantContext, permission, entitlementom, zgodom i audytowi z ADR-033.
+7. Właściciel produktu nie edytuje ani ręcznie nie synchronizuje skills.
+   Agenci dobierają je automatycznie, utrzymują i walidują. Nie oznacza to prawa
+   do samodzielnej zmiany zaakceptowanych ADR-ów, użycia sekretów, wdrożenia na
+   produkcję ani wykonania nieodwracalnej operacji bez wymaganej zgody.
+
+## 3. Kolejność realizacji
+
+Szacunki są orientacyjne dla 1–2 doświadczonych wykonawców wspieranych przez
+agentów. Nie są terminem biznesowym; po P0 należy je ponownie oszacować na
+podstawie zatwierdzonych kontraktów.
+
+| Etap | Zakres | Szacunek | Blokuje | Może biec równolegle |
+| --- | --- | ---: | --- | --- |
+| P0 | decyzje i kontrakty po audycie | 1 tydzień | wszystkie dalsze mutacje modeli | analiza W9.6 bez zmian modeli |
+| P1 | realna kompozycja deploymentów i naprawa granic | 1–2 tygodnie | nowe verticale i niezależne obrazy | P2 po zamrożeniu kontraktu katalogu modułów |
+| P2 | fundament autonomicznych Agent Skills | 1–2 tygodnie | wykonywanie dalszych fal przez skills | końcówka P1 |
+| P3 | tożsamość profilu i konto klienta | 2–3 tygodnie | pełny self-service i historia klienta | bezpieczne elementy W9.5.5–W9.5.6 |
+| P4 | produktowe domknięcie Booking | 2–4 tygodnie | płatność wizytowa | W9.6 i Site Studio |
+| P5 | Appointment Commerce i Stripe Connect | 3–5 tygodni | płatny pilot | W9.5.7 po ustabilizowaniu komend |
+| P6 | Site Studio, generator AI i skills produktowe | 4–7 tygodni | pełny cel W9.5 | późna część P4–P5 |
+| P7 | Vertical Medical i pilot MedPlano | 2–3 tygodnie | go-live | wyłącznie prace niezmieniające kontraktów P3–P6 |
+| P8 | staging, hardening i go-live | 2–3 tygodnie | produkcja | brak dla bramek krytycznych |
+
+## 4. P0 — decyzje i kontrakty po audycie
+
+- [ ] zatwierdzić ADR rozdzielający `User`, `Organization`, `PublicProfile` i
+  tenantowego `Customer`, wraz z zasadami dobrowolnej aktywacji konta klienta;
+- [ ] zdecydować, czy pierwsze wydanie ma konta wyłącznie per platforma; wspólne
+  SSO pozostawić poza zakresem, dopóki nie powstanie jawny kontrakt;
+- [ ] zatwierdzić ADR płatności wizytowych: usługodawca jako merchant of record,
+  operator, prowizja, depozyt lub pełna płatność, zwroty, spory, no-show,
+  podatki i dokumenty sprzedaży;
+- [ ] zatwierdzić ADR repozytoryjnych Agent Skills: źródło prawdy, routing,
+  walidacja, aktualizacja, granice autonomii i rollback;
+- [ ] zamrozić publiczne komendy aplikacyjne wymagane przez profile, Booking,
+  Commerce i `shared.assistant`; AI nie otrzymuje osobnej ścieżki zapisu;
+- [ ] przypisać każdy brak po audycie do P1–P8 i wskazać bramkę dowodową zamiast
+  deklaracji statusu.
+
+### Bramka P0
+
+- [ ] nowe decyzje są zatwierdzone lub jawnie oznaczone jako blokujące;
+- [ ] diagram właścicieli danych nie ma współdzielonej bazy między platformami;
+- [ ] scenariusze płatności i zwrotów mają właściciela prawnego/księgowego;
+- [ ] zakres pierwszych skills oraz ich źródła są jednoznaczne.
+
+## 5. P1 — realna kompozycja produktów
+
+- [ ] sprawić, aby `deployment.json` rzeczywiście składał backendowe Django apps,
+  URL-e, zadania i frontendowe route/menu, a nie tylko walidował deskryptory;
+- [ ] usunąć niedozwolony import Core → Shared i utrzymywać zielony
+  import-linter oraz ESLint boundaries;
+- [ ] dodać test, że `core-only` nie aktywuje Billing, Sites, Booking ani żadnego
+  verticala, a MedPlano aktywuje wyłącznie zadeklarowany graf;
+- [ ] generować artefakt modułów i hash profilu używany przez backend, frontend,
+  workera i schedulera; niezgodny obraz ma odmówić startu;
+- [ ] udokumentować i przetestować osobną bazę, użytkownika DB, storage, Redis,
+  sekrety, backup, domenę i obserwowalność każdego deploymentu;
+- [ ] utrzymywać macierz `deployment → wersja/digest → migracje → rollback`, aby
+  produkty mogły aktualizować się niezależnie z jednego repozytorium.
+
+### Bramka P1
+
+- [ ] build i smoke test `core-only` oraz `medplano` dowodzą różnych aktywnych
+  powierzchni API/UI;
+- [ ] żaden wyłączony moduł nie rejestruje routingu, workera ani schedulera;
+- [ ] test importów i kontraktów modułów jest zielony;
+- [ ] dwa środowiska testowe używają osobnych danych i sekretów.
+
+## 6. P2 — autonomiczny system Agent Skills
+
+### 6.1. Źródło prawdy i routing
+
+- [ ] ustanowić `.agents/skills/<skill-name>/SKILL.md` jako kanoniczne skills
+  projektu; reguły obowiązujące każde zadanie pozostają w `AGENTS.md`;
+- [ ] dla klientów wymagających adapterów generować lub aktualizować cienkie
+  odwołania, bez kopiowania pełnej treści skill; dopuścić wyłącznie zarządzane
+  przez Memex dokładne mirrory, których integralność sprawdza integracja Memex;
+- [ ] dodać `docs/AI_AGENTS.md` opisujące podział instrukcji, automatyczny routing,
+  granice uprawnień i procedurę naprawy;
+- [ ] dodać obowiązkową mapę ścieżek w `AGENTS.md`: zmiana danego modułu wymaga
+  odczytania odpowiadającego skill. Nie polegać wyłącznie na swobodnym
+  rozpoznaniu intencji przez model;
+- [ ] zachować domyślne implicit invocation; opisy skills muszą być krótkie i
+  rozłączne, aby agent sam wybierał właściwy zestaw.
+
+### 6.2. Pierwszy katalog
+
+Skills powstają dopiero, gdy mają realne źródła i scenariusze. Pierwszy zestaw:
+
+| Skill | Kiedy ma się aktywować | Kanoniczne źródła |
+| --- | --- | --- |
+| `develop-saas-core-module` | dodanie lub zmiana modułu/deploymentu | ADR-021, module contract, deployment profile |
+| `change-tenant-data` | model, migracja, manager, RLS lub zadanie tenantowe | ADR-022, tenant context, testing strategy |
+| `change-api-and-events` | endpoint, schema, klient albo zdarzenie | ADR-024, OpenAPI, api-and-events |
+| `develop-sites` | strony, domeny, media, publikacja i content operations | ADR-027–029, ADR-031, ADR-035 |
+| `develop-booking` | usługi, grafik, klient i wizyty | ADR-030 i kontrakty Booking |
+| `develop-commerce-payments` | płatność wizyty, Connect, zwrot lub webhook | ADR Commerce z P0 i kontrakty providera |
+| `develop-assistant-runtime` | narzędzie, workflow, prompt, voice lub runtime skill | ADR-033 i kontrakty komend |
+| `prepare-product-deployment` | nowy profil produktu, obraz, migracja lub rollout | ADR-021, ADR-025, deployment profile |
+| `verify-saas-core-release` | odbiór przyrostu lub release candidate | testing strategy, W11 i runbooki |
+| `maintain-saas-core-skills` | skill jest nieaktualny albo zmieniło się jego źródło | katalog skills, walidator i historia usterek |
+
+Skill aplikacyjny, np. `develop-medplano`, powstaje razem z pierwszą realną
+implementacją verticala. Ma zawierać wyłącznie różnice branżowe i kierować do
+skills Core/Shared; nie kopiuje ich treści. Dodanie kolejnego deploymentu
+uruchamia kontrolę, czy potrzebny jest osobny skill produktowy.
+
+### 6.3. Aktualizacja skills bez obsługi właściciela
+
+`maintain-saas-core-skills` ma wykonywać kontrolowany cykl:
+
+1. wykryć zmianę ADR-u, architektury wykonywalnej, manifestu modułu/deploymentu,
+   OpenAPI, komendy jakościowej albo powtarzalną porażkę agenta;
+2. wskazać skills zależne od zmienionego źródła;
+3. zmienić tylko wymagane instrukcje lub referencje;
+4. uruchomić walidację struktury, linków, nazw, triggerów, adapterów i rozmiaru;
+5. wykonać scenariusze zachowania oraz właściwe testy repozytorium;
+6. pokazać diff, zapisać dowody i utworzyć osobny commit z możliwością
+   zwykłego revertu.
+
+Meta-skill nie może sam uznać swojej zmiany za poprawną wyłącznie dlatego, że
+plik przechodzi parser. Deterministyczny walidator i scenariusze regresyjne są
+niezależną bramką. Zmiana skill nie może rozszerzać uprawnień, zastępować ADR-u
+ani automatycznie autoryzować działań produkcyjnych.
+
+### 6.4. Walidacja i obserwowalność
+
+- [ ] dodać `pnpm ai:validate` i gate CI sprawdzający frontmatter, unikalność
+  nazw, działające linki/ścieżki/komendy, cienkie adaptery, brak sekretów,
+  nadmiarowe lub konfliktujące triggery oraz osierocone skills;
+- [ ] sprawdzać, że każdy aktywny deployment i moduł wysokiego ryzyka ma
+  przypisaną procedurę albo świadomie korzysta ze skill ogólnego;
+- [ ] przygotować realistyczne evale: nowy endpoint, migracja tenantowa, zmiana
+  Booking, webhook Connect, nowy deployment i aktualizacja nieaktualnego skill;
+- [ ] uruchamiać kontrolę driftu przy zmianie źródeł oraz cykliczny przegląd
+  katalogu wykonywany przez agenta; wykryty problem tworzy poprawkę i dowody,
+  nie instrukcję ręcznej edycji dla właściciela;
+- [ ] mierzyć dobór właściwego skill, liczbę korekt po review, nieudane bramki,
+  czas do znalezienia kontraktu i regresje spowodowane nieaktualną instrukcją;
+- [ ] brak wymaganej instrukcji lub niezgodność walidatora blokuje merge, ale nie
+  dostępność uruchomionego produktu.
+
+### Bramka P2
+
+- [ ] agent potrafi wykonać reprezentatywne zadania bez ręcznego wskazywania
+  skill przez właściciela;
+- [ ] zmiana źródłowego ADR-u lub komendy powoduje wykrywalny drift;
+- [ ] maintainer aktualizuje wskazany skill, a walidacja wykrywa celowo
+  wprowadzony zły link, zduplikowany trigger i przekroczenie uprawnień;
+- [ ] skills Codex i wspieranych klientów nie rozjeżdżają się treściowo;
+- [ ] `pnpm ai:validate` działa lokalnie i w CI.
+
+## 7. P3 — profile i konto klienta
+
+- [ ] pozostawić `User` kontem uwierzytelniającym, a publiczne dane przenieść do
+  jawnego modelu `PublicProfile` osoby lub organizacji;
+- [ ] powiązać profil rozszerzony z Site bez duplikowania treści strony;
+- [ ] umożliwić rezerwację gościnną, a następnie bezpieczną aktywację konta i
+  przypięcie istniejących rekordów `Customer` po weryfikacji adresu;
+- [ ] zbudować panel klienta: przyszłe i historyczne wizyty, przełożenie,
+  anulowanie, płatności, eksport i usunięcie konta;
+- [ ] zdefiniować role Owner, administrator, pracownik, specjalista, recepcja,
+  klient i operator oraz ich negatywne testy exact-tenant;
+- [ ] wdrożyć wersjonowane Terms/Privacy acknowledgement bez blokowania prawa do
+  anulowania usługi, eksportu i usunięcia danych.
+
+### Bramka P3
+
+- [ ] użytkownik może mieć profil prosty bez strony albo rozszerzony z Site;
+- [ ] klient może rezerwować bez konta i opcjonalnie odzyskać historię po jego
+  aktywacji;
+- [ ] połączenie `User`–`Customer` nie umożliwia przejęcia cudzych wizyt;
+- [ ] usunięcie lub anonimizacja ma przetestowaną politykę retencji.
+
+## 8. P4 — produktowe domknięcie Booking
+
+- [ ] dodać do usługi cenę, walutę, stawkę podatku, warianty, bufor, minimalne
+  wyprzedzenie i politykę płatności;
+- [ ] obsłużyć depozyt, pełną płatność, bezpłatną rezerwację oraz płatność na
+  miejscu jako jawne warianty organizacji/usługi;
+- [ ] dodać zasady anulowania, zwrotu, przełożenia, no-show i spóźnienia;
+- [ ] poprawić self-service tak, aby nowy termin pochodził z rzeczywistej
+  dostępności;
+- [ ] dodać synchronizację Google/Microsoft/iCal z jawną polityką konfliktu i
+  ochroną przed podwójną rezerwacją;
+- [ ] zdecydować osobno o rezerwacjach grupowych, cyklicznych i liście
+  oczekujących; brak decyzji nie może rozszerzać pierwszego pilota;
+- [ ] domknąć powiadomienia, zgody marketingowe/transakcyjne, SMS i lokalizację
+  PL/EN bez zakodowanego na stałe locale.
+
+## 9. P5 — Appointment Commerce i Stripe Connect
+
+- [ ] utworzyć `shared.commerce` albo równoważny moduł płatności usługowych z
+  własnym descriptor, API, zdarzeniami, permissions, entitlementami i RLS;
+- [ ] zdefiniować tenantowe `PaymentProviderConnection`, `AppointmentPayment`,
+  refund, dispute, fee i append-only ledger bez przechowywania danych kart;
+- [ ] pozwolić organizacji włączyć lub wyłączyć płatności; pierwsze wydanie ma
+  jednego aktywnego providera na deployment, bez dowolnego miksowania operatorów
+  przez organizacje;
+- [ ] wdrożyć Stripe Connect w modelu SaaS platform: usługodawca jako merchant of
+  record i prowizja platformy jako application fee, jeżeli potwierdzi to przegląd
+  prawny, księgowy i umowa z providerem;
+- [ ] użyć hostowanego/embedded onboardingu KYB i nie przyjmować dokumentów
+  weryfikacyjnych do własnej bazy, jeśli provider może być ich właścicielem;
+- [ ] obsłużyć BLIK/karty/P24 zgodnie z realnymi capability oraz ograniczeniami
+  capture, refund i dispute, nie tylko z listą metod w UI;
+- [ ] zabezpieczyć webhooki podpisem, idempotencją, kolejnością zdarzeń,
+  rekonsyliacją i exact-tenant; return URL nie potwierdza zapłaty;
+- [ ] zwroty, chargebacki i korekty prowizji księgować wpisami kompensującymi;
+- [ ] po stabilizacji kontraktu ocenić adapter Mollie Connect; nie wdrażać
+  drugiego providera przed dowodem potrzeby biznesowej.
+
+### Bramka P5
+
+- [ ] jedna płatna i jedna bezpłatna organizacja działają równolegle;
+- [ ] powodzenie, odmowa, timeout, retry, zwrot częściowy, spór i zdarzenia poza
+  kolejnością mają testy sandbox i lokalną rekonsyliację;
+- [ ] kwota usługi, prowizji, opłaty providera, zwrotu i wypłaty daje się
+  odtworzyć z ledgeru;
+- [ ] aplikacja nie nadaje dostępu ani nie potwierdza wizyty wyłącznie na
+  podstawie przekierowania przeglądarki.
+
+## 10. P6 — Site Studio, AI i skills produktowe
+
+- [ ] dokończyć W9.5.5 i W9.5.6: drzewo stron, nawigację, undo/redo, dostępny
+  drag and drop, canvas, inspector i podgląd responsywny;
+- [ ] wdrożyć `shared.assistant` z W9.5.7 oraz `site.generate_draft`, który wybiera
+  tylko zatwierdzony PageTemplate i kontrolowane bloki;
+- [ ] wersjonować prompty, narzędzia i runtime skills oraz przypisać im ryzyko,
+  wymagane permission, entitlement, zgodę, idempotency key i budżet;
+- [ ] zapewnić równoważną ręczną ścieżkę, gdy provider AI lub SeoContentRank jest
+  niedostępny;
+- [ ] rozdzielić skills produktowe per capability i per vertical, ale nie
+  duplikować logiki domenowej: skill planuje, a komenda aplikacyjna waliduje i
+  wykonuje;
+- [ ] dodać evale PL/EN dla prompt injection, cross-tenant, halucynowanej
+  komendy, zmiany planu po zgodzie, kosztu, latencji i awarii providera;
+- [ ] utrzymać operacje wymagające człowieka z ADR-035; automatyczna aktualizacja
+  repozytoryjnego skill nie rozszerza autonomii asystenta klienta.
+
+## 11. P7–P8 — Vertical Medical, staging i go-live
+
+- [ ] wykonać W10 dopiero po minimalnych bramkach P1–P5 wymaganych przez zakres
+  płatnego pilota;
+- [ ] stworzyć `develop-medplano` z kontraktu realnego verticala i deploymentu,
+  a nie z założeń przed implementacją;
+- [ ] utrzymać MedPlano poza dokumentacją kliniczną, diagnozą i przekazywaniem
+  danych zdrowotnych do AI bez osobnego ADR-u i oceny regulacyjnej;
+- [ ] uruchomić osobny VPS MedPlano z bazą, storage, Redis, sekretami, monitoringiem
+  i backupem oraz wykonać test odtworzenia całego środowiska;
+- [ ] przejść W11 z dodatkowymi runbookami dla Connect, skills/AI, kosztów modeli,
+  awarii providera i cofnięcia nieprawidłowej aktualizacji skill;
+- [ ] wymagać wersjonowanego obrazu, migracji próbnej, smoke E2E i rollbacku
+  aplikacji, bazy oraz DNS przed decyzją go-live.
+
+## 12. Globalna definicja ukończenia
+
+- [ ] każda funkcja ma właściciela danych i działa tylko w aktywnym deployment;
+- [ ] backend egzekwuje TenantContext, permission i entitlement niezależnie od
+  panelu, asystenta, MCP i skill;
+- [ ] mutacje mają audit, idempotencję, transakcję/outbox oraz kompensację, gdy
+  skutek zewnętrzny nie jest atomowy;
+- [ ] API jest w OpenAPI, a klient TypeScript jest generowany;
+- [ ] testy obejmują cross-tenant, współbieżność, retry i ścieżki odmowy;
+- [ ] PL/EN, mobile, klawiatura i axe są częścią odbioru interfejsu;
+- [ ] lokalne testy, staging smoke i dowody produkcyjne są raportowane osobno;
+- [ ] repozytoryjne i produktowe skills mają osobne katalogi, odpowiedzialność i
+  bramki bezpieczeństwa;
+- [ ] aktualizacja skill jest automatyczna dla właściciela produktu, ale nadal
+  pozostawia przeglądalny diff, testy, commit i możliwość rollbacku;
+- [ ] go-live nie następuje bez działającego backupu, restore, monitoringu,
+  obsługi incydentu i formalnego przeglądu privacy/płatności.
+
+## 13. Źródła i zależności
+
+- ADR-021 — monorepo, moduły i profile deploymentu;
+- ADR-022 — tenancy i RLS;
+- ADR-024 — API, OpenAPI i zdarzenia;
+- ADR-025 — runtime, sekrety i odtwarzanie;
+- ADR-026 i ADR-034 — billing SaaS oraz odroczenie realnego providera;
+- ADR-027–ADR-031 — strony, domeny, komunikacja, Booking i Site Studio;
+- ADR-033 — produktowy asystent AI, narzędzia, zgody i głos;
+- ADR-035 — publikacja i granice automatyzacji;
+- oficjalny model SaaS Platforms w Stripe Connect:
+  https://docs.stripe.com/connect/saas-platforms-and-marketplaces;
+- Mollie Connect jako kandydat drugiego adaptera:
+  https://docs.mollie.com/docs/connect-overview.

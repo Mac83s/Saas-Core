@@ -45,8 +45,15 @@ katalogu opisują sposób realizacji i nie zmieniają statusu żadnego ADR-u.
 | W9 | [Booking](10-W9-Booking.md) | 3–5 tygodni | W4, W8 | neutralny branżowo, bezpieczny system rezerwacji |
 | W9.5 | [Customer Experience, Commerce i AI](10A-W9.5-Customer-Experience-Commerce-i-AI.md) | 6–10 tygodni | W3–W9 | self-service, szablony, Site Studio i asystent AI |
 | W9.6 | [Publication Platform i SeoContentRank](10B-W9.6-Publication-Platform-i-SeoContentRank.md) | 4–6 tygodni | W6–W8; współdzieli W9.5.5 | strony klientów, systemowy marketing/blog i bezpieczny connector content operations |
-| W10 | [Vertical Medical i pilot](11-W10-Vertical-Medical-i-Pilot.md) | 2–3 tygodnie | W5–W9.5 | pierwszy gabinet MedPlano przechodzi pełną ścieżkę |
-| W11 | [Hardening i uruchomienie](12-W11-Hardening-i-Go-Live.md) | 1–2 tygodnie | W0–W10 | audyt, odtworzenie, testy obciążeniowe i decyzja go-live |
+| W10 | [Vertical Medical i pilot](11-W10-Vertical-Medical-i-Pilot.md) | 2–3 tygodnie | W5–W9.5, wymagane P1–P5 | pierwszy gabinet MedPlano przechodzi pełną ścieżkę |
+| W11 | [Hardening i uruchomienie](12-W11-Hardening-i-Go-Live.md) | 1–2 tygodnie | W0–W10, plan poaudytowy | audyt, odtworzenie, testy obciążeniowe i decyzja go-live |
+
+Audyt platformy z 2026-09-02 wykazał przekrojowe braki, których nie należy
+wciskać do jednej istniejącej checklisty. Ich zatwierdzona kolejność,
+zależności oraz równoległy tor autonomicznych Agent Skills opisuje
+[plan rozwoju po audycie](13-PLAN-ROZWOJU-PO-AUDYCIE-I-AGENT-SKILLS.md). Plan
+nie zastępuje fal powyżej: dodaje poprzedniki wymagane przed płatnym pilotem i
+go-live.
 
 Szacunki dotyczą 1–2 doświadczonych programistów i zostaną skorygowane po W0.
 W5 i W6 mogą częściowo biec równolegle dopiero wtedy, gdy W4 jest stabilne.
@@ -106,6 +113,12 @@ Fala może przejść do `in progress`, gdy:
 | W11 | produkcyjne RPO/RTO, parametry VPS i kryteria go-live |
 
 ## 8. Bieżący ruch
+
+Od 2026-09-02 pierwszym ruchem jest P0 planu poaudytowego: zatwierdzenie
+kontraktów profilu klienta, Appointment Commerce i autonomicznego cyklu Agent
+Skills. Następnie P1 domyka rzeczywistą kompozycję deploymentów, a P2 buduje
+kanoniczny katalog i walidację skills. Dalsze pakiety W9.5 i W9.6 zachowują swoje
+właścicielstwo domenowe, lecz zmiany modeli muszą respektować te nowe bramki.
 
 Lokalne implementacje W0–W9 są zakończone; bramki wymagające prawdziwego
 stagingu/VPS pozostają świadomie odłożone i nie są oznaczone jako zaliczone.

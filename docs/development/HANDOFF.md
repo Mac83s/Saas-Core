@@ -1,12 +1,29 @@
 # Handoff następnej sesji
 
-**Aktualizacja:** 2026-08-28
+**Aktualizacja:** 2026-09-02
 
 **Repozytorium:** `/mnt/a/DEVELOPMENT/Saas-Core` (`A:\DEVELOPMENT\Saas-Core`)
 
 **Gałąź:** `main`
 
 ## Punkt wznowienia
+
+Audyt z 2026-09-02 i decyzja właściciela dodały nadrzędny
+[plan rozwoju po audycie i Agent Skills](../../Plan/Wdrozenie/13-PLAN-ROZWOJU-PO-AUDYCIE-I-AGENT-SKILLS.md).
+Przed kolejną zmianą modeli rozpocznij P0: przygotuj ADR profilu/tożsamości
+klienta, ADR Appointment Commerce oraz ADR cyklu repozytoryjnych Agent Skills.
+Następnie P1 ma domknąć rzeczywistą kompozycję deploymentów i istniejące
+naruszenie Core → Shared, a P2 ustanowić kanoniczne skills, automatyczny routing,
+`pnpm ai:validate` i CI. Skills mają być utrzymywane przez agentów; właściciel
+produktu nie synchronizuje ani nie edytuje ich ręcznie.
+
+Repozytoryjne skills deweloperskie i produktowe skills `shared.assistant` są
+dwoma osobnymi systemami. Pierwsze pomagają zmieniać kod, drugie działają w
+TenantContext przez wersjonowane komendy aplikacyjne. Żaden skill nie zmienia
+zaakceptowanego ADR-u ani nie autoryzuje wdrożenia produkcyjnego.
+
+Istniejące W9.5 i W9.6 pozostają planami szczegółowymi. Nie duplikuj ich modeli
+ani kontraktów w planie poaudytowym.
 
 Kontynuuj falę W9.5 z
 `Plan/Wdrozenie/10A-W9.5-Customer-Experience-Commerce-i-AI.md`. Pakiety

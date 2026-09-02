@@ -1,8 +1,9 @@
 # W11 — hardening i go-live
 
-**Status:** blocked by W0–W10  
+**Status:** blocked by W0–W10 oraz plan rozwoju po audycie
 **Szacunek:** 1–2 tygodnie  
-**Poprzednicy:** wszystkie fale funkcjonalne  
+**Poprzednicy:** wszystkie fale funkcjonalne oraz właściwe bramki
+[planu poaudytowego](13-PLAN-ROZWOJU-PO-AUDYCIE-I-AGENT-SKILLS.md)
 **Rezultat:** udokumentowana decyzja go/no-go dla pierwszego pilota
 
 ## 1. Cel
@@ -83,4 +84,3 @@ Go-live jest wstrzymany, jeśli:
 - test restore zgodnie z zatwierdzoną częstotliwością;
 - retro pilota i aktualizacja ADR-ów, limitów oraz roadmapy;
 - osobna decyzja przed przyjęciem kolejnych gabinetów lub verticala Beauty.
-
