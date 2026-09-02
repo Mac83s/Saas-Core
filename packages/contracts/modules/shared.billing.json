@@ -2,7 +2,7 @@
   "id": "shared.billing",
   "layer": "shared",
   "version": 1,
-  "dependsOn": ["core.organizations", "core.audit"],
+  "dependsOn": ["core.organizations"],
   "backend": {
     "djangoApp": "saas_core.modules.shared.billing",
     "urlPrefix": "/api/v1/billing",

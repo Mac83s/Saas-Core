@@ -9,7 +9,7 @@ realnej płatności.
 ## Konfiguracja simulatora
 
 Profil deploymentu z `shared.billing` publikuje dokładnie trzy stabilne klucze
-w `billing.planKeys`. Dla MedPlano są to `profile`, `starter` i `pro`. Po
+w `billing.planKeys`. Dla `business` są to `profile`, `starter` i `pro`. Po
 migracjach skonfiguruj odpowiadające im mapowania lokalne:
 
 ```bash

@@ -1,0 +1,28 @@
+{
+  "$schema": "../../packages/contracts/deployment.schema.json",
+  "schemaVersion": 1,
+  "id": "business",
+  "product": {
+    "name": "SaaS Core Business",
+    "defaultLocale": "pl",
+    "supportedLocales": ["pl", "en"],
+    "platformDomain": "business.localhost"
+  },
+  "modules": [
+    "core.health",
+    "core.identity",
+    "core.organizations",
+    "shared.billing",
+    "shared.sites",
+    "shared.media",
+    "shared.notifications",
+    "shared.booking"
+  ],
+  "billing": {
+    "planKeys": ["profile", "starter", "pro"]
+  },
+  "features": {
+    "customDomains": true,
+    "publicBooking": true
+  }
+}

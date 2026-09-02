@@ -1,0 +1,18 @@
+{
+  "id": "core.health",
+  "layer": "core",
+  "version": 1,
+  "dependsOn": [],
+  "backend": {
+    "djangoApp": "saas_core.modules.core.health",
+    "urlPrefix": "/api/v1/health",
+    "permissions": [],
+    "entitlements": [],
+    "eventSchemas": []
+  },
+  "frontend": {
+    "routes": [],
+    "navigation": [],
+    "translationNamespaces": []
+  }
+}

@@ -8,7 +8,7 @@
     "supportedLocales": ["pl", "en"],
     "platformDomain": "core.localhost"
   },
-  "modules": ["core.identity", "core.organizations", "core.audit"],
+  "modules": ["core.health", "core.identity", "core.organizations"],
   "features": {
     "customDomains": false,
     "publicBooking": false

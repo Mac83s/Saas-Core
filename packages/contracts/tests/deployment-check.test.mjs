@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
+import { cp, mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { test } from "node:test";
 
 import {
   assertBillingConfiguration,
+  repositoryRoot,
   validateDeployment,
 } from "../scripts/deployment-check.mjs";
 import { toPublicDeployment } from "../scripts/deployment-render.mjs";
@@ -10,22 +14,87 @@ import { toPublicDeployment } from "../scripts/deployment-render.mjs";
 test("profil core-only jest poprawny i posortowany zależnościami", async () => {
   const result = await validateDeployment("core-only");
   assert.deepEqual(result.modules, [
+    "core.health",
     "core.identity",
     "core.organizations",
-    "core.audit",
   ]);
   assert.equal(result.profile.billing, undefined);
 });
 
-test("profil MedPlano zawiera vertical i warstwę konfiguracji na końcu", async () => {
-  const result = await validateDeployment("medplano");
-  assert.equal(result.modules.at(-1), "config.medplano");
-  assert.ok(result.modules.includes("vertical.medical"));
+test("profil business składa wszystkie moduły Shared bez verticala", async () => {
+  const result = await validateDeployment("business");
+  assert.deepEqual(result.modules, [
+    "core.health",
+    "core.identity",
+    "core.organizations",
+    "shared.billing",
+    "shared.sites",
+    "shared.media",
+    "shared.notifications",
+    "shared.booking",
+  ]);
+  assert.ok(
+    result.modules.every((id) => /^(core|shared)\./.test(id)),
+    "profil generyczny nie ma warstwy vertical ani config",
+  );
   assert.deepEqual(result.profile.billing.planKeys, [
     "profile",
     "starter",
     "pro",
   ]);
+});
+
+test("deskryptor aplikacji, której nie ma w kodzie, jest odrzucany", async () => {
+  // A catalog that lies passes schema and graph checks and fails only at boot.
+  // Build a repository root with one phantom module and make sure the check
+  // refuses it before anything gets built.
+  const root = await mkdtemp(path.join(tmpdir(), "saas-core-catalog-"));
+  const contracts = path.join(root, "packages/contracts");
+  await mkdir(path.join(contracts, "modules"), { recursive: true });
+  await mkdir(path.join(root, "deployments/ghost"), { recursive: true });
+  for (const file of ["deployment.schema.json", "module.schema.json"]) {
+    await cp(
+      path.join(repositoryRoot, "packages/contracts", file),
+      path.join(contracts, file),
+    );
+  }
+  await writeFile(
+    path.join(contracts, "modules/core.ghost.json"),
+    JSON.stringify({
+      id: "core.ghost",
+      layer: "core",
+      version: 1,
+      dependsOn: [],
+      backend: {
+        djangoApp: "saas_core.modules.core.ghost",
+        urlPrefix: null,
+        permissions: [],
+        entitlements: [],
+        eventSchemas: [],
+      },
+      frontend: { routes: [], navigation: [], translationNamespaces: [] },
+    }),
+  );
+  await writeFile(
+    path.join(root, "deployments/ghost/deployment.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      id: "ghost",
+      product: {
+        name: "Ghost",
+        defaultLocale: "pl",
+        supportedLocales: ["pl"],
+        platformDomain: "ghost.localhost",
+      },
+      modules: ["core.ghost"],
+      features: {},
+    }),
+  );
+
+  await assert.rejects(
+    validateDeployment("ghost", root),
+    /core\.ghost deklaruje backend\.djangoApp saas_core\.modules\.core\.ghost, którego nie ma/,
+  );
 });
 
 test("shared.billing wymaga dokładnie trzech unikalnych kluczy planu", () => {
@@ -61,7 +130,12 @@ test("shared.billing wymaga dokładnie trzech unikalnych kluczy planu", () => {
 
 test("nazwa profilu nie może uciec poza katalog deployments", async () => {
   await assert.rejects(
-    validateDeployment("../medplano"),
+    validateDeployment("../business"),
+    /Nieprawidłowa nazwa profilu/,
+  );
+  // Parked profiles live outside the catalog on purpose and are not checkable.
+  await assert.rejects(
+    validateDeployment("_planned/medplano"),
     /Nieprawidłowa nazwa profilu/,
   );
 });

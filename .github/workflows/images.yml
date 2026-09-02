@@ -27,7 +27,7 @@ jobs:
             build_args: ""
           - name: frontend
             dockerfile: apps/frontend/Dockerfile
-            build_args: DEPLOYMENT=medplano
+            build_args: DEPLOYMENT=business
           - name: caddy
             dockerfile: infra/caddy/Dockerfile
             build_args: ""

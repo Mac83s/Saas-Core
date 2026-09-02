@@ -2,7 +2,7 @@
   "id": "shared.media",
   "layer": "shared",
   "version": 1,
-  "dependsOn": ["core.organizations", "core.audit", "shared.billing"],
+  "dependsOn": ["core.organizations", "shared.billing"],
   "backend": {
     "djangoApp": "saas_core.modules.shared.media",
     "urlPrefix": "/api/v1/media",

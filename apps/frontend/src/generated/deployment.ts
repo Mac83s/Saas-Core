@@ -12,9 +12,9 @@ export const deployment = {
     "platformDomain": "core.localhost"
   },
   "modules": [
+    "core.health",
     "core.identity",
-    "core.organizations",
-    "core.audit"
+    "core.organizations"
   ],
   "features": {
     "customDomains": false,

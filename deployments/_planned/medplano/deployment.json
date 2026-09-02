@@ -1,5 +1,5 @@
 {
-  "$schema": "../../packages/contracts/deployment.schema.json",
+  "$schema": "../../../packages/contracts/deployment.schema.json",
   "schemaVersion": 1,
   "id": "medplano",
   "product": {

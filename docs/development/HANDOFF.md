@@ -17,15 +17,32 @@ kodem. Naruszenie Core → Shared zostało usunięte (komenda
 `provision_platform_workspace` przeniesiona do `shared.billing`); import-linter
 jest znów zielony.
 
-P0 jest rozpoczęte: trzy ADR-y są zapisane jako `Proposed` — ADR-036
-(tożsamość: `User`, `Organization`, `PublicProfile`, tenantowy `Customer`),
-ADR-037 (Appointment Commerce i Stripe Connect) i ADR-038 (repozytoryjne Agent
-Skills). Każdy ma sekcję „Decyzje wymagające właściciela"; P0 zamyka się, gdy
-właściciel zatwierdzi albo zmieni te punkty i status przejdzie na `Accepted`.
-Do tego czasu nie zmieniaj modeli `User` i `Customer` ani nie twórz
-`shared.commerce`. Następnie P1 (kompozycja deploymentów) i P2 (kanoniczne
-skills, `pnpm ai:validate`, CI). Skills mają być utrzymywane przez agentów;
-właściciel produktu nie synchronizuje ani nie edytuje ich ręcznie.
+P0 jest zamknięte decyzjami właściciela z 2026-09-02: ADR-036 (tożsamość,
+profile, konto klienta), ADR-038 (repozytoryjne Agent Skills) i ADR-039 (dwa
+reżimy izolacji: RLS domyślnie, tabele publiczne z deklaracji w deskryptorze)
+są `Accepted`; ADR-037 (płatności za wizyty) jest `Deferred` razem z P4/P5.
+MedPlano nie jest priorytetem — celem jest Core, z którego później powstają
+serwisy (MedPlano, tanie strony i kolejne). Baza = P0–P3, kolejność
+P0 → P1 → P2 → P3.
+
+P1 jest w toku. Zrobione: katalog modułów zgodny z kodem (deskryptory
+`vertical.medical`, `config.medplano` i `core.audit` usunięte, `core.health`
+dodany, profil `medplano` zaparkowany w `deployments/_planned/`), nowy profil
+`business` jako drugi produkt dowodowy, `pnpm deployment:check` odrzuca
+deskryptor aplikacji bez kodu, `tests/test_module_catalog.py` pilnuje obu
+kierunków, obraz frontendu w CI buduje się dla `business`. Do zrobienia w P1,
+w tej kolejności: (1) ADR-039 — pole `backend.publicTables` w
+`module.schema.json`, klasyfikacja tabel Sites z zapytań renderera
+(`publication_routing.py` czyta bezpośrednio `Domain`, `Site`,
+`ContentCollection` i `ContentEntry` — to kandydaci na publiczne), migracja RLS
+dla tabel prywatnych i test kontraktowy na PostgreSQL; (2) `deployment.json`
+składa `INSTALLED_APPS`, URL-e, zadania i frontendowe route/menu — dziś
+`INSTALLED_APPS` jest stałą listą, więc `core-only` ma zainstalowane wszystkie
+moduły Shared; (3) artefakt modułów i hash profilu; (4) macierz
+wersja/migracje/rollback. Potem P2 (skills, `pnpm ai:validate`, CI) i P3.
+
+Skills mają być utrzymywane przez agentów; właściciel produktu nie
+synchronizuje ani nie edytuje ich ręcznie.
 
 Repozytoryjne skills deweloperskie i produktowe skills `shared.assistant` są
 dwoma osobnymi systemami. Pierwsze pomagają zmieniać kod, drugie działają w
@@ -36,8 +53,9 @@ Istniejące W9.5 i W9.6 pozostają planami szczegółowymi. Nie duplikuj ich mod
 ani kontraktów w planie poaudytowym.
 
 W9.5 (`Plan/Wdrozenie/10A-W9.5-Customer-Experience-Commerce-i-AI.md`) ma
-ukończone W9.5.1–W9.5.4; W9.5.5–W9.5.8 są zaplanowane w P6, a W9.5.2S w P5.
-Nie zaczynaj W9.5.5 przed P0–P2, chyba że właściciel zmieni kolejność.
+ukończone W9.5.1–W9.5.4; W9.5.5–W9.5.8 są po bazie (P6). W9.5.2S — realny
+Stripe dla abonamentów — wchodzi poza kolejnością, gdy tylko właściciel
+dostarczy konto Stripe (zapowiedziane na 2026-09-03); patrz sekcja niżej.
 
 W9.6 — Publication Platform i gotowość na SeoContentRank — jest ukończone
 lokalnie (kod, testy, panel). Zostały wyłącznie rolloutowe pozycje W9.6.8 i
@@ -46,6 +64,31 @@ P8. Model nawigacji jest jeden i powstał w W9.6.3.
 
 Nie wracaj teraz do bramek wymagających prawdziwego stagingu/VPS. Są odłożone do
 sesji z dostępem do hosta, domeny, GHCR i GitHub Environment.
+
+## Realny Stripe (W9.5.2S) — gdy właściciel dostarczy konto
+
+Właściciel zapowiedział konto Stripe na 2026-09-03. Zakres i bramka odbioru
+pozostają w W9.5.2S i ADR-034; ten wpis mówi tylko, czego potrzeba na start.
+
+Od właściciela:
+
+1. dostęp do konta Stripe w trybie **test** (live dopiero po odbiorze):
+   `STRIPE_SECRET_KEY` (`sk_test_…`) i `STRIPE_WEBHOOK_SECRET` (`whsec_…`)
+   dostarczone przez secret store albo plik poza repo (`*_FILE`) — nigdy w
+   czacie ani w commicie; klucz wklejony do czatu trzeba zrotować;
+2. potwierdzenie waluty (PLN) i czy Stripe Tax ma liczyć VAT;
+3. włączony Customer Portal w dashboardzie (metoda płatności, faktury,
+   anulowanie, zmiana planu w obsługiwanym zakresie) i dane firmy do faktur;
+4. gdzie odbieramy webhooki: lokalnie przez `stripe listen --forward-to`
+   (Stripe CLI — wystarcza do testów) czy na stagingu (wymagane do zaliczenia
+   bramki ADR-034, bo dowodem jest staging smoke).
+
+Po stronie repo: `BILLING_PROVIDER=stripe` z fail-closed startem przy
+niekompletnej konfiguracji, dokładnie trzy Product/Price zmapowane komendą
+`configure_stripe_prices --mapping <plan>=<prod_…>,<price_…>` (komenda
+istnieje), ścieżka Setup Checkout → webhook → lokalny snapshot entitlementów,
+testy podpisu, kolejności, retry, idempotencji i exact-tenant, SCA/3DS,
+grace/read-only, runbook aktywacji i rollbacku.
 
 ## Stan produktu
 
@@ -83,6 +126,12 @@ sesji z dostępem do hosta, domeny, GHCR i GitHub Environment.
 
 ## Dowody walidacji
 
+- 2026-09-02 (P1, katalog): `pnpm deployment:check:all` zielony dla
+  `core-only` i `business`; testy kontraktów JS **18/18** (w tym nowy test
+  odrzucający deskryptor aplikacji bez kodu); `tests/test_module_catalog.py`
+  **3/3** (WSL, bez bazy); frontend **94/94** po regeneracji
+  `generated/deployment.ts`; Ruff i format czyste; prettier na zmienionych
+  plikach zielony;
 - 2026-09-02: import-linter był czerwony od `6a6a30a` (W9.6.1) przez import
   Core → Shared w `provision_platform_workspace`; po przeniesieniu komendy do
   `shared.billing` kontrakt warstw jest zielony (`lint-imports`: 1 kept,
@@ -116,8 +165,8 @@ wielowątkowych wyścigów; wynik pozostaje 360/360.
 
 ## Następny cel wykonawczy
 
-Domknij P0: właściciel zatwierdza albo zmienia decyzje w ADR-036–038, potem
-P1. Poniżej stan W9.5.4 dla kontekstu. W9.5.4 ma trzy kanoniczne
+P1 w toku — patrz punkt wznowienia. Poniżej stan W9.5.4 dla kontekstu.
+W9.5.4 ma trzy kanoniczne
 recepty, katalog sekcji, backendowy import oraz gotowy wybór z podglądem.
 `PageTemplate` jest niemutowalnym modelem domenowym ładowanym z
 `packages/contracts/page-templates`, nie drugą tabelą z kopią recept. Endpoint

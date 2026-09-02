@@ -1,4 +1,4 @@
-import { readFile, readdir } from "node:fs/promises";
+import { access, readFile, readdir } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import path from "node:path";
 
@@ -58,6 +58,26 @@ export const assertBillingConfiguration = (
   ) {
     throw new Error(
       `Profil ${profileName}: shared.billing wymaga dokładnie 3 unikalnych billing.planKeys`,
+    );
+  }
+};
+
+// The catalog describes code that exists. A descriptor for an app nobody has
+// written passes schema and graph checks and only fails at boot, in the image.
+const assertDjangoAppExists = async (descriptor, root) => {
+  const djangoApp = descriptor.backend.djangoApp;
+  if (!djangoApp) return;
+  const appConfig = path.join(
+    root,
+    "apps/backend/src",
+    ...djangoApp.split("."),
+    "apps.py",
+  );
+  try {
+    await access(appConfig);
+  } catch {
+    throw new Error(
+      `Moduł ${descriptor.id} deklaruje backend.djangoApp ${djangoApp}, którego nie ma w apps/backend/src`,
     );
   }
 };
@@ -150,6 +170,7 @@ export async function validateDeployment(profileName, root = repositoryRoot) {
     if (descriptorsById.has(descriptor.id)) {
       throw new Error(`Powielony deskryptor modułu ${descriptor.id}`);
     }
+    await assertDjangoAppExists(descriptor, root);
     descriptorsById.set(descriptor.id, descriptor);
   }
 

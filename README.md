@@ -1,7 +1,8 @@
 # SaaS Core
 
 Modularny monolit Django + Next.js dla wielu osobnych produktów i deploymentów.
-Pierwszym profilem branżowym jest MedPlano. Fala W1 oraz lokalna część W2 są
+Profile dowodowe to `core-only` i generyczny `business`; serwisy branżowe
+(MedPlano i kolejne) powstają na tej bazie później. Fala W1 oraz lokalna część W2 są
 ukończone; uruchomienie pipeline'u na prawdziwym stagingu wymaga docelowego VPS-a,
 domeny i konfiguracji GitHub Environment.
 

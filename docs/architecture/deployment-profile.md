@@ -7,32 +7,30 @@ walidowany przed uruchomieniem i stanowi jedyne źródło aktywacji modułów. S
 i dane zależne od środowiska nie trafiają do profilu ani do wygenerowanego
 katalogu frontendowego.
 
-## 2. Minimalny profil MedPlano
+## 2. Profil generyczny `business`
 
-Plik `deployments/medplano/deployment.json`:
+Plik `deployments/business/deployment.json`:
 
 ```json
 {
   "$schema": "../../packages/contracts/deployment.schema.json",
   "schemaVersion": 1,
-  "id": "medplano",
+  "id": "business",
   "product": {
-    "name": "MedPlano",
+    "name": "SaaS Core Business",
     "defaultLocale": "pl",
     "supportedLocales": ["pl", "en"],
-    "platformDomain": "medplano.pl"
+    "platformDomain": "business.localhost"
   },
   "modules": [
+    "core.health",
     "core.identity",
     "core.organizations",
-    "core.audit",
     "shared.billing",
     "shared.sites",
     "shared.media",
     "shared.notifications",
-    "shared.booking",
-    "vertical.medical",
-    "config.medplano"
+    "shared.booking"
   ],
   "billing": {
     "planKeys": ["profile", "starter", "pro"]
@@ -44,8 +42,11 @@ Plik `deployments/medplano/deployment.json`:
 }
 ```
 
-Profil `deployments/core-only/deployment.json` pomija wszystkie verticale i służy
-do udowodnienia, że Core oraz Shared działają bez MedPlano.
+Profil `deployments/core-only/deployment.json` zawiera wyłącznie moduły Core i
+służy do udowodnienia, że Core działa bez żadnego modułu Shared. Serwisy
+branżowe (np. MedPlano) dostaną własne profile, gdy powstanie ich kod; do tego
+czasu profil `deployments/_planned/medplano/deployment.json` jest poza
+katalogiem i nie jest walidowany — deklarowałby moduły, których nie ma.
 
 ## 3. Walidacja
 
@@ -59,7 +60,12 @@ Walidator kończy proces kodem różnym od zera, gdy:
 - profil z aktywnym `shared.billing` nie zawiera dokładnie trzech unikalnych
   kluczy `billing.planKeys`;
 - profil zawiera klucz oznaczony jako sekret;
+- deskryptor deklaruje `backend.djangoApp`, którego pakiet nie istnieje w
+  `apps/backend/src` — katalog ma opisywać kod, który jest;
 - backendowy i frontendowy deskryptor tego samego modułu są niespójne.
+
+Drugi kierunek — każda aplikacja `saas_core.modules.*` w `INSTALLED_APPS` ma
+deskryptor — sprawdza test backendu `tests/test_module_catalog.py`.
 
 Lista modułów po rozwiązaniu zależności jest sortowana topologicznie i zapisywana
 do artefaktu builda razem z hashem profilu. Runtime odmawia startu, jeżeli hash
@@ -85,9 +91,9 @@ bez `shared.billing`, taki jak `core-only`, nie wymaga sekcji `billing`.
 ## 5. Komendy
 
 ```text
-pnpm deployment:check --profile medplano
-pnpm module-catalog:check --profile medplano
-pnpm deployment:render --profile medplano
+pnpm deployment:check --profile business
+pnpm module-catalog:check --profile business
+pnpm deployment:render --profile business
 ```
 
 Komendy są podłączone do wspólnego runnera, a ich nazwy stanowią część

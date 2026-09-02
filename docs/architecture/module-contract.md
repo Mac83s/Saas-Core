@@ -14,7 +14,7 @@ vertical modules      (np. medical)
 shared modules        (np. booking, billing, sites)
           |
           v
-core modules          (np. identity, organizations, audit)
+core modules          (np. health, identity, organizations)
 ```
 
 Core nie zna Shared ani Vertical. Shared nie zna Vertical. Komunikacja w górę
