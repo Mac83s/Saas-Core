@@ -17,7 +17,8 @@
       "notifications.message.queued.v1",
       "notifications.message.status.v1",
       "sites.site.published.v1"
-    ]
+    ],
+    "publicTables": []
   },
   "frontend": {
     "routes": [

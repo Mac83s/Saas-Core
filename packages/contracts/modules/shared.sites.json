@@ -8,7 +8,15 @@
     "urlPrefix": "/api/v1/sites",
     "permissions": ["site.content.edit", "site.publish"],
     "entitlements": ["sites.enabled", "custom_domain.enabled"],
-    "eventSchemas": ["sites.site.published.v1"]
+    "eventSchemas": ["sites.site.published.v1"],
+    "publicTables": [
+      "sites_domain",
+      "sites_site",
+      "sites_publication",
+      "sites_contentcollection",
+      "sites_contententry",
+      "sites_contententrypublication"
+    ]
   },
   "frontend": {
     "routes": ["/sites"],

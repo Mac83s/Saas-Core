@@ -71,6 +71,7 @@ test("deskryptor aplikacji, której nie ma w kodzie, jest odrzucany", async () =
         permissions: [],
         entitlements: [],
         eventSchemas: [],
+        publicTables: [],
       },
       frontend: { routes: [], navigation: [], translationNamespaces: [] },
     }),
@@ -95,6 +96,70 @@ test("deskryptor aplikacji, której nie ma w kodzie, jest odrzucany", async () =
     validateDeployment("ghost", root),
     /core\.ghost deklaruje backend\.djangoApp saas_core\.modules\.core\.ghost, którego nie ma/,
   );
+});
+
+test("moduł nie może zadeklarować cudzej tabeli jako publicznej", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "saas-core-public-tables-"));
+  const contracts = path.join(root, "packages/contracts");
+  await mkdir(path.join(contracts, "modules"), { recursive: true });
+  await mkdir(path.join(root, "deployments/only-health"), { recursive: true });
+  for (const file of ["deployment.schema.json", "module.schema.json"]) {
+    await cp(
+      path.join(repositoryRoot, "packages/contracts", file),
+      path.join(contracts, file),
+    );
+  }
+  // Give the temporary root a health app, so the existence check passes and
+  // only the ownership of the declared table can fail.
+  const healthApp = path.join(
+    root,
+    "apps/backend/src/saas_core/modules/core/health",
+  );
+  await mkdir(healthApp, { recursive: true });
+  await writeFile(path.join(healthApp, "apps.py"), "");
+  await writeFile(
+    path.join(contracts, "modules/core.health.json"),
+    JSON.stringify({
+      id: "core.health",
+      layer: "core",
+      version: 1,
+      dependsOn: [],
+      backend: {
+        djangoApp: "saas_core.modules.core.health",
+        urlPrefix: null,
+        permissions: [],
+        entitlements: [],
+        eventSchemas: [],
+        publicTables: ["sites_domain"],
+      },
+      frontend: { routes: [], navigation: [], translationNamespaces: [] },
+    }),
+  );
+  await writeFile(
+    path.join(root, "deployments/only-health/deployment.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      id: "only-health",
+      product: {
+        name: "Only health",
+        defaultLocale: "pl",
+        supportedLocales: ["pl"],
+        platformDomain: "health.localhost",
+      },
+      modules: ["core.health"],
+      features: {},
+    }),
+  );
+
+  await assert.rejects(
+    validateDeployment("only-health", root),
+    /core\.health deklaruje publiczną tabelę sites_domain, która nie należy do aplikacji health/,
+  );
+});
+
+test("profil business deklaruje tabele publiczne tylko w shared.sites", async () => {
+  const result = await validateDeployment("business");
+  assert.ok(result.modules.includes("shared.sites"));
 });
 
 test("shared.billing wymaga dokładnie trzech unikalnych kluczy planu", () => {

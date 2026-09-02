@@ -10,8 +10,13 @@
       "type": "string",
       "pattern": "^(core|shared|vertical|config)\\.[a-z][a-z0-9-]*$"
     },
-    "layer": { "enum": ["core", "shared", "vertical", "config"] },
-    "version": { "type": "integer", "minimum": 1 },
+    "layer": {
+      "enum": ["core", "shared", "vertical", "config"]
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
     "dependsOn": {
       "type": "array",
       "uniqueItems": true,
@@ -28,24 +33,44 @@
         "urlPrefix",
         "permissions",
         "entitlements",
-        "eventSchemas"
+        "eventSchemas",
+        "publicTables"
       ],
       "properties": {
-        "djangoApp": { "type": ["string", "null"] },
-        "urlPrefix": { "type": ["string", "null"] },
+        "djangoApp": {
+          "type": ["string", "null"]
+        },
+        "urlPrefix": {
+          "type": ["string", "null"]
+        },
         "permissions": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "uniqueItems": true
         },
         "entitlements": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "uniqueItems": true
         },
         "eventSchemas": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "publicTables": {
+          "description": "Tables the public renderer reads without a tenant context; every other tenant table carries forced RLS (ADR-039).",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]*_[a-z0-9_]+$"
+          },
           "uniqueItems": true
         }
       }
@@ -57,17 +82,23 @@
       "properties": {
         "routes": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "uniqueItems": true
         },
         "navigation": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "uniqueItems": true
         },
         "translationNamespaces": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "uniqueItems": true
         }
       }

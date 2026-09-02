@@ -47,7 +47,8 @@ schematem JSON. Minimalny dokument ma postać:
     "urlPrefix": "/api/v1/booking",
     "permissions": ["booking.appointment.read", "booking.appointment.manage"],
     "entitlements": ["booking.enabled"],
-    "eventSchemas": ["booking.appointment.created.v1"]
+    "eventSchemas": ["booking.appointment.created.v1"],
+    "publicTables": []
   },
   "frontend": {
     "routes": ["/calendar"],
@@ -60,6 +61,12 @@ schematem JSON. Minimalny dokument ma postać:
 Pola tablicowe są jawne, nawet jeśli są puste. Moduł jest właścicielem swoich
 migracji, permissionów, entitlementów, tłumaczeń, schematów zdarzeń i testów.
 Nie wolno deklarować cudzych permissionów ani modyfikować cudzych migracji.
+
+`backend.publicTables` wymienia tabele, które publiczny renderer czyta bez
+kontekstu tenanta (ADR-039). Każda inna tabela tenantowa modułu ma wymuszone
+RLS; test `tests/test_tenant_isolation_regimes.py` sprawdza to na prawdziwym
+PostgreSQL w obie strony, a walidator katalogu pilnuje, że moduł deklaruje
+wyłącznie własne tabele.
 
 ## 4. Aktywacja
 

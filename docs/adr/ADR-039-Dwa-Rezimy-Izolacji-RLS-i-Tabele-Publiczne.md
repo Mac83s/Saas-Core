@@ -66,19 +66,44 @@ Jeden test dla wszystkich zainstalowanych modułów:
   kontekście tenanta. Test kolejności zapytań (`SET LOCAL` przed pierwszym
   odczytem tabeli z RLS) obowiązuje dla każdej ścieżki poza request/task.
 
-### 4. Klasyfikacja Sites (P1)
+### 4. Klasyfikacja Sites
 
-P1 klasyfikuje 22 tabele `shared.sites` na podstawie rzeczywistych zapytań
-renderera, nie na podstawie nazw. Punkt wyjścia: prywatne są
-`SiteOnboardingDraft`, `SiteOnboardingMutation`, `PageVersion`, `PageBlock`,
-`PageTranslation`, `PageTranslationMutation`, `ContentProposal`,
-`ContentEntryVersion`, `ContentAutomationGrant`, `DomainMutation`,
-`NavigationItem` i `SiteOutboxEvent` (dwie ostatnie mają już RLS). Kandydaci
-na publiczne to `Domain` (routing hosta), `Publication` i
-`ContentEntryPublication` (opublikowany stan) oraz `SiteRedirect`. `Site`,
-`Page`, `ContentCollection`, `ContentEntry` i tagi rozstrzyga analiza zapytań:
-jeśli renderer czyta je bezpośrednio, są publiczne i muszą przestać nieść pola
-robocze; jeśli czyta wyłącznie snapshot, dostają RLS.
+Klasyfikacja wykonana 2026-09-02 z rzeczywistych zapytań renderera
+(`publication_routing.py`, `public_feeds.py`, `public_media.py`), nie z nazw.
+Renderer czyta bez kontekstu tenanta dokładnie sześć tabel: `sites_domain`
+(routing hosta), `sites_site` i `sites_publication` (przez `select_related`
+z domeny do bieżącej publikacji), `sites_contentcollection`,
+`sites_contententry` i `sites_contententrypublication` (wpisy publikują się
+niezależnie od witryny). Te sześć jest zadeklarowane w `publicTables`.
+`Site` i `ContentEntry` niosą obok tożsamości także wskaźniki stanu roboczego
+(polityka edycji, blokada, wersja robocza), ale sama treść robocza żyje w
+`PageVersion`/`ContentEntryVersion`, które są prywatne — to jest świadomy
+kompromis: rozbicie tych dwóch tabel na część publiczną i prywatną nie jest
+warte migracji, dopóki nie pojawi się w nich kolumna z treścią.
+
+Prywatne, z RLS od migracji `sites.0024`: `DomainMutation`,
+`SiteOnboardingDraft`, `SiteOnboardingMutation`, `Page`, `PageTranslation`,
+`PageTranslationMutation`, `SiteRedirect` (przekierowanie widziane przez
+odwiedzającego pochodzi ze snapshotu publikacji, nie z tabeli), `PageVersion`,
+`PageBlock`, `ContentEntryVersion` i `ContentAutomationGrant`. RLS miały już
+`NavigationItem`, `SiteOutboxEvent`, `ContentProposal`, `ContentTag` i
+`ContentEntryTag`.
+
+Konsekwencja dla komend operatorskich: `issue_content_grant` i
+`revoke_content_grant` wymagają teraz `--organization`, bo bez ustawionego
+tenanta nie da się odczytać klucza ani grantu — a odczyt „nieoznaczony" przed
+`SET LOCAL` zwracałby pusty wynik zamiast błędu.
+
+### 5. Stan wdrożenia i znany dług
+
+Test kontraktowy ujawnił, że `shared.billing` nie ma RLS na żadnej z 11 tabel
+tenantowych — moduł powstał przed listą RLS z ADR-022 i nie ma helpera
+kontekstu; lifecycle, procesor webhooków i rekonsyliacja czytają przez
+wszystkie organizacje. Zamiast dopisać migrację obok testu, dług jest zapisany
+w `KNOWN_OPEN_PRIVATE_TABLES` (lista może tylko maleć: tabela, która dostanie
+RLS, musi z niej zniknąć, inaczej test pada) i ma osobną pozycję w P1: najpierw
+przepisanie ścieżek cross-tenant na iterację po organizacjach z `SET LOCAL`,
+potem migracja.
 
 ## Konsekwencje
 

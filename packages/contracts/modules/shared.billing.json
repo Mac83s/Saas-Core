@@ -8,7 +8,8 @@
     "urlPrefix": "/api/v1/billing",
     "permissions": ["organization.billing.manage"],
     "entitlements": [],
-    "eventSchemas": ["billing.subscription.changed.v1"]
+    "eventSchemas": ["billing.subscription.changed.v1"],
+    "publicTables": []
   },
   "frontend": {
     "routes": ["/settings/billing"],

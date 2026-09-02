@@ -82,6 +82,28 @@ const assertDjangoAppExists = async (descriptor, root) => {
   }
 };
 
+// ADR-039: a module may only open its own tables to the public renderer. The
+// backend test checks the live schema; this keeps a descriptor from declaring
+// somebody else's table public on paper.
+const assertPublicTablesBelongToModule = (descriptor) => {
+  const djangoApp = descriptor.backend.djangoApp;
+  const publicTables = descriptor.backend.publicTables;
+  if (publicTables.length === 0) return;
+  if (!djangoApp) {
+    throw new Error(
+      `Moduł ${descriptor.id} deklaruje publicTables bez backend.djangoApp`,
+    );
+  }
+  const appLabel = djangoApp.split(".").at(-1);
+  for (const table of publicTables) {
+    if (!table.startsWith(`${appLabel}_`)) {
+      throw new Error(
+        `Moduł ${descriptor.id} deklaruje publiczną tabelę ${table}, która nie należy do aplikacji ${appLabel}`,
+      );
+    }
+  }
+};
+
 const loadDescriptors = async (root) => {
   const directory = path.join(root, "packages/contracts/modules");
   const files = (await readdir(directory))
@@ -171,6 +193,7 @@ export async function validateDeployment(profileName, root = repositoryRoot) {
       throw new Error(`Powielony deskryptor modułu ${descriptor.id}`);
     }
     await assertDjangoAppExists(descriptor, root);
+    assertPublicTablesBelongToModule(descriptor);
     descriptorsById.set(descriptor.id, descriptor);
   }
 

@@ -39,6 +39,11 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser: Any) -> None:
         parser.add_argument("--operator", required=True, help="E-mail operatora.")
+        parser.add_argument(
+            "--organization",
+            required=True,
+            help="Identyfikator organizacji, do której należy grant.",
+        )
         parser.add_argument("--grant", required=True, help="Identyfikator grantu.")
         parser.add_argument(
             "--reason",
@@ -50,35 +55,37 @@ class Command(BaseCommand):
         operator = self._operator(str(options["operator"]))
         try:
             grant_id = UUID(str(options["grant"]))
+            organization_id = UUID(str(options["organization"]))
         except (TypeError, ValueError) as error:
-            raise CommandError("Nieprawidłowy identyfikator grantu.") from error
+            raise CommandError("Nieprawidłowy identyfikator grantu lub organizacji.") from error
 
-        # Read unscoped once to find which tenant the grant belongs to; the
-        # revocation itself then runs inside that tenant's context, like every
-        # other write in this module.
-        grant = ContentAutomationGrant.all_objects.filter(pk=grant_id).first()
-        if grant is None:
-            raise CommandError("Grant nie istnieje.")
-        already_revoked = grant.revoked_at is not None
-
-        membership = Membership.objects.select_related("organization", "role").filter(
-            organization_id=grant.organization_id,
-            user=operator,
-            status=MembershipStatus.ACTIVE,
-        ).first()
-        if membership is None:
-            raise CommandError(
-                "Operator nie ma aktywnego członkostwa w organizacji tego grantu."
+        # The grant table forces row-level security, so nothing can be read
+        # about a grant before the tenant is set — which is why the operator
+        # names the organization rather than the command looking it up.
+        membership = (
+            Membership.objects.select_related("organization", "role")
+            .filter(
+                organization_id=organization_id,
+                user=operator,
+                status=MembershipStatus.ACTIVE,
             )
+            .first()
+        )
+        if membership is None:
+            raise CommandError("Operator nie ma aktywnego członkostwa w tej organizacji.")
 
         with transaction.atomic():
             context = context_from_membership(membership)
             with activate_tenant_context(context):
                 set_local_organization_id(context.organization_id)
+                grant = ContentAutomationGrant.all_objects.filter(
+                    pk=grant_id, organization_id=organization_id
+                ).first()
+                if grant is None:
+                    raise CommandError("Grant nie istnieje w tej organizacji.")
+                already_revoked = grant.revoked_at is not None
                 try:
-                    revoke_automation_grant(
-                        grant_id=grant_id, reason=str(options["reason"])
-                    )
+                    revoke_automation_grant(grant_id=grant_id, reason=str(options["reason"]))
                 except AutomationGrantMissing as error:
                     raise CommandError("Grant nie istnieje w tej organizacji.") from error
 

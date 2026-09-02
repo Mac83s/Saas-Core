@@ -8,7 +8,8 @@
     "urlPrefix": "/api/v1/auth",
     "permissions": [],
     "entitlements": [],
-    "eventSchemas": ["identity.user.created.v1"]
+    "eventSchemas": ["identity.user.created.v1"],
+    "publicTables": []
   },
   "frontend": {
     "routes": ["/login"],

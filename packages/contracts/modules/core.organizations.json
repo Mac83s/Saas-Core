@@ -8,7 +8,8 @@
     "urlPrefix": "/api/v1/organizations",
     "permissions": ["organization.read", "organization.members.manage"],
     "entitlements": [],
-    "eventSchemas": ["organizations.organization.created.v1"]
+    "eventSchemas": ["organizations.organization.created.v1"],
+    "publicTables": []
   },
   "frontend": {
     "routes": ["/organizations"],

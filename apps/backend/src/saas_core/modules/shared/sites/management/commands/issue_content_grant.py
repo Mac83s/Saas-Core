@@ -23,6 +23,7 @@ from django.utils import timezone
 from saas_core.modules.core.identity.mfa import has_confirmed_mfa
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import record_audit
+from saas_core.modules.core.organizations.context import set_local_organization_id
 from saas_core.modules.core.organizations.models import (
     Organization,
     WorkspaceKind,
@@ -43,6 +44,11 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser: Any) -> None:
         parser.add_argument("--operator", required=True, help="E-mail operatora.")
+        parser.add_argument(
+            "--organization",
+            required=True,
+            help="Identyfikator organizacji, do której należy klucz.",
+        )
         parser.add_argument("--api-key", required=True, help="Identyfikator klucza.")
         parser.add_argument("--site", help="Identyfikator site'u objętego grantem.")
         parser.add_argument("--collection", help="Identyfikator kolekcji.")
@@ -66,9 +72,21 @@ class Command(BaseCommand):
     @transaction.atomic
     def handle(self, *_args: Any, **options: Any) -> None:
         operator = self._operator(str(options["operator"]))
-        key = ApiKey.all_objects.filter(pk=self._uuid(options["api_key"], "klucza")).first()
+        organization = Organization.objects.filter(
+            pk=self._uuid(options["organization"], "organizacji")
+        ).first()
+        if organization is None:
+            raise CommandError("Organizacja nie istnieje.")
+        # `notifications_apikey` and `sites_contentautomationgrant` force
+        # row-level security: read before the tenant setting, the app role sees
+        # no rows and the key would look missing. The operator names the
+        # organization, so the whole command runs inside it.
+        set_local_organization_id(organization.id)
+        key = ApiKey.all_objects.filter(
+            pk=self._uuid(options["api_key"], "klucza"), organization_id=organization.id
+        ).first()
         if key is None:
-            raise CommandError("Klucz API nie istnieje.")
+            raise CommandError("Klucz API nie istnieje w tej organizacji.")
 
         site, collection = self._target(options, organization_id=key.organization_id)
         mode = str(options["mode"])
@@ -83,21 +101,14 @@ class Command(BaseCommand):
             # ADR-035 §4: autonomy is bounded by the grant's fields, not by its
             # name. The database refuses an unbounded one, and saying so here
             # is friendlier than a constraint violation.
-            if not (
-                options["max_changes_per_day"]
-                and options["max_payload_bytes"]
-                and expires_at
-            ):
+            if not (options["max_changes_per_day"] and options["max_payload_bytes"] and expires_at):
                 raise CommandError(
                     "Tryb autonomous wymaga --expires-in-days, "
                     "--max-changes-per-day i --max-payload-bytes."
                 )
-            if not Organization.objects.filter(
-                pk=key.organization_id, workspace_kind=WorkspaceKind.PLATFORM
-            ).exists():
+            if organization.workspace_kind != WorkspaceKind.PLATFORM:
                 raise CommandError(
-                    "Tryb autonomous jest na razie dopuszczony wyłącznie "
-                    "w workspace platformowym."
+                    "Tryb autonomous jest na razie dopuszczony wyłącznie w workspace platformowym."
                 )
 
         grant, created = ContentAutomationGrant.all_objects.update_or_create(
@@ -118,7 +129,7 @@ class Command(BaseCommand):
             },
         )
         record_audit(
-            organization=Organization.objects.get(pk=key.organization_id),
+            organization=organization,
             action=GRANT_ISSUED,
             actor=operator,
             target_type="content_automation_grant",

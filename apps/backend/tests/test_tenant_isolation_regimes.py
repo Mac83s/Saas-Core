@@ -1,0 +1,136 @@
+"""ADR-039: two isolation regimes, checked against the live schema.
+
+Every tenant table carries forced row-level security unless its module
+descriptor lists it in ``backend.publicTables`` — the tables the public
+renderer reads for a visitor who has no tenant context. The descriptor is the
+declaration; this test is what makes the declaration true: a new tenant table
+without RLS fails here, and so does a table declared public that still has a
+policy (RLS on a table read without the tenant setting answers with no rows,
+which is a worse failure than an honest error).
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+import pytest
+from django.apps import apps
+from django.conf import settings
+from django.db import connection
+
+from saas_core.modules.core.organizations.tenancy import TenantScopedModel
+
+MODULES_PATH = Path(settings.SITE_BLOCK_CONTRACTS_PATH).parent / "modules"
+
+# Debt the rule already knows about, listed so it cannot grow and cannot
+# linger: a table added here that later gains RLS fails the test until the
+# entry is removed. shared.billing predates ADR-022's RLS list and its
+# lifecycle sweeps, webhook processor and reconciliation read across tenants
+# with no context helper at all, so its policies arrive with the P1 item that
+# rewrites those paths — not as a migration slipped in beside this test.
+KNOWN_OPEN_PRIVATE_TABLES: dict[str, frozenset[str]] = {
+    "saas_core.modules.shared.billing": frozenset({
+        "billing_billingcheckout",
+        "billing_billinginvoicedocument",
+        "billing_billinglifecycleaction",
+        "billing_billingnotice",
+        "billing_billingreconciliation",
+        "billing_billingsubscription",
+        "billing_billingtrialactivation",
+        "billing_entitlementgrant",
+        "billing_entitlementsnapshot",
+        "billing_quotareservation",
+        "billing_quotausage",
+    }),
+}
+
+pytestmark = pytest.mark.django_db
+
+
+def _public_tables_by_app() -> dict[str, set[str]]:
+    declared: dict[str, set[str]] = {}
+    for path in sorted(MODULES_PATH.glob("*.json")):
+        descriptor: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
+        django_app = descriptor["backend"]["djangoApp"]
+        if django_app is not None:
+            declared[django_app] = set(descriptor["backend"]["publicTables"])
+    return declared
+
+
+def _tenant_tables_by_app() -> dict[str, set[str]]:
+    tables: dict[str, set[str]] = {}
+    for model in apps.get_models():
+        if not issubclass(model, TenantScopedModel):
+            continue
+        tables.setdefault(model._meta.app_config.name, set()).add(model._meta.db_table)
+    return tables
+
+
+def _rls_state(tables: set[str]) -> dict[str, tuple[bool, bool]]:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT relname, relrowsecurity, relforcerowsecurity
+            FROM pg_class
+            WHERE relname = ANY(%s) AND relkind = 'r'
+            """,
+            [sorted(tables)],
+        )
+        return {name: (enabled, forced) for name, enabled, forced in cursor.fetchall()}
+
+
+def test_every_module_with_tenant_tables_has_a_descriptor() -> None:
+    undeclared = set(_tenant_tables_by_app()) - set(_public_tables_by_app())
+
+    assert sorted(undeclared) == []
+
+
+def test_private_tenant_tables_force_row_level_security() -> None:
+    public = _public_tables_by_app()
+    open_private: dict[str, set[str]] = {}
+    for django_app, tables in _tenant_tables_by_app().items():
+        private = tables - public.get(django_app, set())
+        state = _rls_state(private)
+        unguarded = {table for table in private if state.get(table) != (True, True)}
+        if unguarded:
+            open_private[django_app] = unguarded
+
+    unexpected = {
+        app: sorted(tables - KNOWN_OPEN_PRIVATE_TABLES.get(app, frozenset()))
+        for app, tables in open_private.items()
+        if tables - KNOWN_OPEN_PRIVATE_TABLES.get(app, frozenset())
+    }
+    assert unexpected == {}, (
+        "tabele tenantowe bez wymuszonego RLS — dodaj politykę albo zadeklaruj "
+        f"je w backend.publicTables deskryptora: {unexpected}"
+    )
+
+    # The debt list may only shrink: a table that gained RLS must leave it.
+    stale = {
+        app: sorted(known - open_private.get(app, set()))
+        for app, known in KNOWN_OPEN_PRIVATE_TABLES.items()
+        if known - open_private.get(app, set())
+    }
+    assert stale == {}, f"tabele mają już RLS — usuń je z KNOWN_OPEN_PRIVATE_TABLES: {stale}"
+
+
+def test_declared_public_tables_exist_are_tenant_scoped_and_open() -> None:
+    tenant_tables = _tenant_tables_by_app()
+    for django_app, public in _public_tables_by_app().items():
+        unknown = public - tenant_tables.get(django_app, set())
+        assert sorted(unknown) == [], (
+            f"{django_app}: publicTables wymienia tabele, które nie są tenantowymi "
+            f"tabelami tego modułu: {sorted(unknown)}"
+        )
+        app_label = django_app.rsplit(".", 1)[-1]
+        assert all(table.startswith(f"{app_label}_") for table in public), (
+            f"{django_app}: tabela publiczna musi należeć do własnego modułu"
+        )
+        state = _rls_state(public)
+        guarded = [table for table in sorted(public) if state.get(table) != (False, False)]
+        assert guarded == [], (
+            "tabele publiczne nie mogą mieć RLS, bo renderer czyta je bez kontekstu "
+            f"tenanta i dostałby puste odpowiedzi: {guarded}"
+        )

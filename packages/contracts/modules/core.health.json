@@ -8,7 +8,8 @@
     "urlPrefix": "/api/v1/health",
     "permissions": [],
     "entitlements": [],
-    "eventSchemas": []
+    "eventSchemas": [],
+    "publicTables": []
   },
   "frontend": {
     "routes": [],

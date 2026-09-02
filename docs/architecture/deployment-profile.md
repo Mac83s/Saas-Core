@@ -62,6 +62,8 @@ Walidator kończy proces kodem różnym od zera, gdy:
 - profil zawiera klucz oznaczony jako sekret;
 - deskryptor deklaruje `backend.djangoApp`, którego pakiet nie istnieje w
   `apps/backend/src` — katalog ma opisywać kod, który jest;
+- deskryptor deklaruje w `backend.publicTables` tabelę spoza własnej aplikacji
+  (ADR-039);
 - backendowy i frontendowy deskryptor tego samego modułu są niespójne.
 
 Drugi kierunek — każda aplikacja `saas_core.modules.*` w `INSTALLED_APPS` ma

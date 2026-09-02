@@ -8,7 +8,8 @@
     "urlPrefix": "/api/v1/media",
     "permissions": ["media.read", "media.manage"],
     "entitlements": ["storage.enabled"],
-    "eventSchemas": []
+    "eventSchemas": [],
+    "publicTables": []
   },
   "frontend": {
     "routes": ["/media"],

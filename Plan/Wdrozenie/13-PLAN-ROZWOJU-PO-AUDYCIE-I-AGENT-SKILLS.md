@@ -119,22 +119,28 @@ sumy, a nie wobec pojedynczego etapu, należy planować termin płatnego pilota.
 
 ## 5. P1 — realna kompozycja produktów
 
-- [ ] najpierw uzgodnić katalog modułów z kodem, bo dziś opisuje kod, którego
-  nie ma: `core.audit`, `vertical.medical` i `config.medplano` deklarują
-  `backend.djangoApp`, dla których nie istnieje pakiet, a `core.health` jest w
-  `INSTALLED_APPS` bez deskryptora. `pnpm deployment:check` waliduje schemat i
-  graf zależności, ale nie sprawdza istnienia aplikacji, więc profil `core-only`
-  nie mógłby dziś wystartować w realnej kompozycji. Dodać test w obie strony:
-  każdy zadeklarowany app jest importowalny, a każdy zainstalowany ma deskryptor;
-- [ ] dodać profil `business` (pełny zestaw Shared, bez verticala, plany
+- [x] najpierw uzgodnić katalog modułów z kodem — `core.audit`,
+  `vertical.medical` i `config.medplano` usunięte, `core.health` dodany;
+  `pnpm deployment:check` odrzuca deskryptor aplikacji bez `apps.py`, a
+  `tests/test_module_catalog.py` pilnuje obu kierunków (2026-09-02);
+- [x] dodać profil `business` (pełny zestaw Shared, bez verticala, plany
   `profile`/`starter`/`pro`) jako drugi prawdziwy produkt; profil `medplano`
-  przenieść do `deployments/_planned/`, a deskryptory `vertical.medical` i
-  `config.medplano` usunąć z katalogu do czasu powstania kodu; dodać
-  deskryptor `core.health`; rozstrzygnąć `core.audit` (deskryptor bez
-  aplikacji — audyt żyje dziś w `core.organizations` i `core.identity`);
-- [ ] wdrożyć ADR-039: pole `backend.publicTables` w schemacie deskryptora,
-  klasyfikacja tabel Sites na podstawie zapytań renderera, migracja RLS dla
-  tabel prywatnych i test kontraktowy na prawdziwym PostgreSQL;
+  zaparkowany w `deployments/_planned/`; CI buduje obraz frontendu dla
+  `business` (2026-09-02);
+- [x] wdrożyć ADR-039 dla Sites: `backend.publicTables` w schemacie deskryptora
+  i w każdym deskryptorze, sześć tabel publicznych z zapytań renderera,
+  migracja `sites.0024` z RLS na 11 tabelach prywatnych, test
+  `tests/test_tenant_isolation_regimes.py` na prawdziwym PostgreSQL; komendy
+  `issue_content_grant`/`revoke_content_grant` ustawiają tenant przed odczytem
+  i wymagają `--organization` (2026-09-02);
+- [ ] domknąć ADR-039 dla `shared.billing`: 11 tabel tenantowych bez RLS
+  (checkout, subskrypcja, trial, lifecycle, notice, rekonsyliacja, faktury,
+  granty i snapshoty entitlementów, kwoty). Moduł nie ma żadnego helpera
+  kontekstu, a lifecycle, procesor webhooków i rekonsyliacja czytają
+  `all_objects` przez wszystkie organizacje — przed migracją te ścieżki muszą
+  iterować po organizacjach z `SET LOCAL` per tenant, a webhook wyznaczać
+  organizację z indeksu routingu przed odczytem. Dług jest zapisany jawnie w
+  `KNOWN_OPEN_PRIVATE_TABLES` testu i może tylko maleć;
 - [ ] sprawić, aby `deployment.json` rzeczywiście składał backendowe Django apps,
   URL-e, zadania i frontendowe route/menu, a nie tylko walidował deskryptory;
 - [x] usunąć niedozwolony import Core → Shared — jedyne naruszenie było w

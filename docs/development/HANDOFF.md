@@ -30,16 +30,34 @@ P1 jest w toku. Zrobione: katalog modułów zgodny z kodem (deskryptory
 dodany, profil `medplano` zaparkowany w `deployments/_planned/`), nowy profil
 `business` jako drugi produkt dowodowy, `pnpm deployment:check` odrzuca
 deskryptor aplikacji bez kodu, `tests/test_module_catalog.py` pilnuje obu
-kierunków, obraz frontendu w CI buduje się dla `business`. Do zrobienia w P1,
-w tej kolejności: (1) ADR-039 — pole `backend.publicTables` w
-`module.schema.json`, klasyfikacja tabel Sites z zapytań renderera
-(`publication_routing.py` czyta bezpośrednio `Domain`, `Site`,
-`ContentCollection` i `ContentEntry` — to kandydaci na publiczne), migracja RLS
-dla tabel prywatnych i test kontraktowy na PostgreSQL; (2) `deployment.json`
-składa `INSTALLED_APPS`, URL-e, zadania i frontendowe route/menu — dziś
-`INSTALLED_APPS` jest stałą listą, więc `core-only` ma zainstalowane wszystkie
-moduły Shared; (3) artefakt modułów i hash profilu; (4) macierz
-wersja/migracje/rollback. Potem P2 (skills, `pnpm ai:validate`, CI) i P3.
+kierunków, obraz frontendu w CI buduje się dla `business`. ADR-039 dla Sites:
+`backend.publicTables` jest w schemacie i w każdym deskryptorze (sześć tabel
+publicznych w `shared.sites`: domain, site, publication, contentcollection,
+contententry, contententrypublication — dokładnie to, co renderer czyta bez
+kontekstu), migracja `sites.0024` wymusza RLS na 11 tabelach prywatnych, test
+`tests/test_tenant_isolation_regimes.py` sprawdza oba reżimy na prawdziwym
+PostgreSQL, a `issue_content_grant`/`revoke_content_grant` wymagają
+`--organization` i ustawiają tenant przed pierwszym odczytem (test kolejności
+zapytań w `tests/test_sites_grant_commands.py`).
+
+**Znany dług RLS:** `shared.billing` nie ma RLS na żadnej z 11 tabel
+tenantowych i nie ma helpera kontekstu; lifecycle, procesor webhooków i
+rekonsyliacja czytają przez wszystkie organizacje. Dług jest zapisany w
+`KNOWN_OPEN_PRIVATE_TABLES` (lista może tylko maleć) i jest osobną pozycją P1.
+
+Do zrobienia w P1, w tej kolejności: (1) RLS w billing — najpierw przepisać
+ścieżki cross-tenant na iterację po organizacjach z `SET LOCAL`, webhook ma
+wyznaczać organizację z indeksu routingu przed odczytem, potem migracja;
+(2) `deployment.json` składa `INSTALLED_APPS`, URL-e, zadania i frontendowe
+route/menu — dziś `INSTALLED_APPS` jest stałą listą, więc `core-only` ma
+zainstalowane wszystkie moduły Shared; (3) artefakt modułów i hash profilu;
+(4) macierz wersja/migracje/rollback. Potem P2 (skills, `pnpm ai:validate`,
+CI) i P3.
+
+Testy backendu da się uruchomić z Windows bez WSL: venv poza repo przez
+`UV_PROJECT_ENVIRONMENT=<katalog>` (`uv sync --project apps/backend`), hasło
+bazy przez `POSTGRES_PASSWORD_FILE=.runtime/secrets/postgres_password`, a
+PostgreSQL z `docker compose up -d postgres database-bootstrap redis`.
 
 Skills mają być utrzymywane przez agentów; właściciel produktu nie
 synchronizuje ani nie edytuje ich ręcznie.
@@ -126,6 +144,12 @@ grace/read-only, runbook aktywacji i rollbacku.
 
 ## Dowody walidacji
 
+- 2026-09-02 (P1, ADR-039): `tests/test_tenant_isolation_regimes.py` 3/3,
+  `tests/test_module_catalog.py` 3/3 i `tests/test_platform_workspace.py`
+  4/4 na prawdziwym PostgreSQL (Windows venv, Docker Desktop) — dowód dla
+  przeniesionej komendy jest tym samym uzupełniony; `makemigrations --check`
+  bez zmian po `sites.0024`; kontrakty JS **20/20** (test cudzej tabeli
+  publicznej i test aplikacji-ducha); Ruff czysty;
 - 2026-09-02 (P1, katalog): `pnpm deployment:check:all` zielony dla
   `core-only` i `business`; testy kontraktów JS **18/18** (w tym nowy test
   odrzucający deskryptor aplikacji bez kodu); `tests/test_module_catalog.py`
