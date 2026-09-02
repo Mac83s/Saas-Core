@@ -30,6 +30,10 @@ rejestr z `Plan/SaaS-Core-06-Rejestr-Decyzji.md`.
 | [ADR-032](ADR-032-Oferta-Plany-i-Customer-Billing.md) | oferta, plany i Customer Billing | Accepted |
 | [ADR-033](ADR-033-Asystent-AI-Narzedzia-Zgody-i-Glos.md) | asystent AI: narzędzia, zgody i głos | Accepted |
 | [ADR-034](ADR-034-Simulator-Billingu-i-Odroczenie-Stripe.md) | simulator billingowy i odroczenie Stripe | Accepted |
+| [ADR-035](ADR-035-Publikacja-Systemowa-i-SeoContentRank.md) | publikacja systemowa i integracja z SeoContentRank | Accepted |
+| [ADR-036](ADR-036-Tozsamosc-Profil-Publiczny-i-Konto-Klienta.md) | tożsamość: `User`, `Organization`, `PublicProfile` i konto klienta | Proposed |
+| [ADR-037](ADR-037-Appointment-Commerce-i-Stripe-Connect.md) | Appointment Commerce i Stripe Connect | Proposed |
+| [ADR-038](ADR-038-Repozytoryjne-Agent-Skills.md) | repozytoryjne Agent Skills: cykl życia i granice autonomii | Proposed |
 
 Każda zmiana decyzji tworzy nowy ADR. Całkowicie zastąpiony dokument otrzymuje
 status `Superseded`; przy częściowym zastąpieniu nowy ADR wskazuje dokładny

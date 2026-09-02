@@ -10,12 +10,22 @@
 
 Audyt z 2026-09-02 i decyzja właściciela dodały nadrzędny
 [plan rozwoju po audycie i Agent Skills](../../Plan/Wdrozenie/13-PLAN-ROZWOJU-PO-AUDYCIE-I-AGENT-SKILLS.md).
-Przed kolejną zmianą modeli rozpocznij P0: przygotuj ADR profilu/tożsamości
-klienta, ADR Appointment Commerce oraz ADR cyklu repozytoryjnych Agent Skills.
-Następnie P1 ma domknąć rzeczywistą kompozycję deploymentów i istniejące
-naruszenie Core → Shared, a P2 ustanowić kanoniczne skills, automatyczny routing,
-`pnpm ai:validate` i CI. Skills mają być utrzymywane przez agentów; właściciel
-produktu nie synchronizuje ani nie edytuje ich ręcznie.
+Tego samego dnia plan przeszedł przegląd wobec kodu i dostał poprawki: W9.5.5
+ma już model nawigacji z W9.6.3, rollout W9.6 jest umieszczony w P8, W9.5.2S
+jest pierwszym pakietem P5, a P1 zaczyna od uzgodnienia katalogu modułów z
+kodem. Naruszenie Core → Shared zostało usunięte (komenda
+`provision_platform_workspace` przeniesiona do `shared.billing`); import-linter
+jest znów zielony.
+
+P0 jest rozpoczęte: trzy ADR-y są zapisane jako `Proposed` — ADR-036
+(tożsamość: `User`, `Organization`, `PublicProfile`, tenantowy `Customer`),
+ADR-037 (Appointment Commerce i Stripe Connect) i ADR-038 (repozytoryjne Agent
+Skills). Każdy ma sekcję „Decyzje wymagające właściciela"; P0 zamyka się, gdy
+właściciel zatwierdzi albo zmieni te punkty i status przejdzie na `Accepted`.
+Do tego czasu nie zmieniaj modeli `User` i `Customer` ani nie twórz
+`shared.commerce`. Następnie P1 (kompozycja deploymentów) i P2 (kanoniczne
+skills, `pnpm ai:validate`, CI). Skills mają być utrzymywane przez agentów;
+właściciel produktu nie synchronizuje ani nie edytuje ich ręcznie.
 
 Repozytoryjne skills deweloperskie i produktowe skills `shared.assistant` są
 dwoma osobnymi systemami. Pierwsze pomagają zmieniać kod, drugie działają w
@@ -25,16 +35,14 @@ zaakceptowanego ADR-u ani nie autoryzuje wdrożenia produkcyjnego.
 Istniejące W9.5 i W9.6 pozostają planami szczegółowymi. Nie duplikuj ich modeli
 ani kontraktów w planie poaudytowym.
 
-Kontynuuj falę W9.5 z
-`Plan/Wdrozenie/10A-W9.5-Customer-Experience-Commerce-i-AI.md`. Pakiety
-W9.5.1–W9.5.4 są ukończone lokalnie. Następny spójny przyrost to **W9.5.5 —
-Studio struktury i nawigacji**. Realny Stripe pozostaje świadomie odłożony do
-W9.5.2S i blokuje płatny pilot, ale nie dalszą lokalną pracę nad W9.5.
+W9.5 (`Plan/Wdrozenie/10A-W9.5-Customer-Experience-Commerce-i-AI.md`) ma
+ukończone W9.5.1–W9.5.4; W9.5.5–W9.5.8 są zaplanowane w P6, a W9.5.2S w P5.
+Nie zaczynaj W9.5.5 przed P0–P2, chyba że właściciel zmieni kolejność.
 
-Równolegle właściciel uruchomił planowanie osobnego systemu SeoContentRank.
-SaaS Core rozwija dla niego równoległą falę **W9.6 — Publication Platform i
-gotowość na SeoContentRank**. Implementacja wymagająca nawigacji ma użyć
-rezultatu W9.5.5, a nie tworzyć drugie drzewo stron.
+W9.6 — Publication Platform i gotowość na SeoContentRank — jest ukończone
+lokalnie (kod, testy, panel). Zostały wyłącznie rolloutowe pozycje W9.6.8 i
+bramka wyjścia, które wymagają stagingu i connectora po drugiej stronie; żyją w
+P8. Model nawigacji jest jeden i powstał w W9.6.3.
 
 Nie wracaj teraz do bramek wymagających prawdziwego stagingu/VPS. Są odłożone do
 sesji z dostępem do hosta, domeny, GHCR i GitHub Environment.
@@ -75,6 +83,13 @@ sesji z dostępem do hosta, domeny, GHCR i GitHub Environment.
 
 ## Dowody walidacji
 
+- 2026-09-02: import-linter był czerwony od `6a6a30a` (W9.6.1) przez import
+  Core → Shared w `provision_platform_workspace`; po przeniesieniu komendy do
+  `shared.billing` kontrakt warstw jest zielony (`lint-imports`: 1 kept,
+  0 broken), Ruff i Mypy (258 plików) przeszły. Testy `test_platform_workspace`
+  nie zostały uruchomione — lokalny Docker Desktop był wyłączony, a testy
+  wymagają PostgreSQL; komenda zmieniła lokalizację, nie zachowanie, ale ten
+  dowód jest do uzupełnienia przy pierwszym uruchomieniu stacku;
 - pełna bramka backendu: Ruff, import-linter, brak dryfu migracji, Mypy 0 błędów
   w 231 plikach i **360 testów**;
 - import szablonu: **4 testy** obejmujące optimistic lock, idempotentne
@@ -101,7 +116,8 @@ wielowątkowych wyścigów; wynik pozostaje 360/360.
 
 ## Następny cel wykonawczy
 
-Rozpocznij W9.5.5 — Studio struktury i nawigacji. W9.5.4 ma trzy kanoniczne
+Domknij P0: właściciel zatwierdza albo zmienia decyzje w ADR-036–038, potem
+P1. Poniżej stan W9.5.4 dla kontekstu. W9.5.4 ma trzy kanoniczne
 recepty, katalog sekcji, backendowy import oraz gotowy wybór z podglądem.
 `PageTemplate` jest niemutowalnym modelem domenowym ładowanym z
 `packages/contracts/page-templates`, nie drugą tabelą z kopią recept. Endpoint
@@ -176,18 +192,12 @@ grantu, a niezależna polityka treści `manual` / `proposed` / `automated` może
 wyłącznie zawężać grant. SaaS Core utrwalił to w `73e9df5`, a SeoContentRank w
 `97f1ab2`.
 
-Do zrobienia w W9.6, w kolejności zależności:
-
-1. **semantyka czterech trybów grantu i limity** — model zna wszystkie tryby,
-   ale serwisy muszą jeszcze odrębnie egzekwować `suggest_only`, `draft_write`,
-   `publish_with_approval` i `autonomous`, limity zmian oraz allowed windows;
-2. **indeks bloga, RSS i sitemap** — wpisy są osiągalne tylko po adresie
-   bezpośrednim; czytelnik nie ma jak ich znaleźć;
-3. **tłumaczenia i media wpisów** — wpis jest dziś jednojęzyczny;
-4. **chroniony workspace platformowy (W9.6.1)** — dla waszych własnych stron
-   marketingowych i bloga platformy;
-5. **`ContentChangeSet` (§5, wstępny)** — do rewizji przy pierwszym realnym
-   spięciu z SCR.
+Stan W9.6 na 2026-09-02: wszystkie pakiety programistyczne W9.6.0–W9.6.8 są
+odhaczone w checkliście (53 z 66 pozycji). Otwarte pozostają wyłącznie cztery
+rolloutowe pozycje W9.6.8 i dziewięć pozycji bramki wyjścia — wszystkie
+wymagają stagingu i connectora SeoContentRank po drugiej stronie i są
+zaplanowane w P8 planu poaudytowego. Lista „do zrobienia" z 2026-08-28 była
+nieaktualna i została usunięta.
 
 Znany rozjazd do rozstrzygnięcia: ADR-022 wymaga RLS na prywatnych rekordach
 tenantowych i `shared.media` go ma, ale `shared.sites` nie — izolacja opiera się

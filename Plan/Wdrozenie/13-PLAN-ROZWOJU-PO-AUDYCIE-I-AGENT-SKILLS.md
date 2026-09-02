@@ -13,6 +13,14 @@ Ten dokument porządkuje dalszą realizację po audycie. Nie zastępuje
 szczegółowych checklist W9.5, W9.6, W10 ani W11. Ustala ich brakujące
 poprzedniki, kolejność oraz równoległy tor Agent Skills.
 
+Stan na 2026-09-02, sprawdzony w kodzie, a nie w checklistach: W9.6 jest
+ukończone lokalnie (53 z 66 pozycji; pozostałe 13 to rollout wymagający
+stagingu), W9.5 ma ukończone W9.5.1–W9.5.4, a backendowy model nawigacji z
+W9.5.5 został dostarczony w ramach W9.6.3. Katalog modułów deklaruje Django
+apps, które nie istnieją (`core.audit`, `vertical.medical`, `config.medplano`),
+a import-linter był czerwony przez jeden import Core → Shared, usunięty tego
+samego dnia. Etapy poniżej uwzględniają ten stan.
+
 Plan kończy się dopiero wtedy, gdy z jednego repozytorium można zbudować i
 niezależnie wdrożyć co najmniej `core-only` i MedPlano, a pełna ścieżka
 użytkownika obejmuje profil, stronę, rezerwację oraz opcjonalną płatność z
@@ -57,10 +65,15 @@ podstawie zatwierdzonych kontraktów.
 | P2 | fundament autonomicznych Agent Skills | 1–2 tygodnie | wykonywanie dalszych fal przez skills | końcówka P1 |
 | P3 | tożsamość profilu i konto klienta | 2–3 tygodnie | pełny self-service i historia klienta | bezpieczne elementy W9.5.5–W9.5.6 |
 | P4 | produktowe domknięcie Booking | 2–4 tygodnie | płatność wizytowa | W9.6 i Site Studio |
-| P5 | Appointment Commerce i Stripe Connect | 3–5 tygodni | płatny pilot | W9.5.7 po ustabilizowaniu komend |
+| P5 | realny Stripe subskrypcji (W9.5.2S), Appointment Commerce i Stripe Connect | 4–6 tygodni | płatny pilot | W9.5.7 po ustabilizowaniu komend |
 | P6 | Site Studio, generator AI i skills produktowe | 4–7 tygodni | pełny cel W9.5 | późna część P4–P5 |
 | P7 | Vertical Medical i pilot MedPlano | 2–3 tygodnie | go-live | wyłącznie prace niezmieniające kontraktów P3–P6 |
-| P8 | staging, hardening i go-live | 2–3 tygodnie | produkcja | brak dla bramek krytycznych |
+| P8 | staging, rollout W9.6, hardening i go-live | 2–3 tygodnie | produkcja | brak dla bramek krytycznych |
+
+Szeregowo etapy sumują się do około 19–31 tygodni, czyli od 4,5 do 7 miesięcy.
+Kolumna równoległości może to skrócić, ale nie poniżej ścieżki krytycznej
+P0 → P1 → P3 → P4 → P5 → P7 → P8, która sama ma 14–22 tygodnie. To wobec tej
+sumy, a nie wobec pojedynczego etapu, należy planować termin płatnego pilota.
 
 ## 4. P0 — decyzje i kontrakty po audycie
 
@@ -87,10 +100,22 @@ podstawie zatwierdzonych kontraktów.
 
 ## 5. P1 — realna kompozycja produktów
 
+- [ ] najpierw uzgodnić katalog modułów z kodem, bo dziś opisuje kod, którego
+  nie ma: `core.audit`, `vertical.medical` i `config.medplano` deklarują
+  `backend.djangoApp`, dla których nie istnieje pakiet, a `core.health` jest w
+  `INSTALLED_APPS` bez deskryptora. `pnpm deployment:check` waliduje schemat i
+  graf zależności, ale nie sprawdza istnienia aplikacji, więc profil `core-only`
+  nie mógłby dziś wystartować w realnej kompozycji. Dodać test w obie strony:
+  każdy zadeklarowany app jest importowalny, a każdy zainstalowany ma deskryptor;
 - [ ] sprawić, aby `deployment.json` rzeczywiście składał backendowe Django apps,
   URL-e, zadania i frontendowe route/menu, a nie tylko walidował deskryptory;
-- [ ] usunąć niedozwolony import Core → Shared i utrzymywać zielony
-  import-linter oraz ESLint boundaries;
+- [x] usunąć niedozwolony import Core → Shared — jedyne naruszenie było w
+  komendzie `provision_platform_workspace`, która z `core.organizations`
+  importowała `shared.billing.overrides`; komenda przeniesiona do
+  `shared.billing`, bo domu potrzebowało nadanie entitlementów, a nie utworzenie
+  workspace'u (2026-09-02, `lint-imports`: 1 kept, 0 broken);
+- [ ] utrzymywać zielony import-linter oraz ESLint boundaries; kontrakt warstw
+  łapie także importy wewnątrz funkcji, więc odroczony import nie jest obejściem;
 - [ ] dodać test, że `core-only` nie aktywuje Billing, Sites, Booking ani żadnego
   verticala, a MedPlano aktywuje wyłącznie zadeklarowany graf;
 - [ ] generować artefakt modułów i hash profilu używany przez backend, frontend,
@@ -106,6 +131,8 @@ podstawie zatwierdzonych kontraktów.
   powierzchni API/UI;
 - [ ] żaden wyłączony moduł nie rejestruje routingu, workera ani schedulera;
 - [ ] test importów i kontraktów modułów jest zielony;
+- [ ] katalog modułów i `INSTALLED_APPS` są zgodne w obie strony i pilnuje tego
+  test;
 - [ ] dwa środowiska testowe używają osobnych danych i sekretów.
 
 ## 6. P2 — autonomiczny system Agent Skills
@@ -117,6 +144,11 @@ podstawie zatwierdzonych kontraktów.
 - [ ] dla klientów wymagających adapterów generować lub aktualizować cienkie
   odwołania, bez kopiowania pełnej treści skill; dopuścić wyłącznie zarządzane
   przez Memex dokładne mirrory, których integralność sprawdza integracja Memex;
+- [ ] pamiętać, że Claude Code wykrywa automatycznie wyłącznie `.claude/skills/`,
+  a o doborze skill decyduje `description` we frontmatterze, nie treść pliku:
+  cienki adapter musi powtarzać dokładnie ten sam `name` i `description`, bo sam
+  link do `.agents/` wyłączyłby routing po cichu. Zgodność tych dwóch pól jest
+  pierwszą rzeczą, którą sprawdza walidator;
 - [ ] dodać `docs/AI_AGENTS.md` opisujące podział instrukcji, automatyczny routing,
   granice uprawnień i procedurę naprawy;
 - [ ] dodać obowiązkową mapę ścieżek w `AGENTS.md`: zmiana danego modułu wymaga
@@ -127,7 +159,10 @@ podstawie zatwierdzonych kontraktów.
 
 ### 6.2. Pierwszy katalog
 
-Skills powstają dopiero, gdy mają realne źródła i scenariusze. Pierwszy zestaw:
+Skills powstają dopiero, gdy mają realne źródła i scenariusze. Ta zasada
+obowiązuje także sam katalog: skill dla modułu, którego nie ma, opisywałby
+zamiar, a walidator uznałby taki opis za aktualny. Pierwszy zestaw P2 obejmuje
+więc wyłącznie skills z istniejącymi dziś źródłami:
 
 | Skill | Kiedy ma się aktywować | Kanoniczne źródła |
 | --- | --- | --- |
@@ -136,16 +171,22 @@ Skills powstają dopiero, gdy mają realne źródła i scenariusze. Pierwszy zes
 | `change-api-and-events` | endpoint, schema, klient albo zdarzenie | ADR-024, OpenAPI, api-and-events |
 | `develop-sites` | strony, domeny, media, publikacja i content operations | ADR-027–029, ADR-031, ADR-035 |
 | `develop-booking` | usługi, grafik, klient i wizyty | ADR-030 i kontrakty Booking |
-| `develop-commerce-payments` | płatność wizyty, Connect, zwrot lub webhook | ADR Commerce z P0 i kontrakty providera |
-| `develop-assistant-runtime` | narzędzie, workflow, prompt, voice lub runtime skill | ADR-033 i kontrakty komend |
 | `prepare-product-deployment` | nowy profil produktu, obraz, migracja lub rollout | ADR-021, ADR-025, deployment profile |
 | `verify-saas-core-release` | odbiór przyrostu lub release candidate | testing strategy, W11 i runbooki |
 | `maintain-saas-core-skills` | skill jest nieaktualny albo zmieniło się jego źródło | katalog skills, walidator i historia usterek |
 
-Skill aplikacyjny, np. `develop-medplano`, powstaje razem z pierwszą realną
-implementacją verticala. Ma zawierać wyłącznie różnice branżowe i kierować do
-skills Core/Shared; nie kopiuje ich treści. Dodanie kolejnego deploymentu
-uruchamia kontrolę, czy potrzebny jest osobny skill produktowy.
+Pozostałe skills są produktem etapu, który tworzy ich źródło, i wchodzą do jego
+definicji ukończenia:
+
+| Skill | Etap | Powstaje razem z |
+| --- | --- | --- |
+| `develop-commerce-payments` | P5 | ADR-037 i pierwszym adapterem providera płatności |
+| `develop-assistant-runtime` | P6 | `shared.assistant` i rejestrem wersjonowanych narzędzi |
+| `develop-medplano` | P7 | pierwszą realną implementacją verticala i deploymentu |
+
+Skill aplikacyjny ma zawierać wyłącznie różnice branżowe i kierować do skills
+Core/Shared; nie kopiuje ich treści. Dodanie kolejnego deploymentu uruchamia
+kontrolę, czy potrzebny jest osobny skill produktowy.
 
 ### 6.3. Aktualizacja skills bez obsługi właściciela
 
@@ -232,6 +273,12 @@ ani automatycznie autoryzować działań produkcyjnych.
 
 ## 9. P5 — Appointment Commerce i Stripe Connect
 
+- [ ] wykonać W9.5.2S — realny Stripe dla subskrypcji SaaS — jako pierwszy pakiet
+  P5, przed Connect: płatny pilot potrzebuje obu integracji, a konto Stripe,
+  rozdział trybów test/live, sekrety, podpis webhooka, idempotencja, kolejność
+  zdarzeń, rekonsyliacja i runbook są jednym wspólnym kosztem, który taniej
+  zapłacić raz na prostszych subskrypcjach niż dwa razy w osobnych kwartałach;
+  zakres i bramka pozostają w W9.5 i ADR-034, ten plan nadaje im tylko miejsce;
 - [ ] utworzyć `shared.commerce` albo równoważny moduł płatności usługowych z
   własnym descriptor, API, zdarzeniami, permissions, entitlementami i RLS;
 - [ ] zdefiniować tenantowe `PaymentProviderConnection`, `AppointmentPayment`,
@@ -254,6 +301,7 @@ ani automatycznie autoryzować działań produkcyjnych.
 
 ### Bramka P5
 
+- [ ] W9.5.2S ma zaliczoną własną bramkę z ADR-034 z zachowanymi dowodami;
 - [ ] jedna płatna i jedna bezpłatna organizacja działają równolegle;
 - [ ] powodzenie, odmowa, timeout, retry, zwrot częściowy, spór i zdarzenia poza
   kolejnością mają testy sandbox i lokalną rekonsyliację;
@@ -264,8 +312,14 @@ ani automatycznie autoryzować działań produkcyjnych.
 
 ## 10. P6 — Site Studio, AI i skills produktowe
 
-- [ ] dokończyć W9.5.5 i W9.5.6: drzewo stron, nawigację, undo/redo, dostępny
-  drag and drop, canvas, inspector i podgląd responsywny;
+- [ ] dokończyć W9.5.5 na istniejącym modelu: wersjonowana nawigacja, atomowy
+  snapshot, komendy `GET/PUT /api/v1/sites/<site_id>/navigation/` i audytowana
+  zmiana URL zostały dostarczone w W9.6.3, więc brakuje wyłącznie studia w
+  panelu — drzewa i mapy z reorderem, undo/redo, klawiaturowego odpowiednika
+  drag and drop oraz widoku adresu, SEO i gotowości podstrony; drugie drzewo
+  nawigacji jest zabronione;
+- [ ] wykonać W9.5.6 w całości: biblioteka, canvas, inspector, responsive preview
+  i edycja w kontekście na kontrakcie optimistic locka i publikacji ADR-027;
 - [ ] wdrożyć `shared.assistant` z W9.5.7 oraz `site.generate_draft`, który wybiera
   tylko zatwierdzony PageTemplate i kontrolowane bloki;
 - [ ] wersjonować prompty, narzędzia i runtime skills oraz przypisać im ryzyko,
@@ -290,6 +344,11 @@ ani automatycznie autoryzować działań produkcyjnych.
   danych zdrowotnych do AI bez osobnego ADR-u i oceny regulacyjnej;
 - [ ] uruchomić osobny VPS MedPlano z bazą, storage, Redis, sekretami, monitoringiem
   i backupem oraz wykonać test odtworzenia całego środowiska;
+- [ ] domknąć rollout W9.6 na stagingu — read-only i `suggest_only`, potem
+  `publish_with_approval` na blogu systemowym, `autonomous` dopiero po
+  udokumentowanym pilocie i rollback drillu; kod jest gotowy, a bramka wyjścia
+  W9.6 zamyka się dopiero tutaj, bo wymaga stagingu i działającego connectora
+  SeoContentRank po drugiej stronie;
 - [ ] przejść W11 z dodatkowymi runbookami dla Connect, skills/AI, kosztów modeli,
   awarii providera i cofnięcia nieprawidłowej aktualizacji skill;
 - [ ] wymagać wersjonowanego obrazu, migracji próbnej, smoke E2E i rollbacku
@@ -323,6 +382,8 @@ ani automatycznie autoryzować działań produkcyjnych.
 - ADR-027–ADR-031 — strony, domeny, komunikacja, Booking i Site Studio;
 - ADR-033 — produktowy asystent AI, narzędzia, zgody i głos;
 - ADR-035 — publikacja i granice automatyzacji;
+- ADR-036, ADR-037, ADR-038 — decyzje P0: tożsamość i konto klienta,
+  Appointment Commerce, repozytoryjne Agent Skills (Proposed, do zatwierdzenia);
 - oficjalny model SaaS Platforms w Stripe Connect:
   https://docs.stripe.com/connect/saas-platforms-and-marketplaces;
 - Mollie Connect jako kandydat drugiego adaptera:
