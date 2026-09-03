@@ -141,9 +141,7 @@ if (
 SITES_AUTONOMOUS_PILOT_ONLY = os.environ.get(
     "SITES_AUTONOMOUS_PILOT_ONLY", "true"
 ).strip().lower() not in {"0", "false", "no"}
-SITES_ENTRY_INDEX_PAGE_SIZE = int(
-    os.environ.get("SITES_ENTRY_INDEX_PAGE_SIZE", "10")
-)
+SITES_ENTRY_INDEX_PAGE_SIZE = int(os.environ.get("SITES_ENTRY_INDEX_PAGE_SIZE", "10"))
 if not 1 <= SITES_ENTRY_INDEX_PAGE_SIZE <= 100:
     raise ImproperlyConfigured("SITES_ENTRY_INDEX_PAGE_SIZE musi być z zakresu 1-100")
 SITE_BLOCK_CONTRACTS_PATH = Path(
@@ -496,6 +494,17 @@ CELERY_BEAT_SCHEDULE = {
     "billing-release-expired-reservations": {
         "task": ("saas_core.modules.shared.billing.tasks.release_expired_quota_reservations"),
         "schedule": 60.0,
+    },
+    "billing-release-expired-credit-reservations": {
+        "task": ("saas_core.modules.shared.billing.tasks.release_expired_credit_reservations"),
+        "schedule": 60.0,
+    },
+    # Hourly, not at midnight: reading a balance grants the month's allowance
+    # anyway, so the sweep only has to make the ledger tell a truthful story
+    # for organizations nobody looked at.
+    "billing-refresh-credit-allowances": {
+        "task": "saas_core.modules.shared.billing.tasks.refresh_credit_allowances",
+        "schedule": 3600.0,
     },
     "notifications-recover-pending": {
         "task": "saas_core.modules.shared.notifications.tasks.recover_pending",

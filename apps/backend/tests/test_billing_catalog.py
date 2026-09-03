@@ -44,6 +44,9 @@ QUOTA_KEYS = {
     "storage.bytes",
     "email.monthly",
     "appointments.monthly",
+    # The plan's monthly credit allowance is an ordinary quota, so it is
+    # versioned with the plan and overridable per organization.
+    "credits.monthly",
 }
 
 
@@ -78,6 +81,10 @@ def test_pilot_catalog_is_seeded_with_current_immutable_versions() -> None:
     assert starter.current_version.trial_days == 3
     assert starter.current_version.grace_period_days == 7
     assert starter.current_version.quotas["sites.max"] == 1
+    # The allowance is a defined quota but not yet part of a published plan
+    # version: a version is immutable, so the pilot catalog picks it up when
+    # W9.5.2S publishes new versions for real Stripe prices.
+    assert "credits.monthly" not in starter.current_version.quotas
     assert "custom_domain.enabled" not in starter.current_version.feature_keys
     assert pro.current_version is not None
     assert pro.current_version.unit_amount_minor == 29_900

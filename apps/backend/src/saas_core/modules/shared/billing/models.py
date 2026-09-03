@@ -947,3 +947,282 @@ class BillingInvoiceDocument(TenantScopedModel):
             self.organization_id,
         ):
             raise ValidationError({"origin_event": "Event należy do innej organizacji."})
+
+
+# --------------------------------------------------------------------------
+# Credits — a prepaid pool our own customers spend on metered operations.
+#
+# This is the same relationship as the subscription: an organization pays the
+# platform. What a company later charges its own end customers for is a
+# different domain and does not belong here (ADR-037).
+#
+# Two buckets, one balance. The plan grants a monthly allowance that resets and
+# does not carry over; purchased credits never expire. Spending takes the
+# allowance first, so nobody loses what they paid for separately. The ledger is
+# the truth and the balance row is its cached sum — a test rebuilds one from
+# the other.
+# --------------------------------------------------------------------------
+
+
+class CreditBucket(models.TextChoices):
+    ALLOWANCE = "allowance", "Pula planu"
+    PURCHASED = "purchased", "Kredyty kupione"
+
+
+class CreditLedgerKind(models.TextChoices):
+    ALLOWANCE_GRANTED = "allowance_granted", "Przyznano pulę planu"
+    ALLOWANCE_EXPIRED = "allowance_expired", "Wygasła pula planu"
+    PURCHASED = "purchased", "Zakup kredytów"
+    CONSUMED = "consumed", "Zużycie"
+    REFUNDED = "refunded", "Zwrot zużycia"
+    OPERATOR_ADJUSTMENT = "operator_adjustment", "Korekta operatora"
+
+
+class CreditReservationState(models.TextChoices):
+    RESERVED = "reserved", "Zarezerwowane"
+    COMMITTED = "committed", "Rozliczone"
+    RELEASED = "released", "Zwolnione"
+
+
+class CreditPurchaseStatus(models.TextChoices):
+    PENDING = "pending", "Oczekuje"
+    SUCCEEDED = "succeeded", "Opłacony"
+    FAILED = "failed", "Nieudany"
+    CANCELED = "canceled", "Anulowany"
+
+
+class CreditPack(models.Model):
+    """A pack of credits offered for sale, priced like a plan version."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    key = models.SlugField(max_length=64, unique=True)
+    name = models.CharField(max_length=120)
+    description = models.TextField(blank=True)
+    credits = models.PositiveBigIntegerField()
+    currency = models.CharField(
+        max_length=3,
+        default="PLN",
+        validators=[RegexValidator(r"^[A-Z]{3}$", "Waluta musi być kodem ISO 4217.")],
+    )
+    unit_amount_minor = models.PositiveBigIntegerField()
+    is_public = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("credits", "key")
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(credits__gt=0), name="billing_credit_pack_credits_ck"
+            )
+        ]
+
+    def __str__(self) -> str:
+        return self.key
+
+
+class CreditOperation(models.Model):
+    """What one metered operation costs, in credits.
+
+    The price is mutable catalog data, so the ledger records the cost that
+    applied at the time. A later change never rewrites what somebody was
+    already charged.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    key = models.CharField(max_length=100, unique=True, validators=[CATALOG_KEY_VALIDATOR])
+    name = models.CharField(max_length=120)
+    description = models.TextField(blank=True)
+    cost = models.PositiveIntegerField()
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("key",)
+
+    def __str__(self) -> str:
+        return f"{self.key}={self.cost}"
+
+
+class CreditBalance(TenantScopedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    allowance_remaining = models.PositiveBigIntegerField(default=0)
+    allowance_reserved = models.PositiveBigIntegerField(default=0)
+    #: What the plan granted for the current period. Kept so a mid-month
+    #: upgrade tops the allowance up instead of waiting for the next month.
+    allowance_granted = models.PositiveBigIntegerField(default=0)
+    allowance_period_start = models.DateField(null=True, blank=True)
+    allowance_period_end = models.DateField(null=True, blank=True)
+    purchased_remaining = models.PositiveBigIntegerField(default=0)
+    purchased_reserved = models.PositiveBigIntegerField(default=0)
+    version = models.PositiveBigIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id",)
+        constraints = [
+            models.UniqueConstraint(fields=["organization"], name="billing_credit_balance_org_uq"),
+            models.CheckConstraint(
+                condition=models.Q(allowance_reserved__lte=models.F("allowance_remaining")),
+                name="billing_credit_allowance_reserved_ck",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(purchased_reserved__lte=models.F("purchased_remaining")),
+                name="billing_credit_purchased_reserved_ck",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(allowance_period_end__isnull=True)
+                | models.Q(allowance_period_start__isnull=False),
+                name="billing_credit_allowance_window_ck",
+            ),
+        ]
+
+    @property
+    def available(self) -> int:
+        return (self.allowance_remaining - self.allowance_reserved) + (
+            self.purchased_remaining - self.purchased_reserved
+        )
+
+
+class CreditPurchase(TenantScopedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    pack = models.ForeignKey(CreditPack, on_delete=models.PROTECT, related_name="purchases")
+    credits = models.PositiveBigIntegerField()
+    currency = models.CharField(max_length=3)
+    unit_amount_minor = models.PositiveBigIntegerField()
+    status = models.CharField(
+        max_length=16, choices=CreditPurchaseStatus, default=CreditPurchaseStatus.PENDING
+    )
+    provider_reference = models.CharField(max_length=160, blank=True)
+    idempotency_key = models.CharField(max_length=120)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "-created_at", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "idempotency_key"],
+                name="billing_credit_purchase_key_uq",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(credits__gt=0), name="billing_credit_purchase_credits_ck"
+            ),
+        ]
+
+
+class CreditReservation(TenantScopedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    idempotency_key = models.CharField(max_length=120)
+    operation_key = models.CharField(max_length=100)
+    cost = models.PositiveIntegerField()
+    allowance_amount = models.PositiveIntegerField(default=0)
+    purchased_amount = models.PositiveIntegerField(default=0)
+    state = models.CharField(
+        max_length=16, choices=CreditReservationState, default=CreditReservationState.RESERVED
+    )
+    expires_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "created_at", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "idempotency_key"],
+                name="billing_credit_reservation_key_uq",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(cost__gt=0), name="billing_credit_reservation_cost_ck"
+            ),
+            models.CheckConstraint(
+                condition=models.Q(
+                    cost=models.F("allowance_amount") + models.F("purchased_amount")
+                ),
+                name="billing_credit_reservation_split_ck",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["organization", "state", "expires_at"],
+                name="bill_credit_res_state_idx",
+            )
+        ]
+
+
+class CreditLedgerEntry(TenantScopedModel):
+    """Append-only record of every credit that moved, and why."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    kind = models.CharField(max_length=24, choices=CreditLedgerKind)
+    bucket = models.CharField(max_length=16, choices=CreditBucket)
+    amount = models.BigIntegerField()
+    balance_after = models.PositiveBigIntegerField()
+    operation_key = models.CharField(max_length=100, blank=True)
+    operation_cost = models.PositiveIntegerField(null=True, blank=True)
+    reservation = models.ForeignKey(
+        CreditReservation,
+        on_delete=models.PROTECT,
+        related_name="ledger_entries",
+        null=True,
+        blank=True,
+    )
+    purchase = models.ForeignKey(
+        CreditPurchase,
+        on_delete=models.PROTECT,
+        related_name="ledger_entries",
+        null=True,
+        blank=True,
+    )
+    reason = models.TextField(blank=True)
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="credit_ledger_entries",
+        null=True,
+        blank=True,
+    )
+    idempotency_key = models.CharField(max_length=120, blank=True)
+    occurred_at = models.DateTimeField(default=timezone.now)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "occurred_at", "id")
+        constraints = [
+            models.CheckConstraint(
+                condition=~models.Q(amount=0), name="billing_credit_ledger_amount_ck"
+            ),
+            # One operation can move both buckets, so the key identifies the
+            # movement per bucket rather than per operation.
+            models.UniqueConstraint(
+                fields=["organization", "kind", "bucket", "idempotency_key"],
+                condition=~models.Q(idempotency_key=""),
+                name="billing_credit_ledger_key_uq",
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=["organization", "occurred_at"],
+                name="bill_credit_ledger_time_idx",
+            )
+        ]
+
+    def clean(self) -> None:
+        super().clean()
+        reservation = self.reservation
+        if reservation is not None and reservation.organization_id != self.organization_id:
+            raise ValidationError({"reservation": "Rezerwacja należy do innej organizacji."})
+        purchase = self.purchase
+        if purchase is not None and purchase.organization_id != self.organization_id:
+            raise ValidationError({"purchase": "Zakup należy do innej organizacji."})

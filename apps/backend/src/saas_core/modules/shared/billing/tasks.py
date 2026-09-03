@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from celery import shared_task
 
+from .credits import refresh_credit_allowances, release_expired_credit_reservations
 from .invoicing import InvoiceAdapterError, process_invoice_document
 from .lifecycle import process_due_lifecycle_actions
 from .overrides import expire_entitlement_overrides
@@ -59,3 +60,17 @@ def release_expired_reservations() -> int:
 def issue_invoice_document(document_id: str, organization_id: str) -> None:
     with billing_tenant_scope(organization_id):
         process_invoice_document(document_id)
+
+
+@shared_task(  # type: ignore[untyped-decorator]
+    name="saas_core.modules.shared.billing.tasks.refresh_credit_allowances"
+)
+def refresh_credit_allowances_task() -> int:
+    return refresh_credit_allowances()
+
+
+@shared_task(  # type: ignore[untyped-decorator]
+    name="saas_core.modules.shared.billing.tasks.release_expired_credit_reservations"
+)
+def release_expired_credit_reservations_task() -> int:
+    return release_expired_credit_reservations()

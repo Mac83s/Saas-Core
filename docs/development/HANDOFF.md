@@ -61,11 +61,38 @@ Do zrobienia w P1, w tej kolejności: (1) `deployment.json` składa
 moduły Shared; (2) artefakt modułów i hash profilu; (3) macierz
 wersja/migracje/rollback. Potem P2 (skills, `pnpm ai:validate`, CI) i P3.
 
-Właściciel zamówił też **kredyty** (2026-09-03): pula kupowana przez naszych
-klientów (organizacje) obok abonamentu, zużywana per operacja. Wyłącznie dla
-naszych klientów — kredyty dla klientów końcowych tych firm są poza zakresem.
-Dziś w kodzie nie ma pojęcia kredytu, są tylko limity planu (`QuotaDefinition`,
-`QuotaUsage`, `QuotaReservation`). To następna pozycja po billingu.
+**Kredyty** (2026-09-03) — domena gotowa w `shared.billing`. Decyzje
+właściciela: kupione kredyty nie wygasają; plan daje miesięczną pulę, która się
+odnawia i nie przechodzi dalej; zużycie bierze najpierw pulę planu, potem
+kupione; kredytują operacje AI (W9.5.7) i content operations (W9.6). Wyłącznie
+dla naszych klientów — kredyty klientów końcowych tych firm są poza zakresem.
+
+Model: katalog `CreditPack` i `CreditOperation` (niezależny od tenanta),
+tenantowe `CreditBalance`, `CreditPurchase`, `CreditReservation` i append-only
+`CreditLedgerEntry`. Ledger jest prawdą, saldo jest jego cache'em — test
+odbudowuje jedno z drugiego. Serwisy w `billing/credits.py`: rezerwacja →
+rozliczenie/zwolnienie (jak przy quotach, bo operacja AI może paść), zwrot
+przez wpis kompensujący, zakup, korekta operatora, dwa przemiatania.
+
+Dwie rzeczy zostały świadomie niedokończone:
+
+1. **Pula w planach nie jest jeszcze zapisana w katalogu.** Opublikowana wersja
+   planu jest niemutowalna w modelu i w bazie (wyzwalacz z migracji
+   `billing.0003`), więc zmiana tego, co plan daje, wymaga nowej wersji planu.
+   Zamierzone wartości (`profile` 50, `starter` 200, `pro` 1000) czekają w
+   `PLAN_ALLOWANCES` w migracji `billing.0016` i mają wejść **razem z W9.5.2S**,
+   gdy realne Stripe Product/Price i tak wymuszą nowe wersje planów. Do tego
+   czasu pula z planu wynosi 0, a działają kredyty kupione i korekta operatora.
+   Mechanizm jest kompletny: czyta `credits.monthly` ze snapshotu entitlementów,
+   więc zadziała w chwili, gdy wersja planu to zadeklaruje.
+2. **Operacje content operations są zaseedowane jako nieaktywne**, czyli
+   darmowe. Naliczanie ich zmienia ekonomię connectora SeoContentRank, który
+   odmawia fail-closed na nieznaną odpowiedź — włączenie wymaga uzgodnienia
+   kontraktu po obu stronach (kod odmowy `credits_exhausted`, HTTP 402).
+
+Do zrobienia dalej przy kredytach: API panelu (saldo, historia, pakiety,
+zakup), zakup przez port providera (simulator teraz, Stripe z W9.5.2S) i
+podpięcie zużycia w W9.5.7.
 
 Testy backendu da się uruchomić z Windows bez WSL: venv poza repo przez
 `UV_PROJECT_ENVIRONMENT=<katalog>` (`uv sync --project apps/backend`), hasło
@@ -157,6 +184,10 @@ grace/read-only, runbook aktywacji i rollbacku.
 
 ## Dowody walidacji
 
+- 2026-09-03 (kredyty): pełna suita backendu **484 passed** na świeżej bazie,
+  w tym `tests/test_billing_credits.py` (21) i zaktualizowany
+  `test_billing_catalog`; `makemigrations --check` bez zmian; Mypy 0 błędów w
+  266 plikach; import-linter 1 kept, 0 broken; Ruff czysty;
 - 2026-09-03 (P1, ADR-039 w billing): pełna suita backendu **463 passed** na
   lokalnym PostgreSQL, w tym nowe `tests/test_billing_isolation.py` (6);
   `makemigrations --check` bez zmian po `billing.0013`; import-linter 1 kept,
