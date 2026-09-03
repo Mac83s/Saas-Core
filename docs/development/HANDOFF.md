@@ -123,30 +123,48 @@ P8. Model nawigacji jest jeden i powstał w W9.6.3.
 Nie wracaj teraz do bramek wymagających prawdziwego stagingu/VPS. Są odłożone do
 sesji z dostępem do hosta, domeny, GHCR i GitHub Environment.
 
-## Realny Stripe (W9.5.2S) — gdy właściciel dostarczy konto
+## Realny Stripe (W9.5.2S) — w toku od 2026-09-03
 
-Właściciel zapowiedział konto Stripe na 2026-09-03. Zakres i bramka odbioru
-pozostają w W9.5.2S i ADR-034; ten wpis mówi tylko, czego potrzeba na start.
+Klucze testowe są na miejscu: `.runtime/secrets/stripe_secret_key` (wklejony
+przez właściciela) i `.runtime/secrets/stripe_webhook_secret` (pobrany przez
+`stripe listen --print-secret`, Stripe CLI 1.28.0 z `A:\AAAExtensions`).
+Decyzje podatkowe i zakres portalu są w ADR-040.
 
-Od właściciela:
+Zrobione: compose montuje oba sekrety do backendu, workera i schedulera i
+przekazuje `STRIPE_PORTAL_CONFIGURATION_ID` oraz `STRIPE_LIVEMODE`; start
+odmawia przy `BILLING_PROVIDER=stripe` bez kompletu (klucz, sekret webhooka,
+konfiguracja portalu), z wyjątkiem środowiska testowego; adapter wysyła adres
+przy tworzeniu Customer, Checkout zbiera adres i NIP i zapisuje je z powrotem,
+subskrypcja ma `automatic_tax`, a portal jest otwierany na przypiętej
+konfiguracji.
 
-1. dostęp do konta Stripe w trybie **test** (live dopiero po odbiorze):
-   `STRIPE_SECRET_KEY` (`sk_test_…`) i `STRIPE_WEBHOOK_SECRET` (`whsec_…`)
-   dostarczone przez secret store albo plik poza repo (`*_FILE`) — nigdy w
-   czacie ani w commicie; klucz wklejony do czatu trzeba zrotować;
-2. potwierdzenie waluty (PLN) i czy Stripe Tax ma liczyć VAT;
-3. włączony Customer Portal w dashboardzie (metoda płatności, faktury,
-   anulowanie, zmiana planu w obsługiwanym zakresie) i dane firmy do faktur;
-4. gdzie odbieramy webhooki: lokalnie przez `stripe listen --forward-to`
-   (Stripe CLI — wystarcza do testów) czy na stagingu (wymagane do zaliczenia
-   bramki ADR-034, bo dowodem jest staging smoke).
+**Zweryfikowane bezpośrednio na koncie testowym** (sondy, obiekty posprzątane):
 
-Po stronie repo: `BILLING_PROVIDER=stripe` z fail-closed startem przy
-niekompletnej konfiguracji, dokładnie trzy Product/Price zmapowane komendą
-`configure_stripe_prices --mapping <plan>=<prod_…>,<price_…>` (komenda
-istnieje), ścieżka Setup Checkout → webhook → lokalny snapshot entitlementów,
-testy podpisu, kolejności, retry, idempotencji i exact-tenant, SCA/3DS,
-grace/read-only, runbook aktywacji i rollbacku.
+- setup-mode Checkout **wymaga `currency`** w bieżącej wersji API
+  (`2026-07-29.dahlia`) — dotychczasowy kod nie wysyłał jej wcale, więc
+  pierwsze prawdziwe wywołanie by padło. Naprawione;
+- `tax_id_collection` w setup mode działa **tylko** z
+  `customer_update[name] = auto`;
+- `automatic_tax` na subskrypcji, `tax_behavior: exclusive` na cenach
+  (jednorazowych i cyklicznych) oraz portal z parametrem `configuration`
+  przechodzą;
+- **konto nie ma żadnej rejestracji podatkowej**, więc Stripe Tax nie naliczy
+  VAT, dopóki właściciel nie doda co najmniej Polski;
+- konfiguracja portalu `bpc_1UBYhcPI8KcdVPQw6znPqGxc`: anulowanie
+  `at_period_end` (zgodnie z ADR-040), `customer_update` bez `tax_id`,
+  `subscription_update` wyłączone.
+
+Do zrobienia po stronie właściciela w dashboardzie: rejestracja podatkowa PL
+(oraz OSS albo monitorowanie progu 10 000 EUR), dodanie `tax_id` do
+`customer_update.allowed_updates` w portalu, a po utworzeniu naszych trzech cen
+— włączenie `subscription_update` ograniczonego do nich.
+
+Do zrobienia w repo: utworzenie i zmapowanie trzech Product/Price z
+`tax_behavior` (rozszerzenie `configure_stripe_prices`), Checkout pakietu
+kredytów w trybie płatności jednorazowej, ścieżka webhook → snapshot
+entitlementów na prawdziwym Stripe, testy podpisu, kolejności, retry,
+idempotencji, SCA/3DS i grace/read-only, nowe wersje planów z
+`credits.monthly`, runbook aktywacji i rollbacku.
 
 ## Stan produktu
 
@@ -184,6 +202,9 @@ grace/read-only, runbook aktywacji i rollbacku.
 
 ## Dowody walidacji
 
+- 2026-09-03 (W9.5.2S, krok 1): pełna suita **484 passed**; Mypy 0 błędów w
+  266 plikach; Ruff czysty; `docker compose config` poprawny; sondy Stripe na
+  koncie testowym potwierdziły parametry i zostały posprzątane (0 obiektów);
 - 2026-09-03 (kredyty): pełna suita backendu **484 passed** na świeżej bazie,
   w tym `tests/test_billing_credits.py` (21) i zaktualizowany
   `test_billing_catalog`; `makemigrations --check` bez zmian; Mypy 0 błędów w

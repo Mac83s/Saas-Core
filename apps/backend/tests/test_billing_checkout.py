@@ -78,6 +78,12 @@ def setup_owner(*, slug: str = "checkout-owner") -> tuple[Organization, TenantCo
         organization=tenant,
         legal_name="Checkout sp. z o.o.",
         billing_email="billing@example.com",
+        # ADR-040: without an address Stripe Tax has no rate to apply, so the
+        # profile is required data before the first payment.
+        country_code="PL",
+        address_line1="Testowa 1",
+        postal_code="00-001",
+        city="Warszawa",
     )
     assert profile.external_customer_id == ""
     actor = User.objects.create_user(email=f"{slug}@example.com")
@@ -298,6 +304,7 @@ def test_stripe_adapter_uses_setup_mode_without_starting_trial(
         organization_id="org-id",
         plan_version_id="plan-version-id",
         price_mapping_id="mapping-id",
+        currency="PLN",
         success_url="https://app.test/success",
         cancel_url="https://app.test/cancel",
         idempotency_key="adapter-key",
@@ -309,5 +316,12 @@ def test_stripe_adapter_uses_setup_mode_without_starting_trial(
     assert "subscription_data" not in params
     assert "line_items" not in params
     assert params["metadata"]["saas_core_price_mapping_id"] == "mapping-id"
+    # Verified against the Stripe test account: setup mode is refused without a
+    # currency, and tax ID collection is refused unless the name may be written
+    # back onto the Customer.
+    assert params["currency"] == "pln"
+    assert params["billing_address_collection"] == "required"
+    assert params["tax_id_collection"] == {"enabled": True}
+    assert params["customer_update"] == {"address": "auto", "name": "auto"}
     assert options == {"idempotency_key": "adapter-key"}
     assert BillingCheckout.all_objects.count() == 0

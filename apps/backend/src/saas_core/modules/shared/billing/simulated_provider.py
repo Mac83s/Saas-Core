@@ -9,6 +9,7 @@ from .models import StripePriceMapping, StripeSubscriptionStatus
 from .provider import (
     BillingProviderCapabilityError,
     BillingProviderError,
+    ProviderAddress,
     ProviderCheckout,
     ProviderCustomer,
     ProviderPortal,
@@ -30,10 +31,11 @@ class SimulatedBillingProvider:
         *,
         email: str,
         name: str,
+        address: ProviderAddress,
         organization_id: str,
         idempotency_key: str,
     ) -> ProviderCustomer:
-        del email, name, idempotency_key
+        del email, name, address, idempotency_key
         return ProviderCustomer(_simulated_id("customer", organization_id))
 
     def create_setup_checkout(
@@ -43,11 +45,13 @@ class SimulatedBillingProvider:
         organization_id: str,
         plan_version_id: str,
         price_mapping_id: str,
+        currency: str,
         success_url: str,
         cancel_url: str,
         idempotency_key: str,
     ) -> ProviderCheckout:
-        del customer_id, organization_id, plan_version_id, price_mapping_id, cancel_url
+        del customer_id, organization_id, plan_version_id, price_mapping_id
+        del currency, cancel_url
         session_id = _simulated_id("checkout", idempotency_key)
         setup_intent_id = _simulated_id("setup", idempotency_key)
         return ProviderCheckout(

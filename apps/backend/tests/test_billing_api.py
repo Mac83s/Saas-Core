@@ -92,7 +92,15 @@ def billing_client(*, role_key: str, slug: str) -> tuple[APIClient, Organization
         slug=slug,
         status=OrganizationStatus.ACTIVE,
     )
-    BillingProfile.objects.create(organization=organization)
+    BillingProfile.objects.create(
+        organization=organization,
+        # ADR-040: Stripe Tax needs an address, so the profile is
+        # required data before the first payment.
+        country_code="PL",
+        address_line1="Testowa 1",
+        postal_code="00-001",
+        city="Warszawa",
+    )
     Membership.objects.create(
         organization=organization,
         user=user,

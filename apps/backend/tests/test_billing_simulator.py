@@ -51,6 +51,10 @@ def owner_context(*, slug: str) -> tuple[Organization, TenantContext]:
         organization=organization,
         legal_name="Symulowana firma",
         billing_email="billing@example.com",
+        country_code="PL",
+        address_line1="Testowa 1",
+        postal_code="00-001",
+        city="Warszawa",
     )
     actor = User.objects.create_user(email=f"{slug}@example.com")
     return organization, TenantContext(
@@ -156,7 +160,7 @@ def test_simulated_checkout_and_exact_activation_create_trial_without_webhook() 
 def test_simulator_hard_disables_public_stripe_webhook_without_persistence() -> None:
     response = Client().post(
         "/api/v1/billing/webhooks/stripe/",
-        data=b'{}',
+        data=b"{}",
         content_type="application/json",
         HTTP_STRIPE_SIGNATURE="ignored",
     )

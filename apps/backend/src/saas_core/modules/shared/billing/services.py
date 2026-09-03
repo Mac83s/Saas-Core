@@ -34,6 +34,7 @@ from .models import (
 from .provider import (
     BillingProviderCapabilityError,
     BillingProviderError,
+    ProviderAddress,
     get_billing_provider,
 )
 
@@ -56,6 +57,12 @@ class ActiveSubscriptionExists(APIException):
     status_code = 409
     default_detail = "Organizacja ma już bieżącą subskrypcję."
     default_code = "active_subscription_exists"
+
+
+class BillingProfileIncomplete(APIException):
+    status_code = 409
+    default_detail = "Uzupełnij dane do faktury przed pierwszą płatnością."
+    default_code = "billing_profile_incomplete"
 
 
 class BillingCustomerRequired(APIException):
@@ -113,6 +120,35 @@ def activate_customer_trial(*, checkout_session_id: str) -> TrialActivationResul
     )
 
 
+def _provider_address(profile: BillingProfile) -> ProviderAddress:
+    """The address Stripe Tax needs, refused early when it is incomplete.
+
+    ADR-040 makes this required data rather than an optional detail: without a
+    country and a street the provider cannot work out a VAT rate, and finding
+    that out at the payment is worse than finding it out in the form.
+    """
+    missing = [
+        label
+        for label, value in (
+            ("kraj", profile.country_code),
+            ("ulica", profile.address_line1),
+            ("kod pocztowy", profile.postal_code),
+            ("miejscowość", profile.city),
+        )
+        if not value.strip()
+    ]
+    if missing:
+        raise BillingProfileIncomplete(
+            "Dane do faktury są niekompletne; brakuje: " + ", ".join(missing) + "."
+        )
+    return ProviderAddress(
+        line1=profile.address_line1.strip(),
+        postal_code=profile.postal_code.strip(),
+        city=profile.city.strip(),
+        country=profile.country_code.strip().upper(),
+    )
+
+
 def create_setup_checkout(*, plan_key: str, idempotency_key: str) -> CheckoutResult:
     context = authorize(BILLING_MANAGE, owner_only=True)
     _refuse_platform_workspace(context.organization_id)
@@ -163,6 +199,7 @@ def create_setup_checkout(*, plan_key: str, idempotency_key: str) -> CheckoutRes
             customer = provider.create_customer(
                 email=profile.billing_email or actor.email,
                 name=profile.legal_name or organization.name,
+                address=_provider_address(profile),
                 organization_id=str(organization.id),
                 idempotency_key=f"saas-core:customer:{organization.id}",
             )
@@ -182,6 +219,7 @@ def create_setup_checkout(*, plan_key: str, idempotency_key: str) -> CheckoutRes
             organization_id=str(organization.id),
             plan_version_id=str(mapping.plan_version_id),
             price_mapping_id=str(mapping.id),
+            currency=mapping.plan_version.currency,
             success_url=settings.BILLING_CHECKOUT_SUCCESS_URL,
             cancel_url=settings.BILLING_CHECKOUT_CANCEL_URL,
             idempotency_key=f"saas-core:checkout:{organization.id}:{normalized_key}",
@@ -202,9 +240,7 @@ def create_setup_checkout(*, plan_key: str, idempotency_key: str) -> CheckoutRes
                 idempotency_key=normalized_key,
                 checkout_url=provider_checkout.url,
                 status=(
-                    CheckoutStatus.COMPLETE
-                    if provider_checkout.completed
-                    else CheckoutStatus.OPEN
+                    CheckoutStatus.COMPLETE if provider_checkout.completed else CheckoutStatus.OPEN
                 ),
                 setup_intent_id=provider_checkout.setup_intent_id,
                 completed_at=completed_at,

@@ -18,6 +18,20 @@ class BillingProviderCapabilityError(BillingProviderError):
 
 
 @dataclass(frozen=True, slots=True)
+class ProviderAddress:
+    """Where the buyer is, which is what decides the VAT rate (ADR-040).
+
+    Stripe Tax refuses to compute without it, so this is required data rather
+    than a nicety — the organization fills it in before it can pay.
+    """
+
+    line1: str
+    postal_code: str
+    city: str
+    country: str
+
+
+@dataclass(frozen=True, slots=True)
 class ProviderCustomer:
     id: str
 
@@ -81,6 +95,7 @@ class BillingProvider(Protocol):
         *,
         email: str,
         name: str,
+        address: ProviderAddress,
         organization_id: str,
         idempotency_key: str,
     ) -> ProviderCustomer: ...
@@ -92,6 +107,7 @@ class BillingProvider(Protocol):
         organization_id: str,
         plan_version_id: str,
         price_mapping_id: str,
+        currency: str,
         success_url: str,
         cancel_url: str,
         idempotency_key: str,
@@ -139,6 +155,7 @@ class StripeBillingProvider:
         *,
         email: str,
         name: str,
+        address: ProviderAddress,
         organization_id: str,
         idempotency_key: str,
     ) -> ProviderCustomer:
@@ -147,6 +164,14 @@ class StripeBillingProvider:
                 {
                     "email": email,
                     "name": name,
+                    # Stripe Tax reads the rate off this address; without it a
+                    # subscription with automatic_tax is refused outright.
+                    "address": {
+                        "line1": address.line1,
+                        "postal_code": address.postal_code,
+                        "city": address.city,
+                        "country": address.country,
+                    },
                     "metadata": {"saas_core_organization_id": organization_id},
                 },
                 {"idempotency_key": idempotency_key},
@@ -162,6 +187,7 @@ class StripeBillingProvider:
         organization_id: str,
         plan_version_id: str,
         price_mapping_id: str,
+        currency: str,
         success_url: str,
         cancel_url: str,
         idempotency_key: str,
@@ -176,8 +202,18 @@ class StripeBillingProvider:
                 {
                     "mode": "setup",
                     "customer": customer_id,
+                    # Setup mode charges nothing, but the current API still
+                    # requires a currency and refuses the session without it.
+                    "currency": currency.lower(),
                     "payment_method_types": ["card"],
                     "client_reference_id": organization_id,
+                    # ADR-040: the address decides the rate and the VAT number
+                    # decides whether it is reverse charged, so both are
+                    # collected here and written back onto the Customer. Stripe
+                    # validates the number in VIES; we do not.
+                    "billing_address_collection": "required",
+                    "tax_id_collection": {"enabled": True},
+                    "customer_update": {"address": "auto", "name": "auto"},
                     "metadata": metadata,
                     "setup_intent_data": {"metadata": metadata},
                     "success_url": success_url,
@@ -200,11 +236,18 @@ class StripeBillingProvider:
         )
 
     def create_portal(self, *, customer_id: str, return_url: str) -> ProviderPortal:
+        # The configuration is named rather than left to the account default:
+        # the default can be changed in the dashboard and no review would see
+        # it (ADR-040).
+        configuration = settings.STRIPE_PORTAL_CONFIGURATION_ID
         try:
-            portal = self.client.v1.billing_portal.sessions.create({
-                "customer": customer_id,
-                "return_url": return_url,
-            })
+            portal = self.client.v1.billing_portal.sessions.create(
+                {
+                    "customer": customer_id,
+                    "return_url": return_url,
+                    **({"configuration": configuration} if configuration else {}),
+                }
+            )
         except stripe.StripeError as error:
             raise BillingProviderError("Stripe odrzucił utworzenie Customer Portal.") from error
         return ProviderPortal(
@@ -258,6 +301,7 @@ class StripeBillingProvider:
                     "customer": customer_id,
                     "items": [{"price": price_id, "quantity": 1}],
                     "default_payment_method": payment_method_id,
+                    "automatic_tax": {"enabled": True},
                     "trial_period_days": trial_days,
                     "trial_settings": {"end_behavior": {"missing_payment_method": "cancel"}},
                     "metadata": {
