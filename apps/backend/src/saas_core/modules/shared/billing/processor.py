@@ -18,6 +18,7 @@ from .models import (
     BillingCheckout,
     BillingSubscription,
     CheckoutStatus,
+    CreditPurchase,
     StripePriceMapping,
     StripeSubscriptionStatus,
     StripeWebhookEvent,
@@ -141,6 +142,8 @@ def _handle_checkout(event: StripeWebhookEvent) -> None:
     checkout_id = _required_string(data, "id")
     customer_id = _stripe_id(data.get("customer"), "customer")
     profile = BillingProfile.objects.select_for_update().get(external_customer_id=customer_id)
+    if _handle_credit_checkout(event, data, profile):
+        return
     checkout = (
         BillingCheckout.all_objects.select_for_update()
         .select_related("price_mapping")
@@ -166,6 +169,44 @@ def _handle_checkout(event: StripeWebhookEvent) -> None:
     checkout.completed_at = event.provider_created_at
     checkout.save(update_fields=["status", "setup_intent_id", "completed_at", "updated_at"])
     event.organization_id = profile.organization_id
+
+
+def _handle_credit_checkout(
+    event: StripeWebhookEvent,
+    data: dict[str, Any],
+    profile: BillingProfile,
+) -> bool:
+    """Credits a paid pack, if this session was one.
+
+    Returns False for a plan's setup session so the caller carries on. A credit
+    pack is a one-off payment and never touches a subscription, which is why it
+    leaves before any of that logic runs.
+    """
+    raw_metadata = data.get("metadata")
+    metadata: dict[str, Any] = raw_metadata if isinstance(raw_metadata, dict) else {}
+    purchase_id = metadata.get("saas_core_credit_purchase_id")
+    if not purchase_id:
+        return False
+    if data.get("payment_status") != "paid":
+        raise StripeEventProcessingError("Checkout kredytów nie jest opłacony.")
+    if metadata.get("saas_core_organization_id") != str(profile.organization_id):
+        raise StripeEventProcessingError("Checkout kredytów wskazuje inną organizację.")
+
+    from .credits import complete_credit_purchase
+
+    try:
+        complete_credit_purchase(
+            organization_id=profile.organization_id,
+            purchase_id=UUID(str(purchase_id)),
+            provider_reference=_required_string(data, "id"),
+            at=event.provider_created_at,
+        )
+    except CreditPurchase.DoesNotExist as error:
+        raise StripeEventProcessingError("Checkout kredytów nie ma lokalnego zakupu.") from error
+    except ValueError as error:
+        raise StripeEventProcessingError("Nieprawidłowy identyfikator zakupu.") from error
+    event.organization_id = profile.organization_id
+    return True
 
 
 def _handle_subscription(event: StripeWebhookEvent) -> None:

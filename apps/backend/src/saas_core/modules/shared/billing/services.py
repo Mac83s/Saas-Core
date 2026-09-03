@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from django.conf import settings
@@ -28,6 +28,9 @@ from .models import (
     BillingCheckout,
     BillingSubscription,
     CheckoutStatus,
+    CreditPackPrice,
+    CreditPurchase,
+    CreditPurchaseStatus,
     StripePriceMapping,
     SubscriptionState,
 )
@@ -57,6 +60,11 @@ class ActiveSubscriptionExists(APIException):
     status_code = 409
     default_detail = "Organizacja ma już bieżącą subskrypcję."
     default_code = "active_subscription_exists"
+
+
+class CreditPackUnavailable(NotFound):
+    default_detail = "Pakiet kredytów nie jest dostępny."
+    default_code = "credit_pack_unavailable"
 
 
 class BillingProfileIncomplete(APIException):
@@ -149,6 +157,124 @@ def _provider_address(profile: BillingProfile) -> ProviderAddress:
     )
 
 
+def _ensure_provider_customer(
+    *,
+    provider: Any,
+    organization: Organization,
+    actor: User,
+    profile: BillingProfile,
+) -> tuple[str, bool]:
+    """Returns the Stripe customer for this organization, creating it once.
+
+    Shared by the plan checkout and the credit-pack checkout: both need a
+    customer carrying the billing address, and creating a second one would give
+    the same company two identities at the provider.
+    """
+    if profile.external_customer_id:
+        return profile.external_customer_id, False
+    try:
+        customer = provider.create_customer(
+            email=profile.billing_email or actor.email,
+            name=profile.legal_name or organization.name,
+            address=_provider_address(profile),
+            organization_id=str(organization.id),
+            idempotency_key=f"saas-core:customer:{organization.id}",
+        )
+    except (BillingProviderError, ImproperlyConfigured) as error:
+        raise BillingProviderUnavailable from error
+    profile.external_customer_id = customer.id
+    try:
+        with transaction.atomic():
+            profile.save(update_fields=["external_customer_id", "updated_at"])
+    except IntegrityError as error:
+        raise BillingCheckoutConflict from error
+    return profile.external_customer_id, True
+
+
+def create_credit_checkout(*, pack_key: str, idempotency_key: str) -> CreditPurchase:
+    """Opens a one-off payment for a credit pack.
+
+    The portal cannot sell this (ADR-040 §4), so it is our own Checkout. The
+    purchase is recorded first and credited only by the webhook — a browser
+    returning from Stripe proves nothing.
+    """
+    context = authorize(BILLING_MANAGE, owner_only=True)
+    _refuse_platform_workspace(context.organization_id)
+    from .credits import start_credit_purchase
+
+    organization = Organization.objects.get(pk=context.organization_id)
+    actor = User.objects.get(pk=context.actor_id)
+    profile = BillingProfile.objects.get(organization=organization)
+    purchase = start_credit_purchase(pack_key, idempotency_key=idempotency_key)
+    if purchase.status != CreditPurchaseStatus.PENDING or purchase.checkout_session_id:
+        return purchase
+
+    price = (
+        CreditPackPrice.objects.filter(
+            pack=purchase.pack, livemode=settings.STRIPE_LIVEMODE, is_active=True
+        )
+        .values_list("stripe_price_id", flat=True)
+        .first()
+    )
+    if price is None:
+        raise CreditPackUnavailable
+    try:
+        provider = get_billing_provider()
+    except (BillingProviderError, ImproperlyConfigured) as error:
+        raise BillingProviderUnavailable from error
+    customer_id, _created = _ensure_provider_customer(
+        provider=provider, organization=organization, actor=actor, profile=profile
+    )
+    try:
+        provider_checkout = provider.create_credit_checkout(
+            customer_id=customer_id,
+            organization_id=str(organization.id),
+            purchase_id=str(purchase.id),
+            price_id=price,
+            success_url=settings.BILLING_CREDITS_CHECKOUT_SUCCESS_URL,
+            cancel_url=settings.BILLING_CREDITS_CHECKOUT_CANCEL_URL,
+            idempotency_key=f"saas-core:credits:{organization.id}:{purchase.id}",
+        )
+    except (BillingProviderError, ImproperlyConfigured) as error:
+        raise BillingProviderUnavailable from error
+
+    purchase.checkout_session_id = provider_checkout.id
+    purchase.checkout_url = provider_checkout.url
+    purchase.expires_at = provider_checkout.expires_at
+    purchase.save(
+        update_fields=[
+            "checkout_session_id",
+            "checkout_url",
+            "expires_at",
+            "updated_at",
+        ]
+    )
+    if provider_checkout.completed:
+        # The simulator settles immediately; real Stripe never does, and the
+        # webhook is what credits the pool there.
+        from .credits import complete_credit_purchase
+
+        return complete_credit_purchase(
+            organization_id=organization.id,
+            purchase_id=purchase.id,
+            provider_reference=provider_checkout.id,
+        )
+    record_audit(
+        organization=organization,
+        action=OrganizationAuditAction.BILLING_CHECKOUT_CREATED,
+        actor=actor,
+        target_type="credit_purchase",
+        target_id=purchase.id,
+        metadata={
+            "credit_pack": purchase.pack.key,
+            "credits": purchase.credits,
+            "stripe_checkout_session_id": purchase.checkout_session_id,
+            "payment_mode": settings.BILLING_PROVIDER,
+        },
+    )
+    return purchase
+
+
 def create_setup_checkout(*, plan_key: str, idempotency_key: str) -> CheckoutResult:
     context = authorize(BILLING_MANAGE, owner_only=True)
     _refuse_platform_workspace(context.organization_id)
@@ -193,25 +319,9 @@ def create_setup_checkout(*, plan_key: str, idempotency_key: str) -> CheckoutRes
         provider = get_billing_provider()
     except (BillingProviderError, ImproperlyConfigured) as error:
         raise BillingProviderUnavailable from error
-    customer_created = False
-    if not profile.external_customer_id:
-        try:
-            customer = provider.create_customer(
-                email=profile.billing_email or actor.email,
-                name=profile.legal_name or organization.name,
-                address=_provider_address(profile),
-                organization_id=str(organization.id),
-                idempotency_key=f"saas-core:customer:{organization.id}",
-            )
-        except (BillingProviderError, ImproperlyConfigured) as error:
-            raise BillingProviderUnavailable from error
-        profile.external_customer_id = customer.id
-        try:
-            with transaction.atomic():
-                profile.save(update_fields=["external_customer_id", "updated_at"])
-        except IntegrityError as error:
-            raise BillingCheckoutConflict from error
-        customer_created = True
+    _customer_id, customer_created = _ensure_provider_customer(
+        provider=provider, organization=organization, actor=actor, profile=profile
+    )
 
     try:
         provider_checkout = provider.create_setup_checkout(

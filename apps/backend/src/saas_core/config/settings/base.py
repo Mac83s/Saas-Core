@@ -465,6 +465,15 @@ BILLING_CHECKOUT_CANCEL_URL = os.environ.get(
     "BILLING_CHECKOUT_CANCEL_URL",
     f"{FRONTEND_BASE_URL.rstrip('/')}/settings/billing?checkout=canceled",
 )
+BILLING_CREDITS_CHECKOUT_SUCCESS_URL = os.environ.get(
+    "BILLING_CREDITS_CHECKOUT_SUCCESS_URL",
+    f"{FRONTEND_BASE_URL.rstrip('/')}/settings/credits?checkout=success"
+    "&session_id={CHECKOUT_SESSION_ID}",
+)
+BILLING_CREDITS_CHECKOUT_CANCEL_URL = os.environ.get(
+    "BILLING_CREDITS_CHECKOUT_CANCEL_URL",
+    f"{FRONTEND_BASE_URL.rstrip('/')}/settings/credits?checkout=canceled",
+)
 BILLING_PORTAL_RETURN_URL = os.environ.get(
     "BILLING_PORTAL_RETURN_URL",
     f"{FRONTEND_BASE_URL.rstrip('/')}/settings/billing",

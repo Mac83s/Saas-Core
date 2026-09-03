@@ -1,14 +1,16 @@
-"""Creates the Stripe Products and Prices our plan catalog describes.
+"""Creates the Stripe Products and Prices our catalog describes.
 
-ADR-034 asks for exactly three active Product/Price pairs matching the local
-`PlanVersion`, separately for test and live. Doing that by hand in the
+Covers both halves of what we sell: the subscription plans (recurring) and the
+credit packs (one-off). ADR-034 asks for active Product/Price pairs matching
+the local catalog, separately for test and live. Doing that by hand in the
 dashboard is where `tax_behavior` gets forgotten, and a price without it is
 refused by `automatic_tax` at the first invoice — so it is a command, run the
 same way in both modes, rather than a checklist.
 
-Safe to repeat. A product carries a deterministic id derived from the plan key,
-and a price is reused when its amount, currency, interval and tax behaviour
-already match; only a genuine change creates a new one and retires the old.
+Safe to repeat. A product carries a deterministic id derived from the catalog
+key, and a price is reused when its amount, currency, interval and tax
+behaviour already match; only a genuine change creates a new one and retires
+the old.
 """
 
 from __future__ import annotations
@@ -20,7 +22,13 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from saas_core.modules.shared.billing.models import Plan, PlanVersion, StripePriceMapping
+from saas_core.modules.shared.billing.models import (
+    CreditPack,
+    CreditPackPrice,
+    Plan,
+    PlanVersion,
+    StripePriceMapping,
+)
 
 #: ADR-040: catalog amounts are net, so every price says so explicitly.
 TAX_BEHAVIOR: Literal["exclusive"] = "exclusive"
@@ -28,7 +36,7 @@ BillingIntervalLiteral = Literal["day", "week", "month", "year"]
 
 
 class Command(BaseCommand):
-    help = "Tworzy w Stripe Produkty i Ceny odpowiadające bieżącym wersjom planów."
+    help = "Tworzy w Stripe Produkty i Ceny dla planów oraz pakietów kredytów."
 
     def add_arguments(self, parser: Any) -> None:
         parser.add_argument(
@@ -64,6 +72,8 @@ class Command(BaseCommand):
             pair = self._provision_plan(client, plan.current_version, dry_run=dry_run)
             if pair is not None:
                 offered.append(pair)
+        for pack in CreditPack.objects.filter(is_active=True).order_by("credits"):
+            self._provision_pack(client, pack, dry_run=dry_run)
         if not dry_run:
             self._allow_switching_between(client, offered)
 
@@ -126,7 +136,16 @@ class Command(BaseCommand):
             )
             return None
 
-        product = self._ensure_product(client, product_id, version)
+        product = self._ensure_product(
+            client,
+            product_id,
+            name=version.plan.name,
+            description=version.plan.description,
+            metadata={
+                "saas_core_plan": version.plan.key,
+                "saas_core_plan_version": str(version.version),
+            },
+        )
         price = self._ensure_price(
             client,
             product_id=product.id,
@@ -144,19 +163,61 @@ class Command(BaseCommand):
         )
         return product.id, price.id
 
+    def _provision_pack(
+        self, client: stripe.StripeClient, pack: CreditPack, *, dry_run: bool
+    ) -> None:
+        """Credit packs are sold once, so their price has no recurring block."""
+        product_id = f"saas_core_credits_{pack.key.replace('-', '_')}"
+        currency = pack.currency.lower()
+        if dry_run:
+            self.stdout.write(
+                f"  [dry-run] {pack.key}: produkt {product_id}, "
+                f"{pack.unit_amount_minor / 100:.2f} {currency.upper()} jednorazowo, netto"
+            )
+            return
+
+        product = self._ensure_product(
+            client,
+            product_id,
+            name=pack.name,
+            description=pack.description,
+            metadata={
+                "saas_core_credit_pack": pack.key,
+                "saas_core_credits": str(pack.credits),
+            },
+        )
+        price = self._ensure_price(
+            client,
+            product_id=product.id,
+            amount=pack.unit_amount_minor,
+            currency=currency,
+            interval=None,
+        )
+        created = self._map_pack(pack, product_id=product.id, price_id=price.id)
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"  {pack.key}: {price.id} "
+                f"({pack.unit_amount_minor / 100:.2f} {currency.upper()} jednorazowo, netto) "
+                f"— mapowanie {'utworzone' if created else 'bez zmian'}"
+            )
+        )
+
     def _ensure_product(
-        self, client: stripe.StripeClient, product_id: str, version: PlanVersion
+        self,
+        client: stripe.StripeClient,
+        product_id: str,
+        *,
+        name: str,
+        description: str,
+        metadata: dict[str, str],
     ) -> Any:
         payload: Any = {
-            "name": version.plan.name,
+            "name": name,
             "tax_code": settings.STRIPE_TAX_CODE,
-            "metadata": {
-                "saas_core_plan": version.plan.key,
-                "saas_core_plan_version": str(version.version),
-            },
+            "metadata": metadata,
         }
-        if version.plan.description:
-            payload["description"] = version.plan.description
+        if description:
+            payload["description"] = description
         try:
             return client.v1.products.update(product_id, payload)
         except stripe.InvalidRequestError:
@@ -172,7 +233,7 @@ class Command(BaseCommand):
         product_id: str,
         amount: int,
         currency: str,
-        interval: str,
+        interval: str | None,
     ) -> Any:
         for candidate in client.v1.prices.list({
             "product": product_id,
@@ -180,24 +241,28 @@ class Command(BaseCommand):
             "limit": 100,
         }).data:
             recurring = getattr(candidate, "recurring", None)
+            candidate_interval = (
+                getattr(recurring, "interval", None) if recurring is not None else None
+            )
             if (
                 getattr(candidate, "unit_amount", None) == amount
                 and getattr(candidate, "currency", None) == currency
                 and getattr(candidate, "tax_behavior", None) == TAX_BEHAVIOR
-                and recurring is not None
-                and getattr(recurring, "interval", None) == interval
+                and candidate_interval == interval
             ):
                 return candidate
             # A price is immutable in Stripe, so a changed amount means a new
             # one and the old must stop being offered.
             client.v1.prices.update(candidate.id, {"active": False})
-        return client.v1.prices.create({
+        payload: Any = {
             "product": product_id,
             "currency": currency,
             "unit_amount": amount,
-            "recurring": {"interval": cast(BillingIntervalLiteral, interval)},
             "tax_behavior": TAX_BEHAVIOR,
-        })
+        }
+        if interval is not None:
+            payload["recurring"] = {"interval": cast(BillingIntervalLiteral, interval)}
+        return client.v1.prices.create(payload)
 
     def _map(self, version: PlanVersion, *, product_id: str, price_id: str) -> bool:
         with transaction.atomic():
@@ -225,6 +290,34 @@ class Command(BaseCommand):
                 return True
             StripePriceMapping.objects.create(
                 plan_version=version,
+                stripe_product_id=product_id,
+                stripe_price_id=price_id,
+                livemode=settings.STRIPE_LIVEMODE,
+            )
+            return True
+
+    def _map_pack(self, pack: CreditPack, *, product_id: str, price_id: str) -> bool:
+        with transaction.atomic():
+            active = (
+                CreditPackPrice.objects.select_for_update()
+                .filter(pack=pack, livemode=settings.STRIPE_LIVEMODE, is_active=True)
+                .first()
+            )
+            if active is not None and active.stripe_price_id == price_id:
+                return False
+            if active is not None:
+                active.is_active = False
+                active.save(update_fields=["is_active", "updated_at"])
+            existing = CreditPackPrice.objects.filter(stripe_price_id=price_id).first()
+            if existing is not None:
+                if existing.pack_id != pack.id:
+                    raise CommandError(f"Cena {price_id!r} jest przypisana do innego pakietu.")
+                existing.stripe_product_id = product_id
+                existing.is_active = True
+                existing.save(update_fields=["stripe_product_id", "is_active", "updated_at"])
+                return True
+            CreditPackPrice.objects.create(
+                pack=pack,
                 stripe_product_id=product_id,
                 stripe_price_id=price_id,
                 livemode=settings.STRIPE_LIVEMODE,

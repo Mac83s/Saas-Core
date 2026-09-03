@@ -179,12 +179,21 @@ modelu z księgową, decyzja o własnych dokumentach sprzedaży obok faktur Stri
 Konto live to osobny świat — trzeba je skonfigurować od nowa kluczem live po
 aktywacji konta i przy publicznym adresie na webhooki.
 
-Do zrobienia w repo: pakiety kredytów w Stripe (brak modelu mapowania ceny dla
-`CreditPack` — trzeba zdecydować, czy rozszerzyć `StripePriceMapping`, czy dać
-osobną tabelę), Checkout kredytów w trybie płatności jednorazowej, ścieżka
-webhook → snapshot entitlementów na prawdziwym Stripe przez `stripe listen`,
-testy podpisu, kolejności, retry, idempotencji, SCA/3DS i grace/read-only,
-prezentacja kwoty brutto dla konsumenta w panelu, runbook aktywacji i rollbacku.
+Pakiety kredytów też są w Stripe (49/199/699 zł netto, jednorazowe) i mają
+własną tabelę mapowań `CreditPackPrice` — świadomie osobną od
+`StripePriceMapping`, bo subskrypcja i checkout wskazują mapowanie planu, a
+wspólna tabela pozwalałaby na stan „subskrypcja wyceniona jak pakiet kredytów".
+Zakup działa: `services.create_credit_checkout` otwiera Checkout w trybie
+płatności jednorazowej z `automatic_tax`, zapisuje sesję na `CreditPurchase`, a
+pulę powiększa **wyłącznie webhook** (`checkout.session.completed` z
+`saas_core_credit_purchase_id` w metadanych). Symulator rozlicza od razu,
+prawdziwy Stripe nigdy.
+
+Do zrobienia w repo: ścieżka end-to-end na prawdziwym Stripe przez
+`stripe listen` (wybór planu → Checkout → webhook → entitlementy oraz zakup
+kredytów), testy podpisu, kolejności zdarzeń, retry, SCA/3DS i grace/read-only,
+API panelu dla kredytów (saldo, historia, pakiety, zakup), prezentacja kwoty
+brutto dla konsumenta (ADR-040 §2), runbook aktywacji i rollbacku.
 
 Uruchomienie komendy katalogu poza kontenerem wymaga kompletu zmiennych:
 `DJANGO_SETTINGS_MODULE=saas_core.config.settings.local`, `APP_ENV=local`,
@@ -229,6 +238,10 @@ Uruchomienie komendy katalogu poza kontenerem wymaga kompletu zmiennych:
 
 ## Dowody walidacji
 
+- 2026-09-03 (W9.5.2S, kredyty w Stripe): sześć produktów i cen na koncie
+  testowym (trzy plany + trzy pakiety), komenda nadal idempotentna; pełna suita
+  **491 passed** w tym nowe `tests/test_billing_credit_checkout.py` (7); Mypy 0
+  błędów w 270 plikach; `makemigrations --check` bez zmian;
 - 2026-09-03 (W9.5.2S, katalog): `provision_stripe_catalog` utworzyła trzy
   produkty i ceny na koncie testowym i jest idempotentna (drugi przebieg
   „bez zmian"); `tax.calculations` potwierdziło 23% dla PL, 0% dla firmy z UE

@@ -113,6 +113,18 @@ class BillingProvider(Protocol):
         idempotency_key: str,
     ) -> ProviderCheckout: ...
 
+    def create_credit_checkout(
+        self,
+        *,
+        customer_id: str,
+        organization_id: str,
+        purchase_id: str,
+        price_id: str,
+        success_url: str,
+        cancel_url: str,
+        idempotency_key: str,
+    ) -> ProviderCheckout: ...
+
     def create_portal(
         self,
         *,
@@ -223,6 +235,60 @@ class StripeBillingProvider:
             )
         except stripe.StripeError as error:
             raise BillingProviderError("Stripe odrzucił utworzenie Checkout.") from error
+        raw_expiry = getattr(checkout, "expires_at", None)
+        expires_at = (
+            datetime.fromtimestamp(raw_expiry, tz=UTC)
+            if isinstance(raw_expiry, int) and not isinstance(raw_expiry, bool)
+            else None
+        )
+        return ProviderCheckout(
+            _required_attribute(checkout, "id"),
+            _required_attribute(checkout, "url"),
+            expires_at,
+        )
+
+    def create_credit_checkout(
+        self,
+        *,
+        customer_id: str,
+        organization_id: str,
+        purchase_id: str,
+        price_id: str,
+        success_url: str,
+        cancel_url: str,
+        idempotency_key: str,
+    ) -> ProviderCheckout:
+        """One-off payment for a credit pack — never a subscription.
+
+        The portal cannot sell this and never will, so it is its own Checkout
+        opened from our panel (ADR-040 §4). Confirmation comes from the
+        webhook; the browser coming back proves nothing.
+        """
+        metadata = {
+            "saas_core_organization_id": organization_id,
+            "saas_core_credit_purchase_id": purchase_id,
+        }
+        try:
+            checkout = self.client.v1.checkout.sessions.create(
+                {
+                    "mode": "payment",
+                    "customer": customer_id,
+                    "line_items": [{"price": price_id, "quantity": 1}],
+                    "client_reference_id": organization_id,
+                    "automatic_tax": {"enabled": True},
+                    "billing_address_collection": "required",
+                    "tax_id_collection": {"enabled": True},
+                    "customer_update": {"address": "auto", "name": "auto"},
+                    "invoice_creation": {"enabled": True},
+                    "metadata": metadata,
+                    "payment_intent_data": {"metadata": metadata},
+                    "success_url": success_url,
+                    "cancel_url": cancel_url,
+                },
+                {"idempotency_key": idempotency_key},
+            )
+        except stripe.StripeError as error:
+            raise BillingProviderError("Stripe odrzucił Checkout pakietu kredytów.") from error
         raw_expiry = getattr(checkout, "expires_at", None)
         expires_at = (
             datetime.fromtimestamp(raw_expiry, tz=UTC)

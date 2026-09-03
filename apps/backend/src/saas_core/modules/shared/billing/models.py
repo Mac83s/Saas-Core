@@ -1022,6 +1022,44 @@ class CreditPack(models.Model):
         return self.key
 
 
+class CreditPackPrice(models.Model):
+    """A pack's price in Stripe, mirroring StripePriceMapping for plans.
+
+    Deliberately a separate table rather than a nullable target on
+    StripePriceMapping: a subscription and a checkout both point at a plan
+    mapping, and a shared table would make "subscription priced as a credit
+    pack" a state the schema allows. The `livemode` flag is the same safety
+    check — a test-mode price must never be usable by a live deployment, even
+    if somebody restores the wrong database.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    pack = models.ForeignKey(
+        "CreditPack",
+        on_delete=models.PROTECT,
+        related_name="stripe_prices",
+    )
+    stripe_product_id = models.CharField(max_length=160)
+    stripe_price_id = models.CharField(max_length=160, unique=True)
+    livemode = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("pack__credits", "livemode")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["pack", "livemode"],
+                condition=models.Q(is_active=True),
+                name="billing_active_price_pack_mode_uq",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return self.stripe_price_id
+
+
 class CreditOperation(models.Model):
     """What one metered operation costs, in credits.
 
@@ -1098,6 +1136,9 @@ class CreditPurchase(TenantScopedModel):
     status = models.CharField(
         max_length=16, choices=CreditPurchaseStatus, default=CreditPurchaseStatus.PENDING
     )
+    checkout_session_id = models.CharField(max_length=160, blank=True)
+    checkout_url = models.TextField(blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
     provider_reference = models.CharField(max_length=160, blank=True)
     idempotency_key = models.CharField(max_length=120)
     completed_at = models.DateTimeField(null=True, blank=True)

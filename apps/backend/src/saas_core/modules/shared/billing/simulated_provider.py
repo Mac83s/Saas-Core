@@ -62,6 +62,26 @@ class SimulatedBillingProvider:
             setup_intent_id=setup_intent_id,
         )
 
+    def create_credit_checkout(
+        self,
+        *,
+        customer_id: str,
+        organization_id: str,
+        purchase_id: str,
+        price_id: str,
+        success_url: str,
+        cancel_url: str,
+        idempotency_key: str,
+    ) -> ProviderCheckout:
+        del customer_id, organization_id, price_id, cancel_url, idempotency_key
+        session_id = _simulated_id("credit-checkout", purchase_id)
+        return ProviderCheckout(
+            id=session_id,
+            url=success_url.replace("{CHECKOUT_SESSION_ID}", session_id),
+            expires_at=None,
+            completed=True,
+        )
+
     def create_portal(self, *, customer_id: str, return_url: str) -> ProviderPortal:
         del customer_id, return_url
         raise BillingProviderCapabilityError(
