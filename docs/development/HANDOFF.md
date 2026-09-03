@@ -1,6 +1,6 @@
 # Handoff następnej sesji
 
-**Aktualizacja:** 2026-09-02
+**Aktualizacja:** 2026-09-03
 
 **Repozytorium:** `/mnt/a/DEVELOPMENT/Saas-Core` (`A:\DEVELOPMENT\Saas-Core`)
 
@@ -47,8 +47,28 @@ rezerwacji, faktury) pracuje organizacja po organizacji, procesor Stripe
 wyznacza tenant z `BillingProfile` po `external_customer_id` przed dotknięciem
 tabeli tenantowej, a zadanie faktury dostaje `organization_id` w payloadzie.
 Migracja `billing.0013` zakłada polityki na 11 tabelach i sześć wyzwalaczy
-relacji rodzic–dziecko. `KNOWN_OPEN_PRIVATE_TABLES` w teście izolacji jest
-puste — wpis wolno tam dodać wyłącznie razem z pozycją planu, która go usuwa.
+relacji rodzic–dziecko.
+
+**Reguła wykrycia w teście izolacji miała lukę** (znalezione 2026-09-03 przy
+przeglądzie kont). Test pytał, czy model dziedziczy `TenantScopedModel`, więc
+tabela niosąca organizację zwykłym kluczem obcym była dla niego niewidoczna.
+Pusta lista `KNOWN_OPEN_PRIVATE_TABLES` znaczyła więc mniej, niż brzmiała.
+Sprawdzenie wprost na bazie pokazało siedem tabel bez ani jednej polityki:
+sześć w `core.organizations` (`membership`, `organization`, `role`,
+`invitation`, `billingprofile`, `organizationauditentry`) i
+`billing_stripewebhookevent`. Odczyt członkostw z ustawionym
+`app.organization_id` zwraca członkostwa wszystkich organizacji naraz — dziś
+izolację tych tabel trzyma wyłącznie kod aplikacji, bo `Membership` nie ma
+menedżera tenantowego i każde zapytanie musi samo filtrować.
+
+Reguła jest już mechaniczna (klucz obcy do `Organization` albo sam rejestr
+organizacji), a te siedem tabel stoi na liście długu z uzasadnieniem: każda
+jest czytana lub zapisywana przed poznaniem tenanta — logowanie pyta o
+członkostwa, nie znając jeszcze organizacji; role globalne mają
+`organization IS NULL`; zaproszenie czyta się po tokenie; procesor Stripe
+rozpoznaje tenanta po `BillingProfile`; zdarzenie webhooka zapisujemy przed
+odczytaniem payloadu. Zamknięcie wymaga decyzji per tabela i osobnego ADR-u
+(ADR-039 §6, pozycja P1) — nie jednej migracji.
 
 Uwaga wykonawcza: indeksem przemiatania jest `Organization`, nie
 `BillingProfile` — profil powstaje tylko dla organizacji z serwisu onboardingu,
@@ -225,6 +245,45 @@ płatności (trzy plany 99/149/299 zł **netto**), kreator witryny (adres
 `.business.localhost`). Panel nie ma jeszcze niczego o kredytach — API panelu
 dla nich jest wciąż do zrobienia.
 
+### Konta lokalne, panel admina i sprzatanie po testach
+
+Django admin jest pod `http://localhost:8080/internal/admin/` — Caddy przepuszcza
+`/internal/*` do backendu (blokuje tylko `/internal/metrics/` i
+`/internal/caddy/*`), a `collectstatic` biegnie w obrazie, więc arkusze się
+wczytują. Zarejestrowane są dokładnie dwa modele: `identity.User` (pełna
+edycja) i `sites.Domain` (tylko odczyt). Sprawdzone 2026-09-03 przez HTTP:
+logowanie, lista kont i lista domen odpowiadają 200 i pokazują wiersze.
+
+Do panelu potrzebne jest konto `is_staff`. Nie nadawaj go koncie panelowemu
+właściciela: `sessions.py` wymaga od konta operatorskiego MFA i przy logowaniu
+do panelu rzuci `MfaSetupRequired`. Operator jest osobnym kontem:
+`manage.py createsuperuser --noinput --email operator@saas-core.localhost`
+z hasłem w `DJANGO_SUPERUSER_PASSWORD`. Hasła nie zapisujemy w repozytorium.
+
+Panel admina nie usunie konta, które ma członkostwo albo wpisy audytowe —
+`on_delete=PROTECT` sprawi, że Django pokaże listę blokujących wierszy. Do tego
+jest komenda `purge_test_tenants`:
+
+- `--email` (można wielokrotnie) albo `--all` dla wszystkich kont na
+  zastrzeżonych domenach testowych (`example.com/net/org`, `.test`, `.invalid`,
+  `.example`);
+- domyślnie wypisuje plan (ile wierszy w jakich modelach); usuwa dopiero z
+  `--apply`;
+- odmawia dla adresu poza zastrzeżoną domeną i pomija organizację, w której
+  jest choć jeden prawdziwy członek — konto właściciela nie może zniknąć jako
+  skutek uboczny sprzątania po teście;
+- nie ma listy modułów: idzie za odmowami `ProtectedError`, które zgłasza
+  Django, więc nowa tabela w dowolnym module jest objęta bez zmian w komendzie,
+  a Core nie zaczyna wiedzieć o Shared.
+
+Inwentaryzacja 2026-09-03: baza deweloperska miała 15 kont — 10 resztek
+`identity-smoke-*` po smoke testach identity, cztery fixture'y
+(`w6-e2e-manual-w9`, `w6-e2e-maciek`, `blog-smoke`, `w6-e2e-podglad`) i jedno
+prawdziwe konto właściciela. Konto właściciela jest właścicielem organizacji
+`airedale-terrier` („Test") z pełnym stanem: witryna ze stroną, domena,
+subskrypcja z trialem, snapshot entitlementów, saldo kredytów — czyli można się
+nim logować i widzieć produkt bez fixture'ów.
+
 Uruchomienie komendy katalogu poza kontenerem wymaga kompletu zmiennych:
 `DJANGO_SETTINGS_MODULE=saas_core.config.settings.local`, `APP_ENV=local`,
 `DEPLOYMENT=business`, `BILLING_PROVIDER=stripe`, `STRIPE_LIVEMODE=false`,
@@ -268,6 +327,18 @@ Uruchomienie komendy katalogu poza kontenerem wymaga kompletu zmiennych:
 
 ## Dowody walidacji
 
+- 2026-09-03 (konta lokalne, panel admina, luka RLS): pełna suita
+  **495 passed, 1 failed** — jedyna porażka to
+  `test_two_concurrent_transactions_create_only_one_appointment`, zielony w
+  izolacji (10/10 w `test_booking.py`), niestabilny pod obciążeniem przez
+  zakleszczenie zamiast konfliktu; osobna pozycja w P4. Nowe
+  `tests/test_purge_test_tenants.py` (5) i szersza reguła wykrycia w
+  `tests/test_tenant_isolation_regimes.py`. Ruff czysty, import-linter
+  1 kept / 0 broken, Mypy 0 błędów w 271 plikach. Panel admina sprawdzony przez
+  HTTP: logowanie 302, lista kont 200 (16 kont), lista domen 200 (3 domeny),
+  `/static/admin/css/base.css` 200. RLS na `organizations_*` sprawdzone wprost
+  w `pg_class`/`pg_policies`: `relrowsecurity=false`, 0 polityk na sześciu
+  tabelach;
 - 2026-09-03 (W9.5.2S, kredyty w Stripe): sześć produktów i cen na koncie
   testowym (trzy plany + trzy pakiety), komenda nadal idempotentna; pełna suita
   **491 passed** w tym nowe `tests/test_billing_credit_checkout.py` (7); Mypy 0

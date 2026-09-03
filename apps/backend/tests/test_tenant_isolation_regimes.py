@@ -19,17 +19,46 @@ import pytest
 from django.apps import apps
 from django.conf import settings
 from django.db import connection
+from django.db.models import ForeignKey
 
+from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.core.organizations.tenancy import TenantScopedModel
 
 MODULES_PATH = Path(settings.SITE_BLOCK_CONTRACTS_PATH).parent / "modules"
 
 # Debt the rule already knows about, listed so it cannot grow and cannot
 # linger: a table added here that later gains RLS fails the test until the
-# entry is removed. It is empty — shared.billing, the last module without
-# policies, got them in billing.0013 once its sweeps could work one
-# organization at a time. Add an entry only with the plan item that removes it.
-KNOWN_OPEN_PRIVATE_TABLES: dict[str, frozenset[str]] = {}
+# entry is removed. Add an entry only with the plan item that removes it.
+#
+# These seven are read or written before a tenant is known, which is why a
+# policy cannot simply be added to them (plan 13, P1):
+#   - organizations_membership answers "which companies is this account in?"
+#     at login, before any organization is chosen — under a policy keyed on
+#     app.organization_id that question returns nothing and nobody logs in;
+#   - organizations_organization is the registry the same answer resolves to;
+#   - organizations_role holds the global roles as organization IS NULL rows,
+#     shared by every tenant, so a policy has to admit them;
+#   - organizations_invitation is read by its token by someone who is not yet
+#     a member, and organizations_billingprofile is how the Stripe processor
+#     finds the tenant an event belongs to — both reads precede the tenant;
+#   - organizations_organizationauditentry is written on those same paths;
+#   - billing_stripewebhookevent is stored when the webhook arrives, before
+#     the payload has been read, so its row starts without an organization.
+# Closing this needs a decision per table (policy admitting the pre-tenant
+# read, a declaration, or moving the read behind a resolver), not one sweep.
+KNOWN_OPEN_PRIVATE_TABLES: dict[str, frozenset[str]] = {
+    "saas_core.modules.core.organizations": frozenset(
+        {
+            "organizations_billingprofile",
+            "organizations_invitation",
+            "organizations_membership",
+            "organizations_organization",
+            "organizations_organizationauditentry",
+            "organizations_role",
+        }
+    ),
+    "saas_core.modules.shared.billing": frozenset({"billing_stripewebhookevent"}),
+}
 
 pytestmark = pytest.mark.django_db
 
@@ -44,10 +73,31 @@ def _public_tables_by_app() -> dict[str, set[str]]:
     return declared
 
 
+def _carries_a_tenant(model: type[Any]) -> bool:
+    """Whether a row of this model belongs to one organization.
+
+    Inheriting ``TenantScopedModel`` is the usual way to say so, but it is not
+    the only one and must not be what the rule looks for: a model that names an
+    organization with a plain foreign key holds exactly as much tenant data,
+    and asking only about the base class is how organizations_membership — the
+    table that decides who belongs to which company — stayed invisible here
+    while it had no policy at all. The organization registry counts too; its
+    rows belong to one tenant each.
+    """
+    if model is Organization:
+        return True
+    if issubclass(model, TenantScopedModel):
+        return True
+    return any(
+        isinstance(field, ForeignKey) and field.related_model is Organization
+        for field in model._meta.get_fields()
+    )
+
+
 def _tenant_tables_by_app() -> dict[str, set[str]]:
     tables: dict[str, set[str]] = {}
     for model in apps.get_models():
-        if not issubclass(model, TenantScopedModel):
+        if not _carries_a_tenant(model):
             continue
         tables.setdefault(model._meta.app_config.name, set()).add(model._meta.db_table)
     return tables

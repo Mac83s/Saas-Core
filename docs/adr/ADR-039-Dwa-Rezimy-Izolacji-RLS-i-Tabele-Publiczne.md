@@ -113,9 +113,50 @@ period właśnie wygasa.
 
 Cena jest jawna: przemiatanie kosztuje jedno zapytanie na organizację nawet
 wtedy, gdy nic nie jest wymagalne. Rekonsyliacja i tak musi odwiedzić każdą
-subskrypcję, więc najcięższy przebieg miał już ten kształt. `KNOWN_OPEN_PRIVATE_TABLES`
-w teście jest puste i wpis wolno tam dodać wyłącznie razem z pozycją planu,
-która go usuwa.
+subskrypcję, więc najcięższy przebieg miał już ten kształt.
+`KNOWN_OPEN_PRIVATE_TABLES` było wtedy puste — ale, jak opisuje §6, tylko
+dlatego, że reguła wykrycia nie widziała części tabel. Wpis wolno tam dodać
+wyłącznie razem z pozycją planu, która go usuwa.
+
+### 6. Luka w regule wykrycia (2026-09-03)
+
+Test pytał, czy model dziedziczy `TenantScopedModel`. Tabela, która niesie
+organizację zwykłym kluczem obcym, była dla niego niewidoczna — więc zdanie
+„wszystkie tabele tenantowe mają RLS" dotyczyło w rzeczywistości tylko tych
+tabel, o które test umiał zapytać. Sprawdzenie wprost na bazie deweloperskiej
+pokazało siedem tabel bez jednej polityki: `organizations_membership`,
+`organizations_organization`, `organizations_role`,
+`organizations_invitation`, `organizations_billingprofile`,
+`organizations_organizationauditentry` i `billing_stripewebhookevent`.
+`relrowsecurity` jest tam `false`, a odczyt członkostw z ustawionym
+`app.organization_id` zwraca członkostwa wszystkich organizacji naraz. Jest to
+dokładnie ta klasa błędu, dla której ten ADR powstał: zielony test przy
+otwartej tabeli.
+
+Reguła wykrycia jest od teraz mechaniczna i nie zależy od klasy bazowej:
+tabelą tenantową jest każda, której model niesie klucz obcy do `Organization`,
+oraz sam rejestr organizacji.
+
+Nie zamyka tego jedna migracja, bo każda z tych siedmiu tabel jest czytana albo
+zapisywana zanim tenant jest znany. `organizations_membership` odpowiada przy
+logowaniu na pytanie „do jakich firm należy to konto", więc polityka po
+`app.organization_id` sprawiłaby, że nikt się nie zaloguje;
+`organizations_organization` jest rejestrem, do którego ta odpowiedź się
+rozwiązuje; `organizations_role` trzyma role globalne jako wiersze z
+`organization IS NULL`, wspólne dla wszystkich; zaproszenie czyta się po
+tokenie, jeszcze nie będąc członkiem; `BillingProfile` jest tym, po czym
+procesor Stripe rozpoznaje tenanta zdarzenia; wpis audytowy powstaje na tych
+samych ścieżkach; a zdarzenie webhooka zapisujemy w momencie odbioru, przed
+odczytaniem payloadu, więc jego wiersz startuje bez organizacji.
+
+Zamknięcie wymaga decyzji per tabela — polityki dopuszczającej odczyt przed
+tenantem, przeniesienia odczytu za resolver albo jawnej deklaracji — i dlatego
+jest pozycją P1 planu 13 oraz osobnym ADR-em, a nie cichą migracją. Do tego
+czasu izolację tych siedmiu tabel trzyma wyłącznie kod aplikacji: `Membership`
+i pozostałe modele `core.organizations` nie mają menedżera tenantowego, więc
+każde zapytanie musi samo filtrować po `organization_id` z `TenantContext`.
+Test tego nie dowodzi — i właśnie dlatego te tabele stoją na liście długu, a
+nie w `publicTables`.
 
 ## Konsekwencje
 

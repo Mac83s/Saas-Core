@@ -137,8 +137,19 @@ sumy, a nie wobec pojedynczego etapu, należy planować termin płatnego pilota.
   przemiatań pracujących organizacja po organizacji, procesor Stripe
   wyznaczający tenant z `BillingProfile` przed odczytem, zadanie faktury
   dostające `organization_id` w payloadzie oraz migracja `billing.0013` z
-  politykami na 11 tabelach i sześcioma wyzwalaczami relacji;
-  `KNOWN_OPEN_PRIVATE_TABLES` jest puste (2026-09-03);
+  politykami na 11 tabelach i sześcioma wyzwalaczami relacji (2026-09-03);
+- [ ] domknąć ADR-039 dla `core.organizations` i zdarzeń webhooka — reguła
+  wykrycia w teście pytała o dziedziczenie `TenantScopedModel`, więc siedem
+  tabel niosących organizację zwykłym kluczem obcym było niewidoczne i nie ma
+  ani jednej polityki: `organizations_membership`, `organizations_organization`,
+  `organizations_role`, `organizations_invitation`,
+  `organizations_billingprofile`, `organizations_organizationauditentry` oraz
+  `billing_stripewebhookevent`. Reguła jest już mechaniczna (klucz obcy do
+  `Organization`), a tabele stoją na liście długu z uzasadnieniem — każda jest
+  czytana lub zapisywana przed poznaniem tenanta (logowanie pyta o członkostwa
+  bez organizacji, role globalne mają `organization IS NULL`, zaproszenie czyta
+  się po tokenie, procesor Stripe rozpoznaje tenanta po `BillingProfile`).
+  Wymaga ADR-u z decyzją per tabela, nie jednej migracji; ADR-039 §6;
 - [ ] sprawić, aby `deployment.json` rzeczywiście składał backendowe Django apps,
   URL-e, zadania i frontendowe route/menu, a nie tylko walidował deskryptory;
 - [x] usunąć niedozwolony import Core → Shared — jedyne naruszenie było w
@@ -294,6 +305,13 @@ ani automatycznie autoryzować działań produkcyjnych.
 - [ ] obsłużyć depozyt, pełną płatność, bezpłatną rezerwację oraz płatność na
   miejscu jako jawne warianty organizacji/usługi;
 - [ ] dodać zasady anulowania, zwrotu, przełożenia, no-show i spóźnienia;
+- [ ] zmapować zakleszczenie na konflikt terminu — `create_appointment` tłumaczy
+  na `SlotUnavailable` tylko `IntegrityError`, a dwie równoległe rezerwacje tego
+  samego slotu potrafią zakończyć się `deadlock detected` przy sprawdzaniu
+  ograniczenia wyłączności (`booking_appointmentstaffallocation`); wtedy
+  przegrywający dostaje 500 zamiast „termin właśnie zajęty". Objawia się jako
+  niestabilny `test_two_concurrent_transactions_create_only_one_appointment`
+  przy pełnym przebiegu suity (2026-09-03), zielony w izolacji;
 - [ ] poprawić self-service tak, aby nowy termin pochodził z rzeczywistej
   dostępności;
 - [ ] dodać synchronizację Google/Microsoft/iCal z jawną polityką konfliktu i
