@@ -35,6 +35,7 @@ rejestr z `Plan/SaaS-Core-06-Rejestr-Decyzji.md`.
 | [ADR-037](ADR-037-Appointment-Commerce-i-Stripe-Connect.md) | Appointment Commerce i Stripe Connect | Deferred |
 | [ADR-038](ADR-038-Repozytoryjne-Agent-Skills.md) | repozytoryjne Agent Skills: cykl życia i granice autonomii | Accepted |
 | [ADR-039](ADR-039-Dwa-Rezimy-Izolacji-RLS-i-Tabele-Publiczne.md) | dwa reżimy izolacji: RLS domyślnie, tabele publiczne z deklaracji | Accepted |
+| [ADR-040](ADR-040-VAT-Ceny-Netto-i-Zakres-Customer-Portalu.md) | VAT przez Stripe Tax, ceny netto i zakres Customer Portalu | Accepted |
 
 Każda zmiana decyzji tworzy nowy ADR. Całkowicie zastąpiony dokument otrzymuje
 status `Superseded`; przy częściowym zastąpieniu nowy ADR wskazuje dokładny

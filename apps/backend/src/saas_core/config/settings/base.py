@@ -423,6 +423,31 @@ BILLING_PROVIDER = _validate_billing_provider(
     app_env=APP_ENV,
     stripe_livemode=STRIPE_LIVEMODE,
 )
+#: The portal configuration this deployment opens sessions against (ADR-040).
+#: Pinned rather than left to the account default, because the default can be
+#: changed in the Stripe dashboard without any code review noticing.
+STRIPE_PORTAL_CONFIGURATION_ID = os.environ.get("STRIPE_PORTAL_CONFIGURATION_ID", "").strip()
+if STRIPE_PORTAL_CONFIGURATION_ID and not STRIPE_PORTAL_CONFIGURATION_ID.startswith("bpc_"):
+    raise ImproperlyConfigured("STRIPE_PORTAL_CONFIGURATION_ID musi zaczynać się od bpc_")
+if BILLING_PROVIDER == "stripe" and APP_ENV != "test":
+    # ADR-034 asks for a start that refuses rather than a runtime that
+    # discovers the gap at the first payment. Tests are exempt on purpose:
+    # they run against the real provider name with empty credentials to prove
+    # the services report the missing configuration instead of crashing.
+    _missing_stripe = [
+        name
+        for name, value in (
+            ("STRIPE_SECRET_KEY", STRIPE_SECRET_KEY),
+            ("STRIPE_WEBHOOK_SECRET", STRIPE_WEBHOOK_SECRET),
+            ("STRIPE_PORTAL_CONFIGURATION_ID", STRIPE_PORTAL_CONFIGURATION_ID),
+        )
+        if not value
+    ]
+    if _missing_stripe:
+        raise ImproperlyConfigured(
+            "BILLING_PROVIDER=stripe wymaga kompletnej konfiguracji; brakuje: "
+            + ", ".join(_missing_stripe)
+        )
 STRIPE_WEBHOOK_TOLERANCE_SECONDS = int(os.environ.get("STRIPE_WEBHOOK_TOLERANCE_SECONDS", "300"))
 STRIPE_WEBHOOK_MAX_BYTES = int(os.environ.get("STRIPE_WEBHOOK_MAX_BYTES", "262144"))
 if STRIPE_WEBHOOK_TOLERANCE_SECONDS <= 0 or STRIPE_WEBHOOK_MAX_BYTES <= 0:
