@@ -145,12 +145,43 @@ def test_simulated_checkout_and_exact_activation_create_trial_without_webhook() 
     assert snapshot.plan_version_id == checkout.price_mapping.plan_version_id
     assert before_activation["payment_mode"] == "simulated"
     assert before_activation["portal_available"] is False
+    assert before_activation["has_active_subscription"] is False
     assert overview["payment_mode"] == "simulated"
     assert overview["portal_available"] is False
+    assert overview["has_active_subscription"] is True
     assert overview["subscription"]["plan_key"] == "profile"
     assert run_reconciliation_batch() == 0
     assert not BillingReconciliation.all_objects.exists()
     assert not StripeWebhookEvent.objects.exists()
+
+
+@override_settings(BILLING_PROVIDER="simulated", STRIPE_LIVEMODE=False)
+def test_a_finished_subscription_leaves_the_organization_free_to_buy_again() -> None:
+    """What the panel needs in order not to lock somebody out.
+
+    The overview keeps describing the plan after it ends, because the customer
+    still wants to see which one they had and that it is over. That description
+    must not be mistaken for a live subscription: create_setup_checkout accepts
+    a new plan once the old one is canceled, and the panel has to agree.
+    """
+    call_command("configure_simulated_prices")
+    organization, context = owner_context(slug="simulator-finished")
+
+    with activate_tenant_context(context):
+        checkout = create_setup_checkout(plan_key="profile", idempotency_key="finished-one")
+        activate_customer_trial(
+            checkout_session_id=checkout.checkout.stripe_checkout_session_id
+        )
+        subscription = BillingSubscription.all_objects.get(organization=organization)
+        subscription.state = SubscriptionState.CANCELED
+        subscription.save(update_fields=["state", "updated_at"])
+        overview = customer_billing_overview()
+        reopened = create_setup_checkout(plan_key="pro", idempotency_key="finished-two")
+
+    assert overview["has_active_subscription"] is False
+    assert overview["subscription"]["state"] == SubscriptionState.TRIALING
+    assert overview["subscription"]["plan_key"] == "profile"
+    assert reopened.created is True
 
 
 @override_settings(

@@ -91,7 +91,8 @@ export function CustomerBillingPanel() {
     if (
       plan.is_current ||
       pending ||
-      (overview?.payment_mode === "simulated" && overview.subscription)
+      (overview?.payment_mode === "simulated" &&
+        overview.has_active_subscription)
     )
       return;
     setPending(plan.key);
@@ -100,7 +101,7 @@ export function CustomerBillingPanel() {
     try {
       if (
         overview?.payment_mode === "stripe" &&
-        overview.subscription &&
+        overview.has_active_subscription &&
         overview.portal_available
       ) {
         const session = await createBillingPortal();
@@ -433,7 +434,7 @@ export function CustomerBillingPanel() {
               <PlanCard
                 busy={Boolean(pending)}
                 canManage={overview.can_manage}
-                hasSubscription={Boolean(overview.subscription)}
+                hasSubscription={overview.has_active_subscription}
                 highlighted={plan.key === "starter"}
                 key={`${plan.key}:${plan.version}`}
                 locale={locale}

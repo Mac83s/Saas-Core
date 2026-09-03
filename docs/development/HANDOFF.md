@@ -276,13 +276,59 @@ jest komenda `purge_test_tenants`:
   Django, więc nowa tabela w dowolnym module jest objęta bez zmian w komendzie,
   a Core nie zaczyna wiedzieć o Shared.
 
-Inwentaryzacja 2026-09-03: baza deweloperska miała 15 kont — 10 resztek
+Inwentaryzacja 2026-09-03 i sprzątanie: baza deweloperska miała 15 kont — 10 resztek
 `identity-smoke-*` po smoke testach identity, cztery fixture'y
 (`w6-e2e-manual-w9`, `w6-e2e-maciek`, `blog-smoke`, `w6-e2e-podglad`) i jedno
 prawdziwe konto właściciela. Konto właściciela jest właścicielem organizacji
 `airedale-terrier` („Test") z pełnym stanem: witryna ze stroną, domena,
 subskrypcja z trialem, snapshot entitlementów, saldo kredytów — czyli można się
 nim logować i widzieć produkt bez fixture'ów.
+
+### Koniec triala nie wypuszczał nikogo z powrotem (2026-09-03)
+
+Właściciel zgłosił, że jego konto ma trial do 24 sierpnia i nie da się nic
+zrobić — nawet wybrać planu. Diagnoza pokazała dwie różne rzeczy.
+
+**Pierwsza, naprawiona: panel mylił „jest co pokazać" z „ma aktywny plan".**
+`customer_billing_overview` buduje `subscription` z subskrypcji, a gdy tej nie
+ma — ze snapshotu entitlementów, żeby po zakończeniu było widać, jaki plan był i
+że się skończył. Panel czytał samą obecność tego obiektu jako „już subskrybuje" i
+w trybie symulowanym wyłączał wszystkie trzy przyciski planów. Backend był przy
+tym łagodniejszy niż interfejs: `create_setup_checkout` odrzuca tylko
+subskrypcję inną niż `canceled`, więc API przyjęłoby wybór planu, którego panel
+nie pozwalał kliknąć. Overview ma teraz `has_active_subscription` liczone
+dokładnie tym samym warunkiem, którego używa `create_setup_checkout`, a panel
+opiera się na nim w trzech miejscach: blokadzie wyboru planu, kierowaniu do
+portalu Stripe i stanie przycisków. Testy: `test_billing_simulator.py`
+(anulowana subskrypcja nie blokuje nowego checkoutu) i test panelu
+(po zakończonym trialu przyciski są aktywne).
+
+**Druga, nienaprawiona: nic nie kończy triala.** `sync_subscription_lifecycle`
+planuje wyłącznie `TRIAL_ENDING_NOTICE` — ostrzeżenie *przed* końcem. Samo
+przejście stanu po `trial_end` ma przyjść od dostawcy, czyli webhookiem Stripe.
+Symulator nigdy takiego zdarzenia nie tworzy, więc lokalnie subskrypcja zostaje
+w `trialing` na zawsze, z pełnym dostępem i bez ścieżki zakupu. W trybie Stripe
+transformacja przyjdzie, ale nie mamy własnej siatki bezpieczeństwa na wypadek
+niedostarczonego webhooka. Do rozstrzygnięcia razem z W9.5.2S: dodać akcję
+lifecycle „trial wygasł" działającą bez dostawcy, czy uznać rekonsyliację za
+wystarczającą.
+
+Lokalnie subskrypcja właściciela została zamknięta ręcznie (`canceled`,
+`ended_at` = koniec triala), żeby dało się znowu wybierać plany.
+
+### Czego nie da się usunąć
+
+Sprzątanie tenantów testowych zatrzymało się na wyzwalaczach bazy: `DELETE` na
+`media_mediareference` i na `organizations_organizationauditentry` jest odrzucany
+bezwarunkowo. To znaczy, że **nie ma dziś sposobu usunięcia tenanta** — każda
+organizacja, która załączyła plik albo zapisała wpis audytowy, jest trwała.
+Komenda `purge_test_tenants` raportuje taką odmowę i przechodzi do następnej
+organizacji zamiast przerywać przebieg; test `test_purge_test_tenants.py`
+przypina to zachowanie. Decyzja (anonimizacja czy furtka operatorska w
+wyzwalaczu) jest pozycją P3 planu 13 i wymaga ADR-u.
+
+W bazie deweloperskiej zostały z tego powodu dwie organizacje testowe
+(`w6-e2e-manual-w9`, `w6-e2e-maciek`) i trzy powiązane konta.
 
 Uruchomienie komendy katalogu poza kontenerem wymaga kompletu zmiennych:
 `DJANGO_SETTINGS_MODULE=saas_core.config.settings.local`, `APP_ENV=local`,
@@ -327,18 +373,23 @@ Uruchomienie komendy katalogu poza kontenerem wymaga kompletu zmiennych:
 
 ## Dowody walidacji
 
-- 2026-09-03 (konta lokalne, panel admina, luka RLS): pełna suita
-  **495 passed, 1 failed** — jedyna porażka to
-  `test_two_concurrent_transactions_create_only_one_appointment`, zielony w
-  izolacji (10/10 w `test_booking.py`), niestabilny pod obciążeniem przez
-  zakleszczenie zamiast konfliktu; osobna pozycja w P4. Nowe
-  `tests/test_purge_test_tenants.py` (5) i szersza reguła wykrycia w
-  `tests/test_tenant_isolation_regimes.py`. Ruff czysty, import-linter
-  1 kept / 0 broken, Mypy 0 błędów w 271 plikach. Panel admina sprawdzony przez
-  HTTP: logowanie 302, lista kont 200 (16 kont), lista domen 200 (3 domeny),
-  `/static/admin/css/base.css` 200. RLS na `organizations_*` sprawdzone wprost
-  w `pg_class`/`pg_policies`: `relrowsecurity=false`, 0 polityk na sześciu
-  tabelach;
+- 2026-09-03 (konta lokalne, panel admina, luka RLS, koniec triala): pełna
+  suita **498 passed** (drugi przebieg; w pierwszym jedyną porażką był
+  `test_two_concurrent_transactions_create_only_one_appointment` — zielony w
+  izolacji i w powtórce, niestabilny pod obciążeniem przez zakleszczenie
+  zamiast konfliktu, osobna pozycja w P4). Nowe
+  `tests/test_purge_test_tenants.py` (6, w tym ściana append-only) i szersza
+  reguła wykrycia w `tests/test_tenant_isolation_regimes.py`. Frontend
+  **95 passed**. Ruff czysty, import-linter 1 kept / 0 broken, Mypy 0 błędów w
+  271 plikach, `pnpm api:check` bez dryfu, `pnpm lint` i `pnpm typecheck`
+  zielone. Panel admina sprawdzony przez HTTP: logowanie 302, lista kont 200,
+  lista domen 200, `/static/admin/css/base.css` 200. RLS na `organizations_*`
+  sprawdzone wprost w `pg_class`/`pg_policies`: `relrowsecurity=false`, 0
+  polityk na sześciu tabelach. Wybór planu po zakończonym trialu sprawdzony w
+  przeglądarce na koncie właściciela: trzy przyciski aktywne.
+  Uwaga: `pnpm format:check` jest czerwony na `AGENTS.md` i
+  `.github/workflows/images.yml` — oba nietknięte dzisiaj, więc gate był
+  czerwony już wcześniej;
 - 2026-09-03 (W9.5.2S, kredyty w Stripe): sześć produktów i cen na koncie
   testowym (trzy plany + trzy pakiety), komenda nadal idempotentna; pełna suita
   **491 passed** w tym nowe `tests/test_billing_credit_checkout.py` (7); Mypy 0

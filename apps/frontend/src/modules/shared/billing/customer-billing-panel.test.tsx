@@ -42,6 +42,7 @@ const overview = {
   can_manage: true,
   payment_mode: "simulated" as const,
   portal_available: false,
+  has_active_subscription: false,
   subscription: null,
   plans: [
     {
@@ -254,6 +255,7 @@ test("w symulacji ukrywa portal i blokuje zmianę aktywnego planu", async () => 
   getCustomerBillingOverview.mockResolvedValue({
     ...overview,
     portal_available: true,
+    has_active_subscription: true,
     subscription: {
       state: "trialing",
       access_mode: "full",
@@ -291,6 +293,48 @@ test("w symulacji ukrywa portal i blokuje zmianę aktywnego planu", async () => 
   for (const button of lockedPlans) expect(button).toBeDisabled();
   expect(createBillingPortal).not.toHaveBeenCalled();
   expect((await axe.run(rendered.container)).violations).toHaveLength(0);
+});
+
+test("po zakończonym trialu znów pozwala wybrać plan", async () => {
+  // The panel used to read the mere presence of a subscription payload as
+  // "already subscribed". That payload also describes a canceled plan, so an
+  // organization whose trial ended saw three disabled buttons and had no way
+  // to buy anything — while the API would have accepted the checkout.
+  getCustomerBillingOverview.mockResolvedValue({
+    ...overview,
+    has_active_subscription: false,
+    subscription: {
+      state: "canceled",
+      access_mode: "full",
+      plan_key: "profile",
+      plan_version: 1,
+      current_period_end: "2026-08-24T12:00:00Z",
+      trial_end: "2026-08-24T12:00:00Z",
+      grace_period_end: null,
+      cancel_at_period_end: false,
+    },
+    plans: overview.plans.map((plan) => ({
+      ...plan,
+      is_current: plan.key === "profile",
+    })),
+  });
+
+  render(
+    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+      <CustomerBillingPanel />
+    </NextIntlClientProvider>,
+  );
+
+  const choose = await screen.findAllByRole("button", {
+    name: "Symuluj wybór planu",
+  });
+  expect(choose).toHaveLength(2);
+  for (const button of choose) expect(button).not.toBeDisabled();
+  expect(
+    screen.queryByRole("button", {
+      name: "Plan jest już aktywny w wersji demo",
+    }),
+  ).toBeNull();
 });
 
 function checkoutPendingProblem() {

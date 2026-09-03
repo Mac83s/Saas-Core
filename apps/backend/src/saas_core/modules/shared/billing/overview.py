@@ -92,6 +92,14 @@ def customer_billing_overview() -> dict[str, Any]:
     return {
         "can_manage": context.role_key == "owner",
         "payment_mode": settings.BILLING_PROVIDER,
+        # Whether a subscription is live, which is not the same question as
+        # whether there is anything to show. The payload below falls back to the
+        # entitlement snapshot so a canceled plan still has a name and a state —
+        # and the panel used to read its mere presence as "already subscribed",
+        # which left an organization whose trial had ended with every plan
+        # button disabled and no way to buy anything. This flag answers the
+        # question create_setup_checkout actually asks.
+        "has_active_subscription": subscription is not None,
         "portal_available": (
             settings.BILLING_PROVIDER == "stripe"
             and bool(profile and profile.external_customer_id)

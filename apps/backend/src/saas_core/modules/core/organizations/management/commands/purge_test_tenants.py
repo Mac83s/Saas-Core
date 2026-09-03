@@ -27,8 +27,9 @@ from typing import Any
 
 from django.apps import apps
 from django.contrib.admin.utils import NestedObjects
+from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand, CommandError, CommandParser
-from django.db import transaction
+from django.db import DatabaseError, transaction
 from django.db.models import ForeignKey, Model, ProtectedError
 
 from saas_core.modules.core.identity.models import User
@@ -42,9 +43,9 @@ from saas_core.modules.core.organizations.models import Membership, Organization
 RESERVED_DOMAIN_SUFFIXES = (".test", ".invalid", ".example")
 RESERVED_DOMAINS = frozenset({"example.com", "example.net", "example.org"})
 
-# A protected row is protected by another; the chain is short in practice
-# (organization -> site -> page -> block). The limit only stops a cycle from
-# recursing forever.
+# Removing an account walks a short chain (user -> audit event). The limit only
+# stops a cycle from recursing forever; tenant rows, where the cycles actually
+# are, are emptied in passes instead — see purge_organization.
 MAX_PROTECTED_DEPTH = 24
 
 
@@ -89,6 +90,27 @@ def _purge_context(organization_id: uuid.UUID) -> TenantContext:
     )
 
 
+def _first_line(error: Exception) -> str:
+    text = str(error).strip()
+    return text.splitlines()[0] if text else error.__class__.__name__
+
+
+def _delete_row(instance: Model) -> None:
+    """Delete one row even when its model refuses to be deleted.
+
+    Mutation logs, page versions and publications raise on ``delete()`` on
+    purpose: nothing in the application may erase what happened. Removing a
+    whole tenant is the one operator action that has to, so the row goes
+    through the queryset, which does not run the model's guard. What the
+    database enforces itself still stands — an append-only trigger refusing the
+    delete stops this command with an honest error rather than a bypass.
+    """
+    try:
+        instance.delete()
+    except ValidationError:
+        type(instance)._base_manager.filter(pk=instance.pk).delete()
+
+
 def _force_delete(instance: Model, *, depth: int = 0) -> None:
     if instance.pk is None:
         return
@@ -98,11 +120,11 @@ def _force_delete(instance: Model, *, depth: int = 0) -> None:
             "przerywam, żeby nie usuwać w pętli."
         )
     try:
-        instance.delete()
+        _delete_row(instance)
     except ProtectedError as error:
         for protector in list(error.protected_objects):
             _force_delete(protector, depth=depth + 1)
-        instance.delete()
+        _delete_row(instance)
 
 
 def organization_row_counts(organization: Organization) -> Counter[str]:
@@ -130,11 +152,71 @@ def user_row_counts(user: User) -> Counter[str]:
     return counts
 
 
+def _break_reference_cycles(organization: Organization) -> None:
+    """Clear the nullable links tenant rows hold to each other.
+
+    A site points at its current publication and the publication points back at
+    its site, so neither can be deleted first. Nulling the optional half of such
+    a pair costs nothing — the row is going away — and turns the graph into
+    something that can be emptied in passes. A model that refuses the update
+    (an append-only log) is left alone; it will refuse the delete too, and the
+    refusal belongs there, not here.
+    """
+    scoped = {model for model, _field in organization_scoped_models()}
+    for model, field_name in organization_scoped_models():
+        optional = {
+            field.name: None
+            for field in model._meta.fields
+            if isinstance(field, ForeignKey) and field.null and field.related_model in scoped
+        }
+        if not optional:
+            continue
+        try:
+            with transaction.atomic():
+                model._base_manager.filter(**{f"{field_name}_id": organization.id}).update(
+                    **optional
+                )
+        except DatabaseError:
+            continue
+
+
 def purge_organization(organization: Organization) -> None:
+    """Empty a tenant in passes until nothing protects the organization.
+
+    Deleting row by row cannot work: the protections form cycles, so following
+    them recursively walks in circles. Deleting per model in repeated passes
+    does — every pass removes what nothing protects any more, and a pass that
+    removes nothing means the rest is held by something the database will not
+    let go of, which is an answer rather than a loop. Queryset deletes are also
+    what lets an append-only model be emptied, since they do not run the guard
+    on ``Model.delete``; a trigger in the database still refuses, and should.
+    """
     with transaction.atomic():
         set_local_organization_id(organization.id)
         with activate_tenant_context(_purge_context(organization.id)):
-            _force_delete(organization)
+            _break_reference_cycles(organization)
+            remaining = organization_scoped_models()
+            while remaining:
+                blocked: list[tuple[type[Model], str]] = []
+                progressed = False
+                for model, field_name in remaining:
+                    rows = model._base_manager.filter(**{f"{field_name}_id": organization.id})
+                    try:
+                        with transaction.atomic():
+                            deleted, _by_model = rows.delete()
+                    except ProtectedError:
+                        blocked.append((model, field_name))
+                        continue
+                    if deleted:
+                        progressed = True
+                if not progressed and blocked:
+                    labels = ", ".join(model._meta.label for model, _field in blocked)
+                    raise CommandError(
+                        f"Nie da się opróżnić organizacji {organization.slug}: "
+                        f"wiersze chronione bez kolejności usuwania ({labels})."
+                    )
+                remaining = blocked
+            organization.delete()
 
 
 def purge_user(user: User) -> None:
@@ -222,15 +304,41 @@ class Command(BaseCommand):
             )
             return
 
+        refused: list[tuple[Organization, str]] = []
+        removed_organizations = 0
         for organization in organizations.values():
-            purge_organization(organization)
+            try:
+                purge_organization(organization)
+            except (CommandError, DatabaseError, ValidationError) as error:
+                # The database refused on its own — an append-only trigger, for
+                # instance. That is not something an operator command may talk
+                # its way past, so this tenant stays and the others continue.
+                refused.append((organization, _first_line(error)))
+                continue
+            removed_organizations += 1
             self.stdout.write(f"usunięto organizację {organization.slug}")
+
+        refused_ids = {organization.id for organization, _ in refused}
+        removed_users = 0
         for user in doomed:
+            if any(org.id in refused_ids for org in _organizations_of(user)):
+                self.stdout.write(
+                    self.style.WARNING(
+                        f"pomijam {user.email}: jego organizacja została odmówiona"
+                    )
+                )
+                continue
             purge_user(user)
+            removed_users += 1
             self.stdout.write(f"usunięto konto {user.email}")
+
+        for organization, reason in refused:
+            self.stdout.write(
+                self.style.ERROR(f"nie usunięto organizacji {organization.slug}: {reason}")
+            )
         self.stdout.write(
             self.style.SUCCESS(
-                f"Usunięto {len(doomed)} kont i {len(organizations)} organizacji."
+                f"Usunięto {removed_users} kont i {removed_organizations} organizacji."
             )
         )
 

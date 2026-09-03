@@ -57,6 +57,7 @@ class CustomerBillingOverviewSerializer(serializers.Serializer[dict[str, Any]]):
     can_manage = serializers.BooleanField()
     payment_mode = serializers.ChoiceField(choices=["stripe", "simulated"])
     portal_available = serializers.BooleanField()
+    has_active_subscription = serializers.BooleanField()
     subscription = CustomerSubscriptionSerializer(allow_null=True)
     plans = CustomerPlanSerializer(many=True)
 

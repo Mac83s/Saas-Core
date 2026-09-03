@@ -6087,6 +6087,8 @@ components:
           $ref: '#/components/schemas/PaymentModeEnum'
         portal_available:
           type: boolean
+        has_active_subscription:
+          type: boolean
         subscription:
           oneOf:
           - $ref: '#/components/schemas/CustomerSubscription'
@@ -6097,6 +6099,7 @@ components:
             $ref: '#/components/schemas/CustomerPlan'
       required:
       - can_manage
+      - has_active_subscription
       - payment_mode
       - plans
       - portal_available

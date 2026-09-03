@@ -8,9 +8,13 @@ survive a sweep aimed at test rubble.
 
 from __future__ import annotations
 
+import uuid
+from datetime import timedelta
+
 import pytest
 from django.core.management import CommandError, call_command
 from django.db import transaction
+from django.utils import timezone
 
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.context import set_local_organization_id
@@ -24,6 +28,11 @@ from saas_core.modules.shared.billing.models import (
     AccessMode,
     EntitlementSnapshot,
     SubscriptionState,
+)
+from saas_core.modules.shared.media.models import (
+    MediaAsset,
+    MediaReference,
+    MediaReferenceOwner,
 )
 
 pytestmark = pytest.mark.django_db
@@ -118,3 +127,40 @@ def test_a_sweep_only_takes_reserved_domains() -> None:
     assert not User.objects.filter(pk=rubble_user.pk).exists()
     assert User.objects.filter(pk=kept_user.pk).exists()
     assert Organization.objects.filter(pk=kept_org.pk).exists()
+
+
+def test_a_tenant_with_media_cannot_be_purged_and_says_so(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Media references are append-only in the database, with no operator escape.
+
+    So a tenant that ever attached a file cannot be removed at all today —
+    which is also why the product has no way to honour an erasure request.
+    The command must report that plainly and leave the tenant standing, not
+    abort halfway through a run.
+    """
+    organization, user = make_tenant(slug="purge-media", email="purge-media@example.test")
+    with transaction.atomic():
+        set_local_organization_id(organization.id)
+        asset = MediaAsset.all_objects.create(
+            organization=organization,
+            original_filename="plik.png",
+            object_key=f"tenants/{organization.id}/plik.png",
+            declared_mime="image/png",
+            expected_size=10,
+            quota_reservation_key=f"purge-media-{organization.id}",
+            created_by=user,
+            upload_expires_at=timezone.now() + timedelta(hours=1),
+        )
+        MediaReference.all_objects.create(
+            organization=organization,
+            asset=asset,
+            owner_type=MediaReferenceOwner.PAGE_VERSION,
+            owner_id=uuid.uuid7(),
+        )
+
+    call_command("purge_test_tenants", "--email", user.email, "--apply")
+
+    assert "nie usunięto organizacji purge-media" in capsys.readouterr().out
+    assert Organization.objects.filter(pk=organization.pk).exists()
+    assert User.objects.filter(pk=user.pk).exists()

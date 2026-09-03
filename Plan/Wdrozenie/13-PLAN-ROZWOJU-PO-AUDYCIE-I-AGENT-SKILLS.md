@@ -288,7 +288,18 @@ ani automatycznie autoryzować działań produkcyjnych.
 - [ ] zdefiniować role Owner, administrator, pracownik, specjalista, recepcja,
   klient i operator oraz ich negatywne testy exact-tenant;
 - [ ] wdrożyć wersjonowane Terms/Privacy acknowledgement bez blokowania prawa do
-  anulowania usługi, eksportu i usunięcia danych.
+  anulowania usługi, eksportu i usunięcia danych;
+- [ ] rozstrzygnąć, jak w ogóle usunąć tenanta — dziś nie da się tego zrobić.
+  Wyzwalacze w bazie odmawiają `DELETE` bezwarunkowo na `media_mediareference`
+  („media reference is append-only") i na `organizations_organizationauditentry`
+  („organization audit entries are append-only"), a nie mają żadnego wyjścia
+  operatorskiego. Sprawdzone 2026-09-03 przy sprzątaniu tenantów testowych:
+  organizacja, która kiedykolwiek załączyła plik albo zapisała wpis audytowy —
+  czyli każda prawdziwa — jest nieusuwalna. Bramka P3 obiecuje przetestowaną
+  politykę usunięcia lub anonimizacji, więc decyzja jest potrzebna zanim będzie
+  pierwszy prawdziwy klient: albo anonimizacja zamiast usunięcia (wtedy
+  append-only zostaje nietknięte), albo jawna furtka w wyzwalaczu dla jednej
+  operacji operatorskiej. Wymaga ADR-u, bo osłabia niezmiennik.
 
 ### Bramka P3
 

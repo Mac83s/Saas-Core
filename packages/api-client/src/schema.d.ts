@@ -2171,6 +2171,7 @@ export interface components {
             can_manage: boolean;
             payment_mode: components["schemas"]["PaymentModeEnum"];
             portal_available: boolean;
+            has_active_subscription: boolean;
             subscription: components["schemas"]["CustomerSubscription"] | null;
             plans: components["schemas"]["CustomerPlan"][];
         };
