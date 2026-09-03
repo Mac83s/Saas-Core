@@ -19,7 +19,7 @@ from saas_core.modules.shared.billing.models import (
     BillingSubscription,
     CheckoutStatus,
     EntitlementSnapshot,
-    PlanVersion,
+    Plan,
     StripePriceMapping,
     StripeWebhookEvent,
     SubscriptionState,
@@ -69,7 +69,7 @@ def owner_context(*, slug: str) -> tuple[Organization, TenantContext]:
 @override_settings(BILLING_PROVIDER="simulated", STRIPE_LIVEMODE=False)
 def test_simulated_price_configuration_is_deterministic_and_idempotent() -> None:
     old_mapping = StripePriceMapping.objects.create(
-        plan_version=PlanVersion.objects.get(plan__key="profile", version=1),
+        plan_version=Plan.objects.get(key="profile").current_version,
         stripe_product_id="prod_old_test",
         stripe_price_id="price_old_test",
         livemode=False,
@@ -83,10 +83,11 @@ def test_simulated_price_configuration_is_deterministic_and_idempotent() -> None
     old_mapping.refresh_from_db()
     assert old_mapping.is_active is False
     active = StripePriceMapping.objects.filter(livemode=False, is_active=True)
+    # The identifier carries the current version, so the catalog can publish a
+    # new one without the assertion pinning yesterday's number.
     assert set(active.values_list("stripe_price_id", flat=True)) == {
-        "sim_price_profile_v1",
-        "sim_price_starter_v1",
-        "sim_price_pro_v1",
+        f"sim_price_{key}_v{Plan.objects.get(key=key).current_version.version}"
+        for key in ("profile", "starter", "pro")
     }
     assert "configured=3, unchanged=0" in first_output.getvalue()
     assert "configured=0, unchanged=3" in second_output.getvalue()

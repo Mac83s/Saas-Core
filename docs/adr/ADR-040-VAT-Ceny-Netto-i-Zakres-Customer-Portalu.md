@@ -75,8 +75,15 @@ Portal obsługuje wyłącznie abonament i ma dokładnie te możliwości:
   stawka, a klient musi móc poprawić go sam;
 - anulowanie subskrypcji **na koniec okresu**. Anulowanie natychmiastowe jest
   wyłączone, bo kolidowałoby z karencją i trybem tylko-do-odczytu z ADR-026;
-- zmiana planu ograniczona do dokładnie naszych trzech cen, zgodnie z ADR-032
-  („do czasu wdrożenia natywnego schedule");
+- zmiana planu ograniczona do naszego katalogu, zgodnie z ADR-032 („do czasu
+  wdrożenia natywnego schedule"). **Sprawdzone 2026-09-03: w wersji API
+  `2026-07-29.dahlia` Stripe przyjmuje listę `products`, ale jej nie zwraca ani
+  w odpowiedzi na zapis, ani przy odczycie** — nie da się więc potwierdzić, że
+  allowlista obowiązuje. Ograniczenie opiera się zatem na innym fakcie:
+  deployment ma własne konto Stripe, na którym istnieją wyłącznie nasze ceny, a
+  `provision_stripe_catalog` dezaktywuje każdą cenę niezgodną z bieżącym
+  katalogiem. Listę nadal wysyłamy, na wypadek gdyby Stripe zaczął ją
+  egzekwować, ale nie liczymy jej jako gwarancji;
 - **bez** wstrzymywania subskrypcji: stan „paused" nie ma odpowiednika w naszym
   cyklu życia i wpuszczenie go zrobiłoby dziurę w egzekwowaniu dostępu.
 

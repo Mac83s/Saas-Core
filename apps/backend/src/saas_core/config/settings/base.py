@@ -413,6 +413,10 @@ PASSWORD_RESET_RESEND_COOLDOWN_SECONDS = int(
 STRIPE_SECRET_KEY = secret_setting("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = secret_setting("STRIPE_WEBHOOK_SECRET")
 STRIPE_API_VERSION = os.environ.get("STRIPE_API_VERSION", "2026-07-29.dahlia")
+#: Stripe's tax code for what we sell. "General - Electronically Supplied
+#: Services" is the EU category a SaaS subscription falls into, and it taxes
+#: the same way for business and private buyers.
+STRIPE_TAX_CODE = os.environ.get("STRIPE_TAX_CODE", "txcd_10000000").strip()
 STRIPE_LIVEMODE = os.environ.get("STRIPE_LIVEMODE", "false").lower() in {
     "1",
     "true",

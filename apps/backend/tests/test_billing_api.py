@@ -120,7 +120,7 @@ def billing_client(*, role_key: str, slug: str) -> tuple[APIClient, Organization
 
 def seed_price() -> None:
     StripePriceMapping.objects.create(
-        plan_version=PlanVersion.objects.get(plan__key="starter", version=1),
+        plan_version=Plan.objects.get(key="starter").current_version,
         stripe_product_id="prod_api",
         stripe_price_id="price_api",
         livemode=False,
@@ -374,7 +374,7 @@ def test_checkout_webhook_trial_activation_unlocks_site_creation(
 def test_owner_can_explain_entitlements_from_local_snapshot() -> None:
     client, organization = billing_client(role_key="owner", slug="billing-support-owner")
     mapping = StripePriceMapping.objects.create(
-        plan_version=PlanVersion.objects.get(plan__key="starter", version=1),
+        plan_version=Plan.objects.get(key="starter").current_version,
         stripe_product_id="prod_support",
         stripe_price_id="price_support",
     )
@@ -390,7 +390,10 @@ def test_owner_can_explain_entitlements_from_local_snapshot() -> None:
 
     assert response.status_code == 200
     assert response.data["snapshot"]["plan_key"] == "starter"
-    assert response.data["snapshot"]["plan_version"] == 1
+    assert (
+        response.data["snapshot"]["plan_version"]
+        == Plan.objects.get(key="starter").current_version.version
+    )
     items = {item["key"]: item for item in response.data["items"]}
     assert items["booking.enabled"]["available"] is True
     assert items["booking.enabled"]["reason"] == "allowed"
@@ -420,7 +423,7 @@ def test_owner_sees_customer_billing_overview_and_deployment_plan_catalog() -> N
     hidden_plan.current_version = hidden_version
     hidden_plan.save(update_fields=["current_version", "updated_at"])
     mapping = StripePriceMapping.objects.create(
-        plan_version=PlanVersion.objects.get(plan__key="starter", version=1),
+        plan_version=Plan.objects.get(key="starter").current_version,
         stripe_product_id="prod_overview",
         stripe_price_id="price_overview",
     )

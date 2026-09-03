@@ -21,6 +21,7 @@ from saas_core.modules.core.organizations.permissions import BILLING_MANAGE
 from saas_core.modules.shared.billing import services
 from saas_core.modules.shared.billing.models import (
     BillingCheckout,
+    Plan,
     PlanVersion,
     StripePriceMapping,
 )
@@ -98,7 +99,7 @@ def setup_owner(*, slug: str = "checkout-owner") -> tuple[Organization, TenantCo
 
 def mapping(*, plan_key: str = "starter") -> StripePriceMapping:
     return StripePriceMapping.objects.create(
-        plan_version=PlanVersion.objects.get(plan__key=plan_key, version=1),
+        plan_version=Plan.objects.get(key=plan_key).current_version,
         stripe_product_id=f"prod_{plan_key}",
         stripe_price_id=f"price_{plan_key}",
         livemode=False,
@@ -187,9 +188,12 @@ def test_checkout_uses_only_the_current_public_plan_version(
     _, context = setup_owner(slug="checkout-current-version")
     old_mapping = mapping()
     plan = old_mapping.plan_version.plan
+    # Next after whatever the catalog already published, so the test does not
+    # pin a version number the seed data may move past.
+    next_version = PlanVersion.objects.filter(plan=plan).order_by("-version").first().version + 1
     current = PlanVersion.objects.create(
         plan=plan,
-        version=2,
+        version=next_version,
         currency="PLN",
         billing_interval="month",
         unit_amount_minor=15_900,

@@ -154,17 +154,44 @@ konfiguracji.
   `at_period_end` (zgodnie z ADR-040), `customer_update` bez `tax_id`,
   `subscription_update` wyłączone.
 
-Do zrobienia po stronie właściciela w dashboardzie: rejestracja podatkowa PL
-(oraz OSS albo monitorowanie progu 10 000 EUR), dodanie `tax_id` do
-`customer_update.allowed_updates` w portalu, a po utworzeniu naszych trzech cen
-— włączenie `subscription_update` ograniczonego do nich.
+**Konto testowe jest skonfigurowane** (2026-09-03, wszystko przez API):
 
-Do zrobienia w repo: utworzenie i zmapowanie trzech Product/Price z
-`tax_behavior` (rozszerzenie `configure_stripe_prices`), Checkout pakietu
-kredytów w trybie płatności jednorazowej, ścieżka webhook → snapshot
-entitlementów na prawdziwym Stripe, testy podpisu, kolejności, retry,
-idempotencji, SCA/3DS i grace/read-only, nowe wersje planów z
-`credits.monthly`, runbook aktywacji i rollbacku.
+- Stripe Tax `active`; siedziba Condictor Sp. z o.o., Kościuszki 3/4, 38-300
+  Gorlice, PL; domyślne zachowanie `exclusive`;
+- rejestracja VAT PL `active` w wariancie `small_seller` — poniżej progu
+  10 000 EUR sprzedaż transgraniczna B2C jest opodatkowana stawką polską;
+- trzy produkty `saas_core_plan_{profile,starter,pro}` z cenami 99/149/299 PLN
+  netto miesięcznie, `tax_behavior: exclusive`, zmapowane na wersje planów v2;
+- portal: `tax_id` w `customer_update`, anulowanie `at_period_end`, zmiana
+  planu włączona z prorata.
+
+Dowód, że VAT liczy się naprawdę (`tax.calculations` na starterze 149 zł netto):
+firma z PL 183,27 zł (23%), firma z DE z ważnym NIP-em UE 149,00 zł (0%,
+odwrotne obciążenie), konsument z DE 183,27 zł (stawka polska, bo `small_seller`).
+
+Nowe wersje planów v2 z `credits.monthly` (50/200/1000) są opublikowane
+migracją `billing.0017`; wersje v1 zostają niezmienne i subskrypcja na nich po
+prostu nie ma puli, dopóki nie przejdzie na bieżącą.
+
+Do zrobienia po stronie właściciela: rejestracja OSS albo włączenie
+monitorowania progu 10 000 EUR (gdy zbliżymy się do progu), potwierdzenie
+modelu z księgową, decyzja o własnych dokumentach sprzedaży obok faktur Stripe.
+Konto live to osobny świat — trzeba je skonfigurować od nowa kluczem live po
+aktywacji konta i przy publicznym adresie na webhooki.
+
+Do zrobienia w repo: pakiety kredytów w Stripe (brak modelu mapowania ceny dla
+`CreditPack` — trzeba zdecydować, czy rozszerzyć `StripePriceMapping`, czy dać
+osobną tabelę), Checkout kredytów w trybie płatności jednorazowej, ścieżka
+webhook → snapshot entitlementów na prawdziwym Stripe przez `stripe listen`,
+testy podpisu, kolejności, retry, idempotencji, SCA/3DS i grace/read-only,
+prezentacja kwoty brutto dla konsumenta w panelu, runbook aktywacji i rollbacku.
+
+Uruchomienie komendy katalogu poza kontenerem wymaga kompletu zmiennych:
+`DJANGO_SETTINGS_MODULE=saas_core.config.settings.local`, `APP_ENV=local`,
+`DEPLOYMENT=business`, `BILLING_PROVIDER=stripe`, `STRIPE_LIVEMODE=false`,
+`STRIPE_SECRET_KEY_FILE`, `STRIPE_WEBHOOK_SECRET_FILE`,
+`STRIPE_PORTAL_CONFIGURATION_ID`, `DJANGO_SECRET_KEY_FILE` oraz `POSTGRES_*`
+(lokalna baza to `saas_core_w3`, użytkownik migracyjny `saas_core`).
 
 ## Stan produktu
 
@@ -202,6 +229,11 @@ idempotencji, SCA/3DS i grace/read-only, nowe wersje planów z
 
 ## Dowody walidacji
 
+- 2026-09-03 (W9.5.2S, katalog): `provision_stripe_catalog` utworzyła trzy
+  produkty i ceny na koncie testowym i jest idempotentna (drugi przebieg
+  „bez zmian"); `tax.calculations` potwierdziło 23% dla PL, 0% dla firmy z UE
+  z NIP-em i 23% dla konsumenta z DE; migracje zastosowane na `saas_core_w3`;
+  pełna suita **484 passed**; Mypy 0 błędów w 268 plikach;
 - 2026-09-03 (W9.5.2S, krok 1): pełna suita **484 passed**; Mypy 0 błędów w
   266 plikach; Ruff czysty; `docker compose config` poprawny; sondy Stripe na
   koncie testowym potwierdziły parametry i zostały posprzątane (0 obiektów);
