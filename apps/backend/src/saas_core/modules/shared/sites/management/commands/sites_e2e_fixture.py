@@ -8,6 +8,7 @@ from django.core.management.base import BaseCommand, CommandError, CommandParser
 from django.db import transaction
 
 from saas_core.modules.core.identity.models import AccountAuditEvent, User, UserStatus
+from saas_core.modules.core.organizations.context import set_local_organization_id
 from saas_core.modules.core.organizations.models import (
     Membership,
     Organization,
@@ -65,6 +66,11 @@ class Command(BaseCommand):
                 user=user,
                 role=Role.objects.get(key="admin", organization=None),
             )
+            # billing_entitlementsnapshot forces row-level security (ADR-039),
+            # and the app role has no way in without the tenant being set. The
+            # insert is refused rather than silently dropped, which is the
+            # right direction — but it still has to be set here.
+            set_local_organization_id(organization.id)
             EntitlementSnapshot.all_objects.create(
                 organization=organization,
                 subscription_state=SubscriptionState.ACTIVE,
@@ -101,6 +107,7 @@ def cleanup_fixture(*, email: str, slug: str) -> bool:
     user = User.objects.filter(email=email).first()
     if organization is not None:
         organization_id = organization.id
+        set_local_organization_id(organization_id)
         if Site.all_objects.filter(organization_id=organization_id).exists():
             raise CommandError(
                 "Refusing to remove a W6 E2E fixture containing persisted Sites data."

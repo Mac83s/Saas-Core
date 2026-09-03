@@ -52,6 +52,9 @@ test("deskryptor aplikacji, której nie ma w kodzie, jest odrzucany", async () =
   const contracts = path.join(root, "packages/contracts");
   await mkdir(path.join(contracts, "modules"), { recursive: true });
   await mkdir(path.join(root, "deployments/ghost"), { recursive: true });
+  // The backend tree has to exist for the check to run at all — its absence
+  // is what lets the frontend image build without the backend source.
+  await mkdir(path.join(root, "apps/backend/src"), { recursive: true });
   for (const file of ["deployment.schema.json", "module.schema.json"]) {
     await cp(
       path.join(repositoryRoot, "packages/contracts", file),
@@ -98,6 +101,58 @@ test("deskryptor aplikacji, której nie ma w kodzie, jest odrzucany", async () =
   );
 });
 
+test("bez drzewa backendu sprawdzenie aplikacji jest pomijane", async () => {
+  // The frontend image copies only apps/frontend, deployments and packages, so
+  // the render step inside that build has nothing to look at. Skipping there is
+  // deliberate: the same guarantee is asserted by the backend's own test.
+  const root = await mkdtemp(path.join(tmpdir(), "saas-core-nobackend-"));
+  const contracts = path.join(root, "packages/contracts");
+  await mkdir(path.join(contracts, "modules"), { recursive: true });
+  await mkdir(path.join(root, "deployments/ghost"), { recursive: true });
+  for (const file of ["deployment.schema.json", "module.schema.json"]) {
+    await cp(
+      path.join(repositoryRoot, "packages/contracts", file),
+      path.join(contracts, file),
+    );
+  }
+  await writeFile(
+    path.join(contracts, "modules/core.ghost.json"),
+    JSON.stringify({
+      id: "core.ghost",
+      layer: "core",
+      version: 1,
+      dependsOn: [],
+      backend: {
+        djangoApp: "saas_core.modules.core.ghost",
+        urlPrefix: null,
+        permissions: [],
+        entitlements: [],
+        eventSchemas: [],
+        publicTables: [],
+      },
+      frontend: { routes: [], navigation: [], translationNamespaces: [] },
+    }),
+  );
+  await writeFile(
+    path.join(root, "deployments/ghost/deployment.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      id: "ghost",
+      product: {
+        name: "Ghost",
+        defaultLocale: "pl",
+        supportedLocales: ["pl"],
+        platformDomain: "ghost.localhost",
+      },
+      modules: ["core.ghost"],
+      features: {},
+    }),
+  );
+
+  const result = await validateDeployment("ghost", root);
+  assert.deepEqual(result.modules, ["core.ghost"]);
+});
+
 test("moduł nie może zadeklarować cudzej tabeli jako publicznej", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "saas-core-public-tables-"));
   const contracts = path.join(root, "packages/contracts");
@@ -116,6 +171,7 @@ test("moduł nie może zadeklarować cudzej tabeli jako publicznej", async () =>
     "apps/backend/src/saas_core/modules/core/health",
   );
   await mkdir(healthApp, { recursive: true });
+
   await writeFile(path.join(healthApp, "apps.py"), "");
   await writeFile(
     path.join(contracts, "modules/core.health.json"),

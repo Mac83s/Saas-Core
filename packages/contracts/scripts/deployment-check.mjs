@@ -64,6 +64,22 @@ export const assertBillingConfiguration = (
 
 // The catalog describes code that exists. A descriptor for an app nobody has
 // written passes schema and graph checks and only fails at boot, in the image.
+//
+// This can only be checked where the backend source is present. The frontend
+// image deliberately copies just apps/frontend, deployments and packages, so
+// inside that build there is nothing to look at — and a frontend build must
+// not depend on the backend tree. Where the source is missing the check steps
+// aside and says so; the same guarantee is asserted from the other direction
+// by the backend's tests/test_module_catalog.py.
+const backendSourcePresent = async (root) => {
+  try {
+    await access(path.join(root, "apps/backend/src"));
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const assertDjangoAppExists = async (descriptor, root) => {
   const djangoApp = descriptor.backend.djangoApp;
   if (!djangoApp) return;
@@ -177,6 +193,12 @@ export async function validateDeployment(profileName, root = repositoryRoot) {
   assertBillingConfiguration(profile, profileName);
 
   const validateModule = createValidator(moduleSchema);
+  const checkDjangoApps = await backendSourcePresent(root);
+  if (!checkDjangoApps) {
+    console.warn(
+      "Pomijam sprawdzenie istnienia Django apps: brak apps/backend/src w tym drzewie.",
+    );
+  }
   const descriptorsById = new Map();
   for (const descriptor of descriptors) {
     if (!validateModule(descriptor)) {
@@ -192,7 +214,9 @@ export async function validateDeployment(profileName, root = repositoryRoot) {
     if (descriptorsById.has(descriptor.id)) {
       throw new Error(`Powielony deskryptor modułu ${descriptor.id}`);
     }
-    await assertDjangoAppExists(descriptor, root);
+    if (checkDjangoApps) {
+      await assertDjangoAppExists(descriptor, root);
+    }
     assertPublicTablesBelongToModule(descriptor);
     descriptorsById.set(descriptor.id, descriptor);
   }

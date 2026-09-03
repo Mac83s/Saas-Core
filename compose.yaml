@@ -241,10 +241,15 @@ services:
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
       POSTGRES_USER: ${SAAS_CORE_POSTGRES_MIGRATION_USER:-saas_core}
     secrets:
+      # Overriding the list means the anchor's entries do not apply, so the
+      # Stripe files have to be repeated here — settings read them at import
+      # time, migrate included.
       - django_secret_key
       - postgres_password
       - object_storage_access_key_id
       - object_storage_secret_access_key
+      - stripe_secret_key
+      - stripe_webhook_secret
     depends_on:
       database-bootstrap:
         condition: service_completed_successfully

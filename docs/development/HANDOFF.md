@@ -195,6 +195,36 @@ kredytów), testy podpisu, kolejności zdarzeń, retry, SCA/3DS i grace/read-onl
 API panelu dla kredytów (saldo, historia, pakiety, zakup), prezentacja kwoty
 brutto dla konsumenta (ADR-040 §2), runbook aktywacji i rollbacku.
 
+### Lokalny podglad frontendu
+
+`pnpm runtime:up`, potem panel na `http://localhost:8080`. Uruchomienie
+2026-09-03 na profilu `business` wykryło trzy błędy, których nie widział żaden
+z 491 testów — wszystkie naprawione:
+
+1. **`deployment-check` nie mógł działać w buildzie frontendu.** Sprawdzenie
+   istnienia Django app szukało `apps/backend/src`, a obraz frontendu kopiuje
+   tylko `apps/frontend`, `deployments` i `packages`. Build padał. Teraz
+   sprawdzenie pomija się tam, gdzie nie ma drzewa backendu, i mówi o tym
+   wprost; tę samą gwarancję trzyma z drugiej strony
+   `tests/test_module_catalog.py`.
+2. **Kontener `migrate` nie dostawał sekretów Stripe.** Nadpisuje własną listę
+   `secrets:`, więc wpisy z anchora go nie dotyczyły, a ustawienia czytają
+   klucz przy importie — migracje nie startowały wcale. Sekrety dopisane; skrypt
+   sprawdzający pokazuje, że mają je wszystkie usługi backendowe.
+3. **`sites_e2e_fixture` nie ustawiał tenanta** przed zapisem
+   `EntitlementSnapshot`, który od `billing.0013` ma wymuszone RLS. Baza
+   odmawiała wstawienia — głośno, więc w dobrym kierunku, ale komenda była
+   martwa. Naprawione; wszystkie komendy zarządzające, które dotykają tabel
+   tenantowych, ustawiają teraz tenanta.
+
+Konto do podglądu (dane syntetyczne, tylko lokalnie):
+`w6-e2e-podglad@example.test` / `PodgladLokalny2026!`, rola `owner`, z profilem
+billingowym. Usunięcie: `sites_e2e_fixture cleanup --email … --slug …`.
+Zweryfikowane ekrany: strona główna (profil `business`), panel Start, Plan i
+płatności (trzy plany 99/149/299 zł **netto**), kreator witryny (adres
+`.business.localhost`). Panel nie ma jeszcze niczego o kredytach — API panelu
+dla nich jest wciąż do zrobienia.
+
 Uruchomienie komendy katalogu poza kontenerem wymaga kompletu zmiennych:
 `DJANGO_SETTINGS_MODULE=saas_core.config.settings.local`, `APP_ENV=local`,
 `DEPLOYMENT=business`, `BILLING_PROVIDER=stripe`, `STRIPE_LIVEMODE=false`,
