@@ -270,6 +270,13 @@ class BillingProfile(models.Model):
     city = models.CharField(max_length=120, blank=True)
     billing_email = models.EmailField(blank=True)
     external_customer_id = models.CharField(max_length=160, blank=True)
+    # Which payment provider and mode issued the id above. A customer id means
+    # nothing outside the space that created it, so Billing stamps its origin
+    # here and refuses to reuse one from a different provider or from test mode
+    # in live. Core only stores the two values; naming the providers is
+    # Billing's business, not Core's.
+    external_customer_provider = models.CharField(max_length=16, blank=True)
+    external_customer_livemode = models.BooleanField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -395,6 +402,7 @@ class OrganizationAuditAction(models.TextChoices):
     MEMBERSHIP_REVOKED = "membership.revoked", "Odebrano dostęp członkowi"
     MEMBERSHIP_LEFT = "membership.left", "Członek opuścił organizację"
     OWNERSHIP_TRANSFERRED = "ownership.transferred", "Przeniesiono własność"
+    BILLING_PROFILE_UPDATED = "billing.profile.updated", "Zmieniono dane do faktury"
     BILLING_CHECKOUT_CREATED = "billing.checkout.created", "Utworzono Checkout"
     BILLING_PORTAL_CREATED = "billing.portal.created", "Utworzono sesję portalu"
     BILLING_TRIAL_STARTED = "billing.trial.started", "Rozpoczęto trial"

@@ -32,6 +32,8 @@ export type EntitlementSupportItem =
   components["schemas"]["EntitlementSupportItem"];
 export type CustomerBillingOverview =
   components["schemas"]["CustomerBillingOverview"];
+export type BillingDetails = components["schemas"]["BillingDetails"];
+export type BillingDetailsState = components["schemas"]["BillingDetailsState"];
 export type CustomerPlan = components["schemas"]["CustomerPlan"];
 export type CustomerSubscription =
   components["schemas"]["CustomerSubscription"];
@@ -318,6 +320,22 @@ export async function getCustomerBillingOverview(): Promise<CustomerBillingOverv
     {
       credentials: "same-origin",
       cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function updateBillingDetails(
+  details: BillingDetails,
+): Promise<BillingDetailsState> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/billing/details/",
+    {
+      body: details,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
     },
   );
   if (error || !data) throwProblem(error, response);

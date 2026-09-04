@@ -16,6 +16,7 @@ from .models import (
     StripePriceMapping,
     SubscriptionState,
 )
+from .services import missing_billing_details, reusable_customer_id
 
 
 def _plan_payload(
@@ -100,9 +101,16 @@ def customer_billing_overview() -> dict[str, Any]:
         # button disabled and no way to buy anything. This flag answers the
         # question create_setup_checkout actually asks.
         "has_active_subscription": subscription is not None,
+        # The invoice details travel with the overview because the panel needs
+        # them on the same screen as the plans: without an address Stripe Tax
+        # cannot price anything, so the form is part of buying, not a setting
+        # tucked away somewhere else.
+        "billing_details": _billing_details_payload(profile),
+        # A customer id from the simulator, or from test mode in a live
+        # deployment, would send the customer to a portal Stripe cannot open.
         "portal_available": (
             settings.BILLING_PROVIDER == "stripe"
-            and bool(profile and profile.external_customer_id)
+            and bool(profile and reusable_customer_id(profile))
         ),
         "subscription": _subscription_payload(subscription, snapshot),
         "plans": [
@@ -113,6 +121,24 @@ def customer_billing_overview() -> dict[str, Any]:
             )
             for plan in plans
         ],
+    }
+
+
+def _billing_details_payload(profile: BillingProfile | None) -> dict[str, Any]:
+    # An organization with no profile yet is shown the model's own defaults, and
+    # what is missing is read off the same object — so the form cannot say
+    # "country: PL" while the list underneath calls the country missing.
+    shown = profile if profile is not None else BillingProfile()
+    return {
+        "customer_kind": shown.customer_kind,
+        "legal_name": shown.legal_name,
+        "tax_id": shown.tax_id,
+        "country_code": shown.country_code,
+        "address_line1": shown.address_line1,
+        "postal_code": shown.postal_code,
+        "city": shown.city,
+        "billing_email": shown.billing_email,
+        "missing": missing_billing_details(shown),
     }
 
 

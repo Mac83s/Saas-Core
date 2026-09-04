@@ -167,7 +167,25 @@
       "suspended": "zawieszony",
       "trialing": "okres próbny",
       "unconfigured": "nieskonfigurowany"
-    }
+    },
+    "detailsTitle": "Dane do faktury",
+    "detailsDescription": "Adres decyduje o stawce VAT, więc podajemy go przed pierwszą płatnością.",
+    "detailsMissing": "Uzupełnij dane do faktury, żeby móc wybrać plan.",
+    "detailsSaved": "Dane do faktury zapisane.",
+    "customerKind": "Rodzaj nabywcy",
+    "customerKindCompany": "Firma",
+    "customerKindIndividual": "Osoba prywatna",
+    "legalName": "Nazwa nabywcy",
+    "taxId": "Numer VAT (opcjonalnie)",
+    "country": "Kraj",
+    "addressLine1": "Ulica i numer",
+    "postalCode": "Kod pocztowy",
+    "city": "Miejscowość",
+    "billingEmail": "E-mail do faktur",
+    "saveDetails": "Zapisz dane",
+    "detailsRequired": "To pole jest wymagane.",
+    "detailsEmailInvalid": "Podaj poprawny adres e-mail.",
+    "completeDetailsFirst": "Najpierw uzupełnij dane do faktury"
   },
   "Sites": {
     "navigation": "Strony",

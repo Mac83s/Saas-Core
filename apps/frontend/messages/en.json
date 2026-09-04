@@ -167,7 +167,25 @@
       "suspended": "suspended",
       "trialing": "free trial",
       "unconfigured": "not configured"
-    }
+    },
+    "detailsTitle": "Invoice details",
+    "detailsDescription": "The address decides the VAT rate, so we ask for it before the first payment.",
+    "detailsMissing": "Complete the invoice details to choose a plan.",
+    "detailsSaved": "Invoice details saved.",
+    "customerKind": "Customer type",
+    "customerKindCompany": "Company",
+    "customerKindIndividual": "Individual",
+    "legalName": "Customer name",
+    "taxId": "VAT number (optional)",
+    "country": "Country",
+    "addressLine1": "Street and number",
+    "postalCode": "Postal code",
+    "city": "City",
+    "billingEmail": "Invoice email",
+    "saveDetails": "Save details",
+    "detailsRequired": "This field is required.",
+    "detailsEmailInvalid": "Enter a valid email address.",
+    "completeDetailsFirst": "Complete the invoice details first"
   },
   "Sites": {
     "navigation": "Sites",

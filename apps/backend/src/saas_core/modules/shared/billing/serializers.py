@@ -53,11 +53,34 @@ class CustomerSubscriptionSerializer(serializers.Serializer[dict[str, Any]]):
     cancel_at_period_end = serializers.BooleanField()
 
 
+class BillingDetailsSerializer(serializers.Serializer[dict[str, Any]]):
+    """What the panel shows and sends back for the invoice form."""
+
+    customer_kind = serializers.ChoiceField(choices=["company", "individual"])
+    legal_name = serializers.CharField(max_length=200, allow_blank=True)
+    tax_id = serializers.CharField(max_length=32, allow_blank=True)
+    country_code = serializers.RegexField(r"^[A-Za-z]{2}$", max_length=2)
+    address_line1 = serializers.CharField(max_length=200, allow_blank=True)
+    postal_code = serializers.CharField(max_length=32, allow_blank=True)
+    city = serializers.CharField(max_length=120, allow_blank=True)
+    billing_email = serializers.EmailField(allow_blank=True)
+
+    def validate_country_code(self, value: str) -> str:
+        return value.upper()
+
+
+class BillingDetailsStateSerializer(BillingDetailsSerializer):
+    """The same fields plus what the panel needs to explain a blocked purchase."""
+
+    missing = serializers.ListField(child=serializers.CharField())
+
+
 class CustomerBillingOverviewSerializer(serializers.Serializer[dict[str, Any]]):
     can_manage = serializers.BooleanField()
     payment_mode = serializers.ChoiceField(choices=["stripe", "simulated"])
     portal_available = serializers.BooleanField()
     has_active_subscription = serializers.BooleanField()
+    billing_details = BillingDetailsStateSerializer()
     subscription = CustomerSubscriptionSerializer(allow_null=True)
     plans = CustomerPlanSerializer(many=True)
 

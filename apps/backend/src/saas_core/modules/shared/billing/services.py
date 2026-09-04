@@ -128,6 +128,28 @@ def activate_customer_trial(*, checkout_session_id: str) -> TrialActivationResul
     )
 
 
+# The fields Stripe Tax needs before it can work out a rate, in the order a
+# person reads them. The panel asks for exactly these, so the form and the
+# refusal below cannot drift apart.
+REQUIRED_BILLING_DETAILS: tuple[tuple[str, str], ...] = (
+    ("country_code", "kraj"),
+    ("address_line1", "ulica"),
+    ("postal_code", "kod pocztowy"),
+    ("city", "miejscowość"),
+)
+
+
+def missing_billing_details(profile: BillingProfile | None) -> list[str]:
+    """Which required fields are still empty, named as the panel names them."""
+    if profile is None:
+        return [field for field, _label in REQUIRED_BILLING_DETAILS]
+    return [
+        field
+        for field, _label in REQUIRED_BILLING_DETAILS
+        if not str(getattr(profile, field, "")).strip()
+    ]
+
+
 def _provider_address(profile: BillingProfile) -> ProviderAddress:
     """The address Stripe Tax needs, refused early when it is incomplete.
 
@@ -135,16 +157,8 @@ def _provider_address(profile: BillingProfile) -> ProviderAddress:
     country and a street the provider cannot work out a VAT rate, and finding
     that out at the payment is worse than finding it out in the form.
     """
-    missing = [
-        label
-        for label, value in (
-            ("kraj", profile.country_code),
-            ("ulica", profile.address_line1),
-            ("kod pocztowy", profile.postal_code),
-            ("miejscowość", profile.city),
-        )
-        if not value.strip()
-    ]
+    empty = set(missing_billing_details(profile))
+    missing = [label for field, label in REQUIRED_BILLING_DETAILS if field in empty]
     if missing:
         raise BillingProfileIncomplete(
             "Dane do faktury są niekompletne; brakuje: " + ", ".join(missing) + "."
@@ -157,6 +171,71 @@ def _provider_address(profile: BillingProfile) -> ProviderAddress:
     )
 
 
+@transaction.atomic
+def update_billing_details(*, changes: dict[str, Any]) -> BillingProfile:
+    """Save the invoice details the customer typed into the panel.
+
+    The profile is created here when the organization never had one: an
+    organization can exist before anyone has thought about paying, and the
+    first person who does should not meet an error about a missing row.
+
+    The provider is not told about the change. A customer already created at
+    Stripe keeps the address it was created with until the next checkout, which
+    sends the current one — going further and rewriting the remote customer
+    from here would put a second writer on data the Customer Portal also edits.
+    """
+    context = authorize(BILLING_MANAGE, owner_only=True)
+    _refuse_platform_workspace(context.organization_id)
+    organization = Organization.objects.get(pk=context.organization_id)
+    profile, _created = BillingProfile.objects.select_for_update().get_or_create(
+        organization=organization
+    )
+    for field, value in changes.items():
+        setattr(profile, field, value)
+    profile.full_clean(validate_unique=False, validate_constraints=False)
+    profile.save()
+    record_audit(
+        organization=organization,
+        action=OrganizationAuditAction.BILLING_PROFILE_UPDATED,
+        actor=User.objects.get(pk=context.actor_id),
+        target_type="billing_profile",
+        target_id=profile.id,
+        metadata={"fields": sorted(changes)},
+    )
+    return profile
+
+
+def _customer_origin() -> tuple[str, bool | None]:
+    """The provider and mode a customer created right now would belong to."""
+    provider = str(settings.BILLING_PROVIDER)
+    return provider, (bool(settings.STRIPE_LIVEMODE) if provider == "stripe" else None)
+
+
+def reusable_customer_id(profile: BillingProfile) -> str:
+    """The stored customer id, but only where it still means something.
+
+    A customer id is valid nowhere except the provider and mode that issued
+    it. The simulator's ``sim_customer_…`` is unknown to Stripe, and a
+    test-mode ``cus_…`` is unknown in live mode — the provider answers
+    ``resource_missing`` and the checkout dies with a 502. That is how
+    switching this deployment from the simulator to Stripe announced itself,
+    and the same wall stands between test and live.
+
+    An id with no stamp predates this rule and is assumed to belong here.
+    Assuming the opposite would create a second identity at the provider for a
+    company that already has one, splitting its invoices — a quiet mistake,
+    where reusing a foreign id is a loud one.
+    """
+    if not profile.external_customer_id or not profile.external_customer_provider:
+        return profile.external_customer_id
+    provider, livemode = _customer_origin()
+    if profile.external_customer_provider != provider:
+        return ""
+    if provider == "stripe" and profile.external_customer_livemode != livemode:
+        return ""
+    return profile.external_customer_id
+
+
 def _ensure_provider_customer(
     *,
     provider: Any,
@@ -164,14 +243,15 @@ def _ensure_provider_customer(
     actor: User,
     profile: BillingProfile,
 ) -> tuple[str, bool]:
-    """Returns the Stripe customer for this organization, creating it once.
+    """Returns the provider customer for this organization, creating it once.
 
     Shared by the plan checkout and the credit-pack checkout: both need a
     customer carrying the billing address, and creating a second one would give
     the same company two identities at the provider.
     """
-    if profile.external_customer_id:
-        return profile.external_customer_id, False
+    existing = reusable_customer_id(profile)
+    if existing:
+        return existing, False
     try:
         customer = provider.create_customer(
             email=profile.billing_email or actor.email,
@@ -183,9 +263,20 @@ def _ensure_provider_customer(
     except (BillingProviderError, ImproperlyConfigured) as error:
         raise BillingProviderUnavailable from error
     profile.external_customer_id = customer.id
+    (
+        profile.external_customer_provider,
+        profile.external_customer_livemode,
+    ) = _customer_origin()
     try:
         with transaction.atomic():
-            profile.save(update_fields=["external_customer_id", "updated_at"])
+            profile.save(
+                update_fields=[
+                    "external_customer_id",
+                    "external_customer_provider",
+                    "external_customer_livemode",
+                    "updated_at",
+                ]
+            )
     except IntegrityError as error:
         raise BillingCheckoutConflict from error
     return profile.external_customer_id, True
@@ -319,13 +410,13 @@ def create_setup_checkout(*, plan_key: str, idempotency_key: str) -> CheckoutRes
         provider = get_billing_provider()
     except (BillingProviderError, ImproperlyConfigured) as error:
         raise BillingProviderUnavailable from error
-    _customer_id, customer_created = _ensure_provider_customer(
+    customer_id, customer_created = _ensure_provider_customer(
         provider=provider, organization=organization, actor=actor, profile=profile
     )
 
     try:
         provider_checkout = provider.create_setup_checkout(
-            customer_id=profile.external_customer_id,
+            customer_id=customer_id,
             organization_id=str(organization.id),
             plan_version_id=str(mapping.plan_version_id),
             price_mapping_id=str(mapping.id),
@@ -390,11 +481,12 @@ def create_customer_portal() -> PortalResult:
     organization = Organization.objects.get(pk=context.organization_id)
     actor = User.objects.get(pk=context.actor_id)
     profile = BillingProfile.objects.get(organization=organization)
-    if not profile.external_customer_id:
+    customer_id = reusable_customer_id(profile)
+    if not customer_id:
         raise BillingCustomerRequired
     try:
         portal = get_billing_provider().create_portal(
-            customer_id=profile.external_customer_id,
+            customer_id=customer_id,
             return_url=settings.BILLING_PORTAL_RETURN_URL,
         )
     except BillingProviderCapabilityError as error:

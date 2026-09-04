@@ -43,6 +43,17 @@ const overview = {
   payment_mode: "simulated" as const,
   portal_available: false,
   has_active_subscription: false,
+  billing_details: {
+    customer_kind: "company" as const,
+    legal_name: "Firma testowa",
+    tax_id: "",
+    country_code: "PL",
+    address_line1: "Testowa 1",
+    postal_code: "00-001",
+    city: "Warszawa",
+    billing_email: "faktury@example.test",
+    missing: [] as string[],
+  },
   subscription: null,
   plans: [
     {
@@ -335,6 +346,36 @@ test("po zakończonym trialu znów pozwala wybrać plan", async () => {
       name: "Plan jest już aktywny w wersji demo",
     }),
   ).toBeNull();
+});
+
+test("bez danych do faktury nie da się kliknąć planu", async () => {
+  // Stripe Tax cannot price anything without an address, so the API would
+  // answer 409. The panel says so before the click instead of after it.
+  getCustomerBillingOverview.mockResolvedValue({
+    ...overview,
+    billing_details: {
+      ...overview.billing_details,
+      address_line1: "",
+      postal_code: "",
+      city: "",
+      missing: ["address_line1", "postal_code", "city"],
+    },
+  });
+
+  render(
+    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+      <CustomerBillingPanel />
+    </NextIntlClientProvider>,
+  );
+
+  const blocked = await screen.findAllByRole("button", {
+    name: "Najpierw uzupełnij dane do faktury",
+  });
+  expect(blocked).toHaveLength(3);
+  for (const button of blocked) expect(button).toBeDisabled();
+  expect(
+    screen.getByText("Uzupełnij dane do faktury, żeby móc wybrać plan."),
+  ).not.toBeNull();
 });
 
 function checkoutPendingProblem() {

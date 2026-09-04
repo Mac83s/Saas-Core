@@ -245,6 +245,57 @@ płatności (trzy plany 99/149/299 zł **netto**), kreator witryny (adres
 `.business.localhost`). Panel nie ma jeszcze niczego o kredytach — API panelu
 dla nich jest wciąż do zrobienia.
 
+### Prawdziwy Stripe włączony lokalnie (2026-09-04)
+
+Stack stoi teraz na `BILLING_PROVIDER=stripe` w trybie testowym. Przełączenie
+wymagało trzech rzeczy, z których dwie były błędami:
+
+1. `stripe listen --forward-to http://localhost:8080/api/v1/billing/webhooks/stripe/`
+   (CLI 1.28 z `A:\AAAExtensions\stripe.exe`, klucz czytany z pliku sekretu, nie
+   z linii poleceń). Sekret podpisu okazał się ten sam, który już leżał w
+   `.runtime/secrets/stripe_webhook_secret` — CLI wydaje go per konto, nie per
+   uruchomienie. Zmienne `BILLING_PROVIDER`, `STRIPE_LIVEMODE` i
+   `STRIPE_PORTAL_CONFIGURATION_ID` dopisane do `.env` (plik jest gitignorowany;
+   wzorzec stoi w `.env.example`).
+2. **Bootstrap uruchamiał katalog symulatora niezależnie od dostawcy.** Serwis
+   `migrate` miał zaszyte `configure_simulated_prices`, a ta komenda odmawia
+   pracy przy `BILLING_PROVIDER=stripe` — cały stack nie wstawał. Obie komendy
+   wygaszają nawzajem swoje mapowania cen, więc uruchomienie niewłaściwej
+   zostawia panel bez ceny do sprzedania. `migrate` wybiera teraz komendę
+   pasującą do dostawcy; ceną jest kontakt z API Stripe przy starcie.
+3. **Identyfikator klienta z symulatora został podany Stripe'owi.**
+   `BillingProfile.external_customer_id` trzymał `sim_customer_…`, Stripe
+   odpowiedział `No such customer`, a checkout wracał jako 502. Identyfikator
+   klienta nie znaczy nic poza przestrzenią, która go wydała — ta sama ściana
+   stoi między trybem testowym a produkcyjnym, gdzie oba wyglądają jak `cus_…`.
+   `BillingProfile` ma teraz `external_customer_provider` i
+   `external_customer_livemode` (migracja `organizations.0023`), a Billing
+   odmawia użycia identyfikatora spoza bieżącej przestrzeni i tworzy nowego
+   klienta. Wiersz bez stempla (sprzed tej reguły) jest uznawany za swój —
+   odwrotne założenie tworzyłoby drugą tożsamość firmie, która już ją ma.
+
+### Dane do faktury: brakujący ekran, przez który nikt nie mógł kupić
+
+Po przełączeniu na Stripe checkout odmawiał `billing_profile_incomplete`, bo
+organizacja nie miała adresu — a **nie było żadnego API ani ekranu, żeby go
+podać**. Profil billingowy powstawał wyłącznie w onboardingu z tym, co ten serwis
+akurat miał. Bez adresu Stripe Tax nie policzy stawki (ADR-040), więc w trybie
+Stripe żadna organizacja nie mogła kupić niczego.
+
+Doszło: `PUT /api/v1/billing/details/` (właściciel, CSRF, audyt
+`billing.profile.updated`), `billing_details` w `overview` razem z listą
+`missing`, oraz karta „Dane do faktury" w panelu — React Hook Form + Zod,
+combobox krajów z nazwami z `Intl.DisplayNames` (ADR-020: zbiór filtrowalny),
+PL/EN. Przyciski planów są wyłączone, dopóki dane są niekompletne, z etykietą
+„Najpierw uzupełnij dane do faktury" — panel mówi to przed kliknięciem, zamiast
+pokazywać 409 po nim.
+
+Stan po tej zmianie: `POST /api/v1/billing/checkout/` zwraca prawdziwy adres
+`https://checkout.stripe.com/c/pay/cs_test_…`. Czego jeszcze nie ma: **nikt nie
+przeszedł jeszcze płatności kartą testową**, więc webhook `checkout.session.completed`
+nie został ani razu odebrany na żywo, a `activate_customer_trial` nie zadziałał
+na prawdziwej sesji.
+
 ### Konta lokalne, panel admina i sprzatanie po testach
 
 Django admin jest pod `http://localhost:8080/internal/admin/` — Caddy przepuszcza

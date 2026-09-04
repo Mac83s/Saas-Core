@@ -22,6 +22,7 @@ import {
   type CustomerBillingOverview,
   type CustomerPlan,
 } from "@saas-core/api-client";
+import { BillingDetailsForm } from "./billing-details-form";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
 import {
@@ -419,6 +420,16 @@ export function CustomerBillingPanel() {
       ) : null}
 
       {overview ? (
+        <BillingDetailsForm
+          canManage={overview.can_manage}
+          details={overview.billing_details}
+          onSaved={(billing_details) =>
+            setOverview({ ...overview, billing_details })
+          }
+        />
+      ) : null}
+
+      {overview ? (
         <section aria-labelledby="plans-heading" className="space-y-4">
           <div className="max-w-3xl space-y-2">
             <h2
@@ -434,6 +445,7 @@ export function CustomerBillingPanel() {
               <PlanCard
                 busy={Boolean(pending)}
                 canManage={overview.can_manage}
+                detailsComplete={overview.billing_details.missing.length === 0}
                 hasSubscription={overview.has_active_subscription}
                 highlighted={plan.key === "starter"}
                 key={`${plan.key}:${plan.version}`}
@@ -458,6 +470,7 @@ function PlanCard({
   pending,
   busy,
   canManage,
+  detailsComplete,
   hasSubscription,
   paymentMode,
   onChoose,
@@ -468,6 +481,7 @@ function PlanCard({
   pending: boolean;
   busy: boolean;
   canManage: boolean;
+  detailsComplete: boolean;
   hasSubscription: boolean;
   paymentMode: CustomerBillingOverview["payment_mode"];
   onChoose: () => void;
@@ -529,6 +543,7 @@ function PlanCard({
           disabled={
             plan.is_current ||
             simulatedPlanLocked ||
+            !detailsComplete ||
             (!hasSubscription && !plan.checkout_available) ||
             !canManage ||
             busy
@@ -548,21 +563,23 @@ function PlanCard({
                     ? "simulatedOwnerOnly"
                     : "ownerOnly",
                 )
-              : simulatedPlanLocked
-                ? t("simulatedPlanLocked")
-                : hasSubscription
-                  ? t("managePlan")
-                  : plan.checkout_available
-                    ? t(
-                        paymentMode === "simulated"
-                          ? "simulatePlan"
-                          : "choosePlan",
-                      )
-                    : t(
-                        paymentMode === "simulated"
-                          ? "simulationUnavailable"
-                          : "checkoutUnavailable",
-                      )}
+              : !detailsComplete
+                ? t("completeDetailsFirst")
+                : simulatedPlanLocked
+                  ? t("simulatedPlanLocked")
+                  : hasSubscription
+                    ? t("managePlan")
+                    : plan.checkout_available
+                      ? t(
+                          paymentMode === "simulated"
+                            ? "simulatePlan"
+                            : "choosePlan",
+                        )
+                      : t(
+                          paymentMode === "simulated"
+                            ? "simulationUnavailable"
+                            : "checkoutUnavailable",
+                        )}
         </Button>
       </CardFooter>
     </Card>

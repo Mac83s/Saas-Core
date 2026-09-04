@@ -565,6 +565,50 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/billing/details/:
+    put:
+      operationId: billing_details_update
+      tags:
+      - billing
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BillingDetails'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BillingDetails'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BillingDetails'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillingDetailsState'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/billing/overview/:
     get:
       operationId: billing_overview_retrieve
@@ -5429,6 +5473,92 @@ components:
         * `manual` - manual
         * `proposed` - proposed
         * `automated` - automated
+    BillingDetails:
+      type: object
+      description: What the panel shows and sends back for the invoice form.
+      properties:
+        customer_kind:
+          $ref: '#/components/schemas/CustomerKindEnum'
+        legal_name:
+          type: string
+          maxLength: 200
+        tax_id:
+          type: string
+          maxLength: 32
+        country_code:
+          type: string
+          maxLength: 2
+          pattern: ^[A-Za-z]{2}$
+        address_line1:
+          type: string
+          maxLength: 200
+        postal_code:
+          type: string
+          maxLength: 32
+        city:
+          type: string
+          maxLength: 120
+        billing_email:
+          oneOf:
+          - type: string
+            format: email
+          - type: string
+            maxLength: 0
+      required:
+      - address_line1
+      - billing_email
+      - city
+      - country_code
+      - customer_kind
+      - legal_name
+      - postal_code
+      - tax_id
+    BillingDetailsState:
+      type: object
+      description: The same fields plus what the panel needs to explain a blocked
+        purchase.
+      properties:
+        customer_kind:
+          $ref: '#/components/schemas/CustomerKindEnum'
+        legal_name:
+          type: string
+          maxLength: 200
+        tax_id:
+          type: string
+          maxLength: 32
+        country_code:
+          type: string
+          maxLength: 2
+          pattern: ^[A-Za-z]{2}$
+        address_line1:
+          type: string
+          maxLength: 200
+        postal_code:
+          type: string
+          maxLength: 32
+        city:
+          type: string
+          maxLength: 120
+        billing_email:
+          oneOf:
+          - type: string
+            format: email
+          - type: string
+            maxLength: 0
+        missing:
+          type: array
+          items:
+            type: string
+      required:
+      - address_line1
+      - billing_email
+      - city
+      - country_code
+      - customer_kind
+      - legal_name
+      - missing
+      - postal_code
+      - tax_id
     BillingSession:
       type: object
       properties:
@@ -6089,6 +6219,8 @@ components:
           type: boolean
         has_active_subscription:
           type: boolean
+        billing_details:
+          $ref: '#/components/schemas/BillingDetailsState'
         subscription:
           oneOf:
           - $ref: '#/components/schemas/CustomerSubscription'
@@ -6098,6 +6230,7 @@ components:
           items:
             $ref: '#/components/schemas/CustomerPlan'
       required:
+      - billing_details
       - can_manage
       - has_active_subscription
       - payment_mode
@@ -6126,6 +6259,14 @@ components:
           default: pl
       required:
       - display_name
+    CustomerKindEnum:
+      enum:
+      - company
+      - individual
+      type: string
+      description: |-
+        * `company` - company
+        * `individual` - individual
     CustomerPlan:
       type: object
       properties:

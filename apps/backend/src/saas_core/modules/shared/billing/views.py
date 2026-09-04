@@ -15,6 +15,8 @@ from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
 from .overview import customer_billing_overview
 from .serializers import (
+    BillingDetailsSerializer,
+    BillingDetailsStateSerializer,
     BillingSessionSerializer,
     CheckoutCreateSerializer,
     CustomerBillingOverviewSerializer,
@@ -23,7 +25,13 @@ from .serializers import (
     TrialActivationCreateSerializer,
     TrialActivationResultSerializer,
 )
-from .services import activate_customer_trial, create_customer_portal, create_setup_checkout
+from .services import (
+    activate_customer_trial,
+    create_customer_portal,
+    create_setup_checkout,
+    missing_billing_details,
+    update_billing_details,
+)
 from .support import entitlement_support_report
 from .webhooks import InvalidStripeWebhook, StripeWebhookConflict, ingest_stripe_webhook
 
@@ -99,6 +107,33 @@ class BillingCheckoutView(APIView):
                 "expires_at": result.checkout.expires_at,
             },
             status=(status.HTTP_201_CREATED if result.created else status.HTTP_200_OK),
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class BillingDetailsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="billing_details_update",
+        tags=["billing"],
+        request=BillingDetailsSerializer,
+        responses={
+            200: BillingDetailsStateSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def put(self, request: Request) -> Response:
+        serializer = BillingDetailsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        profile = update_billing_details(changes=dict(serializer.validated_data))
+        return Response(
+            {
+                **serializer.validated_data,
+                "missing": missing_billing_details(profile),
+            }
         )
 
 

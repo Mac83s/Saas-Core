@@ -244,6 +244,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/billing/details/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["billing_details_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/billing/overview/": {
         parameters: {
             query?: never;
@@ -1901,6 +1917,29 @@ export interface components {
          * @enum {string}
          */
         AutomationPolicyEnum: "manual" | "proposed" | "automated";
+        /** @description What the panel shows and sends back for the invoice form. */
+        BillingDetails: {
+            customer_kind: components["schemas"]["CustomerKindEnum"];
+            legal_name: string;
+            tax_id: string;
+            country_code: string;
+            address_line1: string;
+            postal_code: string;
+            city: string;
+            billing_email: string;
+        };
+        /** @description The same fields plus what the panel needs to explain a blocked purchase. */
+        BillingDetailsState: {
+            customer_kind: components["schemas"]["CustomerKindEnum"];
+            legal_name: string;
+            tax_id: string;
+            country_code: string;
+            address_line1: string;
+            postal_code: string;
+            city: string;
+            billing_email: string;
+            missing: string[];
+        };
         BillingSession: {
             id: string;
             /** Format: uri */
@@ -2172,6 +2211,7 @@ export interface components {
             payment_mode: components["schemas"]["PaymentModeEnum"];
             portal_available: boolean;
             has_active_subscription: boolean;
+            billing_details: components["schemas"]["BillingDetailsState"];
             subscription: components["schemas"]["CustomerSubscription"] | null;
             plans: components["schemas"]["CustomerPlan"][];
         };
@@ -2182,6 +2222,12 @@ export interface components {
             /** @default pl */
             locale: components["schemas"]["LocaleEnum"];
         };
+        /**
+         * @description * `company` - company
+         *     * `individual` - individual
+         * @enum {string}
+         */
+        CustomerKindEnum: "company" | "individual";
         CustomerPlan: {
             key: string;
             name: string;
@@ -3781,6 +3827,55 @@ export interface operations {
                 };
             };
             502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    billing_details_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BillingDetails"];
+                "application/x-www-form-urlencoded": components["schemas"]["BillingDetails"];
+                "multipart/form-data": components["schemas"]["BillingDetails"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingDetailsState"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -232,9 +232,16 @@ services:
     command:
       - sh
       - -c
+      # The catalog has to match the provider that will serve it: each command
+      # deactivates the other's price mappings, so booting the simulator's
+      # catalog under BILLING_PROVIDER=stripe leaves the panel with no price to
+      # sell. In stripe mode this reaches the Stripe API at boot, which is the
+      # deliberate cost of not starting with a catalog nobody can buy from.
       - >-
         python manage.py migrate --noinput &&
-        python manage.py configure_simulated_prices
+        if [ "$${BILLING_PROVIDER:-simulated}" = "stripe" ]; then
+        python manage.py provision_stripe_catalog;
+        else python manage.py configure_simulated_prices; fi
     environment:
       <<: *backend-environment
       LOG_SERVICE: migrate
