@@ -316,14 +316,19 @@ ani automatycznie autoryzować działań produkcyjnych.
 - [ ] obsłużyć depozyt, pełną płatność, bezpłatną rezerwację oraz płatność na
   miejscu jako jawne warianty organizacji/usługi;
 - [ ] dodać zasady anulowania, zwrotu, przełożenia, no-show i spóźnienia;
-- [ ] umożliwić ponowny zakup po zakończonym planie — `BillingTrialActivation`
-  ma unikat na organizacji i wiąże się 1:1 z jednym Checkoutem, więc organizacja
-  aktywuje plan dokładnie raz w życiu; klient po anulowaniu albo po wygasłym
-  trialu przechodzi Checkout, płaci i dostaje `TrialActivationConflict`.
-  Potrzebna aktywacja per Checkout, ścieżka dostawcy dla subskrypcji bez triala
-  (trial należy się raz) oraz pomijanie w rekonsyliacji subskrypcji z innej
-  przestrzeni dostawcy — dziś `sim_subscription_…` jest odpytywane w Stripe i
-  zapisuje kolejne porażki (2026-09-04);
+- [x] umożliwić ponowny zakup po zakończonym planie — aktywacja należy teraz do
+  Checkoutu, który za nią zapłacił (migracja `billing.0020` zdejmuje unikat na
+  organizacji), darmowy okres przysługuje raz na organizację, a druga
+  subskrypcja startuje od razu płatna. Oba strażniki — „jedna żywa subskrypcja"
+  i „nie ma innej aktywacji w toku" — siedzą pod tą samą blokadą profilu, bo
+  wywołanie dostawcy dzieje się poza transakcją. Mapowanie ceny niesie
+  `provider` (migracja `billing.0021`), więc rekonsyliacja nie pyta Stripe o
+  subskrypcje z symulatora, a checkout nie sprzeda ceny z cudzego katalogu
+  (2026-09-04);
+- [ ] obsłużyć subskrypcję w stanie `incomplete` — przy zakupie bez triala karta
+  może zażądać uwierzytelnienia (3DS/SCA) i wtedy Stripe zwraca `incomplete`;
+  dziś adapter odmawia z jawnym błędem, bo nie mamy ścieżki dokończenia
+  płatności przez klienta;
 - [ ] zmapować zakleszczenie na konflikt terminu — `create_appointment` tłumaczy
   na `SlotUnavailable` tylko `IntegrityError`, a dwie równoległe rezerwacje tego
   samego slotu potrafią zakończyć się `deadlock detected` przy sprawdzaniu

@@ -108,7 +108,7 @@ class SimulatedBillingProvider:
             recurring_interval_count=1,
         )
 
-    def create_trial_subscription(
+    def create_subscription(
         self,
         *,
         customer_id: str,
@@ -120,16 +120,26 @@ class SimulatedBillingProvider:
         idempotency_key: str,
     ) -> ProviderSubscription:
         del customer_id, setup_intent_id, price_id, organization_id, plan_version_id
-        if trial_days <= 0:
-            raise BillingProviderError("Symulowany trial wymaga dodatniej liczby dni.")
-        trial_start = timezone.now()
-        trial_end = trial_start + timedelta(days=trial_days)
+        if trial_days < 0:
+            raise BillingProviderError("Liczba dni triala nie może być ujemna.")
+        started = timezone.now()
+        if trial_days == 0:
+            # A returning customer: no free period, so the plan starts paid.
+            return ProviderSubscription(
+                id=_simulated_id("subscription", idempotency_key),
+                status=StripeSubscriptionStatus.ACTIVE,
+                trial_start=None,
+                trial_end=None,
+                current_period_start=started,
+                current_period_end=started + timedelta(days=30),
+            )
+        trial_end = started + timedelta(days=trial_days)
         return ProviderSubscription(
             id=_simulated_id("subscription", idempotency_key),
             status=StripeSubscriptionStatus.TRIALING,
-            trial_start=trial_start,
+            trial_start=started,
             trial_end=trial_end,
-            current_period_start=trial_start,
+            current_period_start=started,
             current_period_end=trial_end,
         )
 

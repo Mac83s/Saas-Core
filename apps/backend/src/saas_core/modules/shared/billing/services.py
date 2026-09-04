@@ -388,6 +388,9 @@ def create_setup_checkout(*, plan_key: str, idempotency_key: str) -> CheckoutRes
             plan_version__plan__is_public=True,
             plan_version__plan__current_version_id=F("plan_version_id"),
             is_active=True,
+            # Both catalogs can hold an active price for the same plan version;
+            # only the one belonging to the provider now in use may be sold.
+            provider=settings.BILLING_PROVIDER,
             livemode=settings.STRIPE_LIVEMODE,
         )
         .first()

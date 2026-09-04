@@ -62,7 +62,7 @@ class FakeProvider:
     def create_portal(self, **_kwargs: Any) -> ProviderPortal:
         return ProviderPortal("bps_api", "https://billing.stripe.test/bps_api")
 
-    def create_trial_subscription(self, **_kwargs: Any) -> ProviderSubscription:
+    def create_subscription(self, **_kwargs: Any) -> ProviderSubscription:
         trial_start = timezone.now()
         trial_end = trial_start + timedelta(days=3)
         return ProviderSubscription(

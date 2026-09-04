@@ -37,14 +37,14 @@ pytestmark = pytest.mark.django_db
 NOW = datetime(2026, 8, 11, 12, tzinfo=UTC)
 
 
-def local_subscription(*, slug: str) -> BillingSubscription:
+def local_subscription(*, slug: str, plan_key: str = "starter") -> BillingSubscription:
     organization = Organization.objects.create(name=slug, slug=slug)
     BillingProfile.objects.create(
         organization=organization,
         external_customer_id=f"cus_{slug}",
     )
     mapping = StripePriceMapping.objects.create(
-        plan_version=PlanVersion.objects.get(plan__key="starter", version=1),
+        plan_version=PlanVersion.objects.get(plan__key=plan_key, version=1),
         stripe_product_id=f"prod_{slug}",
         stripe_price_id=f"price_{slug}",
         livemode=False,
@@ -249,3 +249,33 @@ def test_stripe_adapter_normalizes_retrieved_subscription(
     assert snapshot.price_id == "price_adapter"
     assert snapshot.status == StripeSubscriptionStatus.ACTIVE
     assert snapshot.current_period_end is not None
+
+
+@override_settings(
+    BILLING_PROVIDER="stripe",
+    STRIPE_LIVEMODE=False,
+    BILLING_RECONCILIATION_INTERVAL_SECONDS=3600,
+    BILLING_RECONCILIATION_BATCH_SIZE=100,
+)
+def test_a_subscription_from_another_provider_is_left_alone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Switching a deployment to Stripe must not make it interrogate Stripe
+    about subscriptions the simulator started. It cannot know them, so every
+    pass filed another failure and the queue never emptied.
+    """
+    # Different plans, because only one price per plan version may be active.
+    simulated = local_subscription(slug="reconcile-simulated", plan_key="pro")
+    simulated.price_mapping.provider = "simulated"
+    simulated.price_mapping.save(update_fields=["provider", "updated_at"])
+    stripe_one = local_subscription(slug="reconcile-stripe")
+    provider = FakeProvider(remote_snapshot(stripe_one))
+    monkeypatch.setattr(reconciliation, "get_billing_provider", lambda: provider)
+
+    handled = run_reconciliation_batch(at=NOW)
+
+    assert handled == 1
+    assert provider.calls == [stripe_one.stripe_subscription_id]
+    assert not BillingReconciliation.all_objects.filter(
+        subscription_id=simulated.id
+    ).exists()

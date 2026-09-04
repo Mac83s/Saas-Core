@@ -51,7 +51,13 @@ def run_reconciliation_batch(*, at: datetime | None = None, limit: int | None = 
             break
         with billing_tenant_scope(organization_id):
             subscription_ids = list(
-                BillingSubscription.all_objects.filter(organization_id=organization_id)
+                BillingSubscription.all_objects.filter(
+                    organization_id=organization_id,
+                    # A subscription started by another provider is unknown to
+                    # this one. Asking anyway files a failure every five
+                    # minutes and tells nobody anything.
+                    price_mapping__provider=settings.BILLING_PROVIDER,
+                )
                 .order_by("updated_at", "id")
                 .values_list("id", flat=True)[:remaining]
             )

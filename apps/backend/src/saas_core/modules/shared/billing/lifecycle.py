@@ -86,50 +86,60 @@ def activate_trial_for_product(
         # webhook processor and subscription persistence. It serializes two
         # activation attempts even when they target different Checkout rows.
         BillingProfile.objects.select_for_update().get(organization_id=context.organization_id)
-        activation = (
-            BillingTrialActivation.all_objects.select_for_update()
-            .select_related("checkout__price_mapping__plan_version__plan")
-            .filter(organization_id=context.organization_id)
-            .first()
-        )
-        if (
-            activation is not None
-            and normalized_checkout_session_id is not None
-            and activation.checkout.stripe_checkout_session_id != normalized_checkout_session_id
-        ):
-            raise TrialActivationConflict("Aktywacja jest już powiązana z inną sesją Checkout.")
-        if activation is not None and activation.status == TrialActivationStatus.ACTIVE:
-            return TrialActivationResult(activation, False)
-        if activation is None:
-            checkouts = (
-                BillingCheckout.all_objects.select_for_update()
-                .select_related("price_mapping__plan_version__plan")
-                .filter(
-                    organization_id=context.organization_id,
-                    status=CheckoutStatus.COMPLETE,
-                    price_mapping__livemode=settings.STRIPE_LIVEMODE,
-                )
-                .exclude(setup_intent_id="")
-            )
-            if normalized_checkout_session_id is not None:
-                checkouts = checkouts.filter(
-                    stripe_checkout_session_id=normalized_checkout_session_id
-                )
-            checkout = checkouts.order_by("-completed_at").first()
-            if checkout is None:
-                raise CompletedCheckoutRequired(
-                    "Pierwsza aktywacja produktu wymaga zakończonego Checkout."
-                )
-            activation, _ = BillingTrialActivation.all_objects.get_or_create(
+        checkouts = (
+            BillingCheckout.all_objects.select_for_update()
+            .select_related("price_mapping__plan_version__plan")
+            .filter(
                 organization_id=context.organization_id,
-                defaults={
-                    "checkout": checkout,
-                    "source_type": normalized_type,
-                    "source_id": normalized_id,
-                },
+                status=CheckoutStatus.COMPLETE,
+                price_mapping__livemode=settings.STRIPE_LIVEMODE,
             )
-            if normalized_checkout_session_id is not None and activation.checkout_id != checkout.id:
-                raise TrialActivationConflict("Aktywacja jest już powiązana z inną sesją Checkout.")
+            .exclude(setup_intent_id="")
+        )
+        if normalized_checkout_session_id is not None:
+            checkouts = checkouts.filter(
+                stripe_checkout_session_id=normalized_checkout_session_id
+            )
+        checkout = checkouts.order_by("-completed_at").first()
+        if checkout is None:
+            raise CompletedCheckoutRequired(
+                "Aktywacja produktu wymaga zakończonego Checkout."
+            )
+        # The activation belongs to the Checkout that paid for it. A customer
+        # who comes back after their plan ended pays through a new session, and
+        # that session gets its own row.
+        activation, _created = BillingTrialActivation.all_objects.get_or_create(
+            checkout=checkout,
+            defaults={
+                "organization_id": context.organization_id,
+                "source_type": normalized_type,
+                "source_id": normalized_id,
+            },
+        )
+        if activation.status == TrialActivationStatus.ACTIVE:
+            return TrialActivationResult(activation, False)
+        # Both guards belong under the lock, because the provider call that
+        # follows happens outside it. One live subscription per organization is
+        # the rule; a row still pending is somebody else's attempt in flight,
+        # and letting it through would ask the provider for a second
+        # subscription for the same company.
+        if (
+            BillingSubscription.all_objects.filter(
+                organization_id=context.organization_id
+            )
+            .exclude(state=SubscriptionState.CANCELED)
+            .exists()
+        ):
+            raise TrialActivationConflict("Organizacja ma już bieżącą subskrypcję.")
+        if (
+            BillingTrialActivation.all_objects.filter(
+                organization_id=context.organization_id,
+                status=TrialActivationStatus.PENDING,
+            )
+            .exclude(pk=activation.pk)
+            .exists()
+        ):
+            raise TrialActivationConflict("Inna aktywacja tej organizacji jest w toku.")
 
     activation = BillingTrialActivation.all_objects.select_related(
         "checkout__price_mapping__plan_version__plan",
@@ -142,25 +152,32 @@ def activate_trial_for_product(
 
     mapping = checkout.price_mapping
     plan_version = mapping.plan_version
-    if (
-        BillingSubscription.all_objects.filter(organization_id=activation.organization_id)
-        .exclude(state=SubscriptionState.CANCELED)
-        .exists()
-    ):
-        raise TrialActivationConflict("Organizacja ma już bieżącą subskrypcję.")
+    # The free period is owed once. An organization that has held a
+    # subscription before — even one that ended — subscribes and pays now.
+    trial_days = (
+        plan_version.trial_days
+        if not BillingSubscription.all_objects.filter(
+            organization_id=activation.organization_id
+        ).exists()
+        else 0
+    )
     try:
         provider = get_billing_provider()
-        provider_subscription = provider.create_trial_subscription(
+        provider_subscription = provider.create_subscription(
             customer_id=profile.external_customer_id,
             setup_intent_id=checkout.setup_intent_id,
             price_id=mapping.stripe_price_id,
             organization_id=str(activation.organization_id),
             plan_version_id=str(plan_version.id),
-            trial_days=plan_version.trial_days,
-            idempotency_key=f"saas-core:trial:{activation.organization_id}",
+            trial_days=trial_days,
+            # Keyed by Checkout: a second purchase is a different intent and
+            # must not be answered with the first subscription.
+            idempotency_key=f"saas-core:subscription:{checkout.id}",
         )
-        if provider_subscription.status != StripeSubscriptionStatus.TRIALING:
-            raise BillingProviderError("Stripe nie utworzył subskrypcji w stanie trialing.")
+        if provider_subscription.status not in _ACTIVATED_STATUSES:
+            raise BillingProviderError(
+                "Dostawca nie utworzył subskrypcji w stanie trialing ani active."
+            )
     except (BillingProviderError, ImproperlyConfigured) as error:
         BillingTrialActivation.all_objects.filter(
             pk=activation.pk,
@@ -184,12 +201,26 @@ def activate_trial_for_product(
         raise
 
 
+#: What the provider may answer with for a subscription we just started: a
+#: free period, or a plan already being paid for because the customer has had
+#: their trial.
+_ACTIVATED_STATUSES = {
+    StripeSubscriptionStatus.TRIALING: SubscriptionState.TRIALING,
+    StripeSubscriptionStatus.ACTIVE: SubscriptionState.ACTIVE,
+}
+
+
 def _persist_trial_activation(
     activation_id: UUID,
     provider_subscription: ProviderSubscription,
 ) -> TrialActivationResult:
-    if provider_subscription.status != StripeSubscriptionStatus.TRIALING:
-        raise TrialActivationConflict("Stripe nie utworzył subskrypcji w stanie trialing.")
+    state = _ACTIVATED_STATUSES.get(
+        StripeSubscriptionStatus(provider_subscription.status), None
+    )
+    if state is None:
+        raise TrialActivationConflict(
+            "Dostawca nie utworzył subskrypcji w stanie trialing ani active."
+        )
     organization_id = BillingTrialActivation.all_objects.values_list(
         "organization_id", flat=True
     ).get(pk=activation_id)
@@ -233,8 +264,8 @@ def _persist_trial_activation(
                 organization=activation.organization,
                 price_mapping=mapping,
                 stripe_subscription_id=provider_subscription.id,
-                state=SubscriptionState.TRIALING,
-                provider_status=StripeSubscriptionStatus.TRIALING,
+                state=state,
+                provider_status=provider_subscription.status,
                 current_period_start=provider_subscription.current_period_start,
                 current_period_end=provider_subscription.current_period_end,
                 trial_start=provider_subscription.trial_start,
@@ -243,28 +274,37 @@ def _persist_trial_activation(
         elif subscription.state in {
             SubscriptionState.UNCONFIGURED,
             SubscriptionState.TRIALING,
+            SubscriptionState.ACTIVE,
         }:
-            subscription.state = SubscriptionState.TRIALING
-            subscription.provider_status = StripeSubscriptionStatus.TRIALING
+            subscription.state = state
+            subscription.provider_status = provider_subscription.status
             subscription.current_period_start = provider_subscription.current_period_start
             subscription.current_period_end = provider_subscription.current_period_end
             subscription.trial_start = provider_subscription.trial_start
             subscription.trial_end = provider_subscription.trial_end
             subscription.save()
 
-        if subscription.state == SubscriptionState.TRIALING:
+        if subscription.state in _ACTIVATED_STATUSES.values():
             update_entitlement_snapshot(
                 activation.organization,
                 mapping,
-                state=SubscriptionState.TRIALING,
+                state=subscription.state,
                 access_mode=AccessMode.FULL,
-                effective_until=provider_subscription.trial_end,
+                # A plan with no trial is bounded by its paid period instead.
+                effective_until=(
+                    provider_subscription.trial_end
+                    or provider_subscription.current_period_end
+                ),
             )
         sync_subscription_lifecycle(subscription)
 
         activation.subscription = subscription
         activation.status = TrialActivationStatus.ACTIVE
-        activation.activated_at = provider_subscription.trial_start
+        activation.activated_at = (
+            provider_subscription.trial_start
+            or provider_subscription.current_period_start
+            or timezone.now()
+        )
         activation.last_error = ""
         activation.save(
             update_fields=[
@@ -288,7 +328,11 @@ def _persist_trial_activation(
                 "plan": mapping.plan_version.plan.key,
                 "plan_version": mapping.plan_version.version,
                 "stripe_subscription_id": subscription.stripe_subscription_id,
-                "trial_end": provider_subscription.trial_end.isoformat(),
+                "trial_end": (
+                    provider_subscription.trial_end.isoformat()
+                    if provider_subscription.trial_end is not None
+                    else None
+                ),
             },
         )
         return TrialActivationResult(activation, True)

@@ -292,6 +292,7 @@ class Command(BaseCommand):
                 plan_version=version,
                 stripe_product_id=product_id,
                 stripe_price_id=price_id,
+                provider="stripe",
                 livemode=settings.STRIPE_LIVEMODE,
             )
             return True

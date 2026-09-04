@@ -67,8 +67,10 @@ class ProviderPrice:
 class ProviderSubscription:
     id: str
     status: str
-    trial_start: datetime
-    trial_end: datetime
+    # Absent when the subscription started without a trial, which is what a
+    # returning customer gets: the free period is owed once per organization.
+    trial_start: datetime | None
+    trial_end: datetime | None
     current_period_start: datetime | None
     current_period_end: datetime | None
 
@@ -134,7 +136,7 @@ class BillingProvider(Protocol):
 
     def retrieve_price(self, price_id: str) -> ProviderPrice: ...
 
-    def create_trial_subscription(
+    def create_subscription(
         self,
         *,
         customer_id: str,
@@ -341,7 +343,7 @@ class StripeBillingProvider:
             recurring_interval_count=_required_positive_integer(recurring, "interval_count"),
         )
 
-    def create_trial_subscription(
+    def create_subscription(
         self,
         *,
         customer_id: str,
@@ -352,6 +354,12 @@ class StripeBillingProvider:
         trial_days: int,
         idempotency_key: str,
     ) -> ProviderSubscription:
+        """Start the plan on the card the setup session collected.
+
+        ``trial_days`` of zero means no free period, which is what a returning
+        customer gets: the trial is owed once. Stripe then charges at once and
+        the subscription comes back active rather than trialing.
+        """
         try:
             setup_intent = self.client.v1.setup_intents.retrieve(setup_intent_id)
             if _required_attribute(setup_intent, "status") != "succeeded":
@@ -362,31 +370,43 @@ class StripeBillingProvider:
                 getattr(setup_intent, "payment_method", None),
                 "payment_method",
             )
-            subscription = self.client.v1.subscriptions.create(
-                {
-                    "customer": customer_id,
-                    "items": [{"price": price_id, "quantity": 1}],
-                    "default_payment_method": payment_method_id,
-                    "automatic_tax": {"enabled": True},
-                    "trial_period_days": trial_days,
-                    "trial_settings": {"end_behavior": {"missing_payment_method": "cancel"}},
-                    "metadata": {
-                        "saas_core_organization_id": organization_id,
-                        "saas_core_plan_version_id": plan_version_id,
-                    },
+            payload: Any = {
+                "customer": customer_id,
+                "items": [{"price": price_id, "quantity": 1}],
+                "default_payment_method": payment_method_id,
+                "automatic_tax": {"enabled": True},
+                "metadata": {
+                    "saas_core_organization_id": organization_id,
+                    "saas_core_plan_version_id": plan_version_id,
                 },
+            }
+            if trial_days > 0:
+                payload["trial_period_days"] = trial_days
+                payload["trial_settings"] = {
+                    "end_behavior": {"missing_payment_method": "cancel"}
+                }
+            subscription = self.client.v1.subscriptions.create(
+                payload,
                 {"idempotency_key": idempotency_key},
             )
         except stripe.StripeError as error:
             raise BillingProviderError("Stripe odrzucił aktywację triala.") from error
 
         status = _required_attribute(subscription, "status")
-        if status != "trialing":
-            raise BillingProviderError("Stripe nie utworzył subskrypcji w stanie trialing.")
-        trial_start = _required_timestamp(subscription, "trial_start")
-        trial_end = _required_timestamp(subscription, "trial_end")
-        if trial_end <= trial_start:
-            raise BillingProviderError("Stripe zwrócił nieprawidłowe okno triala.")
+        expected = "trialing" if trial_days > 0 else "active"
+        if status != expected:
+            # "incomplete" lands here too: the card wants the customer present
+            # to authenticate, which is a flow this product does not have yet.
+            raise BillingProviderError(
+                f"Stripe utworzył subskrypcję w stanie {status}, oczekiwano {expected}."
+            )
+        trial_start: datetime | None = None
+        trial_end: datetime | None = None
+        if trial_days > 0:
+            trial_start = _required_timestamp(subscription, "trial_start")
+            trial_end = _required_timestamp(subscription, "trial_end")
+            if trial_end <= trial_start:
+                raise BillingProviderError("Stripe zwrócił nieprawidłowe okno triala.")
         period_start, period_end = _subscription_period(subscription)
         return ProviderSubscription(
             id=_required_attribute(subscription, "id"),

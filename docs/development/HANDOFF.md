@@ -342,6 +342,37 @@ symulowaną subskrypcję (`sim_subscription_…`) i zapisuje kolejne porażki �
 identyfikator subskrypcji też należy do przestrzeni, która go wydała, tak samo
 jak identyfikator klienta. Do domknięcia razem z punktem 3.
 
+### Cykl życia planu: ponowny zakup (2026-09-04)
+
+Do tej pory organizacja mogła aktywować plan **dokładnie raz w życiu**, bo
+`BillingTrialActivation` miała unikat na organizacji i wiązała się 1:1 z jednym
+Checkoutem. Klient po anulowaniu albo po wygasłym trialu przechodził Checkout,
+zostawiał kartę i dostawał `TrialActivationConflict`. To nie jest przypadek
+brzegowy, tylko zwykły cykl życia, więc zostało domknięte:
+
+- aktywacja należy do Checkoutu, który za nią zapłacił (`billing.0020` zdejmuje
+  unikat na organizacji). Niezmiennik „jedna żywa subskrypcja na organizację"
+  nie zniknął — jest egzekwowany tam, gdzie powstają subskrypcje;
+- **darmowy okres przysługuje raz**. Jeżeli organizacja miała już jakąkolwiek
+  subskrypcję, druga startuje z `trial_days=0`, czyli od razu płatna: Stripe
+  obciąża kartę zebraną w sesji setup i zwraca subskrypcję `active`, a nie
+  `trialing`. `create_trial_subscription` nazywa się teraz `create_subscription`,
+  bo trial przestał być jedyną możliwością;
+- oba strażniki — „jedna żywa subskrypcja" i „nie ma innej aktywacji w toku" —
+  siedzą pod tą samą blokadą `BillingProfile`. Wcześniej pierwszy z nich stał za
+  blokadą, a wołanie dostawcy dzieje się poza transakcją: dwa równoległe powroty
+  z Checkoutu poprosiłyby Stripe o dwie subskrypcje dla tej samej firmy;
+- `StripePriceMapping` niesie `provider` (`billing.0021`, wiersze symulatora
+  rozpoznane po prefiksie `sim_price_`). Rekonsyliacja pomija subskrypcje z
+  cudzej przestrzeni — wcześniej co pięć minut pytała Stripe o
+  `sim_subscription_…` i zapisywała kolejną porażkę — a checkout wybiera cenę
+  tylko z katalogu aktywnego dostawcy.
+
+Czego świadomie nie ma: zakup bez triala może wrócić ze Stripe jako
+`incomplete`, jeśli karta zażąda uwierzytelnienia (3DS). Adapter odmawia wtedy
+z jawnym komunikatem — ścieżki dokończenia płatności przez klienta jeszcze nie
+mamy i jest to osobna pozycja planu.
+
 ### Konta lokalne, panel admina i sprzatanie po testach
 
 Django admin jest pod `http://localhost:8080/internal/admin/` — Caddy przepuszcza

@@ -68,6 +68,7 @@ class Command(BaseCommand):
                         plan_version=version,
                         stripe_product_id=product_id,
                         stripe_price_id=price_id,
+                        provider="simulated",
                         livemode=False,
                     )
                 elif replacement.plan_version_id != version.id or replacement.livemode:

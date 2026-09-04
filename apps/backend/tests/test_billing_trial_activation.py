@@ -59,19 +59,28 @@ class FakeProvider:
         self.fail_once = fail_once
         self.calls: list[dict[str, Any]] = []
 
-    def create_trial_subscription(self, **kwargs: Any) -> ProviderSubscription:
+    def create_subscription(self, **kwargs: Any) -> ProviderSubscription:
         self.calls.append(kwargs)
         if self.fail_once:
             self.fail_once = False
             raise BillingProviderError("temporary")
-        trial_start = datetime(2026, 8, 11, 12, tzinfo=UTC)
-        trial_end = trial_start + timedelta(days=3)
+        started = datetime(2026, 8, 11, 12, tzinfo=UTC)
+        if kwargs["trial_days"] == 0:
+            return ProviderSubscription(
+                id=f"sub_paid_{len(self.calls)}",
+                status=StripeSubscriptionStatus.ACTIVE,
+                trial_start=None,
+                trial_end=None,
+                current_period_start=started,
+                current_period_end=started + timedelta(days=30),
+            )
+        trial_end = started + timedelta(days=kwargs["trial_days"])
         return ProviderSubscription(
             id="sub_trial",
             status=StripeSubscriptionStatus.TRIALING,
-            trial_start=trial_start,
+            trial_start=started,
             trial_end=trial_end,
-            current_period_start=trial_start,
+            current_period_start=started,
             current_period_end=trial_end,
         )
 
@@ -145,7 +154,7 @@ def test_first_product_activation_starts_trial_once_and_builds_local_snapshot(
         "organization_id": str(organization.id),
         "plan_version_id": str(checkout.price_mapping.plan_version_id),
         "trial_days": 3,
-        "idempotency_key": f"saas-core:trial:{organization.id}",
+        "idempotency_key": f"saas-core:subscription:{checkout.id}",
     }
     subscription = BillingSubscription.all_objects.get(organization=organization)
     snapshot = EntitlementSnapshot.all_objects.get(organization=organization)
@@ -273,6 +282,98 @@ def test_checkout_return_cannot_activate_another_tenant_checkout(
     assert provider.calls == []
 
 
+@override_settings(STRIPE_LIVEMODE=False)
+def test_a_returning_customer_subscribes_again_and_pays_from_the_start(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The lifecycle this product could not do at all until now.
+
+    A plan ends — cancelled, or a trial that ran out — and the customer comes
+    back. Their organization already used the one free period it is owed, so
+    the second subscription starts paid; what it must not do is refuse the
+    purchase, which is what a single activation per organization meant.
+    """
+    organization, context, first_checkout = trial_ready_organization(slug="trial-again")
+    provider = FakeProvider()
+    monkeypatch.setattr(lifecycle, "get_billing_provider", lambda: provider)
+
+    with activate_tenant_context(context):
+        first = activate_trial_for_product(
+            source_type="sites.onboarding",
+            source_id=first_checkout.stripe_checkout_session_id,
+            checkout_session_id=first_checkout.stripe_checkout_session_id,
+        )
+        subscription = first.activation.subscription
+        assert subscription is not None
+        subscription.state = SubscriptionState.CANCELED
+        subscription.save(update_fields=["state", "updated_at"])
+
+        second_checkout = BillingCheckout.all_objects.create(
+            organization=organization,
+            price_mapping=first_checkout.price_mapping,
+            stripe_checkout_session_id="cs_trial_again_second",
+            idempotency_key="checkout-trial-again-second",
+            checkout_url="https://checkout.stripe.test/cs_trial_again_second",
+            status=CheckoutStatus.COMPLETE,
+            setup_intent_id="seti_trial_again_second",
+            completed_at=datetime(2026, 9, 4, 12, tzinfo=UTC),
+        )
+        second = activate_trial_for_product(
+            source_type="sites.onboarding",
+            source_id=second_checkout.stripe_checkout_session_id,
+            checkout_session_id=second_checkout.stripe_checkout_session_id,
+        )
+
+    assert second.created is True
+    assert second.activation.id != first.activation.id
+    assert second.activation.checkout_id == second_checkout.id
+    assert provider.calls[0]["trial_days"] == 3
+    assert provider.calls[1]["trial_days"] == 0
+    renewed = second.activation.subscription
+    assert renewed is not None
+    assert renewed.state == SubscriptionState.ACTIVE
+    assert renewed.trial_start is None and renewed.trial_end is None
+    snapshot = EntitlementSnapshot.all_objects.get(organization=organization)
+    assert snapshot.subscription_state == SubscriptionState.ACTIVE
+    assert snapshot.access_mode == AccessMode.FULL
+    assert snapshot.effective_until == renewed.current_period_end
+
+
+@override_settings(STRIPE_LIVEMODE=False)
+def test_a_second_purchase_is_refused_while_the_first_plan_still_runs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    organization, context, first_checkout = trial_ready_organization(slug="trial-live")
+    provider = FakeProvider()
+    monkeypatch.setattr(lifecycle, "get_billing_provider", lambda: provider)
+
+    with activate_tenant_context(context):
+        activate_trial_for_product(
+            source_type="sites.onboarding",
+            source_id=first_checkout.stripe_checkout_session_id,
+            checkout_session_id=first_checkout.stripe_checkout_session_id,
+        )
+        second_checkout = BillingCheckout.all_objects.create(
+            organization=organization,
+            price_mapping=first_checkout.price_mapping,
+            stripe_checkout_session_id="cs_trial_live_second",
+            idempotency_key="checkout-trial-live-second",
+            checkout_url="https://checkout.stripe.test/cs_trial_live_second",
+            status=CheckoutStatus.COMPLETE,
+            setup_intent_id="seti_trial_live_second",
+            completed_at=datetime(2026, 9, 4, 12, tzinfo=UTC),
+        )
+        with pytest.raises(TrialActivationConflict):
+            activate_trial_for_product(
+                source_type="sites.onboarding",
+                source_id=second_checkout.stripe_checkout_session_id,
+                checkout_session_id=second_checkout.stripe_checkout_session_id,
+            )
+
+    assert len(provider.calls) == 1
+    assert BillingSubscription.all_objects.filter(organization=organization).count() == 1
+
+
 def _assert_concurrent_checkout_returns_cannot_switch_the_selected_plan(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -315,8 +416,13 @@ def _assert_concurrent_checkout_returns_cannot_switch_the_selected_plan(
         outcomes = list(executor.map(attempt, (first_checkout, second_checkout)))
 
     assert sorted(outcomes) == ["activated", "conflict"]
-    activation = BillingTrialActivation.all_objects.get(organization=organization)
-    assert activation.checkout_id in {first_checkout.id, second_checkout.id}
+    # Both attempts leave a row now, because a row belongs to the Checkout that
+    # paid for it. Only one of them may hold the subscription.
+    active = BillingTrialActivation.all_objects.get(
+        organization=organization, status=TrialActivationStatus.ACTIVE
+    )
+    assert active.checkout_id in {first_checkout.id, second_checkout.id}
+    assert BillingSubscription.all_objects.filter(organization=organization).count() == 1
     assert len(provider.calls) == 1
 
 
@@ -328,7 +434,7 @@ def _assert_subscription_webhook_can_win_race_with_trial_response(
     allow_provider_return = Event()
 
     class CoordinatedProvider(FakeProvider):
-        def create_trial_subscription(self, **kwargs: Any) -> ProviderSubscription:
+        def create_subscription(self, **kwargs: Any) -> ProviderSubscription:
             self.calls.append(kwargs)
             provider_started.set()
             assert allow_provider_return.wait(timeout=10)
@@ -466,7 +572,7 @@ def test_stripe_adapter_uses_setup_intent_payment_method_and_delayed_trial(
     )
     provider = StripeBillingProvider()
 
-    result = provider.create_trial_subscription(
+    result = provider.create_subscription(
         customer_id="cus_adapter",
         setup_intent_id="seti_adapter",
         price_id="price_adapter",

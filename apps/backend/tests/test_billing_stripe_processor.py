@@ -41,7 +41,7 @@ class ActivatingProvider:
     def __init__(self) -> None:
         self.calls: list[dict[str, Any]] = []
 
-    def create_trial_subscription(self, **kwargs: Any) -> ProviderSubscription:
+    def create_subscription(self, **kwargs: Any) -> ProviderSubscription:
         self.calls.append(kwargs)
         trial_start = datetime(2026, 9, 4, tzinfo=UTC)
         trial_end = trial_start + timedelta(days=3)

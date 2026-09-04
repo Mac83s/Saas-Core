@@ -270,6 +270,12 @@ class StripePriceMapping(models.Model):
     )
     stripe_product_id = models.CharField(max_length=160)
     stripe_price_id = models.CharField(max_length=160, unique=True)
+    # Which catalog this price came from. A price id, like a customer id,
+    # means nothing outside the provider that issued it: handing Stripe the
+    # simulator's sim_price_… is a rejected request, and reconciling a
+    # simulated subscription against Stripe is a failure filed every five
+    # minutes.
+    provider = models.CharField(max_length=16, default="stripe")
     livemode = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -589,11 +595,13 @@ class BillingTrialActivation(TenantScopedModel):
 
     class Meta:
         ordering = ("organization_id",)
+        # One activation per Checkout, not per organization. The organization
+        # used to be unique here, which read as "a company activates its plan
+        # once" and turned out to mean "a company can never buy again": a
+        # customer whose plan ended paid through a new Checkout and got a
+        # conflict. One live subscription at a time is still the rule — it is
+        # enforced where subscriptions are written, which is where it belongs.
         constraints = [
-            models.UniqueConstraint(
-                fields=["organization"],
-                name="billing_trial_activation_org_uq",
-            ),
             models.CheckConstraint(
                 condition=(
                     models.Q(
