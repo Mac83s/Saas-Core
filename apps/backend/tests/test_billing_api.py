@@ -352,7 +352,10 @@ def test_checkout_webhook_trial_activation_unlocks_site_creation(
         HTTP_X_CSRFTOKEN=csrf,
     )
 
-    assert activation_response.status_code == 201
+    # 200, not 201: the event already started the plan, so the panel's call
+    # after the redirect confirms rather than creates. A customer who closed
+    # the tab is in exactly the same state as this one.
+    assert activation_response.status_code == 200
     assert activation_response.data["status"] == "active"
     subscription = BillingSubscription.all_objects.get(organization=organization)
     assert subscription.state == SubscriptionState.TRIALING

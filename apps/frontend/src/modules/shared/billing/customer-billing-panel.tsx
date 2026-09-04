@@ -191,9 +191,12 @@ export function CustomerBillingPanel() {
         </aside>
       ) : null}
 
+      {/* The same question as the plan buttons ask: a canceled plan still has a
+          payload, and reading its presence as "already subscribed" is what
+          silently skipped the activation after a real payment. */}
       {checkoutState === "success" &&
       overview &&
-      !subscription &&
+      !overview.has_active_subscription &&
       !activated ? (
         <Card className="border-primary/30 bg-primary/[0.035]">
           <CardHeader>

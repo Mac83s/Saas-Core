@@ -305,9 +305,42 @@ PL/EN. Przyciski planów są wyłączone, dopóki dane są niekompletne, z etyki
 „Najpierw uzupełnij dane do faktury" — panel mówi to przed kliknięciem, zamiast
 pokazywać 409 po nim.
 
-Czego jeszcze nie ma: **nikt nie przeszedł jeszcze płatności kartą testową**,
-więc `checkout.session.completed` nie został odebrany na żywo, a
-`activate_customer_trial` nie zadziałał na prawdziwej sesji.
+### Pierwsza prawdziwa płatność i to, co przy niej pękło (2026-09-04)
+
+Właściciel przeszedł Checkout kartą testową na planie `starter`. Stripe zebrał
+metodę płatności, `checkout.session.completed` wróciło i zostało przetworzone —
+a w panelu nie pojawiło się nic. Trzy powody, jeden pod drugim:
+
+1. **Panel pominął aktywację.** Warunek pokazania karty powrotnej i wywołania
+   `trial-activation` brzmiał `!subscription`, a `subscription` jest budowane
+   też ze snapshotu — anulowany plan nadal ma payload. Ta sama pomyłka co przy
+   przyciskach planów, tylko w drugim miejscu, którego wtedy nie zmieniłem.
+   Teraz oba pytają `has_active_subscription`.
+2. **Realizacja zamówienia zależała od powrotu przeglądarki.** Plan aktywował
+   się wyłącznie przez wywołanie panelu po redirectcie; kto zapłacił i zamknął
+   kartę, zostawał z pobraną metodą płatności i bez subskrypcji. Regułę
+   „powrót przeglądarki niczego nie dowodzi" mieliśmy już dla pakietów
+   kredytów — teraz obowiązuje też plany: `checkout.session.completed` sam
+   uruchamia plan, a wywołanie panelu tylko odświeża ekran (stąd 200 zamiast
+   201 w teście pomostowym). Odmowa aktywacji nie jest błędem webhooka, ale
+   niedostępny dostawca dalej jest — wtedy Stripe dostarczy ponownie.
+3. **Organizacja może aktywować plan tylko raz w życiu.**
+   `BillingTrialActivation` ma unikat na organizacji i wiąże się 1:1 z jednym
+   Checkoutem. Konto właściciela miało aktywację z sierpnia (z symulatora), więc
+   nowa sesja i tak by odbiła się o `TrialActivationConflict`. To znaczy, że
+   **klient, któremu skończył się plan, nie może kupić ponownie** — a to nie
+   jest przypadek brzegowy, tylko normalny cykl życia. Wymaga zmiany modelu
+   (aktywacja per Checkout zamiast per organizacja) i ścieżki dostawcy dla
+   subskrypcji bez triala, bo trial należy się raz. Pozycja planu, nie łatka.
+
+Lokalnie usunąłem wiersz aktywacji z symulatora i uruchomiłem aktywację dla
+prawdziwej sesji: subskrypcja `sub_1UBt5a…` istnieje w Stripe, panel pokazuje
+plan Witryna, dostęp pełny, trial do 7 września.
+
+Obserwacja przy okazji: rekonsyliacja dobija się do Stripe po pozostawioną
+symulowaną subskrypcję (`sim_subscription_…`) i zapisuje kolejne porażki —
+identyfikator subskrypcji też należy do przestrzeni, która go wydała, tak samo
+jak identyfikator klienta. Do domknięcia razem z punktem 3.
 
 ### Konta lokalne, panel admina i sprzatanie po testach
 

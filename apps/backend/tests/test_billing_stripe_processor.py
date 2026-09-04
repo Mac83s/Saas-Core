@@ -6,6 +6,7 @@ from typing import Any
 import pytest
 
 from saas_core.modules.core.organizations.models import BillingProfile, Organization
+from saas_core.modules.shared.billing import lifecycle
 from saas_core.modules.shared.billing.lifecycle import process_due_lifecycle_actions
 from saas_core.modules.shared.billing.models import (
     AccessMode,
@@ -29,8 +30,29 @@ from saas_core.modules.shared.billing.processor import (
     StripeEventProcessingError,
     process_stripe_event,
 )
+from saas_core.modules.shared.billing.provider import ProviderSubscription
 
 pytestmark = pytest.mark.django_db
+
+
+class ActivatingProvider:
+    """Stripe as it behaves when the setup session ends: a trial can start."""
+
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    def create_trial_subscription(self, **kwargs: Any) -> ProviderSubscription:
+        self.calls.append(kwargs)
+        trial_start = datetime(2026, 9, 4, tzinfo=UTC)
+        trial_end = trial_start + timedelta(days=3)
+        return ProviderSubscription(
+            id="sub_webhook",
+            status=StripeSubscriptionStatus.TRIALING,
+            trial_start=trial_start,
+            trial_end=trial_end,
+            current_period_start=trial_start,
+            current_period_end=trial_end,
+        )
 
 
 def organization(*, slug: str, customer_id: str = "") -> Organization:
@@ -109,7 +131,11 @@ def subscription_object(
     }
 
 
-def test_checkout_links_verified_customer_to_metadata_organization() -> None:
+def test_checkout_links_verified_customer_to_metadata_organization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    provider = ActivatingProvider()
+    monkeypatch.setattr(lifecycle, "get_billing_provider", lambda: provider)
     tenant = organization(slug="checkout-link", customer_id="cus_checkout")
     mapping = price_mapping()
     checkout = BillingCheckout.all_objects.create(
@@ -145,6 +171,59 @@ def test_checkout_links_verified_customer_to_metadata_organization() -> None:
     assert checkout.status == CheckoutStatus.COMPLETE
     assert checkout.setup_intent_id == "seti_local"
     assert BillingProfile.objects.get(organization=tenant).external_customer_id == "cus_checkout"
+    # The event alone starts the plan: the browser never came back here.
+    subscription = BillingSubscription.all_objects.get(organization=tenant)
+    assert subscription.stripe_subscription_id == "sub_webhook"
+    assert subscription.state == SubscriptionState.TRIALING
+    assert provider.calls[0]["setup_intent_id"] == "seti_local"
+
+
+def test_a_repeated_checkout_event_does_not_start_a_second_plan(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Stripe redelivers; the panel calls too. Neither may buy twice."""
+    provider = ActivatingProvider()
+    monkeypatch.setattr(lifecycle, "get_billing_provider", lambda: provider)
+    tenant = organization(slug="checkout-twice", customer_id="cus_twice")
+    mapping = price_mapping(price_id="price_twice")
+    BillingCheckout.all_objects.create(
+        organization=tenant,
+        price_mapping=mapping,
+        stripe_checkout_session_id="cs_twice",
+        idempotency_key="checkout-twice",
+        checkout_url="https://checkout.stripe.test/cs_twice",
+    )
+    payload = {
+        "id": "cs_twice",
+        "object": "checkout.session",
+        "customer": "cus_twice",
+        "setup_intent": "seti_twice",
+        "metadata": {
+            "saas_core_organization_id": str(tenant.id),
+            "saas_core_plan_version_id": str(mapping.plan_version_id),
+            "saas_core_price_mapping_id": str(mapping.id),
+        },
+    }
+    first = inbox_event(
+        event_id="evt_twice_one",
+        event_type="checkout.session.completed",
+        created=1_786_000_100,
+        data_object=payload,
+    )
+    second = inbox_event(
+        event_id="evt_twice_two",
+        event_type="checkout.session.completed",
+        created=1_786_000_200,
+        data_object=payload,
+    )
+
+    process_stripe_event(first.id)
+    process_stripe_event(second.id)
+
+    second.refresh_from_db()
+    assert second.status == WebhookProcessingStatus.PROCESSED
+    assert len(provider.calls) == 1
+    assert BillingSubscription.all_objects.filter(organization=tenant).count() == 1
 
 
 def test_subscription_event_builds_local_subscription_and_snapshot() -> None:

@@ -1,14 +1,19 @@
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
-from uuid import UUID
+from uuid import UUID, uuid7
 
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from saas_core.modules.core.organizations.context import set_local_organization_id
+from saas_core.modules.core.organizations.context import (
+    TenantContext,
+    activate_tenant_context,
+    set_local_organization_id,
+)
 from saas_core.modules.core.organizations.models import BillingProfile
 
 from .invoicing import queue_paid_invoice
@@ -27,6 +32,8 @@ from .models import (
 )
 from .snapshots import update_entitlement_snapshot
 from .tenant_scope import organization_id_for_customer
+
+logger = logging.getLogger("saas_core.billing")
 
 SUBSCRIPTION_EVENTS = {
     "customer.subscription.created",
@@ -169,6 +176,54 @@ def _handle_checkout(event: StripeWebhookEvent) -> None:
     checkout.completed_at = event.provider_created_at
     checkout.save(update_fields=["status", "setup_intent_id", "completed_at", "updated_at"])
     event.organization_id = profile.organization_id
+    _activate_plan(checkout)
+
+
+def _activate_plan(checkout: BillingCheckout) -> None:
+    """Turn the finished setup session into the subscription it was for.
+
+    Fulfilment cannot depend on the browser coming back. That is already the
+    rule for credit packs, and it was not the rule here: the plan was activated
+    only when the panel called back after the redirect, so a customer who paid
+    and closed the tab kept a collected payment method and no subscription.
+    Now the event does it, and the panel's call is only what makes the screen
+    update immediately.
+
+    A refusal is not a webhook failure. The organization may already hold the
+    subscription this event would create, and retrying the event forever cannot
+    change that — but a provider that is merely unavailable must still raise, so
+    Stripe delivers again.
+    """
+    from .lifecycle import (
+        CompletedCheckoutRequired,
+        TrialActivationConflict,
+        activate_trial_for_product,
+    )
+
+    session_id = checkout.stripe_checkout_session_id
+    context = TenantContext(
+        organization_id=checkout.organization_id,
+        membership_id=uuid7(),
+        actor_id=uuid7(),
+        role_key="webhook",
+        permissions=frozenset(),
+    )
+    with activate_tenant_context(context):
+        try:
+            activate_trial_for_product(
+                source_type="stripe.checkout",
+                source_id=session_id,
+                checkout_session_id=session_id,
+            )
+        except (TrialActivationConflict, CompletedCheckoutRequired) as error:
+            logger.info(
+                "billing_webhook_activation_skipped",
+                extra={
+                    "organization_id": str(checkout.organization_id),
+                    "checkout_session_id": session_id,
+                    "reason": str(error),
+                },
+            )
 
 
 def _handle_credit_checkout(

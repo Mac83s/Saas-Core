@@ -316,6 +316,14 @@ ani automatycznie autoryzować działań produkcyjnych.
 - [ ] obsłużyć depozyt, pełną płatność, bezpłatną rezerwację oraz płatność na
   miejscu jako jawne warianty organizacji/usługi;
 - [ ] dodać zasady anulowania, zwrotu, przełożenia, no-show i spóźnienia;
+- [ ] umożliwić ponowny zakup po zakończonym planie — `BillingTrialActivation`
+  ma unikat na organizacji i wiąże się 1:1 z jednym Checkoutem, więc organizacja
+  aktywuje plan dokładnie raz w życiu; klient po anulowaniu albo po wygasłym
+  trialu przechodzi Checkout, płaci i dostaje `TrialActivationConflict`.
+  Potrzebna aktywacja per Checkout, ścieżka dostawcy dla subskrypcji bez triala
+  (trial należy się raz) oraz pomijanie w rekonsyliacji subskrypcji z innej
+  przestrzeni dostawcy — dziś `sim_subscription_…` jest odpytywane w Stripe i
+  zapisuje kolejne porażki (2026-09-04);
 - [ ] zmapować zakleszczenie na konflikt terminu — `create_appointment` tłumaczy
   na `SlotUnavailable` tylko `IntegrityError`, a dwie równoległe rezerwacje tego
   samego slotu potrafią zakończyć się `deadlock detected` przy sprawdzaniu
