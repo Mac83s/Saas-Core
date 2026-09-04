@@ -412,7 +412,17 @@ PASSWORD_RESET_RESEND_COOLDOWN_SECONDS = int(
 )
 STRIPE_SECRET_KEY = secret_setting("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = secret_setting("STRIPE_WEBHOOK_SECRET")
-STRIPE_API_VERSION = os.environ.get("STRIPE_API_VERSION", "2026-07-29.dahlia")
+#: The one API version this deployment speaks — used for outgoing calls and
+#: required of every incoming webhook, so a payload shaped by a version we have
+#: not read cannot be parsed as if it were ours. Stripe sends events in the
+#: version pinned on the webhook endpoint, or in the account default when the
+#: endpoint pins none; `stripe listen` always uses the account default. So a
+#: production endpoint must be created with this exact api_version, and moving
+#: the account default forward means moving this line — the mismatch shows up
+#: as every event refused with 400, which is loud but easy to misread.
+STRIPE_API_VERSION = (
+    os.environ.get("STRIPE_API_VERSION", "").strip() or "2026-08-26.dahlia"
+)
 #: Stripe's tax code for what we sell. "General - Electronically Supplied
 #: Services" is the EU category a SaaS subscription falls into, and it taxes
 #: the same way for business and private buyers.

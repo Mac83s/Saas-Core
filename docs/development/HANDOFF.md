@@ -274,6 +274,21 @@ wymagało trzech rzeczy, z których dwie były błędami:
    klienta. Wiersz bez stempla (sprzed tej reguły) jest uznawany za swój —
    odwrotne założenie tworzyłoby drugą tożsamość firmie, która już ją ma.
 
+4. **Każde zdarzenie odbijało się z 400 przez wersję API.** Kod przypinał
+   `2026-07-29.dahlia`, a konto ma domyślnie `2026-08-26.dahlia` — i to wersja
+   konta decyduje o kształcie zdarzenia, gdy endpoint webhooka nie przypina
+   własnej. `stripe listen` zawsze używa domyślnej wersji konta, więc nie da się
+   tego obejść po stronie CLI. Przypięcie przesunięte na wersję konta; sprawdzenie
+   zgodności zostaje, bo payload w wersji, której nie czytaliśmy, nie powinien
+   być parsowany jak nasz. **Konsekwencja dla produkcji: endpoint webhooka trzeba
+   utworzyć z jawnym `api_version` równym tej stałej**, inaczej podniesienie
+   domyślnej wersji konta przez Stripe wyłączy przyjmowanie zdarzeń — głośno
+   (400), ale łatwo to pomylić z błędem podpisu.
+
+Po tych czterech: `POST /api/v1/billing/checkout/` zwraca 201 z adresem
+`https://checkout.stripe.com/c/pay/cs_test_…`, a `stripe listen` pokazuje 202
+na zdarzeniach z tej sesji.
+
 ### Dane do faktury: brakujący ekran, przez który nikt nie mógł kupić
 
 Po przełączeniu na Stripe checkout odmawiał `billing_profile_incomplete`, bo
@@ -290,11 +305,9 @@ PL/EN. Przyciski planów są wyłączone, dopóki dane są niekompletne, z etyki
 „Najpierw uzupełnij dane do faktury" — panel mówi to przed kliknięciem, zamiast
 pokazywać 409 po nim.
 
-Stan po tej zmianie: `POST /api/v1/billing/checkout/` zwraca prawdziwy adres
-`https://checkout.stripe.com/c/pay/cs_test_…`. Czego jeszcze nie ma: **nikt nie
-przeszedł jeszcze płatności kartą testową**, więc webhook `checkout.session.completed`
-nie został ani razu odebrany na żywo, a `activate_customer_trial` nie zadziałał
-na prawdziwej sesji.
+Czego jeszcze nie ma: **nikt nie przeszedł jeszcze płatności kartą testową**,
+więc `checkout.session.completed` nie został odebrany na żywo, a
+`activate_customer_trial` nie zadziałał na prawdziwej sesji.
 
 ### Konta lokalne, panel admina i sprzatanie po testach
 
