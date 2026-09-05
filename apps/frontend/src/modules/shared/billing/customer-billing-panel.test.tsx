@@ -388,3 +388,63 @@ function checkoutPendingProblem() {
     correlation_id: null,
   });
 }
+
+test("z aktywnym planem kieruje zmianę planu do portalu Stripe", async () => {
+  // Zmiana planu należy do portalu (ADR-040), bo proratę i fakturę korygującą
+  // liczy Stripe. Panel ma tam zaprowadzić, a nie próbować drugiego zakupu.
+  const original = Object.getOwnPropertyDescriptor(window, "location");
+  const assign = vi.fn();
+  Object.defineProperty(window, "location", {
+    configurable: true,
+    value: { ...window.location, assign },
+  });
+  createBillingPortal.mockResolvedValue({
+    id: "bps_1",
+    url: "https://billing.stripe.test/session",
+    expires_at: null,
+  });
+  getCustomerBillingOverview.mockResolvedValue({
+    ...overview,
+    payment_mode: "stripe" as const,
+    portal_available: true,
+    has_active_subscription: true,
+    subscription: {
+      state: "active",
+      access_mode: "full",
+      plan_key: "profile",
+      plan_version: 1,
+      current_period_end: "2026-10-04T12:00:00Z",
+      trial_end: null,
+      grace_period_end: null,
+      cancel_at_period_end: false,
+    },
+    plans: overview.plans.map((plan) => ({
+      ...plan,
+      is_current: plan.key === "profile",
+    })),
+  });
+
+  try {
+    render(
+      <NextIntlClientProvider locale="pl" messages={polishMessages}>
+        <CustomerBillingPanel />
+      </NextIntlClientProvider>,
+    );
+
+    const upgrade = await screen.findAllByRole("button", {
+      name: "Zmień plan w portalu płatności",
+    });
+    expect(upgrade).toHaveLength(2);
+    fireEvent.click(upgrade[0]!);
+
+    await waitFor(() => expect(createBillingPortal).toHaveBeenCalledTimes(1));
+    expect(createBillingCheckout).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(assign).toHaveBeenCalledWith(
+        "https://billing.stripe.test/session",
+      ),
+    );
+  } finally {
+    if (original) Object.defineProperty(window, "location", original);
+  }
+});

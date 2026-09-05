@@ -535,6 +535,12 @@ CELERY_BEAT_SCHEDULE = {
         "task": "saas_core.modules.shared.billing.tasks.reconcile_billing_subscriptions",
         "schedule": 300.0,
     },
+    # The simulator's counterpart to reconciliation: without it a local
+    # deployment never leaves the trial it started.
+    "billing-advance-simulated": {
+        "task": "saas_core.modules.shared.billing.tasks.advance_simulated_billing",
+        "schedule": 300.0,
+    },
     "billing-expire-overrides": {
         "task": "saas_core.modules.shared.billing.tasks.expire_billing_overrides",
         "schedule": 60.0,

@@ -11,6 +11,7 @@ kontrakt.
 | [data-model-and-tenancy.md](data-model-and-tenancy.md) | encje bazowe, tenant context i RLS |
 | [auth-and-tenant-context.md](auth-and-tenant-context.md) | sesja, CSRF i zmiana organizacji |
 | [api-and-events.md](api-and-events.md) | REST, błędy, OpenAPI, outbox i webhooki |
+| [billing-lifecycle.md](billing-lifecycle.md) | stany planu, przejścia i dowód na każde z nich |
 | [testing-strategy.md](testing-strategy.md) | poziomy testów oraz bramki CI |
 | [`packages/contracts/content-operations/`](../../packages/contracts/content-operations/) | kontrakt zmian treści dla SeoContentRank (W9.6.0) |
 

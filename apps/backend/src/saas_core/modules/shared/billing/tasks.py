@@ -9,6 +9,7 @@ from .overrides import expire_entitlement_overrides
 from .processor import StripeEventProcessingError, process_stripe_event
 from .quotas import release_expired_quota_reservations
 from .reconciliation import run_reconciliation_batch
+from .simulated_clock import advance_simulated_billing
 from .tenant_scope import billing_tenant_scope
 
 
@@ -34,6 +35,13 @@ def process_billing_lifecycle() -> int:
 )
 def reconcile_billing_subscriptions() -> int:
     return run_reconciliation_batch()
+
+
+@shared_task(  # type: ignore[untyped-decorator]
+    name="saas_core.modules.shared.billing.tasks.advance_simulated_billing"
+)
+def advance_simulated_billing_task() -> int:
+    return advance_simulated_billing()
 
 
 @shared_task(  # type: ignore[untyped-decorator]

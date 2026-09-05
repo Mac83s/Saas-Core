@@ -462,3 +462,56 @@ def test_unknown_event_is_ignored_once() -> None:
     assert second is not None
     assert first.status == WebhookProcessingStatus.IGNORED
     assert second.attempt_count == 1
+
+
+def test_a_plan_change_in_the_portal_moves_the_local_plan_and_its_limits() -> None:
+    """The most common thing a paying customer does, and the least covered.
+
+    Plan changes go through the Stripe portal (ADR-040), which means the only
+    thing that tells this product about them is the subscription event. If it
+    were dropped on the floor the customer would pay for Pro and keep the
+    limits of Starter.
+    """
+    tenant = organization(slug="plan-change", customer_id="cus_change")
+    starter = price_mapping(price_id="price_change_starter")
+    pro = StripePriceMapping.objects.create(
+        plan_version=PlanVersion.objects.get(plan__key="pro", version=1),
+        stripe_product_id="prod_change_pro",
+        stripe_price_id="price_change_pro",
+        livemode=False,
+    )
+    started = inbox_event(
+        event_id="evt_change_started",
+        event_type="customer.subscription.updated",
+        created=1_786_000_000,
+        data_object=subscription_object(
+            status=StripeSubscriptionStatus.ACTIVE,
+            price_id=starter.stripe_price_id,
+            subscription_id="sub_change",
+            customer_id="cus_change",
+        ),
+    )
+    process_stripe_event(started.id)
+
+    upgraded = inbox_event(
+        event_id="evt_change_upgraded",
+        event_type="customer.subscription.updated",
+        created=1_786_100_000,
+        data_object=subscription_object(
+            status=StripeSubscriptionStatus.ACTIVE,
+            price_id=pro.stripe_price_id,
+            subscription_id="sub_change",
+            customer_id="cus_change",
+        ),
+    )
+    processed = process_stripe_event(upgraded.id)
+
+    assert processed is not None
+    assert processed.status == WebhookProcessingStatus.PROCESSED
+    subscription = BillingSubscription.all_objects.get(organization=tenant)
+    assert subscription.price_mapping == pro
+    snapshot = EntitlementSnapshot.all_objects.get(organization=tenant)
+    assert snapshot.plan_version == pro.plan_version
+    # Pro raises the limits; an unchanged snapshot would be the silent failure.
+    assert snapshot.quotas["sites.max"] == 3
+    assert snapshot.features["custom_domain.enabled"] is True

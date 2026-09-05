@@ -342,6 +342,39 @@ symulowaną subskrypcję (`sim_subscription_…`) i zapisuje kolejne porażki �
 identyfikator subskrypcji też należy do przestrzeni, która go wydała, tak samo
 jak identyfikator klienta. Do domknięcia razem z punktem 3.
 
+### Mapa cyklu życia płatności (2026-09-05)
+
+Usterki z 3–4 września siedziały wszystkie na **szwach między kawałkami**, z
+których każdy miał własne zielone testy. Odpowiedzią jest
+[docs/architecture/billing-lifecycle.md](../architecture/billing-lifecycle.md):
+lista wszystkich stanów i przejść, a przy każdym przejściu co je wyzwala, kto je
+wykonuje, co widzi klient i **czy ktokolwiek to udowodnił**. Status ⚠️ wolno
+podnieść wyłącznie razem z testem; nowe przejście dopisuje się w tym samym
+commicie, w którym powstaje kod.
+
+Mapa od razu wskazała dwie dziury, obie zamknięte tego samego dnia:
+
+- **zmiana planu nie miała ani jednego testu**, mimo że to najczęstsza operacja
+  płacącego klienta. Doszły dwa: procesor przenosi plan i limity po zdarzeniu z
+  inną ceną, a panel z aktywną subskrypcją kieruje do portalu zamiast próbować
+  drugiego zakupu;
+- **koniec triala był nieprzetestowany i niewidoczny lokalnie**.
+  `tests/test_billing_lifecycle_walk.py` przechodzi teraz całą drogę w
+  kolejności: wybór planu → opłacony Checkout → trial → pierwsza płatność →
+  nieudana płatność → karencja → tylko odczyt → ponowna płatność → zmiana planu
+  → anulowanie → koniec okresu → powrót bez drugiego triala, sprawdzając po
+  każdym kroku stan, tryb dostępu i limity planu.
+
+Doszedł też **zegar symulatora** (`simulated_clock.py`, zadanie beat co 5 minut):
+w trybie Stripe czasu pilnuje rekonsyliacja, w symulowanym nie pilnował nikt i
+lokalny trial trwał w nieskończoność. Każda z tych dwóch funkcji milczy w trybie
+tej drugiej.
+
+Co mapa zostawia otwarte: ostrzeżenie o końcu triala powstaje w bazie i **nikt
+go nie dostaje** (ani e-mail, ani panel), 3DS przy zakupie bez triala nie jest
+obsługiwane, kredyty nie mają interfejsu, a `SubscriptionState.SUSPENDED` jest
+martwą wartością w enumie.
+
 ### Cykl życia planu: ponowny zakup (2026-09-04)
 
 Do tej pory organizacja mogła aktywować plan **dokładnie raz w życiu**, bo
