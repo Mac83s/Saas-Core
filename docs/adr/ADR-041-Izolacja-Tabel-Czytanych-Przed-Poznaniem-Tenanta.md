@@ -111,6 +111,28 @@ działać po cichu.
 Do zakończenia kroku 3 wpisy zostają na liście długu w teście izolacji z
 jawnym uzasadnieniem. Zdejmuje się je pojedynczo, razem z migracją.
 
+## Uzupełnienie wdrożeniowe (2026-09-05)
+
+Krok 3 zakończony: `0025` (profil billingowy, zaproszenie), `0026` (członkostwo,
+audyt), `0027` (role), `0028` (rejestr). Dwie rzeczy wyszły przy przepisywaniu
+ścieżek i zawężają tę decyzję, nie odwracają jej.
+
+**Renderer publiczny nie używa drzwi.** Cztery ścieżki publiczne sprawdzały
+status organizacji złączeniem, czyli odczytem rejestru bez tenanta. Puszczenie
+ich drzwiami byłoby cofnięciem się: renderer jest najbardziej wystawioną
+powierzchnią produktu, a rola drzwi czyta ponad politykami — jeden błąd tam
+sięgałby członkostw i zaproszeń każdego tenanta, czyli dokładnie tego, czemu ten
+ADR ma zapobiec. Zamiast tego host nazywa tenanta: `tenant_is_servable`
+ustawia go i czyta status od środka. Osobny test pilnuje, żeby żaden moduł
+publiczny nie pojawił się na liście drzwi.
+
+**Wpisy audytowe nie dostały polityki drzwi.** Tabela jest wymieniona w §3 jako
+„RLS + drzwi", ale każda ścieżka, która pisze audyt, ustawia tenanta wcześniej,
+więc drugie wejście byłoby otwarte i nieużywane.
+
+**Polityka ról jest asymetryczna.** Odczyt dopuszcza `organization IS NULL`
+(katalog globalny), zapis nie — żaden tenant nie dopisze sobie roli globalnej.
+
 ## Konsekwencje
 
 - polityki pozostają jednym zdaniem, tym samym dla wszystkich modułów; nie

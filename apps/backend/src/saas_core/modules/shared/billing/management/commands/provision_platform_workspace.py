@@ -78,6 +78,9 @@ class Command(BaseCommand):
             raise CommandError(str(error.detail)) from error
 
         with transaction.atomic():
+            # ADR-041: membership carries a policy, so the operator's own
+            # membership in the workspace is written from inside it.
+            set_local_organization_id(organization.id)
             owner_role = Role.objects.select_for_update().get(key="owner", organization=None)
             membership, membership_created = Membership.objects.get_or_create(
                 organization=organization,

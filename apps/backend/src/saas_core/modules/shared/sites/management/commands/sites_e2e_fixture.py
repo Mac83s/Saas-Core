@@ -16,6 +16,7 @@ from saas_core.modules.core.organizations.models import (
     OrganizationStatus,
     Role,
 )
+from saas_core.modules.core.organizations.pre_tenant import PRE_TENANT_DB
 from saas_core.modules.shared.billing.models import (
     AccessMode,
     EntitlementSnapshot,
@@ -48,19 +49,25 @@ class Command(BaseCommand):
         if len(password) < 16:
             raise CommandError("SITES_E2E_PASSWORD must contain at least 16 characters.")
         with transaction.atomic():
+            # ADR-041: the registry carries row-level security, and this asks
+            # whether a slug is taken across every tenant.
             if (
-                Organization.objects.filter(slug=slug).exists()
+                Organization.objects.using(PRE_TENANT_DB).filter(slug=slug).exists()
                 or User.objects.filter(email=email).exists()
             ):
                 raise CommandError("The requested W6 E2E fixture already exists.")
             user = User.objects.create_user(email=email, password=password)
             user.status = UserStatus.ACTIVE
             user.save(update_fields=["status", "is_active"])
-            organization = Organization.objects.create(
+            organization = Organization(
                 name=f"W6 E2E {slug.removeprefix(FIXTURE_PREFIX)}",
                 slug=slug,
                 status=OrganizationStatus.ACTIVE,
             )
+            # The identifier exists before the row does, so everything below is
+            # written under the policy that guards it.
+            set_local_organization_id(organization.id)
+            organization.save()
             Membership.objects.create(
                 organization=organization,
                 user=user,
@@ -69,8 +76,7 @@ class Command(BaseCommand):
             # billing_entitlementsnapshot forces row-level security (ADR-039),
             # and the app role has no way in without the tenant being set. The
             # insert is refused rather than silently dropped, which is the
-            # right direction — but it still has to be set here.
-            set_local_organization_id(organization.id)
+            # right direction — and it was set above.
             EntitlementSnapshot.all_objects.create(
                 organization=organization,
                 subscription_state=SubscriptionState.ACTIVE,
@@ -103,10 +109,16 @@ class Command(BaseCommand):
 
 @transaction.atomic
 def cleanup_fixture(*, email: str, slug: str) -> bool:
-    organization = Organization.objects.filter(slug=slug).first()
+    # ADR-041: finding a tenant by slug is a question about the registry; the
+    # identifier it answers with is what everything below runs inside.
+    organization_id = (
+        Organization.objects.using(PRE_TENANT_DB)
+        .filter(slug=slug)
+        .values_list("id", flat=True)
+        .first()
+    )
     user = User.objects.filter(email=email).first()
-    if organization is not None:
-        organization_id = organization.id
+    if organization_id is not None:
         set_local_organization_id(organization_id)
         if Site.all_objects.filter(organization_id=organization_id).exists():
             raise CommandError(
@@ -115,9 +127,12 @@ def cleanup_fixture(*, email: str, slug: str) -> bool:
         OrganizationAuditEntry.objects.filter(organization_id=organization_id).delete()
         EntitlementSnapshot.all_objects.filter(organization_id=organization_id).delete()
         Membership.objects.filter(organization_id=organization_id).delete()
-        organization.delete()
-    if user is not None and not Membership.objects.filter(user=user).exists():
+        Organization.objects.filter(pk=organization_id).delete()
+    if (
+        user is not None
+        and not Membership.objects.using(PRE_TENANT_DB).filter(user=user).exists()
+    ):
         AccountAuditEvent.objects.filter(subject_user=user).delete()
         AccountAuditEvent.objects.filter(actor_user=user).delete()
         user.delete()
-    return organization is not None or user is not None
+    return organization_id is not None or user is not None

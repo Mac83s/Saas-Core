@@ -20,12 +20,14 @@ from django.db import IntegrityError, transaction
 from rest_framework.exceptions import APIException
 
 from .audit import record_audit
+from .context import set_local_organization_id
 from .models import (
     Organization,
     OrganizationAuditAction,
     OrganizationStatus,
     WorkspaceKind,
 )
+from .pre_tenant import PRE_TENANT_DB
 
 
 class PlatformWorkspaceForbidden(APIException):
@@ -51,7 +53,13 @@ def platform_workspace_slug() -> str:
 
 
 def platform_workspace() -> Organization | None:
-    return Organization.objects.filter(workspace_kind=WorkspaceKind.PLATFORM).first()
+    # ADR-041: "does this deployment already have a publisher" is a question
+    # about the registry, and there is no tenant it could be asked inside.
+    return (
+        Organization.objects.using(PRE_TENANT_DB)
+        .filter(workspace_kind=WorkspaceKind.PLATFORM)
+        .first()
+    )
 
 
 def is_platform_workspace(organization: Organization | Any) -> bool:
@@ -78,7 +86,10 @@ def ensure_platform_workspace(*, name: str | None = None) -> tuple[Organization,
     publishers for one deployment.
     """
     slug = platform_workspace_slug()
-    existing = Organization.objects.filter(slug=slug).first()
+    # Same question as above, asked by name: the operator provisioning this has
+    # no organization selected, because the one being looked for is the one
+    # that may not exist yet.
+    existing = Organization.objects.using(PRE_TENANT_DB).filter(slug=slug).first()
     if existing is not None:
         if not is_platform_workspace(existing):
             # Somebody's ordinary organization already holds the name this
@@ -95,6 +106,9 @@ def ensure_platform_workspace(*, name: str | None = None) -> tuple[Organization,
         default_locale=settings.SITES_DEFAULT_LOCALE,
     )
     organization.full_clean(validate_unique=False)
+    # The identifier exists before the row does, so the workspace and its audit
+    # entry are written under the policy that guards them.
+    set_local_organization_id(organization.id)
     try:
         organization.save()
     except IntegrityError as error:

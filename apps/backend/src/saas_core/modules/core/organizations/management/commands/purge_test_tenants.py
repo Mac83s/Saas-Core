@@ -39,6 +39,7 @@ from saas_core.modules.core.organizations.context import (
     set_local_organization_id,
 )
 from saas_core.modules.core.organizations.models import Membership, Organization
+from saas_core.modules.core.organizations.pre_tenant import PRE_TENANT_DB
 
 RESERVED_DOMAIN_SUFFIXES = (".test", ".invalid", ".example")
 RESERVED_DOMAINS = frozenset({"example.com", "example.net", "example.org"})
@@ -142,7 +143,10 @@ def organization_row_counts(organization: Organization) -> Counter[str]:
 
 
 def user_row_counts(user: User) -> Counter[str]:
-    collector = NestedObjects(using="default")
+    # ADR-041: an account's rows live in whichever organizations it belongs to,
+    # and a dry run that under-reports because it stands outside all of them
+    # would be worse than no dry run at all.
+    collector = NestedObjects(using=PRE_TENANT_DB)
     collector.collect([user])
     counts: Counter[str] = Counter()
     for model, instances in collector.data.items():
@@ -216,7 +220,9 @@ def purge_organization(organization: Organization) -> None:
                         f"wiersze chronione bez kolejności usuwania ({labels})."
                     )
                 remaining = blocked
-            organization.delete()
+            # Through the ordinary connection, under the tenant set above: the
+            # door reads which organizations exist, it does not delete them.
+            Organization.objects.filter(pk=organization.id).delete()
 
 
 def purge_user(user: User) -> None:
@@ -225,17 +231,25 @@ def purge_user(user: User) -> None:
 
 
 def _organizations_of(user: User) -> list[Organization]:
-    # Membership is not tenant-scoped, so this reads across organizations on
-    # purpose: the point is to find every tenant this account belongs to.
-    organization_ids = Membership.objects.filter(user=user).values_list(
+    # ADR-041: reads across organizations on purpose — the point is to find
+    # every tenant this account belongs to, which is the same question the
+    # switcher asks and cannot be asked from inside one of them.
+    organization_ids = Membership.objects.using(PRE_TENANT_DB).filter(user=user).values_list(
         "organization_id", flat=True
     )
-    return list(Organization.objects.filter(id__in=list(organization_ids)))
+    return list(
+        Organization.objects.using(PRE_TENANT_DB).filter(id__in=list(organization_ids))
+    )
 
 
 def _real_members(organization: Organization) -> list[str]:
-    emails = Membership.objects.filter(organization=organization).values_list(
-        "user__email", flat=True
+    # The guard that keeps a real account from disappearing as a side effect of
+    # tidying up. It runs before any tenant is chosen, on an organization the
+    # operator may not belong to.
+    emails = (
+        Membership.objects.using(PRE_TENANT_DB)
+        .filter(organization=organization)
+        .values_list("user__email", flat=True)
     )
     return sorted(email for email in emails if not is_reserved_email(email))
 

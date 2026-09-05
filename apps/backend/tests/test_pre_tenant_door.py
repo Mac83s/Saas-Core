@@ -24,6 +24,10 @@ SOURCE = Path(settings.BASE_DIR) / "src" / "saas_core"
 #: exists. A number here is not decoration: it is what catches a second query
 #: quietly added to a module that already had permission for one.
 DECLARED_DOOR: dict[str, tuple[int, str]] = {
+    "modules/core/identity/sessions.py": (
+        1,
+        "logowanie: gdy konto należy do dokładnie jednej firmy, wybrać ją bez pytania",
+    ),
     "modules/core/organizations/middleware.py": (
         2,
         "logowanie: znaleźć członkostwo, żeby dopiero z niego zbudować kontekst",
@@ -36,10 +40,25 @@ DECLARED_DOOR: dict[str, tuple[int, str]] = {
         1,
         "zaproszenie odnalezione po tokenie przez kogoś, kto nie jest jeszcze członkiem",
     ),
+    "modules/core/organizations/platform_workspace.py": (
+        2,
+        "workspace platformy: czy ten deployment ma już swojego wydawcę — pytanie "
+        "o rejestr, zadawane zanim istnieje organizacja, której mogłoby dotyczyć",
+    ),
+    "modules/core/organizations/management/commands/purge_test_tenants.py": (
+        4,
+        "operatorskie usuwanie kont testowych: do jakich firm należy konto, kto "
+        "jeszcze w nich jest i ile wierszy zniknie — wszystko ponad tenantami",
+    ),
     "modules/shared/billing/tenant_scope.py": (
         2,
         "przemiatania w tle po wszystkich organizacjach oraz rozpoznanie tenanta "
         "po kliencie Stripe",
+    ),
+    "modules/shared/sites/management/commands/sites_e2e_fixture.py": (
+        3,
+        "fixture E2E: czy slug jest wolny w całym rejestrze i czy po sprzątaniu "
+        "konto nie należy już do żadnej firmy",
     ),
 }
 
@@ -79,6 +98,26 @@ def test_every_declared_place_says_why() -> None:
     for path, (count, reason) in DECLARED_DOOR.items():
         assert count > 0, path
         assert len(reason) > 20, f"{path}: powód jest zbyt ogólny, żeby coś znaczył"
+
+
+def test_the_public_renderer_never_reads_through_the_door() -> None:
+    """The most exposed surface stays inside the tenant its host named.
+
+    A hostname resolves to an organization through `sites_domain`, which has no
+    policy to bypass, so the renderer can set that tenant and read the registry
+    from inside it. Letting it hold the pre-tenant connection instead would give
+    one injection in the public path the reach over every tenant's memberships
+    and invitations that ADR-041 exists to take away — so this is a rule about
+    where the door may be, not only how often.
+    """
+    public = {
+        "modules/shared/sites/publication_routing.py",
+        "modules/shared/sites/public_views.py",
+        "modules/shared/sites/public_feeds.py",
+        "modules/shared/sites/public_media.py",
+        "modules/shared/sites/tls.py",
+    }
+    assert public & set(_door_usage()) == set()
 
 
 def test_the_door_is_configured_as_its_own_identity_outside_tests() -> None:

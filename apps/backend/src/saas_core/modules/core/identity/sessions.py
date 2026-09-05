@@ -228,9 +228,14 @@ def _select_only_organization(*, request: HttpRequest, user: User) -> None:
         MembershipStatus,
         OrganizationStatus,
     )
+    from saas_core.modules.core.organizations.pre_tenant import PRE_TENANT_DB  # noqa: PLC0415, E501
 
+    # ADR-041: signing in asks which companies this account belongs to, and the
+    # answer is what a tenant could be set from — so it cannot be read under
+    # one. Selecting the only organization is the same question as the
+    # switcher's, asked one step earlier.
     organization_ids = list(
-        Membership.objects.filter(
+        Membership.objects.using(PRE_TENANT_DB).filter(
             user=user,
             status=MembershipStatus.ACTIVE,
             organization__status__in=[

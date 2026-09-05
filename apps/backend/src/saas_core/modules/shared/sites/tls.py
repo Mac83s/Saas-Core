@@ -10,10 +10,9 @@ from django.db.models import Q
 from django.utils import timezone
 from prometheus_client import Counter
 
-from saas_core.modules.core.organizations.models import OrganizationStatus
-
 from .domains import InvalidHostname, normalize_hostname
 from .models import Domain, DomainStatus, DomainTlsStatus
+from .publication_routing import tenant_is_servable
 
 TLS_AUTHORIZATION_DECISIONS = Counter(
     "saas_core_domain_tls_authorization_total",
@@ -42,16 +41,17 @@ def authorize_tls_hostname(value: str) -> TlsAuthorization:
         return _decision(cached == "allow", "cached")
 
     domain = (
-        Domain.all_objects.select_related("site", "organization")
+        Domain.all_objects.select_related("site")
         .filter(hostname=hostname)
         .filter(
             status=DomainStatus.VERIFIED,
-            organization__status=OrganizationStatus.ACTIVE,
             site__current_publication__isnull=False,
         )
         .filter(Q(tls_status=DomainTlsStatus.ELIGIBLE) | Q(tls_status=DomainTlsStatus.REQUESTED))
         .first()
     )
+    if domain is not None and not tenant_is_servable(domain.organization_id):
+        domain = None
     allowed = domain is not None
     cache.set(
         cache_key,

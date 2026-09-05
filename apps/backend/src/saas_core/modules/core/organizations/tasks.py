@@ -78,9 +78,20 @@ def tenant_task_context(
         expected_causation_id,
     ):
         raise InvalidTenantTaskContext("Tenant task context nie pasuje do payloadu zadania.")
+    try:
+        organization_id = UUID(contract.organization_id)
+    except (TypeError, ValueError) as error:
+        raise InvalidTenantTaskContext(
+            "Tenant task context ma nieprawidłowy identyfikator organizacji."
+        ) from error
     correlation_token = correlation_id.set(contract.correlation_id)
     try:
         with transaction.atomic():
+            # ADR-041: the contract names its organization, so the tenant is
+            # set before anything is read rather than after. A contract that
+            # names the wrong one now finds no membership instead of finding
+            # somebody else's — the check that follows only narrows this.
+            set_local_organization_id(organization_id)
             if contract.principal_kind == "service":
                 context = _service_context(contract)
                 with activate_tenant_context(context):

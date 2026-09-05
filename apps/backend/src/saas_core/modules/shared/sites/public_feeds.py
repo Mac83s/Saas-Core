@@ -8,8 +8,6 @@ from django.conf import settings
 from django.http import HttpResponse
 from django.utils import timezone
 
-from saas_core.modules.core.organizations.models import OrganizationStatus
-
 from .domains import InvalidHostname, normalize_hostname
 from .localization import collection_index_path
 from .models import ContentCollection, Domain, DomainStatus
@@ -20,6 +18,7 @@ from .publication_routing import (
     one_per_article,
     published_entries,
     tag_archive_path,
+    tenant_is_servable,
 )
 
 #: How many articles a feed carries. A reader wants what is new; handing it
@@ -38,15 +37,11 @@ def _resolve_site(host: str) -> tuple[Any, str]:
     except InvalidHostname as error:
         raise PublicSiteNotFound from error
     domain = (
-        Domain.all_objects.select_related("site", "organization")
-        .filter(
-            hostname=hostname,
-            status=DomainStatus.VERIFIED,
-            organization__status=OrganizationStatus.ACTIVE,
-        )
+        Domain.all_objects.select_related("site")
+        .filter(hostname=hostname, status=DomainStatus.VERIFIED)
         .first()
     )
-    if domain is None:
+    if domain is None or not tenant_is_servable(domain.organization_id):
         raise PublicSiteNotFound
     canonical = Domain.all_objects.filter(
         site_id=domain.site_id,

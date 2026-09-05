@@ -59,22 +59,25 @@ class Command(BaseCommand):
         except (TypeError, ValueError) as error:
             raise CommandError("Nieprawidłowy identyfikator grantu lub organizacji.") from error
 
-        # The grant table forces row-level security, so nothing can be read
-        # about a grant before the tenant is set — which is why the operator
-        # names the organization rather than the command looking it up.
-        membership = (
-            Membership.objects.select_related("organization", "role")
-            .filter(
-                organization_id=organization_id,
-                user=operator,
-                status=MembershipStatus.ACTIVE,
-            )
-            .first()
-        )
-        if membership is None:
-            raise CommandError("Operator nie ma aktywnego członkostwa w tej organizacji.")
-
         with transaction.atomic():
+            # The grant table forces row-level security, and since ADR-041 so
+            # does membership itself, so nothing can be read before the tenant
+            # is set — which is why the operator names the organization rather
+            # than the command looking it up.
+            set_local_organization_id(organization_id)
+            membership = (
+                Membership.objects.select_related("organization", "role")
+                .filter(
+                    organization_id=organization_id,
+                    user=operator,
+                    status=MembershipStatus.ACTIVE,
+                )
+                .first()
+            )
+            if membership is None:
+                raise CommandError(
+                    "Operator nie ma aktywnego członkostwa w tej organizacji."
+                )
             context = context_from_membership(membership)
             with activate_tenant_context(context):
                 set_local_organization_id(context.organization_id)

@@ -72,16 +72,16 @@ class Command(BaseCommand):
     @transaction.atomic
     def handle(self, *_args: Any, **options: Any) -> None:
         operator = self._operator(str(options["operator"]))
-        organization = Organization.objects.filter(
-            pk=self._uuid(options["organization"], "organizacji")
-        ).first()
+        # `notifications_apikey`, `sites_contentautomationgrant` and, since
+        # ADR-041, the organization registry force row-level security: read
+        # before the tenant setting, the app role sees no rows and the key
+        # would look missing. The operator names the organization, so the whole
+        # command runs inside it.
+        organization_id = self._uuid(options["organization"], "organizacji")
+        set_local_organization_id(organization_id)
+        organization = Organization.objects.filter(pk=organization_id).first()
         if organization is None:
             raise CommandError("Organizacja nie istnieje.")
-        # `notifications_apikey` and `sites_contentautomationgrant` force
-        # row-level security: read before the tenant setting, the app role sees
-        # no rows and the key would look missing. The operator names the
-        # organization, so the whole command runs inside it.
-        set_local_organization_id(organization.id)
         key = ApiKey.all_objects.filter(
             pk=self._uuid(options["api_key"], "klucza"), organization_id=organization.id
         ).first()

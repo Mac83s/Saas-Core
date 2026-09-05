@@ -138,7 +138,7 @@ sumy, a nie wobec pojedynczego etapu, należy planować termin płatnego pilota.
   wyznaczający tenant z `BillingProfile` przed odczytem, zadanie faktury
   dostające `organization_id` w payloadzie oraz migracja `billing.0013` z
   politykami na 11 tabelach i sześcioma wyzwalaczami relacji (2026-09-03);
-- [ ] domknąć ADR-039 dla `core.organizations` i zdarzeń webhooka — reguła
+- [x] domknąć ADR-039 dla `core.organizations` i zdarzeń webhooka — reguła
   wykrycia w teście pytała o dziedziczenie `TenantScopedModel`, więc siedem
   tabel niosących organizację zwykłym kluczem obcym było niewidoczne i nie ma
   ani jednej polityki: `organizations_membership`, `organizations_organization`,
@@ -155,10 +155,16 @@ sumy, a nie wobec pojedynczego etapu, należy planować termin płatnego pilota.
   wychodzi z listy jako **tabela platformowa** (trzeci reżim, zrobione).
   Drzwi działają: rola `saas_core_identity` bez BYPASSRLS, alias `pre_tenant`,
   router nieprzepuszczający niczego samoczynnie i test skanujący źródła wobec
-  listy pięciu dozwolonych miejsc. Migracja `organizations.0025` zamknęła
-  `billingprofile` i `invitation`. Zostają cztery: `membership`,
-  `organization`, `role`, `organizationauditentry` — każda dotyka logowania,
-  więc idą pojedynczo (2026-09-05);
+  listy dozwolonych miejsc. Zamknięte wszystkie sześć: `0025` profil billingowy
+  i zaproszenie, `0026` członkostwo i audyt, `0027` role (polityka dopuszcza
+  katalog globalny `organization IS NULL`, zapis już nie), `0028` sam rejestr
+  (tenantem jest klucz główny). Lista długu w teście izolacji jest pusta.
+  Renderer publiczny **nie** dostał drzwi: host nazywa tenanta, więc
+  `tenant_is_servable` ustawia go i czyta status od środka — inaczej najbardziej
+  wystawiona powierzchnia trzymałaby połączenie czytające ponad politykami.
+  Sprawdzone na żywo: rejestracja, założenie firmy, zaproszenie, przyjęcie
+  zaproszenia z drugiego konta, panel, opublikowana strona, sitemap i obrazek
+  (2026-09-05);
 - [ ] sprawić, aby `deployment.json` rzeczywiście składał backendowe Django apps,
   URL-e, zadania i frontendowe route/menu, a nie tylko walidował deskryptory;
 - [x] usunąć niedozwolony import Core → Shared — jedyne naruszenie było w

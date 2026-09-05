@@ -380,6 +380,55 @@ więc wszystko, co potem pisze, idzie już pod polityką.
 Zostały cztery tabele: `membership`, `organization`, `role`, `organizationauditentry`.
 Każda dotyka ścieżki logowania, więc idą pojedynczo, w osobnym przejściu.
 
+### Drzwi RLS: pozostałe cztery tabele zamknięte (2026-09-05)
+
+Krok 3 ADR-041 domknięty. `organizations.0026` zamyka członkostwo i wpisy
+audytowe, `0027` role, `0028` sam rejestr organizacji. Lista długu w
+`tests/test_tenant_isolation_regimes.py` jest pusta pierwszy raz od jej
+powstania.
+
+Trzy rzeczy wyszły dopiero przy pisaniu ścieżek i są ważniejsze niż same
+migracje.
+
+**Renderer publiczny nie dostał drzwi.** Cztery ścieżki publiczne — strona,
+sitemap i feed, obrazek, autoryzacja TLS dla Caddy — sprawdzały status
+organizacji **złączeniem** `organization__status=ACTIVE`, czyli odczytem
+rejestru bez tenanta. Najprostszym rozwiązaniem byłoby puścić je drzwiami i to
+byłoby cofnięcie się: renderer jest najbardziej wystawioną powierzchnią
+produktu, a drzwi to połączenie czytające ponad politykami — jeden błąd w
+rendererze sięgałby wtedy członkostw i zaproszeń każdego tenanta. Zamiast tego
+`tenant_is_servable(organization_id)` w `publication_routing.py` ustawia
+tenanta, którego **nazwał host**, i czyta status od środka. Zapytań jest dwa
+zamiast jednego złączenia; test `test_the_public_renderer_never_reads_through_the_door`
+pilnuje, żeby to się nie odwróciło.
+
+**Wpisy audytowe nie dostały drzwi.** ADR-041 zakładał je dla wszystkich sześciu
+tabel, ale każda ścieżka, która pisze audyt, ustawia dziś tenanta wcześniej
+(tworzenie organizacji, workspace platformy, przyjęcie zaproszenia). Otwarcie
+wejścia, którego nikt nie używa, byłoby dziurą bez powodu.
+
+**Role mają politykę asymetryczną.** Odczyt dopuszcza `organization IS NULL`, bo
+`owner`, `admin` i reszta szablonów to katalog wspólny dla wszystkich. Zapis już
+nie: żaden tenant nie dopisze sobie roli globalnej. Katalog zakłada migracja,
+która biegnie właścicielem tabeli i politykom nie podlega.
+
+Ścieżki przepisane bez drzwi, bo tenant był znany wcześniej, niż go ustawiano:
+middleware kluczy API (czytał organizację **przed** `SET LOCAL` — po zamknięciu
+rejestru każde żądanie SCR dostawałoby 403), kontekst zadania Celery, obie
+komendy grantów i provisioning workspace'u platformy. Drzwi przybyły tam, gdzie
+pytanie naprawdę dotyczy całego rejestru: wybór jedynej organizacji przy
+logowaniu, workspace platformy, purge kont testowych, fixture E2E. Razem 16
+użyć w ośmiu modułach, każde z powodem na liście.
+
+Sprawdzone na żywo, na bazie, w której rola aplikacyjna podlega politykom:
+`bez tenanta 0 organizacji i 0 członkostw / przez drzwi 3 i 4 / z tenantem 1 i
+1`, a role globalne widoczne zawsze (5). Pełne przejście przez HTTP: rejestracja
+→ potwierdzenie maila → logowanie → założenie firmy (201) → lista, bieżąca
+firma, członkowie, zaproszenia, plan, kredyty, skrzynka → wysłanie zaproszenia
+→ rejestracja drugiego konta → **przyjęcie zaproszenia (200)** → drugie konto
+widzi dokładnie jedną firmę. Strona publiczna `/start` i `/oferta` 200,
+sitemap 200, obrazek publiczny 200, przemiatania w tle bez błędów.
+
 ### Kredyty w panelu (2026-09-05)
 
 Domena kredytów była kompletna od kilku dni i całkowicie niewidoczna: księga,

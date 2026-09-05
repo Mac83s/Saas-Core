@@ -5,9 +5,11 @@ from dataclasses import dataclass
 from typing import Any
 
 from django.conf import settings
+from django.db import transaction
 from rest_framework.exceptions import NotFound, ValidationError
 
-from saas_core.modules.core.organizations.models import OrganizationStatus
+from saas_core.modules.core.organizations.context import set_local_organization_id
+from saas_core.modules.core.organizations.models import Organization, OrganizationStatus
 
 from .domains import InvalidHostname, normalize_hostname
 from .localization import collection_index_path
@@ -20,6 +22,27 @@ from .models import (
     Publication,
     Site,
 )
+
+
+def tenant_is_servable(organization_id: Any) -> bool:
+    """Whether the tenant a hostname resolved to may still be served.
+
+    The organization registry carries row-level security (ADR-041), so this is
+    a read inside the tenant rather than a join the renderer makes from outside
+    one — the hostname is what names the tenant, and it names it before
+    anything else is read.
+
+    Deliberately not the pre-tenant door: the public renderer is the platform's
+    most exposed surface, and letting it hold a connection that reads past
+    policies would give one injection there the reach over every tenant's
+    memberships and invitations that ADR-041 exists to take away.
+    """
+    with transaction.atomic():
+        set_local_organization_id(organization_id)
+        return Organization.objects.filter(
+            pk=organization_id, status=OrganizationStatus.ACTIVE
+        ).exists()
+
 
 DEFAULT_PUBLIC_DESIGN_TOKENS = {
     "schemaVersion": 1,
@@ -68,15 +91,11 @@ def resolve_public_page(*, host: str, path: str) -> PublicPage:
     # publication yet: entries publish independently, so requiring a site
     # snapshot would make the blog depend on something unrelated to it.
     domain = (
-        Domain.all_objects.select_related("site__current_publication", "organization")
-        .filter(
-            hostname=hostname,
-            status=DomainStatus.VERIFIED,
-            organization__status=OrganizationStatus.ACTIVE,
-        )
+        Domain.all_objects.select_related("site__current_publication")
+        .filter(hostname=hostname, status=DomainStatus.VERIFIED)
         .first()
     )
-    if domain is None:
+    if domain is None or not tenant_is_servable(domain.organization_id):
         raise PublicSiteNotFound
     canonical = Domain.all_objects.filter(
         site_id=domain.site_id,

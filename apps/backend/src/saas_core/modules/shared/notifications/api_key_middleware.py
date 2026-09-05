@@ -90,27 +90,27 @@ class ApiKeyTenantContextMiddleware:
                 401,
             )
 
-        organization = Organization.objects.filter(
-            pk=route.organization_id, status=OrganizationStatus.ACTIVE
-        ).first()
-        if organization is None:
-            return _problem(
-                "Organizacja tego klucza nie jest aktywna.",
-                "api_key_organization_inactive",
-                403,
-            )
-
         permissions: set[str] = set()
         for scope in route.scopes:
             permissions |= SCOPE_PERMISSIONS.get(scope, frozenset())
 
         with transaction.atomic():
-            # The order here is load-bearing. `notifications_apikey` carries
-            # forced row-level security, so without the tenant setting the app
-            # role sees no rows at all and every key would look invalid. The
-            # credential route is the deliberately un-tenanted lookup table that
-            # tells us *which* organization to set before reading anything else.
-            set_local_organization_id(organization.id)
+            # The order here is load-bearing. `notifications_apikey` and, since
+            # ADR-041, the organization registry itself carry forced row-level
+            # security, so without the tenant setting the app role sees no rows
+            # and every key would look invalid. The credential route is the
+            # deliberately un-tenanted lookup table that tells us *which*
+            # organization to set before reading anything else.
+            set_local_organization_id(route.organization_id)
+            organization = Organization.objects.filter(
+                pk=route.organization_id, status=OrganizationStatus.ACTIVE
+            ).first()
+            if organization is None:
+                return _problem(
+                    "Organizacja tego klucza nie jest aktywna.",
+                    "api_key_organization_inactive",
+                    403,
+                )
             # Audit rows reference a real person, and the honest answer to "who
             # did this" is the operator who issued the credential. A synthetic
             # id would break every audit write and tell nobody anything.

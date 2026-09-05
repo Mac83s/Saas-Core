@@ -8,7 +8,6 @@ from django.db import transaction
 from django.http import Http404, HttpResponse
 
 from saas_core.modules.core.organizations.context import set_local_organization_id
-from saas_core.modules.core.organizations.models import OrganizationStatus
 from saas_core.modules.shared.media.models import MediaAsset, MediaAssetState
 from saas_core.modules.shared.media.storage import (
     ObjectNotFoundError,
@@ -18,7 +17,7 @@ from saas_core.modules.shared.media.storage import (
 
 from .domains import InvalidHostname, normalize_hostname
 from .models import ContentEntry, ContentEntryState, Domain, DomainStatus
-from .publication_routing import PublicSiteNotFound
+from .publication_routing import PublicSiteNotFound, tenant_is_servable
 
 
 def _published_asset_ids(*, organization_id: Any, site_id: Any) -> set[str]:
@@ -58,15 +57,11 @@ def serve_public_media(*, host: str, asset_id: UUID) -> HttpResponse:
     except InvalidHostname as error:
         raise PublicSiteNotFound from error
     domain = (
-        Domain.all_objects.select_related("site", "organization")
-        .filter(
-            hostname=hostname,
-            status=DomainStatus.VERIFIED,
-            organization__status=OrganizationStatus.ACTIVE,
-        )
+        Domain.all_objects.select_related("site")
+        .filter(hostname=hostname, status=DomainStatus.VERIFIED)
         .first()
     )
-    if domain is None:
+    if domain is None or not tenant_is_servable(domain.organization_id):
         raise PublicSiteNotFound
     allowed = _published_asset_ids(
         organization_id=domain.organization_id, site_id=domain.site_id

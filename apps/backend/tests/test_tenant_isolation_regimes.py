@@ -30,32 +30,14 @@ MODULES_PATH = Path(settings.SITE_BLOCK_CONTRACTS_PATH).parent / "modules"
 # linger: a table added here that later gains RLS fails the test until the
 # entry is removed. Add an entry only with the plan item that removes it.
 #
-# These four are read or written before a tenant is known, which is why a policy
-# cannot simply be added to them (plan 13, P1). The two that carried personal
-# data — the billing profile and the invitation — went first and are gone from
-# this list; the rest follow the same way, one migration at a time:
-#   - organizations_membership answers "which companies is this account in?"
-#     at login, before any organization is chosen — under a policy keyed on
-#     app.organization_id that question returns nothing and nobody logs in;
-#   - organizations_organization is the registry the same answer resolves to;
-#   - organizations_role holds the global roles as organization IS NULL rows,
-#     shared by every tenant, so a policy has to admit them;
-#   - organizations_organizationauditentry is written on those same paths, and
-#     during organization creation before a tenant exists;
-# ADR-041 decides each of them: a plain tenant policy plus a named door for the
-# pre-tenant paths, migrated table by table, personal data first. The webhook
-# inbox left this list by being classified as a platform table, which is what
-# it always was.
-KNOWN_OPEN_PRIVATE_TABLES: dict[str, frozenset[str]] = {
-    "saas_core.modules.core.organizations": frozenset(
-        {
-            "organizations_membership",
-            "organizations_organization",
-            "organizations_organizationauditentry",
-            "organizations_role",
-        }
-    ),
-}
+# Empty since 2026-09-05. ADR-041 closed the last six: the two carrying personal
+# data first (billing profile, invitation), then membership and the audit log,
+# the role catalogue with a policy that admits its global rows, and finally the
+# registry itself. The paths that have to read before a tenant is known go
+# through the named door instead, counted by tests/test_pre_tenant_door.py. The
+# webhook inbox left this list by being classified as a platform table, which is
+# what it always was.
+KNOWN_OPEN_PRIVATE_TABLES: dict[str, frozenset[str]] = {}
 
 pytestmark = pytest.mark.django_db
 
