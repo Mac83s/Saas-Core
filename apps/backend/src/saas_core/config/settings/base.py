@@ -7,6 +7,14 @@ from urllib.parse import quote
 
 from django.core.exceptions import ImproperlyConfigured
 
+from saas_core.config.composition import (
+    CompositionError,
+    compose,
+    django_apps_for,
+    load_catalog,
+    select_by_module,
+)
+
 
 def _deployment_billing_plan_keys(profile: dict[str, Any], modules: list[str]) -> tuple[str, ...]:
     if "shared.billing" not in modules:
@@ -97,7 +105,27 @@ SITES_RESERVED_SUBDOMAIN_LABELS = tuple(
     for value in os.environ.get("SITES_RESERVED_SUBDOMAIN_LABELS", "").split(",")
     if value.strip()
 )
-BOOKING_MODULE_ENABLED = "shared.booking" in _deployment_modules
+#: The catalog the profile names its modules from. Read from disk rather than
+#: duplicated here so the rules CI checks and the rules that boot the process
+#: are the same rules over the same file.
+MODULE_CATALOG_PATH = Path(
+    os.environ.get(
+        "MODULE_CATALOG_PATH",
+        BASE_DIR.parent.parent / "packages" / "contracts" / "modules",
+    )
+)
+try:
+    _module_catalog = load_catalog(MODULE_CATALOG_PATH)
+    #: This deployment's modules, dependencies first. Everything composed below
+    #: — apps, middleware, URLs, scheduled work — is selected by this tuple.
+    ACTIVE_MODULES = compose(_deployment_modules, _module_catalog)
+except CompositionError as error:
+    raise ImproperlyConfigured(
+        f"Profil {DEPLOYMENT} nie składa się z katalogu {MODULE_CATALOG_PATH}: {error}"
+    ) from error
+KNOWN_MODULES = frozenset(_module_catalog)
+
+BOOKING_MODULE_ENABLED = "shared.booking" in ACTIVE_MODULES
 PUBLIC_BOOKING_ENABLED = bool(_deployment_features.get("publicBooking", False))
 if not SITES_PLATFORM_DOMAIN:
     raise ImproperlyConfigured("Profil deploymentu wymaga platformDomain")
@@ -206,15 +234,18 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "drf_spectacular",
-    "saas_core.modules.core.health",
-    "saas_core.modules.core.identity",
-    "saas_core.modules.core.organizations",
-    "saas_core.modules.shared.billing",
-    "saas_core.modules.shared.sites",
-    "saas_core.modules.shared.media",
-    "saas_core.modules.shared.notifications",
-    "saas_core.modules.shared.booking",
+    *django_apps_for(ACTIVE_MODULES, _module_catalog),
 ]
+
+#: Middleware a module brings with it, mounted only where that module is.
+#: The API-key middleware belongs to Notifications and has nothing to answer in
+#: a deployment without it; the tenant middleware is Core and is always there.
+_MODULE_MIDDLEWARE = {
+    "shared.notifications": (
+        "saas_core.modules.shared.notifications.api_key_middleware."
+        "ApiKeyTenantContextMiddleware"
+    ),
+}
 
 MIDDLEWARE = [
     "saas_core.http.middleware.CorrelationIdMiddleware",
@@ -226,7 +257,11 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "saas_core.modules.core.identity.middleware.ManagedUserSessionMiddleware",
-    "saas_core.modules.shared.notifications.api_key_middleware.ApiKeyTenantContextMiddleware",
+    *(
+        middleware
+        for module_id, middleware in _MODULE_MIDDLEWARE.items()
+        if module_id in ACTIVE_MODULES
+    ),
     "saas_core.modules.core.organizations.middleware.TenantContextMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -463,11 +498,13 @@ BILLING_PROVIDER = _validate_billing_provider(
 STRIPE_PORTAL_CONFIGURATION_ID = os.environ.get("STRIPE_PORTAL_CONFIGURATION_ID", "").strip()
 if STRIPE_PORTAL_CONFIGURATION_ID and not STRIPE_PORTAL_CONFIGURATION_ID.startswith("bpc_"):
     raise ImproperlyConfigured("STRIPE_PORTAL_CONFIGURATION_ID musi zaczynać się od bpc_")
-if BILLING_PROVIDER == "stripe" and APP_ENV != "test":
+if BILLING_PROVIDER == "stripe" and APP_ENV != "test" and "shared.billing" in ACTIVE_MODULES:
     # ADR-034 asks for a start that refuses rather than a runtime that
     # discovers the gap at the first payment. Tests are exempt on purpose:
     # they run against the real provider name with empty credentials to prove
-    # the services report the missing configuration instead of crashing.
+    # the services report the missing configuration instead of crashing. So is
+    # a deployment without Billing: asking it for a payment provider's
+    # credentials would be demanding keys to something it does not have.
     _missing_stripe = [
         name
         for name, value in (
@@ -536,64 +573,84 @@ CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_TASK_TRACK_STARTED = True
 CELERY_WORKER_HIJACK_ROOT_LOGGER = False
-CELERY_BEAT_SCHEDULE = {
-    "sites-verify-domains": {
-        "task": "saas_core.modules.shared.sites.tasks.schedule_domain_verifications",
-        "schedule": 60.0,
+#: Scheduled work, grouped by the module whose code it calls. A deployment
+#: without Sites must not run Sites' sweeps: the scheduler would enqueue jobs
+#: against tables that are not there, once a minute, forever.
+_MODULE_BEAT_SCHEDULE: dict[str, dict[str, Any]] = {
+    "shared.sites": {
+        "sites-verify-domains": {
+            "task": "saas_core.modules.shared.sites.tasks.schedule_domain_verifications",
+            "schedule": 60.0,
+        },
+        # Every minute, so "publish at 7:00" means 7:00 and not some time that
+        # morning. The scan is indexed and returns nothing on a quiet site.
+        "sites-publish-due-entries": {
+            "task": "saas_core.modules.shared.sites.tasks.publish_due_entries",
+            "schedule": 60.0,
+        },
     },
-    # Every minute, so "publish at 7:00" means 7:00 and not some time that
-    # morning. The scan is indexed and returns nothing on a quiet site.
-    "sites-publish-due-entries": {
-        "task": "saas_core.modules.shared.sites.tasks.publish_due_entries",
-        "schedule": 60.0,
+    "shared.billing": {
+        "billing-process-lifecycle": {
+            "task": "saas_core.modules.shared.billing.tasks.process_billing_lifecycle",
+            "schedule": 60.0,
+        },
+        "billing-reconcile-subscriptions": {
+            "task": "saas_core.modules.shared.billing.tasks.reconcile_billing_subscriptions",
+            "schedule": 300.0,
+        },
+        # The simulator's counterpart to reconciliation: without it a local
+        # deployment never leaves the trial it started.
+        "billing-advance-simulated": {
+            "task": "saas_core.modules.shared.billing.tasks.advance_simulated_billing",
+            "schedule": 300.0,
+        },
+        "billing-expire-overrides": {
+            "task": "saas_core.modules.shared.billing.tasks.expire_billing_overrides",
+            "schedule": 60.0,
+        },
+        "billing-release-expired-reservations": {
+            "task": ("saas_core.modules.shared.billing.tasks.release_expired_quota_reservations"),
+            "schedule": 60.0,
+        },
+        "billing-release-expired-credit-reservations": {
+            "task": ("saas_core.modules.shared.billing.tasks.release_expired_credit_reservations"),
+            "schedule": 60.0,
+        },
+        # Hourly, not at midnight: reading a balance grants the month's
+        # allowance anyway, so the sweep only has to make the ledger tell a
+        # truthful story for organizations nobody looked at.
+        "billing-refresh-credit-allowances": {
+            "task": "saas_core.modules.shared.billing.tasks.refresh_credit_allowances",
+            "schedule": 3600.0,
+        },
     },
-    "billing-process-lifecycle": {
-        "task": "saas_core.modules.shared.billing.tasks.process_billing_lifecycle",
-        "schedule": 60.0,
+    "shared.notifications": {
+        # Billing records the warning; notifications is what makes it arrive.
+        # It belongs to Notifications because that is the code it calls — a
+        # deployment with Billing and no Notifications has nowhere to deliver.
+        "notifications-deliver-billing-notices": {
+            "task": "saas_core.modules.shared.notifications.tasks.deliver_billing_notices",
+            "schedule": 60.0,
+        },
+        "notifications-recover-pending": {
+            "task": "saas_core.modules.shared.notifications.tasks.recover_pending",
+            "schedule": 60.0,
+        },
     },
-    "billing-reconcile-subscriptions": {
-        "task": "saas_core.modules.shared.billing.tasks.reconcile_billing_subscriptions",
-        "schedule": 300.0,
-    },
-    # The simulator's counterpart to reconciliation: without it a local
-    # deployment never leaves the trial it started.
-    "billing-advance-simulated": {
-        "task": "saas_core.modules.shared.billing.tasks.advance_simulated_billing",
-        "schedule": 300.0,
-    },
-    # Billing records the warning; notifications is what makes it arrive.
-    "notifications-deliver-billing-notices": {
-        "task": "saas_core.modules.shared.notifications.tasks.deliver_billing_notices",
-        "schedule": 60.0,
-    },
-    "billing-expire-overrides": {
-        "task": "saas_core.modules.shared.billing.tasks.expire_billing_overrides",
-        "schedule": 60.0,
-    },
-    "billing-release-expired-reservations": {
-        "task": ("saas_core.modules.shared.billing.tasks.release_expired_quota_reservations"),
-        "schedule": 60.0,
-    },
-    "billing-release-expired-credit-reservations": {
-        "task": ("saas_core.modules.shared.billing.tasks.release_expired_credit_reservations"),
-        "schedule": 60.0,
-    },
-    # Hourly, not at midnight: reading a balance grants the month's allowance
-    # anyway, so the sweep only has to make the ledger tell a truthful story
-    # for organizations nobody looked at.
-    "billing-refresh-credit-allowances": {
-        "task": "saas_core.modules.shared.billing.tasks.refresh_credit_allowances",
-        "schedule": 3600.0,
-    },
-    "notifications-recover-pending": {
-        "task": "saas_core.modules.shared.notifications.tasks.recover_pending",
-        "schedule": 60.0,
-    },
-    "booking-dispatch-reminders": {
-        "task": "saas_core.modules.shared.booking.tasks.dispatch_booking_reminders",
-        "schedule": 60.0,
+    "shared.booking": {
+        "booking-dispatch-reminders": {
+            "task": "saas_core.modules.shared.booking.tasks.dispatch_booking_reminders",
+            "schedule": 60.0,
+        },
     },
 }
+
+try:
+    CELERY_BEAT_SCHEDULE = select_by_module(
+        _MODULE_BEAT_SCHEDULE, ACTIVE_MODULES, KNOWN_MODULES
+    )
+except CompositionError as error:
+    raise ImproperlyConfigured(str(error)) from error
 
 LOGGING = {
     "version": 1,

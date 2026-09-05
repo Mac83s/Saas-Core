@@ -16,7 +16,8 @@ ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
     UV_PROJECT_ENVIRONMENT=/opt/venv \
     DEPLOYMENT=${DEPLOYMENT} \
-    DEPLOYMENT_PROFILE_PATH=/app/deployment.json
+    DEPLOYMENT_PROFILE_PATH=/app/deployment.json \
+    MODULE_CATALOG_PATH=/app/contracts/modules
 
 WORKDIR /app
 
@@ -29,6 +30,9 @@ COPY apps/backend/src ./src
 COPY packages/contracts/site-blocks ./contracts/site-blocks
 COPY packages/contracts/page-templates ./contracts/page-templates
 COPY packages/contracts/content-operations ./contracts/content-operations
+# The catalog the profile composes from: without it the process cannot say
+# which modules it is made of, so it refuses to start rather than guess.
+COPY packages/contracts/modules ./contracts/modules
 COPY deployments/${DEPLOYMENT}/deployment.json ./deployment.json
 
 RUN --mount=type=cache,target=/root/.cache/uv \
@@ -50,6 +54,7 @@ ENV DJANGO_SETTINGS_MODULE=saas_core.config.settings.container \
     SITE_BLOCK_CONTRACTS_PATH=/app/contracts/site-blocks \
     PAGE_TEMPLATE_CONTRACTS_PATH=/app/contracts/page-templates \
     CONTENT_OPERATIONS_CONTRACTS_PATH=/app/contracts/content-operations \
+    MODULE_CATALOG_PATH=/app/contracts/modules \
     PATH=/opt/venv/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app/src \

@@ -8923,4 +8923,4 @@ components:
     cookieAuth:
       type: apiKey
       in: cookie
-      name: saas_core_core_only_session
+      name: saas_core_business_session

@@ -165,8 +165,17 @@ sumy, a nie wobec pojedynczego etapu, należy planować termin płatnego pilota.
   Sprawdzone na żywo: rejestracja, założenie firmy, zaproszenie, przyjęcie
   zaproszenia z drugiego konta, panel, opublikowana strona, sitemap i obrazek
   (2026-09-05);
-- [ ] sprawić, aby `deployment.json` rzeczywiście składał backendowe Django apps,
-  URL-e, zadania i frontendowe route/menu, a nie tylko walidował deskryptory;
+- [x] sprawić, aby `deployment.json` rzeczywiście składał backendowe Django apps,
+  URL-e, zadania i frontendowe route/menu, a nie tylko walidował deskryptory —
+  `config/composition.py` czyta katalog modułów i buduje `ACTIVE_MODULES`
+  (te same reguły, które sprawdza `deployment-check.mjs`, tyle że w momencie
+  startu), a z niego biorą się `INSTALLED_APPS`, middleware modułowe, routing
+  (`urlpatterns_for`) i `CELERY_BEAT_SCHEDULE`. Frontend filtrował menu i kafle
+  po `deployment.modules` już wcześniej. Obraz niesie katalog modułów
+  (`MODULE_CATALOG_PATH`) i bez niego odmawia startu. Dowód: obraz `core-only`
+  buduje się i wstaje z 3 aplikacjami, 9 ścieżkami i **zerem** zadań
+  cyklicznych, `business` z 8 aplikacjami, 21 ścieżkami i 12 zadaniami
+  (2026-09-05);
 - [x] usunąć niedozwolony import Core → Shared — jedyne naruszenie było w
   komendzie `provision_platform_workspace`, która z `core.organizations`
   importowała `shared.billing.overrides`; komenda przeniesiona do
@@ -174,8 +183,12 @@ sumy, a nie wobec pojedynczego etapu, należy planować termin płatnego pilota.
   workspace'u (2026-09-02, `lint-imports`: 1 kept, 0 broken);
 - [ ] utrzymywać zielony import-linter oraz ESLint boundaries; kontrakt warstw
   łapie także importy wewnątrz funkcji, więc odroczony import nie jest obejściem;
-- [ ] dodać test, że `core-only` nie aktywuje Billing, Sites, Booking ani żadnego
-  verticala, a MedPlano aktywuje wyłącznie zadeklarowany graf;
+- [x] dodać test, że `core-only` nie aktywuje Billing, Sites, Booking ani żadnego
+  verticala — `tests/test_deployment_composition.py` pyta o oba profile bez
+  uruchamiania drugiej Django: sprawdza aplikacje, routing, middleware i
+  zadania, a także że profil pomijający zależność jest odrzucany zamiast po
+  cichu uzupełniany. Połowa o MedPlano czeka na kod verticala, bo profil jest
+  zaparkowany w `deployments/_planned/` (2026-09-05);
 - [ ] generować artefakt modułów i hash profilu używany przez backend, frontend,
   workera i schedulera; niezgodny obraz ma odmówić startu;
 - [ ] udokumentować i przetestować osobną bazę, użytkownika DB, storage, Redis,
@@ -187,10 +200,12 @@ sumy, a nie wobec pojedynczego etapu, należy planować termin płatnego pilota.
 
 - [ ] build i smoke test `core-only` oraz `business` dowodzą różnych aktywnych
   powierzchni API/UI;
-- [ ] żaden wyłączony moduł nie rejestruje routingu, workera ani schedulera;
+- [x] żaden wyłączony moduł nie rejestruje routingu, workera ani schedulera
+  (2026-09-05);
 - [ ] test importów i kontraktów modułów jest zielony;
-- [ ] katalog modułów i `INSTALLED_APPS` są zgodne w obie strony i pilnuje tego
-  test;
+- [x] katalog modułów i `INSTALLED_APPS` są zgodne w obie strony i pilnuje tego
+  test — `INSTALLED_APPS` **jest** kompozycją, a nie drugą listą obok niej
+  (2026-09-05);
 - [ ] dwa środowiska testowe używają osobnych danych i sekretów.
 
 ## 6. P2 — autonomiczny system Agent Skills

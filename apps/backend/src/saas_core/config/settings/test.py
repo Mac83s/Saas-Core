@@ -1,4 +1,19 @@
-from .base import *  # noqa: F403
+"""Test settings, and the profile the suite describes.
+
+The deployment has to be chosen before `base` is imported, because that is
+where the profile is read and the composition decided. Until the profile
+actually composed the backend this did not matter — every image installed every
+module — so the suite ran nominally as `core-only` while testing Billing, Sites
+and Booking. `business` is the honest name for a deployment with every Shared
+module, and it is the surface these tests describe. `setdefault`, so a run can
+still ask for another profile.
+"""
+
+import os
+
+os.environ.setdefault("DEPLOYMENT", "business")
+
+from .base import *  # noqa: E402, F403
 
 SECRET_KEY = "test-only-key"
 MFA_ENCRYPTION_KEY = "test-mfa-encryption-key"

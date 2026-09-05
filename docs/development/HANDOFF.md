@@ -429,6 +429,54 @@ firma, członkowie, zaproszenia, plan, kredyty, skrzynka → wysłanie zaproszen
 widzi dokładnie jedną firmę. Strona publiczna `/start` i `/oferta` 200,
 sitemap 200, obrazek publiczny 200, przemiatania w tle bez błędów.
 
+### Profil składa produkt, a nie tylko go opisuje (2026-09-05)
+
+`deployment.json` był dotąd walidowany i ignorowany: każdy obraz instalował
+wszystkie moduły, a profil decydował o kilku flagach. „Dwa produkty z jednego
+repozytorium" było więc prawdą na papierze i nieprawdą przy starcie — `core-only`
+wiózł tabele Billingu, adresy Sites i zadania cykliczne Bookingu.
+
+Nowy `config/composition.py` czyta katalog modułów z dysku i buduje
+`ACTIVE_MODULES` — te same reguły, które sprawdza `deployment-check.mjs` w CI,
+tyle że w miejscu, gdzie coś rozstrzygają. Z tej krotki biorą się cztery rzeczy:
+`INSTALLED_APPS`, middleware należące do modułu (dziś klucze API z
+Notifications), routing (`urlpatterns_for`) i `CELERY_BEAT_SCHEDULE`. Każdy mount
+routingu powstaje **wewnątrz funkcji**, żeby widoki wyłączonego modułu nigdy się
+nie importowały — import by przeszedł, a wywalił się dopiero na modelu bez
+zarejestrowanej aplikacji.
+
+Zależności **nie** domykają się same. Profil, który bierze Billing bez
+`core.organizations`, jest odrzucany, a nie po cichu uzupełniany: lista modułów
+jest decyzją, którą ktoś podejmuje, a kompozycja rosnąca sama to kompozycja,
+której nikt nie przejrzał.
+
+Dwa produkty, zmierzone:
+
+| profil      | aplikacje | ścieżki | zadania cykliczne |
+| ----------- | --------: | ------: | ----------------: |
+| `core-only` |         3 |       9 |                 0 |
+| `business`  |         8 |      21 |                12 |
+
+Obraz `core-only` **zbudowany i uruchomiony**, nie tylko policzony w teście.
+Przy okazji wyszło, że deployment bez Billingu żądał kompletu sekretów Stripe —
+teraz warunek pyta najpierw, czy Billing w ogóle jest w kompozycji.
+
+Dwie rzeczy do zapamiętania. **Testy jadą na profilu `business`**, ustawionym w
+`settings/test.py` przed importem `base` (profil czyta się przy imporcie, więc
+`conftest.py` jest za późno — pytest-django konfiguruje Django wcześniej). Do tej
+pory suite biegł nominalnie jako `core-only`, testując Billing, Sites i Booking.
+**Schemat OpenAPI jest per produkt**: nazwa ciasteczka sesji zawiera nazwę
+deploymentu, więc `pnpm api:schema` generuje teraz tym samym profilem, którym
+sprawdza dryf — opublikowany kontrakt mówi `saas_core_business_session`, czyli
+to, czego naprawdę używa działający deployment.
+
+Zostaje w P1: artefakt modułów z hashem profilu, którym backend, frontend,
+worker i scheduler odmawiają startu przy niezgodnym obrazie; macierz
+`deployment → wersja/digest → migracje → rollback`; udokumentowanie osobnej bazy,
+storage i sekretów per deployment. Frontend filtruje menu i kafle po
+`deployment.modules` od dawna, ale obraz frontendu dla `core-only` nie był
+jeszcze zbudowany ani przedymiony.
+
 ### Kredyty w panelu (2026-09-05)
 
 Domena kredytów była kompletna od kilku dni i całkowicie niewidoczna: księga,
