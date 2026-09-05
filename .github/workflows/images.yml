@@ -20,20 +20,31 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      # Backend and frontend carry a deployment profile, so there is one
+      # image per product rather than one image pretending to serve both. The
+      # backend used to build with no profile at all, which meant a core-only
+      # image published next to a business frontend — the pair the profile
+      # fingerprint now refuses to run.
       matrix:
         include:
           - name: backend
             dockerfile: apps/backend/Dockerfile
-            build_args: ""
+            profile: core-only
+          - name: backend
+            dockerfile: apps/backend/Dockerfile
+            profile: business
           - name: frontend
             dockerfile: apps/frontend/Dockerfile
-            build_args: DEPLOYMENT=business
+            profile: core-only
+          - name: frontend
+            dockerfile: apps/frontend/Dockerfile
+            profile: business
           - name: caddy
             dockerfile: infra/caddy/Dockerfile
-            build_args: ""
+            profile: ""
           - name: redis
             dockerfile: infra/redis/Dockerfile
-            build_args: ""
+            profile: ""
     steps:
       - uses: actions/checkout@v6
         with:
@@ -45,8 +56,19 @@ jobs:
         shell: bash
         run: |
           image_name="ghcr.io/${GITHUB_REPOSITORY,,}/${{ matrix.name }}"
+          tag="${image_name}:sha-${{ github.event.workflow_run.head_sha }}"
+          profile="${{ matrix.profile }}"
+          # The profile belongs in the tag: two images from one commit are two
+          # products, and a deployment has to be able to name which one it runs.
+          if [ -n "${profile}" ]; then
+            tag="${tag}-${profile}"
+            echo "build_args=DEPLOYMENT=${profile}" >> "${GITHUB_OUTPUT}"
+          else
+            echo "build_args=" >> "${GITHUB_OUTPUT}"
+          fi
           echo "name=${image_name}" >> "${GITHUB_OUTPUT}"
-          echo "tag=${image_name}:sha-${{ github.event.workflow_run.head_sha }}" >> "${GITHUB_OUTPUT}"
+          echo "tag=${tag}" >> "${GITHUB_OUTPUT}"
+          echo "scope=${{ matrix.name }}${profile:+-${profile}}" >> "${GITHUB_OUTPUT}"
 
       - uses: docker/setup-buildx-action@v4
 
@@ -63,13 +85,13 @@ jobs:
           context: .
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64
-          build-args: ${{ matrix.build_args }}
+          build-args: ${{ steps.image.outputs.build_args }}
           push: true
           tags: ${{ steps.image.outputs.tag }}
           provenance: mode=max
           sbom: true
-          cache-from: type=gha,scope=${{ matrix.name }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
+          cache-from: type=gha,scope=${{ steps.image.outputs.scope }}
+          cache-to: type=gha,mode=max,scope=${{ steps.image.outputs.scope }}
 
       - name: Skan podatności obrazu
         uses: aquasecurity/trivy-action@v0.36.0
@@ -91,6 +113,6 @@ jobs:
 
       - name: Podsumowanie digestu
         run: |
-          echo '### ${{ matrix.name }}' >> "${GITHUB_STEP_SUMMARY}"
+          echo '### ${{ matrix.name }} ${{ matrix.profile }}' >> "${GITHUB_STEP_SUMMARY}"
           echo '${{ steps.image.outputs.tag }}' >> "${GITHUB_STEP_SUMMARY}"
           echo '${{ steps.build.outputs.digest }}' >> "${GITHUB_STEP_SUMMARY}"

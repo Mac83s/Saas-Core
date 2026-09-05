@@ -201,18 +201,41 @@ sumy, a nie wobec pojedynczego etapu, należy planować termin płatnego pilota.
   zwraca 503 przy trwałej niezgodności (milczący backend nie jest niezgodnością).
   Sprawdzone na żywo: obraz `business` z podmontowanym artefaktem `core-only`
   i z artefaktem starszego drzewa odmawia startu z nazwą różnicy (2026-09-05);
-- [ ] udokumentować i przetestować osobną bazę, użytkownika DB, storage, Redis,
-  sekrety, backup, domenę i obserwowalność każdego deploymentu;
-- [ ] utrzymywać macierz `deployment → wersja/digest → migracje → rollback`, aby
-  produkty mogły aktualizować się niezależnie z jednego repozytorium.
+- [x] udokumentować i przetestować osobną bazę, użytkownika DB, storage, Redis,
+  sekrety, backup, domenę i obserwowalność każdego deploymentu —
+  `docs/operations/deployment-matrix.md` §4 wymienia 16 zasobów wraz ze zmienną,
+  którą się je rozdziela, a `tests/test_deployment_isolation.py` porównuje tę
+  tabelę z `compose.yaml` w obie strony, więc dokument nie może się rozjechać z
+  rzeczywistością. Granicą jest projekt Compose (osobne kontenery, sieć i
+  wolumeny, czyli osobny PostgreSQL, Redis i storage); zmienne są potrzebne
+  wtedy, gdy dwa deploymenty dzielą infrastrukturę. **Zostaje jawnie zapisane w
+  §5**: backup i `deploy staging` są opisane dla jednego stacku, drugi wymaga
+  własnego harmonogramu, restore drilla i osobnego GitHub Environment
+  (2026-09-05);
+- [x] utrzymywać macierz `deployment → wersja/digest → migracje → rollback`, aby
+  produkty mogły aktualizować się niezależnie z jednego repozytorium —
+  `manage.py deployment_release` wypisuje wiersz macierzy (profil, hash, wersja,
+  digesty podane przez wdrażającego, migracje w obrazie i w bazie, lista
+  nieodwracalnych), a CI buduje **po jednym obrazie na profil** z tagiem
+  `sha-<commit>-<profil>`; wcześniej backend budował się bez profilu, czyli jako
+  `core-only`, obok frontendu zbudowanego jako `business`. Rollback jest faktem,
+  nie nadzieją: wszystkie 90 migracji jest odwracalnych, a
+  `tests/test_deployment_release.py` pilnuje, żeby pierwsza nieodwracalna
+  wymagała wpisu z powodem (2026-09-05).
 
 ### Bramka P1
 
-- [ ] build i smoke test `core-only` oraz `business` dowodzą różnych aktywnych
-  powierzchni API/UI;
+- [x] build i smoke test `core-only` oraz `business` dowodzą różnych aktywnych
+  powierzchni API/UI — cztery obrazy (backend i frontend × dwa profile) zbudowane
+  lokalnie; backend `core-only` wstaje z 3 aplikacjami, 9 ścieżkami i zerem zadań
+  wobec 8/21/12 w `business`; frontend `core-only` odpowiada
+  `{"status":"ok","deployment":"core-only"}`, a podpięty pod backend `business`
+  zwraca 503 `profile_mismatch` z obydwoma hashami; różnicę w menu pilnuje
+  `app-sidebar.test.tsx` (2026-09-05);
 - [x] żaden wyłączony moduł nie rejestruje routingu, workera ani schedulera
   (2026-09-05);
-- [ ] test importów i kontraktów modułów jest zielony;
+- [x] test importów i kontraktów modułów jest zielony (import-linter 1 kept /
+  0 broken, `test_module_catalog.py`, `test_deployment_composition.py`);
 - [x] katalog modułów i `INSTALLED_APPS` są zgodne w obie strony i pilnuje tego
   test — `INSTALLED_APPS` **jest** kompozycją, a nie drugą listą obok niej
   (2026-09-05);

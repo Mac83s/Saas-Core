@@ -510,6 +510,43 @@ Dowód na żywo: obraz `business` uruchomiony z podmontowanym artefaktem
 startuje jako 'business'"), a z artefaktem starszego drzewa wypisuje, którego
 modułu brakuje.
 
+### Macierz release'ów i rozdzielenie deploymentów (2026-09-05)
+
+Trzy rzeczy, które razem domykają P1 poza jedną bramką.
+
+**Obraz należy do produktu, nie do commita.** CI budowało backend **bez**
+argumentu `DEPLOYMENT`, czyli jako `core-only`, i publikowało go obok frontendu
+zbudowanego jako `business`. Nikt tego nie zgłaszał, bo backend i tak instalował
+wszystkie moduły — po zmianie kompozycji taka para w ogóle by nie wstała. Teraz
+matryca buduje po jednym obrazie na profil, z tagiem `sha-<commit>-<profil>`;
+Caddy i Redis zostają bez profilu.
+
+**Rollback jest faktem, nie nadzieją.** `manage.py deployment_release` wypisuje
+wiersz macierzy: profil, hash, wersja, digesty (podaje je wdrażający — proces
+nie zna własnego), migracje w obrazie i w bazie, lista nieodwracalnych. Dziś ta
+lista jest pusta: **wszystkie 90 migracji jest odwracalnych**, a
+`tests/test_deployment_release.py` pilnuje, żeby pierwsza nieodwracalna wymagała
+wpisu z powodem — bo odbiera rollback każdemu deploymentowi za sobą, i to po
+cichu, dopóki ktoś nie spróbuje.
+
+**Rozdzielenie jest opisane i sprawdzane.** `docs/operations/deployment-matrix.md`
+§4 wymienia 16 zasobów wraz ze zmienną, którą się je rozdziela, a
+`tests/test_deployment_isolation.py` porównuje tę tabelę z `compose.yaml` w obie
+strony. Granicą jest projekt Compose — osobne kontenery, sieć i wolumeny, czyli
+osobny PostgreSQL, Redis i storage; zmienne są potrzebne dopiero wtedy, gdy dwa
+deploymenty dzielą infrastrukturę.
+
+Dowody: cztery obrazy zbudowane lokalnie. Frontend `core-only` odpowiada
+`{"status":"ok","deployment":"core-only"}`, a podpięty pod backend `business`
+zwraca **503 `profile_mismatch`** z obydwoma hashami — dwa prawdziwe kontenery,
+nie mock. Różnicę w menu pilnuje `app-sidebar.test.tsx`: przy `core-only` nie ma
+pozycji Kalendarz, Strona, Wiadomości ani Plan i płatności.
+
+Otwarte w P1 zostaje jedno: **dwa środowiska testowe na osobnych danych i
+sekretach**. Wiadomo, jak to zrobić (§4 dokumentu), ale nikt nie postawił drugiego
+stacku, więc bramka zostaje niezaznaczona. Backup i `deploy staging` też są
+opisane dla jednego stacku — to jest zapisane w §5 dokumentu, nie przemilczane.
+
 ### Kredyty w panelu (2026-09-05)
 
 Domena kredytów była kompletna od kilku dni i całkowicie niewidoczna: księga,
