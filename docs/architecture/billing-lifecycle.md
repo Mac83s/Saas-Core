@@ -62,7 +62,7 @@ zrobić w produkcie. Snapshot entitlementów niesie oba.
 | 12  | zakup bez triala wymaga 3DS           | Stripe zwraca `incomplete`                     | —                               | błąd, brak ścieżki dokończenia           | ❌ adapter odmawia jawnym komunikatem                                    |
 | 13  | faktura po opłaceniu                  | `invoice.paid`                                 | kolejka + adapter faktur        | faktura tylko w portalu Stripe           | ✅ `test_canonical_request_and_adapter_result_are_durable_and_idempotent` |
 | 14  | zgubiony webhook → naprawa            | scheduler co 5 minut                           | rekonsyliacja                   | nic (naprawa w tle)                      | ✅ `test_reconciliation_repairs_missing_past_due_webhook`                |
-| 15  | zakup pakietu kredytów                | osobny Checkout w trybie `payment`             | webhook                         | **nic — panel nie ma ekranu kredytów**   | ✅ backend (`test_billing_credit_checkout`), ❌ interfejs                |
+| 15  | zakup pakietu kredytów                | osobny Checkout w trybie `payment`             | webhook                         | ekran „Kredyty”: saldo, pakiety, historia | ✅ `test_billing_credit_checkout` + `test_billing_credits_api` + test panelu |
 
 ## Czego atrapy nie udowodnią
 
@@ -87,7 +87,6 @@ każdej zmianie w adapterze albo w konfiguracji konta:
 ## Znane braki, zebrane
 
 - **3DS przy zakupie bez triala nie jest obsłużone** (12);
-- **kredyty nie mają interfejsu** (15);
 - `SubscriptionState.SUSPENDED` jest martwy.
 
 ## Kto dostaje ostrzeżenie

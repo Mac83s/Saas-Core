@@ -342,6 +342,32 @@ symulowaną subskrypcję (`sim_subscription_…`) i zapisuje kolejne porażki �
 identyfikator subskrypcji też należy do przestrzeni, która go wydała, tak samo
 jak identyfikator klienta. Do domknięcia razem z punktem 3.
 
+### Kredyty w panelu (2026-09-05)
+
+Domena kredytów była kompletna od kilku dni i całkowicie niewidoczna: księga,
+dwie pule, rezerwacje, checkout pakietu — i żaden sposób, żeby klient dowiedział
+się, ile ich ma. Doszedł ekran **Kredyty** w panelu wraz z API.
+
+Decyzje właściciela, które ukształtowały zakres:
+
+- **saldo widzi każdy członek, kupuje tylko właściciel.** Kredyty zużywa osoba,
+  która wykonuje pracę, i to ona musi wiedzieć, kiedy skończą się w połowie
+  operacji; płatność zostaje przy właścicielu jak przy planach. Odczyt wymaga
+  więc tylko `organization.read`, a zakup nadal `organization.billing.manage`
+  i roli właściciela;
+- **historia zakupów tak, historia zużycia nie** — dopóki nic kredytów nie
+  pochłania, lista zużycia byłaby pusta. Wróci razem z operacjami AI (W9.5.7).
+
+Dwie rzeczy wyszły przy okazji. Kredyty są **dodatkiem do aktywnego planu**
+(`start_credit_purchase` odmawia bez pełnego dostępu), więc overview zwraca
+`plan_required` i panel tłumaczy powód zamiast oferować przycisk kończący się
+403. A adres powrotu z Checkoutu pakietu wskazywał na `/settings/credits`, czyli
+stronę, której nigdy nie było — poprawione na `/panel/settings/credits`.
+
+Sprawdzone na żywo: organizacja właściciela ma 200 kredytów z planu Witryna,
+odnawiają się 1 października, trzy pakiety (49/199/699 zł netto) są kupowalne
+przez prawdziwego Stripe'a.
+
 ### Powiadomienia: e-mail i skrzynka w aplikacji (2026-09-05)
 
 Mapa cyklu życia wskazała, że ostrzeżenie o końcu triala powstaje w bazie i nie

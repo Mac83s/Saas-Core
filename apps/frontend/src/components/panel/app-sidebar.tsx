@@ -2,6 +2,7 @@
 
 import {
   CalendarDaysIcon,
+  CoinsIcon,
   CreditCardIcon,
   Globe2Icon,
   HomeIcon,
@@ -90,6 +91,14 @@ export function AppSidebar({
       label: t("billing"),
       module: "shared.billing",
       ownerOnly: true,
+    },
+    {
+      // No ownerOnly: everybody whose work spends credits should see how many
+      // are left; buying stays with the owner, which the panel itself enforces.
+      href: "/panel/settings/credits",
+      icon: CoinsIcon,
+      label: t("credits"),
+      module: "shared.billing",
     },
     {
       href: "/panel/settings/account",

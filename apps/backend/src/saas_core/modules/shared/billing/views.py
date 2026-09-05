@@ -13,13 +13,16 @@ from rest_framework.views import APIView
 
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
+from .models import CreditPurchaseStatus
 from .overview import customer_billing_overview
 from .serializers import (
     BillingDetailsSerializer,
     BillingDetailsStateSerializer,
     BillingSessionSerializer,
     CheckoutCreateSerializer,
+    CreditCheckoutCreateSerializer,
     CustomerBillingOverviewSerializer,
+    CustomerCreditsOverviewSerializer,
     EntitlementSupportReportSerializer,
     StripeWebhookReceiptSerializer,
     TrialActivationCreateSerializer,
@@ -27,8 +30,10 @@ from .serializers import (
 )
 from .services import (
     activate_customer_trial,
+    create_credit_checkout,
     create_customer_portal,
     create_setup_checkout,
+    customer_credits_overview,
     missing_billing_details,
     update_billing_details,
 )
@@ -220,3 +225,54 @@ class BillingEntitlementSupportView(APIView):
     )
     def get(self, _request: Request) -> Response:
         return Response(entitlement_support_report())
+
+
+class BillingCreditsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="billing_credits_retrieve",
+        tags=["billing"],
+        responses={
+            200: CustomerCreditsOverviewSerializer,
+            403: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, _request: Request) -> Response:
+        return Response(customer_credits_overview())
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class BillingCreditCheckoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="billing_credit_checkout_create",
+        tags=["billing"],
+        request=CreditCheckoutCreateSerializer,
+        responses={
+            200: BillingSessionSerializer,
+            201: BillingSessionSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+            502: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = CreditCheckoutCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        purchase = create_credit_checkout(
+            pack_key=serializer.validated_data["pack"],
+            idempotency_key=request.headers.get("Idempotency-Key", ""),
+        )
+        created = purchase.status == CreditPurchaseStatus.PENDING
+        return Response(
+            {
+                "id": purchase.checkout_session_id,
+                "url": purchase.checkout_url,
+                "expires_at": purchase.expires_at,
+            },
+            status=(status.HTTP_201_CREATED if created else status.HTTP_200_OK),
+        )

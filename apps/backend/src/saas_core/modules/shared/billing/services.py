@@ -19,18 +19,24 @@ from saas_core.modules.core.organizations.models import (
     Organization,
     OrganizationAuditAction,
 )
-from saas_core.modules.core.organizations.permissions import BILLING_MANAGE
+from saas_core.modules.core.organizations.permissions import (
+    BILLING_MANAGE,
+    ORGANIZATION_READ,
+)
 from saas_core.modules.core.organizations.platform_workspace import (
     assert_not_platform,
 )
 
 from .models import (
+    AccessMode,
     BillingCheckout,
     BillingSubscription,
     CheckoutStatus,
+    CreditPack,
     CreditPackPrice,
     CreditPurchase,
     CreditPurchaseStatus,
+    EntitlementSnapshot,
     StripePriceMapping,
     SubscriptionState,
 )
@@ -504,3 +510,84 @@ def create_customer_portal() -> PortalResult:
         metadata={"stripe_portal_session_id": portal.id},
     )
     return PortalResult(portal.id, portal.url)
+
+
+def customer_credits_overview() -> dict[str, Any]:
+    """What the panel shows about credits.
+
+    Reading needs nothing more than belonging to the organization: the person
+    who spends credits is the person who runs the operations, and finding out
+    the pool is empty halfway through the work is worse than seeing the number
+    beforehand. Buying stays with the owner, like every other payment.
+    """
+    context = authorize(ORGANIZATION_READ)
+    from .credits import credit_summary
+
+    summary = credit_summary()
+    # Credits are an add-on to a live subscription, not a way around one, and
+    # start_credit_purchase refuses without full access. The panel hears the
+    # same thing, so it can explain instead of offering a button that 403s.
+    has_plan = (
+        EntitlementSnapshot.all_objects.filter(organization_id=context.organization_id)
+        .values_list("access_mode", flat=True)
+        .first()
+    ) == AccessMode.FULL
+    packs = [
+        {
+            "key": pack.key,
+            "name": pack.name,
+            "description": pack.description,
+            "credits": pack.credits,
+            "currency": pack.currency,
+            "unit_amount_minor": pack.unit_amount_minor,
+            # A pack with no price in this mode cannot be sold here, and the
+            # panel says so instead of offering a button that fails.
+            "purchasable": pack.id in _purchasable_pack_ids(),
+        }
+        for pack in CreditPack.objects.filter(is_public=True).order_by("credits")
+    ]
+    purchases = [
+        {
+            "id": purchase.id,
+            "pack_key": purchase.pack.key,
+            "credits": purchase.credits,
+            "currency": purchase.currency,
+            "unit_amount_minor": purchase.unit_amount_minor,
+            "status": purchase.status,
+            "checkout_url": purchase.checkout_url,
+            "created_at": purchase.created_at,
+            "completed_at": purchase.completed_at,
+        }
+        for purchase in (
+            CreditPurchase.all_objects.select_related("pack")
+            .filter(organization_id=context.organization_id)
+            .order_by("-created_at")[:10]
+        )
+    ]
+    return {
+        "can_buy": (
+            context.role_key == "owner"
+            and context.has_permission(BILLING_MANAGE)
+            and has_plan
+        ),
+        "plan_required": not has_plan,
+        "payment_mode": settings.BILLING_PROVIDER,
+        "balance": {
+            "available": summary.available,
+            "allowance_remaining": summary.allowance_remaining,
+            "allowance_granted": summary.allowance_granted,
+            "allowance_period_end": summary.allowance_period_end,
+            "purchased_remaining": summary.purchased_remaining,
+            "reserved": summary.allowance_reserved + summary.purchased_reserved,
+        },
+        "packs": packs,
+        "purchases": purchases,
+    }
+
+
+def _purchasable_pack_ids() -> set[UUID]:
+    return set(
+        CreditPackPrice.objects.filter(
+            livemode=settings.STRIPE_LIVEMODE, is_active=True
+        ).values_list("pack_id", flat=True)
+    )

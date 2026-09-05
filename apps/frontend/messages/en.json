@@ -50,7 +50,8 @@
     "integrations": "Integrations",
     "team": "Business & team",
     "billing": "Plan & billing",
-    "settings": "Account & security"
+    "settings": "Account & security",
+    "credits": "Credits"
   },
   "Dashboard": {
     "eyebrow": "Management hub",
@@ -919,5 +920,38 @@
     "billingTrialEnding": "The trial of the {plan} plan ends {date}. We will take the first payment after that date.",
     "billingGraceEnding": "The payment for the {plan} plan failed. Nothing changes until {date}, after that the account becomes read-only.",
     "unknown": "New notification"
+  },
+  "Credits": {
+    "eyebrow": "Credits",
+    "title": "Credits for operations",
+    "description": "Credits pay for operations that cost us computing power. Your plan includes some every month; you can buy more.",
+    "balanceTitle": "Available credits",
+    "balanceDescription": "What is left from the plan plus what you bought.",
+    "fromPlan": "From the plan",
+    "fromPlanValue": "{remaining} of {granted}",
+    "renewsOn": "Renews on {date}",
+    "purchased": "Purchased",
+    "purchasedNote": "Never expire",
+    "reserved": "Reserved",
+    "reservedNote": "Operations in progress",
+    "planRequired": "Credits are an add-on to an active plan.",
+    "planLink": "Choose a plan",
+    "packsTitle": "Buy credits",
+    "packsDescription": "A one-off purchase, no subscription. Prices are net.",
+    "creditsFor": "for {price} net",
+    "buy": "Buy pack",
+    "ownerOnly": "Only the owner can buy",
+    "unavailable": "Currently unavailable",
+    "historyTitle": "Purchase history",
+    "historyEmpty": "You have not bought a pack yet.",
+    "finishPayment": "Finish payment",
+    "status_pending": "Pending",
+    "status_succeeded": "Paid",
+    "status_failed": "Failed",
+    "status_canceled": "Canceled",
+    "checkoutSuccess": "Thank you. The credits appear on the account as soon as the payment is confirmed.",
+    "checkoutCanceled": "The payment was interrupted. Nothing was charged.",
+    "loadError": "Could not load credits.",
+    "buyError": "Could not start the payment."
   }
 }

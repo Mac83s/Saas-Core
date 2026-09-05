@@ -2,6 +2,8 @@ from django.urls import path
 
 from .views import (
     BillingCheckoutView,
+    BillingCreditCheckoutView,
+    BillingCreditsView,
     BillingDetailsView,
     BillingEntitlementSupportView,
     BillingOverviewView,
@@ -19,6 +21,12 @@ urlpatterns = [
         name="billing-trial-activation",
     ),
     path("checkout/", BillingCheckoutView.as_view(), name="billing-checkout"),
+    path("credits/", BillingCreditsView.as_view(), name="billing-credits"),
+    path(
+        "credits/checkout/",
+        BillingCreditCheckoutView.as_view(),
+        name="billing-credit-checkout",
+    ),
     path("portal/", BillingPortalView.as_view(), name="billing-portal"),
     path(
         "support/entitlements/",

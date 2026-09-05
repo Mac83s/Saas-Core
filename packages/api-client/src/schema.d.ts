@@ -244,6 +244,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/billing/credits/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["billing_credits_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/credits/checkout/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["billing_credit_checkout_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/billing/details/": {
         parameters: {
             query?: never;
@@ -2247,6 +2279,49 @@ export interface components {
             slug: string;
             name: string;
         };
+        CreditBalance: {
+            available: number;
+            allowance_remaining: number;
+            allowance_granted: number;
+            /** Format: date */
+            allowance_period_end: string | null;
+            purchased_remaining: number;
+            reserved: number;
+        };
+        CreditCheckoutCreate: {
+            pack: string;
+        };
+        CreditPack: {
+            key: string;
+            name: string;
+            description: string;
+            credits: number;
+            currency: string;
+            unit_amount_minor: number;
+            purchasable: boolean;
+        };
+        CreditPurchase: {
+            /** Format: uuid */
+            id: string;
+            pack_key: string;
+            credits: number;
+            currency: string;
+            unit_amount_minor: number;
+            status: components["schemas"]["CreditPurchaseStatusEnum"];
+            checkout_url: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            completed_at: string | null;
+        };
+        /**
+         * @description * `pending` - pending
+         *     * `succeeded` - succeeded
+         *     * `failed` - failed
+         *     * `canceled` - canceled
+         * @enum {string}
+         */
+        CreditPurchaseStatusEnum: "pending" | "succeeded" | "failed" | "canceled";
         CsrfToken: {
             csrf_token: string;
         };
@@ -2264,6 +2339,14 @@ export interface components {
             billing_details: components["schemas"]["BillingDetailsState"];
             subscription: components["schemas"]["CustomerSubscription"] | null;
             plans: components["schemas"]["CustomerPlan"][];
+        };
+        CustomerCreditsOverview: {
+            can_buy: boolean;
+            plan_required: boolean;
+            payment_mode: components["schemas"]["PaymentModeEnum"];
+            balance: components["schemas"]["CreditBalance"];
+            packs: components["schemas"]["CreditPack"][];
+            purchases: components["schemas"]["CreditPurchase"][];
         };
         CustomerInput: {
             display_name: string;
@@ -3832,6 +3915,106 @@ export interface operations {
                 "application/json": components["schemas"]["CheckoutCreate"];
                 "application/x-www-form-urlencoded": components["schemas"]["CheckoutCreate"];
                 "multipart/form-data": components["schemas"]["CheckoutCreate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingSession"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingSession"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    billing_credits_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerCreditsOverview"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    billing_credit_checkout_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreditCheckoutCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["CreditCheckoutCreate"];
+                "multipart/form-data": components["schemas"]["CreditCheckoutCreate"];
             };
         };
         responses: {

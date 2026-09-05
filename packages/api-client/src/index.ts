@@ -33,6 +33,10 @@ export type EntitlementSupportItem =
 export type AppNotificationInbox =
   components["schemas"]["AppNotificationInbox"];
 export type AppNotification = components["schemas"]["AppNotification"];
+export type CustomerCreditsOverview =
+  components["schemas"]["CustomerCreditsOverview"];
+export type CreditPack = components["schemas"]["CreditPack"];
+export type CreditPurchase = components["schemas"]["CreditPurchase"];
 export type CustomerBillingOverview =
   components["schemas"]["CustomerBillingOverview"];
 export type BillingDetails = components["schemas"]["BillingDetails"];
@@ -364,6 +368,38 @@ export async function updateBillingDetails(
       body: details,
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function getCustomerCredits(): Promise<CustomerCreditsOverview> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/billing/credits/",
+    {
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createCreditCheckout(
+  pack: string,
+  idempotencyKey: string,
+): Promise<BillingSession> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/billing/credits/checkout/",
+    {
+      body: { pack },
+      credentials: "same-origin",
+      headers: {
+        "Idempotency-Key": idempotencyKey,
+        "X-CSRFToken": csrfToken,
+      },
     },
   );
   if (error || !data) throwProblem(error, response);

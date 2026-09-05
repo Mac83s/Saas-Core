@@ -50,7 +50,8 @@
     "integrations": "Integracje",
     "team": "Firma i zespół",
     "billing": "Plan i płatności",
-    "settings": "Konto i bezpieczeństwo"
+    "settings": "Konto i bezpieczeństwo",
+    "credits": "Kredyty"
   },
   "Dashboard": {
     "eyebrow": "Centrum zarządzania",
@@ -919,5 +920,38 @@
     "billingTrialEnding": "Okres próbny planu {plan} kończy się {date}. Po tej dacie pobierzemy pierwszą opłatę.",
     "billingGraceEnding": "Płatność za plan {plan} nie przeszła. Do {date} nic się nie zmienia, potem konto przejdzie w tryb tylko do odczytu.",
     "unknown": "Nowe powiadomienie"
+  },
+  "Credits": {
+    "eyebrow": "Kredyty",
+    "title": "Kredyty na operacje",
+    "description": "Kredyty zasilają operacje, które kosztują nas moc obliczeniową. Część dostajesz z planu co miesiąc, resztę możesz dokupić.",
+    "balanceTitle": "Dostępne kredyty",
+    "balanceDescription": "Suma tego, co zostało z planu i tego, co dokupiłeś.",
+    "fromPlan": "Z planu",
+    "fromPlanValue": "{remaining} z {granted}",
+    "renewsOn": "Odnawia się {date}",
+    "purchased": "Dokupione",
+    "purchasedNote": "Nie wygasają",
+    "reserved": "Zarezerwowane",
+    "reservedNote": "Trwające operacje",
+    "planRequired": "Kredyty są dodatkiem do aktywnego planu.",
+    "planLink": "Wybierz plan",
+    "packsTitle": "Dokup kredyty",
+    "packsDescription": "Jednorazowy zakup, bez abonamentu. Ceny netto.",
+    "creditsFor": "za {price} netto",
+    "buy": "Kup pakiet",
+    "ownerOnly": "Tylko właściciel może kupować",
+    "unavailable": "Chwilowo niedostępny",
+    "historyTitle": "Historia zakupów",
+    "historyEmpty": "Nie kupiłeś jeszcze żadnego pakietu.",
+    "finishPayment": "Dokończ płatność",
+    "status_pending": "Oczekuje",
+    "status_succeeded": "Opłacony",
+    "status_failed": "Nieudany",
+    "status_canceled": "Anulowany",
+    "checkoutSuccess": "Dziękujemy. Kredyty pojawią się na koncie, gdy tylko potwierdzimy płatność.",
+    "checkoutCanceled": "Płatność została przerwana. Nic nie pobraliśmy.",
+    "loadError": "Nie udało się wczytać kredytów.",
+    "buyError": "Nie udało się rozpocząć płatności."
   }
 }

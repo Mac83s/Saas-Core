@@ -114,3 +114,47 @@ class EntitlementSupportItemSerializer(serializers.Serializer[dict[str, Any]]):
 class EntitlementSupportReportSerializer(serializers.Serializer[dict[str, Any]]):
     snapshot = EntitlementSupportSnapshotSerializer(allow_null=True)
     items = EntitlementSupportItemSerializer(many=True)
+
+
+class CreditBalanceSerializer(serializers.Serializer[dict[str, Any]]):
+    available = serializers.IntegerField()
+    allowance_remaining = serializers.IntegerField()
+    allowance_granted = serializers.IntegerField()
+    allowance_period_end = serializers.DateField(allow_null=True)
+    purchased_remaining = serializers.IntegerField()
+    reserved = serializers.IntegerField()
+
+
+class CreditPackSerializer(serializers.Serializer[dict[str, Any]]):
+    key = serializers.CharField()
+    name = serializers.CharField()
+    description = serializers.CharField(allow_blank=True)
+    credits = serializers.IntegerField()
+    currency = serializers.CharField()
+    unit_amount_minor = serializers.IntegerField()
+    purchasable = serializers.BooleanField()
+
+
+class CreditPurchaseSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    pack_key = serializers.CharField()
+    credits = serializers.IntegerField()
+    currency = serializers.CharField()
+    unit_amount_minor = serializers.IntegerField()
+    status = serializers.ChoiceField(choices=["pending", "succeeded", "failed", "canceled"])
+    checkout_url = serializers.CharField(allow_blank=True)
+    created_at = serializers.DateTimeField()
+    completed_at = serializers.DateTimeField(allow_null=True)
+
+
+class CustomerCreditsOverviewSerializer(serializers.Serializer[dict[str, Any]]):
+    can_buy = serializers.BooleanField()
+    plan_required = serializers.BooleanField()
+    payment_mode = serializers.ChoiceField(choices=["stripe", "simulated"])
+    balance = CreditBalanceSerializer()
+    packs = CreditPackSerializer(many=True)
+    purchases = CreditPurchaseSerializer(many=True)
+
+
+class CreditCheckoutCreateSerializer(serializers.Serializer[dict[str, Any]]):
+    pack = serializers.SlugField(max_length=64)
