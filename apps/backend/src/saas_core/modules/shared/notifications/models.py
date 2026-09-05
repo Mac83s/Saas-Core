@@ -319,3 +319,60 @@ class DataExport(TenantScopedModel):
                 name="notifications_export_org_actor_idem_uq",
             )
         ]
+
+
+class NotificationSeverity(models.TextChoices):
+    INFO = "info", "Informacja"
+    WARNING = "warning", "Ostrzeżenie"
+    CRITICAL = "critical", "Pilne"
+
+
+class AppNotification(TenantScopedModel):
+    """A message waiting inside the product, for the person who can act on it.
+
+    E-mail leaves the building and may never arrive: it lands in spam, the
+    address belongs to an accountant, the person changed jobs. This is the copy
+    that stays where the work happens, and it is what turns a `BillingNotice`
+    from a row nobody reads into something a customer sees.
+
+    The text is not stored. The row carries a `kind` and the facts (`payload`),
+    and the panel renders the sentence in the reader's own language — so a
+    translation fix does not need a data migration, and one message cannot be
+    Polish for one member and English for another.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="app_notifications",
+    )
+    kind = models.CharField(max_length=64)
+    payload = models.JSONField(default=dict)
+    severity = models.CharField(
+        max_length=16,
+        choices=NotificationSeverity,
+        default=NotificationSeverity.INFO,
+    )
+    # What produced this, so the same event delivered twice does not appear
+    # twice: the sender passes a stable key rather than trusting a timestamp.
+    idempotency_key = models.CharField(max_length=160)
+    created_at = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("-created_at",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "user", "idempotency_key"],
+                name="notifications_app_org_user_idem_uq",
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=["organization", "user", "read_at"],
+                name="notif_app_org_user_read_idx",
+            )
+        ]

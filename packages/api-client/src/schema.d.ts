@@ -708,6 +708,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notifications/inbox/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["notification_inbox_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/inbox/read/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["notification_inbox_mark_read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/notifications/integrations/api-keys/": {
         parameters: {
             query?: never;
@@ -1852,6 +1884,24 @@ export interface components {
         ApiKeyList: {
             items: components["schemas"]["ApiKey"][];
         };
+        AppNotification: {
+            /** Format: uuid */
+            id: string;
+            kind: string;
+            payload: unknown;
+            severity: components["schemas"]["SeverityEnum"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            read_at: string | null;
+        };
+        AppNotificationInbox: {
+            unread: number;
+            items: components["schemas"]["AppNotification"][];
+        };
+        AppNotificationRead: {
+            ids?: string[];
+        };
         Appointment: {
             /** Format: uuid */
             id: string;
@@ -2895,6 +2945,13 @@ export interface components {
             expires_at: string;
             current: boolean;
         };
+        /**
+         * @description * `info` - info
+         *     * `warning` - warning
+         *     * `critical` - critical
+         * @enum {string}
+         */
+        SeverityEnum: "info" | "warning" | "critical";
         SiteCreate: {
             name: string;
             slug: string;
@@ -4915,6 +4972,66 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    notification_inbox_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppNotificationInbox"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    notification_inbox_mark_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["AppNotificationRead"];
+                "application/x-www-form-urlencoded": components["schemas"]["AppNotificationRead"];
+                "multipart/form-data": components["schemas"]["AppNotificationRead"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppNotificationInbox"];
+                };
+            };
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

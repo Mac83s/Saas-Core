@@ -60,6 +60,52 @@ TEMPLATES: dict[tuple[str, int], EmailTemplate] = {
         },
         allowed_context=frozenset({"display_name", "message"}),
     ),
+    ("billing.trial_ending", 1): EmailTemplate(
+        key="billing.trial_ending",
+        version=1,
+        category="required",
+        subjects={
+            "pl": "Okres próbny dobiega końca",
+            "en": "Your trial is ending",
+        },
+        bodies={
+            "pl": (
+                "<p>Okres próbny planu {plan_name} w {organization_name} kończy się "
+                "{ends_at}.</p><p>Po tej dacie pobierzemy pierwszą opłatę. Jeśli nie "
+                "chcesz kontynuować, zrezygnuj przed tym terminem.</p>"
+            ),
+            "en": (
+                "<p>The trial of the {plan_name} plan at {organization_name} ends "
+                "{ends_at}.</p><p>We will take the first payment after that date. "
+                "Cancel before then if you do not want to continue.</p>"
+            ),
+        },
+        allowed_context=frozenset({"organization_name", "plan_name", "ends_at"}),
+    ),
+    ("billing.grace_ending", 1): EmailTemplate(
+        key="billing.grace_ending",
+        version=1,
+        category="required",
+        subjects={
+            "pl": "Płatność nie przeszła — dostęp wygasa",
+            "en": "Payment failed — access is ending",
+        },
+        bodies={
+            "pl": (
+                "<p>Nie udało się pobrać opłaty za plan {plan_name} w "
+                "{organization_name}.</p><p>Do {ends_at} nic się nie zmienia. Po tej "
+                "dacie konto przejdzie w tryb tylko do odczytu — dane zostają, edycja "
+                "zostaje wstrzymana.</p>"
+            ),
+            "en": (
+                "<p>We could not charge for the {plan_name} plan at "
+                "{organization_name}.</p><p>Nothing changes until {ends_at}. After "
+                "that the account becomes read-only — the data stays, editing "
+                "stops.</p>"
+            ),
+        },
+        allowed_context=frozenset({"organization_name", "plan_name", "ends_at"}),
+    ),
     ("product.update", 1): EmailTemplate(
         key="product.update",
         version=1,

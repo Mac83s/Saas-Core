@@ -12,6 +12,7 @@ import {
 } from "#lib/server-auth";
 import { deployment } from "../../../generated/deployment";
 import { LogoutButton } from "../../../modules/core/identity";
+import { NotificationBell } from "../../../modules/shared/notifications";
 import {
   SidebarInset,
   SidebarProvider,
@@ -66,6 +67,7 @@ export default async function PanelLayout({
               <span className="hidden max-w-56 truncate text-sm text-muted-foreground xl:inline">
                 {user.email}
               </span>
+              <NotificationBell />
               <LocaleSwitcher />
               <LogoutButton />
             </div>

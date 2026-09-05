@@ -1605,6 +1605,57 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/notifications/inbox/:
+    get:
+      operationId: notification_inbox_list
+      tags:
+      - notifications
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppNotificationInbox'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/notifications/inbox/read/:
+    post:
+      operationId: notification_inbox_mark_read
+      tags:
+      - notifications
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AppNotificationRead'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AppNotificationRead'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AppNotificationRead'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppNotificationInbox'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/notifications/integrations/api-keys/:
     get:
       operationId: integration_api_keys_list
@@ -5314,6 +5365,52 @@ components:
             $ref: '#/components/schemas/ApiKey'
       required:
       - items
+    AppNotification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+        payload: {}
+        severity:
+          $ref: '#/components/schemas/SeverityEnum'
+        created_at:
+          type: string
+          format: date-time
+        read_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+      required:
+      - created_at
+      - id
+      - kind
+      - payload
+      - read_at
+      - severity
+    AppNotificationInbox:
+      type: object
+      properties:
+        unread:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AppNotification'
+      required:
+      - items
+      - unread
+    AppNotificationRead:
+      type: object
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+            format: uuid
     Appointment:
       type: object
       properties:
@@ -7891,6 +7988,16 @@ components:
       - expires_at
       - id
       - last_seen_at
+    SeverityEnum:
+      enum:
+      - info
+      - warning
+      - critical
+      type: string
+      description: |-
+        * `info` - info
+        * `warning` - warning
+        * `critical` - critical
     SiteCreate:
       type: object
       properties:

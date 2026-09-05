@@ -108,3 +108,23 @@ class DataExportSerializer(serializers.Serializer[dict[str, Any]]):
     status = serializers.CharField()
     expires_at = serializers.DateTimeField()
     download_token = serializers.CharField(allow_null=True)
+
+
+class AppNotificationSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    kind = serializers.CharField()
+    payload = serializers.JSONField()
+    severity = serializers.ChoiceField(choices=["info", "warning", "critical"])
+    created_at = serializers.DateTimeField()
+    read_at = serializers.DateTimeField(allow_null=True)
+
+
+class AppNotificationInboxSerializer(serializers.Serializer[dict[str, Any]]):
+    unread = serializers.IntegerField()
+    items = AppNotificationSerializer(many=True)
+
+
+class AppNotificationReadSerializer(serializers.Serializer[dict[str, Any]]):
+    ids = serializers.ListField(
+        child=serializers.UUIDField(), required=False, allow_empty=True
+    )

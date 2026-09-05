@@ -342,6 +342,37 @@ symulowaną subskrypcję (`sim_subscription_…`) i zapisuje kolejne porażki �
 identyfikator subskrypcji też należy do przestrzeni, która go wydała, tak samo
 jak identyfikator klienta. Do domknięcia razem z punktem 3.
 
+### Powiadomienia: e-mail i skrzynka w aplikacji (2026-09-05)
+
+Mapa cyklu życia wskazała, że ostrzeżenie o końcu triala powstaje w bazie i nie
+dociera do nikogo. `BillingNotice` miał od początku kolumnę `delivered_at`,
+której nic nie ustawiało — czyli dostarczenie było przewidziane i nigdy nie
+powstało.
+
+E-mail nie wymagał budowania: `shared.notifications` ma szablony z wersjami i
+lokalizacją, kolejkę, ponowienia, wygaszanie adresów i idempotencję. Doszły dwa
+szablony (`billing.trial_ending`, `billing.grace_ending`) i wiązanie.
+
+**Kierunek zależności wymusił kształt.** `shared.notifications` już zależy od
+`shared.billing`, więc billing nie może zawołać notifications — powstałby cykl,
+który `deployment-check` odrzuca. Dostarczanie jest więc **ciągnięciem**:
+`notifications/billing_notices.py` co minutę zabiera nierozesłane notice i
+zamienia każdy na wiadomość w produkcie oraz e-mail, po czym stempluje
+`delivered_at`.
+
+**Skrzynka w aplikacji powstała od zera.** Nowy model `AppNotification`
+(RLS wymuszone, migracja `notifications.0005`), `GET /api/v1/notifications/inbox/`
+i `POST .../inbox/read/`, a w panelu dzwonek z licznikiem nieprzeczytanych w
+nagłówku — otwiera listę, pozwala oznaczyć wszystko jako przeczytane, odświeża
+się co dwie minuty.
+
+Dwie decyzje warte zapamiętania. Odbiorcą jest **osoba z uprawnieniem do
+zarządzania płatnościami**, a nie adres z faktury — tam siedzi księgowość, która
+planu nie zmieni. I treść **nie jest zapisywana w bazie**: wiersz niesie `kind`
+oraz fakty, a zdanie składa panel w języku czytelnika, więc jedna wiadomość jest
+polska dla jednej osoby i angielska dla drugiej, a poprawka tłumaczenia nie
+wymaga migracji danych.
+
 ### Mapa cyklu życia płatności (2026-09-05)
 
 Usterki z 3–4 września siedziały wszystkie na **szwach między kawałkami**, z

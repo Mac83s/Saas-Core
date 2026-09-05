@@ -12,6 +12,7 @@ from django.utils import timezone
 
 from saas_core.modules.core.organizations.tasks import InvalidTenantTaskContext, tenant_task_context
 
+from .billing_notices import deliver_billing_notices
 from .delivery import DeliveryDeferred, deliver_email, deliver_webhook, process_provider_status
 from .metrics import PENDING_TASKS
 from .models import DeliveryStatus, ExportStatus, PendingTaskRoute
@@ -152,3 +153,10 @@ def scrub_email_task(message_id: str, signed_tenant_context: str) -> None:
             "notifications_email_cleanup_rejected",
             extra={"security_event": "notifications.email_cleanup_rejected"},
         )
+
+
+@shared_task(  # type: ignore[untyped-decorator]
+    name="saas_core.modules.shared.notifications.tasks.deliver_billing_notices"
+)
+def deliver_billing_notices_task() -> int:
+    return deliver_billing_notices()

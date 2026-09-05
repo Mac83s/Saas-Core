@@ -29,6 +29,7 @@ from saas_core.observability import correlation_id
 from .models import (
     ApiKey,
     ApiKeyCredentialRoute,
+    AppNotification,
     DataExport,
     DeliveryStatus,
     EmailSuppression,
@@ -211,6 +212,39 @@ def queue_email(
         lambda: deliver_email_task.delay(str(message.id), message.signed_tenant_context)
     )
     return message, True
+
+
+def list_app_notifications(*, limit: int = 20) -> tuple[list[AppNotification], int]:
+    """This member's messages in this organization, newest first.
+
+    No permission gate: a notification was addressed to a person when it was
+    created, so reading one's own inbox needs nothing further. What the tenant
+    context decides is which organization's inbox that is — the same account in
+    another company sees another list.
+    """
+    tenant = require_tenant_context()
+    mine = AppNotification.all_objects.filter(
+        organization_id=tenant.organization_id, user_id=tenant.actor_id
+    )
+    return list(mine[:limit]), mine.filter(read_at__isnull=True).count()
+
+
+def mark_app_notifications_read(*, ids: list[UUID] | None = None) -> int:
+    """Marks the given messages read, or all of them when none are named."""
+    tenant = require_tenant_context()
+    unread = AppNotification.all_objects.filter(
+        organization_id=tenant.organization_id,
+        user_id=tenant.actor_id,
+        read_at__isnull=True,
+    )
+    if ids:
+        unread = unread.filter(id__in=ids)
+    unread.update(read_at=timezone.now())
+    return AppNotification.all_objects.filter(
+        organization_id=tenant.organization_id,
+        user_id=tenant.actor_id,
+        read_at__isnull=True,
+    ).count()
 
 
 def preview_email(

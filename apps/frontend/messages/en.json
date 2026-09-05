@@ -908,5 +908,16 @@
     "accepted": "Invitation accepted. The organization is now available in your dashboard.",
     "missingToken": "The invitation token is missing from the page address.",
     "goToPanel": "Go to dashboard"
+  },
+  "NotificationBell": {
+    "open": "Notifications",
+    "openWithUnread": "Notifications, {count} unread",
+    "title": "Notifications",
+    "description": "Things that need your attention in this company.",
+    "empty": "Nothing new.",
+    "markAllRead": "Mark all as read",
+    "billingTrialEnding": "The trial of the {plan} plan ends {date}. We will take the first payment after that date.",
+    "billingGraceEnding": "The payment for the {plan} plan failed. Nothing changes until {date}, after that the account becomes read-only.",
+    "unknown": "New notification"
   }
 }

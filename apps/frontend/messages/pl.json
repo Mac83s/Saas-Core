@@ -908,5 +908,16 @@
     "accepted": "Zaproszenie zostało przyjęte. Organizacja jest już dostępna w panelu.",
     "missingToken": "Brakuje tokenu zaproszenia w adresie strony.",
     "goToPanel": "Przejdź do panelu"
+  },
+  "NotificationBell": {
+    "open": "Powiadomienia",
+    "openWithUnread": "Powiadomienia, nieprzeczytane: {count}",
+    "title": "Powiadomienia",
+    "description": "Sprawy, które wymagają Twojej uwagi w tej firmie.",
+    "empty": "Nie ma nic nowego.",
+    "markAllRead": "Oznacz wszystkie jako przeczytane",
+    "billingTrialEnding": "Okres próbny planu {plan} kończy się {date}. Po tej dacie pobierzemy pierwszą opłatę.",
+    "billingGraceEnding": "Płatność za plan {plan} nie przeszła. Do {date} nic się nie zmienia, potem konto przejdzie w tryb tylko do odczytu.",
+    "unknown": "Nowe powiadomienie"
   }
 }

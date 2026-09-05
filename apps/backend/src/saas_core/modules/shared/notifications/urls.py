@@ -4,6 +4,8 @@ from .views import (
     ApiKeyListCreateView,
     ApiKeyRevokeView,
     ApiKeyRotateView,
+    AppNotificationInboxView,
+    AppNotificationReadView,
     DataExportCreateView,
     DataExportDetailView,
     DataExportDownloadView,
@@ -20,6 +22,8 @@ from .views import (
 app_name = "notifications"
 
 urlpatterns = [
+    path("inbox/", AppNotificationInboxView.as_view(), name="inbox"),
+    path("inbox/read/", AppNotificationReadView.as_view(), name="inbox-read"),
     path("preferences/", PreferencesView.as_view(), name="preferences"),
     path("templates/", TemplateCatalogView.as_view(), name="template-list"),
     path("templates/preview/", TemplatePreviewView.as_view(), name="template-preview"),

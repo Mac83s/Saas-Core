@@ -541,6 +541,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "saas_core.modules.shared.billing.tasks.advance_simulated_billing",
         "schedule": 300.0,
     },
+    # Billing records the warning; notifications is what makes it arrive.
+    "notifications-deliver-billing-notices": {
+        "task": "saas_core.modules.shared.notifications.tasks.deliver_billing_notices",
+        "schedule": 60.0,
+    },
     "billing-expire-overrides": {
         "task": "saas_core.modules.shared.billing.tasks.expire_billing_overrides",
         "schedule": 60.0,

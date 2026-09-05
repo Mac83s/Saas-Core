@@ -30,6 +30,9 @@ export type EntitlementSupportReport =
   components["schemas"]["EntitlementSupportReport"];
 export type EntitlementSupportItem =
   components["schemas"]["EntitlementSupportItem"];
+export type AppNotificationInbox =
+  components["schemas"]["AppNotificationInbox"];
+export type AppNotification = components["schemas"]["AppNotification"];
 export type CustomerBillingOverview =
   components["schemas"]["CustomerBillingOverview"];
 export type BillingDetails = components["schemas"]["BillingDetails"];
@@ -309,6 +312,31 @@ export async function getEntitlementSupportReport(): Promise<EntitlementSupportR
   const { data, error, response } = await client.GET(
     "/api/v1/billing/support/entitlements/",
     { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function getNotificationInbox(): Promise<AppNotificationInbox> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/notifications/inbox/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function markNotificationsRead(
+  ids?: string[],
+): Promise<AppNotificationInbox> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/notifications/inbox/read/",
+    {
+      body: ids && ids.length > 0 ? { ids } : {},
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
   );
   if (error || !data) throwProblem(error, response);
   return data;

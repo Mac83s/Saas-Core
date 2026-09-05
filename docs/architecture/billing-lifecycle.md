@@ -51,7 +51,7 @@ zrobić w produkcie. Snapshot entitlementów niesie oba.
 | 2a  | powtórka zdarzenia / powrót panelu    | Stripe dostarcza ponownie                      | webhook + panel                 | nic (bez zmian)                          | ✅ `test_a_repeated_checkout_event_does_not_start_a_second_plan`         |
 | 3   | `trialing` → `active`                 | koniec triala, pierwsza płatność przechodzi    | Stripe → webhook                | plan zmienia opis na „aktywny"           | ✅ `test_a_customer_walks_the_whole_lifecycle` (krok 3)                  |
 | 3a  | to samo w symulatorze                 | scheduler co 5 minut (`advance_simulated_billing`) | zegar symulatora            | plan przechodzi w płatny okres           | ✅ `test_a_trial_whose_day_has_come_becomes_a_paid_period`               |
-| 4   | ostrzeżenie przed końcem triala       | scheduler, doba przed `trial_end`              | scheduler zapisuje `BillingNotice` | **nic**                               | ❌ zapis ✅ (`test_trial_warning_is_scheduled_and_emitted_exactly_once`), dostarczenie nie istnieje |
+| 4   | ostrzeżenie przed końcem triala       | scheduler, doba przed `trial_end`              | scheduler zapisuje `BillingNotice`, notifications je dostarcza | wiadomość w dzwonku panelu i e-mail | ✅ `test_a_notice_reaches_the_people_who_can_act_on_it` + `test_trial_warning_is_scheduled_and_emitted_exactly_once` |
 | 5   | `active` → `grace_period`             | `invoice.payment_failed`                       | webhook                         | pełny dostęp, informacja o zaległości    | ✅ `test_payment_failure_starts_grace_and_later_paid_event_restores_access` |
 | 6   | `grace_period` → `active`             | `invoice.paid` w trakcie karencji              | webhook                         | wraca do normy                           | ✅ ten sam test                                                          |
 | 7   | `grace_period` → `read_only`          | scheduler, `grace_period_end` (7 dni z planu)  | scheduler                       | dane widoczne, edycja zablokowana        | ✅ `test_expired_grace_period_becomes_read_only_without_deleting_data`   |
@@ -86,11 +86,26 @@ każdej zmianie w adapterze albo w konfiguracji konta:
 
 ## Znane braki, zebrane
 
-- **ostrzeżenia nikt nie dostaje** (4) — `BillingNotice` powstaje w bazie i nic
-  go nie czyta: ani e-mail, ani panel;
 - **3DS przy zakupie bez triala nie jest obsłużone** (12);
 - **kredyty nie mają interfejsu** (15);
 - `SubscriptionState.SUSPENDED` jest martwy.
+
+## Kto dostaje ostrzeżenie
+
+Ostrzeżenia trafiają do **osób, które mogą coś z nimi zrobić** — czyli do
+członków z uprawnieniem `organization.billing.manage`. Nie na adres z faktury:
+tam idą dokumenty i często siedzi tam księgowość, która planu nie zmieni.
+
+Każde ostrzeżenie idzie dwiema drogami naraz: **wiadomość w produkcie**
+(dzwonek w nagłówku panelu, `AppNotification`) i **e-mail** przez istniejący
+system dostarczania. Poczta wychodzi z budynku i może nie dojść — trafi do spamu
+albo do skrzynki, do której nikt nie zagląda — więc kopia zostaje tam, gdzie
+dzieje się praca.
+
+Treść nie jest zapisywana w bazie. Wiersz niesie `kind` i fakty, a zdanie składa
+panel w języku czytelnika: dzięki temu jedna wiadomość jest polska dla jednej
+osoby i angielska dla drugiej, a poprawka w tłumaczeniu nie wymaga migracji
+danych.
 
 ## Kto pilnuje czasu
 

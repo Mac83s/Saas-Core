@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from typing import Any
 from uuid import UUID
 
 from django.http import HttpResponse
@@ -21,12 +22,14 @@ from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 from saas_core.modules.core.organizations.authorization import authorize
 from saas_core.modules.shared.billing.authorization import authorize_entitled
 
-from .models import ApiKey, WebhookEndpoint
+from .models import ApiKey, AppNotification, WebhookEndpoint
 from .security import verify_provider_webhook
 from .serializers import (
     ApiKeyCreateSerializer,
     ApiKeyListSerializer,
     ApiKeySerializer,
+    AppNotificationInboxSerializer,
+    AppNotificationReadSerializer,
     DataExportCreateSerializer,
     DataExportSerializer,
     MessageStatusSerializer,
@@ -48,6 +51,8 @@ from .services import (
     ingest_provider_status,
     issue_api_key,
     issue_export_token,
+    list_app_notifications,
+    mark_app_notifications_read,
     preview_email,
     resolve_data_export,
     revoke_api_key,
@@ -400,3 +405,51 @@ def _webhook_payload(value: WebhookEndpoint) -> dict[str, object]:
         "secret_hint": value.secret_hint,
         "created_at": value.created_at,
     }
+
+
+def _inbox_payload(items: list[AppNotification], unread: int) -> dict[str, Any]:
+    return {
+        "unread": unread,
+        "items": [
+            {
+                "id": item.id,
+                "kind": item.kind,
+                "payload": item.payload,
+                "severity": item.severity,
+                "created_at": item.created_at,
+                "read_at": item.read_at,
+            }
+            for item in items
+        ],
+    }
+
+
+class AppNotificationInboxView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="notification_inbox_list",
+        tags=["notifications"],
+        responses={200: AppNotificationInboxSerializer, 403: ProblemDetailsSerializer},
+    )
+    def get(self, _request: Request) -> Response:
+        items, unread = list_app_notifications()
+        return Response(_inbox_payload(items, unread))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class AppNotificationReadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="notification_inbox_mark_read",
+        tags=["notifications"],
+        request=AppNotificationReadSerializer,
+        responses={200: AppNotificationInboxSerializer, 403: ProblemDetailsSerializer},
+    )
+    def post(self, request: Request) -> Response:
+        serializer = AppNotificationReadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        mark_app_notifications_read(ids=serializer.validated_data.get("ids") or None)
+        items, unread = list_app_notifications()
+        return Response(_inbox_payload(items, unread))
