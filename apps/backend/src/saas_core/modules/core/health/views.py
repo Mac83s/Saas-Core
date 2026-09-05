@@ -16,6 +16,7 @@ HealthSerializer = inline_serializer(
         "status": serializers.ChoiceField(choices=["ok", "degraded"]),
         "deployment": serializers.CharField(),
         "version": serializers.CharField(),
+        "profile_hash": serializers.CharField(),
         "correlation_id": serializers.UUIDField(),
         "checks": serializers.DictField(child=serializers.CharField()),
     },
@@ -49,6 +50,9 @@ def _payload(request: Request, checks: dict[str, str]) -> dict[str, Any]:
         "status": "ok" if healthy else "degraded",
         "deployment": settings.DEPLOYMENT,
         "version": settings.APPLICATION_VERSION,
+        # Not a secret: a build fingerprint the frontend compares with its own
+        # so a mismatched pair of images says so instead of half-working.
+        "profile_hash": settings.PROFILE_HASH,
         "correlation_id": cast(Any, request).correlation_id,
         "checks": checks,
     }

@@ -1,0 +1,290 @@
+{
+  "profileHash": "sha256:6611c7f428e3bca295f027be688d8646c9d9656460b4d7e3185b6d553d759d11",
+  "schemaVersion": 1,
+  "deployment": "business",
+  "product": {
+    "name": "SaaS Core Business",
+    "defaultLocale": "pl",
+    "supportedLocales": [
+      "pl",
+      "en"
+    ],
+    "platformDomain": "business.localhost"
+  },
+  "features": {
+    "customDomains": true,
+    "publicBooking": true
+  },
+  "modules": [
+    {
+      "id": "core.health",
+      "version": 1,
+      "layer": "core",
+      "dependsOn": [],
+      "backend": {
+        "djangoApp": "saas_core.modules.core.health",
+        "urlPrefix": "/api/v1/health",
+        "permissions": [],
+        "entitlements": [],
+        "eventSchemas": [],
+        "publicTables": [],
+        "platformTables": []
+      },
+      "frontend": {
+        "routes": [],
+        "navigation": [],
+        "translationNamespaces": []
+      }
+    },
+    {
+      "id": "core.identity",
+      "version": 1,
+      "layer": "core",
+      "dependsOn": [],
+      "backend": {
+        "djangoApp": "saas_core.modules.core.identity",
+        "urlPrefix": "/api/v1/auth",
+        "permissions": [],
+        "entitlements": [],
+        "eventSchemas": [
+          "identity.user.created.v1"
+        ],
+        "publicTables": [],
+        "platformTables": []
+      },
+      "frontend": {
+        "routes": [
+          "/login"
+        ],
+        "navigation": [],
+        "translationNamespaces": [
+          "identity"
+        ]
+      }
+    },
+    {
+      "id": "core.organizations",
+      "version": 1,
+      "layer": "core",
+      "dependsOn": [
+        "core.identity"
+      ],
+      "backend": {
+        "djangoApp": "saas_core.modules.core.organizations",
+        "urlPrefix": "/api/v1/organizations",
+        "permissions": [
+          "organization.read",
+          "organization.members.manage"
+        ],
+        "entitlements": [],
+        "eventSchemas": [
+          "organizations.organization.created.v1"
+        ],
+        "publicTables": [],
+        "platformTables": []
+      },
+      "frontend": {
+        "routes": [
+          "/organizations"
+        ],
+        "navigation": [
+          "organizations"
+        ],
+        "translationNamespaces": [
+          "organizations"
+        ]
+      }
+    },
+    {
+      "id": "shared.billing",
+      "version": 1,
+      "layer": "shared",
+      "dependsOn": [
+        "core.organizations"
+      ],
+      "backend": {
+        "djangoApp": "saas_core.modules.shared.billing",
+        "urlPrefix": "/api/v1/billing",
+        "permissions": [
+          "organization.billing.manage"
+        ],
+        "entitlements": [],
+        "eventSchemas": [
+          "billing.subscription.changed.v1"
+        ],
+        "publicTables": [],
+        "platformTables": [
+          "billing_stripewebhookevent"
+        ]
+      },
+      "frontend": {
+        "routes": [
+          "/settings/billing"
+        ],
+        "navigation": [
+          "billing"
+        ],
+        "translationNamespaces": [
+          "billing"
+        ]
+      }
+    },
+    {
+      "id": "shared.sites",
+      "version": 1,
+      "layer": "shared",
+      "dependsOn": [
+        "core.organizations",
+        "shared.billing"
+      ],
+      "backend": {
+        "djangoApp": "saas_core.modules.shared.sites",
+        "urlPrefix": "/api/v1/sites",
+        "permissions": [
+          "site.content.edit",
+          "site.publish"
+        ],
+        "entitlements": [
+          "sites.enabled",
+          "custom_domain.enabled"
+        ],
+        "eventSchemas": [
+          "sites.site.published.v1"
+        ],
+        "publicTables": [
+          "sites_domain",
+          "sites_site",
+          "sites_publication",
+          "sites_contentcollection",
+          "sites_contententry",
+          "sites_contententrypublication"
+        ],
+        "platformTables": []
+      },
+      "frontend": {
+        "routes": [
+          "/sites"
+        ],
+        "navigation": [
+          "sites"
+        ],
+        "translationNamespaces": [
+          "sites"
+        ]
+      }
+    },
+    {
+      "id": "shared.media",
+      "version": 1,
+      "layer": "shared",
+      "dependsOn": [
+        "core.organizations",
+        "shared.billing"
+      ],
+      "backend": {
+        "djangoApp": "saas_core.modules.shared.media",
+        "urlPrefix": "/api/v1/media",
+        "permissions": [
+          "media.read",
+          "media.manage"
+        ],
+        "entitlements": [
+          "storage.enabled"
+        ],
+        "eventSchemas": [],
+        "publicTables": [],
+        "platformTables": []
+      },
+      "frontend": {
+        "routes": [
+          "/media"
+        ],
+        "navigation": [
+          "media"
+        ],
+        "translationNamespaces": [
+          "media"
+        ]
+      }
+    },
+    {
+      "id": "shared.notifications",
+      "version": 1,
+      "layer": "shared",
+      "dependsOn": [
+        "core.organizations",
+        "shared.billing"
+      ],
+      "backend": {
+        "djangoApp": "saas_core.modules.shared.notifications",
+        "urlPrefix": "/api/v1/notifications",
+        "permissions": [
+          "notifications.preferences",
+          "notifications.manage",
+          "notifications.support",
+          "integrations.manage"
+        ],
+        "entitlements": [
+          "notifications.enabled"
+        ],
+        "eventSchemas": [
+          "notifications.message.queued.v1",
+          "notifications.message.status.v1",
+          "sites.site.published.v1"
+        ],
+        "publicTables": [],
+        "platformTables": []
+      },
+      "frontend": {
+        "routes": [
+          "/panel/notifications",
+          "/panel/integrations",
+          "/panel/support/notifications"
+        ],
+        "navigation": [
+          "settings.notifications",
+          "settings.integrations"
+        ],
+        "translationNamespaces": [
+          "notifications"
+        ]
+      }
+    },
+    {
+      "id": "shared.booking",
+      "version": 1,
+      "layer": "shared",
+      "dependsOn": [
+        "core.organizations",
+        "shared.notifications"
+      ],
+      "backend": {
+        "djangoApp": "saas_core.modules.shared.booking",
+        "urlPrefix": "/api/v1/booking",
+        "permissions": [
+          "booking.appointment.read",
+          "booking.appointment.manage"
+        ],
+        "entitlements": [
+          "booking.enabled"
+        ],
+        "eventSchemas": [
+          "booking.appointment.created.v1"
+        ],
+        "publicTables": [],
+        "platformTables": []
+      },
+      "frontend": {
+        "routes": [
+          "/calendar"
+        ],
+        "navigation": [
+          "calendar"
+        ],
+        "translationNamespaces": [
+          "booking"
+        ]
+      }
+    }
+  ]
+}

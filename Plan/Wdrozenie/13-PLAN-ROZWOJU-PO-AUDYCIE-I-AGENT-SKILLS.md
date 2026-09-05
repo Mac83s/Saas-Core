@@ -189,8 +189,18 @@ sumy, a nie wobec pojedynczego etapu, należy planować termin płatnego pilota.
   zadania, a także że profil pomijający zależność jest odrzucany zamiast po
   cichu uzupełniany. Połowa o MedPlano czeka na kod verticala, bo profil jest
   zaparkowany w `deployments/_planned/` (2026-09-05);
-- [ ] generować artefakt modułów i hash profilu używany przez backend, frontend,
-  workera i schedulera; niezgodny obraz ma odmówić startu;
+- [x] generować artefakt modułów i hash profilu używany przez backend, frontend,
+  workera i schedulera; niezgodny obraz ma odmówić startu — `pnpm
+  deployment:artifact` zapisuje `deployments/<profil>/module-artifact.json`
+  (profil plus deskryptory jego modułów, jeden `sha256`), a
+  `deployment:artifact:check` w `pnpm lint` pilnuje aktualności, więc zmiana
+  kontraktu modułu jest widoczna jako diff w każdym profilu, który go używa.
+  Backend, worker i scheduler czytają artefakt z obrazu i **odmawiają startu**,
+  gdy nie opisuje kompozycji, którą złożyły; frontend niesie ten sam hash w
+  `generated/deployment.ts`, a `/healthz` porównuje go z `/api/v1/health/` i
+  zwraca 503 przy trwałej niezgodności (milczący backend nie jest niezgodnością).
+  Sprawdzone na żywo: obraz `business` z podmontowanym artefaktem `core-only`
+  i z artefaktem starszego drzewa odmawia startu z nazwą różnicy (2026-09-05);
 - [ ] udokumentować i przetestować osobną bazę, użytkownika DB, storage, Redis,
   sekrety, backup, domenę i obserwowalność każdego deploymentu;
 - [ ] utrzymywać macierz `deployment → wersja/digest → migracje → rollback`, aby

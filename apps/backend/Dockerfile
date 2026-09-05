@@ -17,7 +17,8 @@ ENV UV_COMPILE_BYTECODE=1 \
     UV_PROJECT_ENVIRONMENT=/opt/venv \
     DEPLOYMENT=${DEPLOYMENT} \
     DEPLOYMENT_PROFILE_PATH=/app/deployment.json \
-    MODULE_CATALOG_PATH=/app/contracts/modules
+    MODULE_CATALOG_PATH=/app/contracts/modules \
+    MODULE_ARTIFACT_PATH=/app/module-artifact.json
 
 WORKDIR /app
 
@@ -34,6 +35,7 @@ COPY packages/contracts/content-operations ./contracts/content-operations
 # which modules it is made of, so it refuses to start rather than guess.
 COPY packages/contracts/modules ./contracts/modules
 COPY deployments/${DEPLOYMENT}/deployment.json ./deployment.json
+COPY deployments/${DEPLOYMENT}/module-artifact.json ./module-artifact.json
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev && \
@@ -55,6 +57,7 @@ ENV DJANGO_SETTINGS_MODULE=saas_core.config.settings.container \
     PAGE_TEMPLATE_CONTRACTS_PATH=/app/contracts/page-templates \
     CONTENT_OPERATIONS_CONTRACTS_PATH=/app/contracts/content-operations \
     MODULE_CATALOG_PATH=/app/contracts/modules \
+    MODULE_ARTIFACT_PATH=/app/module-artifact.json \
     PATH=/opt/venv/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app/src \
@@ -68,6 +71,7 @@ COPY --from=builder --chown=app:app /app/src ./src
 COPY --from=builder --chown=app:app /app/contracts ./contracts
 COPY --from=builder --chown=app:app /app/staticfiles ./staticfiles
 COPY --from=builder --chown=app:app /app/deployment.json ./deployment.json
+COPY --from=builder --chown=app:app /app/module-artifact.json ./module-artifact.json
 
 USER app:app
 

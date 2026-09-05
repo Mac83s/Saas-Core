@@ -3,18 +3,22 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 import { repositoryRoot, validateDeployment } from "./deployment-check.mjs";
+import { buildArtifact } from "./deployment-artifact.mjs";
 
 const profileFlag = process.argv.indexOf("--profile");
 const profileName =
   profileFlag >= 0 ? process.argv[profileFlag + 1] : undefined;
 
-export function toPublicDeployment(profile, modules) {
+export function toPublicDeployment(profile, modules, profileHash) {
   return {
     schemaVersion: profile.schemaVersion,
     id: profile.id,
     product: profile.product,
     modules,
     features: profile.features,
+    // The fingerprint of the tree this bundle was built from. The panel
+    // compares it with the backend's so a mismatched pair of images says so.
+    profileHash,
   };
 }
 
@@ -25,13 +29,15 @@ async function main() {
     return;
   }
   try {
-    const { profile, modules } = await validateDeployment(profileName);
+    const { profile, modules, descriptorsById } =
+      await validateDeployment(profileName);
+    const { profileHash } = buildArtifact(profile, modules, descriptorsById);
     const targetDirectory = path.join(
       repositoryRoot,
       "apps/frontend/src/generated",
     );
     const targetPath = path.join(targetDirectory, "deployment.ts");
-    const publicProfile = toPublicDeployment(profile, modules);
+    const publicProfile = toPublicDeployment(profile, modules, profileHash);
     const source = [
       "// Wygenerowano przez pnpm deployment:render. Nie edytuj ręcznie.",
       `export const deployment = ${JSON.stringify(publicProfile, null, 2)} as const`,

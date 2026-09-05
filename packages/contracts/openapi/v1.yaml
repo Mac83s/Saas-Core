@@ -6916,6 +6916,8 @@ components:
           type: string
         version:
           type: string
+        profile_hash:
+          type: string
         correlation_id:
           type: string
           format: uuid
@@ -6927,6 +6929,7 @@ components:
       - checks
       - correlation_id
       - deployment
+      - profile_hash
       - status
       - version
     HealthStatusEnum:

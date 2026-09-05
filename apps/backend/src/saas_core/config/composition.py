@@ -137,3 +137,46 @@ def select_by_module(
         if module_id in active:
             flattened.update(module_entries)
     return flattened
+
+
+def verify_artifact(
+    artifact: dict[str, Any],
+    *,
+    deployment: str,
+    modules: tuple[str, ...],
+    catalog: dict[str, ModuleDescriptor],
+) -> str:
+    """Checks the image's artifact describes the product it actually composed.
+
+    The hash itself is produced once, by the generator, and only carried from
+    there — recomputing it in a second language would mean two canonical
+    serializations that have to agree forever. What is checked here is the thing
+    a wrong hash would stand for: that this image's profile, catalog and
+    artifact are three views of one composition. Two images whose hashes differ
+    were built from different trees, and that is what the frontend compares.
+    """
+    stated = str(artifact.get("deployment", ""))
+    if stated != deployment:
+        raise CompositionError(
+            f"Artefakt opisuje deployment {stated!r}, a proces startuje jako {deployment!r}"
+        )
+
+    artifact_modules = tuple(str(entry["id"]) for entry in artifact.get("modules", ()))
+    if artifact_modules != modules:
+        raise CompositionError(
+            "Artefakt wymienia inne moduły niż profil: "
+            f"{', '.join(artifact_modules)} vs {', '.join(modules)}"
+        )
+
+    artifact_apps = tuple(
+        app
+        for app in (entry["backend"].get("djangoApp") for entry in artifact.get("modules", ()))
+        if app is not None
+    )
+    if artifact_apps != django_apps_for(modules, catalog):
+        raise CompositionError("Artefakt wskazuje inne aplikacje Django niż katalog modułów")
+
+    profile_hash = str(artifact.get("profileHash", ""))
+    if not profile_hash.startswith("sha256:"):
+        raise CompositionError("Artefakt nie niesie profileHash")
+    return profile_hash

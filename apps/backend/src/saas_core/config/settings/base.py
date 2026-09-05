@@ -13,6 +13,7 @@ from saas_core.config.composition import (
     django_apps_for,
     load_catalog,
     select_by_module,
+    verify_artifact,
 )
 
 
@@ -124,6 +125,34 @@ except CompositionError as error:
         f"Profil {DEPLOYMENT} nie składa się z katalogu {MODULE_CATALOG_PATH}: {error}"
     ) from error
 KNOWN_MODULES = frozenset(_module_catalog)
+
+#: The fingerprint of this composed product, generated once by
+#: `pnpm deployment:artifact` and carried into every image built from that tree.
+#: Backend, worker, scheduler and frontend are separate images; comparing this
+#: is how a frontend built from one tree notices it is talking to a backend
+#: built from another, instead of showing a menu whose routes answer 404.
+MODULE_ARTIFACT_PATH = Path(
+    os.environ.get(
+        "MODULE_ARTIFACT_PATH",
+        BASE_DIR.parent.parent / "deployments" / DEPLOYMENT / "module-artifact.json",
+    )
+)
+try:
+    PROFILE_HASH = verify_artifact(
+        json.loads(MODULE_ARTIFACT_PATH.read_text(encoding="utf-8")),
+        deployment=DEPLOYMENT,
+        modules=ACTIVE_MODULES,
+        catalog=_module_catalog,
+    )
+except (OSError, KeyError, TypeError, json.JSONDecodeError) as error:
+    raise ImproperlyConfigured(
+        f"Nie można odczytać artefaktu modułów: {MODULE_ARTIFACT_PATH}"
+    ) from error
+except CompositionError as error:
+    # An image whose artifact does not describe what it composed was built from
+    # a tree that no longer exists. Starting it would mean serving a product
+    # nobody assembled.
+    raise ImproperlyConfigured(f"Artefakt modułów nie opisuje tego deploymentu: {error}") from error
 
 BOOKING_MODULE_ENABLED = "shared.booking" in ACTIVE_MODULES
 PUBLIC_BOOKING_ENABLED = bool(_deployment_features.get("publicBooking", False))

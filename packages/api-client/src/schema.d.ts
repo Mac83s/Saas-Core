@@ -2482,6 +2482,7 @@ export interface components {
             status: components["schemas"]["HealthStatusEnum"];
             deployment: string;
             version: string;
+            profile_hash: string;
             /** Format: uuid */
             correlation_id: string;
             checks: {

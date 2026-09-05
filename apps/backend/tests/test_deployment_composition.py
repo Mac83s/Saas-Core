@@ -26,6 +26,7 @@ from saas_core.config.composition import (
     django_apps_for,
     load_catalog,
     select_by_module,
+    verify_artifact,
 )
 from saas_core.config.urls import urlpatterns_for
 
@@ -174,4 +175,59 @@ def test_scheduled_work_attached_to_an_unknown_module_fails_loudly() -> None:
             {"shared.bookings": {"x": {"task": "t", "schedule": 1.0}}},
             ("shared.booking",),
             frozenset(CATALOG),
+        )
+
+
+def test_the_artifact_describes_the_composition_this_process_derived() -> None:
+    """A build fingerprint is only worth carrying if it matches what booted."""
+    artifact = json.loads(Path(settings.MODULE_ARTIFACT_PATH).read_text(encoding="utf-8"))
+
+    assert (
+        verify_artifact(
+            artifact,
+            deployment=settings.DEPLOYMENT,
+            modules=settings.ACTIVE_MODULES,
+            catalog=CATALOG,
+        )
+        == settings.PROFILE_HASH
+    )
+    assert settings.PROFILE_HASH.startswith("sha256:")
+
+
+def test_an_artifact_from_another_deployment_is_refused() -> None:
+    other = json.loads((DEPLOYMENTS / "core-only" / "module-artifact.json").read_text("utf-8"))
+
+    with pytest.raises(CompositionError, match="deployment"):
+        verify_artifact(
+            other,
+            deployment=settings.DEPLOYMENT,
+            modules=settings.ACTIVE_MODULES,
+            catalog=CATALOG,
+        )
+
+
+def test_an_artifact_that_lists_other_modules_is_refused() -> None:
+    """The image was built from a tree this one no longer is."""
+    artifact = json.loads(Path(settings.MODULE_ARTIFACT_PATH).read_text(encoding="utf-8"))
+    artifact["modules"] = artifact["modules"][:-1]
+
+    with pytest.raises(CompositionError, match="inne moduły"):
+        verify_artifact(
+            artifact,
+            deployment=settings.DEPLOYMENT,
+            modules=settings.ACTIVE_MODULES,
+            catalog=CATALOG,
+        )
+
+
+def test_an_artifact_without_a_fingerprint_is_refused() -> None:
+    artifact = json.loads(Path(settings.MODULE_ARTIFACT_PATH).read_text(encoding="utf-8"))
+    artifact.pop("profileHash")
+
+    with pytest.raises(CompositionError, match="profileHash"):
+        verify_artifact(
+            artifact,
+            deployment=settings.DEPLOYMENT,
+            modules=settings.ACTIVE_MODULES,
+            catalog=CATALOG,
         )

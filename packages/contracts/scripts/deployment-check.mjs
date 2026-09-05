@@ -260,7 +260,12 @@ export async function validateDeployment(profileName, root = repositoryRoot) {
     }
   }
 
-  return { profile, modules: sortModules(profile.modules, descriptorsById) };
+  return {
+    profile,
+    modules: sortModules(profile.modules, descriptorsById),
+    // The artifact needs the descriptors themselves, not only their names.
+    descriptorsById,
+  };
 }
 
 const isMain =

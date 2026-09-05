@@ -477,6 +477,39 @@ storage i sekretów per deployment. Frontend filtruje menu i kafle po
 `deployment.modules` od dawna, ale obraz frontendu dla `core-only` nie był
 jeszcze zbudowany ani przedymiony.
 
+### Odcisk palca kompozycji (2026-09-05)
+
+Backend, worker, scheduler i frontend to osobne obrazy budowane z osobnych
+drzew. Nic nie stało na przeszkodzie, żeby frontend zbudowany z jednego spotkał
+backend zbudowany z drugiego — i nic by nie wybuchło: panel pokazałby menu
+modułu, którego adresy odpowiadają 404, co czyta się jak zepsuta funkcja, a nie
+jak pomylony deploy.
+
+`pnpm deployment:artifact` zapisuje `deployments/<profil>/module-artifact.json`:
+profil, jego moduły w kolejności kompozycji wraz z deskryptorami i jeden
+`sha256` nad całością. Artefakt jest **commitowany**, bo zmiana kontraktu
+dowolnego modułu ma być widoczna jako diff w każdym profilu, który go używa —
+czego nie daje hash liczony przy budowaniu i wyrzucany. `deployment:artifact:check`
+wchodzi w `pnpm lint` obok walidacji profili.
+
+Hash liczy **jeden** generator, po stronie JS. Python go **nie przelicza** —
+dwie kanonizacje JSON-a w dwóch językach musiałyby zgadzać się w nieskończoność.
+Backend sprawdza to, za co ten hash stoi: czy artefakt w obrazie opisuje tę samą
+kompozycję, którą proces złożył z profilu i katalogu (ten sam deployment, te
+same moduły, te same aplikacje Django). Jeśli nie — `ImproperlyConfigured` przy
+starcie, z nazwą różnicy.
+
+Frontend niesie ten sam hash w `generated/deployment.ts`, a `/healthz`
+porównuje go z `/api/v1/health/`. Rozróżnienie, które warto zapamiętać:
+**trwała niezgodność** to błąd budowania, więc jest zapamiętywana i kontener
+zostaje niezdrowy; **brak odpowiedzi** backendu nie mówi nic o tym obrazie, więc
+nie przewraca liveness — jedna awaria nie ma robić dwóch.
+
+Dowód na żywo: obraz `business` uruchomiony z podmontowanym artefaktem
+`core-only` odmawia startu („Artefakt opisuje deployment 'core-only', a proces
+startuje jako 'business'"), a z artefaktem starszego drzewa wypisuje, którego
+modułu brakuje.
+
 ### Kredyty w panelu (2026-09-05)
 
 Domena kredytów była kompletna od kilku dni i całkowicie niewidoczna: księga,
