@@ -149,9 +149,12 @@ procesor Stripe rozpoznaje tenanta zdarzenia; wpis audytowy powstaje na tych
 samych ścieżkach; a zdarzenie webhooka zapisujemy w momencie odbioru, przed
 odczytaniem payloadu, więc jego wiersz startuje bez organizacji.
 
-Zamknięcie wymaga decyzji per tabela — polityki dopuszczającej odczyt przed
-tenantem, przeniesienia odczytu za resolver albo jawnej deklaracji — i dlatego
-jest pozycją P1 planu 13 oraz osobnym ADR-em, a nie cichą migracją. Do tego
+Zamknięcie wymaga decyzji per tabela i dlatego jest pozycją P1 planu 13 oraz
+osobnym ADR-em, a nie cichą migracją. Ten ADR to
+[ADR-041](ADR-041-Izolacja-Tabel-Czytanych-Przed-Poznaniem-Tenanta.md): zwykła
+polityka po tenancie plus nazwane drzwi dla ścieżek sprzed tenanta, migracja
+tabela po tabeli, a `billing_stripewebhookevent` zostaje przeklasyfikowane na
+**tabelę platformową** — trzeci reżim obok prywatnego i publicznego. Do tego
 czasu izolację tych siedmiu tabel trzyma wyłącznie kod aplikacji: `Membership`
 i pozostałe modele `core.organizations` nie mają menedżera tenantowego, więc
 każde zapytanie musi samo filtrować po `organization_id` z `TenantContext`.

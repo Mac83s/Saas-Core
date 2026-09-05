@@ -149,7 +149,12 @@ sumy, a nie wobec pojedynczego etapu, należy planować termin płatnego pilota.
   czytana lub zapisywana przed poznaniem tenanta (logowanie pyta o członkostwa
   bez organizacji, role globalne mają `organization IS NULL`, zaproszenie czyta
   się po tokenie, procesor Stripe rozpoznaje tenanta po `BillingProfile`).
-  Wymaga ADR-u z decyzją per tabela, nie jednej migracji; ADR-039 §6;
+  Decyzja zapadła: **ADR-041** — zwykła polityka po tenancie plus nazwane drzwi
+  (osobna rola bazodanowa) dla ośmiu ścieżek czytających przed poznaniem
+  tenanta, z testem pilnującym listy tych miejsc. `billing_stripewebhookevent`
+  wychodzi z listy jako **tabela platformowa** (trzeci reżim, zrobione).
+  Zostaje: rola i konfiguracja drzwi, potem migracja sześciu tabel po jednej,
+  zaczynając od `billingprofile` i `invitation`, bo niosą dane osobowe;
 - [ ] sprawić, aby `deployment.json` rzeczywiście składał backendowe Django apps,
   URL-e, zadania i frontendowe route/menu, a nie tylko walidował deskryptory;
 - [x] usunąć niedozwolony import Core → Shared — jedyne naruszenie było w

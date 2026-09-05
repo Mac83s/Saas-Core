@@ -18,7 +18,8 @@
       "notifications.message.status.v1",
       "sites.site.published.v1"
     ],
-    "publicTables": []
+    "publicTables": [],
+    "platformTables": []
   },
   "frontend": {
     "routes": [

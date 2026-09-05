@@ -9,7 +9,8 @@
     "permissions": ["organization.billing.manage"],
     "entitlements": [],
     "eventSchemas": ["billing.subscription.changed.v1"],
-    "publicTables": []
+    "publicTables": [],
+    "platformTables": ["billing_stripewebhookevent"]
   },
   "frontend": {
     "routes": ["/settings/billing"],

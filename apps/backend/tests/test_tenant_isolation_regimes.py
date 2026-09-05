@@ -30,8 +30,8 @@ MODULES_PATH = Path(settings.SITE_BLOCK_CONTRACTS_PATH).parent / "modules"
 # linger: a table added here that later gains RLS fails the test until the
 # entry is removed. Add an entry only with the plan item that removes it.
 #
-# These seven are read or written before a tenant is known, which is why a
-# policy cannot simply be added to them (plan 13, P1):
+# These six are read or written before a tenant is known, which is why a policy
+# cannot simply be added to them (plan 13, P1):
 #   - organizations_membership answers "which companies is this account in?"
 #     at login, before any organization is chosen — under a policy keyed on
 #     app.organization_id that question returns nothing and nobody logs in;
@@ -42,10 +42,10 @@ MODULES_PATH = Path(settings.SITE_BLOCK_CONTRACTS_PATH).parent / "modules"
 #     a member, and organizations_billingprofile is how the Stripe processor
 #     finds the tenant an event belongs to — both reads precede the tenant;
 #   - organizations_organizationauditentry is written on those same paths;
-#   - billing_stripewebhookevent is stored when the webhook arrives, before
-#     the payload has been read, so its row starts without an organization.
-# Closing this needs a decision per table (policy admitting the pre-tenant
-# read, a declaration, or moving the read behind a resolver), not one sweep.
+# ADR-041 decides each of them: a plain tenant policy plus a named door for the
+# pre-tenant paths, migrated table by table, personal data first. The webhook
+# inbox left this list by being classified as a platform table, which is what
+# it always was.
 KNOWN_OPEN_PRIVATE_TABLES: dict[str, frozenset[str]] = {
     "saas_core.modules.core.organizations": frozenset(
         {
@@ -57,20 +57,33 @@ KNOWN_OPEN_PRIVATE_TABLES: dict[str, frozenset[str]] = {
             "organizations_role",
         }
     ),
-    "saas_core.modules.shared.billing": frozenset({"billing_stripewebhookevent"}),
 }
 
 pytestmark = pytest.mark.django_db
 
 
-def _public_tables_by_app() -> dict[str, set[str]]:
+def _declared_tables_by_app(field: str) -> dict[str, set[str]]:
     declared: dict[str, set[str]] = {}
     for path in sorted(MODULES_PATH.glob("*.json")):
         descriptor: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
         django_app = descriptor["backend"]["djangoApp"]
         if django_app is not None:
-            declared[django_app] = set(descriptor["backend"]["publicTables"])
+            declared[django_app] = set(descriptor["backend"][field])
     return declared
+
+
+def _public_tables_by_app() -> dict[str, set[str]]:
+    return _declared_tables_by_app("publicTables")
+
+
+def _platform_tables_by_app() -> dict[str, set[str]]:
+    """ADR-041: rows that name an organization but belong to the platform.
+
+    A webhook event is stored the moment it arrives, before its payload says
+    which tenant it concerns, so the row is born without one. Calling that
+    table public would be a lie about why it has no policy.
+    """
+    return _declared_tables_by_app("platformTables")
 
 
 def _carries_a_tenant(model: type[Any]) -> bool:
@@ -124,9 +137,10 @@ def test_every_module_with_tenant_tables_has_a_descriptor() -> None:
 
 def test_private_tenant_tables_force_row_level_security() -> None:
     public = _public_tables_by_app()
+    platform = _platform_tables_by_app()
     open_private: dict[str, set[str]] = {}
     for django_app, tables in _tenant_tables_by_app().items():
-        private = tables - public.get(django_app, set())
+        private = tables - public.get(django_app, set()) - platform.get(django_app, set())
         state = _rls_state(private)
         unguarded = {table for table in private if state.get(table) != (True, True)}
         if unguarded:
@@ -168,4 +182,27 @@ def test_declared_public_tables_exist_are_tenant_scoped_and_open() -> None:
         assert guarded == [], (
             "tabele publiczne nie mogą mieć RLS, bo renderer czyta je bez kontekstu "
             f"tenanta i dostałby puste odpowiedzi: {guarded}"
+        )
+
+
+def test_platform_tables_are_declared_tenant_tables_without_policies() -> None:
+    """ADR-041: the third regime has to be earned, not assumed.
+
+    A platform table still has to be a real table of the module that claims it,
+    and it has to actually be open — a policy on it would answer the webhook
+    endpoint with silence instead of an error, which is the failure mode this
+    whole contract exists to avoid.
+    """
+    tenant_tables = _tenant_tables_by_app()
+    for django_app, platform in _platform_tables_by_app().items():
+        unknown = platform - tenant_tables.get(django_app, set())
+        assert sorted(unknown) == [], (
+            f"{django_app}: platformTables wymienia tabele, które nie należą do "
+            f"tego modułu: {sorted(unknown)}"
+        )
+        state = _rls_state(platform)
+        guarded = [table for table in sorted(platform) if state.get(table) != (False, False)]
+        assert guarded == [], (
+            "tabela platformowa nie może mieć RLS, bo wiersz powstaje zanim "
+            f"tenant jest znany: {guarded}"
         )

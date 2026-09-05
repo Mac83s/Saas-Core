@@ -16,7 +16,8 @@
       "sites_contentcollection",
       "sites_contententry",
       "sites_contententrypublication"
-    ]
+    ],
+    "platformTables": []
   },
   "frontend": {
     "routes": ["/sites"],

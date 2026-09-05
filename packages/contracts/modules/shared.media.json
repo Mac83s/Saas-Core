@@ -9,7 +9,8 @@
     "permissions": ["media.read", "media.manage"],
     "entitlements": ["storage.enabled"],
     "eventSchemas": [],
-    "publicTables": []
+    "publicTables": [],
+    "platformTables": []
   },
   "frontend": {
     "routes": ["/media"],

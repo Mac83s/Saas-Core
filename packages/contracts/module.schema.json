@@ -34,7 +34,8 @@
         "permissions",
         "entitlements",
         "eventSchemas",
-        "publicTables"
+        "publicTables",
+        "platformTables"
       ],
       "properties": {
         "djangoApp": {
@@ -66,6 +67,15 @@
         },
         "publicTables": {
           "description": "Tables the public renderer reads without a tenant context; every other tenant table carries forced RLS (ADR-039).",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]*_[a-z0-9_]+$"
+          },
+          "uniqueItems": true
+        },
+        "platformTables": {
+          "description": "Tables whose rows name an organization but belong to the platform, not to that tenant, and are written before a tenant is known (ADR-041).",
           "type": "array",
           "items": {
             "type": "string",
