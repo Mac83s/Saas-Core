@@ -153,8 +153,12 @@ sumy, a nie wobec pojedynczego etapu, należy planować termin płatnego pilota.
   (osobna rola bazodanowa) dla ośmiu ścieżek czytających przed poznaniem
   tenanta, z testem pilnującym listy tych miejsc. `billing_stripewebhookevent`
   wychodzi z listy jako **tabela platformowa** (trzeci reżim, zrobione).
-  Zostaje: rola i konfiguracja drzwi, potem migracja sześciu tabel po jednej,
-  zaczynając od `billingprofile` i `invitation`, bo niosą dane osobowe;
+  Drzwi działają: rola `saas_core_identity` bez BYPASSRLS, alias `pre_tenant`,
+  router nieprzepuszczający niczego samoczynnie i test skanujący źródła wobec
+  listy pięciu dozwolonych miejsc. Migracja `organizations.0025` zamknęła
+  `billingprofile` i `invitation`. Zostają cztery: `membership`,
+  `organization`, `role`, `organizationauditentry` — każda dotyka logowania,
+  więc idą pojedynczo (2026-09-05);
 - [ ] sprawić, aby `deployment.json` rzeczywiście składał backendowe Django apps,
   URL-e, zadania i frontendowe route/menu, a nie tylko walidował deskryptory;
 - [x] usunąć niedozwolony import Core → Shared — jedyne naruszenie było w

@@ -342,6 +342,44 @@ symulowaną subskrypcję (`sim_subscription_…`) i zapisuje kolejne porażki �
 identyfikator subskrypcji też należy do przestrzeni, która go wydała, tak samo
 jak identyfikator klienta. Do domknięcia razem z punktem 3.
 
+### Drzwi RLS: pierwsze dwie tabele zamknięte (2026-09-05)
+
+ADR-041 wdrożony w krokach 1 i 2, a z kroku 3 dwie tabele niosące dane osobowe.
+
+**Druga tożsamość bazodanowa** (`saas_core_identity`) powstaje w bootstrapie
+razem z rolą aplikacyjną, ma własny sekret i **nie ma BYPASSRLS** — jej zasięg
+to wyłącznie polityki, które ją wymieniają. W Django jest to alias
+`pre_tenant` wskazujący tę samą bazę; router nie kieruje tam nic samoczynnie i
+nie pozwala na migracje, więc trafia tam tylko to, co jawnie napisze `.using()`.
+
+**Pięć miejsc** czyta przez te drzwi, każde z powodem, i pilnuje tego
+`tests/test_pre_tenant_door.py`: skanuje źródła i porównuje z zadeklarowaną
+listą, więc szóste miejsce psuje test, dopóki ktoś go nie dopisze. To jest cała
+wartość tego rozwiązania — bez tego testu drzwi są tylko wygodniejszym
+obejściem.
+
+**Migracja `organizations.0025`** zamyka `organizations_billingprofile` i
+`organizations_invitation`: polityka po tenancie dla wszystkich plus polityka
+przepuszczająca rolę drzwi. Migracja **odmawia startu**, gdy roli nie ma —
+wdrożenie bez drzwi to wdrożenie, w którym procesor Stripe nie znajdzie tenanta
+i nikt nie przyjmie zaproszenia, więc lepiej zatrzymać się z nazwą brakującej
+roli niż dowiedzieć się przy pierwszym webhooku.
+
+Sprawdzone na żywo, czyli tam, gdzie RLS w ogóle działa (testowa baza łączy się
+właścicielem i polityki jej nie dotyczą): odczyt profili billingowych **bez
+tenanta zwraca 0**, przez drzwi 1, z ustawionym tenantem 1. Po migracji panel
+działa w całości — logowanie, lista organizacji, plan, kredyty, skrzynka,
+witryny — a webhook Stripe odpowiada 202 na świeżym zdarzeniu.
+
+Zmiany w ścieżkach, które to umożliwiły: middleware szuka członkostwa przez
+drzwi w krótkiej transakcji (blokada trwa tyle, co odczyt), `create_organization`
+ustawia tenanta **przed** zapisem organizacji — identyfikator istnieje przed
+wierszem — a `accept_invitation` ustawia go zaraz po odnalezieniu zaproszenia,
+więc wszystko, co potem pisze, idzie już pod polityką.
+
+Zostały cztery tabele: `membership`, `organization`, `role`, `organizationauditentry`.
+Każda dotyka ścieżki logowania, więc idą pojedynczo, w osobnym przejściu.
+
 ### Kredyty w panelu (2026-09-05)
 
 Domena kredytów była kompletna od kilku dni i całkowicie niewidoczna: księga,

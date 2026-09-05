@@ -26,6 +26,7 @@ from django.db import transaction
 
 from saas_core.modules.core.organizations.context import set_local_organization_id
 from saas_core.modules.core.organizations.models import BillingProfile, Organization
+from saas_core.modules.core.organizations.pre_tenant import PRE_TENANT_DB
 
 
 @contextmanager
@@ -45,7 +46,13 @@ def billing_organization_ids(*, limit: int | None = None) -> list[UUID]:
     a suspended organization is exactly the one whose grace period is about to
     expire, and narrowing the list would quietly drop that work.
     """
-    identifiers = Organization.objects.order_by("created_at", "id").values_list("id", flat=True)
+    # ADR-041: a sweep visits every organization on purpose, which is the one
+    # read that has no tenant by definition.
+    identifiers = (
+        Organization.objects.using(PRE_TENANT_DB)
+        .order_by("created_at", "id")
+        .values_list("id", flat=True)
+    )
     if limit is not None:
         identifiers = identifiers[:limit]
     return list(identifiers)
@@ -54,7 +61,8 @@ def billing_organization_ids(*, limit: int | None = None) -> list[UUID]:
 def organization_id_for_customer(external_customer_id: str) -> UUID | None:
     """Maps a provider customer to a tenant before any tenant row is read."""
     return (
-        BillingProfile.objects.filter(external_customer_id=external_customer_id)
+        BillingProfile.objects.using(PRE_TENANT_DB)
+        .filter(external_customer_id=external_customer_id)
         .values_list("organization_id", flat=True)
         .first()
     )

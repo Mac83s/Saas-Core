@@ -22,6 +22,8 @@ x-backend-environment: &backend-environment
   OBJECT_STORAGE_FORCE_PATH_STYLE: "true"
   POSTGRES_DB: ${SAAS_CORE_POSTGRES_DB:-saas_core}
   POSTGRES_HOST: postgres
+  POSTGRES_IDENTITY_PASSWORD_FILE: /run/secrets/postgres_identity_password
+  POSTGRES_IDENTITY_USER: ${SAAS_CORE_POSTGRES_IDENTITY_USER:-saas_core_identity}
   POSTGRES_PASSWORD_FILE: /run/secrets/postgres_app_password
   POSTGRES_PORT: "5432"
   POSTGRES_USER: ${SAAS_CORE_POSTGRES_APP_USER:-saas_core_app}
@@ -63,6 +65,7 @@ x-backend-service: &backend-service
   secrets:
     - django_secret_key
     - postgres_app_password
+    - postgres_identity_password
     - object_storage_access_key_id
     - object_storage_secret_access_key
     - stripe_secret_key
@@ -115,6 +118,8 @@ services:
     environment:
       POSTGRES_APP_PASSWORD_FILE: /run/secrets/postgres_app_password
       POSTGRES_APP_USER: ${SAAS_CORE_POSTGRES_APP_USER:-saas_core_app}
+      POSTGRES_IDENTITY_PASSWORD_FILE: /run/secrets/postgres_identity_password
+      POSTGRES_IDENTITY_USER: ${SAAS_CORE_POSTGRES_IDENTITY_USER:-saas_core_identity}
       POSTGRES_DB: ${SAAS_CORE_POSTGRES_DB:-saas_core}
       POSTGRES_HOST: postgres
       POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
@@ -122,6 +127,7 @@ services:
       POSTGRES_USER: ${SAAS_CORE_POSTGRES_MIGRATION_USER:-saas_core}
     secrets:
       - postgres_app_password
+      - postgres_identity_password
       - postgres_password
     volumes:
       - ./infra/postgres/bootstrap-app-role.sh:/usr/local/bin/bootstrap-app-role.sh:ro
@@ -254,6 +260,7 @@ services:
       # time, migrate included.
       - django_secret_key
       - postgres_password
+      - postgres_identity_password
       - object_storage_access_key_id
       - object_storage_secret_access_key
       - stripe_secret_key
@@ -662,6 +669,8 @@ secrets:
     file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/postgres_password
   postgres_app_password:
     file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/postgres_app_password
+  postgres_identity_password:
+    file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/postgres_identity_password
   grafana_admin_password:
     file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/grafana_admin_password
   object_storage_access_key_id:

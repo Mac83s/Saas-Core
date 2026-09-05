@@ -30,18 +30,18 @@ MODULES_PATH = Path(settings.SITE_BLOCK_CONTRACTS_PATH).parent / "modules"
 # linger: a table added here that later gains RLS fails the test until the
 # entry is removed. Add an entry only with the plan item that removes it.
 #
-# These six are read or written before a tenant is known, which is why a policy
-# cannot simply be added to them (plan 13, P1):
+# These four are read or written before a tenant is known, which is why a policy
+# cannot simply be added to them (plan 13, P1). The two that carried personal
+# data — the billing profile and the invitation — went first and are gone from
+# this list; the rest follow the same way, one migration at a time:
 #   - organizations_membership answers "which companies is this account in?"
 #     at login, before any organization is chosen — under a policy keyed on
 #     app.organization_id that question returns nothing and nobody logs in;
 #   - organizations_organization is the registry the same answer resolves to;
 #   - organizations_role holds the global roles as organization IS NULL rows,
 #     shared by every tenant, so a policy has to admit them;
-#   - organizations_invitation is read by its token by someone who is not yet
-#     a member, and organizations_billingprofile is how the Stripe processor
-#     finds the tenant an event belongs to — both reads precede the tenant;
-#   - organizations_organizationauditentry is written on those same paths;
+#   - organizations_organizationauditentry is written on those same paths, and
+#     during organization creation before a tenant exists;
 # ADR-041 decides each of them: a plain tenant policy plus a named door for the
 # pre-tenant paths, migrated table by table, personal data first. The webhook
 # inbox left this list by being classified as a platform table, which is what
@@ -49,8 +49,6 @@ MODULES_PATH = Path(settings.SITE_BLOCK_CONTRACTS_PATH).parent / "modules"
 KNOWN_OPEN_PRIVATE_TABLES: dict[str, frozenset[str]] = {
     "saas_core.modules.core.organizations": frozenset(
         {
-            "organizations_billingprofile",
-            "organizations_invitation",
             "organizations_membership",
             "organizations_organization",
             "organizations_organizationauditentry",

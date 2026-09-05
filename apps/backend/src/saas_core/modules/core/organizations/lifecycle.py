@@ -19,7 +19,7 @@ from saas_core.modules.core.identity.tokens import digest_secret, issue_bound_to
 
 from .audit import record_audit
 from .authorization import OrganizationPermissionDenied, authorize
-from .context import TenantContext
+from .context import TenantContext, set_local_organization_id
 from .middleware import ACTIVE_ORGANIZATION_SESSION_KEY
 from .models import (
     Invitation,
@@ -39,6 +39,7 @@ from .permissions import (
     OWNERSHIP_TRANSFER,
 )
 from .platform_workspace import assert_not_platform
+from .pre_tenant import PRE_TENANT_DB
 from .tasks import issue_tenant_task_contract, send_organization_invitation
 
 LIMITED_ROLE_KEYS = {"viewer", "staff"}
@@ -201,8 +202,11 @@ def create_invitation(
 def accept_invitation(*, request: HttpRequest, token: str) -> Membership:
     user = cast(User, request.user)
     now = timezone.now()
+    # ADR-041: a token is presented by somebody who is not a member yet, so
+    # this one lookup goes through the door. Everything after it runs under the
+    # tenant the invitation named.
     invitation = (
-        Invitation.objects.select_for_update()
+        Invitation.objects.using(PRE_TENANT_DB)
         .select_related("organization", "role")
         .filter(token_hash=digest_secret(token))
         .first()
@@ -217,6 +221,10 @@ def accept_invitation(*, request: HttpRequest, token: str) -> Membership:
     ):
         raise InvalidInvitationToken
     assert_not_platform(invitation.organization)
+    # From here on the tenant is known, so everything this function writes —
+    # the membership, the invitation's own status, the audit entry — is written
+    # under the policy that guards it rather than through the door.
+    set_local_organization_id(invitation.organization_id)
     if User.objects.normalize_email(user.email) != invitation.email:
         raise InvitationEmailMismatch
     if Membership.objects.filter(

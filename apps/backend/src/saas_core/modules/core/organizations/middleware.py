@@ -16,6 +16,7 @@ from .context import (
     set_local_organization_id,
 )
 from .models import Membership, MembershipStatus, OrganizationStatus, WorkspaceKind
+from .pre_tenant import PRE_TENANT_DB
 
 ACTIVE_ORGANIZATION_SESSION_KEY = "organizations_active_organization_id"
 TENANT_CONTEXT_EXEMPT_PATHS = {
@@ -56,8 +57,35 @@ class TenantContextMiddleware:
             return None
 
         user = cast(User, request.user)
-        membership = (
-            Membership.objects.select_for_update()
+        # ADR-041: the question "does this account belong to that organization"
+        # is asked before the answer could set a tenant, so it goes through the
+        # door. The lock lives only as long as the read: it never protected
+        # anything the request could not have read a moment earlier, and
+        # holding it for the whole request would keep a second connection open
+        # for every authenticated call.
+        with transaction.atomic(using=PRE_TENANT_DB):
+            membership = self._membership_for(request, organization_id=organization_id)
+        if membership is None:
+            request.session.pop(ACTIVE_ORGANIZATION_SESSION_KEY, None)
+            return None
+        # The platform's own workspace publishes every product's marketing
+        # pages, so a stolen password there is worth more than one customer's
+        # site. The requirement sits on entering the workspace rather than on a
+        # list of "high-risk" endpoints, because that list is never complete.
+        if membership.organization.workspace_kind == WorkspaceKind.PLATFORM and (
+            not has_confirmed_mfa(user)
+        ):
+            request.session.pop(ACTIVE_ORGANIZATION_SESSION_KEY, None)
+            return None
+        return context_from_membership(membership)
+
+    def _membership_for(
+        self, request: HttpRequest, *, organization_id: UUID
+    ) -> Membership | None:
+        user = cast(User, request.user)
+        return (
+            Membership.objects.using(PRE_TENANT_DB)
+            .select_for_update()
             .select_related("organization", "role")
             .filter(
                 organization_id=organization_id,
@@ -73,16 +101,3 @@ class TenantContextMiddleware:
             )
             .first()
         )
-        if membership is None:
-            request.session.pop(ACTIVE_ORGANIZATION_SESSION_KEY, None)
-            return None
-        # The platform's own workspace publishes every product's marketing
-        # pages, so a stolen password there is worth more than one customer's
-        # site. The requirement sits on entering the workspace rather than on a
-        # list of "high-risk" endpoints, because that list is never complete.
-        if membership.organization.workspace_kind == WorkspaceKind.PLATFORM and (
-            not has_confirmed_mfa(user)
-        ):
-            request.session.pop(ACTIVE_ORGANIZATION_SESSION_KEY, None)
-            return None
-        return context_from_membership(membership)

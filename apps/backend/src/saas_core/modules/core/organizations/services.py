@@ -15,6 +15,7 @@ from saas_core.modules.core.identity.sessions import rotate_managed_session
 
 from .audit import record_audit
 from .authorization import authorize
+from .context import set_local_organization_id
 from .middleware import ACTIVE_ORGANIZATION_SESSION_KEY
 from .models import (
     BillingProfile,
@@ -28,6 +29,7 @@ from .models import (
 )
 from .permissions import ORGANIZATION_ARCHIVE, SETTINGS_MANAGE
 from .platform_workspace import PlatformWorkspaceForbidden
+from .pre_tenant import PRE_TENANT_DB
 
 
 class OrganizationNotFound(NotFound):
@@ -57,7 +59,11 @@ class OrganizationAccess:
 def list_organizations(*, request: HttpRequest) -> list[OrganizationAccess]:
     user = cast(User, request.user)
     active_id = request.session.get(ACTIVE_ORGANIZATION_SESSION_KEY)
-    memberships = Membership.objects.select_related("organization", "role").filter(
+    # ADR-041: the switcher asks which companies this account belongs to, which
+    # is the question that has to be answered before a tenant exists.
+    memberships = Membership.objects.using(PRE_TENANT_DB).select_related(
+        "organization", "role"
+    ).filter(
         user=user,
         status__in=[MembershipStatus.ACTIVE, MembershipStatus.SUSPENDED],
         organization__status__in=[
@@ -109,6 +115,10 @@ def create_organization(
         currency=currency,
     )
     _validate_model(organization, validate_uniqueness=False)
+    # The identifier exists before the row does, so the tenant can be set first
+    # and everything below — the organization, its billing profile, the owner's
+    # membership, the audit entry — is written under the policy that guards it.
+    set_local_organization_id(organization.id)
     try:
         organization.save()
     except IntegrityError as error:

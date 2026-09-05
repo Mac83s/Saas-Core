@@ -250,6 +250,9 @@ TEMPLATES = [
 WSGI_APPLICATION = "saas_core.config.wsgi.application"
 ASGI_APPLICATION = "saas_core.config.asgi.application"
 
+#: The connection every request uses. It cannot bypass row-level security, so
+#: a query without a tenant answers with nothing rather than with somebody
+#: else's rows.
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -261,6 +264,23 @@ DATABASES = {
         "CONN_MAX_AGE": 60,
     }
 }
+
+#: The door from ADR-041. Same database, a different role, and policies that
+#: name that role on exactly the tables which have to be read before a tenant
+#: is known — logging in, the organization switcher, an invitation found by its
+#: token, the Stripe processor identifying a customer, the background sweeps.
+#: The role holds no BYPASSRLS: its reach is whatever the policies grant it and
+#: nothing else, so adding a seventh table is a migration somebody has to write.
+PRE_TENANT_DATABASE_ALIAS = "pre_tenant"
+DATABASES[PRE_TENANT_DATABASE_ALIAS] = {
+    **DATABASES["default"],
+    "USER": os.environ.get("POSTGRES_IDENTITY_USER", "saas_core_identity"),
+    "PASSWORD": secret_setting("POSTGRES_IDENTITY_PASSWORD", "saas_core"),
+    # Django refuses to run tests against two aliases pointing at one database
+    # unless the second is declared a mirror of the first.
+    "TEST": {"MIRROR": "default"},
+}
+DATABASE_ROUTERS = ["saas_core.config.db_router.PreTenantRouter"]
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},

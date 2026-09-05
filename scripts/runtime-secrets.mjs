@@ -30,6 +30,12 @@ await ensureSecret(
   "postgres_app_password",
   randomBytes(32).toString("base64url"),
 );
+// ADR-041: the identity role reads the handful of tables that have to be read
+// before anybody knows which tenant is asking.
+await ensureSecret(
+  "postgres_identity_password",
+  randomBytes(32).toString("base64url"),
+);
 await ensureSecret("redis_password", randomBytes(32).toString("base64url"));
 await ensureSecret(
   "grafana_admin_password",

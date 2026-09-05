@@ -75,11 +75,11 @@ def process_stripe_event(event_id: UUID | str) -> StripeWebhookEvent | None:
     try:
         with transaction.atomic():
             event = StripeWebhookEvent.objects.select_for_update().get(pk=event_id)
-            # The event row itself is not tenant data, but everything the
-            # handlers touch is. Stripe names the customer, and the customer
-            # names the tenant, so the organization is resolved from a table
-            # without row-level security before any tenant row is read
-            # (ADR-039).
+            # The event row itself is not tenant data — it is a platform
+            # table (ADR-041 §1) — but everything the handlers touch is. Stripe
+            # names the customer and the customer names the tenant, so the
+            # organization is resolved through the pre-tenant door before any
+            # guarded row is read.
             organization_id = _event_organization_id(event)
             if organization_id is not None:
                 set_local_organization_id(organization_id)
