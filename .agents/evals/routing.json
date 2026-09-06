@@ -99,6 +99,10 @@
     "shared.booking": {
       "skill": "develop-booking",
       "note": "Własna procedura: czas lokalny, DST i rozstrzyganie wyścigu przez ograniczenie bazy to reguły, których nie da się wyprowadzić z niczego innego."
+    },
+    "shared.seo": {
+      "skill": "change-api-and-events",
+      "note": "Uses the general API and events procedure for signed SSA callbacks and durable audit reconciliation; tenant data follows change-tenant-data, with billing and immutable delivery rules defined by ADR-045."
     }
   }
 }
