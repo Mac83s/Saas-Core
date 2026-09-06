@@ -1,0 +1,20 @@
+{
+  "id": "shared.seo",
+  "layer": "shared",
+  "version": 1,
+  "dependsOn": ["core.organizations", "shared.billing", "shared.sites"],
+  "backend": {
+    "djangoApp": "saas_core.modules.shared.seo",
+    "urlPrefix": "/api/v1/seo",
+    "permissions": ["seo.audit.read", "seo.audit.run"],
+    "entitlements": ["seo.audit.enabled"],
+    "eventSchemas": [],
+    "publicTables": [],
+    "platformTables": []
+  },
+  "frontend": {
+    "routes": [],
+    "navigation": [],
+    "translationNamespaces": []
+  }
+}

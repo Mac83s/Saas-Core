@@ -2788,6 +2788,141 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/seo/audit-offer/:
+    get:
+      operationId: api_v1_seo_audit_offer_retrieve
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditOffer'
+          description: ''
+  /api/v1/seo/audits/:
+    get:
+      operationId: seo_audits_list
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 50
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditList'
+          description: ''
+    post:
+      operationId: api_v1_seo_audits_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuditRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AuditRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AuditRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditOrder'
+          description: ''
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditOrder'
+          description: ''
+  /api/v1/seo/audits/{order_id}/:
+    get:
+      operationId: api_v1_seo_audits_retrieve
+      parameters:
+      - in: path
+        name: order_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditOrder'
+          description: ''
+  /api/v1/seo/ssa/callback/:
+    post:
+      operationId: api_v1_seo_ssa_callback_create
+      parameters:
+      - in: header
+        name: webhook-id
+        schema:
+          type: string
+        required: true
+      - in: header
+        name: webhook-signature
+        schema:
+          type: string
+        required: true
+      - in: header
+        name: webhook-timestamp
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CallbackEnvelope'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CallbackEnvelope'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CallbackEnvelope'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CallbackResult'
+          description: ''
   /api/v1/session/active-organization/:
     put:
       operationId: api_v1_session_active_organization_update
@@ -5914,6 +6049,112 @@ components:
             $ref: '#/components/schemas/Appointment'
       required:
       - items
+    AuditList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditOrder'
+        next_cursor:
+          type:
+          - string
+          - 'null'
+          format: uuid
+      required:
+      - items
+      - next_cursor
+    AuditOffer:
+      type: object
+      properties:
+        credit_cost:
+          type: integer
+          minimum: 0
+        max_pages:
+          type: integer
+          minimum: 1
+      required:
+      - credit_cost
+      - max_pages
+    AuditOrder:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        site_id:
+          type: string
+          format: uuid
+        state:
+          allOf:
+          - $ref: '#/components/schemas/StateEnum'
+          readOnly: true
+        requested_options:
+          readOnly: true
+        effective_options:
+          readOnly: true
+        credit_cost:
+          type: integer
+          readOnly: true
+        credit_state:
+          type: string
+          readOnly: true
+        report_snapshot:
+          readOnly: true
+        report_hash:
+          type: string
+          readOnly: true
+        error_code:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        completed_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          readOnly: true
+      required:
+      - completed_at
+      - created_at
+      - credit_cost
+      - credit_state
+      - effective_options
+      - error_code
+      - id
+      - report_hash
+      - report_snapshot
+      - requested_options
+      - site_id
+      - state
+      - updated_at
+    AuditRequest:
+      type: object
+      properties:
+        site_id:
+          type: string
+          format: uuid
+        idempotency_key:
+          type: string
+          maxLength: 120
+          minLength: 8
+        max_pages:
+          type: integer
+          minimum: 1
+        expected_credit_cost:
+          type: integer
+          minimum: 0
+      required:
+      - idempotency_key
+      - site_id
     AutomationConnection:
       type: object
       properties:
@@ -6095,6 +6336,28 @@ components:
       required:
       - id
       - url
+    CallbackEnvelope:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/TypeEnum'
+        run:
+          description: SSA module identity, terminal status and source binding; signed
+            raw bytes.
+      required:
+      - id
+      - run
+      - type
+    CallbackResult:
+      type: object
+      properties:
+        accepted:
+          type: boolean
+      required:
+      - accepted
     Catalog:
       type: object
       properties:
@@ -9338,6 +9601,26 @@ components:
       - id
       - name
       - public_slug
+    StateEnum:
+      enum:
+      - queued
+      - submitting
+      - running
+      - reconciling
+      - completed
+      - partial
+      - failed
+      - cancelled
+      type: string
+      description: |-
+        * `queued` - Queued
+        * `submitting` - Submitting
+        * `running` - Running
+        * `reconciling` - Reconciling
+        * `completed` - Completed
+        * `partial` - Partial without charge
+        * `failed` - Failed
+        * `cancelled` - Cancelled
     StepEnum:
       enum:
       - address
@@ -9523,6 +9806,11 @@ components:
       - created
       - id
       - status
+    TypeEnum:
+      enum:
+      - module_run.finished
+      type: string
+      description: '* `module_run.finished` - module_run.finished'
     UserSummary:
       type: object
       properties:

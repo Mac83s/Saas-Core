@@ -77,6 +77,12 @@ class CreditReservationConflict(APIException):
     default_code = "credit_reservation_conflict"
 
 
+class CreditPriceChanged(APIException):
+    status_code = 409
+    default_detail = "Cena operacji zmieniła się. Sprawdź aktualną ofertę."
+    default_code = "credit_price_changed"
+
+
 class CreditReservationExpired(APIException):
     status_code = 409
     default_detail = "Rezerwacja kredytów wygasła przed rozliczeniem."
@@ -283,6 +289,7 @@ def reserve_credits(
     idempotency_key: str,
     at: datetime | None = None,
     expires_at: datetime | None = None,
+    expected_cost: int | None = None,
 ) -> CreditReservation | None:
     """Holds the credits one operation will cost. ``None`` means it is free."""
     context = require_tenant_context()
@@ -299,7 +306,17 @@ def reserve_credits(
             raise CreditReservationConflict
         return existing
 
-    cost = operation_cost(operation_key)
+    if expected_cost is not None:
+        # Keep the displayed price stable through reservation. A catalog update
+        # cannot slip between checking the quote and holding the customer's funds.
+        operation = CreditOperation.objects.select_for_update().filter(key=operation_key).first()
+        if operation is None:
+            raise UnknownCreditOperation
+        cost = operation.cost if operation.is_active else 0
+        if cost != expected_cost:
+            raise CreditPriceChanged
+    else:
+        cost = operation_cost(operation_key)
     if cost == 0:
         return None
 

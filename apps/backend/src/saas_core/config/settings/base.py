@@ -606,6 +606,12 @@ CELERY_WORKER_HIJACK_ROOT_LOGGER = False
 #: without Sites must not run Sites' sweeps: the scheduler would enqueue jobs
 #: against tables that are not there, once a minute, forever.
 _MODULE_BEAT_SCHEDULE: dict[str, dict[str, Any]] = {
+    "shared.seo": {
+        "seo-reconcile-audits": {
+            "task": "saas_core.modules.shared.seo.tasks.reconcile_audits",
+            "schedule": 30.0,
+        }
+    },
     "shared.sites": {
         "sites-verify-domains": {
             "task": "saas_core.modules.shared.sites.tasks.schedule_domain_verifications",
@@ -752,3 +758,14 @@ SPECTACULAR_SETTINGS = {
 
 APPLICATION_VERSION = os.environ.get("APPLICATION_VERSION", "0.1.0")
 HEALTH_CHECK_DEPENDENCIES = True
+
+# One explicitly configured SSA service source per deployment.
+SEO_SSA_BASE_URL = os.environ.get("SEO_SSA_BASE_URL", "")
+SEO_SSA_SOURCE_ID = os.environ.get("SEO_SSA_SOURCE_ID", "")
+SEO_SSA_PRODUCT_ID = os.environ.get("SEO_SSA_PRODUCT_ID", "")
+SEO_SSA_DEPLOYMENT_ID = os.environ.get("SEO_SSA_DEPLOYMENT_ID", "")
+SEO_SSA_SERVICE_KEY = secret_setting("SEO_SSA_SERVICE_KEY")
+SEO_SSA_CALLBACK_SECRET = secret_setting("SEO_SSA_CALLBACK_SECRET")
+SEO_AUDIT_CREDIT_OPERATION = os.environ.get("SEO_AUDIT_CREDIT_OPERATION", "")
+SEO_AUDIT_MAX_PAGES = int(os.environ.get("SEO_AUDIT_MAX_PAGES", "100"))
+SEO_REPORT_MAX_ISSUES = int(os.environ.get("SEO_REPORT_MAX_ISSUES", "5000"))

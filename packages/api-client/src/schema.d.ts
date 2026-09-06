@@ -1140,6 +1140,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/seo/audit-offer/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["api_v1_seo_audit_offer_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/seo/audits/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["seo_audits_list"];
+        put?: never;
+        post: operations["api_v1_seo_audits_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/seo/audits/{order_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["api_v1_seo_audits_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/seo/ssa/callback/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["api_v1_seo_ssa_callback_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/session/active-organization/": {
         parameters: {
             query?: never;
@@ -2045,6 +2109,42 @@ export interface components {
         AppointmentList: {
             items: components["schemas"]["Appointment"][];
         };
+        AuditList: {
+            items: components["schemas"]["AuditOrder"][];
+            /** Format: uuid */
+            next_cursor: string | null;
+        };
+        AuditOffer: {
+            credit_cost: number;
+            max_pages: number;
+        };
+        AuditOrder: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            site_id: string;
+            readonly state: components["schemas"]["StateEnum"];
+            readonly requested_options: unknown;
+            readonly effective_options: unknown;
+            readonly credit_cost: number;
+            readonly credit_state: string;
+            readonly report_snapshot: unknown;
+            readonly report_hash: string;
+            readonly error_code: string;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+            /** Format: date-time */
+            readonly completed_at: string | null;
+        };
+        AuditRequest: {
+            /** Format: uuid */
+            site_id: string;
+            idempotency_key: string;
+            max_pages?: number;
+            expected_credit_cost?: number;
+        };
         AutomationConnection: {
             /** Format: uuid */
             grant_id: string;
@@ -2107,6 +2207,16 @@ export interface components {
             url: string;
             /** Format: date-time */
             expires_at?: string | null;
+        };
+        CallbackEnvelope: {
+            /** Format: uuid */
+            id: string;
+            type: components["schemas"]["TypeEnum"];
+            /** @description SSA module identity, terminal status and source binding; signed raw bytes. */
+            run: unknown;
+        };
+        CallbackResult: {
+            accepted: boolean;
         };
         Catalog: {
             locations: components["schemas"]["Location"][];
@@ -3420,6 +3530,18 @@ export interface components {
             public_slug: string;
         };
         /**
+         * @description * `queued` - Queued
+         *     * `submitting` - Submitting
+         *     * `running` - Running
+         *     * `reconciling` - Reconciling
+         *     * `completed` - Completed
+         *     * `partial` - Partial without charge
+         *     * `failed` - Failed
+         *     * `cancelled` - Cancelled
+         * @enum {string}
+         */
+        StateEnum: "queued" | "submitting" | "running" | "reconciling" | "completed" | "partial" | "failed" | "cancelled";
+        /**
          * @description * `address` - address
          *     * `details` - details
          *     * `review` - review
@@ -3497,6 +3619,11 @@ export interface components {
             status: string;
             created: boolean;
         };
+        /**
+         * @description * `module_run.finished` - module_run.finished
+         * @enum {string}
+         */
+        TypeEnum: "module_run.finished";
         UserSummary: {
             /** Format: uuid */
             id: string;
@@ -6661,6 +6788,130 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_seo_audit_offer_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditOffer"];
+                };
+            };
+        };
+    };
+    seo_audits_list: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditList"];
+                };
+            };
+        };
+    };
+    api_v1_seo_audits_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuditRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["AuditRequest"];
+                "multipart/form-data": components["schemas"]["AuditRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditOrder"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditOrder"];
+                };
+            };
+        };
+    };
+    api_v1_seo_audits_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                order_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditOrder"];
+                };
+            };
+        };
+    };
+    api_v1_seo_ssa_callback_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "webhook-id": string;
+                "webhook-signature": string;
+                "webhook-timestamp": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CallbackEnvelope"];
+                "application/x-www-form-urlencoded": components["schemas"]["CallbackEnvelope"];
+                "multipart/form-data": components["schemas"]["CallbackEnvelope"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CallbackResult"];
                 };
             };
         };

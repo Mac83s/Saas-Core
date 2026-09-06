@@ -577,6 +577,24 @@ def get_draft(*, page_id: UUID) -> PageDraft:
     )
 
 
+def read_site_audit_target(*, site_id: UUID) -> dict[str, str]:
+    """An owned canonical public surface, for an explicitly authorized audit."""
+    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED, operation=FeatureOperation.READ)
+    site = Site.all_objects.filter(pk=site_id, organization_id=context.organization_id).first()
+    if site is None:
+        raise SiteNotFound
+    assert_within_grant(context, site_id=site.id)
+    from .models import Domain, DomainStatus
+
+    domain = Domain.all_objects.filter(
+        site_id=site.id, organization_id=context.organization_id,
+        status=DomainStatus.VERIFIED, is_canonical=True,
+    ).first()
+    if domain is None:
+        raise SitePublicationNotReady(detail="Strona nie ma zweryfikowanej domeny kanonicznej.")
+    return {"site_id": str(site.id), "name": site.slug, "root_url": f"https://{domain.hostname}/"}
+
+
 def get_draft_preview(*, page_id: UUID, version_id: UUID) -> PageDraft:
     context = authorize_entitled(
         SITE_CONTENT_EDIT,

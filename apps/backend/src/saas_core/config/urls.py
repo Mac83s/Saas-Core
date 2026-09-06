@@ -130,6 +130,7 @@ MODULE_ROUTES: dict[str, Callable[[], list[Route]]] = {
     "core.organizations": _organization_routes,
     "shared.billing": _billing_routes,
     "shared.sites": _sites_routes,
+    "shared.seo": lambda: [path("api/v1/seo/", include("saas_core.modules.shared.seo.urls"))],
     "shared.media": _media_routes,
     "shared.notifications": _notification_routes,
     "shared.profiles": _profile_routes,

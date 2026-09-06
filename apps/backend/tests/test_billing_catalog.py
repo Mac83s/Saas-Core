@@ -30,6 +30,7 @@ from saas_core.modules.shared.billing.models import (
 pytestmark = pytest.mark.django_db
 
 FEATURE_KEYS = {
+    "seo.audit.enabled",
     "sites.enabled",
     "storage.enabled",
     "notifications.enabled",
@@ -85,11 +86,13 @@ def test_pilot_catalog_is_seeded_with_current_immutable_versions() -> None:
     # published version is immutable in the model and in the database.
     assert starter.current_version.quotas["credits.monthly"] == 200
     assert "custom_domain.enabled" not in starter.current_version.feature_keys
+    assert "seo.audit.enabled" not in starter.current_version.feature_keys
     assert pro.current_version is not None
     assert pro.current_version.unit_amount_minor == 29_900
     assert pro.current_version.quotas["storage.bytes"] == 50 * 1024**3
     assert pro.current_version.quotas["credits.monthly"] == 1000
     assert "custom_domain.enabled" in pro.current_version.feature_keys
+    assert "seo.audit.enabled" not in pro.current_version.feature_keys
 
 
 def test_plan_version_rejects_unknown_catalog_keys() -> None:

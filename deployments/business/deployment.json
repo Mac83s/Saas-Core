@@ -17,7 +17,8 @@
     "shared.media",
     "shared.profiles",
     "shared.notifications",
-    "shared.booking"
+    "shared.booking",
+    "shared.seo"
   ],
   "billing": {
     "planKeys": ["profile", "starter", "pro"]

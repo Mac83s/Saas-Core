@@ -49,6 +49,9 @@ await ensureSecret(
   "object_storage_secret_access_key",
   randomBytes(32).toString("base64url"),
 );
+// Optional integration: empty files keep the unconfigured service disabled.
+await ensureSecret("seo_ssa_service_key", "");
+await ensureSecret("seo_ssa_callback_secret", "");
 await chmod(secretsDirectory, 0o700);
 
 async function ensureSecret(name, value) {

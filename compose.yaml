@@ -29,6 +29,15 @@ x-backend-environment: &backend-environment
   POSTGRES_USER: ${SAAS_CORE_POSTGRES_APP_USER:-saas_core_app}
   REDIS_HOST: redis
   SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-saas_core_local_session}
+  SEO_SSA_BASE_URL: ${SEO_SSA_BASE_URL:-}
+  SEO_SSA_SOURCE_ID: ${SEO_SSA_SOURCE_ID:-}
+  SEO_SSA_PRODUCT_ID: ${SEO_SSA_PRODUCT_ID:-}
+  SEO_SSA_DEPLOYMENT_ID: ${SEO_SSA_DEPLOYMENT_ID:-}
+  SEO_AUDIT_CREDIT_OPERATION: ${SEO_AUDIT_CREDIT_OPERATION:-}
+  SEO_AUDIT_MAX_PAGES: ${SEO_AUDIT_MAX_PAGES:-100}
+  SEO_REPORT_MAX_ISSUES: ${SEO_REPORT_MAX_ISSUES:-5000}
+  SEO_SSA_SERVICE_KEY_FILE: /run/secrets/seo_ssa_service_key
+  SEO_SSA_CALLBACK_SECRET_FILE: /run/secrets/seo_ssa_callback_secret
   STRIPE_SECRET_KEY_FILE: /run/secrets/stripe_secret_key
   STRIPE_WEBHOOK_SECRET_FILE: /run/secrets/stripe_webhook_secret
   STRIPE_PORTAL_CONFIGURATION_ID: ${STRIPE_PORTAL_CONFIGURATION_ID:-}
@@ -70,6 +79,8 @@ x-backend-service: &backend-service
     - object_storage_secret_access_key
     - stripe_secret_key
     - stripe_webhook_secret
+    - seo_ssa_service_key
+    - seo_ssa_callback_secret
   volumes:
     - ${SAAS_CORE_LOGS_DIR:-.runtime/logs}:/var/log/saas-core
   networks:
@@ -680,6 +691,10 @@ secrets:
   # Present even on the simulator: the file is read only when
   # BILLING_PROVIDER=stripe, and a missing mount would turn "switch the
   # provider" into "rebuild the compose file" at the worst moment.
+  seo_ssa_service_key:
+    file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/seo_ssa_service_key
+  seo_ssa_callback_secret:
+    file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/seo_ssa_callback_secret
   stripe_secret_key:
     file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/stripe_secret_key
   stripe_webhook_secret:

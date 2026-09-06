@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:5d49179ed3513c1a0251e764fc67fb3740edba6ab8d4022bf2f7fe4aad53d348",
+  "profileHash": "sha256:12e09272b6f2a32da9af88e66abfca748fbb0149ead99fe456869d8e38ab5754",
   "schemaVersion": 1,
   "deployment": "business",
   "product": {
@@ -315,6 +315,35 @@
         "translationNamespaces": [
           "booking"
         ]
+      }
+    },
+    {
+      "id": "shared.seo",
+      "version": 1,
+      "layer": "shared",
+      "dependsOn": [
+        "core.organizations",
+        "shared.billing",
+        "shared.sites"
+      ],
+      "backend": {
+        "djangoApp": "saas_core.modules.shared.seo",
+        "urlPrefix": "/api/v1/seo",
+        "permissions": [
+          "seo.audit.read",
+          "seo.audit.run"
+        ],
+        "entitlements": [
+          "seo.audit.enabled"
+        ],
+        "eventSchemas": [],
+        "publicTables": [],
+        "platformTables": []
+      },
+      "frontend": {
+        "routes": [],
+        "navigation": [],
+        "translationNamespaces": []
       }
     }
   ]

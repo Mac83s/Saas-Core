@@ -37,6 +37,7 @@ from .services import (
     list_pages,
     list_sites,
     publish_site,
+    read_site_audit_target,
     save_draft,
     save_page_translation,
 )
@@ -77,6 +78,7 @@ __all__ = [
     "list_sites",
     "page_template_catalog",
     "publish_site",
+    "read_site_audit_target",
     "save_draft",
     "save_page_translation",
     "validate_site_block",
