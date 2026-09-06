@@ -53,11 +53,10 @@ intencji bywa zawodne, a te instrukcje niosą pułapki, które już kosztowały 
 | deskryptora w `packages/contracts/modules/` albo kompozycji w `apps/backend/src/saas_core/config/`  | `develop-saas-core-module`  |
 | profilu w `deployments/`, obrazu (`apps/backend/Dockerfile`) albo `.github/workflows/images.yml`     | `prepare-product-deployment` |
 | endpointu, kontraktu `packages/contracts/openapi/` albo klienta `packages/api-client/`               | `change-api-and-events`     |
+| stron, publikacji, domen, mediów publicznych albo kontraktu `packages/contracts/content-operations/` | `develop-sites`             |
+| usług, grafiku, slotów, wizyt, klienta końcowego i self-service w `apps/backend/src/saas_core/modules/shared/booking/` | `develop-booking`           |
+| odbioru przyrostu, release'u i decyzji „czy to jest skończone"                                       | `verify-saas-core-release`  |
 | samego katalogu instrukcji: `.agents/skills/` i `.claude/skills/`                                   | `maintain-saas-core-skills` |
-
-Katalog jest niepełny: `develop-sites`, `develop-booking` i
-`verify-saas-core-release` czekają na własne przejście. Do tego czasu w tych
-obszarach obowiązują ADR-y i `docs/architecture/`.
 
 Pilnuje tego `pnpm ai:validate`: skill bez wiersza w tej tabeli, wiersz
 wskazujący nieistniejący skill albo nieistniejącą ścieżkę psuje walidację.

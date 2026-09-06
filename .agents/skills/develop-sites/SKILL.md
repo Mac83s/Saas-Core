@@ -1,0 +1,98 @@
+---
+name: develop-sites
+description: Working on customer websites in SaaS Core — pages and blocks, drafts and publication, collections and entries, domains, DNS and TLS, public media, and the content-operations contract an external optimizer writes through. Use when touching modules/shared/sites, the public renderer, page templates or automation grants.
+---
+
+# Sites: content, publication and domains
+
+Read `docs/adr/ADR-027-Sites-Tresc-Media-i-Publikacja.md` (content and
+publication), `docs/adr/ADR-028-Domeny-DNS-TLS-i-Publiczny-Routing.md`
+(addresses), `docs/adr/ADR-031-Panel-Klienta-i-Wizualny-Site-Studio.md` (the
+editor) and `docs/adr/ADR-035-Publikacja-Systemowa-i-SeoContentRank.md`
+(automation). `memex_pack` first — this module has more recorded traps than any
+other.
+
+## The shapes that decide everything else
+
+- **Versions are append-only.** A new `PageVersion` writes a fresh set of block
+  rows with fresh UUIDs. No block identity survives between versions, which is
+  why the change-set contract addresses blocks by **position against
+  `base.version`**, never by id, and why the whole set applies as one unit
+  rather than command by command.
+- **Publication is a snapshot.** The renderer reads
+  `Publication.snapshot`, not live tables, so an edit becomes visible on the
+  next publication — the same way a navigation change does. Anything a page
+  must show at render time has to be *in* the snapshot.
+- **Entries publish on their own.** A blog entry is reachable even when the site
+  has no publication yet, so the entry's own publication stands in for the
+  site's. Do not make the collection depend on the site snapshot.
+- **A hostname is the tenant declaration.** `sites_domain` has no policy, so the
+  renderer resolves the host, then reads everything else *inside* that tenant
+  via `tenant_is_servable(organization_id)` in
+  `apps/backend/src/saas_core/modules/shared/sites/publication_routing.py`.
+  The public paths must never use the pre-tenant door — see `change-tenant-data`.
+
+## Six operations belong to a person
+
+`assert_person_required(context, what)` in
+`apps/backend/src/saas_core/modules/shared/sites/services.py` refuses every
+automation context with `403 person_required`: domains (create, change,
+mutate), site navigation, the pricing block, legal pages, withdrawals, and
+publishing a whole site. `PERSON_ONLY_PAGE_TYPES` and
+`PERSON_ONLY_BLOCK_TYPES` hold the type lists.
+
+The check runs **before** the surface policy on purpose: `person_required`
+tells a connector "this will never be yours", while `page_automation_forbidden`
+says "this surface is not yours today". Connectors treat those differently.
+
+If you add an endpoint in this area, ask which of the two it is, and add it to
+the helper rather than writing a second check.
+
+## Automation grants
+
+Four modes: `suggest_only`, `draft_write`, `publish_with_approval`,
+`autonomous`. The historical `auto_publish_limited` is **not** an alias and must
+fail closed. `autonomous` means no per-change approval — it is still bounded by
+resource scope, limits, windows, command and link allowlists, the kill switch
+and the content policy, which can only narrow a grant.
+
+The contract has **no command that changes a published address**, and it will
+not get one. `translation.update` carries `title`, `description`,
+`social_title`, `social_description` — no `slug`. Moving a URL costs the
+position that URL earned; it goes through
+`PUT /api/v1/sites/pages/<id>/url/`, a human session with a mandatory reason.
+
+Capabilities answer with the **narrowest** active grant mode, the command list
+read from `packages/contracts/content-operations/`, and the contract versions.
+A capabilities response that disagrees with the contract it describes is worse
+than none, because the client believes it.
+
+## Traps
+
+- **Reading media before setting the tenant.** `media_mediaasset` forces RLS, so
+  `serve_public_media` sets the tenant the host named before the read. That bug
+  once made every image on every published page answer 404.
+- **Scheduled publication cannot carry a signed contract.** It expires long
+  before the date. `publish_scheduled_entry` rebuilds the context from the
+  stored `scheduled_membership_id`, which also means a person suspended in the
+  meantime does not get one more publication out of the queue.
+- **Template media goes through the ordinary media lifecycle** — upload
+  completion, malware scan, normalization, variants, quota, audit. There is no
+  trusted-file shortcut. Object storage does not roll back with PostgreSQL, so
+  a failed import compensates by deleting only what that attempt created.
+- **A contract directory read at runtime must be in the image**, with an env var
+  and a Django system check. `PAGE_TEMPLATE_CONTRACTS_PATH` once resolved to a
+  path that existed in a checkout and not in the container: 361 green tests, and
+  a 500 on the first import click.
+
+## Done means
+
+```
+pnpm backend:test
+pnpm api:check
+pnpm --filter @saas-core/frontend test
+```
+
+plus, for anything the public renderer touches, a page, a feed and an image
+fetched from the running stack by hostname — the suite cannot tell you the
+renderer works, because it does not go through Caddy.

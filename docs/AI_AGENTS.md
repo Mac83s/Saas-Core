@@ -89,13 +89,10 @@ wymaga przeczytania diffu źródła i zadania pytania, które skills na nim stoj
 Skills powstają dopiero, gdy mają realne źródła. Skill dla modułu, którego nie
 ma, opisywałby zamiar, a walidator uznałby ten zamiar za aktualny.
 
-Gotowe: `change-tenant-data`, `develop-saas-core-module`,
-`prepare-product-deployment`, `change-api-and-events`,
-`maintain-saas-core-skills`.
-
-Zaplanowane w P2, jeszcze nienapisane: `develop-sites`, `develop-booking`,
-`verify-saas-core-release`. Do tego czasu w tych obszarach obowiązują ADR-y i
-`docs/architecture/`.
+Pierwszy katalog P2 jest kompletny — osiem skills: `change-tenant-data`,
+`develop-saas-core-module`, `prepare-product-deployment`,
+`change-api-and-events`, `develop-sites`, `develop-booking`,
+`verify-saas-core-release` i `maintain-saas-core-skills`.
 
 Później, razem z etapem, który tworzy ich źródło: `develop-commerce-payments`
 (P5), `develop-assistant-runtime` (P6), `develop-medplano` (P7).

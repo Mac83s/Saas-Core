@@ -583,6 +583,39 @@ izolacji. Plik trafił do `.prettierignore`, bo blok `memex:*` pisze narzędzie 
 formatter przepisywałby te same linie w kółko; dzięki temu `pnpm format:check`
 jest po raz pierwszy czysty.
 
+### Pierwszy katalog skills kompletny (2026-09-06)
+
+Doszły trzy brakujące instrukcje, więc katalog P2 ma komplet ośmiu:
+`develop-sites`, `develop-booking` i `verify-saas-core-release` obok pięciu
+z poprzedniego przejścia. `pnpm ai:validate`: 11 kanonicznych (osiem naszych i
+trzy memexa), 10 adapterów.
+
+Każdy z trzech nowych stoi na przeczytanym źródle, nie na streszczeniu:
+
+- **`develop-sites`** niesie cztery kształty, z których wynika reszta modułu:
+  wersje są append-only (dlatego kontrakt adresuje bloki **pozycyjnie** wobec
+  `base.version`, a nie po id), publikacja jest snapshotem (edycja jest widoczna
+  po następnej publikacji), wpisy publikują się samodzielnie, a host jest
+  deklaracją tenanta. Do tego sześć operacji zarezerwowanych dla człowieka i
+  różnica między `person_required` a `page_automation_forbidden`, którą
+  connector traktuje inaczej;
+- **`develop-booking`** rozdziela to, co w tym module myli się najczęściej:
+  instants w UTC, reguły tygodniowe w czasie lokalnym organizacji, DST jako
+  zwykła niedziela (czas nieistniejący pomijany, dwuznaczny dający dwa
+  instants), a rozstrzygnięcie wyścigu należy do `EXCLUDE USING gist`, nie do
+  Pythona. Plus zasada, że klient końcowy nie jest membershipem i nigdy nim nie
+  będzie, a self-service to token przypięty do jednej wizyty;
+- **`verify-saas-core-release`** to lista bramek w kolejności, która najszybciej
+  pada, i — ważniejsze — lista **pięciu pytań, na które zielony suite nie
+  odpowiada**: izolacja tenantów, cokolwiek za Caddy, czy kompozycja jest realna,
+  czy kontrakt czytany z dysku jest w obrazie, czy front i backend to ten sam
+  produkt.
+
+Bramka P2 w większości zamknięta. Zostają dwie rzeczy i obie są nazwane wprost:
+evale (§6.4) oraz „przekroczenie uprawnień" jako trzeci przypadek negatywny —
+tego nie da się złapać regexem, potrzebny jest scenariusz. Zły link, zduplikowany
+`description`, sekret w treści i rozjechany adapter są sprawdzone i dają exit 1.
+
 ### Kredyty w panelu (2026-09-05)
 
 Domena kredytów była kompletna od kilku dni i całkowicie niewidoczna: księga,

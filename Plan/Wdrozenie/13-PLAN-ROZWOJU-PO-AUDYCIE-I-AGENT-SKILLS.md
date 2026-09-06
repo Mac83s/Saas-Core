@@ -276,11 +276,9 @@ obowiązuje także sam katalog: skill dla modułu, którego nie ma, opisywałby
 zamiar, a walidator uznałby taki opis za aktualny. Pierwszy zestaw P2 obejmuje
 więc wyłącznie skills z istniejącymi dziś źródłami:
 
-Stan na 2026-09-06: napisane są `change-tenant-data`,
-`develop-saas-core-module`, `prepare-product-deployment`, `change-api-and-events`
-i `maintain-saas-core-skills`. Zostają trzy — `develop-sites`, `develop-booking`
-i `verify-saas-core-release` — bo ich źródła wymagają osobnego przejścia, a skill
-napisany z pobieżnej lektury byłby wykonywany z przekonaniem.
+Stan na 2026-09-06: **pierwszy katalog jest kompletny**, wszystkie osiem
+skills istnieje i przechodzi `pnpm ai:validate`. Każdy niesie kolejność pracy,
+komendy i pułapki, a nie streszczenie ADR-u.
 
 | Skill | Kiedy ma się aktywować | Kanoniczne źródła |
 | --- | --- | --- |
@@ -348,11 +346,24 @@ ani automatycznie autoryzować działań produkcyjnych.
 
 - [ ] agent potrafi wykonać reprezentatywne zadania bez ręcznego wskazywania
   skill przez właściciela;
-- [ ] zmiana źródłowego ADR-u lub komendy powoduje wykrywalny drift;
+- [x] zmiana źródłowego ADR-u lub komendy powoduje wykrywalny drift —
+  mechanicznie: przeniesiona ścieżka i zniknięte polecenie `pnpm` psują
+  `pnpm ai:validate`. Drift treści (ADR zmienia się, a ścieżka zostaje) nie jest
+  wykrywalny maszynowo i należy do procedury w `maintain-saas-core-skills`
+  (2026-09-06);
 - [ ] maintainer aktualizuje wskazany skill, a walidacja wykrywa celowo
-  wprowadzony zły link, zduplikowany trigger i przekroczenie uprawnień;
-- [ ] skills Codex i wspieranych klientów nie rozjeżdżają się treściowo;
-- [ ] `pnpm ai:validate` działa lokalnie i w CI.
+  wprowadzony zły link, zduplikowany trigger i przekroczenie uprawnień —
+  **dwa z trzech zrobione**: zły link i zduplikowany `description` dają exit 1
+  (sprawdzone), podobnie sekret w treści i rozjechany adapter. Przekroczenie
+  uprawnień nie jest wykrywalne tekstowo i zostaje pytaniem przeglądu; do
+  domknięcia potrzebny jest scenariusz, nie regex;
+- [x] skills Codex i wspieranych klientów nie rozjeżdżają się treściowo — Codex
+  czyta `AGENTS.md` i katalog kanoniczny `.agents/skills/`, więc nie ma czego
+  rozjeżdżać; ryzyko dotyczy wyłącznie klientów wymagających adapterów, a tam
+  walidator porównuje `name` i `description` co do znaku i pilnuje cienkości
+  adaptera (2026-09-06);
+- [x] `pnpm ai:validate` działa lokalnie i w CI (wpięty w `pnpm lint`, który
+  uruchamia `.github/workflows/ci.yml`) (2026-09-06).
 
 ## 7. P3 — profile i konto klienta
 
