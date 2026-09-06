@@ -389,6 +389,44 @@ class Invitation(models.Model):
         return self.status == InvitationStatus.PENDING and self.expires_at > checked_at
 
 
+class ErasureReceipt(models.Model):
+    """What is left after a tenant is erased — and deliberately nothing else.
+
+    Accountability (art. 5(2)) means being able to show that an erasure
+    happened. It does not mean keeping a copy of what was erased, so this row
+    carries counts and identifiers and no content: no name, no address, no
+    e-mail. The organization identifier is a UUID that identifies nobody on its
+    own, and it is a plain column rather than a foreign key because the row it
+    would point at is gone.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    organization_id = models.UUIDField(db_index=True)
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        null=True,
+        blank=True,
+    )
+    reason = models.TextField()
+    started_at = models.DateTimeField(auto_now_add=True)
+    #: Rows removed per table, so the erasure can be described without keeping
+    #: anything that was in them.
+    row_counts = models.JSONField(default=dict)
+    #: Object-storage keys the database no longer references. The media sweep
+    #: empties this list; while it is non-empty the erasure is not finished.
+    pending_object_keys = models.JSONField(default=list)
+    deleted_object_count = models.PositiveIntegerField(default=0)
+    objects_completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("-started_at",)
+
+    def __str__(self) -> str:
+        return f"erasure:{self.organization_id}"
+
+
 class OrganizationAuditAction(models.TextChoices):
     ORGANIZATION_CREATED = "organization.created", "Utworzono organizację"
     ORGANIZATION_UPDATED = "organization.updated", "Zmieniono organizację"

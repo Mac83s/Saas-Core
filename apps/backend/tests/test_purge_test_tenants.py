@@ -129,15 +129,15 @@ def test_a_sweep_only_takes_reserved_domains() -> None:
     assert Organization.objects.filter(pk=kept_org.pk).exists()
 
 
-def test_a_tenant_with_media_cannot_be_purged_and_says_so(
+def test_a_tenant_with_media_is_erased_including_its_append_only_rows(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    """Media references are append-only in the database, with no operator escape.
+    """Until ADR-042 this asserted the opposite, and the opposite was a defect.
 
-    So a tenant that ever attached a file cannot be removed at all today —
-    which is also why the product has no way to honour an erasure request.
-    The command must report that plainly and leave the tenant standing, not
-    abort halfway through a run.
+    A media reference is append-only, so a tenant that had ever attached a file
+    could not be removed at all — which meant the product had no way to honour an
+    erasure request. The guard now opens for the organization being erased and
+    for nothing else, so the reference goes with everything else.
     """
     organization, user = make_tenant(slug="purge-media", email="purge-media@example.test")
     with transaction.atomic():
@@ -161,6 +161,10 @@ def test_a_tenant_with_media_cannot_be_purged_and_says_so(
 
     call_command("purge_test_tenants", "--email", user.email, "--apply")
 
-    assert "nie usunięto organizacji purge-media" in capsys.readouterr().out
-    assert Organization.objects.filter(pk=organization.pk).exists()
-    assert User.objects.filter(pk=user.pk).exists()
+    assert "usunięto organizację purge-media" in capsys.readouterr().out
+    assert not Organization.objects.filter(pk=organization.pk).exists()
+    assert not MediaReference.all_objects.filter(organization_id=organization.pk).exists()
+    assert not MediaAsset.all_objects.filter(organization_id=organization.pk).exists()
+    # The account is its person's and leaves by its own path (ADR-036 §8); the
+    # command removes it here only because it is a reserved test address.
+    assert not User.objects.filter(pk=user.pk).exists()

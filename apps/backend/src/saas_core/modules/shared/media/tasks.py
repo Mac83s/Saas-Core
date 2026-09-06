@@ -130,3 +130,53 @@ def cleanup_tombstoned_media_asset_task(
             "media_delete_task_context_rejected",
             extra={"security_event": "media.delete_task_context_rejected"},
         )
+
+
+@shared_task(  # type: ignore[untyped-decorator]
+    autoretry_for=(ObjectStorageError,),
+    retry_backoff=True,
+    retry_jitter=True,
+    retry_kwargs={"max_retries": 5},
+)
+def purge_erased_objects() -> int:
+    """Delete the storage objects an erased tenant left behind (ADR-042).
+
+    PostgreSQL cannot roll back object storage, so erasure deletes rows first
+    and writes the object keys onto the receipt. Until this has emptied that
+    list, the erasure is not finished — which is why the receipt says so rather
+    than pretending the work is done.
+
+    It lives in `media` because Core may not import Shared: erasure writes down
+    what has to go, this is what knows how.
+    """
+    from saas_core.modules.core.organizations.models import (  # noqa: PLC0415
+        ErasureReceipt,
+    )
+
+    from .storage import get_object_storage  # noqa: PLC0415
+
+    storage = get_object_storage()
+    deleted = 0
+    for receipt in ErasureReceipt.objects.filter(objects_completed_at__isnull=True):
+        remaining: list[str] = []
+        for object_key in list(receipt.pending_object_keys):
+            try:
+                storage.delete(object_key=object_key)
+            except ObjectStorageError:
+                # Keep it on the list. A file that outlives its row is exactly
+                # what this sweep exists to notice, so it must not be dropped.
+                remaining.append(object_key)
+                continue
+            deleted += 1
+        receipt.deleted_object_count += len(receipt.pending_object_keys) - len(remaining)
+        receipt.pending_object_keys = remaining
+        if not remaining:
+            receipt.objects_completed_at = timezone.now()
+        receipt.save(
+            update_fields=[
+                "pending_object_keys",
+                "deleted_object_count",
+                "objects_completed_at",
+            ]
+        )
+    return deleted

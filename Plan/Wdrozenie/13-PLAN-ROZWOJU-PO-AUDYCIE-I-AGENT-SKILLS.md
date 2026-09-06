@@ -415,17 +415,24 @@ ani automatycznie autoryzować działań produkcyjnych.
   klient i operator oraz ich negatywne testy exact-tenant;
 - [ ] wdrożyć wersjonowane Terms/Privacy acknowledgement bez blokowania prawa do
   anulowania usługi, eksportu i usunięcia danych;
-- [ ] rozstrzygnąć, jak w ogóle usunąć tenanta — dziś nie da się tego zrobić.
-  Wyzwalacze w bazie odmawiają `DELETE` bezwarunkowo na `media_mediareference`
-  („media reference is append-only") i na `organizations_organizationauditentry`
-  („organization audit entries are append-only"), a nie mają żadnego wyjścia
-  operatorskiego. Sprawdzone 2026-09-03 przy sprzątaniu tenantów testowych:
-  organizacja, która kiedykolwiek załączyła plik albo zapisała wpis audytowy —
-  czyli każda prawdziwa — jest nieusuwalna. Bramka P3 obiecuje przetestowaną
-  politykę usunięcia lub anonimizacji, więc decyzja jest potrzebna zanim będzie
-  pierwszy prawdziwy klient: albo anonimizacja zamiast usunięcia (wtedy
-  append-only zostaje nietknięte), albo jawna furtka w wyzwalaczu dla jednej
-  operacji operatorskiej. Wymaga ADR-u, bo osłabia niezmiennik.
+- [x] rozstrzygnąć, jak w ogóle usunąć tenanta — **ADR-042**, decyzja właściciela
+  z 2026-09-06: **usuwamy dane, nie anonimizujemy**. Powód jest prawny i
+  praktyczny naraz: w rezerwacjach, powiadomieniach i zrzutach publikacji leżą
+  dane osobowe klientów naszych klientów, a o anonimizacji tekstu swobodnego i
+  JSON-a nie da się udowodnić, że nikogo już nie identyfikuje.
+  Wyzwalacze append-only (audyt, księga kredytów, referencje mediów, pięć tabel
+  Sites) dostały **jedną nazwaną furtkę**: przepuszczają `DELETE` wierszy
+  organizacji wskazanej w `app.erasing_organization_id` — identyfikator, nie
+  flaga, więc pomyłka nie otwiera historii wszystkich tenantów. Ustawia to
+  dokładnie jedno miejsce, a liczy je test, jak drzwi z ADR-041.
+  `erase_organization()` kasuje wiersze w transakcji, potem zapisuje
+  **pokwitowanie** (identyfikator, kto, powód, liczby wierszy, klucze obiektów) i
+  dopiero po commicie przemiatanie mediów kasuje pliki. Komenda operatorska
+  wymaga `is_staff` z MFA, powodu, przepisanego sluga i `--apply`.
+  `purge_test_tenants` jest już tylko nakładką na ten sam serwis.
+  Sprawdzone na uruchomionym stacku: bez furtki audyt nadal odmawia
+  („organization audit entries are append-only"), po usunięciu 0 wierszy, 0
+  organizacji, rejestr jej nie zna, pokwitowanie jest (2026-09-06).
 
 ### Bramka P3
 
@@ -433,7 +440,10 @@ ani automatycznie autoryzować działań produkcyjnych.
 - [ ] klient może rezerwować bez konta i opcjonalnie odzyskać historię po jego
   aktywacji;
 - [ ] połączenie `User`–`Customer` nie umożliwia przejęcia cudzych wizyt;
-- [ ] usunięcie lub anonimizacja ma przetestowaną politykę retencji.
+- [x] usunięcie lub anonimizacja ma przetestowaną politykę retencji — ADR-042,
+  sześć testów (w tym liczenie miejsc otwierających furtkę i dowód, że furtka
+  działa wyłącznie dla nazwanej organizacji) plus przejście na żywo
+  (2026-09-06).
 
 ## 8. P4 — produktowe domknięcie Booking
 
