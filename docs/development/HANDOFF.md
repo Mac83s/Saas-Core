@@ -1,5 +1,61 @@
 # Handoff następnej sesji
 
+## Odbiór integracji trzech repozytoriów, 2026-09-06
+
+Bieżący zakres i jego granice opisuje
+[SEO-INTEGRATION-ACCEPTANCE.md](SEO-INTEGRATION-ACCEPTANCE.md).
+Poniższe checkpointy są historią wcześniejszych pakietów, nie aktualną listą WIP.
+
+Core `186157d` ma zamówienia audytów z kredytami/panelem, delegację GSC
+i blokadę erasure przed odłączeniem, przegląd propozycji treści oraz kontrolowany
+odbiór strony z briefu. Pełne testy: 690 PostgreSQL, 171 JS w całym monorepo
+(128 frontend, 21 kontraktów, 8 UI, 14 bloków); po poprawce mediów końcowy
+frontend ponownie 131 passed / 34,37 s. OpenAPI/client bez driftu.
+RLS nowych tabel ma rzeczywisty dowód bez BYPASSRLS, nie tylko test właściciela bazy.
+
+SCR `971acae` obejmuje wcześniejsze `f1d9c95`, `1bc2bcc`, `e8db148`, `6c621de`:
+brief, projekty, neutralne propozycje, dostawę, GSC, harmonogramy i pomiary,
+WordPress opisów meta oraz jawnie uruchamiane workery. Końcowy backend
+383 PostgreSQL / 19,65 s; frontend 134 testy, lint/typy/build Node 24.
+Obraz workerów ma 19 asercji bez sieci, z kontrolą konfiguracji i zatrzymania.
+SSA `3123ca2` po `60a84db`/`c05919e` ma osobne źródła/tenantów, trwałe zlecenia,
+delegowane GSC i kontrolowane wyniki dokładnego wykonania; 578 PostgreSQL.
+
+Pilot wszystkich API: osiem przypadków / 188,94 s; po strumieniowym ograniczeniu
+transportu osobny test obserwacji ponownie przeszedł / 39,47 s. WordPress 6.9.1,
+PHP 8.3, MariaDB 11.4: 127 asercji usług, identyczny receipt dwóch równoległych
+procesów, 26 asercji HTTP z native login/nonce i publicznym opisem. Granice
+Google/model/crawl są syntetyczne; nie wydano pieniędzy u dostawców.
+
+Core-only uruchomiony w osobnym stacku: trzy moduły core, brak tras SEO/Sites,
+pusty harmonogram, zdrowe API/frontend o zgodnym profilu, rola aplikacyjna RLS,
+zero różnic plików Pythona obrazu wobec checkoutu. Business `0c07d0f`:
+siedem kontroli HTTP strony, sitemap, rzeczywistego PNG i odmowy dla obcego
+hosta oraz health frontend/backend. 344 pliki Pythona obrazu zgodne z checkoutem,
+brak oczekujących migracji. Test wykrył i zamknął brak route publicznych obrazów.
+Oba lokalne stosy zachowane do przeglądu. Nie potwierdzono DNS ani procesu
+uploadu/skanowania plików — fixture tworzy zatwierdzony obraz w lokalnym S3.
+
+Zbiorczy artefakt bez sekretów:
+[seo-integration-2026-09-06.json](evidence/seo-integration-2026-09-06.json).
+Odtworzenie publicznego testu: [runtime/README.md](runtime/README.md).
+Pierwsza wersja integracji I0–I5 jest odebrana lokalnie. Następne prace to
+skonfigurowany pilot na instancjach oraz wymienione niżej rozszerzenia produktu.
+
+To pierwsza wersja integracji, nie cały docelowy produkt SEO. Brief startuje
+w SCR dla istniejącego Site/połączenia/grantu Core; nie ma jeszcze asystenta
+startującego ten proces wyłącznie z konta Core. A4/WordPress edytują opis meta,
+nie artykuły ani strukturę. GA, pełna strategia i automatyczna publikacja są
+osobnymi rozszerzeniami. Sekrety/provider OAuth, realny projekt i produkcyjny
+deployment wymagają konfiguracji właściwych instancji. Główne repozytoria
+Core `4cc8684`, SCR `b42e284`, SSA `ba197d7` pozostają nietknięte.
+
+Worktrees: `.runtime/worktrees/seo-integration-i0-i1`,
+`.runtime/worktrees/scr-integration-i0-i1`, `.runtime/worktrees/ssa-ecosystem-integration`.
+Nie przenosić starego HANDOFF ponad nowszymi zmianami głównej gałęzi. Przed
+scaleniem ponownie sprawdzić stan Claude; zakresy commitów i testy są oddzielne
+od dowodów wdrożenia na serwerach produktów.
+
 ## Checkpoint integracji I2–I5, 2026-09-06 19:25
 
 To jest bieżący punkt wznowienia; kolejne sekcje zachowują dowody wcześniejszych pakietów.

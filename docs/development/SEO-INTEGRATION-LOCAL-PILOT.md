@@ -1,8 +1,9 @@
 # Lokalny pilot trzech usług
 
-Aktualny zestaw zawiera sześć przypadków: podgląd bez zapisu; dostarczenie do
+Aktualny zestaw zawiera osiem przypadków: podgląd bez zapisu; dostarczenie do
 szkicu z przeglądem w Core; dwa niezależne projekty na tym samym URL; zamówienie
-audytu completed; zamówienie partial; nowa strona z briefu bez istniejącego audytu.
+audytu completed; zamówienie partial; nowa strona z briefu bez istniejącego audytu;
+delegacja GSC z Core; zebranie wyników obserwacji SCR z SSA.
 W audytach rzeczywisty sender SSA wysyła dwukrotnie podpisany callback, a Core
 uzgadnia status i pobiera 101 ustaleń; ledger kredytów zmienia się dokładnie raz.
 Końcowy status audytu jest kontrolowanym fixture, nie pracą crawlera.
@@ -13,6 +14,20 @@ deliver, katalog i receipt przechodzą przez właściwe API. Nie powstaje snapsh
 wcześniejszego audytu. Core tworzy jeden draft i propozycję, człowiek akceptuje
 jej podgląd, a powtórzenie dostawy nie tworzy kolejnej wersji ani publikacji.
 
+Delegacja GSC używa rzeczywistych endpointów Core/SSA, sesji, jednorazowego
+stanu OAuth, grantów, revocation i disconnect. Wyłącznie wymiana kodu w Google
+i inwentarz property są syntetyczne. Otwarta zgoda blokuje usunięcie organizacji;
+potwierdzone odłączenie usuwa blokadę. Refresh token nie wraca do Core.
+
+Obserwacja tworzy projekt i jednorazowy harmonogram w SCR, zleca audyt SSA,
+pobiera ukończony wynik i zapisuje jeden snapshot z 101 ustaleniami oraz jawne
+powiązanie z projektem. Ponowienie nie mnoży operacji; inny workspace dostaje
+404. Prywatne `details` źródła nie przechodzą do publicznego pomiaru.
+
+Odbiór całego zestawu 2026-09-06: **8 passed / 188,94 s**, katalog
+`.runtime/pytest-all-live-05`. Osobne suite PostgreSQL sprawdzają modele,
+współbieżność i izolację; SQLite w peerach tego pilota sprawdza kontrakt HTTP.
+
 Uruchomienie zawsze dostaje `--create-db` oraz własny `--basetemp=.runtime/<run>`.
 Testy transakcyjne czyszczą również dane migracji; lokalny harness odtwarza ich
 początkowy zapis pomiędzy przypadkami, bez aktualizacji niemutowalnych ról.
@@ -20,8 +35,8 @@ początkowy zapis pomiędzy przypadkami, bez aktualizacji niemutowalnych ról.
 Test `apps/backend/integration_tests/test_seo_pilot_live.py` uruchamia osobne
 procesy Django SSA i SCR oraz serwer HTTP Core z pytest. Każdy proces importuje
 wyłącznie własną aplikację. SSA i SCR otrzymują nowe pliki SQLite; Core używa
-osobnej bazy testowej PostgreSQL. Nie są uruchamiane crawl, modele AI, OAuth,
-DataForSEO ani publikacja. Wszystkie dane i klucze są syntetyczne.
+osobnej bazy testowej PostgreSQL. Nie są uruchamiane crawl, płatne modele AI,
+rzeczywista zgoda Google, DataForSEO ani publikacja. Wszystkie dane i klucze są syntetyczne.
 
 Przebieg tworzy zakończony audyt z 101 ustaleniami oraz jedną stroną. SCR czyta
 go przez API SSA z pełną paginacją, weryfikuje projekt, zapisuje snapshot,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -190,11 +191,19 @@ def seed_source(data: dict) -> None:
     from django.core.management import call_command
 
     call_command("migrate", verbosity=0)
-    plan = Plan.objects.create(code="source-pilot", name="Synthetic source", api_access="full")
+    if data.get("observations"):
+        from apps.entitlements.models import Organization
+
+        call_command("seed_plans", verbosity=0)
+        plan = Organization.objects.get(is_default=True).plan
+    else:
+        plan = Plan.objects.create(code="source-pilot", name="Synthetic source", api_access="full")
     source = IntegrationSource.objects.create(
         product_id="scr", deployment_id="local-pilot", plan=plan, callback_recipient="pilot"
     )
-    _, secret = issue(source, name="Pilot", scopes=["integration:provision", "projects:read"])
+    _, secret = issue(
+        source, name="Pilot", scopes=["integration:provision", "projects:read", "audits:run"]
+    )
     data.update(source_key=secret, source_id=str(source.id))
 
 
@@ -207,7 +216,11 @@ def seed_scr_projects(data: dict) -> None:
     data["workspace_keys"] = {}
     for external_id in ("synthetic-pilot", "synthetic-other"):
         workspace = Workspace.objects.create(external_tenant_id=external_id)
-        _, key = issue(workspace, name="Pilot", scopes=["projects:read", "projects:write"])
+        _, key = issue(
+            workspace,
+            name="Pilot",
+            scopes=["projects:read", "projects:write", "audits:read", "audits:run"],
+        )
         data["workspace_keys"][external_id] = key
 
 
@@ -232,6 +245,16 @@ def seed_order_source(data: dict) -> None:
             "integration:provision",
             "projects:read",
             "audits:run",
+            *(
+                [
+                    "integration:gsc:connect",
+                    "integration:gsc:read",
+                    "integration:gsc:grant",
+                    "integration:gsc:sync",
+                ]
+                if data.get("synthetic_google")
+                else []
+            ),
         ],
     )
     data.update(source_id=str(source.id), source_key=key)
@@ -254,7 +277,7 @@ def complete_order_source(data: dict) -> None:
         crawl_completeness="complete",
         finished_at=timezone.now(),
     )
-    AuditJob.objects.filter(audit_run=run).update(status="succeeded")
+    AuditJob.objects.filter(audit_run=run).update(status=AuditJob.Status.COMPLETED)
     AuditScore.objects.create(audit_run=run, overall_score=80, engine_version="synthetic-1")
     page = Page.objects.create(
         audit_run=run,
@@ -269,7 +292,7 @@ def complete_order_source(data: dict) -> None:
         Issue(
             audit_run=run,
             page=page,
-            rule_code=f"PILOT_{index}",
+            rule_code="META_DESCRIPTION_MISSING" if index == 0 else f"PILOT_{index}",
             category="onpage",
             severity="medium",
             fingerprint=f"{index:064x}",
@@ -283,8 +306,9 @@ def complete_order_source(data: dict) -> None:
     ledger.finished_at = timezone.now()
     ledger.save(update_fields=["status", "finished_at"])
     # The real callback sender signs and sends both deliveries to Core.
-    assert deliver(str(ledger.pk))
-    assert deliver(str(ledger.pk))
+    if not data.get("observations"):
+        assert deliver(str(ledger.pk))
+        assert deliver(str(ledger.pk))
     data.update(remote_audit_id=str(run.pk), remote_module_id=str(ledger.pk))
 
 
@@ -292,6 +316,17 @@ def provision_scr(data: dict) -> None:
     from django.core.management import call_command
 
     call_command("provision_projects", limit=25, verbosity=0)
+
+
+def process_scr_observations(data: dict) -> None:
+    from django.core.management import call_command
+    from seocontentrank.observations.models import ObservationSnapshot, ProjectAuditBinding
+
+    call_command("process_observations", limit=1, verbosity=0)
+    data.update(
+        observation_snapshots=ObservationSnapshot.objects.count(),
+        project_audit_bindings=ProjectAuditBinding.objects.count(),
+    )
 
 
 def seed_scr_blueprint(data: dict) -> None:
@@ -345,6 +380,34 @@ def generate_scr_blueprint(data: dict) -> None:
     data.update(provider_calls=1, used_prior_audit=False)
 
 
+def install_synthetic_google_boundary() -> None:
+    """Only the external Google boundary is replaced; delegation APIs remain real."""
+    from apps.integrations import gsc
+    from apps.search_console import client as google
+    from apps.search_console.models import SearchConsoleProperty
+
+    def exchange(code, redirect):
+        assert code == "synthetic-google-code"
+        return {
+            "access_token": "synthetic-access",
+            "refresh_token": "synthetic-refresh",
+            "expires_in": 3600,
+            "scope": google.GSC_READONLY_SCOPE,
+        }
+
+    def inventory(connection):
+        return [
+            SearchConsoleProperty.objects.create(
+                connection=connection,
+                site_url="sc-domain:pilot.example.test",
+                permission_level="siteOwner",
+            )
+        ]
+
+    google.exchange_authorization_code = exchange
+    gsc.sync_property_inventory = inventory
+
+
 if __name__ == "__main__":
     django.setup()
     action, context_path = sys.argv[1:3]
@@ -354,6 +417,11 @@ if __name__ == "__main__":
         from wsgiref.simple_server import make_server
 
         from django.core.wsgi import get_wsgi_application
+
+        if data.get("synthetic_google") and "pilot_ssa" in os.environ.get(
+            "DJANGO_SETTINGS_MODULE", ""
+        ):
+            install_synthetic_google_boundary()
 
         with make_server("127.0.0.1", int(sys.argv[3]), get_wsgi_application()) as server:
             server.serve_forever()
@@ -365,6 +433,7 @@ if __name__ == "__main__":
             "seed_source": seed_source,
             "seed_scr_projects": seed_scr_projects,
             "provision_scr": provision_scr,
+            "process_scr_observations": process_scr_observations,
             "seed_order_source": seed_order_source,
             "complete_order_source": complete_order_source,
             "seed_scr_blueprint": seed_scr_blueprint,

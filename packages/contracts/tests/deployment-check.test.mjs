@@ -33,6 +33,7 @@ test("profil business składa wszystkie moduły Shared bez verticala", async () 
     "shared.profiles",
     "shared.notifications",
     "shared.booking",
+    "shared.seo",
   ]);
   assert.ok(
     result.modules.every((id) => /^(core|shared)\./.test(id)),

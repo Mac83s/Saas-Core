@@ -1,0 +1,322 @@
+{
+  "schema_version": 1,
+  "observed_at": "2026-09-06T18:29:55.025953+00:00",
+  "scope": "local integration v1; separate unmerged worktrees; no production deployment",
+  "code": {
+    "core": "0c07d0f",
+    "scr": "971acae",
+    "ssa": "3123ca2"
+  },
+  "unchanged_main": {
+    "core": "4cc8684",
+    "scr": "b42e284",
+    "ssa": "ba197d7"
+  },
+  "verification": {
+    "core_postgresql_full": 690,
+    "core_postgresql_gsc_targeted": 25,
+    "core_compose_secret_mount_checks": 4,
+    "core_frontend_final": 131,
+    "core_shared_js": {
+      "contracts": 21,
+      "ui": 8,
+      "site_blocks": 14
+    },
+    "core_openapi_drift": false,
+    "scr_postgresql_final": {
+      "passed": 383,
+      "seconds": 19.65
+    },
+    "scr_frontend": 134,
+    "ssa_postgresql": {
+      "passed": 578,
+      "seconds": 136.41
+    },
+    "cross_service_http": {
+      "passed": 8,
+      "seconds": 188.94
+    },
+    "http_observation_after_transport_fix": {
+      "passed": 1,
+      "seconds": 39.47
+    },
+    "wordpress": {
+      "version": "6.9.1",
+      "php": "8.3",
+      "mariadb": "11.4",
+      "runtime_assertions": 127,
+      "http_assertions": 26,
+      "parallel_identical_receipts": 2
+    },
+    "scr_worker_image": {
+      "offline_assertions": 19,
+      "network": "none",
+      "image": "sha256:76edac55b14ce386e147a85b4162b9a87cfc3cc3b9ff00e1a562d3fa085f8b23"
+    },
+    "core_gsc_rls": {
+      "table_count": 4,
+      "none_A_B": [
+        [
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          1,
+          1
+        ],
+        [
+          1,
+          1,
+          1,
+          1
+        ]
+      ],
+      "role": "NOSUPERUSER NOBYPASSRLS"
+    }
+  },
+  "runtime": {
+    "business": {
+      "observed_at": "2026-09-06T18:26:45.367758+00:00",
+      "transport": "http://127.0.0.1:8896",
+      "fixture": {
+        "organization_id": "01a077ef-6a32-72d1-a969-1d800a2f5bec",
+        "site_id": "01a077ef-6abc-73eb-bdf3-dbdd708f3ddb",
+        "publication_id": "01a077ef-6b18-7477-8fc6-2dacd2684eba",
+        "publication_hash": "488967183101162ba583548ea1e7f572969f6c1387fac3b8a3085c76efd439ef",
+        "host": "seo-public-smoke-1d800a2f5bec.example.test",
+        "path": "/start/",
+        "heading": "Synthetic public delivery seo-public-smoke-1d800a2f5bec",
+        "image_path": "/media/01a077ef-6ad1-7488-a309-71468e82c79f",
+        "image_sha256": "942f94e0c7eb1e068dec2f8526ea3314fe84eb99c06fb5f33015f15c164f096b",
+        "image_bytes": 140,
+        "database_role": "saas_core_app",
+        "superuser": false,
+        "bypass_rls": false,
+        "fixture_limits": [
+          "synthetic verified domain",
+          "synthetic ready image",
+          "no DNS or malware-scanning proof",
+          "no real provider calls"
+        ],
+        "image_api_path": "/api/v1/public/site/media/01a077ef-6ad1-7488-a309-71468e82c79f/"
+      },
+      "probes": {
+        "page": {
+          "status": 200,
+          "content_type": "text/html; charset=utf-8",
+          "bytes": 9919,
+          "sha256": "0bf5d19b05d4cd5696d242bcc12f9be6a542bffa03819b2182f0ebed22083242",
+          "redirects": [
+            {
+              "status": 308,
+              "location": "/start"
+            }
+          ]
+        },
+        "sitemap": {
+          "status": 200,
+          "content_type": "application/xml; charset=utf-8",
+          "bytes": 186,
+          "sha256": "017de5373a39fc79e29b143c757c59a50d5d29d0fde32a3dec78014e609586ff",
+          "redirects": []
+        },
+        "image": {
+          "status": 200,
+          "content_type": "image/png",
+          "bytes": 140,
+          "sha256": "942f94e0c7eb1e068dec2f8526ea3314fe84eb99c06fb5f33015f15c164f096b",
+          "redirects": []
+        },
+        "image_api": {
+          "status": 200,
+          "content_type": "image/png",
+          "bytes": 140,
+          "sha256": "942f94e0c7eb1e068dec2f8526ea3314fe84eb99c06fb5f33015f15c164f096b",
+          "redirects": []
+        },
+        "unknown_host_image": {
+          "status": 404,
+          "content_type": null,
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "redirects": []
+        },
+        "backend_ready": {
+          "status": 200,
+          "content_type": "application/json",
+          "bytes": 242,
+          "sha256": "f9c58b45a2b2a3c256371543c97282881777fa3c5083a80b5c7f30a4d7f31823",
+          "redirects": [],
+          "body": {
+            "status": "ok",
+            "deployment": "business",
+            "version": "0.1.0",
+            "profile_hash": "sha256:4ff69cf4be23258e8ed2637416f2ccf803f780d689b920b32a711024e45b093f",
+            "correlation_id": "01a077f9-0d9e-77ab-bce6-436dec05358b",
+            "checks": {
+              "database": "ok",
+              "cache": "ok"
+            }
+          }
+        },
+        "frontend_health": {
+          "status": 200,
+          "content_type": "application/json",
+          "bytes": 39,
+          "sha256": "ffc46cd877395bb9d9160f2da8065f316d29a03dc6c439164a086f8c59c9e90d",
+          "redirects": [],
+          "body": {
+            "status": "ok",
+            "deployment": "business"
+          }
+        }
+      },
+      "source_commit": "0c07d0f",
+      "backend_source_comparison": {
+        "files": 344,
+        "different": 0
+      }
+    },
+    "core_only": {
+      "deployment": "core-only",
+      "profile_hash": "sha256:610734bdecbf8e43258c0dea1be9cbcce5de66f972c69fc7bcab047339dabb22",
+      "modules": [
+        "core.health",
+        "core.identity",
+        "core.organizations"
+      ],
+      "apps": [
+        "django.contrib.admin",
+        "django.contrib.auth",
+        "django.contrib.contenttypes",
+        "django.contrib.sessions",
+        "django.contrib.messages",
+        "django.contrib.postgres",
+        "django.contrib.staticfiles",
+        "rest_framework",
+        "drf_spectacular",
+        "saas_core.modules.core.health",
+        "saas_core.modules.core.identity",
+        "saas_core.modules.core.organizations"
+      ],
+      "routes": {
+        "/api/v1/health/": "health",
+        "/api/v1/seo/audits/": null,
+        "/api/v1/seo/gsc/prepare/": null,
+        "/api/v1/sites/blueprint-catalog/": null
+      },
+      "scheduled_jobs": {},
+      "database_role_check": "Rola PostgreSQL 'saas_core_app' egzekwuje kontrakt RLS."
+    },
+    "core_only_python_source_differences": 0,
+    "business_release": {
+      "deployment": "business",
+      "profileHash": "sha256:4ff69cf4be23258e8ed2637416f2ccf803f780d689b920b32a711024e45b093f",
+      "version": "0.1.0",
+      "modules": [
+        "core.health",
+        "core.identity",
+        "core.organizations",
+        "shared.billing",
+        "shared.sites",
+        "shared.media",
+        "shared.profiles",
+        "shared.notifications",
+        "shared.booking",
+        "shared.seo"
+      ],
+      "images": {
+        "backend": "sha256:d7b0e15b3f030ae0ee35cf97ee0066032e45b176fdd36c253f62c271e51002a1",
+        "frontend": "sha256:0437a3c4c53555eec03138d6c844b4409e3fc2998fd7551c9d44c11ec47fe4ac"
+      },
+      "migrations": {
+        "shipped": {
+          "admin": "0003_logentry_add_action_flag_choices",
+          "auth": "0012_alter_user_first_name_max_length",
+          "billing": "0022_credit_ledger_allows_erasure",
+          "booking": "0003_tenant_relation_guards",
+          "contenttypes": "0002_remove_content_type_name",
+          "identity": "0003_accountauditevent",
+          "media": "0007_media_reference_allows_erasure",
+          "notifications": "0005_app_notification",
+          "organizations": "0034_add_gsc_permissions",
+          "profiles": "0002_rls_and_tenant_guards",
+          "seo": "0006_gsc_isolation",
+          "sessions": "0001_initial",
+          "sites": "0028_blueprint_receipt_isolation"
+        },
+        "applied": {
+          "admin": "0003_logentry_add_action_flag_choices",
+          "auth": "0012_alter_user_first_name_max_length",
+          "billing": "0022_credit_ledger_allows_erasure",
+          "booking": "0003_tenant_relation_guards",
+          "contenttypes": "0002_remove_content_type_name",
+          "identity": "0003_accountauditevent",
+          "media": "0007_media_reference_allows_erasure",
+          "notifications": "0005_app_notification",
+          "organizations": "0034_add_gsc_permissions",
+          "profiles": "0002_rls_and_tenant_guards",
+          "seo": "0006_gsc_isolation",
+          "sessions": "0001_initial",
+          "sites": "0028_blueprint_receipt_isolation"
+        },
+        "pending": []
+      },
+      "rollback": {
+        "reversible": true,
+        "irreversible": []
+      }
+    },
+    "core_only_release": {
+      "deployment": "core-only",
+      "profileHash": "sha256:610734bdecbf8e43258c0dea1be9cbcce5de66f972c69fc7bcab047339dabb22",
+      "version": "0.1.0",
+      "modules": [
+        "core.health",
+        "core.identity",
+        "core.organizations"
+      ],
+      "images": {
+        "backend": "sha256:26f63d85675ffd513fcf584320496b88bda494443568cd1821feec47192b89f9",
+        "frontend": "sha256:427b62717112a5dd6a314fff26d9dd7f0dfddc2ed1701d0776dd0a3eba902b74"
+      },
+      "migrations": {
+        "shipped": {
+          "admin": "0003_logentry_add_action_flag_choices",
+          "auth": "0012_alter_user_first_name_max_length",
+          "contenttypes": "0002_remove_content_type_name",
+          "identity": "0003_accountauditevent",
+          "organizations": "0034_add_gsc_permissions",
+          "sessions": "0001_initial"
+        },
+        "applied": {
+          "admin": "0003_logentry_add_action_flag_choices",
+          "auth": "0012_alter_user_first_name_max_length",
+          "contenttypes": "0002_remove_content_type_name",
+          "identity": "0003_accountauditevent",
+          "organizations": "0034_add_gsc_permissions",
+          "sessions": "0001_initial"
+        },
+        "pending": []
+      },
+      "rollback": {
+        "reversible": true,
+        "irreversible": []
+      }
+    }
+  },
+  "limits": [
+    "Google consent/exchange and model responses synthetic; no paid provider or crawler calls",
+    "Verified domain and ready image synthetic; no DNS, upload or malware-scanner proof",
+    "Blueprint starts in separate SCR workspace for an existing Core site and operator-approved connection",
+    "One template page per blueprint; neutral API and WordPress currently meta-description only",
+    "At most 2000 observation detail rows; competitors currently coverage only",
+    "No GA, full conversational assistant, strategy automation or production rollout",
+    "Migration reversal guards preserve used operation history; app rollback retains expanded schema",
+    "Local image IDs are not registry-published release digests"
+  ]
+}

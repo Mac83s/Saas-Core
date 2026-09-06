@@ -7,22 +7,53 @@ Podstawa: [ADR-043](../../docs/adr/ADR-043-Integracja-SaaS-Core-SCR-i-SSA.md)
 i [kontrakt I0 v1](../../docs/architecture/seo-ecosystem-integration.md).
 Plan nie zastępuje kolejności P0–P3 z planu 13 ani nie otwiera verticali.
 
-### Bieżący odbiór wykonawczy, 2026-09-06 19:25
+### Bieżący odbiór wykonawczy, 2026-09-06
 
 - [x] I2 Core backend/rozliczenia i panel audytów: `65a931b`, `463f2c5`;
   654 PostgreSQL, 120 frontend, build, następnie 29 testów SEO po ograniczeniu listy.
   Pilot HTTP potwierdza pojedyncze rozliczenie completed i zwolnienie partial.
 - [x] I3 SSA/SCR: `c05919e`, `c7ffc84`, granty/OAuth/revocation/private copies;
   543 PostgreSQL SSA i 280 PostgreSQL/104 frontend SCR. Realna zgoda Google osobno.
-- [ ] I3 Core: panel i powiązanie zgody z dokładną sesją, blokada erasure przed disconnect.
+- [x] I3 Core: `186157d`, panel i powiązanie zgody z dokładną sesją,
+  blokada erasure przed disconnect; 690 PostgreSQL, 128 frontend,
+  RLS czterech tabel bez tenanta/dla A/dla B: 0/1/1, osobny pilot HTTP.
 - [x] I4 Core: kontrolowany katalog i przyjęcie nowego draftu zgodnie z ADR-046;
   16 testów PostgreSQL obejmuje RLS rzeczywistej roli, erasure i guard rollbacku,
   8 testów kolejki; osobny pilot SCR→Core bez wcześniejszego audytu 1 passed / 29,80 s.
-- [ ] I4 SCR: backend generacji już przechodzi testy; trwa odbiór formularza i przeglądu.
+- [x] I4 SCR: `6c621de`, ograniczony kosztowo worker, formularz briefu,
+  katalog celów/szablonów, przegląd i dostarczenie do Core; pilot bez audytu.
 - [x] I5 SSA: `60a84db`, idempotentne zlecenia wszystkich ośmiu modułów,
   560 PostgreSQL + 8 wyścigów worker/broker. Brak tworzenia nowego płatnego run po unknown.
-- [ ] I5 SCR: harmonogramy/jednorazowe zlecenia, pomiary i kanał WordPress v1.
-- [ ] Końcowy odbiór obrazów, konfiguracji i całego połączonego przyrostu.
+- [x] I5 SCR: `1bc2bcc`, harmonogramy/jednorazowe zlecenia, pomiary i porównanie
+  zgodnych danych; SSA `3123ca2` dostarcza wynik konkretnej operacji. Pełne suite:
+  SSA 578 PostgreSQL, SCR 359 PostgreSQL + 3 testy zgodności kontraktu,
+  frontend SCR 134 testy, lint/typy/build. Początkowy skip vendored contract
+  sprawdzony osobno z jawną ścieżką katalogu Core.
+- [x] WordPress `e8db148`: opis meta po zatwierdzeniu administratora,
+  127 asercji PHP/MariaDB, dwa równoległe procesy z identycznym receiptem,
+  26 asercji rzeczywistego HTTP (login, nonce, apply, replay, publiczny HTML).
+- [x] Połączone API: osiem testów HTTP, 188,94 s. Granice Google/model/crawl
+  syntetyczne; wynik nie jest potwierdzeniem konfiguracji dostawców.
+- [x] SCR: `f1d9c95` kontrolowane 503, odseparowany błędny harmonogram i
+  strumieniowy limit odpowiedzi; `971acae` jawnie włączane procesy projektów,
+  briefów i obserwacji, obraz z kontraktami i obsługa zatrzymania. Końcowy cały
+  backend **383 passed PostgreSQL / 19,65 s**. Obraz workerów: 19 asercji bez sieci.
+- [x] Core-only: obraz uruchomiony, trzy moduły core, brak tras SEO/Sites i zadań
+  okresowych; health backend/frontend zgodny, RLS roli aplikacyjnej poprawne,
+  wszystkie pliki Pythona obrazu zgodne z checkoutem. Lokalny profil, bez deployu.
+- [x] Końcowy odbiór lokalnych obrazów: Core `0c07d0f`, business i core-only
+  zbudowane oraz uruchomione, zgodne profile frontend/backend. Business:
+  siedem kontroli HTTP strony/sitemap/obrazu/odmowy/health, 344 pliki backendu
+  zgodne z checkoutem, zero oczekujących migracji. Frontend końcowy: 131 testów.
+  Naprawione braki wykryte dopiero w runtime: sekrety procesu migrate i route
+  publicznych mediów. Konfiguracja produkcyjnych dostawców pozostaje osobną bramką.
+
+Zakres odbioru to pierwsza wersja integracji, nie cały docelowy produkt SEO.
+Brief uruchamia się w osobnym SCR dla istniejącej witryny i grantu Core;
+asystent rozpoczynający proces z samego konta Core pozostaje dalszą pracą.
+Kanał A4/WordPress obsługuje opis meta; nie edytuje artykułów i struktury.
+Pełne granice oraz kolejność uruchomienia:
+[odbiór integracji](../../docs/development/SEO-INTEGRATION-ACCEPTANCE.md).
 
 Poniższe opisy zachowują wcześniejsze bramki i liczby testów jako historię.
 
@@ -52,10 +83,11 @@ Praca w SSA/SCR zaczyna się od Memex CLI; same odczyty nie oznaczają wdrożeni
   serwisy `ContentChangeSet` sprawdzają właściciela przez połączenie. Dawne rekordy
   bez właściciela/powiązania zachowane i nieaktywne. Dowód: migracje i testy
   `test_target_workspace`, `test_target_workspace_migration`, `test_generation_workspace`.
-- [ ] **SCR:** trwała neutralna propozycja A4, powiązanie właściciela kandydata
+- [x] **SCR:** trwała neutralna propozycja A4, powiązanie właściciela kandydata
   z generacją i celem, model logicznego projektu oraz resolver zasobów docelowych.
-  Propozycja, API decyzji, projekt i resolver ukończone w `455981e`; pozostaje
-  pełny przepływ generacji i dostarczenia z panelu oraz połączenie projektu ze snapshotami.
+  Propozycja, API decyzji, projekt i resolver ukończone w `455981e`; panel,
+  dostarczenie i brief w `c7ffc84`/`6c621de`, wiązanie projektu ze snapshotem
+  w `1bc2bcc`. Zakres treści pierwszej wersji opisany w odbiorze, nie dowolny CMS.
 - [x] **SCR:** deduplikacja audytu obejmuje workspace, kanoniczny adres instancji
   SSA i audit ID. `pull_audit --run` oraz serwis importu potwierdzają zgodność
   audytu z przekazanym projektem. Dowód: migracja audit0003 i `test_audit_source_binding`.

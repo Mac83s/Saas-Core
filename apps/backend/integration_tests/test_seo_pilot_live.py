@@ -170,6 +170,120 @@ def _server(peer: tuple, port: int, context: Path, log: object) -> subprocess.Po
     raise AssertionError("Peer startup timed out.")
 
 
+def test_core_delegates_google_consent_and_revocation_over_http(live_server, tmp_path, settings):
+    from datetime import timedelta
+    from urllib.parse import parse_qs, urlsplit
+
+    from django.utils import timezone
+
+    from saas_core.modules.core.organizations.erasure import ErasureBlocked, erase_organization
+    from saas_core.modules.shared.billing.models import EntitlementSnapshot
+    from saas_core.modules.shared.seo.gsc.models import GscWorkspaceState
+
+    settings.CONFIGURED_ALLOWED_HOSTS = ("testserver", "localhost", "127.0.0.1")
+    ssa = _peer(tmp_path, "SSA")
+    port = _port()
+    context_file = tmp_path / "private-context.json"
+    context_file.write_text(json.dumps({"synthetic_google": True}), encoding="utf-8")
+    _run(ssa, "seed_order_source", context_file)
+    data = json.loads(context_file.read_text(encoding="utf-8"))
+    redirect = live_server.url + "/api/v1/seo/gsc/callback/"
+    with (tmp_path / "pilot_ssa_settings.py").open("a", encoding="utf-8") as handle:
+        handle.write(
+            "\nGOOGLE_OAUTH_CLIENT_ID = 'synthetic.apps.googleusercontent.com'\n"
+            "GOOGLE_OAUTH_CLIENT_SECRET = 'synthetic-client-secret'\n"
+            "GOOGLE_TOKEN_ENCRYPTION_KEY = 'synthetic-encryption-only'\n"
+            f"GOOGLE_OAUTH_REDIRECT_URI = {redirect!r}\n"
+            f"SSA_INTEGRATION_GSC_REDIRECTS = {{{data['source_id']!r}: {redirect!r}}}\n"
+        )
+    settings.SEO_SSA_BASE_URL = f"http://127.0.0.1:{port}/api/v1"
+    settings.SEO_SSA_SOURCE_ID = data["source_id"]
+    settings.SEO_SSA_PRODUCT_ID = "saas-core"
+    settings.SEO_SSA_DEPLOYMENT_ID = "local-pilot"
+    settings.SEO_SSA_SERVICE_KEY = data["source_key"]
+    settings.SEO_GSC_REDIRECT_URI = redirect
+    person, organization, owner = sites_client(slug="live-google", role_key="owner")
+    EntitlementSnapshot.all_objects.filter(organization=organization).update(
+        features={"sites.enabled": True, "seo.gsc.enabled": True}
+    )
+    site = create_site(person).data["id"]
+    Domain.all_objects.filter(site_id=site).update(is_canonical=False)
+    Domain.all_objects.create(
+        organization=organization,
+        site_id=site,
+        hostname="pilot.example.test",
+        kind="custom",
+        status="verified",
+        is_canonical=True,
+        created_by=owner,
+    )
+    api = "/api/v1/seo/gsc/"
+
+    def post(path, body):
+        return person.post(api + path, body, format="json", HTTP_X_CSRFTOKEN=csrf_value(person))
+
+    with (tmp_path / "ssa.log").open("w") as log:
+        process = _server(ssa, port, context_file, log)
+        try:
+            prepared = post("prepare/", {"site_id": str(site)})
+            assert prepared.status_code == 200, prepared.content
+            assert prepared.json()["connected"] is False
+            authorized = post(
+                "authorize/", {"site_id": str(site), "locale": "en", "connection_id": None}
+            )
+            assert authorized.status_code == 200, authorized.content
+            state = parse_qs(urlsplit(authorized.json()["authorization_url"]).query)["state"][0]
+            with pytest.raises(ErasureBlocked, match="disconnect_required"):
+                erase_organization(organization=organization, requested_by=None, reason="Synthetic")
+            callback = person.get(
+                api + "callback/", {"state": state, "code": "synthetic-google-code"}
+            )
+            assert callback.status_code == 302
+            assert "result=connected" in callback["Location"], callback["Location"]
+            properties = person.get(api + "properties/", {"site_id": str(site)})
+            assert properties.status_code == 200, properties.content
+            assert properties.json()["connected"] is True
+            assert "synthetic-access" not in properties.content.decode()
+            assert "synthetic-refresh" not in properties.content.decode()
+            assert (
+                "result=failed"
+                in person.get(api + "callback/", {"state": state, "code": "synthetic-google-code"})[
+                    "Location"
+                ]
+            )
+            grant = post(
+                "grants/",
+                {
+                    "site_id": str(site),
+                    "property_id": properties.json()["properties"][0]["id"],
+                    "expires_at": (timezone.now() + timedelta(days=7)).isoformat(),
+                    "idempotency_key": "live-google-grant",
+                },
+            )
+            assert grant.status_code == 200, grant.content
+            grant_id = grant.json()["id"]
+            revoked = post(f"grants/{grant_id}/revoke/", {})
+            assert revoked.status_code == 200, revoked.content
+            assert revoked.json()["revoked_at"]
+            disconnected = post(
+                "disconnect/",
+                {
+                    "site_id": str(site),
+                    "connection_id": properties.json()["connection_id"],
+                    "confirm_workspace_disconnect": True,
+                },
+            )
+            assert disconnected.status_code == 200, disconnected.content
+            assert disconnected.json()["disconnected"] is True
+            assert not GscWorkspaceState.all_objects.get(organization=organization).cleanup_required
+            erase_organization(
+                organization=organization, requested_by=None, reason="Synthetic teardown"
+            )
+        finally:
+            process.terminate()
+            process.wait(timeout=5)
+
+
 def test_brief_to_core_draft_over_http_without_prior_audit(live_server, tmp_path, settings):
     from saas_core.modules.shared.notifications.models import ApiKeyCredentialRoute
     from saas_core.modules.shared.sites.models import BlueprintImportReceipt, ContentProposal, Page
@@ -548,6 +662,123 @@ def test_core_orders_and_settles_ssa_audit_over_http(
         finally:
             process.terminate()
             process.wait(timeout=10)
+
+
+def test_scr_collects_observation_results_over_http(tmp_path: Path) -> None:
+    from django.utils import timezone
+
+    ssa, scr = _peer(tmp_path, "SSA"), _peer(tmp_path, "SCR")
+    ssa_port, scr_port = _port(), _port()
+    context = tmp_path / "private-context.json"
+    data = {
+        "ssa_url": f"http://127.0.0.1:{ssa_port}",
+        "scr_url": f"http://127.0.0.1:{scr_port}",
+        "observations": True,
+    }
+    context.write_text(json.dumps(data), encoding="utf-8")
+    _run(ssa, "seed_source", context)
+    data = json.loads(context.read_text(encoding="utf-8"))
+    scr[2].update({
+        "SSA_SERVICE_BASE_URL": data["ssa_url"],
+        "SSA_SERVICE_TOKEN": data["source_key"],
+        "SCR_PRODUCT_ID": "scr",
+        "SCR_DEPLOYMENT_ID": "local-pilot",
+    })
+    _run(scr, "seed_scr_projects", context)
+    data = json.loads(context.read_text(encoding="utf-8"))
+    headers = {"Authorization": f"Bearer {data['workspace_keys']['synthetic-pilot']}"}
+    processes = []
+    with (tmp_path / "ssa.log").open("w") as ssa_log, (tmp_path / "scr.log").open("w") as scr_log:
+        try:
+            processes.append(_server(ssa, ssa_port, context, ssa_log))
+            processes.append(_server(scr, scr_port, context, scr_log))
+            response = _request(
+                data["scr_url"] + "/api/v1/projects/",
+                body={
+                    "name": "Observed site",
+                    "root_url": "https://public.example.test/",
+                    "purpose": "external",
+                },
+                headers={**headers, "Idempotency-Key": "observed-project"},
+            )
+            assert response.status_code == 202, response.text
+            project_id = response.json()["id"]
+            _run(scr, "provision_scr", context)
+            project_url = data["scr_url"] + f"/api/v1/projects/{project_id}/"
+            project = _request(project_url, headers=headers).json()
+            assert project["status"] == "ready", project
+            schedules_url = data["scr_url"] + "/api/v1/observations/schedules/"
+            body = {
+                "project_id": project_id,
+                "module_code": "onsite",
+                "options": {"max_pages": 1},
+                "starts_at": timezone.now().isoformat(),
+                "interval_seconds": 0,
+                "max_runs": 1,
+            }
+            response = _request(
+                schedules_url, body=body, headers={**headers, "Idempotency-Key": "one-observation"}
+            )
+            assert response.status_code == 202, response.text
+            schedule_id = response.json()["id"]
+            repeat = _request(
+                schedules_url, body=body, headers={**headers, "Idempotency-Key": "one-observation"}
+            )
+            assert repeat.json()["id"] == schedule_id
+            _run(scr, "process_scr_observations", context)
+            operations_url = schedules_url + f"{schedule_id}/operations/"
+            response = _request(operations_url, headers=headers)
+            assert response.status_code == 200, response.text
+            assert response.json()["count"] == 1
+            operation = response.json()["results"][0]
+            assert operation["status"] == "running", operation
+            data["order_id"] = operation["id"]
+            context.write_text(json.dumps(data), encoding="utf-8")
+            _run(ssa, "complete_order_source", context)
+            operation_url = data["scr_url"] + f"/api/v1/observations/operations/{operation['id']}/"
+            response = _request(operation_url + "reconcile/", body={}, headers=headers)
+            assert response.status_code == 202, response.text
+            _run(scr, "process_scr_observations", context)
+            operation = _request(operation_url, headers=headers).json()
+            assert operation["status"] == "completed", operation
+            assert operation["snapshot_id"]
+            response = _request(operation_url + "snapshot/", headers=headers)
+            assert response.status_code == 200, response.text
+            snapshot = response.json()
+            assert snapshot["project_id"] == project_id
+            assert snapshot["payload"]["coverage"]["rows_returned"] == 101
+            assert len(snapshot["payload"]["measurements"]) == 101
+            assert all("details" not in row for row in snapshot["payload"]["measurements"])
+            other = {"Authorization": f"Bearer {data['workspace_keys']['synthetic-other']}"}
+            assert _request(operation_url + "snapshot/", headers=other).status_code == 404
+            _run(scr, "process_scr_observations", context)
+            evidence = json.loads(context.read_text(encoding="utf-8"))
+            assert evidence["observation_snapshots"] == evidence["project_audit_bindings"] == 1
+            assert _request(operations_url, headers=headers).json()["count"] == 1
+            assert (
+                _request(project_url, headers=headers).json()["ssa_project_id"]
+                == project["ssa_project_id"]
+            )
+            (tmp_path / "evidence.json").write_text(
+                json.dumps(
+                    {
+                        "synthetic": True,
+                        "snapshots": 1,
+                        "project_audit_bindings": 1,
+                        "issues": 101,
+                        "private_details_copied": False,
+                        "foreign_snapshot_status": 404,
+                        "paid_provider_calls": 0,
+                        "crawler_calls": 0,
+                    },
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+        finally:
+            for process in reversed(processes):
+                process.terminate()
+                process.wait(timeout=10)
 
 
 def test_scr_provisions_independent_projects_in_ssa(tmp_path: Path) -> None:
