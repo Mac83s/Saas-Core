@@ -1049,6 +1049,7 @@ def import_page_template(
     template_version: int,
     expected_version: int,
     idempotency_key: str,
+    text_values: dict[str, str] | None = None,
 ) -> MutationResult[PageVersion]:
     from .page_templates import page_template_catalog
 
@@ -1059,6 +1060,17 @@ def import_page_template(
     )
     for entitlement in template.required_entitlements:
         authorize_entitled(SITE_CONTENT_EDIT, entitlement)
+    blocks = template.draft_blocks()
+    request_context: dict[str, Any] = {
+        "operation": "page_template_import",
+        "template_id": template.id,
+        "template_version": template.version,
+    }
+    if text_values is not None:
+        from .blueprints import render_slots
+
+        blocks = render_slots(template, text_values)
+        request_context["text_values"] = text_values
     materializations = []
     try:
         for medium in template.media:
@@ -1081,14 +1093,10 @@ def import_page_template(
         result = save_draft(
             page_id=page_id,
             expected_version=expected_version,
-            blocks=template.draft_blocks(),
+            blocks=blocks,
             media_asset_ids=[item.asset.id for item in materializations],
             idempotency_key=idempotency_key,
-            request_context={
-                "operation": "page_template_import",
-                "template_id": template.id,
-                "template_version": template.version,
-            },
+            request_context=request_context,
         )
         if result.created:
             context = require_tenant_context()

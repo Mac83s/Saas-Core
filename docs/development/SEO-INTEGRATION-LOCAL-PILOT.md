@@ -1,5 +1,22 @@
 # Lokalny pilot trzech usług
 
+Aktualny zestaw zawiera sześć przypadków: podgląd bez zapisu; dostarczenie do
+szkicu z przeglądem w Core; dwa niezależne projekty na tym samym URL; zamówienie
+audytu completed; zamówienie partial; nowa strona z briefu bez istniejącego audytu.
+W audytach rzeczywisty sender SSA wysyła dwukrotnie podpisany callback, a Core
+uzgadnia status i pobiera 101 ustaleń; ledger kredytów zmienia się dokładnie raz.
+Końcowy status audytu jest kontrolowanym fixture, nie pracą crawlera.
+
+W briefie SCR pobiera rzeczywisty katalog Core i rezerwuje wywołanie przed modelem.
+Tylko odpowiedź modelu jest zastąpiona syntetycznymi tekstami; create, accept,
+deliver, katalog i receipt przechodzą przez właściwe API. Nie powstaje snapshot
+wcześniejszego audytu. Core tworzy jeden draft i propozycję, człowiek akceptuje
+jej podgląd, a powtórzenie dostawy nie tworzy kolejnej wersji ani publikacji.
+
+Uruchomienie zawsze dostaje `--create-db` oraz własny `--basetemp=.runtime/<run>`.
+Testy transakcyjne czyszczą również dane migracji; lokalny harness odtwarza ich
+początkowy zapis pomiędzy przypadkami, bez aktualizacji niemutowalnych ról.
+
 Test `apps/backend/integration_tests/test_seo_pilot_live.py` uruchamia osobne
 procesy Django SSA i SCR oraz serwer HTTP Core z pytest. Każdy proces importuje
 wyłącznie własną aplikację. SSA i SCR otrzymują nowe pliki SQLite; Core używa

@@ -27,15 +27,16 @@ import { sitesErrorMessage } from "./problem";
 type SourceClaim = { kind: string; reference: string; observed_at: string };
 type Block = { block_type: string; data: Record<string, unknown> };
 
-/** The words a block actually shows, so a diff can be read rather than parsed.
- *
- *  Deliberately shallow: every controlled block keeps its text in string
- *  fields one level down, and walking deeper would start rendering data the
- *  block itself chooses not to show. */
+/** Include nested FAQ answers and feature labels in the review, as escaped text. */
 function blockText(block: Block): string {
-  return Object.values(block.data)
-    .filter((value): value is string => typeof value === "string")
-    .join(" · ");
+  function text(value: unknown): string[] {
+    if (typeof value === "string") return [value];
+    if (Array.isArray(value)) return value.flatMap(text);
+    if (value && typeof value === "object")
+      return Object.values(value).flatMap(text);
+    return [];
+  }
+  return text(block.data).join(" · ");
 }
 
 function ProposalDiff({ detail }: { detail: ContentProposalDetail }) {

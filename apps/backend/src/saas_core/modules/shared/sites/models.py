@@ -1227,6 +1227,29 @@ class ContentProposal(TenantScopedModel):
         return f"{self.resource_type}:{self.resource_id}@{self.version}"
 
 
+class BlueprintImportReceipt(TenantScopedModel):
+    """An immutable receipt for one accepted generator delivery, not a publication."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    site = models.ForeignKey(Site, on_delete=models.PROTECT)
+    page = models.ForeignKey(Page, on_delete=models.PROTECT)
+    proposal = models.ForeignKey(ContentProposal, on_delete=models.PROTECT)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    credential_id = models.UUIDField(null=True, blank=True)
+    idempotency_key = models.CharField(max_length=120)
+    request_hash = models.CharField(max_length=64)
+    result = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=["organization", "site", "created_by", "credential_id", "idempotency_key"],
+            nulls_distinct=False, name="sites_blueprint_delivery_uq",
+        )]
+
+
 class EntryScheduleState(models.TextChoices):
     """Why an article is, or is not, waiting to be published.
 

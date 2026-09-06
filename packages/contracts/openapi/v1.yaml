@@ -3061,6 +3061,154 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/{site_id}/blueprint-draft/:
+    get:
+      operationId: sites_blueprint_draft_receipt
+      parameters:
+      - in: query
+        name: idempotency_key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlueprintReceipt'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: sites_blueprint_draft_create
+      parameters:
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlueprintInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BlueprintInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BlueprintInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlueprintResult'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlueprintResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/{site_id}/collections/:
     get:
       operationId: sites_collections_list
@@ -3815,6 +3963,69 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/blueprint-catalog/:
+    get:
+      operationId: sites_blueprint_catalog
+      parameters:
+      - in: query
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlueprintCatalog'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '429':
           content:
             application/json:
               schema:
@@ -6393,6 +6604,151 @@ components:
       required:
       - id
       - url
+    BlueprintCatalog:
+      type: object
+      properties:
+        contract_version:
+          type: integer
+        site_id:
+          type: string
+          format: uuid
+        catalog_hash:
+          type: string
+        templates:
+          type: array
+          items:
+            $ref: '#/components/schemas/BlueprintTemplate'
+      required:
+      - catalog_hash
+      - contract_version
+      - site_id
+      - templates
+    BlueprintInput:
+      type: object
+      properties:
+        generation_id:
+          type: string
+          format: uuid
+        catalog_hash:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        template_id:
+          type: string
+          maxLength: 120
+        template_version:
+          type: integer
+          minimum: 1
+        slots:
+          type: object
+          additionalProperties:
+            type: string
+            maxLength: 2000
+        locale:
+          $ref: '#/components/schemas/LocaleEnum'
+        name:
+          type: string
+          maxLength: 160
+        key:
+          type: string
+          pattern: ^[a-z0-9_-]{1,80}$
+        idempotency_key:
+          type: string
+          maxLength: 120
+      required:
+      - catalog_hash
+      - generation_id
+      - idempotency_key
+      - key
+      - locale
+      - name
+      - slots
+      - template_id
+      - template_version
+    BlueprintReceipt:
+      type: object
+      properties:
+        found:
+          type: boolean
+        result:
+          oneOf:
+          - $ref: '#/components/schemas/BlueprintResult'
+          - type: 'null'
+      required:
+      - found
+      - result
+    BlueprintResult:
+      type: object
+      properties:
+        generation_id:
+          type: string
+          format: uuid
+        site_id:
+          type: string
+          format: uuid
+        page_id:
+          type: string
+          format: uuid
+        proposal_id:
+          type: string
+          format: uuid
+        draft_version:
+          type: integer
+          minimum: 1
+        request_hash:
+          type: string
+        published:
+          type: boolean
+      required:
+      - draft_version
+      - generation_id
+      - page_id
+      - proposal_id
+      - published
+      - request_hash
+      - site_id
+    BlueprintSlot:
+      type: object
+      properties:
+        key:
+          type: string
+        kind:
+          $ref: '#/components/schemas/BlueprintSlotKindEnum'
+        max_length:
+          type: integer
+          minimum: 1
+        default:
+          type: string
+      required:
+      - default
+      - key
+      - kind
+      - max_length
+    BlueprintSlotKindEnum:
+      enum:
+      - text
+      type: string
+      description: '* `text` - text'
+    BlueprintTemplate:
+      type: object
+      properties:
+        id:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+        slots:
+          type: array
+          items:
+            $ref: '#/components/schemas/BlueprintSlot'
+      required:
+      - id
+      - labels
+      - slots
+      - version
     CallbackEnvelope:
       type: object
       properties:

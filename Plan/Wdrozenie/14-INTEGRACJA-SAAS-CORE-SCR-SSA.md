@@ -7,6 +7,25 @@ Podstawa: [ADR-043](../../docs/adr/ADR-043-Integracja-SaaS-Core-SCR-i-SSA.md)
 i [kontrakt I0 v1](../../docs/architecture/seo-ecosystem-integration.md).
 Plan nie zastępuje kolejności P0–P3 z planu 13 ani nie otwiera verticali.
 
+### Bieżący odbiór wykonawczy, 2026-09-06 19:25
+
+- [x] I2 Core backend/rozliczenia i panel audytów: `65a931b`, `463f2c5`;
+  654 PostgreSQL, 120 frontend, build, następnie 29 testów SEO po ograniczeniu listy.
+  Pilot HTTP potwierdza pojedyncze rozliczenie completed i zwolnienie partial.
+- [x] I3 SSA/SCR: `c05919e`, `c7ffc84`, granty/OAuth/revocation/private copies;
+  543 PostgreSQL SSA i 280 PostgreSQL/104 frontend SCR. Realna zgoda Google osobno.
+- [ ] I3 Core: panel i powiązanie zgody z dokładną sesją, blokada erasure przed disconnect.
+- [x] I4 Core: kontrolowany katalog i przyjęcie nowego draftu zgodnie z ADR-046;
+  16 testów PostgreSQL obejmuje RLS rzeczywistej roli, erasure i guard rollbacku,
+  8 testów kolejki; osobny pilot SCR→Core bez wcześniejszego audytu 1 passed / 29,80 s.
+- [ ] I4 SCR: backend generacji już przechodzi testy; trwa odbiór formularza i przeglądu.
+- [x] I5 SSA: `60a84db`, idempotentne zlecenia wszystkich ośmiu modułów,
+  560 PostgreSQL + 8 wyścigów worker/broker. Brak tworzenia nowego płatnego run po unknown.
+- [ ] I5 SCR: harmonogramy/jednorazowe zlecenia, pomiary i kanał WordPress v1.
+- [ ] Końcowy odbiór obrazów, konfiguracji i całego połączonego przyrostu.
+
+Poniższe opisy zachowują wcześniejsze bramki i liczby testów jako historię.
+
 ## Organizacja pracy
 
 Jedna sesja koordynuje kontrakty, odbiór i Memex. Zadania wykonawcze mają

@@ -1236,6 +1236,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/{site_id}/blueprint-draft/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["sites_blueprint_draft_receipt"];
+        put?: never;
+        post: operations["sites_blueprint_draft_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/{site_id}/collections/": {
         parameters: {
             query?: never;
@@ -1394,6 +1410,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["sites_redirects_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/blueprint-catalog/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["sites_blueprint_catalog"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2226,6 +2258,63 @@ export interface components {
             url: string;
             /** Format: date-time */
             expires_at?: string | null;
+        };
+        BlueprintCatalog: {
+            contract_version: number;
+            /** Format: uuid */
+            site_id: string;
+            catalog_hash: string;
+            templates: components["schemas"]["BlueprintTemplate"][];
+        };
+        BlueprintInput: {
+            /** Format: uuid */
+            generation_id: string;
+            catalog_hash: string;
+            template_id: string;
+            template_version: number;
+            slots: {
+                [key: string]: string;
+            };
+            locale: components["schemas"]["LocaleEnum"];
+            name: string;
+            key: string;
+            idempotency_key: string;
+        };
+        BlueprintReceipt: {
+            found: boolean;
+            result: components["schemas"]["BlueprintResult"] | null;
+        };
+        BlueprintResult: {
+            /** Format: uuid */
+            generation_id: string;
+            /** Format: uuid */
+            site_id: string;
+            /** Format: uuid */
+            page_id: string;
+            /** Format: uuid */
+            proposal_id: string;
+            draft_version: number;
+            request_hash: string;
+            published: boolean;
+        };
+        BlueprintSlot: {
+            key: string;
+            kind: components["schemas"]["BlueprintSlotKindEnum"];
+            max_length: number;
+            default: string;
+        };
+        /**
+         * @description * `text` - text
+         * @enum {string}
+         */
+        BlueprintSlotKindEnum: "text";
+        BlueprintTemplate: {
+            id: string;
+            version: number;
+            labels: {
+                [key: string]: string;
+            };
+            slots: components["schemas"]["BlueprintSlot"][];
         };
         CallbackEnvelope: {
             /** Format: uuid */
@@ -7083,6 +7172,176 @@ export interface operations {
             };
         };
     };
+    sites_blueprint_draft_receipt: {
+        parameters: {
+            query: {
+                idempotency_key: string;
+            };
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlueprintReceipt"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_blueprint_draft_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlueprintInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["BlueprintInput"];
+                "multipart/form-data": components["schemas"]["BlueprintInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlueprintResult"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlueprintResult"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     sites_collections_list: {
         parameters: {
             query?: never;
@@ -7857,6 +8116,83 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_blueprint_catalog: {
+        parameters: {
+            query: {
+                site_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlueprintCatalog"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

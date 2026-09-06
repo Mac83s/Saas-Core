@@ -1,5 +1,6 @@
 from django.urls import path
 
+from .blueprint_views import BlueprintCatalogView, BlueprintDraftView
 from .collection_views import (
     ContentCollectionListCreateView,
     ContentCollectionNavigationView,
@@ -56,6 +57,8 @@ from .views import (
 app_name = "sites"
 
 urlpatterns = [
+    path("blueprint-catalog/", BlueprintCatalogView.as_view(), name="blueprint-catalog"),
+    path("<uuid:site_id>/blueprint-draft/", BlueprintDraftView.as_view(), name="blueprint-draft"),
     path(
         "pages/<uuid:page_id>/url/",
         PageUrlView.as_view(),

@@ -112,7 +112,7 @@ def seed_scr(data: dict) -> None:
     payload = {
         "contract_version": "1.0.0",
         "idempotency_key": "synthetic-pilot-metadata-001",
-        "mode": "suggest_only",
+        "mode": data.get("mode", "suggest_only"),
         "target": {
             "system": "saas_core",
             "resource_type": "page",
@@ -148,7 +148,9 @@ def seed_scr(data: dict) -> None:
             ],
         },
     }
-    _, key = issue(workspace, name="Pilot API", scopes=["proposals:read", "proposals:write"])
+    _, key = issue(
+        workspace, name="Pilot API", scopes=["proposals:read", "proposals:write", "targets:manage"]
+    )
     data.update(
         binding=binding,
         scr_key=key,
@@ -209,10 +211,138 @@ def seed_scr_projects(data: dict) -> None:
         data["workspace_keys"][external_id] = key
 
 
+def seed_order_source(data: dict) -> None:
+    from apps.entitlements.models import Organization
+    from apps.integrations.keys import issue
+    from apps.integrations.models import IntegrationSource
+    from django.core.management import call_command
+
+    call_command("migrate", verbosity=0)
+    call_command("seed_plans", verbosity=0)
+    source = IntegrationSource.objects.create(
+        product_id="saas-core",
+        deployment_id="local-pilot",
+        plan=Organization.objects.get(is_default=True).plan,
+        callback_recipient="pilot",
+    )
+    _, key = issue(
+        source,
+        name="Synthetic Core",
+        scopes=[
+            "integration:provision",
+            "projects:read",
+            "audits:run",
+        ],
+    )
+    data.update(source_id=str(source.id), source_key=key)
+
+
+def complete_order_source(data: dict) -> None:
+    """Complete synthetic evidence only; no crawler or provider is executed."""
+    from apps.audits.models import AuditJob, AuditRun, AuditScore, Issue, Page
+    from apps.integrations.models import IntegrationAuditOperation
+    from apps.modules.callback import deliver
+    from apps.modules.models import ModuleRun
+    from django.utils import timezone
+
+    operation = IntegrationAuditOperation.objects.get(client_reference=data["order_id"])
+    run = operation.audit_run
+    AuditRun.objects.filter(pk=run.pk).update(
+        status="completed",
+        pages_crawled=1,
+        urls_discovered=1,
+        crawl_completeness="complete",
+        finished_at=timezone.now(),
+    )
+    AuditJob.objects.filter(audit_run=run).update(status="succeeded")
+    AuditScore.objects.create(audit_run=run, overall_score=80, engine_version="synthetic-1")
+    page = Page.objects.create(
+        audit_run=run,
+        url=run.start_url,
+        normalized_url=run.start_url,
+        final_url=run.start_url,
+        status_code=200,
+        title="Synthetic",
+        indexable=True,
+    )
+    Issue.objects.bulk_create([
+        Issue(
+            audit_run=run,
+            page=page,
+            rule_code=f"PILOT_{index}",
+            category="onpage",
+            severity="medium",
+            fingerprint=f"{index:064x}",
+            message_key="pilot",
+            details={},
+        )
+        for index in range(101)
+    ])
+    ledger = ModuleRun.objects.get(module_code="onsite", run_reference=str(run.pk))
+    ledger.status = data.get("outcome", "completed")
+    ledger.finished_at = timezone.now()
+    ledger.save(update_fields=["status", "finished_at"])
+    # The real callback sender signs and sends both deliveries to Core.
+    assert deliver(str(ledger.pk))
+    assert deliver(str(ledger.pk))
+    data.update(remote_audit_id=str(run.pk), remote_module_id=str(ledger.pk))
+
+
 def provision_scr(data: dict) -> None:
     from django.core.management import call_command
 
     call_command("provision_projects", limit=25, verbosity=0)
+
+
+def seed_scr_blueprint(data: dict) -> None:
+    from django.core.management import call_command
+    from seocontentrank.targets.models import TargetConnection
+    from seocontentrank.tenancy.keys import issue
+    from seocontentrank.tenancy.models import Workspace
+
+    call_command("migrate", verbosity=0)
+    workspace = Workspace.objects.create(external_tenant_id="synthetic-brief-pilot")
+    target = TargetConnection(
+        workspace=workspace, system="saas_core", label="Core", base_url=data["core_url"]
+    )
+    target.set_credential(data["core_key"])
+    target.save()
+    _, key = issue(
+        workspace,
+        name="Synthetic brief",
+        scopes=["blueprints:read", "blueprints:write", "targets:manage"],
+    )
+    data.update(connection_id=str(target.id), scr_key=key)
+
+
+def generate_scr_blueprint(data: dict) -> None:
+    from types import SimpleNamespace
+    from unittest.mock import patch
+
+    from seocontentrank.audit.models import AuditSnapshot
+    from seocontentrank.blueprints import worker
+    from seocontentrank.blueprints.models import BriefGeneration
+    from seocontentrank.generation.models import GenerationCall
+
+    row = BriefGeneration.objects.get(pk=data["generation_id"])
+    template = next(item for item in row.catalog["templates"] if item["id"] == row.template_id)
+    slots = {slot["key"]: "Synthetic reviewed copy" for slot in template["slots"]}
+    attempt = SimpleNamespace(
+        prompt_tokens=100,
+        completion_tokens=100,
+        cost_usd=None,
+        usage_reported=True,
+        outcome_unknown=False,
+    )
+    completion = SimpleNamespace(text=json.dumps(slots), attempts=[attempt])
+    with patch.object(worker.OpenRouterClient, "complete", return_value=completion) as provider:
+        assert worker.run_once() == row.id
+        assert provider.call_count == 1
+    row.refresh_from_db()
+    assert row.status == "review"
+    assert not AuditSnapshot.objects.exists()
+    assert GenerationCall.objects.count() == 1
+    data.update(provider_calls=1, used_prior_audit=False)
 
 
 if __name__ == "__main__":
@@ -235,5 +365,9 @@ if __name__ == "__main__":
             "seed_source": seed_source,
             "seed_scr_projects": seed_scr_projects,
             "provision_scr": provision_scr,
+            "seed_order_source": seed_order_source,
+            "complete_order_source": complete_order_source,
+            "seed_scr_blueprint": seed_scr_blueprint,
+            "generate_scr_blueprint": generate_scr_blueprint,
         }[action](data)
         context.write_text(json.dumps(data, indent=2), encoding="utf-8")

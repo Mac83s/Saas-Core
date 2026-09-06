@@ -1,5 +1,43 @@
 # Handoff następnej sesji
 
+## Checkpoint integracji I2–I5, 2026-09-06 19:25
+
+To jest bieżący punkt wznowienia; kolejne sekcje zachowują dowody wcześniejszych pakietów.
+Core `65a931b`/`8feb931`/`463f2c5` ma `shared.seo`: trwałe zamówienie audytu,
+rezerwację i pojedyncze rozliczenie kredytów, uzgadnianie po timeout, podpisany
+callback i panel PL/EN z potwierdzeniem aktualnej ceny. Lista zamówień nie pobiera
+pełnych raportów; raport szczegółowy zachowuje wszystkie strony paginacji.
+Dowody: 654 PostgreSQL przed UI, następnie 29 testów SEO, 120 frontend i build.
+Źródło/cena/feature są jawną konfiguracją operatora, nie automatyczną zmianą planów klientów.
+
+SCR `c7ffc84` i SSA `c05919e` mają delegację GSC (Google tokeny wyłącznie w SSA),
+ograniczone granty, cofnięcie i usunięcie prywatnych kopii. SSA `60a84db` dodaje
+trwałe operacje ośmiu modułów i bezpieczne ponowienie przekazania tego samego run ID
+do brokera. SSA: 560 PostgreSQL + 8 wariantów wyścigu worker/broker. SCR zamknięty
+pakiet: 280 PostgreSQL, 104 frontend i build. GSC w Core jest nadal WIP agenta.
+
+Koordynator dodał I4 po stronie Core: katalog kontrolowanych pól szablonów,
+odbiór nowej strony jako szkicu oraz niemutowalne `BlueprintImportReceipt` z RLS.
+Powtórzenie zachowuje ten sam page/proposal; istniejący klucz strony, zmieniony
+katalog, obce pola i naruszenia grantu są odrzucane. Akceptacja w SCR nie publikuje
+strony i nie zastępuje przeglądu w Core. Kolejka pokazuje również zagnieżdżone FAQ
+i listy cech. ADR-046 opisuje kontrakt oraz obowiązek przeglądu przykładowych
+kontaktów i odnośników. Schemat można cofnąć tylko przed zapisaniem receiptów;
+po użyciu wycofujemy aplikację przy zachowaniu rozszerzonego schematu.
+
+Piloty rzeczywistych procesów HTTP: wcześniejsze 4 scenariusze 62,16 s obejmują
+podgląd, niezależne projekty oraz completed/partial i rozliczenie audytu; następnie
+pełna dostawa metadanych i akceptacja w Core 1 passed / 32,40 s; brief bez audytu
+→ generacja SCR → draft Core → przegląd → powtórzenie 1 passed / 29,80 s.
+Google, model i zakończenie audytu są syntetycznymi granicami testu; nie wykonano
+płatnych wywołań ani produkcyjnego deploymentu. Ścieżki odtworzenia w lokalnym pilocie.
+
+Nadal autoryzowane i realizowane: Core I3 panel/zgody GSC, SCR I4 panel briefu,
+SCR I5 harmonogramy i rzeczywiste utrwalone pomiary, WordPress v1 (obecna komenda
+A4 `set_meta_description`, bez zmian struktury CMS), końcowa zgodność API, obrazy
+i testy całych pakietów. Nie kończyć pracy z pytaniem o kontynuację. Główne katalogi
+trzech repo pozostają oddzielone od izolowanych gałęzi integracyjnych.
+
 ## Integracja SEO — aktywna kontynuacja całości, 2026-09-06
 
 Maciej polecił pracować aż do zakończenia całego zakresu I0–I5. Nie zatrzymywać

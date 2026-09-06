@@ -30,11 +30,47 @@ from saas_core.modules.shared.sites.models import (  # noqa: E402
     PageVersion,
     Publication,
 )
-from test_sites_api import create_page, create_site, save_draft, sites_client  # noqa: E402
+from test_sites_api import (  # noqa: E402
+    create_page,
+    create_site,
+    csrf_value,
+    save_draft,
+    sites_client,
+)
 from test_sites_operations import _api_key_client  # noqa: E402
 
 pytestmark = pytest.mark.django_db(transaction=True)
 HELPER = Path(__file__).with_name("seo_pilot_peer.py")
+
+
+@pytest.fixture(scope="session")
+def migration_seed(django_db_setup, django_db_blocker):
+    from django.db import connection
+
+    with django_db_blocker.unblock():
+        rows = json.loads(connection.creation.serialize_db_to_string())
+        # Django post_migrate recreates these with fresh integer IDs after flush.
+        return json.dumps([
+            row
+            for row in rows
+            if row["model"]
+            not in {
+                "contenttypes.contenttype",
+                "auth.permission",
+            }
+        ])
+
+
+@pytest.fixture(autouse=True)
+def restore_migration_seed(migration_seed, transactional_db):
+    from django.db import connection
+
+    from saas_core.modules.core.organizations.models import Role
+
+    # Transaction tests flush seed rows too. Django's serialized rollback first
+    # UPDATEs existing immutable roles; restore only into the flushed database.
+    if not Role.objects.filter(organization__isnull=True).exists():
+        connection.creation.deserialize_db_from_string(migration_seed)
 
 
 def _request(url: str, *, body: dict | None = None, headers: dict | None = None) -> SimpleNamespace:
@@ -134,8 +170,106 @@ def _server(peer: tuple, port: int, context: Path, log: object) -> subprocess.Po
     raise AssertionError("Peer startup timed out.")
 
 
+def test_brief_to_core_draft_over_http_without_prior_audit(live_server, tmp_path, settings):
+    from saas_core.modules.shared.notifications.models import ApiKeyCredentialRoute
+    from saas_core.modules.shared.sites.models import BlueprintImportReceipt, ContentProposal, Page
+    from test_content_proposal_review import accept, detail
+
+    settings.CONFIGURED_ALLOWED_HOSTS = ("testserver", "localhost", "127.0.0.1")
+    scr = _peer(tmp_path, "SCR")
+    with (tmp_path / "pilot_scr_settings.py").open("a", encoding="utf-8") as handle:
+        handle.write(
+            "\nBLUEPRINT_MODELS = 'synthetic-only'\nBLUEPRINT_MAX_INPUT_CHARS = '20000'\n"
+            "BLUEPRINT_MAX_OUTPUT_TOKENS = '2000'\nBLUEPRINT_MAX_PROVIDER_CALLS = '1'\n"
+            "BLUEPRINT_WORKSPACE_DAILY_CALLS = '2'\nOPENROUTER_API_KEY = 'synthetic-never-sent'\n"
+        )
+    person, organization, owner = sites_client(slug="live-brief", role_key="owner")
+    site = create_site(person).data["id"]
+    _api_key_client(organization=organization, created_by=owner, marker="b")
+    key = ApiKey.all_objects.get(organization=organization)
+    key.scopes = ["content:read", "content:draft"]
+    key.save(update_fields=["scopes"])
+    ApiKeyCredentialRoute.objects.filter(api_key_id=key.id).update(scopes=key.scopes)
+    ContentAutomationGrant.all_objects.create(
+        organization=organization,
+        credential_id=key.id,
+        site_id=site,
+        mode="draft_write",
+        created_by=owner,
+    )
+    port = _port()
+    context = tmp_path / "private-context.json"
+    data = {
+        "core_url": live_server.url,
+        "core_key": "sc_live_" + "b" * 32,
+        "scr_url": f"http://127.0.0.1:{port}",
+        "site_id": str(site),
+    }
+    context.write_text(json.dumps(data), encoding="utf-8")
+    _run(scr, "seed_scr_blueprint", context)
+    data = json.loads(context.read_text(encoding="utf-8"))
+    with (tmp_path / "scr.log").open("w") as log:
+        process = _server(scr, port, context, log)
+        try:
+            headers = {"Authorization": f"Bearer {data['scr_key']}"}
+            api = data["scr_url"] + "/api/v1/site-blueprints/"
+            query = urlencode({"site_id": data["site_id"], "connection_id": data["connection_id"]})
+            catalog = _request(api + "catalog/?" + query, headers=headers)
+            assert catalog.status_code == 200, catalog.text
+            created = _request(
+                api,
+                headers={**headers, "Idempotency-Key": "live-brief"},
+                body={
+                    "connection_id": data["connection_id"],
+                    "site_id": data["site_id"],
+                    "template_id": catalog.json()["templates"][0]["id"],
+                    "locale": "pl",
+                    "page_name": "Synthetic studio",
+                    "page_key": "studio",
+                    "brief": {
+                        "business_name": "Synthetic studio",
+                        "summary": "Test site only.",
+                        "audience": "Synthetic customer",
+                        "services": ["Test service"],
+                    },
+                },
+            )
+            assert created.status_code == 202, created.text
+            data["generation_id"] = created.json()["id"]
+            context.write_text(json.dumps(data), encoding="utf-8")
+            _run(scr, "generate_scr_blueprint", context)
+            item = api + data["generation_id"] + "/"
+            approved = _request(
+                item + "accept/",
+                headers={**headers, "Idempotency-Key": "review-brief"},
+                body={"reason": "Reviewed synthetic copy"},
+            )
+            assert approved.status_code == 200, approved.text
+            delivered = _request(item + "deliver/", headers=headers, body={})
+            assert delivered.status_code == 200, delivered.text
+            assert delivered.json()["state"] == "accepted", delivered.text
+            receipt = delivered.json()["receipt"]
+            assert receipt["published"] is False
+            assert Page.all_objects.count() == 1
+            assert PageVersion.all_objects.count() == 1
+            assert not Publication.all_objects.exists()
+            assert BlueprintImportReceipt.all_objects.count() == 1
+            proposal = ContentProposal.all_objects.get(pk=receipt["proposal_id"])
+            assert (
+                accept(person, proposal, detail(person, proposal)["review_token"]).status_code
+                == 200
+            )
+            assert _request(item + "deliver/", headers=headers, body={}).json() == delivered.json()
+            assert PageVersion.all_objects.count() == 1
+            assert not Publication.all_objects.exists()
+        finally:
+            process.terminate()
+            process.wait(timeout=5)
+
+
+@pytest.mark.parametrize("mode", ["suggest_only", "draft_write"])
 def test_existing_audit_to_retained_proposal_to_core_preview(
-    live_server, tmp_path: Path, settings
+    live_server, tmp_path: Path, settings, mode
 ) -> None:
     settings.CONFIGURED_ALLOWED_HOSTS = ("testserver", "localhost", "127.0.0.1")
     ssa, scr = _peer(tmp_path, "SSA"), _peer(tmp_path, "SCR")
@@ -165,16 +299,25 @@ def test_existing_audit_to_retained_proposal_to_core_preview(
     )
     _api_key_client(organization=organization, created_by=owner, marker="z")
     key = ApiKey.all_objects.get(organization=organization)
+    if mode == "draft_write":
+        from saas_core.modules.shared.notifications.models import ApiKeyCredentialRoute
+        from saas_core.modules.shared.sites.models import Page
+
+        key.scopes = ["content:read", "content:draft"]
+        key.save(update_fields=["scopes"])
+        ApiKeyCredentialRoute.objects.filter(api_key_id=key.id).update(scopes=key.scopes)
+        Page.all_objects.filter(pk=page).update(automation_policy="proposed")
     grant = ContentAutomationGrant.all_objects.create(
         organization=organization,
         credential_id=key.id,
         site_id=site,
-        mode="suggest_only",
+        mode=mode,
         created_by=owner,
     )
     ssa_port, scr_port = _port(), _port()
     context = tmp_path / "private-context.json"
     data = {
+        "mode": mode,
         "core_url": live_server.url,
         "core_key": "sc_live_" + "z" * 32,
         "ssa_url": f"http://127.0.0.1:{ssa_port}",
@@ -211,14 +354,67 @@ def test_existing_audit_to_retained_proposal_to_core_preview(
                 == 200
             )
             before = (PageVersion.all_objects.count(), Publication.all_objects.count())
-            _run(scr, "preview_scr", context)
-            data = json.loads(context.read_text(encoding="utf-8"))
-            report = data["report"]
-            assert report["preview"]["accepted"] is True, report
-            assert report["base_unchanged"] is True
-            assert before == (PageVersion.all_objects.count(), Publication.all_objects.count())
-            assert PageTranslation.all_objects.get(page_id=page, locale="pl").description == ""
-            assert not report["apply_requested"] and not report["publish_requested"]
+            if mode == "suggest_only":
+                _run(scr, "preview_scr", context)
+                data = json.loads(context.read_text(encoding="utf-8"))
+                report = data["report"]
+                assert report["preview"]["accepted"] is True, report
+                assert report["base_unchanged"] is True
+                assert before == (PageVersion.all_objects.count(), Publication.all_objects.count())
+                assert PageTranslation.all_objects.get(page_id=page, locale="pl").description == ""
+                assert not report["apply_requested"] and not report["publish_requested"]
+            else:
+                accepted = _request(
+                    f"{data['scr_url']}/api/v1/proposals/{data['proposal_id']}/accept/",
+                    body={"reason": "Reviewed synthetic description"},
+                    headers={**headers, "Idempotency-Key": "synthetic-review-001"},
+                )
+                assert accepted.status_code == 200, accepted.text
+                delivered = _request(
+                    f"{data['scr_url']}/api/v1/proposal-delivery/{data['proposal_id']}/deliver/",
+                    body={"binding": data["binding"]},
+                    headers=headers,
+                )
+                assert delivered.status_code == 200, delivered.text
+                report = delivered.json()["report"]
+                assert report["delivery"]["accepted"], report
+                result = report["delivery"]["result"]
+                assert result["published"] is False
+                assert result["pending_commands"] == ["translation.update"]
+                assert PageVersion.all_objects.count() == before[0] + 1
+                assert Publication.all_objects.count() == before[1]
+                assert PageTranslation.all_objects.get(page_id=page, locale="pl").description == ""
+                core_headers = {
+                    "Cookie": "; ".join(
+                        f"{name}={cookie.value}" for name, cookie in person.cookies.items()
+                    ),
+                    "X-CSRFToken": csrf_value(person),
+                    "Origin": live_server.url,
+                }
+                proposal_url = live_server.url + f"/api/v1/sites/proposals/{result['proposal_id']}/"
+                review = _request(proposal_url, headers=core_headers)
+                assert review.status_code == 200, review.text
+                accepted_core = _request(
+                    proposal_url + "accept/",
+                    headers=core_headers,
+                    body={"review_token": review.json()["review_token"]},
+                )
+                assert accepted_core.status_code == 200, accepted_core.text
+                assert accepted_core.json()["published"] is False
+                assert (
+                    PageTranslation.all_objects.get(page_id=page, locale="pl").description
+                    == data["proposal_request"]["payload"]["commands"][0]["value"]
+                )
+                replay = _request(
+                    f"{data['scr_url']}/api/v1/proposal-delivery/{data['proposal_id']}/deliver/",
+                    body={"binding": data["binding"]},
+                    headers=headers,
+                )
+                assert replay.status_code == 200, replay.text
+                assert replay.json()["report"]["operation_found"] is True
+                assert PageVersion.all_objects.count() == before[0] + 1
+                assert Publication.all_objects.count() == before[1]
+                report["human_metadata_accepted_without_publication"] = True
             # Revocation is effective on the next real HTTP request.
             from django.utils import timezone
 
@@ -240,6 +436,118 @@ def test_existing_audit_to_retained_proposal_to_core_preview(
             for process in reversed(processes):
                 process.terminate()
                 process.wait(timeout=10)
+
+
+@pytest.mark.parametrize(
+    "outcome,credit_state", [("completed", "committed"), ("partial", "released")]
+)
+def test_core_orders_and_settles_ssa_audit_over_http(
+    live_server, tmp_path, settings, outcome, credit_state
+):
+    from saas_core.modules.shared.billing.models import (
+        CreditOperation,
+        CreditReservation,
+        EntitlementSnapshot,
+    )
+    from saas_core.modules.shared.seo.models import AuditCallbackReceipt, AuditOrder
+    from saas_core.modules.shared.seo.worker import dispatch_audit
+    from saas_core.modules.shared.sites.models import Site
+
+    settings.CONFIGURED_ALLOWED_HOSTS = ("testserver", "localhost", "127.0.0.1")
+    ssa = _peer(tmp_path, "SSA")
+    port = _port()
+    context = tmp_path / "private-context.json"
+    context.write_text(json.dumps({"outcome": outcome}), encoding="utf-8")
+    settings_path = tmp_path / "pilot_ssa_settings.py"
+    with settings_path.open("a", encoding="utf-8") as handle:
+        handle.write(
+            "MODULE_RUN_CALLBACK_RECIPIENTS = {'pilot': "
+            f"{{'url': {live_server.url + '/api/v1/seo/ssa/callback/'!r}, "
+            "'secret': 'synthetic-callback-key'}}\n"
+        )
+    _run(ssa, "seed_order_source", context)
+    data = json.loads(context.read_text(encoding="utf-8"))
+    settings.SEO_SSA_BASE_URL = f"http://127.0.0.1:{port}/api/v1"
+    settings.SEO_SSA_SOURCE_ID = data["source_id"]
+    settings.SEO_SSA_PRODUCT_ID = "saas-core"
+    settings.SEO_SSA_DEPLOYMENT_ID = "local-pilot"
+    settings.SEO_SSA_SERVICE_KEY = data["source_key"]
+    settings.SEO_SSA_CALLBACK_SECRET = "synthetic-callback-key"
+    settings.SEO_AUDIT_CREDIT_OPERATION = "seo.synthetic.audit"
+    person, organization, user = sites_client(slug="ordered-pilot", role_key="owner")
+    entitlement = EntitlementSnapshot.all_objects.get(organization=organization)
+    entitlement.features["seo.audit.enabled"] = True
+    entitlement.quotas["credits.monthly"] = 100
+    entitlement.save()
+    CreditOperation.objects.create(key="seo.synthetic.audit", name="Synthetic audit", cost=7)
+    site = Site.all_objects.create(
+        organization=organization, name="Pilot", slug="pilot", created_by=user
+    )
+    Domain.all_objects.create(
+        organization=organization,
+        site=site,
+        hostname="owned.example.test",
+        kind="custom",
+        status="verified",
+        is_canonical=True,
+        created_by=user,
+    )
+    headers = {
+        "Cookie": "; ".join(f"{name}={cookie.value}" for name, cookie in person.cookies.items()),
+        "X-CSRFToken": csrf_value(person),
+        "Origin": live_server.url,
+    }
+    with (tmp_path / "ssa-private.log").open("w", encoding="utf-8") as log:
+        process = _server(ssa, port, context, log)
+        try:
+            body = {"site_id": str(site.id), "idempotency_key": "synthetic-audit-purchase"}
+            response = _request(live_server.url + "/api/v1/seo/audits/", body=body, headers=headers)
+            assert response.status_code == 201, response.text
+            order = AuditOrder.all_objects.get(pk=response.json()["id"])
+            assert CreditReservation.all_objects.count() == 1
+            dispatch_audit(organization.id, order.id)
+            order.refresh_from_db()
+            assert order.state == "running", order.error_code
+            assert order.credit_state == "reserved"
+            data["order_id"] = str(order.id)
+            context.write_text(json.dumps(data), encoding="utf-8")
+            _run(ssa, "complete_order_source", context)
+            assert AuditCallbackReceipt.all_objects.filter(order=order).count() == 1
+            dispatch_audit(organization.id, order.id)
+            order.refresh_from_db()
+            assert order.state == outcome, order.error_code
+            assert order.credit_state == credit_state
+            assert order.report_snapshot["issue_count"] == 101
+            assert len(order.report_snapshot["issues"]) == 101
+            assert len(order.report_hash) == 64
+            repeated = _request(live_server.url + "/api/v1/seo/audits/", body=body, headers=headers)
+            assert repeated.status_code == 200, repeated.text
+            assert repeated.json()["id"] == str(order.id)
+            dispatch_audit(organization.id, order.id)
+            assert CreditReservation.all_objects.count() == 1
+            assert CreditReservation.all_objects.get().state == credit_state
+            report = _request(live_server.url + f"/api/v1/seo/audits/{order.id}/", headers=headers)
+            assert report.status_code == 200, report.text
+            (tmp_path / "evidence.json").write_text(
+                json.dumps(
+                    {
+                        "synthetic": True,
+                        "order_id": str(order.id),
+                        "outcome": outcome,
+                        "credit_state": credit_state,
+                        "synthetic_credit_cost": order.credit_cost,
+                        "issue_count": 101,
+                        "callback_receipts": 1,
+                        "report_hash": order.report_hash,
+                        "paid_provider_calls": 0,
+                    },
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+        finally:
+            process.terminate()
+            process.wait(timeout=10)
 
 
 def test_scr_provisions_independent_projects_in_ssa(tmp_path: Path) -> None:

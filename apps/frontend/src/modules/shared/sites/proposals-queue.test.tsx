@@ -88,6 +88,35 @@ beforeEach(() => {
 
 afterEach(cleanup);
 
+test("shows nested generated FAQ and feature content as escaped review text", async () => {
+  readContentProposal.mockResolvedValue({
+    ...detail,
+    blocks_after: [
+      {
+        block_type: "core.faq",
+        data: {
+          items: [
+            {
+              question: "Generated question",
+              answer: "<b>Generated answer</b>",
+            },
+          ],
+        },
+      },
+      {
+        block_type: "core.feature_list",
+        data: { items: [{ title: "Generated feature" }] },
+      },
+    ],
+  });
+  const rendered = renderQueue();
+  fireEvent.click(await screen.findByRole("button", { name: "Pokaż zmianę" }));
+  expect(await screen.findByText(/Generated question/)).not.toBeNull();
+  expect(screen.getByText(/<b>Generated answer<\/b>/)).not.toBeNull();
+  expect(screen.getByText("Generated feature")).not.toBeNull();
+  expect(rendered.container.querySelector("b")).toBeNull();
+});
+
 function renderQueue() {
   return render(
     <NextIntlClientProvider
