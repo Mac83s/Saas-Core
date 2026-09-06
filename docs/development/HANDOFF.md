@@ -1,5 +1,56 @@
 # Handoff następnej sesji
 
+## Integracja SEO — osobna gałąź, 2026-09-06
+
+Aktywny punkt wznowienia integracji to
+[plan 14](../../Plan/Wdrozenie/14-INTEGRACJA-SAAS-CORE-SCR-SSA.md),
+[ADR-042](../adr/ADR-042-Integracja-SaaS-Core-SCR-i-SSA.md) i
+[kontrakt I0](../architecture/seo-ecosystem-integration.md).
+Gałąź `codex/seo-integration-i0-i1` powstała z `3a5391b` w
+`.runtime/worktrees/seo-integration-i0-i1`. Claude prowadzi równolegle P3
+w głównym katalogu. Przed scaleniem porównać bieżący main i przenieść tę sekcję,
+zachowując jego nowszy handoff; opis starszego stanu poniżej pozostaje historyczny.
+
+Ustalono wspólny podział danych, grantów, kosztów i historii trzech produktów.
+W kodzie SaaS Core naprawiono podgląd zmian: `content:read` może wykonać dokładnie
+POST `/api/v1/sites/changes/`, a serwis sprawdza uprawnienie, entitlement oraz
+grant konkretnej witryny/kolekcji przed odczytem prywatnych bloków. Powiązanie
+wpisu z witryną jest sprawdzane przez jego rzeczywistą kolekcję. Nie zmieniono
+wire schema, publicznego klienta, modeli ani migracji.
+
+Dowody: 570 testów backendu na świeżej osobnej bazie PostgreSQL, w tym 14 nowych
+przypadków autoryzacji podglądu; mypy 288 plików, import-linter 1 kontrakt;
+Ruff i kontrola migracji bez driftu. Node 24.13.0: lint, typy TypeScript,
+formatowanie oraz 111 testów frontendu, 8 UI i 14 bloków stron. Regeneracja
+OpenAPI i klienta przez drf-spectacular/openapi-typescript jest zgodna bajtowo
+po normalizacji końców linii z oboma plikami kanonicznymi.
+Testy kontraktów: 21/21. Przy odbiorze ujawniono cztery zastane błędy testów
+deploymentu na bazie `3a5391b`; trzy fixture pomijały wymagane `platformTables`,
+a oczekiwany profil publiczny pomijał `profileHash`. Zaktualizowano tylko fixture
+i asercję (6 linii), zachowując pierwotne przypadki odmowy oraz sprawdzając hash.
+Kolejność zapytań testuje ustawienie tenanta przed odczytem bloków;
+testowa rola właściciela bazy nie dowodzi zachowania produkcyjnego RLS.
+
+Do powtórzenia testów użyć interpretera z głównego `.venv`, ale `PYTHONPATH`
+ustawić na **src tego worktree**. Użyta nazwa `POSTGRES_DB=saas_core_i1_20260906`
+tworzy osobną bazę `test_saas_core_i1_20260906`; sekret przez `POSTGRES_PASSWORD_FILE`.
+Polecenie: `python -m pytest apps/backend/tests -q --reuse-db --create-db
+--basetemp=.runtime/pytest-i1-fresh` (najpierw utworzyć rodzica `.runtime`).
+`--create-db` jest potrzebne po pełnym przebiegu: testy transakcyjne usuwają
+seed ról i kolejny `--reuse-db` bez odtworzenia traci role. Statyczna kontrola
+migracji używa `PGCONNECT_TIMEOUT=2`, bo celowo pyta nieczynny port.
+
+Otwarte: uruchomiony pilot SSA → SCR → SaaS Core; w tej sesji brak skonfigurowanych
+kluczy i konkretnego powiązania zasobów. Nie wykonano deployu, testów przez Caddy
+ani publikacji. I0 ma zapisany kierunek, a I1 ma sprawdzony warunek wstępny
+po stronie SaaS Core — cały przepływ nie jest jeszcze odebrany.
+Następny pakiet SCR: izolacja połączeń/propozycji względem workspace, zgodność
+projektu przy imporcie audytu, odwołanie połączenia i związanie trybu z payloadem.
+Przed zapisem treści: kontrakt hasha bazy, granty pozostałych odczytów draftu
+i przegląd zatwierdzania. Przed płatnymi analizami: routing callbacków SSA.
+
+## Wcześniejszy stan prac głównego repozytorium
+
 **Aktualizacja:** 2026-09-03
 
 **Repozytorium:** `/mnt/a/DEVELOPMENT/Saas-Core` (`A:\DEVELOPMENT\Saas-Core`)

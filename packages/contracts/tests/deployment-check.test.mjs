@@ -75,6 +75,7 @@ test("deskryptor aplikacji, której nie ma w kodzie, jest odrzucany", async () =
         entitlements: [],
         eventSchemas: [],
         publicTables: [],
+        platformTables: [],
       },
       frontend: { routes: [], navigation: [], translationNamespaces: [] },
     }),
@@ -129,6 +130,7 @@ test("bez drzewa backendu sprawdzenie aplikacji jest pomijane", async () => {
         entitlements: [],
         eventSchemas: [],
         publicTables: [],
+        platformTables: [],
       },
       frontend: { routes: [], navigation: [], translationNamespaces: [] },
     }),
@@ -187,6 +189,7 @@ test("moduł nie może zadeklarować cudzej tabeli jako publicznej", async () =>
         entitlements: [],
         eventSchemas: [],
         publicTables: ["sites_domain"],
+        platformTables: [],
       },
       frontend: { routes: [], navigation: [], translationNamespaces: [] },
     }),
@@ -272,6 +275,7 @@ test("profil publiczny nie przenosi sekretów ani nieznanych pól", () => {
       databasePassword: "sekret",
     },
     ["core.identity"],
+    "a".repeat(64),
   );
 
   assert.deepEqual(Object.keys(publicProfile).sort(), [
@@ -279,7 +283,9 @@ test("profil publiczny nie przenosi sekretów ani nieznanych pól", () => {
     "id",
     "modules",
     "product",
+    "profileHash",
     "schemaVersion",
   ]);
+  assert.equal(publicProfile.profileHash, "a".repeat(64));
   assert.doesNotMatch(JSON.stringify(publicProfile), /sekret/);
 });

@@ -30,6 +30,7 @@ from jsonschema import Draft202012Validator
 from rest_framework.exceptions import APIException
 
 from saas_core.modules.core.organizations.context import TenantContext
+from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 
 from .block_contracts import validate_site_block
 from .capabilities import CONTENT_CONTRACT_VERSION, MINIMUM_CONTENT_CONTRACT_VERSION
@@ -48,6 +49,7 @@ from .models import (
     Site,
     canonical_json_hash,
 )
+from .permissions import SITE_CONTENT_EDIT, SITES_ENABLED
 
 
 class ChangeSetMalformed(APIException):
@@ -189,20 +191,28 @@ def validate_change_set(document: Any) -> dict[str, Any]:
     return document
 
 
-def plan_change_set(document: dict[str, Any], context: TenantContext) -> ChangeSetPlan:
-    """Works out the resulting draft without writing it.
+def preview_change_set(document: dict[str, Any]) -> dict[str, Any]:
+    """Authorizes and describes the resulting draft without writing it.
 
     Every position names the state at `base.version`, so the whole set is
     resolved against one list rather than applied one command at a time — the
     order the commands arrive in cannot change what "position 2" means.
     """
     with _recorded("plan"):
-        return _plan_change_set(document, context)
+        context = authorize_entitled(
+            SITE_CONTENT_EDIT,
+            SITES_ENABLED,
+            operation=FeatureOperation.READ,
+        )
+        plan = _plan_change_set(document, context)
+        return _change_set_diff(document, plan, context)
 
 
 def _plan_change_set(
     document: dict[str, Any], context: TenantContext
 ) -> ChangeSetPlan:
+    from .services import assert_within_grant
+
     validate_change_set(document)
     target = document["target"]
     site = Site.all_objects.filter(
@@ -210,6 +220,18 @@ def _plan_change_set(
     ).first()
     if site is None:
         raise ChangeSetTargetNotFound
+
+    # Preview returns private draft blocks. Authenticating the tenant alone
+    # does not grant access to every site or collection inside it. Check before
+    # loading that content; apply inherits this read boundary before its write
+    # services enforce the stronger grant and surface policy.
+    assert_within_grant(
+        context,
+        site_id=site.id,
+        collection_id=(
+            UUID(target["collection_id"]) if target["kind"] == "content_entry" else None
+        ),
+    )
 
     if target["kind"] == "site_page":
         resource, base_version, blocks = _page_base(target, context)
@@ -283,7 +305,7 @@ def _plan_change_set(
     )
 
 
-def change_set_diff(
+def _change_set_diff(
     document: dict[str, Any], plan: ChangeSetPlan, context: TenantContext
 ) -> dict[str, Any]:
     """What would change, computed from the same plan that would be applied.
@@ -352,6 +374,7 @@ def _entry_base(
         pk=entry_id,
         organization_id=context.organization_id,
         collection_id=target["collection_id"],
+        collection__site_id=target["site_id"],
     ).first()
     if entry is None:
         raise ChangeSetTargetNotFound

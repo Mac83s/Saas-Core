@@ -145,7 +145,10 @@ def _requested_scopes(request: HttpRequest) -> tuple[str, ...]:
     Checked here so a key limited to reading cannot reach a write endpoint even
     if the view forgets to say so.
     """
-    if request.method in {"GET", "HEAD", "OPTIONS"}:
+    # This POST computes a diff without applying it. The exception is exact:
+    # neither /changes/apply/ nor another POST inherits a read credential.
+    preview = request.method == "POST" and request.path == "/api/v1/sites/changes/"
+    if request.method in {"GET", "HEAD", "OPTIONS"} or preview:
         return ("content:read", "content:draft", "content:publish")
     if request.path.endswith("/publication/"):
         return ("content:publish",)

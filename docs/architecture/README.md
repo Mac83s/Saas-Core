@@ -20,6 +20,11 @@ politykę wersjonowania — współredagujemy w
 `SeoContentRank/Plan/saas-core-connector-plan.md`; tutaj żyje jego
 wykonywalna połowa: schematy i fixture.
 
+Wspólny kierunek trzech usług i granice pierwszego pilota opisuje
+[Integracja SEO — I0 v1](seo-ecosystem-integration.md), na podstawie ADR-042.
+Dokument jawnie wskazuje wymagania, które nie mają jeszcze implementacji;
+nie zastępuje wykonywalnych schematów zmian treści.
+
 Źródłem prawdy dla wersji technologii pozostaje
 [ADR-019](../adr/ADR-019-Baseline-Technologiczny.md), a dla systemu UI
 [ADR-020](../adr/ADR-020-Frontend-i-System-UI.md).

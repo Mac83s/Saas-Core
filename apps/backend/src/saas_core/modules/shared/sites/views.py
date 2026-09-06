@@ -20,8 +20,7 @@ from saas_core.modules.shared.notifications.api_key_middleware import (
 from .capabilities import read_content_capabilities
 from .change_sets import (
     apply_change_set,
-    change_set_diff,
-    plan_change_set,
+    preview_change_set,
     validate_change_set,
 )
 from .connections import (
@@ -718,9 +717,7 @@ class ChangeSetProposalView(APIView):
         serializer = ChangeSetProposalSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         document = serializer.validated_data["change_set"]
-        context = _change_set_context(document)
-        plan = plan_change_set(document, context)
-        return Response(change_set_diff(document, plan, context))
+        return Response(preview_change_set(document))
 
 
 class ChangeSetApplyView(APIView):
