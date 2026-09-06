@@ -65,6 +65,10 @@ def _notification_routes() -> list[Route]:
     ]
 
 
+def _profile_routes() -> list[Route]:
+    return [path("api/v1/profiles/", include("saas_core.modules.shared.profiles.urls"))]
+
+
 def _booking_routes() -> list[Route]:
     return [path("api/v1/booking/", include("saas_core.modules.shared.booking.urls"))]
 
@@ -128,6 +132,7 @@ MODULE_ROUTES: dict[str, Callable[[], list[Route]]] = {
     "shared.sites": _sites_routes,
     "shared.media": _media_routes,
     "shared.notifications": _notification_routes,
+    "shared.profiles": _profile_routes,
     "shared.booking": _booking_routes,
 }
 

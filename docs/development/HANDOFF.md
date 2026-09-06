@@ -651,6 +651,52 @@ katalogu (dziś reagujemy na zmianę, nie mamy harmonogramu) i metryki procesu
 poza samym doborem skill — nie ma ich gdzie zbierać, dopóki nad repozytorium nie
 pracuje więcej niż jedna sesja naraz.
 
+### P3 ruszyło: moduł `shared.profiles` (2026-09-06)
+
+Pierwsza pozycja P3 zamknięta. `User` zostaje kontem uwierzytelniającym, a
+wszystko, co ma zobaczyć odwiedzający, mieszka teraz w osobnym module — dziewiąty
+moduł katalogu, pierwszy dodany od czasu, gdy profil naprawdę składa produkt.
+
+**Dlaczego osobny moduł, a nie pole w `Organization`.** Booking musi wskazać
+profil specjalisty, a Booking nie ma prawa zależeć od Sites; Core z kolei nie
+może wskazać `MediaAsset`, bo to Shared. Zostaje moduł Shared zależny od
+`core.organizations` i `shared.media` — dokładnie to, co ADR-036 §3 przewidział,
+i to samo, co potwierdził import-linter (1 kept, 0 broken).
+
+**Kształt danych.** Profil trzyma nazwę, nagłówek, opis, zdjęcie z biblioteki
+mediów, **jawne pola kontaktu** (telefon, e-mail publiczny, adres — nie blob, bo
+renderer i eksport muszą wiedzieć, co jest czym), linki, języki i specjalizacje.
+Tłumaczenia to osobne wiersze per locale z flagami fallbacku, czyli ten sam
+mechanizm co przy stronach. Organizacja ma **dokładnie jeden** profil, wymuszony
+indeksem częściowym; osób może mieć dowolnie wiele, a **profil osoby nie wymaga
+konta** — wskazanie członkostwa jest opcjonalne, bo specjalista przyjmujący raz w
+tygodniu też ma być na stronie.
+
+Opis i nagłówek odrzucają znaki `<`. To pole idzie na stronę publiczną, więc pole
+przyjmujące HTML jest przechowywanym XSS-em, a nie wygodą.
+
+**Dwie warstwy izolacji.** Migracja `profiles.0002` wymusza RLS na obu tabelach i
+zakłada wyzwalacz relacji: zdjęcie, członkostwo i profil nadrzędny muszą należeć
+do tej samej organizacji co wiersz, który je wskazuje. Serwis sprawdza to dla
+dobrego komunikatu; baza — żeby to była prawda.
+
+Sprawdzone na żywo, bo zielony suite tego nie dowodzi: obie tabele mają
+`ENABLE`+`FORCE` i po jednej polityce oraz wyzwalaczu, odczyt **bez tenanta
+zwraca 0**, z tenantem 1, a próba wstawienia obcego pliku kończy się
+`profile relation belongs to another organization`.
+
+**Bramka kompozycji zadziałała po drodze dwa razy** i warto to zapamiętać:
+`makemigrations` odmówił startu, dopóki nie przegenerowałem artefaktu modułów
+(profil wymieniał `shared.profiles`, artefakt jeszcze nie), a `pnpm ai:eval`
+odmówił, dopóki nowy moduł nie dostał wpisu w sekcji pokrycia. Obie odmowy są
+tym, po co te bramki powstały.
+
+Zostaje w P3: powiązanie profilu z Site (blok `core.profile`, zrzut w snapshocie,
+`StaffMember.profile` — dokłada zależność Booking → Profiles), konto klienta
+(`Customer.user`, principal `customer`, panel „moje wizyty"), role
+`specialist`/`reception`, `PolicyAcknowledgement` i **decyzja o usuwaniu
+tenanta**, która wymaga ADR-u i Twojego zdania.
+
 ### Kredyty w panelu (2026-09-05)
 
 Domena kredytów była kompletna od kilku dni i całkowicie niewidoczna: księga,

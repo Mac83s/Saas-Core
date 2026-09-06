@@ -1,0 +1,20 @@
+{
+  "id": "shared.profiles",
+  "layer": "shared",
+  "version": 1,
+  "dependsOn": ["core.organizations", "shared.media"],
+  "backend": {
+    "djangoApp": "saas_core.modules.shared.profiles",
+    "urlPrefix": "/api/v1/profiles",
+    "permissions": ["profiles.manage"],
+    "entitlements": [],
+    "eventSchemas": [],
+    "publicTables": [],
+    "platformTables": []
+  },
+  "frontend": {
+    "routes": ["/profiles"],
+    "navigation": ["profiles"],
+    "translationNamespaces": ["profiles"]
+  }
+}

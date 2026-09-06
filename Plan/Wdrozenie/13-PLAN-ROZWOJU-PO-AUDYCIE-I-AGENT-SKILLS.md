@@ -389,9 +389,24 @@ ani automatycznie autoryzować działań produkcyjnych.
 
 ## 7. P3 — profile i konto klienta
 
-- [ ] pozostawić `User` kontem uwierzytelniającym, a publiczne dane przenieść do
-  jawnego modelu `PublicProfile` osoby lub organizacji;
-- [ ] powiązać profil rozszerzony z Site bez duplikowania treści strony;
+- [x] pozostawić `User` kontem uwierzytelniającym, a publiczne dane przenieść do
+  jawnego modelu `PublicProfile` osoby lub organizacji — nowy moduł
+  `shared.profiles` (`dependsOn: core.organizations, shared.media`,
+  `/api/v1/profiles`, permission `profiles.manage`, bez własnego entitlementu).
+  `PublicProfile` trzyma nazwę, nagłówek, opis bez HTML, zdjęcie z `MediaAsset`,
+  jawne pola kontaktu, linki, języki i specjalizacje; `PublicProfileTranslation`
+  powtarza mechanizm tłumaczeń stron (wiersz na locale z flagami fallbacku).
+  Organizacja ma dokładnie jeden profil (indeks częściowy), osób może mieć
+  dowolnie wiele, a profil osoby **nie wymaga konta** — wskazanie `Membership`
+  jest opcjonalne. Migracja `profiles.0002` wymusza RLS i zakłada wyzwalacz
+  relacji: zdjęcie, członkostwo i profil nadrzędny muszą należeć do tej samej
+  organizacji. Sprawdzone na żywo: `bez tenanta 0 / z tenantem 1`, a wstawienie
+  obcego pliku kończy się `profile relation belongs to another organization`
+  (2026-09-06);
+- [ ] powiązać profil rozszerzony z Site bez duplikowania treści strony —
+  zostaje blok `core.profile` trzymający `profile_id`, zrzut profili w snapshocie
+  publikacji oraz `StaffMember.profile` z ADR-036 §4 (dokłada zależność
+  `shared.booking -> shared.profiles`, więc idzie osobno);
 - [ ] umożliwić rezerwację gościnną, a następnie bezpieczną aktywację konta i
   przypięcie istniejących rekordów `Customer` po weryfikacji adresu;
 - [ ] zbudować panel klienta: przyszłe i historyczne wizyty, przełożenie,

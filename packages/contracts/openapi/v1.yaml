@@ -2547,6 +2547,213 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/profiles/:
+    get:
+      operationId: api_v1_profiles_list
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProfileSummary'
+          description: ''
+    post:
+      operationId: api_v1_profiles_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProfileCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProfileCreate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileSummary'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/profiles/{profile_id}/:
+    get:
+      operationId: api_v1_profiles_retrieve
+      parameters:
+      - in: path
+        name: profile_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileSummary'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    put:
+      operationId: api_v1_profiles_update
+      parameters:
+      - in: path
+        name: profile_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileSummary'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    delete:
+      operationId: api_v1_profiles_destroy
+      parameters:
+      - in: path
+        name: profile_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/profiles/{profile_id}/translations/{locale}/:
+    put:
+      operationId: api_v1_profiles_translations_update
+      parameters:
+      - in: path
+        name: locale
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: profile_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileTranslation'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProfileTranslation'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProfileTranslation'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileTranslationSummary'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/public/site/:
     get:
       operationId: public_site_page_retrieve
@@ -6997,6 +7204,14 @@ components:
           type: string
       required:
       - status
+    LocaleE35Enum:
+      enum:
+      - pl
+      - en
+      type: string
+      description: |-
+        * `pl` - Polski
+        * `en` - English
     LocaleEnum:
       enum:
       - pl
@@ -7880,6 +8095,212 @@ components:
       - status
       - title
       - type
+    ProfileCreate:
+      type: object
+      properties:
+        display_name:
+          type: string
+          maxLength: 160
+        headline:
+          type: string
+          maxLength: 200
+        bio:
+          type: string
+          maxLength: 4000
+        photo_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        membership_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        contact_email:
+          oneOf:
+          - type: string
+            format: email
+          - type: string
+            maxLength: 0
+        contact_phone:
+          type: string
+          maxLength: 32
+        contact_address:
+          type: string
+          maxLength: 240
+        links:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        languages:
+          type: array
+          items:
+            type: string
+        specializations:
+          type: array
+          items:
+            type: string
+        locale:
+          $ref: '#/components/schemas/LocaleE35Enum'
+        subject_kind:
+          $ref: '#/components/schemas/SubjectKindEnum'
+      required:
+      - display_name
+      - subject_kind
+    ProfileSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        subject_kind:
+          type: string
+        display_name:
+          type: string
+        headline:
+          type: string
+        bio:
+          type: string
+        photo_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        membership_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        contact_email:
+          type: string
+        contact_phone:
+          type: string
+        contact_address:
+          type: string
+        links:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        languages:
+          type: array
+          items:
+            type: string
+        specializations:
+          type: array
+          items:
+            type: string
+        locale:
+          type: string
+        version:
+          type: integer
+      required:
+      - bio
+      - contact_address
+      - contact_email
+      - contact_phone
+      - display_name
+      - headline
+      - id
+      - languages
+      - links
+      - locale
+      - membership_id
+      - photo_id
+      - specializations
+      - subject_kind
+      - version
+    ProfileTranslation:
+      type: object
+      properties:
+        headline:
+          type: string
+          maxLength: 200
+        bio:
+          type: string
+          maxLength: 4000
+        allow_headline_fallback:
+          type: boolean
+        allow_bio_fallback:
+          type: boolean
+    ProfileTranslationSummary:
+      type: object
+      properties:
+        locale:
+          type: string
+        headline:
+          type: string
+        bio:
+          type: string
+        allow_headline_fallback:
+          type: boolean
+        allow_bio_fallback:
+          type: boolean
+        version:
+          type: integer
+      required:
+      - allow_bio_fallback
+      - allow_headline_fallback
+      - bio
+      - headline
+      - locale
+      - version
+    ProfileUpdate:
+      type: object
+      properties:
+        display_name:
+          type: string
+          maxLength: 160
+        headline:
+          type: string
+          maxLength: 200
+        bio:
+          type: string
+          maxLength: 4000
+        photo_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        membership_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        contact_email:
+          oneOf:
+          - type: string
+            format: email
+          - type: string
+            maxLength: 0
+        contact_phone:
+          type: string
+          maxLength: 32
+        contact_address:
+          type: string
+          maxLength: 240
+        links:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        languages:
+          type: array
+          items:
+            type: string
+        specializations:
+          type: array
+          items:
+            type: string
+        locale:
+          $ref: '#/components/schemas/LocaleE35Enum'
+        expected_version:
+          type: integer
+          minimum: 1
+      required:
+      - expected_version
     ProposalDiscardResult:
       type: object
       properties:
@@ -8663,6 +9084,14 @@ components:
       - reason
       - requested_label
       - suggestion
+    SubjectKindEnum:
+      enum:
+      - organization
+      - person
+      type: string
+      description: |-
+        * `organization` - Organizacja
+        * `person` - Osoba
     SupportHealth:
       type: object
       properties:

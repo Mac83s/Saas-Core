@@ -28,6 +28,7 @@ SYSTEM_ROLE_PERMISSIONS: Final[dict[str, tuple[str, ...]]] = {
         "notifications.manage",
         "booking.appointment.read",
         "booking.appointment.manage",
+        "profiles.manage",
     ),
     "admin": (
         ORGANIZATION_READ,
@@ -45,6 +46,7 @@ SYSTEM_ROLE_PERMISSIONS: Final[dict[str, tuple[str, ...]]] = {
         "integrations.manage",
         "booking.appointment.read",
         "booking.appointment.manage",
+        "profiles.manage",
     ),
     "owner": (
         ORGANIZATION_READ,
@@ -65,5 +67,6 @@ SYSTEM_ROLE_PERMISSIONS: Final[dict[str, tuple[str, ...]]] = {
         "integrations.manage",
         "booking.appointment.read",
         "booking.appointment.manage",
+        "profiles.manage",
     ),
 }
