@@ -420,6 +420,9 @@ class OrganizationAuditAction(models.TextChoices):
     API_KEY_REVOKED = "integration.api_key.revoked", "Wycofano klucz API"
     WEBHOOK_CREATED = "integration.webhook.created", "Utworzono webhook"
     BOOKING_CATALOG_CHANGED = "booking.catalog.changed", "Zmieniono katalog rezerwacji"
+    PROFILE_CREATED = "profile.created", "Utworzono profil publiczny"
+    PROFILE_UPDATED = "profile.updated", "Zmieniono profil publiczny"
+    PROFILE_DELETED = "profile.deleted", "Usunięto profil publiczny"
     BOOKING_SCHEDULE_CHANGED = "booking.schedule.changed", "Zmieniono grafik rezerwacji"
     BOOKING_APPOINTMENT_CREATED = "booking.appointment.created", "Utworzono rezerwację"
     BOOKING_APPOINTMENT_RESCHEDULED = (

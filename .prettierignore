@@ -10,6 +10,8 @@
 .tmp/
 .next/
 node_modules/
+# Lokalny katalog runtime: sekrety, logi, maile i stare worktree.
+.runtime/
 Plan/
 docs/
 apps/backend/.venv/

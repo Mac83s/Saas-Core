@@ -1076,6 +1076,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/profiles/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["api_v1_profiles_list"];
+        put?: never;
+        post: operations["api_v1_profiles_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profiles/{profile_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["api_v1_profiles_retrieve"];
+        put: operations["api_v1_profiles_update"];
+        post?: never;
+        delete: operations["api_v1_profiles_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profiles/{profile_id}/translations/{locale}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["api_v1_profiles_translations_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public/site/": {
         parameters: {
             query?: never;
@@ -2519,6 +2567,12 @@ export interface components {
             status: string;
         };
         /**
+         * @description * `pl` - Polski
+         *     * `en` - English
+         * @enum {string}
+         */
+        LocaleE35Enum: "pl" | "en";
+        /**
          * @description * `pl` - pl
          *     * `en` - en
          * @enum {string}
@@ -2871,6 +2925,80 @@ export interface components {
             detail: unknown;
             correlation_id: string | null;
         };
+        ProfileCreate: {
+            display_name: string;
+            headline?: string;
+            bio?: string;
+            /** Format: uuid */
+            photo_id?: string | null;
+            /** Format: uuid */
+            membership_id?: string | null;
+            contact_email?: string;
+            contact_phone?: string;
+            contact_address?: string;
+            links?: {
+                [key: string]: unknown;
+            }[];
+            languages?: string[];
+            specializations?: string[];
+            locale?: components["schemas"]["LocaleE35Enum"];
+            subject_kind: components["schemas"]["SubjectKindEnum"];
+        };
+        ProfileSummary: {
+            /** Format: uuid */
+            id: string;
+            subject_kind: string;
+            display_name: string;
+            headline: string;
+            bio: string;
+            /** Format: uuid */
+            photo_id: string | null;
+            /** Format: uuid */
+            membership_id: string | null;
+            contact_email: string;
+            contact_phone: string;
+            contact_address: string;
+            links: {
+                [key: string]: unknown;
+            }[];
+            languages: string[];
+            specializations: string[];
+            locale: string;
+            version: number;
+        };
+        ProfileTranslation: {
+            headline?: string;
+            bio?: string;
+            allow_headline_fallback?: boolean;
+            allow_bio_fallback?: boolean;
+        };
+        ProfileTranslationSummary: {
+            locale: string;
+            headline: string;
+            bio: string;
+            allow_headline_fallback: boolean;
+            allow_bio_fallback: boolean;
+            version: number;
+        };
+        ProfileUpdate: {
+            display_name?: string;
+            headline?: string;
+            bio?: string;
+            /** Format: uuid */
+            photo_id?: string | null;
+            /** Format: uuid */
+            membership_id?: string | null;
+            contact_email?: string;
+            contact_phone?: string;
+            contact_address?: string;
+            links?: {
+                [key: string]: unknown;
+            }[];
+            languages?: string[];
+            specializations?: string[];
+            locale?: components["schemas"]["LocaleE35Enum"];
+            expected_version: number;
+        };
         ProposalDiscardResult: {
             resource_type: string;
             /** Format: uuid */
@@ -3203,6 +3331,12 @@ export interface components {
             reason: components["schemas"]["ReasonEnum"];
             suggestion: string;
         };
+        /**
+         * @description * `organization` - Organizacja
+         *     * `person` - Osoba
+         * @enum {string}
+         */
+        SubjectKindEnum: "organization" | "person";
         SupportHealth: {
             queued_messages: number;
             dead_messages: number;
@@ -6152,6 +6286,226 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_profiles_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileSummary"][];
+                };
+            };
+        };
+    };
+    api_v1_profiles_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["ProfileCreate"];
+                "multipart/form-data": components["schemas"]["ProfileCreate"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileSummary"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_profiles_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileSummary"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_profiles_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["ProfileUpdate"];
+                "multipart/form-data": components["schemas"]["ProfileUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileSummary"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_profiles_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_profiles_translations_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                locale: string;
+                profile_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ProfileTranslation"];
+                "application/x-www-form-urlencoded": components["schemas"]["ProfileTranslation"];
+                "multipart/form-data": components["schemas"]["ProfileTranslation"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileTranslationSummary"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -80,6 +80,10 @@
       "skill": "change-api-and-events",
       "note": "Świadomie ogólny: cykl życia, webhooki i kredyty to endpointy, zdarzenia i zadania. Dedykowany develop-commerce-payments powstaje w P5 razem z ADR-037."
     },
+    "shared.profiles": {
+      "skill": "change-tenant-data",
+      "note": "Świadomie ogólny: profil to model tenantowy z RLS i wyzwalaczem relacji, a jego API idzie zwykłą ścieżką kontraktu. Dedykowany skill tożsamości powstanie razem z resztą P3 — kontem klienta i PolicyAcknowledgement."
+    },
     "shared.sites": {
       "skill": "develop-sites",
       "note": "Własna procedura: treść, publikacja, domeny i renderer publiczny mają dość odrębnych pułapek, żeby nie mieściły się w skill ogólnym."

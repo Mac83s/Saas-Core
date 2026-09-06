@@ -73,7 +73,11 @@ def test_the_release_record_says_what_this_image_is_and_where_it_stands() -> Non
     # The suite migrates its database, so nothing is pending against it.
     assert record["migrations"]["applied"] is not None
     assert record["migrations"]["pending"] == []
-    assert record["migrations"]["shipped"]["organizations"].startswith("0028_")
+    # Named apps rather than a number: pinning the head makes this fail on
+    # every migration, which trains people to edit the assertion.
+    assert {"organizations", "billing", "sites", "profiles"} <= set(
+        record["migrations"]["shipped"]
+    )
 
 
 def test_an_image_digest_without_a_name_is_refused() -> None:
