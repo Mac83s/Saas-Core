@@ -1,9 +1,12 @@
-# ADR-042 — integracja SaaS Core, SeoContentRank i SEOSiteAudit
+# ADR-043 — integracja SaaS Core, SeoContentRank i SEOSiteAudit
 
 **Status:** Accepted — kierunek i granice I0; dalsze API wymagają implementacji i odbioru.
 **Data:** 2026-09-06
 **Właściciel:** koordynator integracji i właściciele trzech repozytoriów.
 **Podstawa:** opis produktów Macieja i zgoda „ok działaj zatem” na I0 oraz przygotowanie I1.
+
+Numer integracji zmieniono z ADR-042 na ADR-043 przy synchronizacji gałęzi:
+ADR-042 jest równolegle użyty dla usunięcia tenanta. Decyzja integracyjna zachowuje treść.
 
 ## Kontekst
 

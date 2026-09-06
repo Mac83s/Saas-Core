@@ -1,6 +1,6 @@
 # Integracja SEO — kontrakt koordynacyjny I0 v1
 
-Stan rozpoznania: 2026-09-06. Obowiązuje [ADR-042](../adr/ADR-042-Integracja-SaaS-Core-SCR-i-SSA.md).
+Stan rozpoznania: 2026-09-06. Obowiązuje [ADR-043](../adr/ADR-043-Integracja-SaaS-Core-SCR-i-SSA.md).
 Dokument rozdziela wymagania od istniejących możliwości. Nowe nazwy logiczne
 nie oznaczają wdrożonych pól modeli, endpointów ani migracji w pozostałych repozytoriach.
 
@@ -60,11 +60,18 @@ bazowej wersji celu. Nie wyprowadzamy target ID przez podobieństwo URL.
 | Klient → własny panel | Sesja danego produktu | Brak automatycznej sesji lub dostępu do innych produktów |
 | SSA BFF → SSA Django | Zaufany service JWT | Klucz prywatny BFF nie jest poświadczeniem dla SCR ani SaaS Core |
 
-W rozpoznanym SCR `TargetConnection` jest globalny, a nie przypisany do
-workspace; `ContentChangeSet` ma tylko FK do celu, `GenerationCall` również
-nie ma workspace. Lokalny wybór operatora wystarcza do jednego pilota, ale
-nie jest dowodem izolacji klientów. Przed ich obsługą potrzebne są egzekwowane
-powiązania i testy odmowy, łącznie z cofniętym połączeniem.
+W bazie SCR `b42e284` połączenia i generacja nie miały właściciela. Pakiet I0
+gałęzi `codex/seo-integration-i0-i1` dodaje workspace połączenia i wywołania generacji;
+serwisy change setów sprawdzają właściciela przez połączenie. Wysyłka odczytuje
+aktualne cofnięcie i capabilities, sprawdza zapisany tryb oraz skrót wiążący payload
+z celem. Adapter HTTP musi odpowiadać wybranemu połączeniu. Dawne nieprzypisane
+rekordy pozostają nieaktywne. Przyszła warstwa A4 nadal musi powiązać właściciela
+kandydata, neutralnej propozycji, generacji i celu; scoped helper nie zastępuje A4.
+
+Import SCR identyfikuje kopię audytu przez workspace, kanoniczny adres instancji
+SSA i UUID przebiegu oraz sprawdza projekt przekazany operatorowi. Zmiana adresu
+wdrożenia nie łączy automatycznie historii. Migracje zachowują dane; rollback
+odmawia przy kolizji UUID między źródłami albo nazw połączeń między workspace.
 
 Podgląd SaaS Core, dokładnie `POST /api/v1/sites/changes/`, wykonuje odczyt. Routing `content:read`
 musi rozpoznawać tę semantykę. Naprawa pozwala użyć `content:read` i grantu
@@ -153,8 +160,8 @@ prywatnych danych pod nazwą „historia audytów”.
 
 | Repozytorium | Sprawdzony kod | Znaczenie |
 | --- | --- | --- |
-| SaaS Core | baza gałęzi `3a5391b` | Integracja w osobnym worktree; aktywne P3 Claude poza tym zakresem |
-| SCR | `b42e284` | Istniejący connector; nie pełna izolacja projektów klientów |
+| SaaS Core | baza `3a5391b`, synchronizacja `9d9f916` | Integracja w osobnym worktree; późniejszy WIP Claude poza tym zakresem |
+| SCR | `7dc4604`, baza `b42e284` | Ownership połączeń/generacji i powiązanie wysyłki; A4 i resolver otwarte |
 | SSA | `ba197d7f70a7224d6f9d2fa2f73f295ad5a98fe5` | Tenantowe API i ledger; ograniczenia opisane powyżej |
 
 To przypięcie odczytanych źródeł, nie potwierdzenie wdrożenia tych commitów.

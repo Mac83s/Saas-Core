@@ -21,7 +21,7 @@ politykę wersjonowania — współredagujemy w
 wykonywalna połowa: schematy i fixture.
 
 Wspólny kierunek trzech usług i granice pierwszego pilota opisuje
-[Integracja SEO — I0 v1](seo-ecosystem-integration.md), na podstawie ADR-042.
+[Integracja SEO — I0 v1](seo-ecosystem-integration.md), na podstawie ADR-043.
 Dokument jawnie wskazuje wymagania, które nie mają jeszcze implementacji;
 nie zastępuje wykonywalnych schematów zmian treści.
 

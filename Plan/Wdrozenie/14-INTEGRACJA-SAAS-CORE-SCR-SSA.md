@@ -1,7 +1,7 @@
 # Plan 14 — integracja SaaS Core, SCR i SSA
 
 Data: 2026-09-06. Aktywny zakres: I0 i przygotowanie I1 zatwierdzone przez Macieja.
-Podstawa: [ADR-042](../../docs/adr/ADR-042-Integracja-SaaS-Core-SCR-i-SSA.md)
+Podstawa: [ADR-043](../../docs/adr/ADR-043-Integracja-SaaS-Core-SCR-i-SSA.md)
 i [kontrakt I0 v1](../../docs/architecture/seo-ecosystem-integration.md).
 Plan nie zastępuje kolejności P0–P3 z planu 13 ani nie otwiera verticali.
 
@@ -10,7 +10,8 @@ Plan nie zastępuje kolejności P0–P3 z planu 13 ani nie otwiera verticali.
 Jedna sesja koordynuje kontrakty, odbiór i Memex. Zadania wykonawcze mają
 właściciela repozytorium i jawne ścieżki; agent nie przejmuje zmian równoległych.
 Claude zachowuje P3 w głównym SaaS Core. Integracja używa osobnego worktree
-na bazie `3a5391b`. Scalenie wymaga przeglądu diffu względem aktualnego main,
+na bazie `3a5391b`, zsynchronizowanego z ukończonym commitem profili `9d9f916`.
+Nie przejęto późniejszego WIP usuwania tenanta. Scalenie wymaga przeglądu diffu względem aktualnego main,
 nie odtworzenia starego HANDOFF ponad zmianami Claude.
 
 Po spójnym pakiecie właściciel przekazuje commit, dokładny zakres, testy i
@@ -20,17 +21,23 @@ Praca w SSA/SCR zaczyna się od Memex CLI; same odczyty nie oznaczają wdrożeni
 ## I0 — kontrakt i gotowość wykonawcza
 
 - [x] **Koordynator:** zapisać podział odpowiedzialności, tożsamości, historii,
-  GSC i rozliczeń. Dowód: ADR-042 oraz kontrakt I0 v1; nowe runtime API pozostają otwarte.
+  GSC i rozliczeń. Dowód: ADR-043 oraz kontrakt I0 v1; nowe runtime API pozostają otwarte.
 - [ ] **Koordynator:** przed wykonaniem pilota przypiąć konkretny binding
   operatorski; sprawdzić zgodność źródła, celu i zakresu. I0 definiuje jego
   znaczenie, bez nowego JSON Schema, narzędzia runtime i pól w bazach.
-- [ ] **SCR:** zamknąć izolację `TargetConnection`, propozycji i `GenerationCall`
-  względem workspace; model logicznego projektu i resolver zasobów docelowych.
-- [ ] **SCR:** rozszerzyć deduplikację audytu o instancję SSA; obecna para
-  workspace/audit ID nie rozróżnia źródłowych wdrożeń. `pull_audit --run` ma
-  potwierdzać zgodność audytu z przekazanym projektem.
-- [ ] **SCR:** powiązać tryb z zatwierdzonym payloadem i egzekwować cofnięcie
-  połączenia przy wysyłce. Parametr deliver nie może rozszerzać trybu build.
+- [x] **SCR:** przypisać `TargetConnection` i `GenerationCall` do workspace;
+  serwisy `ContentChangeSet` sprawdzają właściciela przez połączenie. Dawne rekordy
+  bez właściciela/powiązania zachowane i nieaktywne. Dowód: migracje i testy
+  `test_target_workspace`, `test_target_workspace_migration`, `test_generation_workspace`.
+- [ ] **SCR:** trwała neutralna propozycja A4, powiązanie właściciela kandydata
+  z generacją i celem, model logicznego projektu oraz resolver zasobów docelowych.
+- [x] **SCR:** deduplikacja audytu obejmuje workspace, kanoniczny adres instancji
+  SSA i audit ID. `pull_audit --run` oraz serwis importu potwierdzają zgodność
+  audytu z przekazanym projektem. Dowód: migracja audit0003 i `test_audit_source_binding`.
+- [x] **SCR:** tryb zapisany razem z payloadem i skrótem powiązania; dostarczenie
+  sprawdza aktualne połączenie, cofnięcie, capabilities oraz adapter HTTP.
+  Parametr deliver nie rozszerza trybu build. Dowód: `test_target_workspace`
+  i `test_saas_core_delivery`; brak żądań HTTP w przypadkach odmowy.
 - [ ] **SSA:** zaprojektować zewnętrzne powiązania i ograniczone granty historyczne
   przed onboardingiem wielu klientów; nie tworzyć organizacji zbiorczej.
 
@@ -83,6 +90,13 @@ Przed automatyzacją zapisu trzeba dodatkowo uzgodnić i egzekwować znaczenie
 zatwierdzania propozycji. Samo zabezpieczenie podglądu nie zamyka tych tematów.
 
 ## Dowody odbioru
+
+Kontynuacja: SCR `7dc4604` — 170 testów SQLite i 170 PostgreSQL, 69 frontendu,
+lint/typy bez błędów i brak driftu API. Migracje od pustej bazy oraz rzeczywiste
+cofnięcia i odmowy przy kolizjach sprawdzone na obu silnikach. Core po włączeniu
+`9d9f916`: 579 testów backendu, 301 plików mypy, 1 kontrakt importów, 154 testy JS;
+lint/typy/formatowanie i regeneracja API zgodne. Dokładne komendy/ograniczenia są
+w HANDOFF. Główne katalogi repozytoriów i runtime pozostają poza tym pakietem.
 
 Odbiór kodu gałęzi I0/I1, 2026-09-06: 570 testów backendu, 111 frontendu,
 8 UI, 14 bloków stron i 21 kontraktów. Mypy: 288 plików; import-linter:

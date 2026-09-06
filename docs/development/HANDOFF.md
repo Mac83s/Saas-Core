@@ -2,9 +2,34 @@
 
 ## Integracja SEO — osobna gałąź, 2026-09-06
 
+**Najnowszy pakiet:** SCR `7dc4604`, na gałęzi `codex/seo-integration-i0-i1`
+w `.runtime/worktrees/scr-integration-i0-i1` (worktree repozytorium SeoContentRank).
+Połączenia i generacja mają jawny workspace; wysyłka sprawdza aktualne cofnięcie,
+powiązanie payloadu/trybu/celu i zgodność transportu. Import sprawdza projekt oraz
+instancję SSA. Trzy migracje zachowują historię bez zgadywania właściciela;
+rollback odmawia przy kolizjach między workspace/źródłami. Nie uruchomiono migracji
+na bazach produktu ani płatnych dostawców.
+
+Dowody SCR: 170 testów na SQLite i osobno 170 na PostgreSQL (bez skipów), w tym
+rzeczywiste MigrationExecutor forward/backward i odmowy rollbacku; 69 testów
+frontendu, lint, typy i OpenAPI/klient bez driftu. `SAAS_CORE_CONTRACTS_DIR`
+wskazuje kontrakt naszej gałęzi Core, a vendor ma LF wymuszone przez `.gitattributes`.
+Testy PG: `PYTHONPATH=<SCR worktree>/apps/backend/src;<SCR worktree>/.runtime`,
+`python -m pytest apps/backend/tests --ds=scr_pg_settings`; lokalny nieśledzony
+moduł `.runtime/scr_pg_settings.py` wybiera bazę `test_scr_integration_20260906`,
+nie bazę produktu. Standardowy suite używa SQLite memory.
+
+Gałąź Core zawiera ukończony commit Claude `9d9f916` (profiles), bez jego późniejszego
+WIP usuwania tenanta. Po synchronizacji: backend 579 passed, mypy 301 plików,
+import-linter 1 kontrakt, lint/typy/formatowanie, migracje i OpenAPI/klient zgodne.
+JavaScript: 21 kontraktów, 8 UI, 14 bloków, 111 frontendu; frontend powtórzony
+z `--maxWorkers=2 --no-file-parallelism` po zawieszeniu zamykania równoległego runnera.
+Test listy modułów uwzględnia `shared.profiles`. Integracyjny ADR ma teraz numer
+**043**, ponieważ 042 jest użyty przez równoległą decyzję Claude o usuwaniu tenanta.
+
 Aktywny punkt wznowienia integracji to
 [plan 14](../../Plan/Wdrozenie/14-INTEGRACJA-SAAS-CORE-SCR-SSA.md),
-[ADR-042](../adr/ADR-042-Integracja-SaaS-Core-SCR-i-SSA.md) i
+[ADR-043](../adr/ADR-043-Integracja-SaaS-Core-SCR-i-SSA.md) i
 [kontrakt I0](../architecture/seo-ecosystem-integration.md).
 Gałąź `codex/seo-integration-i0-i1` powstała z `3a5391b` w
 `.runtime/worktrees/seo-integration-i0-i1`. Claude prowadzi równolegle P3
@@ -18,7 +43,7 @@ grant konkretnej witryny/kolekcji przed odczytem prywatnych bloków. Powiązanie
 wpisu z witryną jest sprawdzane przez jego rzeczywistą kolekcję. Nie zmieniono
 wire schema, publicznego klienta, modeli ani migracji.
 
-Dowody: 570 testów backendu na świeżej osobnej bazie PostgreSQL, w tym 14 nowych
+Dowody pierwszego pakietu `e1d16d6`: 570 testów backendu na świeżej osobnej bazie PostgreSQL, w tym 14 nowych
 przypadków autoryzacji podglądu; mypy 288 plików, import-linter 1 kontrakt;
 Ruff i kontrola migracji bez driftu. Node 24.13.0: lint, typy TypeScript,
 formatowanie oraz 111 testów frontendu, 8 UI i 14 bloków stron. Regeneracja
@@ -44,8 +69,9 @@ Otwarte: uruchomiony pilot SSA → SCR → SaaS Core; w tej sesji brak skonfigur
 kluczy i konkretnego powiązania zasobów. Nie wykonano deployu, testów przez Caddy
 ani publikacji. I0 ma zapisany kierunek, a I1 ma sprawdzony warunek wstępny
 po stronie SaaS Core — cały przepływ nie jest jeszcze odebrany.
-Następny pakiet SCR: izolacja połączeń/propozycji względem workspace, zgodność
-projektu przy imporcie audytu, odwołanie połączenia i związanie trybu z payloadem.
+Następny pakiet SCR: trwała neutralna propozycja A4, która wiąże właściciela
+kandydata z generacją i celem, oraz resolver inventory dla docelowego zasobu.
+Scoped helpery i `ContentChangeSet` nie są jeszcze pełnym modelem tej propozycji.
 Przed zapisem treści: kontrakt hasha bazy, granty pozostałych odczytów draftu
 i przegląd zatwierdzania. Przed płatnymi analizami: routing callbacków SSA.
 
