@@ -1,6 +1,8 @@
 # Plan 14 — integracja SaaS Core, SCR i SSA
 
-Data: 2026-09-06. Aktywny zakres: I0 i przygotowanie I1 zatwierdzone przez Macieja.
+Data: 2026-09-06. Aktywny zakres: I0–I5, w kolejności zależności. Maciej rozszerzył
+zgodę poleceniem „ok pracuje az skonczysz calość”; kolejne przyrosty nie wymagają
+osobnego pytania o kontynuację. Weryfikacja lokalna i dowód wdrożenia są osobne.
 Podstawa: [ADR-043](../../docs/adr/ADR-043-Integracja-SaaS-Core-SCR-i-SSA.md)
 i [kontrakt I0 v1](../../docs/architecture/seo-ecosystem-integration.md).
 Plan nie zastępuje kolejności P0–P3 z planu 13 ani nie otwiera verticali.
@@ -73,7 +75,7 @@ ukończyć niezależnie; autoryzowany pilot integracji pozostaje otwarty,
 ponieważ w tej sesji brak jego skonfigurowanych kluczy.
 Publikacja całej witryny nadal należy do człowieka zgodnie z ADR-035.
 
-## Kolejne etapy — poza aktywną implementacją
+## Kolejne etapy — autoryzowane, wykonywane po spełnieniu zależności
 
 | Etap | Właściciele | Wynik i warunek rozpoczęcia |
 | --- | --- | --- |

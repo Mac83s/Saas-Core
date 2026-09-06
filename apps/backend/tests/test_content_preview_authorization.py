@@ -40,7 +40,7 @@ def surface() -> tuple[Any, Any, Any, dict[str, Any]]:
         target={"kind": "site_page", "site_id": str(site), "page_id": str(page), "locale": "pl"},
         commands=[{"command": "translation.update", "fields": {"description": "Proposed copy."}}],
     )
-    document["base"]["version"] = 1
+    document["base"] = person.get("/api/v1/sites/content-base/", document["target"]).json()["base"]
     return person, organization, owner, document
 
 
@@ -242,6 +242,8 @@ def test_collection_grant_only_previews_entries_of_its_real_site(surface: Any) -
         "entry_id": str(entry),
         "locale": "pl",
     }
+    document["commands"] = [{"command": "block.remove", "position": 0}]
+    document["base"] = person.get("/api/v1/sites/content-base/", document["target"]).json()["base"]
     assert post_preview(client, document).status_code == 200
     document["target"]["site_id"] = str(
         create_site(person, slug="wrong-entry-site", idempotency_key="wrong-entry-site").data["id"]

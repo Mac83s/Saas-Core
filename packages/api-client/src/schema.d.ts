@@ -1394,7 +1394,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Turns an accepted change set into a new draft, never into a mutation. */
+        /** @description Creates a draft and stages review where required; never publishes. */
         post: operations["sites_change_set_apply"];
         delete?: never;
         options?: never;
@@ -1487,6 +1487,22 @@ export interface paths {
         put?: never;
         /** @description The emergency stop, one click from the list it appears in. */
         post: operations["sites_automation_grant_revoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/content-base/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["sites_content_base_retrieve"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1862,6 +1878,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/proposals/{proposal_id}/accept/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sites_content_proposal_accept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/proposals/{proposal_id}/discard/": {
         parameters: {
             query?: never;
@@ -1874,9 +1906,8 @@ export interface paths {
         /**
          * @description Rejecting a proposal, which has to mean something.
          *
-         *     The only honest meaning available is "undo what the automation wrote": the
-         *     draft goes back to the version before it arrived. Nothing is deleted, so a
-         *     rejection can still be looked at afterwards.
+         *     Earlier content becomes a fresh draft version. The rejected proposal and
+         *     every prior version remain available for review.
          */
         post: operations["sites_content_proposal_discard"];
         delete?: never;
@@ -2107,6 +2138,7 @@ export interface components {
                 [key: string]: unknown;
             };
             approval_digest?: string;
+            approval_token?: string;
         };
         ChangeSetDiff: {
             /** Format: uuid */
@@ -2124,6 +2156,7 @@ export interface components {
             };
             publish_at: string | null;
             approval_digest: string;
+            approval_token: string;
             /** Format: date-time */
             digest_expires_at: string;
         };
@@ -2143,6 +2176,9 @@ export interface components {
             resource_id: string;
             base_version: number;
             applied_commands: string[];
+            pending_commands: string[];
+            /** Format: uuid */
+            proposal_id: string;
             approval_digest: string;
             published: boolean;
         };
@@ -2151,6 +2187,42 @@ export interface components {
         };
         CollectionNavigation: {
             show_in_navigation: boolean;
+        };
+        ContentBase: {
+            target: components["schemas"]["ContentBaseQuery"];
+            base: components["schemas"]["ContentBaseState"];
+            blocks: {
+                [key: string]: unknown;
+            }[];
+            translation_fields: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            observed_at: string;
+        };
+        ContentBaseQuery: {
+            kind: components["schemas"]["ContentBaseQueryKindEnum"];
+            /** Format: uuid */
+            site_id: string;
+            /** Format: uuid */
+            page_id?: string;
+            /** Format: uuid */
+            collection_id?: string;
+            /** Format: uuid */
+            entry_id?: string;
+            locale: components["schemas"]["LocaleEnum"];
+        };
+        /**
+         * @description * `site_page` - site_page
+         *     * `content_entry` - content_entry
+         * @enum {string}
+         */
+        ContentBaseQueryKindEnum: "site_page" | "content_entry";
+        ContentBaseState: {
+            version: number;
+            snapshot_hash: string;
+            /** Format: date-time */
+            observed_at: string;
         };
         /** @description Shape and limits, never unpublished content. */
         ContentCapabilities: {
@@ -2161,6 +2233,7 @@ export interface components {
             grant: {
                 [key: string]: unknown;
             } | null;
+            change_set_commands: string[];
             locales: {
                 [key: string]: unknown;
             };
@@ -2296,6 +2369,13 @@ export interface components {
             commands: string[];
             /** Format: date-time */
             created_at: string;
+            review_state: string;
+            target: {
+                [key: string]: unknown;
+            };
+            metadata_pending: boolean;
+            /** Format: date-time */
+            decided_at: string | null;
         };
         /** @description The queue row plus the two block lists an operator compares. */
         ContentProposalDetail: {
@@ -2316,12 +2396,28 @@ export interface components {
             commands: string[];
             /** Format: date-time */
             created_at: string;
+            review_state: string;
+            target: {
+                [key: string]: unknown;
+            };
+            metadata_pending: boolean;
+            /** Format: date-time */
+            decided_at: string | null;
             blocks_before: {
                 [key: string]: unknown;
             }[];
             blocks_after: {
                 [key: string]: unknown;
             }[];
+            metadata_before: {
+                [key: string]: unknown;
+            };
+            metadata_after: {
+                [key: string]: unknown;
+            };
+            review_token: string;
+            /** Format: date-time */
+            review_expires_at: string;
         };
         ContentTag: {
             slug: string;
@@ -2998,6 +3094,16 @@ export interface components {
             specializations?: string[];
             locale?: components["schemas"]["LocaleE35Enum"];
             expected_version: number;
+        };
+        ProposalAccept: {
+            review_token: string;
+        };
+        ProposalAcceptResult: {
+            /** Format: uuid */
+            proposal_id: string;
+            review_state: string;
+            version: number;
+            published: boolean;
         };
         ProposalDiscardResult: {
             resource_type: string;
@@ -7940,6 +8046,64 @@ export interface operations {
             };
         };
     };
+    sites_content_base_retrieve: {
+        parameters: {
+            query: {
+                collection_id?: string;
+                entry_id?: string;
+                /**
+                 * @description * `site_page` - site_page
+                 *     * `content_entry` - content_entry
+                 */
+                kind: "site_page" | "content_entry";
+                /**
+                 * @description * `pl` - pl
+                 *     * `en` - en
+                 */
+                locale: "pl" | "en";
+                page_id?: string;
+                site_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentBase"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     sites_domains_action: {
         parameters: {
             query?: never;
@@ -9281,6 +9445,65 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_content_proposal_accept: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                proposal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProposalAccept"];
+                "application/x-www-form-urlencoded": components["schemas"]["ProposalAccept"];
+                "multipart/form-data": components["schemas"]["ProposalAccept"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalAcceptResult"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

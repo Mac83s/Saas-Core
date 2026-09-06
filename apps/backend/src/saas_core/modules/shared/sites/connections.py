@@ -14,8 +14,11 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
+from django.conf import settings
+from django.core import signing
 from django.db import transaction
 from django.db.models import Max
+from django.utils import timezone
 from rest_framework.exceptions import APIException, NotFound
 
 from saas_core.modules.core.identity.models import User
@@ -30,12 +33,16 @@ from .models import (
     ContentProposal,
     Page,
     PageBlock,
+    PageTranslation,
     PageVersion,
+    canonical_json_hash,
 )
 from .permissions import SITE_CONTENT_EDIT, SITES_ENABLED
 from .services import assert_person_required
 
 PROPOSAL_DISCARDED = "sites.proposal.discarded"
+PROPOSAL_ACCEPTED = "sites.proposal.accepted"
+REVIEW_SALT = "sites.content-proposal.review.v1"
 
 
 def list_automation_connections() -> list[dict[str, Any]]:
@@ -52,15 +59,11 @@ def list_automation_connections() -> list[dict[str, Any]]:
         operation=FeatureOperation.READ,
     )
     grants = list(
-        ContentAutomationGrant.all_objects.filter(
-            organization_id=context.organization_id
-        )
+        ContentAutomationGrant.all_objects.filter(organization_id=context.organization_id)
         .select_related("site", "collection")
         .order_by("-created_at")
     )
-    last_seen = _last_activity(
-        context.organization_id, [grant.credential_id for grant in grants]
-    )
+    last_seen = _last_activity(context.organization_id, [grant.credential_id for grant in grants])
     return [
         {
             "grant_id": str(grant.id),
@@ -92,9 +95,10 @@ def list_pending_proposals(*, limit: int = 50) -> list[dict[str, Any]]:
         SITES_ENABLED,
         operation=FeatureOperation.READ,
     )
+    assert_person_required(context, "Przegląd propozycji")
     proposals = list(
         ContentProposal.all_objects.filter(
-            organization_id=context.organization_id
+            organization_id=context.organization_id, review_state="pending"
         ).order_by("-created_at")[: limit * 4]
     )
     current: dict[tuple[str, UUID], ContentProposal] = {}
@@ -105,9 +109,9 @@ def list_pending_proposals(*, limit: int = 50) -> list[dict[str, Any]]:
             current[key] = proposal
     return [
         _proposal_payload(proposal)
-        for proposal in sorted(
-            current.values(), key=lambda item: item.created_at, reverse=True
-        )[:limit]
+        for proposal in sorted(current.values(), key=lambda item: item.created_at, reverse=True)[
+            :limit
+        ]
     ]
 
 
@@ -125,6 +129,7 @@ def read_proposal(*, proposal_id: UUID) -> dict[str, Any]:
         SITES_ENABLED,
         operation=FeatureOperation.READ,
     )
+    assert_person_required(context, "Przegląd propozycji")
     proposal = ContentProposal.all_objects.filter(
         pk=proposal_id, organization_id=context.organization_id
     ).first()
@@ -143,13 +148,38 @@ def read_proposal(*, proposal_id: UUID) -> dict[str, Any]:
             number__in=[proposal.version, proposal.version - 1],
         )
     }
-    return {
+    result = {
         **_proposal_payload(proposal),
-        "blocks_before": _blocks(
-            context, proposal, versions.get(proposal.version - 1)
-        ),
+        "blocks_before": _blocks(context, proposal, versions.get(proposal.version - 1)),
         "blocks_after": _blocks(context, proposal, versions.get(proposal.version)),
+        "metadata_before": proposal.metadata_before,
+        "metadata_after": proposal.metadata_after,
     }
+    result["review_token"] = signing.dumps(
+        {
+            "organization_id": str(context.organization_id),
+            "actor_id": str(context.actor_id),
+            "digest": _review_digest(proposal, result["blocks_after"]),
+        },
+        salt=REVIEW_SALT,
+    )
+    result["review_expires_at"] = (
+        timezone.now() + settings.CONTENT_APPROVAL_DIGEST_TTL
+    ).isoformat()
+    return result
+
+
+def _review_digest(proposal: ContentProposal, blocks_after: Any) -> str:
+    return canonical_json_hash({
+        "proposal_id": str(proposal.id),
+        "resource_id": str(proposal.resource_id),
+        "version": proposal.version,
+        "target": proposal.target,
+        "metadata_before": proposal.metadata_before,
+        "metadata_after": proposal.metadata_after,
+        "metadata_pending": proposal.metadata_pending,
+        "blocks_after": blocks_after,
+    })
 
 
 def _blocks(context: Any, proposal: ContentProposal, version: Any) -> list[dict[str, Any]]:
@@ -175,9 +205,7 @@ def _proposal_payload(proposal: ContentProposal) -> dict[str, Any]:
         "resource_type": proposal.resource_type,
         "resource_id": str(proposal.resource_id),
         "version": proposal.version,
-        "credential_id": (
-            str(proposal.credential_id) if proposal.credential_id else None
-        ),
+        "credential_id": (str(proposal.credential_id) if proposal.credential_id else None),
         # Stated as a claim, not as a finding: the panel shows what
         # SeoContentRank argued, and the person decides.
         "summary": proposal.summary,
@@ -186,6 +214,10 @@ def _proposal_payload(proposal: ContentProposal) -> dict[str, Any]:
         "sources": proposal.sources,
         "commands": proposal.commands,
         "created_at": proposal.created_at,
+        "review_state": proposal.review_state,
+        "target": proposal.target,
+        "metadata_pending": proposal.metadata_pending,
+        "decided_at": proposal.decided_at,
     }
 
 
@@ -241,73 +273,230 @@ class ProposalSuperseded(APIException):
     default_code = "proposal_superseded"
 
 
-@transaction.atomic
-def discard_proposal(*, proposal_id: UUID) -> dict[str, Any]:
-    """Puts the draft back to the version before the proposal arrived.
+class ProposalReviewMismatch(APIException):
+    status_code = 409
+    default_detail = "Podgląd propozycji jest nieaktualny lub wygasł."
+    default_code = "proposal_review_mismatch"
 
-    Rejecting has to mean something, and the only honest meaning available is
-    "undo what the automation wrote". Nothing is deleted: versions are
-    immutable and stay, and the pointer moves back — so a rejection can be
-    looked at afterwards, and the text that was proposed is still on record.
 
-    A person's own edit after the proposal supersedes it. Reverting then would
-    throw away work nobody asked us to touch, so it refuses instead.
-    """
-    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
-    assert_person_required(context, "Odrzucenie propozycji")
+def _locked_proposal(proposal_id: UUID, context: Any) -> tuple[ContentProposal, Any]:
     proposal = ContentProposal.all_objects.filter(
-        pk=proposal_id, organization_id=context.organization_id
+        pk=proposal_id,
+        organization_id=context.organization_id,
     ).first()
     if proposal is None:
         raise ProposalNotFound
-
-    resource: Any
-    if proposal.resource_type == "site_page":
-        resource = Page.all_objects.select_for_update().filter(
-            pk=proposal.resource_id, organization_id=context.organization_id
-        ).first()
-        version_model: Any = PageVersion
-        audit_target = "page"
-    else:
-        resource = ContentEntry.all_objects.select_for_update().filter(
-            pk=proposal.resource_id, organization_id=context.organization_id
-        ).first()
-        version_model = ContentEntryVersion
-        audit_target = "content_entry"
-    if resource is None:
-        raise ProposalNotFound
-    if resource.version != proposal.version:
-        raise ProposalSuperseded
-
-    field = "page_id" if proposal.resource_type == "site_page" else "entry_id"
-    previous = (
-        version_model.all_objects.filter(
+    model: Any = Page if proposal.resource_type == "site_page" else ContentEntry
+    resource = (
+        model.all_objects.select_for_update()
+        .filter(
+            pk=proposal.resource_id,
             organization_id=context.organization_id,
-            **{field: proposal.resource_id},
         )
-        .filter(number__lt=proposal.version)
-        .order_by("-number")
         .first()
     )
-    resource.current_draft = previous
-    resource.version = previous.number if previous is not None else 0
-    resource.save(update_fields=["current_draft", "version", "updated_at"])
+    if resource is None:
+        raise ProposalNotFound
+    # Writers acquire aggregate then proposal, so acceptance cannot deadlock
+    # with another draft arriving on the same page.
+    proposal = ContentProposal.all_objects.select_for_update().get(
+        pk=proposal_id,
+        organization_id=context.organization_id,
+    )
+    return proposal, resource
 
+
+def _current_translation(proposal: ContentProposal, context: Any) -> PageTranslation | None:
+    if not proposal.metadata_before:
+        return None
+    from .change_sets import translation_snapshot
+
+    translation = (
+        PageTranslation.all_objects.select_for_update()
+        .filter(
+            organization_id=context.organization_id,
+            page_id=proposal.resource_id,
+            locale=proposal.target.get("locale"),
+        )
+        .first()
+    )
+    expected = proposal.metadata_before if proposal.metadata_pending else proposal.metadata_after
+    if translation is None or translation_snapshot(translation) != expected:
+        raise ProposalSuperseded
+    return translation
+
+
+def _save_metadata(
+    proposal: ContentProposal, translation: PageTranslation, values: dict[str, Any], key: str
+) -> None:
+    from .services import save_page_translation
+
+    save_page_translation(
+        page_id=proposal.resource_id,
+        locale=translation.locale,
+        expected_version=translation.version,
+        slug=translation.slug,
+        title=values["title"],
+        description=values["description"],
+        social_title=values["social_title"],
+        social_description=values["social_description"],
+        allow_title_fallback=values["allow_title_fallback"],
+        allow_description_fallback=values["allow_description_fallback"],
+        allow_social_title_fallback=values["allow_social_title_fallback"],
+        allow_social_description_fallback=values["allow_social_description_fallback"],
+        idempotency_key=key,
+    )
+
+
+@transaction.atomic
+def accept_proposal(*, proposal_id: UUID, review_token: str) -> dict[str, Any]:
+    """A person accepts exactly the stored draft and localized metadata reviewed."""
+    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    assert_person_required(context, "Akceptacja propozycji")
+    proposal, resource = _locked_proposal(proposal_id, context)
+    if proposal.review_state == "accepted":
+        return {
+            "proposal_id": str(proposal.id),
+            "review_state": "accepted",
+            "version": proposal.decision_version,
+            "published": False,
+        }
+    if proposal.review_state != "pending" or resource.version != proposal.version:
+        raise ProposalSuperseded
+    translation = _current_translation(proposal, context)
+    try:
+        reviewed = signing.loads(
+            review_token, salt=REVIEW_SALT, max_age=settings.CONTENT_APPROVAL_DIGEST_TTL
+        )
+    except signing.BadSignature as error:
+        raise ProposalReviewMismatch from error
+    expected = {
+        "organization_id": str(context.organization_id),
+        "actor_id": str(context.actor_id),
+        "digest": _review_digest(proposal, _blocks(context, proposal, resource.current_draft)),
+    }
+    if reviewed != expected:
+        raise ProposalReviewMismatch
+    if translation is not None and proposal.metadata_pending:
+        _save_metadata(
+            proposal, translation, proposal.metadata_after, f"proposal-accept-{proposal.id}"
+        )
+    proposal.review_state = "accepted"
+    proposal.decision_version = resource.version
+    proposal.decided_at = timezone.now()
+    proposal.save(update_fields=["review_state", "decision_version", "decided_at"])
+    record_audit(
+        organization=Organization.objects.get(pk=context.organization_id),
+        action=PROPOSAL_ACCEPTED,
+        actor=User.objects.get(pk=context.actor_id),
+        target_type="content_proposal",
+        target_id=proposal.id,
+        metadata={
+            "resource_id": str(proposal.resource_id),
+            "version": resource.version,
+            "locale": proposal.target.get("locale"),
+            "metadata_applied": proposal.metadata_pending,
+        },
+    )
+    return {
+        "proposal_id": str(proposal.id),
+        "review_state": "accepted",
+        "version": resource.version,
+        "published": False,
+    }
+
+
+@transaction.atomic
+def discard_proposal(*, proposal_id: UUID) -> dict[str, Any]:
+    """Reject a current proposal using a fresh immutable draft; retain its history."""
+    from .collections import save_entry_draft
+    from .services import save_draft
+
+    context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    assert_person_required(context, "Odrzucenie propozycji")
+    proposal, resource = _locked_proposal(proposal_id, context)
+    if proposal.review_state == "rejected":
+        return {
+            "resource_type": proposal.resource_type,
+            "resource_id": str(proposal.resource_id),
+            "restored_version": proposal.decision_version,
+        }
+    if proposal.review_state != "pending" or resource.version != proposal.version:
+        raise ProposalSuperseded
+    translation = _current_translation(proposal, context)
+    version_model: Any = (
+        PageVersion if proposal.resource_type == "site_page" else ContentEntryVersion
+    )
+    field = "page_id" if proposal.resource_type == "site_page" else "entry_id"
+    previous = version_model.all_objects.filter(
+        organization_id=context.organization_id,
+        **{field: proposal.resource_id},
+        number=proposal.version - 1,
+    ).first()
+    blocks = _blocks(context, proposal, previous)
+    if proposal.resource_type == "site_page":
+        # Copy the previous version's references, not the rejected draft's.
+        from .services import get_draft_preview
+
+        media = (
+            get_draft_preview(page_id=resource.id, version_id=previous.id).media_asset_ids
+            if previous is not None
+            else ()
+        )
+        saved = save_draft(
+            page_id=resource.id,
+            expected_version=resource.version,
+            blocks=blocks,
+            media_asset_ids=list(media),
+            idempotency_key=f"proposal-reject-{proposal.id}",
+        )
+        restored_version = saved.value.number
+    else:
+        from saas_core.modules.core.organizations.api import list_resource_reference_ids
+
+        from .collections import ENTRY_VERSION_REFERENCE_OWNER
+        from .services import MEDIA_ASSET_RESOURCE_TYPE
+
+        media = (
+            list_resource_reference_ids(
+                context=context,
+                resource_type=MEDIA_ASSET_RESOURCE_TYPE,
+                owner_type=ENTRY_VERSION_REFERENCE_OWNER,
+                owner_id=previous.id,
+            )
+            if previous is not None
+            else ()
+        )
+        saved_entry, _created = save_entry_draft(
+            entry_id=resource.id,
+            expected_version=resource.version,
+            blocks=blocks,
+            media_asset_ids=list(media),
+            idempotency_key=f"proposal-reject-{proposal.id}",
+        )
+        restored_version = saved_entry.number
+    if translation is not None and not proposal.metadata_pending:
+        _save_metadata(
+            proposal, translation, proposal.metadata_before, f"proposal-reject-{proposal.id}"
+        )
+    proposal.review_state = "rejected"
+    proposal.decision_version = restored_version
+    proposal.decided_at = timezone.now()
+    proposal.save(update_fields=["review_state", "decision_version", "decided_at"])
     record_audit(
         organization=Organization.objects.get(pk=context.organization_id),
         action=PROPOSAL_DISCARDED,
         actor=User.objects.get(pk=context.actor_id),
-        target_type=audit_target,
-        target_id=proposal.resource_id,
+        target_type="content_proposal",
+        target_id=proposal.id,
         metadata={
-            "proposal_id": str(proposal.id),
             "discarded_version": proposal.version,
-            "restored_version": resource.version,
+            "restored_version": restored_version,
+            "restored_from_version": previous.number if previous else None,
         },
     )
-    proposal.delete()
     return {
         "resource_type": proposal.resource_type,
         "resource_id": str(proposal.resource_id),
-        "restored_version": resource.version,
+        "restored_version": restored_version,
     }

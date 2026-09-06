@@ -1194,6 +1194,16 @@ class ContentProposal(TenantScopedModel):
     #: our paraphrase of it.
     sources = models.JSONField(default=list)
     commands = models.JSONField(default=list)
+    target = models.JSONField(default=dict)
+    metadata_before = models.JSONField(default=dict)
+    metadata_after = models.JSONField(default=dict)
+    metadata_pending = models.BooleanField(default=False)
+    review_state = models.CharField(
+        max_length=16, default="pending",
+        choices=[("pending", "Pending"), ("accepted", "Accepted"), ("rejected", "Rejected")],
+    )
+    decision_version = models.PositiveBigIntegerField(null=True, blank=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     all_objects = models.Manager()

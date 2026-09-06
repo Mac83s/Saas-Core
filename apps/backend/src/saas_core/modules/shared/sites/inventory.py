@@ -125,8 +125,8 @@ def _site_entry(
             .order_by("-is_canonical", "hostname")
             .values_list("hostname", flat=True)
         ),
-        # The base a change set declares. A connector that sends a different
-        # one is planning against a state that has moved.
+        # Published state only. A change set reads its actual target draft and
+        # localized metadata through content-base; this hash cannot replace it.
         "publication": (
             {
                 "publication_id": str(publication.id),

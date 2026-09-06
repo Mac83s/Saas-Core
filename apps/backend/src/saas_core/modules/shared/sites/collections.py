@@ -338,7 +338,7 @@ def get_entry_draft(*, entry_id: UUID) -> EntryDraft:
         operation=FeatureOperation.READ,
     )
     entry = (
-        ContentEntry.all_objects.select_related("current_draft", "collection")
+        ContentEntry.all_objects.select_related("collection")
         .filter(pk=entry_id, organization_id=context.organization_id)
         .first()
     )
@@ -348,7 +348,7 @@ def get_entry_draft(*, entry_id: UUID) -> EntryDraft:
     # granted the collection — otherwise a key issued for one blog could survey
     # everything the customer has not published yet.
     assert_within_grant(
-        context, site_id=entry.site_id, collection_id=entry.collection_id
+        context, site_id=entry.collection.site_id, collection_id=entry.collection_id
     )
     return EntryDraft(
         entry=entry,

@@ -1,5 +1,40 @@
 # Handoff następnej sesji
 
+## Integracja SEO — aktywna kontynuacja całości, 2026-09-06
+
+Maciej polecił pracować aż do zakończenia całego zakresu I0–I5. Nie zatrzymywać
+pracy po pojedynczym pakiecie z pytaniem o kontynuację. Koordynator prowadzi
+trzy osobne worktrees; główny Core `4cc8684` pozostaje nietknięty. Poniższy
+starszy wpis `7dc4604` opisuje poprzedni zamknięty pakiet, nie bieżący WIP.
+
+Obecny WIP: trwałe propozycje SCR A4 i panel PL/EN, resolver powiązania
+audyt–strona oraz CLI `preview_proposal`, canonical content-base Core i cykl
+zatwierdzania metadanych, routing callbacków SSA oraz powiązania zewnętrznych
+projektów. Agent SCR rozwija logiczne Projects i provisioning; agent SSA
+powiązania/historię i następnie idempotentne uruchamianie audytu; agent Core
+domyka review, RLS i przygotowuje rozliczenia I2. Wszystko w osobnych katalogach,
+bez deployu i wywołań płatnych dostawców.
+
+Nowe dowody: SCR backend **210 passed PostgreSQL** (w tym współbieżne decyzje
+A4), frontend **80 passed**, ESLint/TypeScript i webpack build poprawne.
+Resolver/pilot/paginacja po dodatkowych testach: **32 passed SQLite**.
+Core baza treści i pełny cykl review: **612 passed PostgreSQL**, **154 testy JS**,
+mypy 302 pliki, import-linter 302/517 i jeden zachowany kontrakt; lint, typy,
+formatowanie, migracje i generowany kontrakt API zgodne. Osobna rola PostgreSQL
+NOLOGIN/NOSUPERUSER/NOBYPASSRLS z SELECT tylko na `sites_contentproposal`
+zwróciła kolejno bez tenanta / tenant A / tenant B: **0 / 1 / 1**; rola usunięta
+po teście. Migracja `sites.0025` odmawia cofnięcia schematu po zapisaniu historii
+review. Nowe API accept i diff metadanych nie ma jeszcze zamontowanego panelu Core.
+SSA callback: **475 passed**, przed poszerzeniem powiązań źródeł.
+Nie sumować tych wyników jako końcowego suite całego bieżącego WIP.
+
+Pilot przez trzy rzeczywiste lokalne API: **1 passed / 25,16 s**,
+101 ustaleń z paginacją, propozycja SCR 201, podgląd Core 200, cofnięcie grantu
+403, brak zmiany draftu i publikacji. Odtworzenie i granice dowodu:
+[lokalny pilot](SEO-INTEGRATION-LOCAL-PILOT.md). Memex checkpoint:
+`2026-09-06-mac-155517`. Po ukończeniu bieżących gałęzi trzeba przypiąć commity,
+powtórzyć odpowiednie końcowe bramki i zaktualizować ten stan.
+
 ## Integracja SEO — osobna gałąź, 2026-09-06
 
 **Najnowszy pakiet:** SCR `7dc4604`, na gałęzi `codex/seo-integration-i0-i1`

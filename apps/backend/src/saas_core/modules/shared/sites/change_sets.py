@@ -5,7 +5,7 @@ validated by both repositories against the same files. This module is the
 receiving half: it decides whether a well-formed change set may take effect
 here, now, on this resource, and what it would do if it did.
 
-Nothing here mutates. `apply_change_set` calls the same domain services a
+Preview does not mutate. `apply_change_set` calls the same domain services a
 person's click calls, so an automation cannot reach a shortcut a human does not
 have — which is the whole reason the commands are an allowlist rather than a
 patch format.
@@ -24,7 +24,9 @@ from typing import Any
 from uuid import UUID
 
 from django.conf import settings
+from django.core import signing
 from django.core.exceptions import ImproperlyConfigured
+from django.db import transaction
 from django.utils import timezone
 from jsonschema import Draft202012Validator
 from rest_framework.exceptions import APIException
@@ -40,7 +42,6 @@ from .metrics import (
     CHANGE_SET_RESULTS,
 )
 from .models import (
-    ContentCollection,
     ContentEntry,
     ContentProposal,
     Page,
@@ -76,16 +77,27 @@ class ChangeSetStale(APIException):
     default_code = "change_set_stale"
 
 
-class ChangeSetLinkRejected(APIException):
-    status_code = 422
-    default_detail = "Link prowadzi do adresu, którego ten serwis nie publikuje."
-    default_code = "change_set_link_rejected"
-
-
 class ChangeSetPositionInvalid(APIException):
     status_code = 422
     default_detail = "Komenda wskazuje pozycję bloku, której nie ma w wersji bazowej."
     default_code = "change_set_position_invalid"
+
+
+class ChangeSetCommandUnsupported(APIException):
+    status_code = 422
+    default_detail = "Ta komenda nie jest wykonywana przez change set."
+    default_code = "change_set_command_unsupported"
+
+
+CHANGE_SET_COMMANDS = frozenset({
+    "translation.update",
+    "block.insert",
+    "block.replace",
+    "block.remove",
+    "block.reorder",
+})
+TRANSLATION_FIELDS = ("title", "description", "social_title", "social_description")
+APPROVAL_SALT = "sites.content-change-set.approval.v1"
 
 
 @contextmanager
@@ -100,9 +112,7 @@ def _recorded(operation: str) -> Iterator[None]:
     try:
         yield
     except APIException as refusal:
-        CHANGE_SET_REFUSALS.labels(
-            code=str(getattr(refusal, "default_code", "error"))
-        ).inc()
+        CHANGE_SET_REFUSALS.labels(code=str(getattr(refusal, "default_code", "error"))).inc()
         CHANGE_SET_RESULTS.labels(operation=operation, outcome="refused").inc()
         raise
     except Exception:
@@ -111,9 +121,7 @@ def _recorded(operation: str) -> Iterator[None]:
     else:
         CHANGE_SET_RESULTS.labels(operation=operation, outcome="accepted").inc()
     finally:
-        CHANGE_SET_LATENCY.labels(operation=operation).observe(
-            perf_counter() - started
-        )
+        CHANGE_SET_LATENCY.labels(operation=operation).observe(perf_counter() - started)
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,16 +135,14 @@ class ChangeSetPlan:
     translation_fields: dict[str, str]
     publish_at: str | None
     commands: list[str]
+    binding: dict[str, Any]
+    blocks_before: list[dict[str, Any]]
 
     @property
     def digest(self) -> str:
-        """Binds an approval to this exact effect.
-
-        Not to the request: two different requests that produce the same draft
-        deserve the same approval, and a payload edited after approval must not
-        inherit it.
-        """
+        """Bind this intent and caller to the exact localized effect and base."""
         return canonical_json_hash({
+            "binding": self.binding,
             "target_kind": self.target_kind,
             "resource_id": str(self.resource_id),
             "base_version": self.base_version,
@@ -151,9 +157,7 @@ def change_set_validator() -> Draft202012Validator:
     directory = Path(settings.CONTENT_OPERATIONS_CONTRACTS_PATH)
     schema_path = directory / "content-change-set.v1.schema.json"
     if not schema_path.is_file():
-        raise ImproperlyConfigured(
-            f"Brak kontraktu Content Operations w {schema_path}."
-        )
+        raise ImproperlyConfigured(f"Brak kontraktu Content Operations w {schema_path}.")
     schema = json.loads(schema_path.read_text(encoding="utf-8"))
     Draft202012Validator.check_schema(schema)
     return Draft202012Validator(schema)
@@ -181,13 +185,9 @@ def validate_change_set(document: Any) -> dict[str, Any]:
                 f"do {CONTENT_CONTRACT_VERSION}."
             )
         )
-    errors = sorted(
-        change_set_validator().iter_errors(document), key=lambda error: error.path
-    )
+    errors = sorted(change_set_validator().iter_errors(document), key=lambda error: error.path)
     if errors:
-        raise ChangeSetMalformed(
-            detail="; ".join(error.message for error in errors[:3])
-        )
+        raise ChangeSetMalformed(detail="; ".join(error.message for error in errors[:3]))
     return document
 
 
@@ -208,40 +208,116 @@ def preview_change_set(document: dict[str, Any]) -> dict[str, Any]:
         return _change_set_diff(document, plan, context)
 
 
-def _plan_change_set(
-    document: dict[str, Any], context: TenantContext
-) -> ChangeSetPlan:
+def translation_snapshot(translation: PageTranslation) -> dict[str, Any]:
+    """Immutable review evidence, including the optimistic translation version."""
+    return {
+        field: getattr(translation, field)
+        for field in (
+            *TRANSLATION_FIELDS,
+            "version",
+            "slug",
+            "locale",
+            "allow_title_fallback",
+            "allow_description_fallback",
+            "allow_social_title_fallback",
+            "allow_social_description_fallback",
+        )
+    }
+
+
+def read_content_base(target: dict[str, Any]) -> dict[str, Any]:
+    """Return the actual target draft base; publication hashes cannot stand in for it."""
+    context = authorize_entitled(
+        SITE_CONTENT_EDIT,
+        SITES_ENABLED,
+        operation=FeatureOperation.READ,
+    )
+    return _content_base(target, context)
+
+
+def _content_base(target: dict[str, Any], context: TenantContext) -> dict[str, Any]:
     from .services import assert_within_grant
 
-    validate_change_set(document)
-    target = document["target"]
+    target = {key: str(value) for key, value in target.items()}
+    schema = dict(change_set_validator().schema)  # type: ignore[arg-type]
+    target_schema = {"$ref": "#/$defs/target", "$defs": schema["$defs"]}
+    if not Draft202012Validator(target_schema).is_valid(target):
+        raise ChangeSetMalformed
     site = Site.all_objects.filter(
-        pk=target["site_id"], organization_id=context.organization_id
+        pk=target["site_id"],
+        organization_id=context.organization_id,
     ).first()
     if site is None:
         raise ChangeSetTargetNotFound
-
-    # Preview returns private draft blocks. Authenticating the tenant alone
-    # does not grant access to every site or collection inside it. Check before
-    # loading that content; apply inherits this read boundary before its write
-    # services enforce the stronger grant and surface policy.
     assert_within_grant(
         context,
         site_id=site.id,
-        collection_id=(
-            UUID(target["collection_id"]) if target["kind"] == "content_entry" else None
-        ),
+        collection_id=UUID(target["collection_id"]) if target["kind"] == "content_entry" else None,
     )
-
     if target["kind"] == "site_page":
-        resource, base_version, blocks = _page_base(target, context)
+        _resource, version, blocks = _page_base(target, context)
+        translation = PageTranslation.all_objects.filter(
+            organization_id=context.organization_id,
+            page_id=target["page_id"],
+            locale=target["locale"],
+        ).first()
+        metadata = (
+            {
+                field: getattr(translation, field)
+                for field in (
+                    *TRANSLATION_FIELDS,
+                    "version",
+                    "slug",
+                    "allow_title_fallback",
+                    "allow_description_fallback",
+                    "allow_social_title_fallback",
+                    "allow_social_description_fallback",
+                )
+            }
+            if translation
+            else None
+        )
+        fields = {field: getattr(translation, field, "") for field in TRANSLATION_FIELDS}
     else:
-        resource, base_version, blocks = _entry_base(target, context)
-    if base_version != document["base"]["version"]:
+        _resource, version, blocks = _entry_base(target, context)
+        entry = ContentEntry.all_objects.get(
+            pk=target["entry_id"],
+            organization_id=context.organization_id,
+        )
+        if entry.locale != target["locale"]:
+            raise ChangeSetTargetNotFound
+        metadata = {"title": entry.title, "excerpt": entry.excerpt, "locale": entry.locale}
+        fields = {"title": entry.title, "excerpt": entry.excerpt}
+    observed_at = timezone.now().isoformat()
+    snapshot_hash = "sha256:" + canonical_json_hash({
+        "target": target,
+        "version": version,
+        "blocks": blocks,
+        "metadata": metadata,
+    })
+    return {
+        "target": target,
+        "base": {"version": version, "snapshot_hash": snapshot_hash, "observed_at": observed_at},
+        "blocks": blocks,
+        "translation_fields": fields,
+        "observed_at": observed_at,
+    }
+
+
+def _plan_change_set(document: dict[str, Any], context: TenantContext) -> ChangeSetPlan:
+    validate_change_set(document)
+    target = document["target"]
+    current = _content_base(target, context)
+    base_version = current["base"]["version"]
+    blocks = current["blocks"]
+    resource = UUID(target["page_id"] if target["kind"] == "site_page" else target["entry_id"])
+    if (
+        base_version != document["base"]["version"]
+        or current["base"]["snapshot_hash"] != document["base"]["snapshot_hash"]
+    ):
         raise ChangeSetStale(
             detail=(
-                f"Wersja bazowa {document['base']['version']} nie jest bieżąca "
-                f"({base_version})."
+                f"Wersja bazowa {document['base']['version']} nie jest bieżąca ({base_version})."
             )
         )
 
@@ -251,41 +327,49 @@ def _plan_change_set(
     replacements: dict[int, dict[str, Any]] = {}
     removals: set[int] = set()
     order: list[int] | None = None
-    links: list[dict[str, Any]] = []
 
     for command in document["commands"]:
         name = command["command"]
+        if name not in CHANGE_SET_COMMANDS:
+            raise ChangeSetCommandUnsupported(detail=f"Komenda {name} wymaga osobnej operacji.")
         if name == "translation.update":
-            translation_fields.update(command["fields"])
-        elif name == "publication.schedule":
-            publish_at = command["publish_at"]
+            if target["kind"] != "site_page":
+                raise ChangeSetCommandUnsupported(
+                    detail="Metadane wpisu wymagają osobnej operacji."
+                )
+            for field, value in command["fields"].items():
+                limit = getattr(PageTranslation._meta.get_field(field), "max_length", None)
+                if not isinstance(limit, int) or len(value) > limit:
+                    raise ChangeSetMalformed(detail=f"Pole {field} przekracza {limit} znaków.")
+            translation_fields.update({
+                key: value.strip() for key, value in command["fields"].items()
+            })
         elif name == "block.insert":
+            if command["position"] > len(blocks) or command["position"] in inserts:
+                raise ChangeSetPositionInvalid
             inserts[command["position"]] = command["block"]
         elif name == "block.replace":
             _assert_position(command["position"], blocks)
+            if command["position"] in replacements or command["position"] in removals:
+                raise ChangeSetPositionInvalid
             replacements[command["position"]] = command["block"]
         elif name == "block.remove":
             _assert_position(command["position"], blocks)
+            if command["position"] in replacements or command["position"] in removals:
+                raise ChangeSetPositionInvalid
             removals.add(command["position"])
         elif name == "block.reorder":
+            if order is not None or sorted(command["order"]) != list(range(len(blocks))):
+                raise ChangeSetPositionInvalid
             for position in command["order"]:
                 _assert_position(position, blocks)
             order = list(command["order"])
-        elif name == "internal_link.add":
-            _assert_position(command["position"], blocks)
-            links.append(command)
-        # `page.create` and `entry.create` are answered by the create endpoints
-        # rather than here: a change set targets a resource that exists, and a
-        # creation has no base version to be stale against.
-
     for block in list(inserts.values()) + list(replacements.values()):
         validate_site_block(
             block_type=block["type"],
             schema_version=block["schema_version"],
             data=block["data"],
         )
-    for link in links:
-        _assert_link_resolves(link["target_path"], site=site, context=context)
 
     resulting = _resulting_blocks(
         blocks,
@@ -302,6 +386,15 @@ def _plan_change_set(
         translation_fields=translation_fields,
         publish_at=publish_at,
         commands=[command["command"] for command in document["commands"]],
+        blocks_before=blocks,
+        binding={
+            "organization_id": str(context.organization_id),
+            "actor_id": str(context.actor_id),
+            "credential_id": str(context.credential_id),
+            "target": current["target"],
+            "snapshot_hash": current["base"]["snapshot_hash"],
+            "idempotency_key": document["idempotency_key"],
+        },
     )
 
 
@@ -314,33 +407,32 @@ def _change_set_diff(
     the sender's account of its own intent, which is precisely the thing an
     approval must not rest on.
     """
-    if plan.target_kind == "site_page":
-        _resource, _version, before = _page_base(document["target"], context)
-    else:
-        _resource, _version, before = _entry_base(document["target"], context)
     return {
         "resource_id": str(plan.resource_id),
         "base_version": plan.base_version,
         "commands": plan.commands,
-        "blocks_before": before,
+        "blocks_before": plan.blocks_before,
         "blocks_after": plan.blocks,
         "translation_fields": plan.translation_fields,
         "publish_at": plan.publish_at,
         "approval_digest": plan.digest,
-        "digest_expires_at": (
-            timezone.now() + settings.CONTENT_APPROVAL_DIGEST_TTL
-        ).isoformat(),
+        "approval_token": signing.dumps({"digest": plan.digest}, salt=APPROVAL_SALT),
+        "digest_expires_at": (timezone.now() + settings.CONTENT_APPROVAL_DIGEST_TTL).isoformat(),
     }
 
 
 def _page_base(
     target: dict[str, Any], context: TenantContext
 ) -> tuple[UUID, int, list[dict[str, Any]]]:
-    page = Page.all_objects.select_related("current_draft").filter(
-        pk=target["page_id"],
-        organization_id=context.organization_id,
-        site_id=target["site_id"],
-    ).first()
+    page = (
+        Page.all_objects.select_related("current_draft")
+        .filter(
+            pk=target["page_id"],
+            organization_id=context.organization_id,
+            site_id=target["site_id"],
+        )
+        .first()
+    )
     if page is None:
         raise ChangeSetTargetNotFound
     # A page's blocks are rows, not a JSON column: `PageVersion.blocks` is the
@@ -370,12 +462,16 @@ def _entry_base(
     entry_id = target.get("entry_id")
     if entry_id is None:
         raise ChangeSetTargetNotFound
-    entry = ContentEntry.all_objects.select_related("current_draft").filter(
-        pk=entry_id,
-        organization_id=context.organization_id,
-        collection_id=target["collection_id"],
-        collection__site_id=target["site_id"],
-    ).first()
+    entry = (
+        ContentEntry.all_objects.select_related("current_draft")
+        .filter(
+            pk=entry_id,
+            organization_id=context.organization_id,
+            collection_id=target["collection_id"],
+            collection__site_id=target["site_id"],
+        )
+        .first()
+    )
     if entry is None:
         raise ChangeSetTargetNotFound
     blocks = list(entry.current_draft.blocks) if entry.current_draft else []
@@ -395,19 +491,14 @@ def _resulting_blocks(
     removals: set[int],
     order: list[int] | None,
 ) -> list[dict[str, Any]]:
-    kept = [
-        _stored(replacements[index]) if index in replacements else block
-        for index, block in enumerate(blocks)
-        if index not in removals
-    ]
-    if order is not None:
-        surviving = [index for index in order if index not in removals]
-        kept = [
-            _stored(replacements[index]) if index in replacements else blocks[index]
-            for index in surviving
-        ]
-    for position in sorted(inserts):
-        kept.insert(min(position, len(kept)), _stored(inserts[position]))
+    kept = []
+    for index in order if order is not None else range(len(blocks)):
+        if index in inserts:
+            kept.append(_stored(inserts[index]))
+        if index not in removals:
+            kept.append(_stored(replacements[index]) if index in replacements else blocks[index])
+    if len(blocks) in inserts:
+        kept.append(_stored(inserts[len(blocks)]))
     return kept
 
 
@@ -418,38 +509,6 @@ def _stored(block: dict[str, Any]) -> dict[str, Any]:
         "schema_version": block["schema_version"],
         "data": block["data"],
     }
-
-
-def _assert_link_resolves(path: str, *, site: Site, context: TenantContext) -> None:
-    """An internal link points at something this site actually publishes.
-
-    A link to a page that does not exist yet is refused rather than written as
-    a promise: a broken link on a customer's site is worse than a missing one,
-    and nothing later goes back to check.
-    """
-    wanted = path.rstrip("/") or "/"
-    slugs = {
-        f"/{slug}".rstrip("/") or "/"
-        for slug in PageTranslation.all_objects.filter(
-            organization_id=context.organization_id, site_id=site.id
-        ).values_list("slug", flat=True)
-    }
-    if wanted in slugs:
-        return
-    for collection in ContentCollection.all_objects.filter(
-        organization_id=context.organization_id, site_id=site.id
-    ):
-        if wanted == f"/{collection.base_path}":
-            return
-        if wanted.startswith(f"/{collection.base_path}/"):
-            slug = wanted.rsplit("/", 1)[-1]
-            if ContentEntry.all_objects.filter(
-                organization_id=context.organization_id,
-                collection_id=collection.id,
-                slug=slug,
-            ).exists():
-                return
-    raise ChangeSetLinkRejected(detail=f"Adres {path} nie istnieje w tym serwisie.")
 
 
 class ApprovalDigestMismatch(APIException):
@@ -464,6 +523,7 @@ def apply_change_set(
     *,
     idempotency_key: str,
     approval_digest: str | None = None,
+    approval_token: str | None = None,
 ) -> dict[str, Any]:
     """Turns an accepted change set into a new draft.
 
@@ -478,45 +538,114 @@ def apply_change_set(
             context,
             idempotency_key=idempotency_key,
             approval_digest=approval_digest,
+            approval_token=approval_token,
         )
 
 
+@transaction.atomic
 def _apply_change_set(
     document: dict[str, Any],
     context: TenantContext,
     *,
     idempotency_key: str,
     approval_digest: str | None,
+    approval_token: str | None,
 ) -> dict[str, Any]:
-    from .collections import save_entry_draft
-    from .services import save_draft
+    from .collections import get_entry_draft, save_entry_draft
+    from .services import _is_automation, get_draft, save_draft, save_page_translation
 
+    authorized = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    if authorized != context:
+        raise ChangeSetTargetNotFound
+    validate_change_set(document)
+    target = document["target"]
+    # The same aggregate lock is taken by editor writes, including translations.
+    model = Page if target["kind"] == "site_page" else ContentEntry
+    resource_id = target.get("page_id") or target.get("entry_id")
+    if (
+        not model.all_objects.select_for_update()
+        .filter(
+            pk=resource_id,
+            organization_id=context.organization_id,
+        )
+        .exists()
+    ):
+        raise ChangeSetTargetNotFound
     plan = _plan_change_set(document, context)
     if approval_digest is not None and approval_digest != plan.digest:
         # The payload moved after somebody approved it, or the approval belongs
         # to a different change. Either way it is not this one.
         raise ApprovalDigestMismatch
+    if approval_digest is not None or approval_token is not None:
+        try:
+            approval = signing.loads(
+                approval_token or "",
+                salt=APPROVAL_SALT,
+                max_age=settings.CONTENT_APPROVAL_DIGEST_TTL,
+            )
+        except signing.BadSignature as error:
+            raise ApprovalDigestMismatch from error
+        if approval != {"digest": plan.digest}:
+            raise ApprovalDigestMismatch
 
+    metadata_before: dict[str, Any] = {}
+    metadata_after: dict[str, Any] = {}
+    metadata_pending = False
     if plan.target_kind == "site_page":
+        draft = get_draft(page_id=plan.resource_id)
         save_draft(
             page_id=plan.resource_id,
             expected_version=plan.base_version,
             blocks=plan.blocks,
-            media_asset_ids=[],
+            media_asset_ids=list(draft.media_asset_ids),
             idempotency_key=idempotency_key,
+            request_context={"change_set": document},
         )
+        if plan.translation_fields:
+            translation = PageTranslation.all_objects.filter(
+                organization_id=context.organization_id,
+                page_id=plan.resource_id,
+                locale=target["locale"],
+            ).first()
+            if translation is None:
+                raise ChangeSetTargetNotFound(detail="Najpierw utwórz tłumaczenie strony.")
+            metadata_before = translation_snapshot(translation)
+            metadata_pending = (
+                _is_automation(context) and draft.page.automation_policy == "proposed"
+            )
+            values = {field: getattr(translation, field) for field in TRANSLATION_FIELDS}
+            values.update(plan.translation_fields)
+            metadata_after = {**metadata_before, **values, "version": translation.version + 1}
+            if not metadata_pending:
+                save_page_translation(
+                    page_id=plan.resource_id,
+                    locale=target["locale"],
+                    expected_version=translation.version,
+                    slug=translation.slug,
+                    title=values["title"],
+                    description=values["description"],
+                    social_title=values["social_title"],
+                    social_description=values["social_description"],
+                    allow_title_fallback=translation.allow_title_fallback,
+                    allow_description_fallback=translation.allow_description_fallback,
+                    allow_social_title_fallback=translation.allow_social_title_fallback,
+                    allow_social_description_fallback=translation.allow_social_description_fallback,
+                    idempotency_key=idempotency_key,
+                )
     else:
+        entry_draft = get_entry_draft(entry_id=plan.resource_id)
         save_entry_draft(
             entry_id=plan.resource_id,
             expected_version=plan.base_version,
             blocks=plan.blocks,
+            media_asset_ids=list(entry_draft.media_asset_ids),
             idempotency_key=idempotency_key,
         )
     # The reasoning outlives the request. Without it the queue can offer only
     # "an integration changed this" and a diff, which is not enough for anybody
     # to say yes or no honestly.
     rationale = document["rationale"]
-    ContentProposal.all_objects.update_or_create(
+    proposal, _created = ContentProposal.all_objects.update_or_create(
         organization_id=context.organization_id,
         resource_type=plan.target_kind,
         resource_id=plan.resource_id,
@@ -528,12 +657,20 @@ def _apply_change_set(
             "expected_outcome": rationale.get("expected_outcome", ""),
             "sources": rationale["sources"],
             "commands": plan.commands,
+            "target": target,
+            "metadata_before": metadata_before,
+            "metadata_after": metadata_after,
+            "metadata_pending": metadata_pending,
         },
     )
     return {
         "resource_id": str(plan.resource_id),
         "base_version": plan.base_version,
-        "applied_commands": plan.commands,
+        "applied_commands": [
+            name for name in plan.commands if not metadata_pending or name != "translation.update"
+        ],
+        "pending_commands": ["translation.update"] if metadata_pending else [],
+        "proposal_id": str(proposal.id),
         "approval_digest": plan.digest,
         # Publication stays a separate command (ADR-035 §5): accepting a change
         # is not the same act as putting it in front of readers.

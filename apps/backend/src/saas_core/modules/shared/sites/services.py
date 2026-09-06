@@ -560,7 +560,9 @@ def get_draft(*, page_id: UUID) -> PageDraft:
     except Page.DoesNotExist as error:
         raise PageNotFound from error
     if page.current_draft is None:
+        assert_within_grant(context, site_id=page.site_id)
         return PageDraft(page, None, (), ())
+    assert_within_grant(context, site_id=page.site_id)
     blocks = tuple(
         PageBlock.all_objects.filter(
             organization_id=context.organization_id,
@@ -593,6 +595,7 @@ def get_draft_preview(*, page_id: UUID, version_id: UUID) -> PageDraft:
         )
     except (Page.DoesNotExist, PageVersion.DoesNotExist) as error:
         raise PageVersionNotFound from error
+    assert_within_grant(context, site_id=page.site_id)
     blocks = tuple(
         PageBlock.all_objects.filter(
             organization_id=context.organization_id,
@@ -1504,6 +1507,17 @@ def publish_site(*, site_id: UUID, idempotency_key: str) -> SitePublication:
                 "Witryna zawiera propozycje czekające na akceptację; "
                 "publikuje je człowiek."
             )
+        )
+    from .models import ContentProposal
+
+    current_versions = {page.id: page.version for page in pages}
+    if any(current_versions.get(proposal.resource_id) == proposal.version
+           for proposal in ContentProposal.all_objects.filter(
+               organization_id=context.organization_id, resource_type="site_page",
+               resource_id__in=current_versions, review_state="pending", metadata_pending=True,
+           )):
+        raise AutomationApprovalRequired(
+            detail="Najpierw zaakceptuj lub odrzuć propozycję metadanych."
         )
     site = Site.all_objects.select_for_update().get(
         pk=initial_site.id,

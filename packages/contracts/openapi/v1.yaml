@@ -3777,7 +3777,7 @@ paths:
   /api/v1/sites/changes/apply/:
     post:
       operationId: sites_change_set_apply
-      description: Turns an accepted change set into a new draft, never into a mutation.
+      description: Creates a draft and stages review where required; never publishes.
       parameters:
       - in: header
         name: Idempotency-Key
@@ -4116,6 +4116,84 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/AutomationConnection'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/content-base/:
+    get:
+      operationId: sites_content_base_retrieve
+      parameters:
+      - in: query
+        name: collection_id
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: entry_id
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: kind
+        schema:
+          enum:
+          - site_page
+          - content_entry
+          type: string
+          minLength: 1
+        description: |-
+          * `site_page` - site_page
+          * `content_entry` - content_entry
+        required: true
+      - in: query
+        name: locale
+        schema:
+          enum:
+          - pl
+          - en
+          type: string
+          minLength: 1
+        description: |-
+          * `pl` - pl
+          * `en` - en
+        required: true
+      - in: query
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContentBase'
           description: ''
         '400':
           content:
@@ -5442,15 +5520,71 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/proposals/{proposal_id}/accept/:
+    post:
+      operationId: sites_content_proposal_accept
+      parameters:
+      - in: path
+        name: proposal_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProposalAccept'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ProposalAccept'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProposalAccept'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProposalAcceptResult'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/proposals/{proposal_id}/discard/:
     post:
       operationId: sites_content_proposal_discard
       description: |-
         Rejecting a proposal, which has to mean something.
 
-        The only honest meaning available is "undo what the automation wrote": the
-        draft goes back to the version before it arrived. Nothing is deleted, so a
-        rejection can still be looked at afterwards.
+        Earlier content becomes a fresh draft version. The rejected proposal and
+        every prior version remain available for review.
       parameters:
       - in: path
         name: proposal_id
@@ -6041,6 +6175,8 @@ components:
           additionalProperties: {}
         approval_digest:
           type: string
+        approval_token:
+          type: string
       required:
       - change_set
     ChangeSetDiff:
@@ -6074,11 +6210,14 @@ components:
           - 'null'
         approval_digest:
           type: string
+        approval_token:
+          type: string
         digest_expires_at:
           type: string
           format: date-time
       required:
       - approval_digest
+      - approval_token
       - base_version
       - blocks_after
       - blocks_before
@@ -6112,6 +6251,13 @@ components:
           type: array
           items:
             type: string
+        pending_commands:
+          type: array
+          items:
+            type: string
+        proposal_id:
+          type: string
+          format: uuid
         approval_digest:
           type: string
         published:
@@ -6120,6 +6266,8 @@ components:
       - applied_commands
       - approval_digest
       - base_version
+      - pending_commands
+      - proposal_id
       - published
       - resource_id
     CheckoutCreate:
@@ -6138,6 +6286,75 @@ components:
           type: boolean
       required:
       - show_in_navigation
+    ContentBase:
+      type: object
+      properties:
+        target:
+          $ref: '#/components/schemas/ContentBaseQuery'
+        base:
+          $ref: '#/components/schemas/ContentBaseState'
+        blocks:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        translation_fields:
+          type: object
+          additionalProperties: {}
+        observed_at:
+          type: string
+          format: date-time
+      required:
+      - base
+      - blocks
+      - observed_at
+      - target
+      - translation_fields
+    ContentBaseQuery:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/ContentBaseQueryKindEnum'
+        site_id:
+          type: string
+          format: uuid
+        page_id:
+          type: string
+          format: uuid
+        collection_id:
+          type: string
+          format: uuid
+        entry_id:
+          type: string
+          format: uuid
+        locale:
+          $ref: '#/components/schemas/LocaleEnum'
+      required:
+      - kind
+      - locale
+      - site_id
+    ContentBaseQueryKindEnum:
+      enum:
+      - site_page
+      - content_entry
+      type: string
+      description: |-
+        * `site_page` - site_page
+        * `content_entry` - content_entry
+    ContentBaseState:
+      type: object
+      properties:
+        version:
+          type: integer
+        snapshot_hash:
+          type: string
+        observed_at:
+          type: string
+          format: date-time
+      required:
+      - observed_at
+      - snapshot_hash
+      - version
     ContentCapabilities:
       type: object
       description: Shape and limits, never unpublished content.
@@ -6159,6 +6376,10 @@ components:
           - object
           - 'null'
           additionalProperties: {}
+        change_set_commands:
+          type: array
+          items:
+            type: string
         locales:
           type: object
           additionalProperties: {}
@@ -6182,6 +6403,7 @@ components:
             additionalProperties: {}
       required:
       - block_schemas
+      - change_set_commands
       - commands
       - content_types
       - contract_version
@@ -6492,17 +6714,33 @@ components:
         created_at:
           type: string
           format: date-time
+        review_state:
+          type: string
+        target:
+          type: object
+          additionalProperties: {}
+        metadata_pending:
+          type: boolean
+        decided_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
       required:
       - commands
       - created_at
       - credential_id
+      - decided_at
       - expected_outcome
+      - metadata_pending
       - proposal_id
       - resource_id
       - resource_type
+      - review_state
       - risk
       - sources
       - summary
+      - target
       - version
     ContentProposalDetail:
       type: object
@@ -6541,6 +6779,18 @@ components:
         created_at:
           type: string
           format: date-time
+        review_state:
+          type: string
+        target:
+          type: object
+          additionalProperties: {}
+        metadata_pending:
+          type: boolean
+        decided_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
         blocks_before:
           type: array
           items:
@@ -6551,19 +6801,38 @@ components:
           items:
             type: object
             additionalProperties: {}
+        metadata_before:
+          type: object
+          additionalProperties: {}
+        metadata_after:
+          type: object
+          additionalProperties: {}
+        review_token:
+          type: string
+        review_expires_at:
+          type: string
+          format: date-time
       required:
       - blocks_after
       - blocks_before
       - commands
       - created_at
       - credential_id
+      - decided_at
       - expected_outcome
+      - metadata_after
+      - metadata_before
+      - metadata_pending
       - proposal_id
       - resource_id
       - resource_type
+      - review_expires_at
+      - review_state
+      - review_token
       - risk
       - sources
       - summary
+      - target
       - version
     ContentTag:
       type: object
@@ -8301,6 +8570,30 @@ components:
           minimum: 1
       required:
       - expected_version
+    ProposalAccept:
+      type: object
+      properties:
+        review_token:
+          type: string
+      required:
+      - review_token
+    ProposalAcceptResult:
+      type: object
+      properties:
+        proposal_id:
+          type: string
+          format: uuid
+        review_state:
+          type: string
+        version:
+          type: integer
+        published:
+          type: boolean
+      required:
+      - proposal_id
+      - published
+      - review_state
+      - version
     ProposalDiscardResult:
       type: object
       properties:

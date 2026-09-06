@@ -92,9 +92,7 @@ def test_inventory_is_one_read_of_one_moment_with_an_etag() -> None:
     assert body["contract_version"] >= 1
     # The response is JSON, so identifiers are strings; `data["id"]` from the
     # creating call is still a UUID object.
-    entry = next(
-        item for item in body["sites"] if item["site_id"] == str(site.data["id"])
-    )
+    entry = next(item for item in body["sites"] if item["site_id"] == str(site.data["id"]))
     assert [item["page_id"] for item in entry["pages"]] == [str(page.data["id"])]
     assert [item["key"] for item in entry["collections"]] == ["blog"]
 
@@ -148,7 +146,7 @@ def test_a_change_set_previews_the_diff_it_would_apply() -> None:
             }
         ],
     )
-    document["base"]["version"] = 1
+    document["base"] = client.get("/api/v1/sites/content-base/", document["target"]).json()["base"]
 
     preview = _preview(client, document)
     assert preview.status_code == 200
@@ -163,7 +161,12 @@ def test_a_change_set_previews_the_diff_it_would_apply() -> None:
     draft = client.get(f"/api/v1/sites/pages/{page.data['id']}/draft/").json()
     assert draft["version"] == 1
 
-    applied = _apply(client, document, approval_digest=diff["approval_digest"])
+    applied = _apply(
+        client,
+        document,
+        approval_digest=diff["approval_digest"],
+        approval_token=diff["approval_token"],
+    )
     assert applied.status_code == 201
     assert applied.json()["published"] is False
     after = client.get(f"/api/v1/sites/pages/{page.data['id']}/draft/").json()
@@ -204,7 +207,7 @@ def test_a_stale_base_version_demands_an_explicit_recomputation() -> None:
             }
         ],
     )
-    document["base"]["version"] = 1
+    document["base"] = client.get("/api/v1/sites/content-base/", document["target"]).json()["base"]
 
     # Somebody edits the page between the connector's read and its write.
     save_draft(
@@ -251,13 +254,16 @@ def test_an_approval_digest_does_not_survive_the_payload_changing() -> None:
             }
         ],
     )
-    document["base"]["version"] = 1
-    digest = _preview(client, document).json()["approval_digest"]
+    document["base"] = client.get("/api/v1/sites/content-base/", document["target"]).json()["base"]
+    approval = _preview(client, document).json()
+    digest = approval["approval_digest"]
 
     # The same approval, a different payload. This is the substitution the
     # digest exists to catch.
     document["commands"][0]["block"]["data"]["text"] = "Coś zupełnie innego."
-    response = _apply(client, document, approval_digest=digest)
+    response = _apply(
+        client, document, approval_digest=digest, approval_token=approval["approval_token"]
+    )
     assert response.status_code == 409
     assert response.json()["code"] == "approval_digest_mismatch"
 
@@ -292,11 +298,11 @@ def test_an_internal_link_to_an_address_that_does_not_exist_is_refused() -> None
             }
         ],
     )
-    document["base"]["version"] = 1
+    document["base"] = client.get("/api/v1/sites/content-base/", document["target"]).json()["base"]
 
     response = _preview(client, document)
     assert response.status_code == 422
-    assert response.json()["code"] == "change_set_link_rejected"
+    assert response.json()["code"] == "change_set_command_unsupported"
 
 
 def test_a_contract_version_this_build_does_not_implement_is_refused() -> None:
@@ -349,9 +355,7 @@ def test_a_change_set_reaches_a_blog_entry_as_well_as_a_page() -> None:
     client, _, _ = sites_client(slug="changeset-entry", role_key="owner")
     site = create_site(client)
     collection = create_collection(client, site.data["id"])
-    entry = create_entry(
-        client, collection.data["id"], slug="wpis", idempotency_key="cs-entry"
-    )
+    entry = create_entry(client, collection.data["id"], slug="wpis", idempotency_key="cs-entry")
     save_entry_draft(
         client,
         entry.data["id"],
@@ -381,7 +385,7 @@ def test_a_change_set_reaches_a_blog_entry_as_well_as_a_page() -> None:
             }
         ],
     )
-    document["base"]["version"] = 1
+    document["base"] = client.get("/api/v1/sites/content-base/", document["target"]).json()["base"]
 
     applied = _apply(client, document)
     assert applied.status_code == 201
@@ -390,8 +394,6 @@ def test_a_change_set_reaches_a_blog_entry_as_well_as_a_page() -> None:
     # Accepting a change is not the same act as putting it in front of readers.
     assert applied.json()["published"] is False
     listed = json.loads(
-        client.get(
-            f"/api/v1/sites/collections/{collection.data['id']}/entries/"
-        ).content
+        client.get(f"/api/v1/sites/collections/{collection.data['id']}/entries/").content
     )
     assert listed["items"][0]["state"] == "published"

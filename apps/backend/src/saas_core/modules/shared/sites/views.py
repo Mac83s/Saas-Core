@@ -21,9 +21,11 @@ from .capabilities import read_content_capabilities
 from .change_sets import (
     apply_change_set,
     preview_change_set,
+    read_content_base,
     validate_change_set,
 )
 from .connections import (
+    accept_proposal,
     discard_proposal,
     list_automation_connections,
     list_pending_proposals,
@@ -39,6 +41,8 @@ from .serializers import (
     ChangeSetDiffSerializer,
     ChangeSetProposalSerializer,
     ChangeSetResultSerializer,
+    ContentBaseQuerySerializer,
+    ContentBaseSerializer,
     ContentCapabilitiesSerializer,
     ContentInventorySerializer,
     ContentProposalDetailSerializer,
@@ -57,6 +61,8 @@ from .serializers import (
     PageTranslationSerializer,
     PageTypeSerializer,
     PageUrlChangeSerializer,
+    ProposalAcceptResultSerializer,
+    ProposalAcceptSerializer,
     ProposalDiscardResultSerializer,
     SiteCreateSerializer,
     SiteListSerializer,
@@ -352,9 +358,7 @@ def _navigation_summary(navigation: SiteNavigation) -> dict[str, Any]:
             {
                 "page_id": str(item.page_id),
                 "parent_page_id": (
-                    str(parent_page_by_id[item.parent_id])
-                    if item.parent_id is not None
-                    else None
+                    str(parent_page_by_id[item.parent_id]) if item.parent_id is not None else None
                 ),
                 "visible": item.visible,
             }
@@ -690,6 +694,28 @@ def _locale_resolution(locale: LocaleResolution) -> dict[str, Any]:
     }
 
 
+class ContentBaseView(APIView):
+    permission_classes = [IsSessionOrApiKey]
+
+    @extend_schema(
+        operation_id="sites_content_base_retrieve",
+        tags=["sites"],
+        parameters=[ContentBaseQuerySerializer],
+        responses={
+            200: ContentBaseSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, request: Request) -> Response:
+        query = ContentBaseQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        response = Response(read_content_base(query.validated_data))
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+
 class ChangeSetProposalView(APIView):
     """What this change set would do, and nothing more.
 
@@ -721,7 +747,7 @@ class ChangeSetProposalView(APIView):
 
 
 class ChangeSetApplyView(APIView):
-    """Turns an accepted change set into a new draft, never into a mutation."""
+    """Creates a draft and stages review where required; never publishes."""
 
     permission_classes = [IsSessionOrApiKey]
 
@@ -749,6 +775,7 @@ class ChangeSetApplyView(APIView):
             context,
             idempotency_key=_idempotency_header(request, document),
             approval_digest=serializer.validated_data.get("approval_digest"),
+            approval_token=serializer.validated_data.get("approval_token"),
         )
         return Response(result, status=status.HTTP_201_CREATED)
 
@@ -844,9 +871,7 @@ class AutomationGrantRevokeView(APIView):
     def post(self, request: Request, grant_id: UUID) -> Response:
         serializer = GrantRevokeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        revoke_automation_grant(
-            grant_id=grant_id, reason=serializer.validated_data["reason"]
-        )
+        revoke_automation_grant(grant_id=grant_id, reason=serializer.validated_data["reason"])
         # The whole list back, so the screen cannot show a stale row next to
         # the one it just changed.
         return Response(list_automation_connections())
@@ -891,12 +916,29 @@ class ContentProposalDetailView(APIView):
         return Response(read_proposal(proposal_id=proposal_id))
 
 
+class ContentProposalAcceptView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_content_proposal_accept", tags=["sites"],
+        request=ProposalAcceptSerializer,
+        responses={200: ProposalAcceptResultSerializer, 400: ProblemDetailsSerializer,
+                   403: ProblemDetailsSerializer, 404: ProblemDetailsSerializer,
+                   409: ProblemDetailsSerializer},
+    )
+    def post(self, request: Request, proposal_id: UUID) -> Response:
+        serializer = ProposalAcceptSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(accept_proposal(
+            proposal_id=proposal_id, review_token=serializer.validated_data["review_token"],
+        ))
+
+
 class ContentProposalDiscardView(APIView):
     """Rejecting a proposal, which has to mean something.
 
-    The only honest meaning available is "undo what the automation wrote": the
-    draft goes back to the version before it arrived. Nothing is deleted, so a
-    rejection can still be looked at afterwards.
+    Earlier content becomes a fresh draft version. The rejected proposal and
+    every prior version remain available for review.
     """
 
     permission_classes = [IsAuthenticated]
@@ -1007,9 +1049,7 @@ class SitePurposeView(APIView):
     def put(self, request: Request, site_id: UUID) -> Response:
         serializer = SitePurposeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        site = set_site_purpose(
-            site_id=site_id, purpose=serializer.validated_data["purpose"]
-        )
+        site = set_site_purpose(site_id=site_id, purpose=serializer.validated_data["purpose"])
         return Response(_site_summary(site))
 
 
@@ -1032,9 +1072,7 @@ class PageTypeView(APIView):
     def put(self, request: Request, page_id: UUID) -> Response:
         serializer = PageTypeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        page = set_page_type(
-            page_id=page_id, page_type=serializer.validated_data["page_type"]
-        )
+        page = set_page_type(page_id=page_id, page_type=serializer.validated_data["page_type"])
         return Response(_page_summary(page))
 
 
@@ -1094,9 +1132,7 @@ class SiteRedirectListView(APIView):
         },
     )
     def get(self, _request: Request, site_id: UUID) -> Response:
-        return Response([
-            _redirect_payload(item) for item in list_site_redirects(site_id=site_id)
-        ])
+        return Response([_redirect_payload(item) for item in list_site_redirects(site_id=site_id)])
 
 
 class SiteRedirectView(APIView):

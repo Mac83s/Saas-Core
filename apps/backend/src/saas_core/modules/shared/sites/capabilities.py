@@ -56,6 +56,7 @@ REPORTED_QUOTAS = ("storage.bytes", SITES_MAX)
 
 def read_content_capabilities() -> dict[str, Any]:
     """Shape and limits for the calling tenant, never its unpublished content."""
+    from .change_sets import CHANGE_SET_COMMANDS
     context = authorize_entitled(
         SITE_CONTENT_EDIT,
         SITES_ENABLED,
@@ -86,6 +87,7 @@ def read_content_capabilities() -> dict[str, Any]:
         # capabilities response that disagrees with the contract is worse than
         # none, because a client believes it.
         "commands": supported_commands(),
+        "change_set_commands": sorted(CHANGE_SET_COMMANDS),
         # What this particular caller may do. A session gets `null` — the
         # question only means something for a credential.
         "grant": _grant_summary(context),

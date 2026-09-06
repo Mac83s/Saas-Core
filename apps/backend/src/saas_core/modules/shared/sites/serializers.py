@@ -195,9 +195,7 @@ class CollectionNavigationSerializer(serializers.Serializer[dict[str, Any]]):
 
 
 class AutomationPolicySerializer(serializers.Serializer[dict[str, Any]]):
-    automation_policy = serializers.ChoiceField(
-        choices=["manual", "proposed", "automated"]
-    )
+    automation_policy = serializers.ChoiceField(choices=["manual", "proposed", "automated"])
 
 
 class ContentTagSerializer(serializers.Serializer[dict[str, Any]]):
@@ -281,9 +279,7 @@ class PageCreateSerializer(serializers.Serializer[dict[str, Any]]):
 class EntryTagsSaveSerializer(serializers.Serializer[dict[str, Any]]):
     # Names, not slugs: the operator types what a reader will see and the
     # address is derived, so the two cannot drift apart.
-    names = serializers.ListField(
-        child=serializers.CharField(max_length=120), max_length=10
-    )
+    names = serializers.ListField(child=serializers.CharField(max_length=120), max_length=10)
 
 
 class EntryScheduleSerializer(serializers.Serializer[dict[str, Any]]):
@@ -329,9 +325,7 @@ class PageTypeSerializer(serializers.Serializer[dict[str, Any]]):
 
 
 class SitePurposeSerializer(serializers.Serializer[dict[str, Any]]):
-    purpose = serializers.ChoiceField(
-        choices=["customer", "platform_marketing", "platform_blog"]
-    )
+    purpose = serializers.ChoiceField(choices=["customer", "platform_marketing", "platform_blog"])
 
 
 class ChangeSetProposalSerializer(serializers.Serializer[dict[str, Any]]):
@@ -347,6 +341,30 @@ class ChangeSetProposalSerializer(serializers.Serializer[dict[str, Any]]):
 class ChangeSetApplySerializer(serializers.Serializer[dict[str, Any]]):
     change_set = serializers.DictField()
     approval_digest = serializers.CharField(required=False, allow_blank=False)
+    approval_token = serializers.CharField(required=False, allow_blank=False)
+
+
+class ContentBaseQuerySerializer(serializers.Serializer[dict[str, Any]]):
+    kind = serializers.ChoiceField(choices=["site_page", "content_entry"])
+    site_id = serializers.UUIDField()
+    page_id = serializers.UUIDField(required=False)
+    collection_id = serializers.UUIDField(required=False)
+    entry_id = serializers.UUIDField(required=False)
+    locale = serializers.ChoiceField(choices=["pl", "en"])
+
+
+class ContentBaseStateSerializer(serializers.Serializer[dict[str, Any]]):
+    version = serializers.IntegerField()
+    snapshot_hash = serializers.CharField()
+    observed_at = serializers.DateTimeField()
+
+
+class ContentBaseSerializer(serializers.Serializer[dict[str, Any]]):
+    target = ContentBaseQuerySerializer()
+    base = ContentBaseStateSerializer()
+    blocks = serializers.ListField(child=serializers.DictField())
+    translation_fields = serializers.DictField()
+    observed_at = serializers.DateTimeField()
 
 
 class ChangeSetDiffSerializer(serializers.Serializer[dict[str, Any]]):
@@ -358,6 +376,7 @@ class ChangeSetDiffSerializer(serializers.Serializer[dict[str, Any]]):
     translation_fields = serializers.DictField()
     publish_at = serializers.CharField(allow_null=True)
     approval_digest = serializers.CharField()
+    approval_token = serializers.CharField()
     digest_expires_at = serializers.DateTimeField()
 
 
@@ -365,6 +384,8 @@ class ChangeSetResultSerializer(serializers.Serializer[dict[str, Any]]):
     resource_id = serializers.UUIDField()
     base_version = serializers.IntegerField()
     applied_commands = serializers.ListField(child=serializers.CharField())
+    pending_commands = serializers.ListField(child=serializers.CharField())
+    proposal_id = serializers.UUIDField()
     approval_digest = serializers.CharField()
     published = serializers.BooleanField()
 
@@ -421,6 +442,10 @@ class ContentProposalSerializer(serializers.Serializer[dict[str, Any]]):
     sources = serializers.ListField(child=serializers.DictField())
     commands = serializers.ListField(child=serializers.CharField())
     created_at = serializers.DateTimeField()
+    review_state = serializers.CharField()
+    target = serializers.DictField()
+    metadata_pending = serializers.BooleanField()
+    decided_at = serializers.DateTimeField(allow_null=True)
 
 
 class ContentProposalDetailSerializer(ContentProposalSerializer):
@@ -428,6 +453,21 @@ class ContentProposalDetailSerializer(ContentProposalSerializer):
 
     blocks_before = serializers.ListField(child=serializers.DictField())
     blocks_after = serializers.ListField(child=serializers.DictField())
+    metadata_before = serializers.DictField()
+    metadata_after = serializers.DictField()
+    review_token = serializers.CharField()
+    review_expires_at = serializers.DateTimeField()
+
+
+class ProposalAcceptSerializer(serializers.Serializer[dict[str, Any]]):
+    review_token = serializers.CharField(allow_blank=False)
+
+
+class ProposalAcceptResultSerializer(serializers.Serializer[dict[str, Any]]):
+    proposal_id = serializers.UUIDField()
+    review_state = serializers.CharField()
+    version = serializers.IntegerField()
+    published = serializers.BooleanField()
 
 
 class ProposalDiscardResultSerializer(serializers.Serializer[dict[str, Any]]):
@@ -453,6 +493,7 @@ class ContentCapabilitiesSerializer(serializers.Serializer[dict[str, Any]]):
     contract_versions = serializers.ListField(child=serializers.CharField())
     commands = serializers.ListField(child=serializers.CharField())
     grant = serializers.DictField(allow_null=True)
+    change_set_commands = serializers.ListField(child=serializers.CharField())
     locales = serializers.DictField()
     block_schemas = serializers.ListField(child=serializers.DictField())
     content_types = serializers.DictField()
