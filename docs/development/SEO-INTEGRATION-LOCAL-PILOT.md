@@ -13,6 +13,13 @@ API SCR zapisuje neutralną propozycję, a connector wywołuje podgląd Core.
 Test porównuje hash i wersję treści oraz liczbę draftów i publikacji przed/po.
 Cofnięcie grantu musi od razu zmienić odpowiedź odczytu bazy na 403.
 
+Drugi test (`test_scr_provisions_independent_projects_in_ssa`) tworzy dwa
+workspace SCR i operatorskie źródło SSA. Obaj klienci podają ten sam URL
+i ten sam klucz idempotencji. API SCR zwraca 202, worker rozmawia przez HTTP
+z SSA, a odczyt projektu potwierdza stan `ready`. Powtórzenie nie tworzy nowego
+projektu; różni właściciele dostają różne projekty SSA. Odczyt własnego projektu
+zwraca 200, cudzego 404. Liczba audytów pozostaje zerowa.
+
 Przykład PowerShell, uruchomiony z katalogu roboczego Core (ścieżki interpreterów
 trzeba wskazać dla własnego środowiska):
 
@@ -43,6 +50,11 @@ Pierwszy udany odbiór 2026-09-06: **1 passed / 25,16 s**, artefakt w
 `.runtime/pytest-livepilot-05`. Sprawdzono 101 ustaleń, jedną stronę, zapis
 propozycji HTTP 201, podgląd HTTP 200 i odmowę po cofnięciu grantu HTTP 403.
 Kod był wtedy niezatwierdzonym przyrostem trzech gałęzi integracyjnych.
+
+Provisioning: **1 passed / 18,01 s**, `.runtime/pytest-provision-live-01`.
+Sprawdzony kod SCR zapisano następnie jako `455981e`, SSA jako `d8d12f2`.
+Nie są to numery wdrożonych obrazów: test uruchamia checkouty przez wskazane
+interpretery. Każde odtworzenie wymaga zapisania faktycznych HEAD i diffów.
 
 Ten test potwierdza współpracę API na kontrolowanym lokalnym środowisku.
 Nie potwierdza konfiguracji produkcyjnej, Caddy/TLS, wdrożonych obrazów,

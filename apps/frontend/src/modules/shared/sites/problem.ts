@@ -26,6 +26,8 @@ export function sitesErrorMessage(error: unknown, t: Translate): string {
       return t("proposalNotFound");
     case "proposal_superseded":
       return t("proposalSuperseded");
+    case "proposal_review_mismatch":
+      return t("proposalReviewExpired");
     case "entry_too_many_tags":
       return t("tagsTooMany");
     case "entry_tag_name_invalid":

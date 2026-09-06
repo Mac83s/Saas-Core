@@ -1649,7 +1649,25 @@ export async function readContentProposal(
   return data;
 }
 
-/** Rejecting puts the draft back to the version before the proposal arrived.
+export async function acceptContentProposal(
+  proposalId: string,
+  reviewToken: string,
+): Promise<components["schemas"]["ProposalAcceptResult"]> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/proposals/{proposal_id}/accept/",
+    {
+      params: { path: { proposal_id: proposalId } },
+      body: { review_token: reviewToken },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Rejecting restores the previous content in a fresh draft version.
  *
  *  Nothing is deleted, so a rejected proposal can still be read afterwards. */
 export async function discardContentProposal(

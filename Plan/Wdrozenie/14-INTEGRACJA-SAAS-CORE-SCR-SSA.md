@@ -12,8 +12,9 @@ Plan nie zastępuje kolejności P0–P3 z planu 13 ani nie otwiera verticali.
 Jedna sesja koordynuje kontrakty, odbiór i Memex. Zadania wykonawcze mają
 właściciela repozytorium i jawne ścieżki; agent nie przejmuje zmian równoległych.
 Claude zachowuje P3 w głównym SaaS Core. Integracja używa osobnego worktree
-na bazie `3a5391b`, zsynchronizowanego z ukończonym commitem profili `9d9f916`.
-Nie przejęto późniejszego WIP usuwania tenanta. Scalenie wymaga przeglądu diffu względem aktualnego main,
+na bazie `3a5391b`, zsynchronizowanego z ukończonymi commitami profili `9d9f916`
+i usuwania tenanta `4cc8684` (merge `96c4a6a`, migracja łącząca `a43aacf`).
+Po scaleniu: 618 testów PostgreSQL. Scalenie wymaga przeglądu diffu względem aktualnego main,
 nie odtworzenia starego HANDOFF ponad zmianami Claude.
 
 Po spójnym pakiecie właściciel przekazuje commit, dokładny zakres, testy i
@@ -24,15 +25,18 @@ Praca w SSA/SCR zaczyna się od Memex CLI; same odczyty nie oznaczają wdrożeni
 
 - [x] **Koordynator:** zapisać podział odpowiedzialności, tożsamości, historii,
   GSC i rozliczeń. Dowód: ADR-043 oraz kontrakt I0 v1; nowe runtime API pozostają otwarte.
-- [ ] **Koordynator:** przed wykonaniem pilota przypiąć konkretny binding
-  operatorski; sprawdzić zgodność źródła, celu i zakresu. I0 definiuje jego
-  znaczenie, bez nowego JSON Schema, narzędzia runtime i pól w bazach.
+- [x] **Koordynator:** lokalny pilot używa ścisłego `PilotBinding` v1,
+  wiążącego workspace, instancje, snapshot/audyt/projekt SSA, URL strony,
+  connection i zasób/locale Core. Resolver porównuje inventory i content-base;
+  nie dopasowuje właściciela po samym URL. SCR `455981e`.
 - [x] **SCR:** przypisać `TargetConnection` i `GenerationCall` do workspace;
   serwisy `ContentChangeSet` sprawdzają właściciela przez połączenie. Dawne rekordy
   bez właściciela/powiązania zachowane i nieaktywne. Dowód: migracje i testy
   `test_target_workspace`, `test_target_workspace_migration`, `test_generation_workspace`.
 - [ ] **SCR:** trwała neutralna propozycja A4, powiązanie właściciela kandydata
   z generacją i celem, model logicznego projektu oraz resolver zasobów docelowych.
+  Propozycja, API decyzji, projekt i resolver ukończone w `455981e`; pozostaje
+  pełny przepływ generacji i dostarczenia z panelu oraz połączenie projektu ze snapshotami.
 - [x] **SCR:** deduplikacja audytu obejmuje workspace, kanoniczny adres instancji
   SSA i audit ID. `pull_audit --run` oraz serwis importu potwierdzają zgodność
   audytu z przekazanym projektem. Dowód: migracja audit0003 i `test_audit_source_binding`.
@@ -40,8 +44,9 @@ Praca w SSA/SCR zaczyna się od Memex CLI; same odczyty nie oznaczają wdrożeni
   sprawdza aktualne połączenie, cofnięcie, capabilities oraz adapter HTTP.
   Parametr deliver nie rozszerza trybu build. Dowód: `test_target_workspace`
   i `test_saas_core_delivery`; brak żądań HTTP w przypadkach odmowy.
-- [ ] **SSA:** zaprojektować zewnętrzne powiązania i ograniczone granty historyczne
-  przed onboardingiem wielu klientów; nie tworzyć organizacji zbiorczej.
+- [x] **SSA:** zewnętrzne powiązania i ograniczone granty historyczne:
+  `d8d12f2`, 517 testów PostgreSQL. Źródło produktu/wdrożenia jest operatorskie,
+  każdy zewnętrzny tenant ma osobną organizację; historia nie otwiera GSC.
 
 I0 ma gotowy kierunek architektoniczny. Powyższe bramki wykonawcze nie są
 zamknięte samym powstaniem dokumentacji lub istniejącego connectora.
@@ -59,20 +64,20 @@ zamknięte samym powstaniem dokumentacji lub istniejącego connectora.
   (w tym stale base), pełny backend 570 passed na świeżej bazie PostgreSQL.
   Asercja kolejności zapytań dowodzi ustawienia tenanta przed odczytem bloków;
   nie jest odbiorem izolacji RLS uruchomionego produktu.
-- [ ] **Koordynator:** artefakt pilota z przypiętym projektem/audytem SSA,
+- [x] **Koordynator:** artefakt pilota z przypiętym projektem/audytem SSA,
   docelowym zasobem SaaS Core, pełną paginacją, zakresem pomiaru i digestami.
-- [ ] **SCR:** użyć istniejącej albo deterministycznej propozycji; nie zamawiać
-  nowego modelu lub analizy. A4, czyli trwały model neutralnej propozycji oraz
-  API tworzenia i akceptacji, pozostaje osobnym niezakończonym zadaniem SCR.
+- [x] **SCR:** deterministyczna propozycja na syntetycznym istniejącym audycie;
+  A4 zapisuje payload, źródło, skróty i decyzję. Bez nowego modelu lub analizy.
 - [ ] **Właściciele instancji:** wykonać pilot na uruchomionych API z właściwymi
   kluczami; zapisać wersje runtime osobno od SHA odczytanych repozytoriów.
-- [ ] **Koordynator:** potwierdzić brak apply/publish i nowych analiz; porównać
+- [x] **Koordynator:** potwierdzić brak apply/publish i nowych analiz; porównać
   wersję draftu/publication przed i po. Aktualizacja użycia klucza SSA jest dopuszczalna.
 
 Odbiór I1 wymaga działającego podglądu jednej strony i przypadków odmowy,
 nie samego sukcesu mocków. Testy na kontrolowanym lokalnym stacku można
-ukończyć niezależnie; autoryzowany pilot integracji pozostaje otwarty,
-ponieważ w tej sesji brak jego skonfigurowanych kluczy.
+ukończyć niezależnie: pilot trzech procesów przeszedł lokalnie (101 ustaleń,
+HTTP 201/200/403, bez zmiany bazy). Pilot na skonfigurowanych instancjach
+produktowych pozostaje otwarty; lokalne syntetyczne klucze go nie zastępują.
 Publikacja całej witryny nadal należy do człowieka zgodnie z ADR-035.
 
 ## Kolejne etapy — autoryzowane, wykonywane po spełnieniu zależności
@@ -92,6 +97,16 @@ Przed automatyzacją zapisu trzeba dodatkowo uzgodnić i egzekwować znaczenie
 zatwierdzania propozycji. Samo zabezpieczenie podglądu nie zamyka tych tematów.
 
 ## Dowody odbioru
+
+Najnowszy pakiet: SCR `455981e` — 251 testów PostgreSQL (w tym rzeczywista
+współbieżność propozycji i projektów), 91 testów frontendu, TypeScript, ESLint
+i produkcyjny build. SSA `d8d12f2` — 517 PostgreSQL i osobny test stabilnej
+paginacji. Core `b284533` — baza/digest/token i przegląd metadanych;
+po scaleniu usuwania tenanta `a43aacf`: 618 PostgreSQL. Osobny test rzeczywistej
+roli bez BYPASSRLS daje 0/1/1 widocznych propozycji bez tenanta/dla A/dla B.
+Drugi pilot HTTP: SCR zakłada dwa projekty dla różnych klientów na tym samym
+URL; SSA zachowuje odrębność i odmawia odczytu cudzego projektu (1 passed / 18,01 s).
+Odtworzenie i granice dowodu: [pilot lokalny](../../docs/development/SEO-INTEGRATION-LOCAL-PILOT.md).
 
 Kontynuacja: SCR `7dc4604` — 170 testów SQLite i 170 PostgreSQL, 69 frontendu,
 lint/typy bez błędów i brak driftu API. Migracje od pustej bazy oraz rzeczywiste

@@ -1,4 +1,5 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -10,17 +11,24 @@ import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import polishMessages from "../../../../messages/pl.json";
+import englishMessages from "../../../../messages/en.json";
 import { ProposalsQueue } from "./proposals-queue";
 
-const { discardContentProposal, listContentProposals, readContentProposal } =
-  vi.hoisted(() => ({
-    discardContentProposal: vi.fn(),
-    listContentProposals: vi.fn(),
-    readContentProposal: vi.fn(),
-  }));
+const {
+  acceptContentProposal,
+  discardContentProposal,
+  listContentProposals,
+  readContentProposal,
+} = vi.hoisted(() => ({
+  acceptContentProposal: vi.fn(),
+  discardContentProposal: vi.fn(),
+  listContentProposals: vi.fn(),
+  readContentProposal: vi.fn(),
+}));
 
 vi.mock("@saas-core/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@saas-core/api-client")>()),
+  acceptContentProposal,
   discardContentProposal,
   listContentProposals,
   readContentProposal,
@@ -48,6 +56,9 @@ const proposal = {
 
 const detail = {
   ...proposal,
+  review_token: "reviewed-diff-token",
+  metadata_before: { title: "Stary tytuł", description: "Stary opis" },
+  metadata_after: { title: "Nowy tytuł", description: "Nowy opis" },
   blocks_before: [
     {
       block_type: "core.rich_text",
@@ -69,13 +80,21 @@ beforeEach(() => {
   listContentProposals.mockResolvedValue([proposal]);
   readContentProposal.mockResolvedValue(detail);
   discardContentProposal.mockResolvedValue(undefined);
+  acceptContentProposal.mockResolvedValue({
+    published: false,
+    review_state: "accepted",
+  });
 });
 
 afterEach(cleanup);
 
 function renderQueue() {
   return render(
-    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+    <NextIntlClientProvider
+      locale="pl"
+      messages={polishMessages}
+      timeZone="Europe/Warsaw"
+    >
       <ProposalsQueue />
     </NextIntlClientProvider>,
   );
@@ -134,12 +153,97 @@ test("odrzuca propozycję i usuwa ją z kolejki", async () => {
   );
 });
 
-test("mówi, gdzie przyjąć propozycję, zamiast udawać drugi przycisk publikacji", async () => {
+test("oddziela przyjęcie do szkicu od publikacji", async () => {
   renderQueue();
 
-  // Publishing lives where publishing lives; a second button here would be a
-  // second path past the checks that guard it.
   expect(
-    await screen.findByText(/Aby przyjąć: opublikuj wpis na zakładce Blog/),
+    await screen.findByText(/Wpis opublikujesz osobno na zakładce Blog/),
   ).not.toBeNull();
+  expect(
+    screen.queryByRole("button", { name: "Przyjmij do szkicu" }),
+  ).toBeNull();
+});
+
+test("przyjmuje dopiero obejrzaną zmianę z tokenem jej przeglądu", async () => {
+  listContentProposals
+    .mockResolvedValueOnce([proposal])
+    .mockResolvedValueOnce([]);
+  renderQueue();
+  fireEvent.click(await screen.findByRole("button", { name: "Pokaż zmianę" }));
+  expect(await screen.findByText("Stary opis")).not.toBeNull();
+  expect(screen.getByText("Nowy opis")).not.toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Przyjmij do szkicu" }));
+  await waitFor(() =>
+    expect(acceptContentProposal).toHaveBeenCalledWith(
+      proposal.proposal_id,
+      "reviewed-diff-token",
+    ),
+  );
+  expect(
+    await screen.findByText("Żadna integracja nie czeka na decyzję."),
+  ).not.toBeNull();
+});
+
+test("spóźniona odpowiedź innej propozycji nie podmienia przeglądu", async () => {
+  const second = {
+    ...proposal,
+    proposal_id: "another-proposal",
+    summary: "Druga propozycja",
+  };
+  listContentProposals.mockResolvedValue([proposal, second]);
+  let finishFirst!: (value: typeof detail) => void;
+  readContentProposal
+    .mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishFirst = resolve;
+        }),
+    )
+    .mockResolvedValueOnce({
+      ...detail,
+      ...second,
+      review_token: "second-token",
+    });
+  renderQueue();
+  const buttons = await screen.findAllByRole("button", {
+    name: "Pokaż zmianę",
+  });
+  fireEvent.click(buttons[0]!);
+  fireEvent.click(buttons[1]!);
+  await screen.findByRole("button", { name: "Przyjmij do szkicu" });
+  await act(async () => {
+    finishFirst(detail);
+  });
+  await waitFor(() =>
+    expect(
+      screen.getAllByRole("button", { name: "Przyjmij do szkicu" }),
+    ).toHaveLength(1),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Przyjmij do szkicu" }));
+  await waitFor(() =>
+    expect(acceptContentProposal).toHaveBeenCalledWith(
+      second.proposal_id,
+      "second-token",
+    ),
+  );
+});
+
+test("angielski przegląd metadanych zachowuje dostępność", async () => {
+  const rendered = render(
+    <NextIntlClientProvider
+      locale="en"
+      messages={englishMessages}
+      timeZone="Europe/Warsaw"
+    >
+      <ProposalsQueue />
+    </NextIntlClientProvider>,
+  );
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Show the change" }),
+  );
+  expect(
+    await screen.findByRole("button", { name: "Accept into draft" }),
+  ).not.toBeNull();
+  expect(screen.getAllByText("Search description")).toHaveLength(2);
+  expect((await axe.run(rendered.container)).violations).toHaveLength(0);
 });

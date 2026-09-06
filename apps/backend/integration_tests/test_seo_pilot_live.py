@@ -82,6 +82,12 @@ def _peer(tmp_path: Path, kind: str) -> tuple[str, str, dict[str, str]]:
         "SECURE_SSL_REDIRECT = False\n",
         encoding="utf-8",
     )
+    if kind == "SSA":
+        with settings_file.open("a", encoding="utf-8") as handle:
+            handle.write(
+                "MODULE_RUN_CALLBACK_RECIPIENTS = {'pilot': "
+                "{'url': 'http://127.0.0.1:9/callback', 'secret': 'synthetic-only'}}\n"
+            )
     env = os.environ.copy()
     source = repo if kind == "SSA" else str(Path(repo) / "apps/backend/src")
     env["PYTHONPATH"] = os.pathsep.join([str(tmp_path), source])
@@ -230,6 +236,89 @@ def test_existing_audit_to_retained_proposal_to_core_preview(
                 revoked_grant_status=403,
             )
             (tmp_path / "evidence.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+        finally:
+            for process in reversed(processes):
+                process.terminate()
+                process.wait(timeout=10)
+
+
+def test_scr_provisions_independent_projects_in_ssa(tmp_path: Path) -> None:
+    ssa, scr = _peer(tmp_path, "SSA"), _peer(tmp_path, "SCR")
+    ssa_port, scr_port = _port(), _port()
+    context = tmp_path / "private-context.json"
+    data = {"ssa_url": f"http://127.0.0.1:{ssa_port}", "scr_url": f"http://127.0.0.1:{scr_port}"}
+    context.write_text(json.dumps(data), encoding="utf-8")
+    _run(ssa, "seed_source", context)
+    data = json.loads(context.read_text(encoding="utf-8"))
+    scr[2].update({
+        "SSA_SERVICE_BASE_URL": data["ssa_url"],
+        "SSA_SERVICE_TOKEN": data["source_key"],
+        "SCR_PRODUCT_ID": "scr",
+        "SCR_DEPLOYMENT_ID": "local-pilot",
+    })
+    _run(scr, "seed_scr_projects", context)
+    data = json.loads(context.read_text(encoding="utf-8"))
+    processes = []
+    with (tmp_path / "ssa.log").open("w") as ssa_log, (tmp_path / "scr.log").open("w") as scr_log:
+        try:
+            processes.append(_server(ssa, ssa_port, context, ssa_log))
+            processes.append(_server(scr, scr_port, context, scr_log))
+            projects = {}
+            body = {
+                "name": "Same public URL",
+                "root_url": "https://public.example.test/",
+                "purpose": "external",
+            }
+            for tenant, key in data["workspace_keys"].items():
+                headers = {"Authorization": f"Bearer {key}", "Idempotency-Key": "same-project-key"}
+                response = _request(
+                    f"{data['scr_url']}/api/v1/projects/", body=body, headers=headers
+                )
+                assert response.status_code == 202, response.text
+                assert response.json()["status"] == "provisioning"
+                projects[tenant] = response.json()["id"]
+                replay = _request(f"{data['scr_url']}/api/v1/projects/", body=body, headers=headers)
+                assert replay.json()["id"] == projects[tenant]
+            _run(scr, "provision_scr", context)
+            upstream = {}
+            for tenant, key in data["workspace_keys"].items():
+                response = _request(
+                    f"{data['scr_url']}/api/v1/projects/{projects[tenant]}/",
+                    headers={"Authorization": f"Bearer {key}"},
+                )
+                assert response.status_code == 200, response.text
+                assert response.json()["status"] == "ready", response.text
+                upstream[tenant] = response.json()["ssa_project_id"]
+            assert len(set(upstream.values())) == 2
+            for tenant, project_id in upstream.items():
+                headers = {
+                    "Authorization": f"Bearer {data['source_key']}",
+                    "X-External-Tenant-ID": tenant,
+                }
+                own = _request(f"{data['ssa_url']}/api/v1/projects/{project_id}/", headers=headers)
+                assert own.status_code == 200, own.text
+                assert own.json()["audit_runs_count"] == 0
+                other = next(value for name, value in upstream.items() if name != tenant)
+                assert (
+                    _request(
+                        f"{data['ssa_url']}/api/v1/projects/{other}/", headers=headers
+                    ).status_code
+                    == 404
+                )
+            (tmp_path / "evidence.json").write_text(
+                json.dumps(
+                    {
+                        "synthetic": True,
+                        "scr_projects": projects,
+                        "ssa_projects": upstream,
+                        "same_url_kept_separate": True,
+                        "foreign_project_status": 404,
+                        "new_analysis_requested": False,
+                    },
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
         finally:
             for process in reversed(processes):
                 process.terminate()

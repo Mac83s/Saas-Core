@@ -181,6 +181,40 @@ def preview_scr(data: dict) -> None:
     data["report"] = report
 
 
+def seed_source(data: dict) -> None:
+    from apps.entitlements.models import Plan
+    from apps.integrations.keys import issue
+    from apps.integrations.models import IntegrationSource
+    from django.core.management import call_command
+
+    call_command("migrate", verbosity=0)
+    plan = Plan.objects.create(code="source-pilot", name="Synthetic source", api_access="full")
+    source = IntegrationSource.objects.create(
+        product_id="scr", deployment_id="local-pilot", plan=plan, callback_recipient="pilot"
+    )
+    _, secret = issue(source, name="Pilot", scopes=["integration:provision", "projects:read"])
+    data.update(source_key=secret, source_id=str(source.id))
+
+
+def seed_scr_projects(data: dict) -> None:
+    from django.core.management import call_command
+    from seocontentrank.tenancy.keys import issue
+    from seocontentrank.tenancy.models import Workspace
+
+    call_command("migrate", verbosity=0)
+    data["workspace_keys"] = {}
+    for external_id in ("synthetic-pilot", "synthetic-other"):
+        workspace = Workspace.objects.create(external_tenant_id=external_id)
+        _, key = issue(workspace, name="Pilot", scopes=["projects:read", "projects:write"])
+        data["workspace_keys"][external_id] = key
+
+
+def provision_scr(data: dict) -> None:
+    from django.core.management import call_command
+
+    call_command("provision_projects", limit=25, verbosity=0)
+
+
 if __name__ == "__main__":
     django.setup()
     action, context_path = sys.argv[1:3]
@@ -194,5 +228,12 @@ if __name__ == "__main__":
         with make_server("127.0.0.1", int(sys.argv[3]), get_wsgi_application()) as server:
             server.serve_forever()
     else:
-        {"seed_ssa": seed_ssa, "seed_scr": seed_scr, "preview_scr": preview_scr}[action](data)
+        {
+            "seed_ssa": seed_ssa,
+            "seed_scr": seed_scr,
+            "preview_scr": preview_scr,
+            "seed_source": seed_source,
+            "seed_scr_projects": seed_scr_projects,
+            "provision_scr": provision_scr,
+        }[action](data)
         context.write_text(json.dumps(data, indent=2), encoding="utf-8")

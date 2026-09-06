@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { FileDiffIcon, XIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { CheckIcon, FileDiffIcon, XIcon } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import {
+  acceptContentProposal,
   discardContentProposal,
   listContentProposals,
   readContentProposal,
@@ -46,16 +47,39 @@ function ProposalDiff({ detail }: { detail: ContentProposalDetail }) {
     <div className="grid gap-4 sm:grid-cols-2">
       {(
         [
-          ["proposalBefore", before],
-          ["proposalAfter", after],
+          ["proposalBefore", before, detail.metadata_before],
+          ["proposalAfter", after, detail.metadata_after],
         ] as const
-      ).map(([label, blocks]) => (
+      ).map(([label, blocks, metadata]) => (
         <section
           aria-label={t(label)}
           className="space-y-2 rounded-md bg-muted/40 p-3"
           key={label}
         >
           <h4 className="text-sm font-medium">{t(label)}</h4>
+          {metadata && Object.keys(metadata).length > 0 && (
+            <dl className="space-y-2 text-sm">
+              {(
+                [
+                  "title",
+                  "description",
+                  "social_title",
+                  "social_description",
+                ] as const
+              ).map((field) => (
+                <div key={field}>
+                  <dt className="font-medium">
+                    {t(`proposalMetadata_${field}`)}
+                  </dt>
+                  <dd className="whitespace-pre-wrap break-words">
+                    {typeof metadata[field] === "string" && metadata[field]
+                      ? metadata[field]
+                      : t("proposalEmptyField")}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          )}
           {blocks.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               {t("proposalNoBlocks")}
@@ -93,6 +117,7 @@ export function ProposalsQueue({ onDecided }: { onDecided?: () => void }) {
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string>();
   const [reload, setReload] = useState(0);
+  const requestId = useRef(0);
 
   useEffect(() => {
     let mounted = true;
@@ -109,6 +134,7 @@ export function ProposalsQueue({ onDecided }: { onDecided?: () => void }) {
   }, [t, reload]);
 
   function toggle(proposal: ContentProposal) {
+    const currentRequest = ++requestId.current;
     if (openId === proposal.proposal_id) {
       setOpenId(undefined);
       setDetail(undefined);
@@ -118,17 +144,30 @@ export function ProposalsQueue({ onDecided }: { onDecided?: () => void }) {
     setDetail(undefined);
     setProblem(undefined);
     void readContentProposal(proposal.proposal_id)
-      .then(setDetail)
+      .then((value) => {
+        if (requestId.current === currentRequest) setDetail(value);
+      })
       .catch((error: unknown) => {
-        setProblem(sitesErrorMessage(error, t));
+        if (requestId.current === currentRequest)
+          setProblem(sitesErrorMessage(error, t));
       });
   }
 
-  function reject(proposal: ContentProposal) {
+  function decide(proposal: ContentProposal, action: "accept" | "reject") {
+    if (
+      action === "accept" &&
+      (!detail?.review_token || detail.proposal_id !== proposal.proposal_id)
+    )
+      return;
     setBusy(true);
     setProblem(undefined);
-    void discardContentProposal(proposal.proposal_id)
+    const operation =
+      action === "accept"
+        ? acceptContentProposal(proposal.proposal_id, detail!.review_token)
+        : discardContentProposal(proposal.proposal_id);
+    void operation
       .then(() => {
+        ++requestId.current;
         setOpenId(undefined);
         setDetail(undefined);
         setReload((value) => value + 1);
@@ -233,6 +272,7 @@ export function ProposalsQueue({ onDecided }: { onDecided?: () => void }) {
                   <div className="flex flex-wrap gap-2">
                     <Button
                       aria-expanded={open}
+                      disabled={busy}
                       onClick={() => toggle(proposal)}
                       size="sm"
                       type="button"
@@ -240,9 +280,22 @@ export function ProposalsQueue({ onDecided }: { onDecided?: () => void }) {
                     >
                       {open ? t("proposalHideDiff") : t("proposalShowDiff")}
                     </Button>
+                    {open &&
+                      detail?.proposal_id === proposal.proposal_id &&
+                      detail.review_token && (
+                        <Button
+                          disabled={busy}
+                          onClick={() => decide(proposal, "accept")}
+                          size="sm"
+                          type="button"
+                        >
+                          <CheckIcon aria-hidden="true" />
+                          {t("proposalAccept")}
+                        </Button>
+                      )}
                     <Button
                       disabled={busy}
-                      onClick={() => reject(proposal)}
+                      onClick={() => decide(proposal, "reject")}
                       size="sm"
                       type="button"
                       variant="destructive"
@@ -253,7 +306,7 @@ export function ProposalsQueue({ onDecided }: { onDecided?: () => void }) {
                   </div>
 
                   {open &&
-                    (detail ? (
+                    (detail?.proposal_id === proposal.proposal_id ? (
                       <ProposalDiff detail={detail} />
                     ) : (
                       <p className="text-sm text-muted-foreground">
@@ -261,10 +314,9 @@ export function ProposalsQueue({ onDecided }: { onDecided?: () => void }) {
                       </p>
                     ))}
 
-                  {/* Accepting is publishing, which happens where publishing
-                      lives: an entry from the blog panel, a page from the
-                      publication tab. A second publish button here would be a
-                      second path past the checks that live there. */}
+                  {proposal.metadata_pending && (
+                    <p className="text-sm">{t("proposalMetadataPending")}</p>
+                  )}
                   <p className="text-sm text-muted-foreground">
                     {proposal.resource_type === "site_page"
                       ? t("proposalAcceptPageHint")
