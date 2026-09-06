@@ -6,15 +6,20 @@
   "backend": {
     "djangoApp": "saas_core.modules.shared.seo",
     "urlPrefix": "/api/v1/seo",
-    "permissions": ["seo.audit.read", "seo.audit.run"],
-    "entitlements": ["seo.audit.enabled"],
+    "permissions": [
+      "seo.audit.read",
+      "seo.audit.run",
+      "seo.gsc.read",
+      "seo.gsc.manage"
+    ],
+    "entitlements": ["seo.audit.enabled", "seo.gsc.enabled"],
     "eventSchemas": [],
     "publicTables": [],
     "platformTables": []
   },
   "frontend": {
-    "routes": ["/panel/seo"],
+    "routes": ["/panel/seo", "/panel/seo/search-console"],
     "navigation": ["seo"],
-    "translationNamespaces": ["seoAudits"]
+    "translationNamespaces": ["seoAudits", "seoGsc"]
   }
 }

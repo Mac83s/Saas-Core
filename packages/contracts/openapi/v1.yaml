@@ -2881,6 +2881,356 @@ paths:
               schema:
                 $ref: '#/components/schemas/AuditOrder'
           description: ''
+  /api/v1/seo/gsc/authorize/:
+    post:
+      operationId: api_v1_seo_gsc_authorize_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GscAuthorizeInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GscAuthorizeInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GscAuthorizeInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GscAuthorization'
+          description: ''
+  /api/v1/seo/gsc/callback/:
+    get:
+      operationId: api_v1_seo_gsc_callback_retrieve
+      parameters:
+      - in: query
+        name: code
+        schema:
+          type: string
+      - in: query
+        name: error
+        schema:
+          type: string
+      - in: query
+        name: state
+        schema:
+          type: string
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '302':
+          description: No response body
+  /api/v1/seo/gsc/connection/:
+    get:
+      operationId: api_v1_seo_gsc_connection_retrieve
+      parameters:
+      - in: query
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GscConnection'
+          description: ''
+  /api/v1/seo/gsc/disconnect/:
+    post:
+      operationId: api_v1_seo_gsc_disconnect_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GscDisconnectInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GscDisconnectInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GscDisconnectInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GscDisconnected'
+          description: ''
+  /api/v1/seo/gsc/grants/:
+    get:
+      operationId: seo_gsc_grants_list
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GscGrantList'
+          description: ''
+    post:
+      operationId: api_v1_seo_gsc_grants_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GscGrantInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GscGrantInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GscGrantInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GscGrant'
+          description: ''
+  /api/v1/seo/gsc/grants/{grant_id}/:
+    get:
+      operationId: api_v1_seo_gsc_grants_retrieve
+      parameters:
+      - in: path
+        name: grant_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GscGrant'
+          description: ''
+    post:
+      operationId: seo_gsc_grant_retry
+      parameters:
+      - in: path
+        name: grant_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GscGrant'
+          description: ''
+  /api/v1/seo/gsc/grants/{grant_id}/metrics/:
+    get:
+      operationId: api_v1_seo_gsc_grants_metrics_retrieve
+      parameters:
+      - in: path
+        name: grant_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: page
+        schema:
+          type: integer
+          maximum: 100000
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+      - in: query
+        name: sync_run_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GscMetrics'
+          description: ''
+  /api/v1/seo/gsc/grants/{grant_id}/revoke/:
+    post:
+      operationId: api_v1_seo_gsc_grants_revoke_create
+      parameters:
+      - in: path
+        name: grant_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GscGrant'
+          description: ''
+  /api/v1/seo/gsc/grants/{grant_id}/sync/:
+    get:
+      operationId: api_v1_seo_gsc_grants_sync_retrieve
+      parameters:
+      - in: path
+        name: grant_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GscSyncHistory'
+          description: ''
+    post:
+      operationId: api_v1_seo_gsc_grants_sync_create
+      parameters:
+      - in: path
+        name: grant_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GscSyncInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GscSyncInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GscSyncInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GscSync'
+          description: ''
+  /api/v1/seo/gsc/prepare/:
+    post:
+      operationId: api_v1_seo_gsc_prepare_create
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GscSiteInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/GscSiteInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GscSiteInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GscProperties'
+          description: ''
+  /api/v1/seo/gsc/properties/:
+    get:
+      operationId: api_v1_seo_gsc_properties_retrieve
+      parameters:
+      - in: query
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GscProperties'
+          description: ''
   /api/v1/seo/ssa/callback/:
     post:
       operationId: api_v1_seo_ssa_callback_create
@@ -8059,6 +8409,345 @@ components:
           maxLength: 500
       required:
       - reason
+    GscAuthorization:
+      type: object
+      properties:
+        authorization_url:
+          type: string
+          format: uri
+        expires_at:
+          type: string
+          format: date-time
+      required:
+      - authorization_url
+      - expires_at
+    GscAuthorizeInput:
+      type: object
+      properties:
+        site_id:
+          type: string
+          format: uuid
+        locale:
+          allOf:
+          - $ref: '#/components/schemas/LocaleEnum'
+          default: pl
+        connection_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+      required:
+      - connection_id
+      - site_id
+    GscConnection:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        connection_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+      required:
+      - connected
+      - connection_id
+    GscDisconnectInput:
+      type: object
+      properties:
+        site_id:
+          type: string
+          format: uuid
+        connection_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        confirm_workspace_disconnect:
+          type: boolean
+      required:
+      - confirm_workspace_disconnect
+      - connection_id
+      - site_id
+    GscDisconnected:
+      type: object
+      properties:
+        disconnected:
+          type: boolean
+      required:
+      - disconnected
+    GscGrant:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        site_id:
+          type: string
+          format: uuid
+        property_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        site_url:
+          type:
+          - string
+          - 'null'
+        scopes:
+          type: array
+          items:
+            type: string
+        expires_at:
+          type: string
+          format: date-time
+        revoked_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        connected:
+          type: boolean
+        latest_sync:
+          oneOf:
+          - $ref: '#/components/schemas/GscSync'
+          - type: 'null'
+      required:
+      - connected
+      - expires_at
+      - id
+      - latest_sync
+      - property_id
+      - revoked_at
+      - scopes
+      - site_id
+      - site_url
+    GscGrantInput:
+      type: object
+      properties:
+        site_id:
+          type: string
+          format: uuid
+        property_id:
+          type: string
+          format: uuid
+        expires_at:
+          type: string
+          format: date-time
+        idempotency_key:
+          type: string
+          pattern: ^[A-Za-z0-9_-]{8,64}$
+      required:
+      - expires_at
+      - idempotency_key
+      - property_id
+      - site_id
+    GscGrantList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/GscGrantSummary'
+        next_cursor:
+          type:
+          - string
+          - 'null'
+          format: uuid
+      required:
+      - items
+      - next_cursor
+    GscGrantSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        property_id:
+          type: string
+          format: uuid
+        expires_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        outcome_known:
+          type: boolean
+      required:
+      - created_at
+      - expires_at
+      - id
+      - outcome_known
+      - property_id
+    GscMetric:
+      type: object
+      properties:
+        dataset:
+          type: string
+        date:
+          type: string
+          format: date
+        query:
+          type: string
+        page:
+          type: string
+        country:
+          type: string
+        device:
+          type: string
+        search_appearance:
+          type: string
+        clicks:
+          type: integer
+        impressions:
+          type: integer
+        ctr:
+          type: number
+          format: double
+        position:
+          type: number
+          format: double
+      required:
+      - clicks
+      - country
+      - ctr
+      - dataset
+      - date
+      - device
+      - impressions
+      - page
+      - position
+      - query
+      - search_appearance
+    GscMetrics:
+      type: object
+      properties:
+        count:
+          type: integer
+        next_page:
+          type:
+          - integer
+          - 'null'
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/GscMetric'
+      required:
+      - count
+      - next_page
+      - results
+    GscProperties:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        connection_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        properties:
+          type: array
+          items:
+            $ref: '#/components/schemas/GscProperty'
+      required:
+      - connected
+      - connection_id
+      - properties
+    GscProperty:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        site_url:
+          type: string
+        permission_level:
+          type: string
+      required:
+      - id
+      - permission_level
+      - site_url
+    GscSiteInput:
+      type: object
+      properties:
+        site_id:
+          type: string
+          format: uuid
+      required:
+      - site_id
+    GscSync:
+      type: object
+      properties:
+        id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        client_reference:
+          type: string
+          format: uuid
+        status:
+          type: string
+        rows_received:
+          type: integer
+          minimum: 0
+        is_truncated:
+          type: boolean
+      required:
+      - client_reference
+      - id
+      - is_truncated
+      - rows_received
+      - status
+    GscSyncHistory:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/GscSyncReceipt'
+      required:
+      - items
+    GscSyncInput:
+      type: object
+      properties:
+        client_reference:
+          type: string
+          format: uuid
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+      required:
+      - client_reference
+      - end_date
+      - start_date
+    GscSyncReceipt:
+      type: object
+      properties:
+        client_reference:
+          type: string
+          format: uuid
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        remote_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+      required:
+      - client_reference
+      - end_date
+      - remote_id
+      - start_date
     Health:
       type: object
       properties:

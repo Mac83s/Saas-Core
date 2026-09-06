@@ -27,6 +27,7 @@ import {
 } from "@saas-core/ui/components/card";
 import { Field, FieldError, FieldLabel } from "@saas-core/ui/components/field";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
+import { Link } from "#i18n/navigation";
 import {
   Combobox,
   ComboboxInput,
@@ -235,6 +236,12 @@ export function SeoAuditsPanel() {
           <p className="mt-2 max-w-2xl text-muted-foreground">
             {t("description")}
           </p>
+          <Link
+            href="/panel/seo/search-console"
+            className="mt-3 inline-block underline"
+          >
+            Google Search Console
+          </Link>
         </div>
         <Button
           variant="outline"

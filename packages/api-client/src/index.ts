@@ -2014,3 +2014,223 @@ export async function withdrawContentEntry(
   if (error || !data) throwProblem(error, response);
   return data;
 }
+
+export type GscGrant = components["schemas"]["GscGrant"];
+export type GscGrantList = components["schemas"]["GscGrantList"];
+export type GscProperties = components["schemas"]["GscProperties"];
+export type GscAuthorization = components["schemas"]["GscAuthorization"];
+export type GscSync = components["schemas"]["GscSync"];
+export type GscMetrics = components["schemas"]["GscMetrics"];
+export type GscDisconnected = components["schemas"]["GscDisconnected"];
+export type GscGrantInput = components["schemas"]["GscGrantInput"];
+export type GscSyncInput = components["schemas"]["GscSyncInput"];
+export type GscAuthorizeInput = components["schemas"]["GscAuthorizeInput"];
+export type GscDisconnectInput = components["schemas"]["GscDisconnectInput"];
+
+export async function prepareSeoGsc(input: {
+  site_id: string;
+}): Promise<GscProperties> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/seo/gsc/prepare/",
+    {
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function authorizeSeoGsc(
+  input: GscAuthorizeInput,
+): Promise<GscAuthorization> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/seo/gsc/authorize/",
+    {
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createSeoGscGrant(
+  input: GscGrantInput,
+): Promise<GscGrant> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/seo/gsc/grants/",
+    {
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function disconnectSeoGsc(
+  input: GscDisconnectInput,
+): Promise<GscDisconnected> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/seo/gsc/disconnect/",
+    {
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function syncSeoGsc(
+  grantId: string,
+  input: GscSyncInput,
+): Promise<GscSync> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/seo/gsc/grants/{grant_id}/sync/",
+    {
+      params: { path: { grant_id: grantId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function revokeSeoGsc(
+  grantId: string,
+  _input: Record<string, never>,
+): Promise<GscGrant> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/seo/gsc/grants/{grant_id}/revoke/",
+    {
+      params: { path: { grant_id: grantId } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function getSeoGscProperties(
+  siteId: string,
+): Promise<GscProperties> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/seo/gsc/properties/",
+    {
+      params: { query: { site_id: siteId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function listSeoGscGrants(
+  siteId: string,
+  cursor?: string,
+): Promise<GscGrantList> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/seo/gsc/grants/",
+    {
+      params: { query: { site_id: siteId, ...(cursor ? { cursor } : {}) } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function readSeoGscGrant(grantId: string): Promise<GscGrant> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/seo/gsc/grants/{grant_id}/",
+    {
+      params: { path: { grant_id: grantId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function readSeoGscMetrics(
+  grantId: string,
+  syncRunId: string,
+  page = 1,
+): Promise<GscMetrics> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/seo/gsc/grants/{grant_id}/metrics/",
+    {
+      params: {
+        path: { grant_id: grantId },
+        query: { sync_run_id: syncRunId, page, page_size: 25 },
+      },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function retrySeoGscGrant(grantId: string): Promise<GscGrant> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/seo/gsc/grants/{grant_id}/",
+    {
+      params: { path: { grant_id: grantId } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export type GscConnection = components["schemas"]["GscConnection"];
+export type GscSyncHistory = components["schemas"]["GscSyncHistory"];
+export async function getSeoGscConnection(
+  siteId: string,
+): Promise<GscConnection> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/seo/gsc/connection/",
+    {
+      params: { query: { site_id: siteId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+export async function listSeoGscSyncs(
+  grantId: string,
+): Promise<GscSyncHistory> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/seo/gsc/grants/{grant_id}/sync/",
+    {
+      params: { path: { grant_id: grantId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}

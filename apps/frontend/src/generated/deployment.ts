@@ -27,5 +27,5 @@ export const deployment = {
     "customDomains": true,
     "publicBooking": true
   },
-  "profileHash": "sha256:edbf207a4aba67229d67be329f5e673204088bb2a86990e14533d61c1a35a84d"
+  "profileHash": "sha256:4ff69cf4be23258e8ed2637416f2ccf803f780d689b920b32a711024e45b093f"
 } as const

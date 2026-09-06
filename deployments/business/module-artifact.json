@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:edbf207a4aba67229d67be329f5e673204088bb2a86990e14533d61c1a35a84d",
+  "profileHash": "sha256:4ff69cf4be23258e8ed2637416f2ccf803f780d689b920b32a711024e45b093f",
   "schemaVersion": 1,
   "deployment": "business",
   "product": {
@@ -331,10 +331,13 @@
         "urlPrefix": "/api/v1/seo",
         "permissions": [
           "seo.audit.read",
-          "seo.audit.run"
+          "seo.audit.run",
+          "seo.gsc.read",
+          "seo.gsc.manage"
         ],
         "entitlements": [
-          "seo.audit.enabled"
+          "seo.audit.enabled",
+          "seo.gsc.enabled"
         ],
         "eventSchemas": [],
         "publicTables": [],
@@ -342,13 +345,15 @@
       },
       "frontend": {
         "routes": [
-          "/panel/seo"
+          "/panel/seo",
+          "/panel/seo/search-console"
         ],
         "navigation": [
           "seo"
         ],
         "translationNamespaces": [
-          "seoAudits"
+          "seoAudits",
+          "seoGsc"
         ]
       }
     }

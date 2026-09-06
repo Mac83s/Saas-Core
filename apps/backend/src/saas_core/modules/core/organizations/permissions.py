@@ -30,6 +30,7 @@ SYSTEM_ROLE_PERMISSIONS: Final[dict[str, tuple[str, ...]]] = {
         "booking.appointment.manage",
         "profiles.manage",
         "seo.audit.read",
+        "seo.gsc.read",
     ),
     "admin": (
         ORGANIZATION_READ,
@@ -71,5 +72,7 @@ SYSTEM_ROLE_PERMISSIONS: Final[dict[str, tuple[str, ...]]] = {
         "profiles.manage",
         "seo.audit.read",
         "seo.audit.run",
+        "seo.gsc.read",
+        "seo.gsc.manage",
     ),
 }

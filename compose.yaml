@@ -36,6 +36,7 @@ x-backend-environment: &backend-environment
   SEO_AUDIT_CREDIT_OPERATION: ${SEO_AUDIT_CREDIT_OPERATION:-}
   SEO_AUDIT_MAX_PAGES: ${SEO_AUDIT_MAX_PAGES:-100}
   SEO_REPORT_MAX_ISSUES: ${SEO_REPORT_MAX_ISSUES:-5000}
+  SEO_GSC_REDIRECT_URI: ${SEO_GSC_REDIRECT_URI:-}
   SEO_SSA_SERVICE_KEY_FILE: /run/secrets/seo_ssa_service_key
   SEO_SSA_CALLBACK_SECRET_FILE: /run/secrets/seo_ssa_callback_secret
   STRIPE_SECRET_KEY_FILE: /run/secrets/stripe_secret_key
@@ -267,7 +268,7 @@ services:
       POSTGRES_USER: ${SAAS_CORE_POSTGRES_MIGRATION_USER:-saas_core}
     secrets:
       # Overriding the list means the anchor's entries do not apply, so the
-      # Stripe files have to be repeated here — settings read them at import
+      # provider files have to be repeated here — settings read them at import
       # time, migrate included.
       - django_secret_key
       - postgres_password
@@ -276,6 +277,8 @@ services:
       - object_storage_secret_access_key
       - stripe_secret_key
       - stripe_webhook_secret
+      - seo_ssa_service_key
+      - seo_ssa_callback_secret
     depends_on:
       database-bootstrap:
         condition: service_completed_successfully

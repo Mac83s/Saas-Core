@@ -1188,6 +1188,182 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/seo/gsc/authorize/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["api_v1_seo_gsc_authorize_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/seo/gsc/callback/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["api_v1_seo_gsc_callback_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/seo/gsc/connection/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["api_v1_seo_gsc_connection_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/seo/gsc/disconnect/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["api_v1_seo_gsc_disconnect_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/seo/gsc/grants/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["seo_gsc_grants_list"];
+        put?: never;
+        post: operations["api_v1_seo_gsc_grants_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/seo/gsc/grants/{grant_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["api_v1_seo_gsc_grants_retrieve"];
+        put?: never;
+        post: operations["seo_gsc_grant_retry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/seo/gsc/grants/{grant_id}/metrics/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["api_v1_seo_gsc_grants_metrics_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/seo/gsc/grants/{grant_id}/revoke/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["api_v1_seo_gsc_grants_revoke_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/seo/gsc/grants/{grant_id}/sync/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["api_v1_seo_gsc_grants_sync_retrieve"];
+        put?: never;
+        post: operations["api_v1_seo_gsc_grants_sync_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/seo/gsc/prepare/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["api_v1_seo_gsc_prepare_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/seo/gsc/properties/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["api_v1_seo_gsc_properties_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/seo/ssa/callback/": {
         parameters: {
             query?: never;
@@ -2839,6 +3015,143 @@ export interface components {
         };
         GrantRevoke: {
             reason: string;
+        };
+        GscAuthorization: {
+            /** Format: uri */
+            authorization_url: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        GscAuthorizeInput: {
+            /** Format: uuid */
+            site_id: string;
+            /** @default pl */
+            locale: components["schemas"]["LocaleEnum"];
+            /** Format: uuid */
+            connection_id: string | null;
+        };
+        GscConnection: {
+            connected: boolean;
+            /** Format: uuid */
+            connection_id: string | null;
+        };
+        GscDisconnectInput: {
+            /** Format: uuid */
+            site_id: string;
+            /** Format: uuid */
+            connection_id: string | null;
+            confirm_workspace_disconnect: boolean;
+        };
+        GscDisconnected: {
+            disconnected: boolean;
+        };
+        GscGrant: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            site_id: string;
+            /** Format: uuid */
+            property_id: string | null;
+            site_url: string | null;
+            scopes: string[];
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            revoked_at: string | null;
+            connected: boolean;
+            latest_sync: components["schemas"]["GscSync"] | null;
+        };
+        GscGrantInput: {
+            /** Format: uuid */
+            site_id: string;
+            /** Format: uuid */
+            property_id: string;
+            /** Format: date-time */
+            expires_at: string;
+            idempotency_key: string;
+        };
+        GscGrantList: {
+            items: components["schemas"]["GscGrantSummary"][];
+            /** Format: uuid */
+            next_cursor: string | null;
+        };
+        GscGrantSummary: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            property_id: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            created_at: string;
+            outcome_known: boolean;
+        };
+        GscMetric: {
+            dataset: string;
+            /** Format: date */
+            date: string;
+            query: string;
+            page: string;
+            country: string;
+            device: string;
+            search_appearance: string;
+            clicks: number;
+            impressions: number;
+            /** Format: double */
+            ctr: number;
+            /** Format: double */
+            position: number;
+        };
+        GscMetrics: {
+            count: number;
+            next_page: number | null;
+            results: components["schemas"]["GscMetric"][];
+        };
+        GscProperties: {
+            connected: boolean;
+            /** Format: uuid */
+            connection_id: string | null;
+            properties: components["schemas"]["GscProperty"][];
+        };
+        GscProperty: {
+            /** Format: uuid */
+            id: string;
+            site_url: string;
+            permission_level: string;
+        };
+        GscSiteInput: {
+            /** Format: uuid */
+            site_id: string;
+        };
+        GscSync: {
+            /** Format: uuid */
+            id: string | null;
+            /** Format: uuid */
+            client_reference: string;
+            status: string;
+            rows_received: number;
+            is_truncated: boolean;
+        };
+        GscSyncHistory: {
+            items: components["schemas"]["GscSyncReceipt"][];
+        };
+        GscSyncInput: {
+            /** Format: uuid */
+            client_reference: string;
+            /** Format: date */
+            start_date: string;
+            /** Format: date */
+            end_date: string;
+        };
+        GscSyncReceipt: {
+            /** Format: uuid */
+            client_reference: string;
+            /** Format: date */
+            start_date: string;
+            /** Format: date */
+            end_date: string;
+            /** Format: uuid */
+            remote_id: string | null;
         };
         Health: {
             status: components["schemas"]["HealthStatusEnum"];
@@ -6991,6 +7304,328 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditOrder"];
+                };
+            };
+        };
+    };
+    api_v1_seo_gsc_authorize_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GscAuthorizeInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["GscAuthorizeInput"];
+                "multipart/form-data": components["schemas"]["GscAuthorizeInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GscAuthorization"];
+                };
+            };
+        };
+    };
+    api_v1_seo_gsc_callback_retrieve: {
+        parameters: {
+            query?: {
+                code?: string;
+                error?: string;
+                state?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_v1_seo_gsc_connection_retrieve: {
+        parameters: {
+            query: {
+                site_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GscConnection"];
+                };
+            };
+        };
+    };
+    api_v1_seo_gsc_disconnect_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GscDisconnectInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["GscDisconnectInput"];
+                "multipart/form-data": components["schemas"]["GscDisconnectInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GscDisconnected"];
+                };
+            };
+        };
+    };
+    seo_gsc_grants_list: {
+        parameters: {
+            query: {
+                cursor?: string;
+                site_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GscGrantList"];
+                };
+            };
+        };
+    };
+    api_v1_seo_gsc_grants_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GscGrantInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["GscGrantInput"];
+                "multipart/form-data": components["schemas"]["GscGrantInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GscGrant"];
+                };
+            };
+        };
+    };
+    api_v1_seo_gsc_grants_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                grant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GscGrant"];
+                };
+            };
+        };
+    };
+    seo_gsc_grant_retry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                grant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GscGrant"];
+                };
+            };
+        };
+    };
+    api_v1_seo_gsc_grants_metrics_retrieve: {
+        parameters: {
+            query: {
+                page?: number;
+                page_size?: number;
+                sync_run_id: string;
+            };
+            header?: never;
+            path: {
+                grant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GscMetrics"];
+                };
+            };
+        };
+    };
+    api_v1_seo_gsc_grants_revoke_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                grant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GscGrant"];
+                };
+            };
+        };
+    };
+    api_v1_seo_gsc_grants_sync_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                grant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GscSyncHistory"];
+                };
+            };
+        };
+    };
+    api_v1_seo_gsc_grants_sync_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                grant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GscSyncInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["GscSyncInput"];
+                "multipart/form-data": components["schemas"]["GscSyncInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GscSync"];
+                };
+            };
+        };
+    };
+    api_v1_seo_gsc_prepare_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GscSiteInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["GscSiteInput"];
+                "multipart/form-data": components["schemas"]["GscSiteInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GscProperties"];
+                };
+            };
+        };
+    };
+    api_v1_seo_gsc_properties_retrieve: {
+        parameters: {
+            query: {
+                site_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GscProperties"];
                 };
             };
         };

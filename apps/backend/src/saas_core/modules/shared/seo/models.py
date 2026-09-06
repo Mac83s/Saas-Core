@@ -7,6 +7,13 @@ from django.db import models
 
 from saas_core.modules.core.organizations.tenancy import TenantScopedModel
 
+from .gsc.models import (  # noqa: F401
+    GscGrantIntent,
+    GscOAuthAttempt,
+    GscSyncIntent,
+    GscWorkspaceState,
+)
+
 
 class SourceSiteBinding(TenantScopedModel):
     """One site in one configured analytical source; URL never establishes ownership."""

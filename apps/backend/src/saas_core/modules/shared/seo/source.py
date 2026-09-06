@@ -49,7 +49,7 @@ class SourceConfig:
     response_max_bytes: int = 5_000_000
 
     @classmethod
-    def configured(cls) -> SourceConfig:
+    def configured(cls, *, require_audit: bool = True) -> SourceConfig:
         try:
             base_url = str(settings.SEO_SSA_BASE_URL).rstrip("/")
             parsed = urlsplit(base_url)
@@ -64,8 +64,8 @@ class SourceConfig:
                 or parsed.query
                 or parsed.fragment
                 or not credential
-                or not callback_secret
-                or not operation
+                or (require_audit and not callback_secret)
+                or (require_audit and not operation)
                 or not settings.SEO_SSA_PRODUCT_ID
                 or not settings.SEO_SSA_DEPLOYMENT_ID
                 or not 1 <= int(settings.SEO_AUDIT_MAX_PAGES) <= 10000
@@ -98,11 +98,14 @@ class SsaSource:
         tenant_id: UUID,
         payload: dict[str, Any] | None = None,
         params: dict[str, Any] | None = None,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         headers = {
             "Authorization": f"Bearer {self.config.credential}",
             "X-External-Tenant-ID": str(tenant_id),
         }
+        if idempotency_key is not None:
+            headers["Idempotency-Key"] = idempotency_key
 
         class NoRedirect(urllib.request.HTTPRedirectHandler):
             def redirect_request(self, req, fp, code, msg, hdrs, newurl):  # type: ignore[no-untyped-def]

@@ -1,10 +1,12 @@
 import json
 import logging
+import re
 from contextvars import ContextVar
 from datetime import UTC, datetime
 from typing import Any
 
 correlation_id: ContextVar[str | None] = ContextVar("correlation_id", default=None)
+OAUTH_QUERY = re.compile(r"(/api/v1/seo/gsc/callback/)\?[^\s\"']*")
 
 
 class JsonFormatter(logging.Formatter):
@@ -26,7 +28,7 @@ class JsonFormatter(logging.Formatter):
             "timestamp": datetime.now(UTC).isoformat(timespec="milliseconds"),
             "level": record.levelname.lower(),
             "logger": record.name,
-            "message": record.getMessage(),
+            "message": OAUTH_QUERY.sub(r"\1?[redacted]", record.getMessage()),
         }
         active_correlation_id = getattr(record, "correlation_id", None) or correlation_id.get()
         if active_correlation_id:
@@ -34,7 +36,9 @@ class JsonFormatter(logging.Formatter):
         for field in self._fields:
             value = getattr(record, field, None)
             if value is not None and field not in payload:
-                payload[field] = value
+                payload[field] = (
+                    OAUTH_QUERY.sub(r"\1?[redacted]", value) if isinstance(value, str) else value
+                )
         if record.exc_info:
             payload["exception"] = self.formatException(record.exc_info)
         return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))

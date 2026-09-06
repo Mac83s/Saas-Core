@@ -10,6 +10,7 @@
 }
 
 (app_routes) {
+    log_skip /api/v1/seo/gsc/callback/
 	encode zstd gzip
 
 	request_body {

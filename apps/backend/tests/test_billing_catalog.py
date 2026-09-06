@@ -31,6 +31,7 @@ pytestmark = pytest.mark.django_db
 
 FEATURE_KEYS = {
     "seo.audit.enabled",
+    "seo.gsc.enabled",
     "sites.enabled",
     "storage.enabled",
     "notifications.enabled",

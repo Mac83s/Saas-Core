@@ -32,6 +32,7 @@ from django.db.models import ForeignKey, Model
 from saas_core.modules.core.identity.models import User
 
 from .context import TenantContext, activate_tenant_context, set_local_organization_id
+from .erasure_checks import check_erasure_preconditions
 from .models import ErasureReceipt, Organization
 from .pre_tenant import PRE_TENANT_DB
 
@@ -165,6 +166,8 @@ def erase_organization(
         with activate_tenant_context(_erasure_context(organization_id)), _erasing(
             organization_id
         ):
+            Organization.objects.select_for_update().get(pk=organization_id)
+            check_erasure_preconditions(organization_id)
             counts = row_counts(organization_id)
             object_keys = stored_object_keys(organization_id)
             _break_reference_cycles(organization_id)

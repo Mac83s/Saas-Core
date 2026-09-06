@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import yaml
 from django.conf import settings
 
 REPOSITORY = Path(settings.BASE_DIR).parent.parent
@@ -26,34 +27,32 @@ SECTION = "## 4. Co musi być osobne dla każdego deploymentu"
 #: Variables compose parameterises that are the same for every deployment on a
 #: host — timeouts, limits and provider switches. They are configuration, not
 #: separation, so the isolation table does not carry them.
-SHARED_KNOBS = frozenset(
-    {
-        "BILLING_INVOICE_ADAPTER",
-        "BILLING_LIFECYCLE_MAX_ATTEMPTS",
-        "BILLING_LIFECYCLE_WARNING_LEAD_SECONDS",
-        "BILLING_PROVIDER",
-        "BILLING_RECONCILIATION_BATCH_SIZE",
-        "BILLING_RECONCILIATION_INTERVAL_SECONDS",
-        "BILLING_RECONCILIATION_MAX_ATTEMPTS",
-        "CLAMAV_HOST",
-        "CLAMAV_PORT",
-        "CLAMAV_TIMEOUT_SECONDS",
-        "MEDIA_MAX_IMAGE_PIXELS",
-        "MEDIA_PROCESSING_RESERVATION_TTL_SECONDS",
-        "NOTIFICATIONS_EXPORT_MAX_ROWS",
-        "NOTIFICATIONS_EXPORT_TTL_HOURS",
-        "NOTIFICATIONS_RETENTION_DAYS",
-        "NOTIFICATIONS_WEBHOOK_TOLERANCE_SECONDS",
-        "ORGANIZATION_INVITATION_TTL_SECONDS",
-        "SESSION_IDLE_TIMEOUT_SECONDS",
-        "SESSION_MAX_LIFETIME_SECONDS",
-        "STRIPE_API_VERSION",
-        "STRIPE_LIVEMODE",
-        "STRIPE_PORTAL_CONFIGURATION_ID",
-        "TENANT_TASK_CONTEXT_TTL_SECONDS",
-        "TRUSTED_PROXY_COUNT",
-    }
-)
+SHARED_KNOBS = frozenset({
+    "BILLING_INVOICE_ADAPTER",
+    "BILLING_LIFECYCLE_MAX_ATTEMPTS",
+    "BILLING_LIFECYCLE_WARNING_LEAD_SECONDS",
+    "BILLING_PROVIDER",
+    "BILLING_RECONCILIATION_BATCH_SIZE",
+    "BILLING_RECONCILIATION_INTERVAL_SECONDS",
+    "BILLING_RECONCILIATION_MAX_ATTEMPTS",
+    "CLAMAV_HOST",
+    "CLAMAV_PORT",
+    "CLAMAV_TIMEOUT_SECONDS",
+    "MEDIA_MAX_IMAGE_PIXELS",
+    "MEDIA_PROCESSING_RESERVATION_TTL_SECONDS",
+    "NOTIFICATIONS_EXPORT_MAX_ROWS",
+    "NOTIFICATIONS_EXPORT_TTL_HOURS",
+    "NOTIFICATIONS_RETENTION_DAYS",
+    "NOTIFICATIONS_WEBHOOK_TOLERANCE_SECONDS",
+    "ORGANIZATION_INVITATION_TTL_SECONDS",
+    "SESSION_IDLE_TIMEOUT_SECONDS",
+    "SESSION_MAX_LIFETIME_SECONDS",
+    "STRIPE_API_VERSION",
+    "STRIPE_LIVEMODE",
+    "STRIPE_PORTAL_CONFIGURATION_ID",
+    "TENANT_TASK_CONTEXT_TTL_SECONDS",
+    "TRUSTED_PROXY_COUNT",
+})
 
 
 def compose_variables() -> set[str]:
@@ -65,8 +64,7 @@ def compose_variables() -> set[str]:
     """
     text = COMPOSE.read_text(encoding="utf-8")
     return {
-        match.group(1)
-        for match in re.finditer(r"(?<!\$)\$\{([A-Z][A-Z0-9_]*)(?::-[^}]*)?\}", text)
+        match.group(1) for match in re.finditer(r"(?<!\$)\$\{([A-Z][A-Z0-9_]*)(?::-[^}]*)?\}", text)
     }
 
 
@@ -117,3 +115,17 @@ def test_the_shared_list_names_only_variables_that_still_exist() -> None:
     stale = sorted(SHARED_KNOBS - compose_variables())
 
     assert stale == [], f"Compose już ich nie używa, usuń z listy: {stale}"
+
+
+def test_each_file_secret_in_service_environment_is_actually_mounted() -> None:
+    """A secrets-list override must not leave inherited settings pointing at absent files."""
+    compose = yaml.safe_load(COMPOSE.read_text(encoding="utf-8"))
+    for name, service in compose["services"].items():
+        mounts = {
+            item if isinstance(item, str) else item.get("target", item["source"])
+            for item in service.get("secrets", [])
+        }
+        for variable, value in service.get("environment", {}).items():
+            if variable.endswith("_FILE") and str(value).startswith("/run/secrets/"):
+                secret = str(value).removeprefix("/run/secrets/")
+                assert secret in mounts, f"{name}: {variable} references unmounted secret {secret}"
