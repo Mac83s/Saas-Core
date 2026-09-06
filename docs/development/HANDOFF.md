@@ -547,6 +547,42 @@ sekretach**. Wiadomo, jak to zrobić (§4 dokumentu), ale nikt nie postawił dru
 stacku, więc bramka zostaje niezaznaczona. Backup i `deploy staging` też są
 opisane dla jednego stacku — to jest zapisane w §5 dokumentu, nie przemilczane.
 
+### Katalog skills: mechanizm i pięć pierwszych instrukcji (2026-09-06)
+
+P2 ruszyło od strony, która daje się sprawdzić maszynowo. Kanoniczne skills żyją
+w `.agents/skills/<nazwa>/SKILL.md`; w `.claude/skills/` stoją **cienkie
+adaptery** (limit 1200 bajtów) powtarzające `name` i `description` co do znaku i
+wskazujące plik kanoniczny. Powód jest praktyczny: klient routuje po
+`description` adaptera, więc kopia treści rozjeżdża się po cichu, a sam link bez
+frontmatteru wyłącza routing — skill istnieje i nigdy nie zostaje wybrany.
+Mirrory memexa są wyjątkiem i walidator porównuje je bajt po bajcie.
+
+`pnpm ai:validate` (w `pnpm lint`, czyli i w CI) sprawdza frontmatter, `name`
+równy katalogowi, unikalność nazw i opisów, rozmiary, **istnienie każdej ścieżki
+repozytorium i każdej komendy `pnpm` wymienionej w treści**, zgodność adaptera z
+kanonicznym, adaptery osierocone, ślady sekretów oraz to, że każdy skill ma
+wiersz w mapie ścieżek w `AGENTS.md`. Sprawdzone negatywnie — zły link,
+zduplikowany `description`, sekret w treści i rozjechany adapter dają exit 1, a
+po przywróceniu exit 0.
+
+Napisane pięć: `change-tenant-data`, `develop-saas-core-module`,
+`prepare-product-deployment`, `change-api-and-events` i meta-skill
+`maintain-saas-core-skills`. Wszystkie niosą kolejność pracy, komendy i pułapki,
+które już kosztowały dzień — nie streszczenie ADR-u, bo ADR jest obok.
+
+**Zostają trzy**: `develop-sites`, `develop-booking`, `verify-saas-core-release`.
+Świadomie nienapisane w tym przejściu: ich źródła wymagają uważnej lektury, a
+skill napisany z pobieżnej byłby wykonywany z przekonaniem. Do tego czasu w tych
+obszarach obowiązują ADR-y i `docs/architecture/`.
+
+`AGENTS.md` dostał przy okazji porządki: wskazuje plan 13 jako nadrzędny (baza
+P0-P3 przed falami produktowymi), niesie mapę ścieżek do skills i pięć nowych
+niezmiennych zasad wyciągniętych z ostatnich trzech sesji — w tym tę
+najważniejszą, że **baza testowa omija RLS**, więc zielony test nie dowodzi
+izolacji. Plik trafił do `.prettierignore`, bo blok `memex:*` pisze narzędzie i
+formatter przepisywałby te same linie w kółko; dzięki temu `pnpm format:check`
+jest po raz pierwszy czysty.
+
 ### Kredyty w panelu (2026-09-05)
 
 Domena kredytów była kompletna od kilku dni i całkowicie niewidoczna: księga,

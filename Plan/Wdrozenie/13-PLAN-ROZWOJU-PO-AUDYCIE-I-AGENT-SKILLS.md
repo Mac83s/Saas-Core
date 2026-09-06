@@ -245,23 +245,29 @@ sumy, a nie wobec pojedynczego etapu, należy planować termin płatnego pilota.
 
 ### 6.1. Źródło prawdy i routing
 
-- [ ] ustanowić `.agents/skills/<skill-name>/SKILL.md` jako kanoniczne skills
-  projektu; reguły obowiązujące każde zadanie pozostają w `AGENTS.md`;
-- [ ] dla klientów wymagających adapterów generować lub aktualizować cienkie
+- [x] ustanowić `.agents/skills/<skill-name>/SKILL.md` jako kanoniczne skills
+  projektu; reguły obowiązujące każde zadanie pozostają w `AGENTS.md`
+  (2026-09-06);
+- [x] dla klientów wymagających adapterów generować lub aktualizować cienkie
   odwołania, bez kopiowania pełnej treści skill; dopuścić wyłącznie zarządzane
-  przez Memex dokładne mirrory, których integralność sprawdza integracja Memex;
-- [ ] pamiętać, że Claude Code wykrywa automatycznie wyłącznie `.claude/skills/`,
+  przez Memex dokładne mirrory, których integralność sprawdza integracja Memex —
+  adaptery w `.claude/skills/` mają limit 1200 bajtów i muszą wskazywać plik
+  kanoniczny, a mirrory memexa są porównywane bajt po bajcie (2026-09-06);
+- [x] pamiętać, że Claude Code wykrywa automatycznie wyłącznie `.claude/skills/`,
   a o doborze skill decyduje `description` we frontmatterze, nie treść pliku:
   cienki adapter musi powtarzać dokładnie ten sam `name` i `description`, bo sam
   link do `.agents/` wyłączyłby routing po cichu. Zgodność tych dwóch pól jest
-  pierwszą rzeczą, którą sprawdza walidator;
-- [ ] dodać `docs/AI_AGENTS.md` opisujące podział instrukcji, automatyczny routing,
-  granice uprawnień i procedurę naprawy;
-- [ ] dodać obowiązkową mapę ścieżek w `AGENTS.md`: zmiana danego modułu wymaga
+  pierwszą rzeczą, którą sprawdza walidator (2026-09-06);
+- [x] dodać `docs/AI_AGENTS.md` opisujące podział instrukcji, automatyczny routing,
+  granice uprawnień i procedurę naprawy (2026-09-06);
+- [x] dodać obowiązkową mapę ścieżek w `AGENTS.md`: zmiana danego modułu wymaga
   odczytania odpowiadającego skill. Nie polegać wyłącznie na swobodnym
-  rozpoznaniu intencji przez model;
-- [ ] zachować domyślne implicit invocation; opisy skills muszą być krótkie i
-  rozłączne, aby agent sam wybierał właściwy zestaw.
+  rozpoznaniu intencji przez model — walidator psuje się, gdy skill nie ma
+  wiersza, wiersz wskazuje nieistniejący skill albo nieistniejącą ścieżkę
+  (2026-09-06);
+- [x] zachować domyślne implicit invocation; opisy skills muszą być krótkie i
+  rozłączne, aby agent sam wybierał właściwy zestaw — walidator odrzuca
+  identyczne `description`, a limit to 600 znaków (2026-09-06).
 
 ### 6.2. Pierwszy katalog
 
@@ -269,6 +275,12 @@ Skills powstają dopiero, gdy mają realne źródła i scenariusze. Ta zasada
 obowiązuje także sam katalog: skill dla modułu, którego nie ma, opisywałby
 zamiar, a walidator uznałby taki opis za aktualny. Pierwszy zestaw P2 obejmuje
 więc wyłącznie skills z istniejącymi dziś źródłami:
+
+Stan na 2026-09-06: napisane są `change-tenant-data`,
+`develop-saas-core-module`, `prepare-product-deployment`, `change-api-and-events`
+i `maintain-saas-core-skills`. Zostają trzy — `develop-sites`, `develop-booking`
+i `verify-saas-core-release` — bo ich źródła wymagają osobnego przejścia, a skill
+napisany z pobieżnej lektury byłby wykonywany z przekonaniem.
 
 | Skill | Kiedy ma się aktywować | Kanoniczne źródła |
 | --- | --- | --- |
@@ -314,9 +326,12 @@ ani automatycznie autoryzować działań produkcyjnych.
 
 ### 6.4. Walidacja i obserwowalność
 
-- [ ] dodać `pnpm ai:validate` i gate CI sprawdzający frontmatter, unikalność
+- [x] dodać `pnpm ai:validate` i gate CI sprawdzający frontmatter, unikalność
   nazw, działające linki/ścieżki/komendy, cienkie adaptery, brak sekretów,
-  nadmiarowe lub konfliktujące triggery oraz osierocone skills;
+  nadmiarowe lub konfliktujące triggery oraz osierocone skills — wpięty w
+  `pnpm lint`, czyli i w CI. Sprawdzony negatywnie: zły link, zduplikowany
+  `description`, sekret w treści i rozjechany adapter dają exit 1, a po
+  przywróceniu exit 0 (2026-09-06);
 - [ ] sprawdzać, że każdy aktywny deployment i moduł wysokiego ryzyka ma
   przypisaną procedurę albo świadomie korzysta ze skill ogólnego;
 - [ ] przygotować realistyczne evale: nowy endpoint, migracja tenantowa, zmiana

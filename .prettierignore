@@ -19,3 +19,6 @@ packages/contracts/openapi/*.yaml
 packages/api-client/src/schema.d.ts
 apps/frontend/src/generated/deployment.ts
 deployments/*/module-artifact.json
+# Blok `memex:*` w AGENTS.md pisze narzędzie; formatter i generator
+# przepisywałyby te same linie w kółko.
+AGENTS.md
