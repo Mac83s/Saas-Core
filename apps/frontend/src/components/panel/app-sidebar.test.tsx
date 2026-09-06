@@ -50,6 +50,7 @@ const BUSINESS = [
   "shared.media",
   "shared.notifications",
   "shared.booking",
+  "shared.seo",
 ];
 
 async function renderSidebar(modules: string[]) {
@@ -79,6 +80,7 @@ async function renderSidebar(modules: string[]) {
 const MODULE_LINKS = [
   "/panel/calendar",
   "/panel/sites",
+  "/panel/seo",
   "/panel/notifications",
   "/panel/settings/billing",
 ];

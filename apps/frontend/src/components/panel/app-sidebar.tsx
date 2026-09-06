@@ -9,6 +9,7 @@ import {
   MessageSquareTextIcon,
   PlugZapIcon,
   SettingsIcon,
+  SearchCheckIcon,
   UsersIcon,
   WandSparklesIcon,
   XIcon,
@@ -71,6 +72,12 @@ export function AppSidebar({
       icon: Globe2Icon,
       label: t("website"),
       module: "shared.sites",
+    },
+    {
+      href: "/panel/seo",
+      icon: SearchCheckIcon,
+      label: t("seo"),
+      module: "shared.seo",
     },
     {
       href: "/panel/notifications",

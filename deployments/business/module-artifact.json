@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:12e09272b6f2a32da9af88e66abfca748fbb0149ead99fe456869d8e38ab5754",
+  "profileHash": "sha256:edbf207a4aba67229d67be329f5e673204088bb2a86990e14533d61c1a35a84d",
   "schemaVersion": 1,
   "deployment": "business",
   "product": {
@@ -341,9 +341,15 @@
         "platformTables": []
       },
       "frontend": {
-        "routes": [],
-        "navigation": [],
-        "translationNamespaces": []
+        "routes": [
+          "/panel/seo"
+        ],
+        "navigation": [
+          "seo"
+        ],
+        "translationNamespaces": [
+          "seoAudits"
+        ]
       }
     }
   ]

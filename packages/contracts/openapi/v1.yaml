@@ -6055,7 +6055,7 @@ components:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/AuditOrder'
+            $ref: '#/components/schemas/AuditOrderSummary'
         next_cursor:
           type:
           - string
@@ -6132,6 +6132,63 @@ components:
       - id
       - report_hash
       - report_snapshot
+      - requested_options
+      - site_id
+      - state
+      - updated_at
+    AuditOrderSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        site_id:
+          type: string
+          format: uuid
+        state:
+          allOf:
+          - $ref: '#/components/schemas/StateEnum'
+          readOnly: true
+        requested_options:
+          readOnly: true
+        effective_options:
+          readOnly: true
+        credit_cost:
+          type: integer
+          readOnly: true
+        credit_state:
+          type: string
+          readOnly: true
+        report_hash:
+          type: string
+          readOnly: true
+        error_code:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+        completed_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          readOnly: true
+      required:
+      - completed_at
+      - created_at
+      - credit_cost
+      - credit_state
+      - effective_options
+      - error_code
+      - id
+      - report_hash
       - requested_options
       - site_id
       - state

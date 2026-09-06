@@ -144,8 +144,10 @@ def list_audits(
     *, cursor: UUID | None = None, limit: int = 50
 ) -> tuple[list[AuditOrder], UUID | None]:
     context = authorize_entitled(SEO_AUDIT_READ, SEO_AUDIT_ENABLED, operation=FeatureOperation.READ)
-    query = AuditOrder.all_objects.select_related("binding").filter(
-        organization_id=context.organization_id
+    query = (
+        AuditOrder.all_objects.select_related("binding")
+        .defer("report_snapshot")
+        .filter(organization_id=context.organization_id)
     )
     if cursor is not None:
         query = query.filter(id__lt=cursor)

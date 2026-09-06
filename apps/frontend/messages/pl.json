@@ -1,4 +1,65 @@
 {
+  "SeoAudits": {
+    "title": "Audyty SEO",
+    "description": "Sprawdź techniczny stan swojej strony i wracaj do zachowanych wyników kolejnych audytów.",
+    "refresh": "Odśwież",
+    "loading": "Wczytywanie audytów…",
+    "orderTitle": "Zamów audyt strony",
+    "offer": "Audyt do {pages} podstron kosztuje {credits} kredytów. Strona musi mieć zweryfikowaną domenę kanoniczną.",
+    "website": "Strona internetowa",
+    "chooseSite": "Wybierz stronę",
+    "chargePolicy": "Kredyty rezerwujemy przy zamówieniu. Pobieramy je po otrzymaniu pełnego raportu. Wynik częściowy, błąd lub anulowanie zwalniają rezerwację.",
+    "orderButton": "Zamów za {credits} kredytów",
+    "ordering": "Zapisywanie zamówienia…",
+    "orderingUnavailable": "Zamawianie audytów nie jest dostępne dla tego konta lub oferty. Zachowane wyniki pozostają w historii, jeśli masz uprawnienie do ich odczytu.",
+    "noSites": "Do zamówienia audytu potrzebujesz strony dostępnej na tym koncie.",
+    "history": "Historia audytów",
+    "empty": "Nie ma jeszcze zapisanych audytów.",
+    "openReport": "Otwórz wynik",
+    "older": "Starsze audyty",
+    "resultTitle": "Wynik audytu: {site}",
+    "reconciling": "Sprawdzamy stan zlecenia. Kredyty pozostają zarezerwowane; nie pobraliśmy opłaty. Nie musisz zamawiać drugiego audytu.",
+    "inProgress": "Audyt trwa. Stan odświeża się automatycznie co 10 sekund.",
+    "partial": "To wynik częściowy. Zachowaliśmy dostępny raport techniczny i zwolniliśmy kredyty.",
+    "notDelivered": "Audyt nie dostarczył pełnego wyniku. Kredyty zostały zwolnione.",
+    "score": "Ocena techniczna",
+    "issueCount": "Liczba problemów: {count}",
+    "snapshotAt": "Zachowany stan raportu z {date}.",
+    "issues": "Problemy techniczne strony",
+    "severity": "Ważność",
+    "check": "Kontrola",
+    "page": "Adres strony",
+    "moreIssues": "Pokaż kolejne problemy",
+    "loadError": "Nie udało się pobrać audytów. Spróbuj ponownie.",
+    "uncertainRequest": "Nie udało się potwierdzić zamówienia. Ponów tę operację, aby sprawdzić to samo zlecenie bez drugiego obciążenia.",
+    "priceChanged": "Cena się zmieniła. Sprawdź nową ofertę przed ponownym zamówieniem.",
+    "creditsExhausted": "Brakuje kredytów na zamówienie audytu.",
+    "accessUnavailable": "To konto nie ma dostępu do audytów w bieżącej ofercie.",
+    "unavailable": "Usługa audytów nie jest teraz dostępna.",
+    "states": {
+      "queued": "Oczekuje",
+      "submitting": "Przekazywanie zlecenia",
+      "running": "W trakcie",
+      "reconciling": "Sprawdzanie stanu",
+      "completed": "Ukończony",
+      "partial": "Wynik częściowy",
+      "failed": "Niepowodzenie",
+      "cancelled": "Anulowany"
+    },
+    "credits": {
+      "free": "Audyt bezpłatny",
+      "reserved": "Zarezerwowano {count} kredytów",
+      "committed": "Pobrano {count} kredytów",
+      "released": "Zwolniono {count} kredytów"
+    },
+    "severityLabels": {
+      "critical": "Krytyczna",
+      "high": "Wysoka",
+      "medium": "Średnia",
+      "low": "Niska",
+      "info": "Informacja"
+    }
+  },
   "Common": {
     "close": "Zamknij",
     "cancel": "Anuluj",
@@ -35,6 +96,7 @@
     "language": "Język interfejsu"
   },
   "DashboardNav": {
+    "seo": "Audyty SEO",
     "navigation": "Nawigacja panelu",
     "primaryNavigation": "Główne menu",
     "closeNavigation": "Zamknij menu",

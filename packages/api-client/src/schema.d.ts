@@ -2110,7 +2110,7 @@ export interface components {
             items: components["schemas"]["Appointment"][];
         };
         AuditList: {
-            items: components["schemas"]["AuditOrder"][];
+            items: components["schemas"]["AuditOrderSummary"][];
             /** Format: uuid */
             next_cursor: string | null;
         };
@@ -2129,6 +2129,25 @@ export interface components {
             readonly credit_cost: number;
             readonly credit_state: string;
             readonly report_snapshot: unknown;
+            readonly report_hash: string;
+            readonly error_code: string;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+            /** Format: date-time */
+            readonly completed_at: string | null;
+        };
+        AuditOrderSummary: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            site_id: string;
+            readonly state: components["schemas"]["StateEnum"];
+            readonly requested_options: unknown;
+            readonly effective_options: unknown;
+            readonly credit_cost: number;
+            readonly credit_state: string;
             readonly report_hash: string;
             readonly error_code: string;
             /** Format: date-time */

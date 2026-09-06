@@ -13,8 +13,8 @@
     "platformTables": []
   },
   "frontend": {
-    "routes": [],
-    "navigation": [],
-    "translationNamespaces": []
+    "routes": ["/panel/seo"],
+    "navigation": ["seo"],
+    "translationNamespaces": ["seoAudits"]
   }
 }

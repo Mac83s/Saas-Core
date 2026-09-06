@@ -18,12 +18,14 @@ export const deployment = {
     "shared.billing",
     "shared.sites",
     "shared.media",
+    "shared.profiles",
     "shared.notifications",
-    "shared.booking"
+    "shared.booking",
+    "shared.seo"
   ],
   "features": {
     "customDomains": true,
     "publicBooking": true
   },
-  "profileHash": "sha256:6611c7f428e3bca295f027be688d8646c9d9656460b4d7e3185b6d553d759d11"
+  "profileHash": "sha256:edbf207a4aba67229d67be329f5e673204088bb2a86990e14533d61c1a35a84d"
 } as const

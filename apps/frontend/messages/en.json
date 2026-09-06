@@ -1,4 +1,65 @@
 {
+  "SeoAudits": {
+    "title": "SEO audits",
+    "description": "Check your website's technical condition and revisit the retained results of each audit.",
+    "refresh": "Refresh",
+    "loading": "Loading audits…",
+    "orderTitle": "Order a website audit",
+    "offer": "An audit of up to {pages} pages costs {credits} credits. The website needs a verified canonical domain.",
+    "website": "Website",
+    "chooseSite": "Choose a website",
+    "chargePolicy": "Credits are reserved when you order and charged after a complete report arrives. A partial result, failure or cancellation releases the reservation.",
+    "orderButton": "Order for {credits} credits",
+    "ordering": "Saving your order…",
+    "orderingUnavailable": "Audit ordering is unavailable for this account or offer. Retained results remain in your history if you have permission to read them.",
+    "noSites": "You need a website available in this account to order an audit.",
+    "history": "Audit history",
+    "empty": "There are no saved audits yet.",
+    "openReport": "Open result",
+    "older": "Older audits",
+    "resultTitle": "Audit result: {site}",
+    "reconciling": "We are checking this order's status. Credits remain reserved and have not been charged. You do not need to order a second audit.",
+    "inProgress": "The audit is running. Its status refreshes automatically every 10 seconds.",
+    "partial": "This is a partial result. We retained the available technical report and released the credits.",
+    "notDelivered": "The audit did not deliver a complete result. Credits have been released.",
+    "score": "Technical score",
+    "issueCount": "Issues: {count}",
+    "snapshotAt": "Retained report observed on {date}.",
+    "issues": "Website technical issues",
+    "severity": "Severity",
+    "check": "Check",
+    "page": "Page address",
+    "moreIssues": "Show more issues",
+    "loadError": "Could not load audits. Please try again.",
+    "uncertainRequest": "The order could not be confirmed. Retry this operation to check the same order without a second charge.",
+    "priceChanged": "The price has changed. Review the new offer before ordering again.",
+    "creditsExhausted": "There are not enough credits to order this audit.",
+    "accessUnavailable": "This account does not have audit access under its current offer.",
+    "unavailable": "The audit service is currently unavailable.",
+    "states": {
+      "queued": "Queued",
+      "submitting": "Submitting",
+      "running": "Running",
+      "reconciling": "Checking status",
+      "completed": "Completed",
+      "partial": "Partial result",
+      "failed": "Failed",
+      "cancelled": "Cancelled"
+    },
+    "credits": {
+      "free": "Free audit",
+      "reserved": "{count} credits reserved",
+      "committed": "{count} credits charged",
+      "released": "{count} credits released"
+    },
+    "severityLabels": {
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low",
+      "info": "Information"
+    }
+  },
   "Common": {
     "close": "Close",
     "cancel": "Cancel",
@@ -35,6 +96,7 @@
     "language": "Interface language"
   },
   "DashboardNav": {
+    "seo": "SEO audits",
     "navigation": "Dashboard navigation",
     "primaryNavigation": "Main menu",
     "closeNavigation": "Close menu",

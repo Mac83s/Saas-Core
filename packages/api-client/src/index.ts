@@ -4,6 +4,60 @@ import type { components, paths } from "./schema";
 
 const client = createClient<paths>({ baseUrl: "" });
 
+export type SeoAuditOrder = components["schemas"]["AuditOrder"];
+export type SeoAuditSummary = components["schemas"]["AuditOrderSummary"];
+export type SeoAuditList = components["schemas"]["AuditList"];
+export type SeoAuditOffer = components["schemas"]["AuditOffer"];
+export type SeoAuditInput = components["schemas"]["AuditRequest"];
+
+export async function getSeoAuditOffer(): Promise<SeoAuditOffer> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/seo/audit-offer/",
+    {
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function listSeoAudits(cursor?: string): Promise<SeoAuditList> {
+  const { data, error, response } = await client.GET("/api/v1/seo/audits/", {
+    params: { query: { limit: 50, ...(cursor ? { cursor } : {}) } },
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function readSeoAudit(orderId: string): Promise<SeoAuditOrder> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/seo/audits/{order_id}/",
+    {
+      params: { path: { order_id: orderId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function requestSeoAudit(
+  input: SeoAuditInput,
+): Promise<SeoAuditOrder> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST("/api/v1/seo/audits/", {
+    body: input,
+    credentials: "same-origin",
+    headers: { "X-CSRFToken": csrfToken },
+  });
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export type HealthStatus = components["schemas"]["Health"];
 export type UserSummary = components["schemas"]["UserSummary"];
 export type SessionSummary = components["schemas"]["SessionSummary"];

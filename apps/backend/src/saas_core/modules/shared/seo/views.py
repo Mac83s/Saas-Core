@@ -14,6 +14,7 @@ from .serializers import (
     AuditListSerializer,
     AuditOfferSerializer,
     AuditOrderSerializer,
+    AuditOrderSummarySerializer,
     AuditRequestSerializer,
     CallbackEnvelopeSerializer,
     CallbackResultSerializer,
@@ -24,7 +25,11 @@ from .services import list_audits, read_audit, read_audit_offer, request_audit
 class AuditListView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @extend_schema(operation_id="seo_audits_list", parameters=[AuditListQuerySerializer], responses=AuditListSerializer)
+    @extend_schema(
+        operation_id="seo_audits_list",
+        parameters=[AuditListQuerySerializer],
+        responses=AuditListSerializer,
+    )
     def get(self, request: Request) -> Response:
         query = AuditListQuerySerializer(data=request.query_params)
         query.is_valid(raise_exception=True)
@@ -33,7 +38,7 @@ class AuditListView(APIView):
         )
         return Response(
             {
-                "items": AuditOrderSerializer(rows, many=True).data,
+                "items": AuditOrderSummarySerializer(rows, many=True).data,
                 "next_cursor": str(cursor) if cursor else None,
             },
             headers={"Cache-Control": "private, no-store"},

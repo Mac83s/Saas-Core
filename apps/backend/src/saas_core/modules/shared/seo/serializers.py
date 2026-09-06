@@ -59,8 +59,14 @@ class AuditListQuerySerializer(serializers.Serializer[dict[str, Any]]):
     limit = serializers.IntegerField(min_value=1, max_value=100, default=50)
 
 
+class AuditOrderSummarySerializer(AuditOrderSerializer):
+    class Meta(AuditOrderSerializer.Meta):
+        fields = [field for field in AuditOrderSerializer.Meta.fields if field != "report_snapshot"]
+        read_only_fields = fields
+
+
 class AuditListSerializer(serializers.Serializer[dict[str, Any]]):
-    items = AuditOrderSerializer(many=True)
+    items = AuditOrderSummarySerializer(many=True)
     next_cursor = serializers.UUIDField(allow_null=True)
 
 

@@ -431,6 +431,7 @@ def test_audit_list_cursor_has_no_duplicates_and_read_has_no_business_effect(seo
     client = seo[0]
     before = list(CreditReservation.all_objects.values("id", "state"))
     page = client.get("/api/v1/seo/audits/?limit=1").json()
+    assert "report_snapshot" not in page["items"][0]
     assert [row["id"] for row in page["items"]] == [str(second.id)]
     page = client.get(f"/api/v1/seo/audits/?limit=1&cursor={page['next_cursor']}").json()
     assert [row["id"] for row in page["items"]] == [str(first.id)]
