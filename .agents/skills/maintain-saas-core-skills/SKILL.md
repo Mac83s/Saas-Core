@@ -27,8 +27,13 @@ every task stay in `AGENTS.md`.
 4. **Validate.** `pnpm ai:validate` checks frontmatter, unique names, name equal
    to directory, description length and uniqueness, every repository path and
    `pnpm` command a skill mentions, adapter frontmatter equal to canonical,
-   adapters staying thin, mirrors staying identical, orphans, secrets, size, and
-   that every skill has a row in the routing map in `AGENTS.md`.
+   adapters staying thin, mirrors staying identical, orphans, secrets, size,
+   irreversible commands inside fenced blocks, and that every skill has a row in
+   the routing map in `AGENTS.md`. Then `pnpm ai:eval` asks the question that
+   comes after well-formedness: for the scenarios in
+   `.agents/evals/routing.json`, does exactly one description stand out, and
+   does every catalogued module have a procedure or a written reason for using a
+   general one.
 5. **Exercise.** Run the checks the changed skill itself promises. A skill that
    tells somebody to run `pnpm backend:test` is wrong if that command no longer
    exists — and right only if the command still does what the skill claims.
@@ -40,6 +45,8 @@ every task stay in `AGENTS.md`.
 Only for an area that exists. A skill for an unwritten module describes an
 intention, and the validator would call that intention current.
 
+- a scenario in `.agents/evals/routing.json` whose terms the new description
+  wins on. A skill nobody can route to is a file, not an instruction;
 - one directory, one `SKILL.md`, `name` equal to the directory name;
 - `description` says **when to use it**, not what it contains — that field is
   what routing reads, and two overlapping descriptions make the choice random.
@@ -55,7 +62,10 @@ intention, and the validator would call that intention current.
 
 ## What a skill may not do
 
-- widen permissions, or authorize a production or irreversible action;
+- widen permissions, or authorize a production or irreversible action. The
+  validator catches the checkable half — `git push`, `--force`, `--apply`,
+  `rm -rf`, `DROP`/`TRUNCATE` inside a fenced command block. Prose *about* those
+  commands is fine and often necessary; handing one over is not;
 - replace an ADR. A skill explains how to work inside a decision; changing the
   decision needs a new ADR;
 - contain a secret, a token or a customer's data;
@@ -77,6 +87,7 @@ intention, and the validator would call that intention current.
 
 ```
 pnpm ai:validate
+pnpm ai:eval
 ```
 
 green locally and in CI, the diff shown, and the reason for the change written

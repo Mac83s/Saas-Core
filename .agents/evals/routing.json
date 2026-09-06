@@ -1,0 +1,100 @@
+{
+  "$comment": "Scenariusze doboru skill i pokrycie modułów. Sprawdzane przez pnpm ai:eval.",
+  "scenarios": [
+    {
+      "id": "new-endpoint",
+      "task": "Dodaj endpoint zwracający Problem Details, zaktualizuj wygenerowany kontrakt i klienta TypeScript.",
+      "expect": "change-api-and-events",
+      "terms": ["endpoint", "serializer", "OpenAPI", "TypeScript client"]
+    },
+    {
+      "id": "tenant-migration",
+      "task": "Dodaj model tenantowy z migracją zakładającą politykę RLS i zadaniem w tle.",
+      "expect": "change-tenant-data",
+      "terms": ["migration", "RLS", "organization_id", "TenantContext"]
+    },
+    {
+      "id": "booking-change",
+      "task": "Zmień wyszukiwanie wolnych terminów i przekładanie wizyt.",
+      "expect": "develop-booking",
+      "terms": ["appointments", "slot search", "availability rules", "self-service"]
+    },
+    {
+      "id": "sites-publication",
+      "task": "Zmień publikację strony i obsługę domeny klienta.",
+      "expect": "develop-sites",
+      "terms": ["publication", "domains", "public renderer", "page templates"]
+    },
+    {
+      "id": "connect-webhook",
+      "task": "Przyjmij zdarzenie od providera płatności i wystaw je dalej przez outbox.",
+      "expect": "change-api-and-events",
+      "terms": ["event", "outbox", "endpoint"],
+      "note": "Do P5 nie ma skill płatnościowego; webhook jest endpointem i zdarzeniem, więc świadomie prowadzi go skill ogólny od API."
+    },
+    {
+      "id": "new-module",
+      "task": "Dodaj nowy moduł Shared i wepnij go w kompozycję produktu.",
+      "expect": "develop-saas-core-module",
+      "terms": [
+        "INSTALLED_APPS",
+        "beat schedule",
+        "layer boundaries",
+        "packages/contracts/modules"
+      ]
+    },
+    {
+      "id": "new-deployment",
+      "task": "Utwórz nowy profil produktu, zbuduj obrazy i zapisz wiersz release'u.",
+      "expect": "prepare-product-deployment",
+      "terms": ["deployment profile", "images", "rollback", "profile hash"]
+    },
+    {
+      "id": "release-acceptance",
+      "task": "Odbierz przyrost przed przekazaniem i zdecyduj, czy da się go wycofać.",
+      "expect": "verify-saas-core-release",
+      "terms": ["release candidate", "gates", "evidence", "rolled back"]
+    },
+    {
+      "id": "stale-skill",
+      "task": "Instrukcja wskazuje przeniesiony plik po zmianie ADR-u; napraw katalog.",
+      "expect": "maintain-saas-core-skills",
+      "terms": ["skill catalogue", "ai:validate", "stale", "ADR"]
+    }
+  ],
+  "coverage": {
+    "$comment": "Każdy moduł katalogu ma przypisaną procedurę albo świadomie korzysta ze skill ogólnego — wtedy z powodem.",
+    "core.health": {
+      "skill": "develop-saas-core-module",
+      "note": "Moduł jest w każdym profilu i nie ma własnej domeny; zmiany dotyczą kompozycji i komendy release'u."
+    },
+    "core.identity": {
+      "skill": "change-api-and-events",
+      "note": "Konto nie jest danymi tenanta. Zmiany sesji, MFA i rejestracji to endpointy i zdarzenia; dedykowanego skill tożsamości jeszcze nie ma — powstanie w P3 razem z profilami i kontem klienta."
+    },
+    "core.organizations": {
+      "skill": "change-tenant-data",
+      "note": "Rejestr tenantów, członkostwa, zaproszenia i drzwi pre-tenant."
+    },
+    "shared.billing": {
+      "skill": "change-api-and-events",
+      "note": "Świadomie ogólny: cykl życia, webhooki i kredyty to endpointy, zdarzenia i zadania. Dedykowany develop-commerce-payments powstaje w P5 razem z ADR-037."
+    },
+    "shared.sites": {
+      "skill": "develop-sites",
+      "note": "Własna procedura: treść, publikacja, domeny i renderer publiczny mają dość odrębnych pułapek, żeby nie mieściły się w skill ogólnym."
+    },
+    "shared.media": {
+      "skill": "develop-sites",
+      "note": "Media żyją w cyklu publikacji strony; osobna procedura powielałaby develop-sites."
+    },
+    "shared.notifications": {
+      "skill": "change-api-and-events",
+      "note": "Świadomie ogólny: skrzynka, webhooki wychodzące i klucze API to kontrakt API i zdarzenia."
+    },
+    "shared.booking": {
+      "skill": "develop-booking",
+      "note": "Własna procedura: czas lokalny, DST i rozstrzyganie wyścigu przez ograniczenie bazy to reguły, których nie da się wyprowadzić z niczego innego."
+    }
+  }
+}

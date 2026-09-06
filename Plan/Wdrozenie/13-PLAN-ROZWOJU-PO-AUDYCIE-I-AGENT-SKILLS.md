@@ -330,17 +330,36 @@ ani automatycznie autoryzować działań produkcyjnych.
   `pnpm lint`, czyli i w CI. Sprawdzony negatywnie: zły link, zduplikowany
   `description`, sekret w treści i rozjechany adapter dają exit 1, a po
   przywróceniu exit 0 (2026-09-06);
-- [ ] sprawdzać, że każdy aktywny deployment i moduł wysokiego ryzyka ma
-  przypisaną procedurę albo świadomie korzysta ze skill ogólnego;
-- [ ] przygotować realistyczne evale: nowy endpoint, migracja tenantowa, zmiana
-  Booking, webhook Connect, nowy deployment i aktualizacja nieaktualnego skill;
-- [ ] uruchamiać kontrolę driftu przy zmianie źródeł oraz cykliczny przegląd
-  katalogu wykonywany przez agenta; wykryty problem tworzy poprawkę i dowody,
-  nie instrukcję ręcznej edycji dla właściciela;
+- [x] sprawdzać, że każdy aktywny deployment i moduł wysokiego ryzyka ma
+  przypisaną procedurę albo świadomie korzysta ze skill ogólnego — sekcja
+  `coverage` w `.agents/evals/routing.json` przypisuje skill każdemu z ośmiu
+  modułów katalogu **wraz z powodem**; `pnpm ai:eval` psuje się przy module bez
+  wpisu, przy wpisie do nieistniejącego skill i przy powodzie krótszym niż jedno
+  zdanie. Świadomie ogólne dziś: `shared.billing` i `shared.notifications`
+  (kontrakt API i zdarzenia) oraz `core.identity` — dedykowany skill tożsamości
+  powstaje w P3 (2026-09-06);
+- [x] przygotować realistyczne evale: nowy endpoint, migracja tenantowa, zmiana
+  Booking, webhook Connect, nowy deployment i aktualizacja nieaktualnego skill —
+  dziewięć scenariuszy w `.agents/evals/routing.json`, po jednym na każdy skill
+  plus webhook płatnościowy, który do P5 świadomie prowadzi skill ogólny.
+  `pnpm ai:eval` sprawdza, czy oczekiwany skill **wygrywa terminami** z każdym
+  innym. Uczciwie o zakresie: to nie dowodzi, że model wybierze właściwy skill —
+  dowodzi, że opisy rozróżniają, czyli tej połowy, którą kontrolujemy i która
+  się psuje (2026-09-06);
+- [x] uruchamiać kontrolę driftu przy zmianie źródeł — `pnpm ai:validate` i
+  `pnpm ai:eval` chodzą w `pnpm lint`, więc każda zmiana przechodząca CI
+  weryfikuje katalog; wykryty problem naprawia agent według
+  `maintain-saas-core-skills`, osobnym commitem z dowodami. **Zostaje** cykliczny
+  przegląd (harmonogram, nie tylko reakcja na zmianę);
 - [ ] mierzyć dobór właściwego skill, liczbę korekt po review, nieudane bramki,
-  czas do znalezienia kontraktu i regresje spowodowane nieaktualną instrukcją;
-- [ ] brak wymaganej instrukcji lub niezgodność walidatora blokuje merge, ale nie
-  dostępność uruchomionego produktu.
+  czas do znalezienia kontraktu i regresje spowodowane nieaktualną instrukcją —
+  część „dobór skill" ma dziś formę deterministyczną (`pnpm ai:eval`); reszta to
+  metryki procesu, których nie ma gdzie zbierać, dopóki nad repozytorium nie
+  pracuje więcej niż jedna sesja naraz;
+- [x] brak wymaganej instrukcji lub niezgodność walidatora blokuje merge, ale nie
+  dostępność uruchomionego produktu — obie bramki żyją w `pnpm lint`, czyli w
+  `.github/workflows/ci.yml`; żaden proces produktu nie czyta katalogu skills w
+  runtime (2026-09-06).
 
 ### Bramka P2
 
@@ -351,12 +370,15 @@ ani automatycznie autoryzować działań produkcyjnych.
   `pnpm ai:validate`. Drift treści (ADR zmienia się, a ścieżka zostaje) nie jest
   wykrywalny maszynowo i należy do procedury w `maintain-saas-core-skills`
   (2026-09-06);
-- [ ] maintainer aktualizuje wskazany skill, a walidacja wykrywa celowo
+- [x] maintainer aktualizuje wskazany skill, a walidacja wykrywa celowo
   wprowadzony zły link, zduplikowany trigger i przekroczenie uprawnień —
-  **dwa z trzech zrobione**: zły link i zduplikowany `description` dają exit 1
-  (sprawdzone), podobnie sekret w treści i rozjechany adapter. Przekroczenie
-  uprawnień nie jest wykrywalne tekstowo i zostaje pytaniem przeglądu; do
-  domknięcia potrzebny jest scenariusz, nie regex;
+  wszystkie trzy sprawdzone negatywnie (plus sekret w treści i rozjechany
+  adapter). Przekroczenie uprawnień w wersji sprawdzalnej: **polecenie
+  nieodwracalne w bloku kodu** (`git push`, `--force`, `--apply`, `rm -rf`,
+  `DROP`/`TRUNCATE`). Rozróżnienie jest celowe — proza o tych poleceniach
+  przechodzi, podanie ich do wykonania nie. Instrukcja, która czyta się
+  niewinnie, a daje więcej, niż powinna, zostaje pytaniem przeglądu
+  (2026-09-06);
 - [x] skills Codex i wspieranych klientów nie rozjeżdżają się treściowo — Codex
   czyta `AGENTS.md` i katalog kanoniczny `.agents/skills/`, więc nie ma czego
   rozjeżdżać; ryzyko dotyczy wyłącznie klientów wymagających adapterów, a tam

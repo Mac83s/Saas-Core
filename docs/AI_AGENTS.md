@@ -58,18 +58,29 @@ za poprawną dlatego, że plik się parsuje.
 
 ```
 pnpm ai:validate
+pnpm ai:eval
 ```
 
-Deterministyczna bramka, wpięta w `pnpm lint`, czyli i w CI. Sprawdza:
-frontmatter i jego domknięcie, `name` równy nazwie katalogu, unikalność nazw i
-opisów, długość opisu, rozmiar pliku, istnienie **każdej ścieżki repozytorium**
-i **każdej komendy `pnpm`** wymienionej w treści, zgodność frontmatteru adaptera
-z kanonicznym, cienkość adapterów, równość mirrorów, adaptery osierocone, ślady
-sekretów oraz to, że każdy skill ma wiersz w mapie ścieżek.
+Obie bramki są deterministyczne i wpięte w `pnpm lint`, czyli i w CI.
 
-Czego walidator **nie** sprawdza: czy rada jest dobra. Od tego są scenariusze i
-człowiek w przeglądzie. Dlatego zmiana skill idzie osobnym commitem — diff jest
-recenzją.
+`ai:validate` pyta, czy skill jest dobrze zbudowany: frontmatter i jego
+domknięcie, `name` równy nazwie katalogu, unikalność nazw i opisów, długość
+opisu, rozmiar pliku, istnienie **każdej ścieżki repozytorium** i **każdej
+komendy `pnpm`** wymienionej w treści, zgodność frontmatteru adaptera z
+kanonicznym, cienkość adapterów, równość mirrorów, adaptery osierocone, ślady
+sekretów oraz **polecenia nieodwracalne w blokach kodu** (`git push`, `--force`,
+`--apply`, `rm -rf`, `DROP`/`TRUNCATE`). Rozróżnienie jest celowe: pisać o tych
+poleceniach wolno i często trzeba, podawać je do wykonania — nie.
+
+`ai:eval` pyta o to, co jest ważne później: czy katalog **routuje** i czy
+**pokrywa** produkt. Dla scenariuszy z `.agents/evals/routing.json` sprawdza, czy
+oczekiwany skill wygrywa terminami z każdym innym, i czy każdy moduł katalogu ma
+przypisaną procedurę albo świadomie wybrany skill ogólny — z zapisanym powodem.
+
+Czego żadna z bramek **nie** sprawdza: czy model faktycznie wybierze właściwy
+skill (to zależy od modelu; sprawdzalne jest tylko to, czy opisy rozróżniają) i
+czy rada jest dobra. Od tego jest człowiek w przeglądzie — dlatego zmiana skill
+idzie osobnym commitem, a diff jest recenzją.
 
 ## 5. Gdy instrukcja się zdezaktualizuje
 

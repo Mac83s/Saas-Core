@@ -59,6 +59,27 @@ const PNPM_BUILTINS = new Set([
   "why",
 ]);
 
+/**
+ * Commands a skill may discuss but must never hand somebody to run.
+ *
+ * Only fenced code blocks are searched, because that is the difference between
+ * explaining a rule and issuing an instruction: `verify-saas-core-release` says
+ * in prose that `git push` happens only when the owner asks, and that sentence
+ * is the opposite of authorizing it. This is the checkable part of "a skill may
+ * not widen permissions"; the rest — an instruction that reads innocently and
+ * grants more than it should — stays a question for review.
+ */
+const IRREVERSIBLE_IN_COMMANDS = [
+  /\bgit\s+push\b/,
+  /\bgit\s+reset\s+--hard\b/,
+  /\brm\s+-rf\b/,
+  /\bdocker\s+compose\s+down\s+.*-v\b/,
+  /\bDROP\s+(TABLE|DATABASE|SCHEMA)\b/i,
+  /\bTRUNCATE\b/i,
+  /--apply\b/,
+  /--force\b/,
+];
+
 const SECRET_PATTERNS = [
   /\bsk_(live|test)_[A-Za-z0-9]/,
   /\bwhsec_[A-Za-z0-9]/,
@@ -139,6 +160,17 @@ async function checkReferences(name, body, scripts) {
   }
   for (const pattern of SECRET_PATTERNS) {
     if (pattern.test(body)) fail(where, "treść wygląda na zawierającą sekret");
+  }
+  for (const block of body.matchAll(/```[^\n]*\n([\s\S]*?)```/g)) {
+    for (const pattern of IRREVERSIBLE_IN_COMMANDS) {
+      if (pattern.test(block[1])) {
+        fail(
+          where,
+          "blok poleceń zawiera operację nieodwracalną albo produkcyjną " +
+            `(${pattern.source}); skill nie autoryzuje takich działań`,
+        );
+      }
+    }
   }
 }
 

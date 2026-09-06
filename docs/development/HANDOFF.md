@@ -616,6 +616,41 @@ evale (§6.4) oraz „przekroczenie uprawnień" jako trzeci przypadek negatywny 
 tego nie da się złapać regexem, potrzebny jest scenariusz. Zły link, zduplikowany
 `description`, sekret w treści i rozjechany adapter są sprawdzone i dają exit 1.
 
+### Evale routingu i trzeci przypadek negatywny (2026-09-06)
+
+Katalog skills dostał drugą bramkę. `pnpm ai:validate` pyta, czy skill jest
+**dobrze zbudowany**; nowy `pnpm ai:eval` pyta o to, co ważniejsze później: czy
+katalog **routuje** i czy **pokrywa** produkt.
+
+**Routing.** Dziewięć scenariuszy w `.agents/evals/routing.json` — nowy endpoint,
+migracja tenantowa, zmiana Booking, publikacja strony, webhook płatnościowy,
+nowy moduł, nowy deployment, odbiór release'u i naprawa nieaktualnej instrukcji.
+Każdy niesie terminy, a bramka sprawdza, czy oczekiwany skill **wygrywa nimi z
+każdym innym**. Uczciwie o zakresie: to nie dowodzi, że model wybierze właściwy
+skill — tego nie da się sprawdzić deterministycznie. Dowodzi, że **opisy
+rozróżniają**, czyli tej połowy, którą kontrolujemy i która się psuje: nowy skill
+z opisem zachodzącym na istniejący zamienia routing w rzut monetą, i to po cichu.
+
+**Pokrycie.** Sekcja `coverage` przypisuje skill każdemu z ośmiu modułów katalogu
+**wraz z powodem**. Trzy korzystają świadomie ze skill ogólnego i mówią dlaczego:
+`shared.billing` i `shared.notifications` (kontrakt API i zdarzenia) oraz
+`core.identity` — dedykowany skill tożsamości powstanie w P3 razem z profilami i
+kontem klienta. Moduł bez wpisu albo z powodem krótszym niż zdanie psuje bramkę.
+
+**Trzeci przypadek negatywny** wreszcie ma sprawdzalną formę. „Przekroczenia
+uprawnień" nie da się złapać regexem w ogólności, ale da się złapać to, co
+najgroźniejsze: **polecenie nieodwracalne podane do wykonania**. Walidator
+przeszukuje wyłącznie bloki kodu pod kątem `git push`, `--force`, `--apply`,
+`rm -rf`, `DROP`/`TRUNCATE`. Rozróżnienie jest celowe i działa:
+`verify-saas-core-release` pisze w prozie, że `git push` idzie tylko na prośbę
+właściciela — to zdanie jest przeciwieństwem autoryzacji i przechodzi; to samo
+polecenie wstawione do bloku daje exit 1.
+
+Bramka P2 zamknięta poza dwiema rzeczami, obiema nazwanymi: cykliczny przegląd
+katalogu (dziś reagujemy na zmianę, nie mamy harmonogramu) i metryki procesu
+poza samym doborem skill — nie ma ich gdzie zbierać, dopóki nad repozytorium nie
+pracuje więcej niż jedna sesja naraz.
+
 ### Kredyty w panelu (2026-09-05)
 
 Domena kredytów była kompletna od kilku dni i całkowicie niewidoczna: księga,
