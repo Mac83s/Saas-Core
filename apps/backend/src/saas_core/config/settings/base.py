@@ -666,6 +666,14 @@ _MODULE_BEAT_SCHEDULE: dict[str, dict[str, Any]] = {
             "schedule": 60.0,
         },
     },
+    "shared.media": {
+        # ADR-042: an erased tenant's files are deleted after the rows commit,
+        # so something has to finish the job and say when it is finished.
+        "media-purge-erased-objects": {
+            "task": "saas_core.modules.shared.media.tasks.purge_erased_objects",
+            "schedule": 300.0,
+        },
+    },
     "shared.booking": {
         "booking-dispatch-reminders": {
             "task": "saas_core.modules.shared.booking.tasks.dispatch_booking_reminders",

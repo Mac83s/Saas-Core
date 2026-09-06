@@ -36,6 +36,8 @@ rejestr z `Plan/SaaS-Core-06-Rejestr-Decyzji.md`.
 | [ADR-038](ADR-038-Repozytoryjne-Agent-Skills.md) | repozytoryjne Agent Skills: cykl życia i granice autonomii | Accepted |
 | [ADR-039](ADR-039-Dwa-Rezimy-Izolacji-RLS-i-Tabele-Publiczne.md) | dwa reżimy izolacji: RLS domyślnie, tabele publiczne z deklaracji | Accepted |
 | [ADR-040](ADR-040-VAT-Ceny-Netto-i-Zakres-Customer-Portalu.md) | VAT przez Stripe Tax, ceny netto i zakres Customer Portalu | Accepted |
+| [ADR-041](ADR-041-Izolacja-Tabel-Czytanych-Przed-Poznaniem-Tenanta.md) | Izolacja tabel czytanych przed poznaniem tenanta: drzwi i tabele platformowe | Accepted |
+| [ADR-042](ADR-042-Usuniecie-Tenanta-i-Prawo-do-Bycia-Zapomnianym.md) | Usunięcie tenanta jest usunięciem; jedna nazwana furtka w append-only | Accepted |
 
 Każda zmiana decyzji tworzy nowy ADR. Całkowicie zastąpiony dokument otrzymuje
 status `Superseded`; przy częściowym zastąpieniu nowy ADR wskazuje dokładny

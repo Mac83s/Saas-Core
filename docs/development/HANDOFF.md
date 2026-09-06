@@ -809,6 +809,58 @@ Zostaje w P3: powiązanie profilu z Site (blok `core.profile`, zrzut w snapshoci
 `specialist`/`reception`, `PolicyAcknowledgement` i **decyzja o usuwaniu
 tenanta**, która wymaga ADR-u i Twojego zdania.
 
+### Usunięcie tenanta jest usunięciem (ADR-042, 2026-09-06)
+
+Twoja decyzja, zapisana jako ADR: **usuwamy dane, nie anonimizujemy**. Powód
+jest jednocześnie prawny i praktyczny — w rezerwacjach, powiadomieniach i
+zrzutach publikacji leżą dane osobowe **klientów naszych klientów**, a o
+anonimizacji tekstu swobodnego i JSON-a nie da się udowodnić, że nikogo już nie
+identyfikuje. Usunięcie wiersza udowadnia się policzeniem wierszy.
+
+Stan przed: dziesięć wyzwalaczy odmawiało `DELETE` bezwarunkowo, osiem na
+tabelach tenantowych. Organizacja, która kiedykolwiek załączyła plik albo
+zapisała wpis audytowy — czyli każda prawdziwa — **była nieusuwalna**.
+Inwentaryzacja na żywo: 77 tabel z `organization_id`, dane osobowe w co najmniej
+dwudziestu, w tym w `snapshot`, `payload` i `metadata`.
+
+**Furtka jest jedna i nazwana.** Wyzwalacze przepuszczają `DELETE` wierszy
+organizacji wskazanej w `app.erasing_organization_id`. To **identyfikator, nie
+flaga** — flaga włączona przez pomyłkę otwierałaby historię wszystkich tenantów
+naraz, identyfikator otwiera dokładnie tę firmę, którą ktoś nazwał. Ustawia go
+jedno miejsce w kodzie, a liczy je test, tak samo jak drzwi z ADR-041. Piszę
+wprost, czego to nie daje: kto ma poświadczenia bazy aplikacyjnej, ustawi tę
+zmienną sam — żadna warstwa w bazie tego nie zmieni. To broni przed błędem w
+kodzie i czyni zamiar widocznym.
+
+**Kolejność jest rozstrzygnięciem.** PostgreSQL nie cofnie usunięcia z object
+storage, więc: wiersze w transakcji → commit → dopiero potem pliki, a klucze
+czekających obiektów siedzą w **pokwitowaniu**, które przemiatanie mediów opróżnia
+co pięć minut. Odwrotna kolejność kasowałaby pliki także wtedy, gdy transakcja
+padnie.
+
+**Pokwitowanie** zostaje poza usuniętym tenantem: identyfikator organizacji, kto
+zlecił, powód, liczby wierszy per tabela, klucze obiektów. **Nic z treści** — ani
+nazwy, ani adresu, ani e-maila. Dowód, że usunięcie się odbyło, nie kopia tego,
+co usunięto.
+
+Komenda operatorska wymaga `is_staff` z MFA, powodu dłuższego niż słowo,
+przepisanego sluga i `--apply`; domyślnie tylko wypisuje plan.
+`purge_test_tenants` przestał być osobną implementacją i jest nakładką na ten sam
+serwis — więc konta testowe też dają się wreszcie usunąć.
+
+Sprawdzone na uruchomionym stacku: bez furtki audyt nadal odmawia
+(„organization audit entries are append-only"), po usunięciu **0 wierszy, 0
+organizacji**, rejestr jej nie zna (sprawdzone przez drzwi, więc to nie artefakt
+RLS), pokwitowanie jest. Jeden test zmienił wymowę na przeciwną i tak miało być:
+`test_a_tenant_with_media_cannot_be_purged_and_says_so` opisywał defekt jako
+regułę.
+
+**Jedna rzecz do zapamiętania na przyszłość**: nie przechowujemy dokumentów
+księgowych — `BillingInvoiceDocument` jest rekordem zadania, faktury żyją w
+Stripe i u wystawcy. Dlatego nasze usunięcie może być kompletne. Gdybyśmy
+kiedykolwiek zaczęli trzymać dokument księgowy u siebie, ADR-042 wymaga rewizji,
+bo zniszczenie dokumentacji księgowej jest osobnym naruszeniem.
+
 ### Kredyty w panelu (2026-09-05)
 
 Domena kredytów była kompletna od kilku dni i całkowicie niewidoczna: księga,

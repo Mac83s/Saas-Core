@@ -25,18 +25,17 @@ import uuid
 from collections import Counter
 from typing import Any
 
-from django.apps import apps
 from django.contrib.admin.utils import NestedObjects
 from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 from django.db import DatabaseError, transaction
-from django.db.models import ForeignKey, Model, ProtectedError
+from django.db.models import Model, ProtectedError
 
 from saas_core.modules.core.identity.models import User
-from saas_core.modules.core.organizations.context import (
-    TenantContext,
-    activate_tenant_context,
-    set_local_organization_id,
+from saas_core.modules.core.organizations.erasure import (
+    ErasureBlocked,
+    erase_organization,
+    row_counts,
 )
 from saas_core.modules.core.organizations.models import Membership, Organization
 from saas_core.modules.core.organizations.pre_tenant import PRE_TENANT_DB
@@ -57,38 +56,10 @@ def is_reserved_email(email: str) -> bool:
     return domain in RESERVED_DOMAINS or domain.endswith(RESERVED_DOMAIN_SUFFIXES)
 
 
-def organization_scoped_models() -> list[tuple[type[Model], str]]:
-    """Every model that names an organization, with the field that names it.
-
-    Discovered from the model metadata rather than declared, so a module added
-    later is covered without touching this command. Where a model has more than
-    one such field the first one wins — that is the tenant it belongs to.
-    """
-    scoped: list[tuple[type[Model], str]] = []
-    for model in apps.get_models():
-        if model is Organization:
-            continue
-        for field in model._meta.get_fields():
-            if isinstance(field, ForeignKey) and field.related_model is Organization:
-                scoped.append((model, field.name))
-                break
-    return scoped
-
-
-def _purge_context(organization_id: uuid.UUID) -> TenantContext:
-    """A context that exists only so tenant-scoped managers can answer.
-
-    Deletion reads through ``TenantScopedManager``, which refuses without a
-    context. Nothing here grants a permission: the command carries no actor and
-    checks no permission, because it is an operator tool, not a request.
-    """
-    return TenantContext(
-        organization_id=organization_id,
-        membership_id=uuid.uuid7(),
-        actor_id=uuid.uuid7(),
-        role_key="purge",
-        permissions=frozenset(),
-    )
+#: Removing an account walks a short chain (user -> audit event). The limit only
+#: stops a cycle from recursing forever; tenant rows are emptied by the erasure
+#: service, which knows how to open the append-only guards (ADR-042).
+MAX_PROTECTED_DEPTH = 24
 
 
 def _first_line(error: Exception) -> str:
@@ -97,14 +68,11 @@ def _first_line(error: Exception) -> str:
 
 
 def _delete_row(instance: Model) -> None:
-    """Delete one row even when its model refuses to be deleted.
+    """Delete one row even when its model refuses on ``delete()``.
 
-    Mutation logs, page versions and publications raise on ``delete()`` on
-    purpose: nothing in the application may erase what happened. Removing a
-    whole tenant is the one operator action that has to, so the row goes
-    through the queryset, which does not run the model's guard. What the
-    database enforces itself still stands — an append-only trigger refusing the
-    delete stops this command with an honest error rather than a bypass.
+    Mutation logs and versions raise on purpose: nothing in the application may
+    erase what happened. The queryset does not run that guard; what the database
+    enforces itself still stands.
     """
     try:
         instance.delete()
@@ -129,17 +97,8 @@ def _force_delete(instance: Model, *, depth: int = 0) -> None:
 
 
 def organization_row_counts(organization: Organization) -> Counter[str]:
-    counts: Counter[str] = Counter()
-    with transaction.atomic():
-        set_local_organization_id(organization.id)
-        with activate_tenant_context(_purge_context(organization.id)):
-            for model, field_name in organization_scoped_models():
-                found = model._base_manager.filter(
-                    **{f"{field_name}_id": organization.id}
-                ).count()
-                if found:
-                    counts[model._meta.label] = found
-    return counts
+    """What the dry run reports, taken from the erasure service's own count."""
+    return Counter(row_counts(organization.id))
 
 
 def user_row_counts(user: User) -> Counter[str]:
@@ -154,75 +113,6 @@ def user_row_counts(user: User) -> Counter[str]:
     for protected in collector.protected:
         counts[protected._meta.label] += 1
     return counts
-
-
-def _break_reference_cycles(organization: Organization) -> None:
-    """Clear the nullable links tenant rows hold to each other.
-
-    A site points at its current publication and the publication points back at
-    its site, so neither can be deleted first. Nulling the optional half of such
-    a pair costs nothing — the row is going away — and turns the graph into
-    something that can be emptied in passes. A model that refuses the update
-    (an append-only log) is left alone; it will refuse the delete too, and the
-    refusal belongs there, not here.
-    """
-    scoped = {model for model, _field in organization_scoped_models()}
-    for model, field_name in organization_scoped_models():
-        optional = {
-            field.name: None
-            for field in model._meta.fields
-            if isinstance(field, ForeignKey) and field.null and field.related_model in scoped
-        }
-        if not optional:
-            continue
-        try:
-            with transaction.atomic():
-                model._base_manager.filter(**{f"{field_name}_id": organization.id}).update(
-                    **optional
-                )
-        except DatabaseError:
-            continue
-
-
-def purge_organization(organization: Organization) -> None:
-    """Empty a tenant in passes until nothing protects the organization.
-
-    Deleting row by row cannot work: the protections form cycles, so following
-    them recursively walks in circles. Deleting per model in repeated passes
-    does — every pass removes what nothing protects any more, and a pass that
-    removes nothing means the rest is held by something the database will not
-    let go of, which is an answer rather than a loop. Queryset deletes are also
-    what lets an append-only model be emptied, since they do not run the guard
-    on ``Model.delete``; a trigger in the database still refuses, and should.
-    """
-    with transaction.atomic():
-        set_local_organization_id(organization.id)
-        with activate_tenant_context(_purge_context(organization.id)):
-            _break_reference_cycles(organization)
-            remaining = organization_scoped_models()
-            while remaining:
-                blocked: list[tuple[type[Model], str]] = []
-                progressed = False
-                for model, field_name in remaining:
-                    rows = model._base_manager.filter(**{f"{field_name}_id": organization.id})
-                    try:
-                        with transaction.atomic():
-                            deleted, _by_model = rows.delete()
-                    except ProtectedError:
-                        blocked.append((model, field_name))
-                        continue
-                    if deleted:
-                        progressed = True
-                if not progressed and blocked:
-                    labels = ", ".join(model._meta.label for model, _field in blocked)
-                    raise CommandError(
-                        f"Nie da się opróżnić organizacji {organization.slug}: "
-                        f"wiersze chronione bez kolejności usuwania ({labels})."
-                    )
-                remaining = blocked
-            # Through the ordinary connection, under the tenant set above: the
-            # door reads which organizations exist, it does not delete them.
-            Organization.objects.filter(pk=organization.id).delete()
 
 
 def purge_user(user: User) -> None:
@@ -322,8 +212,12 @@ class Command(BaseCommand):
         removed_organizations = 0
         for organization in organizations.values():
             try:
-                purge_organization(organization)
-            except (CommandError, DatabaseError, ValidationError) as error:
+                erase_organization(
+                    organization=organization,
+                    requested_by=None,
+                    reason="Sprzątanie tenantów testowych na zastrzeżonych domenach.",
+                )
+            except (ErasureBlocked, CommandError, DatabaseError, ValidationError) as error:
                 # The database refused on its own — an append-only trigger, for
                 # instance. That is not something an operator command may talk
                 # its way past, so this tenant stays and the others continue.
