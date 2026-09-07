@@ -1,5 +1,27 @@
 # Handoff następnej sesji
 
+## Sites: podgląd i przejście do opublikowanej witryny, 2026-09-07
+
+Commit 0ee32c7 domyka pierwszy brak w codziennym przepływie właściciela strony.
+Chroniony podgląd niemutowalnej wersji draftu ma teraz widoki komputer, tablet
+i telefon. Panel pobiera istniejące domeny razem z danymi site'u, a dla witryny
+z aktywną publikacją i zweryfikowaną domeną pokazuje przycisk otwierający jej
+publiczny adres w nowej karcie. Pierwszeństwo ma zweryfikowana domena canonical,
+potem subdomena platformy; lokalne domeny .localhost zachowują port Caddy.
+
+Nie zmieniono publicznego kontraktu, backendu ani zasad publikacji ADR-027.
+Otwarte pozostają canvas/inspector, edycja treści bezpośrednio w kontekście
+podglądu oraz reorder sekcji z pełną obsługą klawiatury. Plan W9.5.6 rozdziela
+teraz ukończony responsive preview od tych dalszych prac.
+
+Dowody: 23/23 testy celowane Sites, 132/132 pełne testy frontendu, ESLint,
+TypeScript i produkcyjny build Node 24 w Dockerze. Obraz
+saas-core-frontend:seo-pilot-business
+sha256:84dd257c5de82a9572d957bf552d36871d545b867a38749323c0ad1777ef0c2c
+działa pod http://localhost:8896; frontend i Caddy są healthy. Publiczna
+strona syntetyczna zwróciła 200 z oczekiwanym nagłówkiem, obraz PNG 200/140 B,
+a robots.txt 200.
+
 ## Stan po scaleniu i uruchomieniu trzech aplikacji, 2026-09-07
 
 Integracja jest na głównych gałęziach: Core `3f7f776`, SCR `081f672`, SSA
