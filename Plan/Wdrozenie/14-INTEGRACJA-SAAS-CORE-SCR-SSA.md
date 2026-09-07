@@ -1,8 +1,9 @@
 # Plan 14 — integracja SaaS Core, SCR i SSA
 
-Data: 2026-09-06. Aktywny zakres: I0–I5, w kolejności zależności. Maciej rozszerzył
-zgodę poleceniem „ok pracuje az skonczysz calość”; kolejne przyrosty nie wymagają
-osobnego pytania o kontynuację. Weryfikacja lokalna i dowód wdrożenia są osobne.
+Data: 2026-09-06. I0–I5 odebrano lokalnie; następnym zakresem jest I6, opisany
+niżej. Maciej rozszerzył zgodę poleceniem „ok pracuje az skonczysz calość”;
+kolejne przyrosty nie wymagają osobnego pytania o kontynuację. Weryfikacja
+lokalna i dowód wdrożenia są osobne.
 Podstawa: [ADR-043](../../docs/adr/ADR-043-Integracja-SaaS-Core-SCR-i-SSA.md)
 i [kontrakt I0 v1](../../docs/architecture/seo-ecosystem-integration.md).
 Plan nie zastępuje kolejności P0–P3 z planu 13 ani nie otwiera verticali.
@@ -168,6 +169,7 @@ zamknięte samym powstaniem dokumentacji lub istniejącego connectora.
   A4 zapisuje payload, źródło, skróty i decyzję. Bez nowego modelu lub analizy.
 - [ ] **Właściciele instancji:** wykonać pilot na uruchomionych API z właściwymi
   kluczami; zapisać wersje runtime osobno od SHA odczytanych repozytoriów.
+  Zadanie jest rozwinięte jako I6 powyżej.
 - [x] **Koordynator:** potwierdzić brak apply/publish i nowych analiz; porównać
   wersję draftu/publication przed i po. Aktualizacja użycia klucza SSA jest dopuszczalna.
 

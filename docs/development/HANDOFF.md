@@ -62,7 +62,7 @@ od dowodów wdrożenia na serwerach produktów.
 
 ## Checkpoint integracji I2–I5, 2026-09-06 19:25
 
-To jest bieżący punkt wznowienia; kolejne sekcje zachowują dowody wcześniejszych pakietów.
+To jest historyczny punkt wznowienia; kolejne sekcje zachowują dowody wcześniejszych pakietów.
 Core `65a931b`/`8feb931`/`463f2c5` ma `shared.seo`: trwałe zamówienie audytu,
 rezerwację i pojedyncze rozliczenie kredytów, uzgadnianie po timeout, podpisany
 callback i panel PL/EN z potwierdzeniem aktualnej ceny. Lista zamówień nie pobiera
