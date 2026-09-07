@@ -1,7 +1,9 @@
 # Plan 14 — integracja SaaS Core, SCR i SSA
 
-Data: 2026-09-06. I0–I5 odebrano lokalnie; następnym zakresem jest I6, opisany
-niżej. Maciej rozszerzył zgodę poleceniem „ok pracuje az skonczysz calość”;
+Data: 2026-09-06, stan wykonawczy zaktualizowany 2026-09-07. I0–I5 odebrano
+lokalnie, a scalenie i pierwszy rzeczywisty lokalny przepływ I6 są wykonane.
+Otwarte bramki I6 są wymienione niżej. Maciej rozszerzył zgodę poleceniem
+„ok pracuje az skonczysz calość”;
 kolejne przyrosty nie wymagają osobnego pytania o kontynuację. Weryfikacja
 lokalna i dowód wdrożenia są osobne.
 Podstawa: [ADR-043](../../docs/adr/ADR-043-Integracja-SaaS-Core-SCR-i-SSA.md)
@@ -59,18 +61,24 @@ Pełne granice oraz kolejność uruchomienia:
 
 ## I6 — scalenie i pilot na instancjach
 
-I0–I5 są ukończone i odebrane lokalnie w izolowanych gałęziach. Poniższa lista
-jest następnym zakresem wykonawczym; nie jest częścią już odebranej implementacji.
+I0–I5 są ukończone. Poniższa lista rozdziela wykonany lokalny przyrost I6 od
+bramek stagingu, dostawców i wydania.
 
-- [ ] Przejrzeć trzy gałęzie integracyjne względem aktualnych głównych gałęzi,
-  rozwiązać ewentualne kolizje z pracą równoległą i scalić w kolejności
-  SSA → SCR → SaaS Core. Nie przenosić starszych handoffów ponad nowszym kodem.
-- [ ] Zbudować i uruchomić osobne środowisko integracyjne każdego produktu:
-  oddzielne bazy, sekrety, logi, storage i procesy workerów; zapisać SHA oraz
-  digesty rzeczywiście uruchomionych obrazów.
-- [ ] Skonfigurować źródła, ograniczone klucze, podpisane callbacki, ceny,
-  features, połączenia celów i granty. Utworzyć wyłącznie syntetyczne konta
-  testowe oraz jeden kontrolowany projekt.
+- [x] Przejrzeć trzy gałęzie integracyjne względem aktualnych głównych gałęzi,
+  rozwiązać kolizje i scalić bez nadpisania nowszej pracy: Core `3f7f776`,
+  SCR `081f672`, SSA `e1f41bd`. Prototyp WordPress `e8db148` świadomie nie został
+  przeniesiony na `main`.
+- [x] Uruchomić odseparowane środowiska lokalne: pełny Core w Dockerze, web i
+  worker SSA w Dockerze oraz frontend/backend/workery SCR z osobną infrastrukturą
+  PostgreSQL i Mailpit w Dockerze. Każdy produkt ma osobną bazę, klucze i procesy.
+- [ ] Przed stagingiem zbudować docelowy obraz aplikacji SCR i zapisać SHA oraz
+  digesty wszystkich faktycznie wdrażanych obrazów. Lokalny frontend SCR działa
+  w trybie development, ponieważ nie skonfigurowano produkcyjnego Stripe.
+- [x] Skonfigurować dwa niezależne źródła SSA, ograniczone klucze, nazwane trasy
+  podpisanych callbacków, cenę 5 kredytów, entitlement audytu oraz syntetyczne
+  konta i projekty dla przepływów Core i SCR.
+- [ ] Skonfigurować na instancji stagingowej połączenia celów treści oraz granty
+  GSC; lokalne klucze audytu i provisioningu nie zastępują tych zgód.
 - [ ] Powtórzyć osiem przepływów HTTP na uruchomionych instancjach, a następnie
   wykonać checklistę ręczną PL/EN z paneli Core i SCR. Instrukcja:
   [test ręczny integracji](../../docs/development/SEO-INTEGRATION-MANUAL-TEST.md).
@@ -82,6 +90,24 @@ jest następnym zakresem wykonawczym; nie jest częścią już odebranej impleme
   po zakończeniu zapisać faktyczny koszt oraz wynik częściowy/pełny.
 - [ ] Dopiero po zielonym pilocie przygotować manifest wydania, plan rollbacku,
   monitoring kolejek i stopniowe udostępnienie pierwszym klientom.
+
+### Dowód uruchomionych instancji, 2026-09-07
+
+- Core pod `http://localhost:8896` wybrał organizację przez rolę aplikacyjną RLS;
+  wykryta przy tym luka odczytu membership przed `SET LOCAL` została naprawiona
+  w `3f7f776` i potwierdzona testem 5/5 oraz próbą na kontenerze. Pełny backend:
+  691 passed / 102,78 s; ruff, mypy i kontrakt warstw bez błędów.
+- Core zamówił przez API limitowany audyt `example.com` (5 stron, 5 kredytów).
+  SSA wykonało rzeczywisty crawl, wysłało podpisany callback, a Core zapisał
+  `completed`, 7 ustaleń i hash raportu; saldo syntetyczne zmieniło się 100 → 95.
+- SCR pod `http://localhost:3030` loguje konto demo, otwiera panel projektów,
+  a jego workery utworzyły odrębny projekt SSA i zapisały powiązanie.
+- Pierwsza próba callbacku ujawniła brak `host.docker.internal` w obu listach
+  hostów. Konfiguracja została poprawiona w ignorowanych plikach runtime, a ten
+  sam idempotentny callback dostarczono ponownie bez drugiego obciążenia.
+- Nadal otwarte są: komplet ośmiu przepływów na tych instancjach, ręczna checklista
+  PL/EN, prawdziwe OAuth GSC, płatny provider AI/DataForSEO, staging, TLS/DNS,
+  monitoring wdrożenia i rollout. WordPress pozostaje pozycją przyszłego rozwoju.
 
 ## Backlog produktu po pierwszej wersji integracji
 

@@ -1,5 +1,49 @@
 # Handoff następnej sesji
 
+## Stan po scaleniu i uruchomieniu trzech aplikacji, 2026-09-07
+
+Integracja jest na głównych gałęziach: Core `3f7f776`, SCR `081f672`, SSA
+`e1f41bd`. WordPress nie został scalony: prototyp SCR `e8db148` pozostaje wyłącznie
+materiałem historycznym, a wdrożenie connectora jest zapisane w backlogu planu 14.
+
+Lokalnie działają równocześnie:
+
+- Core business w Dockerze pod `http://localhost:8896`, z osobną bazą, Redisem,
+  storage, workerem i schedulerem; Grafana jest pod `http://localhost:3096`;
+- SSA web/worker w Dockerze pod `http://localhost:8010`, z osobną bazą i Redisem;
+- SCR frontend `http://localhost:3030` i backend `http://localhost:8020` jako
+  procesy hosta, z osobnymi workerami projektów i obserwacji; PostgreSQL i Mailpit
+  działają w Dockerze, Mailpit pod `http://localhost:8135`.
+
+Ignorowane katalogi runtime zawierają lokalne klucze, pliki środowiska, logi i
+dane dostępowe. Nie kopiować ich do Git. SCR pozostaje w trybie development,
+ponieważ produkcyjny start celowo wymaga prawdziwej konfiguracji Stripe.
+
+Dowód end-to-end: syntetyczny klient Core wybrał organizację `seo-local-test`,
+zamówił audyt `example.com` ograniczony do 5 stron i 5 kredytów, SSA wykonało
+rzeczywisty crawl, a podpisany callback zakończył zamówienie jako `completed`.
+Core zapisał 7 ustaleń oraz hash raportu i zatwierdził koszt dokładnie raz: saldo
+100 → 95. Audyt Core ma ID `01a07bab-f8c4-7778-a9cf-feb5a49fef48`.
+
+Próba na roli aplikacyjnej wykryła wcześniejszy błąd przełączania organizacji:
+membership był czytany przed ustawieniem RLS. `3f7f776` używa jawnych drzwi
+pre-tenant tylko do identyfikacji membership, następnie ustawia `SET LOCAL` i
+ponownie blokuje oraz weryfikuje rekord pod tenantem. Testy celowane: 5 passed;
+pełny backend: 691 passed / 102,78 s, ruff bez uwag, kontrakt warstw zachowany,
+mypy bez błędów w 344 plikach i brak nowych migracji. Pierwsze uruchomienie suite
+miało 6 błędów dostępu do systemowego `%TEMP%`; powtórzenie z repozytoryjnym
+`--basetemp` przeszło w całości.
+
+SCR również ma rzeczywiste lokalne powiązanie z SSA: projekt
+`c9e7c68b-0556-4106-a6e0-668e5efa884f` osiągnął stan `ready`, a oba workery
+wykonały jednostki pracy. Pierwsza nieudana próba provisioningu pozostaje
+w historii, bo była skutkiem podwójnego prefiksu `/api/v1`; nie została usunięta.
+
+Otwarte są bramki środowiskowe i produktowe: komplet ośmiu scenariuszy na tych
+instancjach, ręczny przegląd PL/EN, prawdziwe OAuth GSC, płatne AI/DataForSEO,
+docelowy obraz SCR, staging z TLS/DNS, monitoring, manifest wydania i rollout.
+Szczegółowa, aktualna checklista znajduje się w [planie 14](../../Plan/Wdrozenie/14-INTEGRACJA-SAAS-CORE-SCR-SSA.md).
+
 ## Odbiór integracji trzech repozytoriów, 2026-09-06
 
 Bieżący zakres i jego granice opisuje
