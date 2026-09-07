@@ -15,6 +15,14 @@ Lokalnie działają równocześnie:
   procesy hosta, z osobnymi workerami projektów i obserwacji; PostgreSQL i Mailpit
   działają w Dockerze, Mailpit pod `http://localhost:8135`.
 
+Identyfikatory uruchomionych obrazów aplikacyjnych: Core backend
+`sha256:992cfdb83d741b8e24d13bee5952b8b027fd02abe1da0457c099c00aada3d98b`,
+Core frontend `sha256:0437a3c4c53555eec03138d6c844b4409e3fc2998fd7551c9d44c11ec47fe4ac`,
+SSA web `sha256:6adf7553b1482fa7944ecfc666f61713c1d5a8a5f75788968948e2f833cfb986`
+i SSA worker `sha256:4e973ed0ec020273cb6eead2f95ce40d8803995b7809649e3d4d3316ac14545f`.
+SCR nie ma jeszcze uruchomionego docelowego obrazu aplikacji i pozostaje to
+jawną pozycją I6 przed stagingiem.
+
 Ignorowane katalogi runtime zawierają lokalne klucze, pliki środowiska, logi i
 dane dostępowe. Nie kopiować ich do Git. SCR pozostaje w trybie development,
 ponieważ produkcyjny start celowo wymaga prawdziwej konfiguracji Stripe.
