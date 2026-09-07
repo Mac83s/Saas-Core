@@ -24,6 +24,21 @@ działa pod http://localhost:8896; frontend i Caddy są healthy. Publiczna
 strona syntetyczna zwróciła 200 z oczekiwanym nagłówkiem, obraz PNG 200/140 B,
 a robots.txt 200.
 
+Po ręcznym sprawdzeniu ujawnił się jeszcze przypadek starego snapshotu, który
+nie miał strony zapisanej pod `/`, lecz wyłącznie pod `/start/`. Commity
+`d125938` i `0fa3c2a` rozwiązują stronę główną z `page_type=homepage`, a dla
+snapshotów sprzed dodania tego pola wybierają pierwszą poprawną stronę.
+Kanoniczna domena obsługuje `/` jako alias strony głównej i nadal wystawia w
+metadanych właściwy URL kanoniczny. Lokalnej syntetycznej witrynie przywrócono
+domenę platformową jako canonical przez audytowaną usługę domenową. Dokładny
+adres
+`http://seo-public-smoke-1d800a2f5bec-01a077ef6abc.business.localhost:8896/`
+zwraca 200 w `curl` i Chrome; dokument, CSS, JavaScript oraz publiczny obraz
+również zwracają 200. Celowany test regresji ma 1/1, a Ruff jest czysty.
+Uruchomiony backend, worker i scheduler są healthy na obrazie
+`saas-core-backend:seo-pilot-business`
+`sha256:0fee4c71dd9279cbf9d8a957794d5e07508e308e776c4ee90123bb6f878055d9`.
+
 ## Stan po scaleniu i uruchomieniu trzech aplikacji, 2026-09-07
 
 Integracja jest na głównych gałęziach: Core `3f7f776`, SCR `081f672`, SSA
