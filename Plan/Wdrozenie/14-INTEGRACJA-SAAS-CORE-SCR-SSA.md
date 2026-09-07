@@ -55,6 +55,53 @@ Kanał A4/WordPress obsługuje opis meta; nie edytuje artykułów i struktury.
 Pełne granice oraz kolejność uruchomienia:
 [odbiór integracji](../../docs/development/SEO-INTEGRATION-ACCEPTANCE.md).
 
+## I6 — scalenie i pilot na instancjach
+
+I0–I5 są ukończone i odebrane lokalnie w izolowanych gałęziach. Poniższa lista
+jest następnym zakresem wykonawczym; nie jest częścią już odebranej implementacji.
+
+- [ ] Przejrzeć trzy gałęzie integracyjne względem aktualnych głównych gałęzi,
+  rozwiązać ewentualne kolizje z pracą równoległą i scalić w kolejności
+  SSA → SCR → SaaS Core. Nie przenosić starszych handoffów ponad nowszym kodem.
+- [ ] Zbudować i uruchomić osobne środowisko integracyjne każdego produktu:
+  oddzielne bazy, sekrety, logi, storage i procesy workerów; zapisać SHA oraz
+  digesty rzeczywiście uruchomionych obrazów.
+- [ ] Skonfigurować źródła, ograniczone klucze, podpisane callbacki, ceny,
+  features, połączenia celów i granty. Utworzyć wyłącznie syntetyczne konta
+  testowe oraz jeden kontrolowany projekt.
+- [ ] Powtórzyć osiem przepływów HTTP na uruchomionych instancjach, a następnie
+  wykonać checklistę ręczną PL/EN z paneli Core i SCR. Instrukcja:
+  [test ręczny integracji](../../docs/development/SEO-INTEGRATION-MANUAL-TEST.md).
+- [ ] Na kontrolowanej usłudze Google wykonać zgodę GSC, synchronizację,
+  cofnięcie pojedynczego grantu i pełne odłączenie. Zapisać wersje runtime,
+  zakres property i potwierdzenie, że token nie wrócił do Core ani SCR.
+- [ ] Wykonać jeden limitowany kosztowo audyt i jedną generację przez prawdziwych
+  dostawców. Przed uruchomieniem ustawić twardy limit stron, kwoty i wywołań;
+  po zakończeniu zapisać faktyczny koszt oraz wynik częściowy/pełny.
+- [ ] Dopiero po zielonym pilocie przygotować manifest wydania, plan rollbacku,
+  monitoring kolejek i stopniowe udostępnienie pierwszym klientom.
+
+## Backlog produktu po pierwszej wersji integracji
+
+Te pozycje są zapisanym kierunkiem, ale nie są jeszcze wdrożone:
+
+- [ ] asystent i onboarding w Core, który zakłada i prowadzi proces SCR bez
+  osobnego logowania klienta do SCR;
+- [ ] planowanie oraz generowanie wielu podstron i struktury całej witryny;
+- [ ] edycja artykułów i innych pól treści przez rozszerzony, wersjonowany
+  kontrakt, z osobnym przeglądem i publikacją;
+- [ ] pełna strategia SEO/GEO, rekomendacje struktury i koordynacja wielu
+  modułów SSA w jednym planie pracy;
+- [ ] cykliczne proponowanie lub publikowanie zmian zgodnie z polityką klienta,
+  wraz z monitoringiem, budżetem i możliwością zatrzymania;
+- [ ] Google Analytics oraz kolejne źródła pomiarów;
+- [ ] jawny grant pokazujący klientowi w SSA historię audytów z innych produktów,
+  bez ujawniania prywatnych danych GSC;
+- [ ] WordPress: edycja szerszej treści i struktury, wielojęzyczność oraz
+  testy zgodności na rzeczywistych wersjach Yoast i Rank Math;
+- [ ] polityka retencji prywatnych kopii GSC i produktowy sposób opisywania
+  zmiany wyników bez przypisywania jej automatycznie pojedynczej edycji.
+
 Poniższe opisy zachowują wcześniejsze bramki i liczby testów jako historię.
 
 ## Organizacja pracy

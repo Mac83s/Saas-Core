@@ -41,6 +41,10 @@ Zbiorczy artefakt bez sekretów:
 Odtworzenie publicznego testu: [runtime/README.md](runtime/README.md).
 Pierwsza wersja integracji I0–I5 jest odebrana lokalnie. Następne prace to
 skonfigurowany pilot na instancjach oraz wymienione niżej rozszerzenia produktu.
+Jawna lista I6 i backlog produktu są w
+[planie 14](../../Plan/Wdrozenie/14-INTEGRACJA-SAAS-CORE-SCR-SSA.md), a przebieg
+testu dla właściciela produktu w
+[SEO-INTEGRATION-MANUAL-TEST.md](SEO-INTEGRATION-MANUAL-TEST.md).
 
 To pierwsza wersja integracji, nie cały docelowy produkt SEO. Brief startuje
 w SCR dla istniejącego Site/połączenia/grantu Core; nie ma jeszcze asystenta

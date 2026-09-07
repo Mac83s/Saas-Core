@@ -55,7 +55,9 @@ Google, model AI i zakończenie analizy są kontrolowanymi granicami testowymi.
 Nie wykonano płatnych wywołań, rzeczywistej zgody Google ani analizy klienta.
 Szczegóły odtworzenia: [pilot HTTP](SEO-INTEGRATION-LOCAL-PILOT.md).
 Końcowe liczby suite, commity i obrazy: [plan 14](../../Plan/Wdrozenie/14-INTEGRACJA-SAAS-CORE-SCR-SSA.md)
-oraz [HANDOFF](HANDOFF.md).
+oraz [HANDOFF](HANDOFF.md). Praktyczny podział na test możliwy od razu i test
+po przygotowaniu wspólnego środowiska zawiera
+[checklista ręczna](SEO-INTEGRATION-MANUAL-TEST.md).
 
 ## Konfiguracja przed uruchomieniem na instancjach
 
