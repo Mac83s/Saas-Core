@@ -76,7 +76,12 @@ class PublicPage:
         already_canonical = _comparable_path(self.requested_path) == _comparable_path(
             self.canonical_path
         )
-        if self.hostname == self.canonical_hostname and already_canonical:
+        # `/` is the public alias for the selected home page. Serve it on the
+        # canonical hostname and keep the page's real path in canonical_url;
+        # this also lets local deployments use a non-standard proxy port
+        # without constructing a redirect that silently drops that port.
+        root_alias = _comparable_path(self.requested_path) == "/"
+        if self.hostname == self.canonical_hostname and (already_canonical or root_alias):
             return None
         return f"{settings.PUBLIC_SITE_SCHEME}://{self.canonical_hostname}{self.canonical_path}"
 

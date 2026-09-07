@@ -648,8 +648,9 @@ def test_public_renderer_resolves_only_host_publication_locale_and_canonical() -
     assert english.data["locale"] == "en"
     assert alias.status_code == 308
     assert alias["Location"] == f"https://{platform.hostname}/oferta"
-    assert root.status_code == 308
-    assert root["Location"] == f"https://{platform.hostname}/oferta"
+    assert root.status_code == 200
+    assert root.data["title"] == "Oferta"
+    assert root.data["canonical_url"] == f"https://{platform.hostname}/oferta"
     assert unknown.status_code == 404
     assert injected.status_code == 400
 
