@@ -19,7 +19,7 @@ teraz ukończony responsive preview od tych dalszych prac.
 Dowody: 23/23 testy celowane Sites, 132/132 pełne testy frontendu, ESLint,
 TypeScript i produkcyjny build Node 24 w Dockerze. Obraz
 saas-core-frontend:seo-pilot-business
-sha256:84dd257c5de82a9572d957bf552d36871d545b867a38749323c0ad1777ef0c2c
+sha256:9d006429e6230261ba450a9a1d43095179944d8c2471c170ac0f56b4bd4a464f
 działa pod http://localhost:8896; frontend i Caddy są healthy. Publiczna
 strona syntetyczna zwróciła 200 z oczekiwanym nagłówkiem, obraz PNG 200/140 B,
 a robots.txt 200.
