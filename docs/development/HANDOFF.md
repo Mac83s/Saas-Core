@@ -7,7 +7,9 @@ Chroniony podgląd niemutowalnej wersji draftu ma teraz widoki komputer, tablet
 i telefon. Panel pobiera istniejące domeny razem z danymi site'u, a dla witryny
 z aktywną publikacją i zweryfikowaną domeną pokazuje przycisk otwierający jej
 publiczny adres w nowej karcie. Pierwszeństwo ma zweryfikowana domena canonical,
-potem subdomena platformy; lokalne domeny .localhost zachowują port Caddy.
+potem subdomena platformy. W lokalnym panelu subdomena platformowa .localhost
+ma pierwszeństwo przed syntetycznym canonical bez lokalnego DNS i zachowuje port
+Caddy.
 
 Nie zmieniono publicznego kontraktu, backendu ani zasad publikacji ADR-027.
 Otwarte pozostają canvas/inspector, edycja treści bezpośrednio w kontekście

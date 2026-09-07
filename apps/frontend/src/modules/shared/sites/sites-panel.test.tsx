@@ -246,11 +246,20 @@ test("publikuje gotowy snapshot i pokazuje potwierdzenie", async () => {
 });
 
 test("pokazuje adres opublikowanej witryny dopiero dla aktywnej publikacji", async () => {
+  const customCanonicalDomain = {
+    ...platformDomain,
+    id: "019ff20d-a000-7000-8000-000000000011",
+    hostname: "www.example.test",
+    kind: "custom",
+    is_canonical: true,
+  };
   listSites.mockResolvedValue({
     items: [{ ...site, current_publication_id: "publication-1" }],
     next_cursor: null,
   });
-  listSiteDomains.mockResolvedValue({ items: [platformDomain] });
+  listSiteDomains.mockResolvedValue({
+    items: [customCanonicalDomain, { ...platformDomain, is_canonical: false }],
+  });
 
   render(
     <NextIntlClientProvider locale="pl" messages={polishMessages}>

@@ -815,7 +815,18 @@ export function SitesPanel({
 }
 
 function publicSiteUrl(domains: SiteDomain[]) {
+  const controlHostname =
+    typeof window !== "undefined" ? window.location.hostname : "";
+  const localControl =
+    controlHostname === "localhost" || controlHostname.endsWith(".localhost");
+  const localPlatformDomain = domains.find(
+    (item) =>
+      item.status === "verified" &&
+      item.kind === "platform" &&
+      item.hostname.endsWith(".localhost"),
+  );
   const domain =
+    (localControl ? localPlatformDomain : undefined) ??
     domains.find((item) => item.status === "verified" && item.is_canonical) ??
     domains.find(
       (item) => item.status === "verified" && item.kind === "platform",
