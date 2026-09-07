@@ -186,11 +186,10 @@ Startuje w odrębnej sesji/workspace SCR i wymaga istniejącego Core Site,
 operatorskiego TargetConnection i grantu. Core nie ma jeszcze klienta SCR
 ani formularza/asystenta rozpoczynającego ten brief w sesji klienta Core.
 
-Neutralny kanał A4 i WordPress v0.1 obsługują `set_meta_description`.
-WordPress sprawdza własną instalację, użytkownika, nonce, wpis i bazę treści,
-a administrator jawnie zatwierdza zapis. Wersja nie edytuje artykułów, kodu ani
-struktury witryny. Integracje z pełnymi wersjami Yoast/Rank Math wymagają
-osobnego sprawdzenia kompatybilności.
+Neutralny kanał A4 obsługuje `set_meta_description`. Connector WordPress został
+odłożony decyzją właściciela do osobnego etapu i nie wchodzi do obecnego `main`
+ani środowiska testowego. Zachowany prototyp może być później punktem startu,
+ale wymaga ponownego przeglądu oraz osobnej bramki kompatybilności.
 
 SCR uruchamia jednorazowe lub ograniczone liczbą powtórzeń harmonogramy dla
 ośmiu modułów SSA i crawla onsite. Pobiera wyniki przez `/results/` przypięte
@@ -204,8 +203,8 @@ Limit szczegółowego wyniku wynosi 2000 wierszy. Onsite daje punktację i uwagi
 
 ## Przypięcie zgodności i dowody
 
-Końcowe pakiety integracyjne: Core `186157d`, SCR `1bc2bcc` (po `6c621de`
-i WordPress `e8db148`), SSA `3123ca2` (po `60a84db`). Osiem testów HTTP
+Końcowe pakiety integracyjne: Core `186157d`, SCR `1bc2bcc` (po `6c621de`,
+z pominięciem odłożonego WordPress `e8db148`) i SSA `3123ca2` (po `60a84db`). Osiem testów HTTP
 przeszło w 188,94 s. Późniejsze poprawki uruchamiania i dowody obrazów są
 zapisywane w planie 14 i HANDOFF, oddzielnie od konfiguracji produkcyjnej.
 

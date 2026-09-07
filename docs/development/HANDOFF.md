@@ -13,18 +13,19 @@ odbiór strony z briefu. Pełne testy: 690 PostgreSQL, 171 JS w całym monorepo
 frontend ponownie 131 passed / 34,37 s. OpenAPI/client bez driftu.
 RLS nowych tabel ma rzeczywisty dowód bez BYPASSRLS, nie tylko test właściciela bazy.
 
-SCR `971acae` obejmuje wcześniejsze `f1d9c95`, `1bc2bcc`, `e8db148`, `6c621de`:
-brief, projekty, neutralne propozycje, dostawę, GSC, harmonogramy i pomiary,
-WordPress opisów meta oraz jawnie uruchamiane workery. Końcowy backend
+SCR `971acae` obejmuje wcześniejsze `f1d9c95`, `1bc2bcc` i `6c621de`:
+brief, projekty, neutralne propozycje, dostawę, GSC, harmonogramy, pomiary oraz
+jawnie uruchamiane workery. WordPress `e8db148` został odłożony decyzją właściciela
+i nie wchodzi do obecnego scalenia ani środowiska. Końcowy backend
 383 PostgreSQL / 19,65 s; frontend 134 testy, lint/typy/build Node 24.
 Obraz workerów ma 19 asercji bez sieci, z kontrolą konfiguracji i zatrzymania.
 SSA `3123ca2` po `60a84db`/`c05919e` ma osobne źródła/tenantów, trwałe zlecenia,
 delegowane GSC i kontrolowane wyniki dokładnego wykonania; 578 PostgreSQL.
 
 Pilot wszystkich API: osiem przypadków / 188,94 s; po strumieniowym ograniczeniu
-transportu osobny test obserwacji ponownie przeszedł / 39,47 s. WordPress 6.9.1,
-PHP 8.3, MariaDB 11.4: 127 asercji usług, identyczny receipt dwóch równoległych
-procesów, 26 asercji HTTP z native login/nonce i publicznym opisem. Granice
+transportu osobny test obserwacji ponownie przeszedł / 39,47 s. Historyczny,
+niewłączony prototyp WordPress miał osobny dowód 127 asercji usług i 26 HTTP.
+Granice
 Google/model/crawl są syntetyczne; nie wydano pieniędzy u dostawców.
 
 Core-only uruchomiony w osobnym stacku: trzy moduły core, brak tras SEO/Sites,
@@ -48,8 +49,8 @@ testu dla właściciela produktu w
 
 To pierwsza wersja integracji, nie cały docelowy produkt SEO. Brief startuje
 w SCR dla istniejącego Site/połączenia/grantu Core; nie ma jeszcze asystenta
-startującego ten proces wyłącznie z konta Core. A4/WordPress edytują opis meta,
-nie artykuły ani strukturę. GA, pełna strategia i automatyczna publikacja są
+startującego ten proces wyłącznie z konta Core. A4 proponuje opis meta;
+WordPress, artykuły i struktura są odłożone. GA, pełna strategia i automatyczna publikacja są
 osobnymi rozszerzeniami. Sekrety/provider OAuth, realny projekt i produkcyjny
 deployment wymagają konfiguracji właściwych instancji. Główne repozytoria
 Core `4cc8684`, SCR `b42e284`, SSA `ba197d7` pozostają nietknięte.

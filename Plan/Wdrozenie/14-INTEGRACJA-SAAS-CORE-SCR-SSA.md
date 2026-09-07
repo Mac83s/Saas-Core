@@ -30,9 +30,9 @@ Plan nie zastępuje kolejności P0–P3 z planu 13 ani nie otwiera verticali.
   SSA 578 PostgreSQL, SCR 359 PostgreSQL + 3 testy zgodności kontraktu,
   frontend SCR 134 testy, lint/typy/build. Początkowy skip vendored contract
   sprawdzony osobno z jawną ścieżką katalogu Core.
-- [x] WordPress `e8db148`: opis meta po zatwierdzeniu administratora,
-  127 asercji PHP/MariaDB, dwa równoległe procesy z identycznym receiptem,
-  26 asercji rzeczywistego HTTP (login, nonce, apply, replay, publiczny HTML).
+- [ ] WordPress: odłożony decyzją właściciela do dalszego rozwoju i wyłączony
+  z obecnego scalenia oraz środowiska testowego. Prototyp `e8db148` i jego dowody
+  pozostają historycznym materiałem do wykorzystania przy osobnym wdrożeniu.
 - [x] Połączone API: osiem testów HTTP, 188,94 s. Granice Google/model/crawl
   syntetyczne; wynik nie jest potwierdzeniem konfiguracji dostawców.
 - [x] SCR: `f1d9c95` kontrolowane 503, odseparowany błędny harmonogram i
@@ -52,7 +52,8 @@ Plan nie zastępuje kolejności P0–P3 z planu 13 ani nie otwiera verticali.
 Zakres odbioru to pierwsza wersja integracji, nie cały docelowy produkt SEO.
 Brief uruchamia się w osobnym SCR dla istniejącej witryny i grantu Core;
 asystent rozpoczynający proces z samego konta Core pozostaje dalszą pracą.
-Kanał A4/WordPress obsługuje opis meta; nie edytuje artykułów i struktury.
+Neutralny kanał A4 obsługuje opis meta. Connector WordPress jest odłożony;
+nie jest częścią obecnego `main` ani uruchamianego środowiska.
 Pełne granice oraz kolejność uruchomienia:
 [odbiór integracji](../../docs/development/SEO-INTEGRATION-ACCEPTANCE.md).
 
@@ -98,7 +99,8 @@ Te pozycje są zapisanym kierunkiem, ale nie są jeszcze wdrożone:
 - [ ] Google Analytics oraz kolejne źródła pomiarów;
 - [ ] jawny grant pokazujący klientowi w SSA historię audytów z innych produktów,
   bez ujawniania prywatnych danych GSC;
-- [ ] WordPress: edycja szerszej treści i struktury, wielojęzyczność oraz
+- [ ] WordPress: osobno przejrzeć zachowany prototyp, wdrożyć początkowy kanał
+  opisu meta, a później edycję szerszej treści i struktury, wielojęzyczność oraz
   testy zgodności na rzeczywistych wersjach Yoast i Rank Math;
 - [ ] polityka retencji prywatnych kopii GSC i produktowy sposób opisywania
   zmiany wyników bez przypisywania jej automatycznie pojedynczej edycji.

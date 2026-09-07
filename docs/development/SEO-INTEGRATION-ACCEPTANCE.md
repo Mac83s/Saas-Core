@@ -17,13 +17,12 @@ produktu SEO i jego uruchomienia komercyjnego.
 | Nowa strona bez wcześniejszego audytu | Brief w SCR, kontrolowany katalog Core, limitowane wywołanie modelu, przegląd tekstów i dostarczenie jednej nowej podstrony jako szkicu. |
 | Search Console w produktach | OAuth inicjowany z panelu, tokeny przechowywane tylko w SSA, grant property/projektu z terminem, ograniczona synchronizacja, odwołanie i usuwanie prywatnych kopii. |
 | Niezależny klient zewnętrzny | Panel propozycji SCR i neutralne API treści. Klient integrujący własny system odpowiada za zastosowanie i potwierdzenie efektu. |
-| WordPress | Administrator pobiera zaakceptowaną propozycję, przegląda ją i zapisuje wyłącznie opis meta. Kontrola wpisu, instalacji, aktualnej treści, nonce i trwałego potwierdzenia operacji. |
 | Jednorazowa lub cykliczna obserwacja | Ograniczone harmonogramy ośmiu modułów SSA i onsite, niezmienne wyniki, historia oraz porównania wyłącznie zgodnych pełnych pomiarów. |
 
 SCR nie otrzymuje dostępu do bazy, kodu ani powłoki Core. SSA nie publikuje
 treści. Akceptacja w SCR nie zastępuje przeglądu i publikacji w Core.
-W WordPressie administrator jawnie stosuje opis na istniejącym wpisie;
-status publikacji wpisu i jego treść nie są zmieniane.
+Connector WordPress nie jest częścią obecnego scalenia ani środowiska. Został
+odłożony decyzją właściciela do osobnego etapu rozwoju.
 
 Brief rozpoczyna się obecnie w osobnej sesji/workspace SCR i wymaga istniejącej
 witryny Core oraz skonfigurowanego przez operatora połączenia i grantu. Sama
@@ -47,9 +46,9 @@ przez granicę paginacji. Powtórzenia i odmowy są częścią testów.
 
 Osobne suite PostgreSQL sprawdzają transakcje i współbieżność. RLS Core ma
 dowód na rzeczywistej roli bez BYPASSRLS, nie tylko na właścicielu tabel.
-WordPress był sprawdzany na PHP 8.3, WordPress 6.9.1 i MariaDB 11.4:
-127 asercji usług, zgodne wyniki dwóch równoległych procesów oraz 26 asercji
-HTTP obejmujących także publiczny HTML i odrzucenie błędnego nonce.
+Odłożony prototyp WordPress był wcześniej sprawdzany na PHP 8.3, WordPress 6.9.1
+i MariaDB 11.4. Te dowody pozostają historyczne; commit prototypu nie wchodzi do
+obecnego `main` SCR i nie jest objęty bieżącym testem użytkowym.
 
 Google, model AI i zakończenie analizy są kontrolowanymi granicami testowymi.
 Nie wykonano płatnych wywołań, rzeczywistej zgody Google ani analizy klienta.
@@ -88,10 +87,10 @@ Pełny asystent rozmowy z klientem, autonomiczny wybór wielu podstron i ich
 struktury, kompleksowa strategia SEO, edycja całych artykułów, automatyczne
 publikowanie cyklicznych zmian oraz GA i kolejne narzędzia pozostają rozwojem
 produktu. Obecny brief tworzy jedną podstronę przez zatwierdzony szablon.
-Obecny neutralny kanał treści i WordPress obsługują opis meta.
+Obecny neutralny kanał treści obsługuje opis meta.
 
-WordPress v0.1 nie obejmuje edycji struktury ani wielojęzycznych wtyczek.
-Rzeczywiste wersje Yoast i Rank Math wymagają osobnej kontroli zgodności.
+WordPress pozostaje dalszą pracą: najpierw osobny przegląd początkowego kanału
+opisu meta, potem struktura, wielojęzyczność oraz zgodność z Yoast i Rank Math.
 Udostępnienie historii audytów publicznej witryny w SSA po późniejszej rejestracji wymaga jawnego grantu;
 sam e-mail lub posiadanie domeny nie ujawniają danych. GSC wymaga osobnego
 uprawnienia, a retencja fizycznych kopii wygasłych grantów wymaga polityki

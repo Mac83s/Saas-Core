@@ -41,6 +41,7 @@
       "seconds": 39.47
     },
     "wordpress": {
+      "scope": "historical_prototype_deferred_not_merged",
       "version": "6.9.1",
       "php": "8.3",
       "mariadb": "11.4",
@@ -313,7 +314,7 @@
     "Google consent/exchange and model responses synthetic; no paid provider or crawler calls",
     "Verified domain and ready image synthetic; no DNS, upload or malware-scanner proof",
     "Blueprint starts in separate SCR workspace for an existing Core site and operator-approved connection",
-    "One template page per blueprint; neutral API and WordPress currently meta-description only",
+    "One template page per blueprint; neutral API currently meta-description only; WordPress prototype deferred and not merged",
     "At most 2000 observation detail rows; competitors currently coverage only",
     "No GA, full conversational assistant, strategy automation or production rollout",
     "Migration reversal guards preserve used operation history; app rollback retains expanded schema",

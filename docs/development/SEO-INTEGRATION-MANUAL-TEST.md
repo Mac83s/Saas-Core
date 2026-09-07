@@ -120,10 +120,13 @@ scenariusze raz po polsku i podstawową nawigację ponownie po angielsku.
 5. Dla dwóch zgodnych pełnych pomiarów sprawdź porównanie. Traktuj je jako
    obserwowaną zmianę, bez automatycznego przypisania wyniku jednej edycji.
 
-### 7. WordPress
+## Przyszły test WordPress
 
-1. Zainstaluj connector zgodnie z instrukcją w repo SCR:
-   `connectors/wordpress/README.md`.
+Ten scenariusz nie należy do obecnego pilota. Connector został odłożony do
+dalszego rozwoju i nie jest scalany ani uruchamiany. Gdy zakres zostanie ponownie
+otwarty, punktem startu będzie zachowany prototyp i następująca bramka:
+
+1. Ponownie przejrzyj prototyp i dopiero po akceptacji zainstaluj connector.
 2. Pobierz bazę konkretnego wpisu przez `GET /wp-json/scr/v1/posts/{id}/base`
    i utwórz w SCR propozycję dla dokładnie tego targetu oraz hasha.
 3. Zaakceptuj ją w SCR. W WordPress otwórz **Narzędzia → SeoContentRank**,
