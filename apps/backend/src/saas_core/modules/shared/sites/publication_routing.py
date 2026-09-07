@@ -908,7 +908,8 @@ def _find_page(
     requested_path: str,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     wanted = _comparable_path(requested_path)
-    for raw_page in snapshot.get("pages", []):
+    pages = snapshot.get("pages", [])
+    for raw_page in pages:
         if not isinstance(raw_page, dict):
             continue
         for raw_locale in raw_page.get("locales", []):
@@ -920,4 +921,29 @@ def _find_page(
             # every page except the home page answered 404.
             if _comparable_path(str(raw_locale.get("path", ""))) == wanted:
                 return raw_page, raw_locale
+    if wanted == "/":
+        return _home_page(snapshot, pages)
     raise PublicSiteNotFound
+
+
+def _home_page(
+    snapshot: dict[str, Any],
+    pages: Any,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    valid_pages = [page for page in pages if isinstance(page, dict)]
+    page = next(
+        (item for item in valid_pages if item.get("page_type") == "homepage"),
+        valid_pages[0] if valid_pages else None,
+    )
+    if page is None:
+        raise PublicSiteNotFound
+
+    locales = [item for item in page.get("locales", []) if isinstance(item, dict)]
+    default_locale = snapshot.get("default_locale")
+    locale = next(
+        (item for item in locales if item.get("locale") == default_locale),
+        locales[0] if locales else None,
+    )
+    if locale is None or not locale.get("canonical_path"):
+        raise PublicSiteNotFound
+    return page, locale

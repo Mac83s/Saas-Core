@@ -2149,6 +2149,9 @@ def _publication_snapshot(
             {
                 "page_id": str(page.id),
                 "key": page.key,
+                # Optional for backward compatibility with existing snapshots.
+                # The public root uses it to choose the intended home page.
+                "page_type": page.page_type,
                 "version_id": str(_current_version_id(page)),
                 "version": page.current_draft.number if page.current_draft else 0,
                 "blocks": [

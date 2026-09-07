@@ -622,6 +622,11 @@ def test_public_renderer_resolves_only_host_publication_locale_and_canonical() -
         {"path": "/oferta"},
         HTTP_HOST="www.public.example.test",
     )
+    root = APIClient().get(
+        "/api/v1/public/site/",
+        {"path": "/"},
+        HTTP_HOST=platform.hostname,
+    )
     unknown = APIClient().get(
         "/api/v1/public/site/",
         {"path": "/oferta"},
@@ -643,6 +648,8 @@ def test_public_renderer_resolves_only_host_publication_locale_and_canonical() -
     assert english.data["locale"] == "en"
     assert alias.status_code == 308
     assert alias["Location"] == f"https://{platform.hostname}/oferta"
+    assert root.status_code == 308
+    assert root["Location"] == f"https://{platform.hostname}/oferta"
     assert unknown.status_code == 404
     assert injected.status_code == 400
 

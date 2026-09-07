@@ -1487,6 +1487,7 @@ def test_publication_is_atomic_idempotent_and_emits_signed_outbox(
     assert translation_record.slug_locked_at is not None
     assert publication.snapshot["site_id"] == str(site_record.id)
     assert publication.snapshot["pages"][0]["version_id"] == str(draft.data["draft_id"])
+    assert publication.snapshot["pages"][0]["page_type"] == "landing"
     assert publication.snapshot["pages"][0]["media_asset_ids"] == [str(asset.id)]
     assert publication.snapshot["pages"][0]["locales"][0]["canonical_path"] == "/start/"
     assert publication.snapshot_hash == published.data["snapshot_hash"]
