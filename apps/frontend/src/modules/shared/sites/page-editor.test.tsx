@@ -382,6 +382,12 @@ test("pobiera jawną wersję i renderuje chroniony preview", async () => {
   expect(
     screen.getByRole("heading", { name: "Stary nagłówek" }),
   ).not.toBeNull();
+
+  const viewport = screen.getByTestId("draft-preview-viewport");
+  expect(viewport).toHaveAttribute("data-viewport", "desktop");
+  fireEvent.click(screen.getByRole("button", { name: "Phone" }));
+  expect(viewport).toHaveAttribute("data-viewport", "mobile");
+  expect(viewport).toHaveStyle({ width: "390px" });
 });
 
 test("zapisuje metadane EN z jawnym fallbackiem i optimistic lockiem", async () => {

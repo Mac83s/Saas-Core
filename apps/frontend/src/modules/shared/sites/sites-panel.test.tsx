@@ -83,6 +83,28 @@ const page = {
   created_at: "2026-08-11T12:00:00Z",
   updated_at: "2026-08-11T12:00:00Z",
 };
+const platformDomain = {
+  id: "019ff20d-a000-7000-8000-000000000010",
+  site_id: site.id,
+  hostname: "przychodnia.core.localhost",
+  kind: "platform",
+  status: "verified",
+  tls_status: "eligible",
+  is_canonical: true,
+  verification_name: "",
+  verification_token: "",
+  dns_cname_target: "core.localhost",
+  dns_expected_ipv4: [],
+  dns_expected_ipv6: [],
+  dns_error_code: "",
+  last_checked_at: "2026-08-12T08:00:00Z",
+  last_verified_at: "2026-08-12T08:00:00Z",
+  next_check_at: null,
+  tls_last_requested_at: null,
+  released_at: null,
+  quarantine_until: null,
+  created_at: "2026-08-12T08:00:00Z",
+};
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -194,6 +216,9 @@ test("pokazuje listę site, stron i raport gotowości po polsku", async () => {
   expect(await screen.findByLabelText("Wybierz podstronę")).not.toBeNull();
   // The selected page shows as the picker's value, not as loose text.
   expect(await screen.findByDisplayValue("Start")).not.toBeNull();
+  expect(
+    screen.queryByRole("link", { name: "Otwórz opublikowaną stronę" }),
+  ).toBeNull();
   // A single site means no picker: a control whose only value is what it
   // already shows is noise.
   expect(screen.queryByLabelText("Wybierz site")).toBeNull();
@@ -218,6 +243,29 @@ test("publikuje gotowy snapshot i pokazuje potwierdzenie", async () => {
   await waitFor(() => expect(publishSite).toHaveBeenCalledOnce());
   expect(publishSite.mock.calls[0]?.[0]).toBe(site.id);
   expect(await screen.findByText("Opublikowano sekwencję 1.")).not.toBeNull();
+});
+
+test("pokazuje adres opublikowanej witryny dopiero dla aktywnej publikacji", async () => {
+  listSites.mockResolvedValue({
+    items: [{ ...site, current_publication_id: "publication-1" }],
+    next_cursor: null,
+  });
+  listSiteDomains.mockResolvedValue({ items: [platformDomain] });
+
+  render(
+    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+      <SitesPanel />
+    </NextIntlClientProvider>,
+  );
+
+  const link = await screen.findByRole("link", {
+    name: "Otwórz opublikowaną stronę",
+  });
+  expect(link).toHaveAttribute(
+    "href",
+    "http://przychodnia.core.localhost:3000",
+  );
+  expect(link).toHaveAttribute("target", "_blank");
 });
 
 test("zastępuje techniczny formularz kreatorem pierwszej strony po angielsku", async () => {

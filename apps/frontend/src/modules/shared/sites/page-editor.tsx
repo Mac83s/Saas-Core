@@ -10,11 +10,14 @@ import {
   type SubmitHandler,
 } from "react-hook-form";
 import {
+  MonitorIcon,
   EyeIcon,
   ImagePlusIcon,
   PlusIcon,
   RefreshCwIcon,
   SaveIcon,
+  SmartphoneIcon,
+  TabletIcon,
   Trash2Icon,
 } from "lucide-react";
 import { z } from "zod";
@@ -113,6 +116,13 @@ const draftSchema = z.object({
 
 type DraftValues = z.infer<typeof draftSchema>;
 type TranslationValues = z.infer<ReturnType<typeof createTranslationSchema>>;
+type PreviewViewport = "desktop" | "tablet" | "mobile";
+
+const previewWidths: Record<PreviewViewport, string> = {
+  desktop: "100%",
+  tablet: "768px",
+  mobile: "390px",
+};
 
 function TemplateOption({
   closeLabel,
@@ -231,6 +241,8 @@ export function PageEditor({
   const [selectedBlock, setSelectedBlock] = useState<BlockOption | null>(null);
   const [assetOption, setAssetOption] = useState<MediaAsset | null>(null);
   const [preview, setPreview] = useState<PageDraft>();
+  const [previewViewport, setPreviewViewport] =
+    useState<PreviewViewport>("desktop");
   const [file, setFile] = useState<File>();
   const [uploadStatus, setUploadStatus] = useState<string>();
   const [loading, setLoading] = useState(true);
@@ -814,12 +826,44 @@ export function PageEditor({
             <CardTitle>{t("preview")}</CardTitle>
             <CardDescription>{t("previewDescription")}</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <div
-              className="rounded-lg border bg-background p-6"
+              aria-label={t("previewViewport")}
+              className="flex flex-wrap gap-2"
+              role="group"
+            >
+              {(
+                [
+                  ["desktop", MonitorIcon],
+                  ["tablet", TabletIcon],
+                  ["mobile", SmartphoneIcon],
+                ] as const
+              ).map(([viewport, Icon]) => (
+                <Button
+                  aria-pressed={previewViewport === viewport}
+                  key={viewport}
+                  onClick={() => setPreviewViewport(viewport)}
+                  size="sm"
+                  type="button"
+                  variant={previewViewport === viewport ? "default" : "outline"}
+                >
+                  <Icon aria-hidden="true" />
+                  {t(`previewViewport_${viewport}`)}
+                </Button>
+              ))}
+            </div>
+            <div
+              className="overflow-x-auto rounded-lg border bg-muted/30 p-3 sm:p-6"
               data-testid="draft-preview"
             >
-              {renderedPreview}
+              <div
+                className="mx-auto min-h-80 rounded-lg border bg-background p-6 shadow-sm transition-[width]"
+                data-testid="draft-preview-viewport"
+                data-viewport={previewViewport}
+                style={{ width: previewWidths[previewViewport] }}
+              >
+                {renderedPreview}
+              </div>
             </div>
           </CardContent>
         </Card>

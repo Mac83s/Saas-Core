@@ -13,6 +13,7 @@ import {
 } from "react-hook-form";
 import {
   ArrowRightIcon,
+  ExternalLinkIcon,
   FileTextIcon,
   NewspaperIcon,
   Globe2Icon,
@@ -30,6 +31,7 @@ import {
   setPageAutomationPolicy,
   setPageType,
   getSiteLocalizationReport,
+  listSiteDomains,
   listSitePages,
   listSitePublications,
   listSites,
@@ -37,6 +39,7 @@ import {
   rollbackSitePublication,
   type PageSummary,
   type PageTypeValue,
+  type SiteDomain,
   type SiteLocalizationReport,
   type SitePublication,
   type SiteSummary,
@@ -117,6 +120,7 @@ export function SitesPanel({
   const [selectedSiteId, setSelectedSiteId] = useState<string>();
   const [selectedPageId, setSelectedPageId] = useState<string>();
   const [report, setReport] = useState<SiteLocalizationReport>();
+  const [domains, setDomains] = useState<SiteDomain[]>([]);
   const [publications, setPublications] = useState<SitePublication[]>([]);
   const [publication, setPublication] = useState<SitePublication>();
   const [loading, setLoading] = useState(true);
@@ -162,6 +166,7 @@ export function SitesPanel({
         if (nextSiteId !== selectedSiteId) {
           setPages([]);
           setReport(undefined);
+          setDomains([]);
           setPublications([]);
           setPublication(undefined);
           setSelectedPageId(undefined);
@@ -184,16 +189,17 @@ export function SitesPanel({
       setLoading(true);
       setProblem(undefined);
       try {
-        const [pageResult, localization, publicationResult] = await Promise.all(
-          [
+        const [pageResult, localization, publicationResult, domainResult] =
+          await Promise.all([
             listSitePages(siteId),
             getSiteLocalizationReport(siteId),
             listSitePublications(siteId),
-          ],
-        );
+            listSiteDomains(siteId),
+          ]);
         setPages(pageResult.items);
         setReport(localization);
         setPublications(publicationResult.items);
+        setDomains(domainResult.items);
         setSelectedPageId((current) => {
           if (
             preferredPageId &&
@@ -213,6 +219,7 @@ export function SitesPanel({
         } else {
           setPages([]);
           setReport(undefined);
+          setDomains([]);
           setPublications([]);
           setProblem(sitesErrorMessage(error, t));
         }
@@ -254,12 +261,14 @@ export function SitesPanel({
       listSitePages(selectedSiteId),
       getSiteLocalizationReport(selectedSiteId),
       listSitePublications(selectedSiteId),
+      listSiteDomains(selectedSiteId),
     ])
-      .then(([pageResult, localization, publicationResult]) => {
+      .then(([pageResult, localization, publicationResult, domainResult]) => {
         if (!mounted) return;
         setPages(pageResult.items);
         setReport(localization);
         setPublications(publicationResult.items);
+        setDomains(domainResult.items);
         setSelectedPageId(pageResult.items[0]?.id);
       })
       .catch((error: unknown) => {
@@ -270,6 +279,7 @@ export function SitesPanel({
         } else {
           setPages([]);
           setReport(undefined);
+          setDomains([]);
           setPublications([]);
           setProblem(sitesErrorMessage(error, t));
         }
@@ -389,6 +399,11 @@ export function SitesPanel({
       </Button>
     </div>
   );
+
+  const publishedSiteUrl =
+    selectedSite?.current_publication_id && domains.length > 0
+      ? publicSiteUrl(domains)
+      : null;
 
   if (requiresPlan) {
     return (
@@ -524,6 +539,21 @@ export function SitesPanel({
           >
             {t(selectedSite.current_publication_id ? "published" : "draftOnly")}
           </Badge>
+          {publishedSiteUrl && (
+            <a
+              className={buttonVariants({
+                className: sites.length > 1 ? "" : "sm:ml-auto",
+                size: "sm",
+                variant: "outline",
+              })}
+              href={publishedSiteUrl}
+              rel="noreferrer"
+              target="_blank"
+            >
+              {t("openPublishedSite")}
+              <ExternalLinkIcon aria-hidden="true" />
+            </a>
+          )}
           {/* A picker for a single site is a control that can only be set to
               what it already shows, so it appears once there is a choice. */}
           {sites.length > 1 && (
@@ -541,6 +571,7 @@ export function SitesPanel({
                   if (!item) {
                     setPages([]);
                     setReport(undefined);
+                    setDomains([]);
                     setPublications([]);
                     setSelectedPageId(undefined);
                     setSelectedSiteId(undefined);
@@ -550,6 +581,7 @@ export function SitesPanel({
                   if (item.id === selectedSiteId) return;
                   setPages([]);
                   setReport(undefined);
+                  setDomains([]);
                   setPublications([]);
                   setSelectedPageId(undefined);
                   setLoading(true);
@@ -780,6 +812,24 @@ export function SitesPanel({
       </Tabs>
     </section>
   );
+}
+
+function publicSiteUrl(domains: SiteDomain[]) {
+  const domain =
+    domains.find((item) => item.status === "verified" && item.is_canonical) ??
+    domains.find(
+      (item) => item.status === "verified" && item.kind === "platform",
+    ) ??
+    domains.find((item) => item.status === "verified");
+  if (!domain) return null;
+
+  const local =
+    domain.hostname === "localhost" || domain.hostname.endsWith(".localhost");
+  const port =
+    local && typeof window !== "undefined" ? window.location.port : "";
+  return `${local ? "http" : "https"}://${domain.hostname}${
+    port ? `:${port}` : ""
+  }`;
 }
 
 /** What kind of page this is, in the vocabulary SEO tooling uses.
