@@ -43,8 +43,8 @@ DECLARED_DOOR: dict[str, tuple[int, str]] = {
         "cokolwiek ustawi tenanta",
     ),
     "modules/core/organizations/services.py": (
-        1,
-        "przełącznik organizacji: do jakich firm należy to konto",
+        2,
+        "przełącznik organizacji: do jakich firm należy to konto i czy może wybrać wskazaną firmę",
     ),
     "modules/core/organizations/lifecycle.py": (
         1,

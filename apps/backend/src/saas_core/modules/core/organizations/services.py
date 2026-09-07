@@ -149,10 +149,29 @@ def set_active_organization(
     organization_id: UUID,
 ) -> OrganizationAccess:
     user = cast(User, request.user)
+    membership_id = (
+        Membership.objects.using(PRE_TENANT_DB)
+        .filter(
+            organization_id=organization_id,
+            user=user,
+            status=MembershipStatus.ACTIVE,
+            organization__status__in=[
+                OrganizationStatus.ONBOARDING,
+                OrganizationStatus.ACTIVE,
+            ],
+        )
+        .filter(Q(role__organization__isnull=True) | Q(role__organization_id=F("organization_id")))
+        .values_list("id", flat=True)
+        .first()
+    )
+    if membership_id is None:
+        raise OrganizationNotFound
+    set_local_organization_id(organization_id)
     membership = (
         Membership.objects.select_for_update()
         .select_related("organization", "role")
         .filter(
+            pk=membership_id,
             organization_id=organization_id,
             user=user,
             status=MembershipStatus.ACTIVE,
