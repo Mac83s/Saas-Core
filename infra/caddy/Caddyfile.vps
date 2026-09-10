@@ -1,0 +1,78 @@
+# Caddy of the Saas-Core stack on the shared dev VPS (compose.vps.yaml).
+#
+# TLS is terminated by the host's edge Caddy, which forwards every Saas-Core
+# host here over plain HTTP on the edge Docker network. This file only routes,
+# exactly like Caddyfile.local, plus one internal listener the edge uses to ask
+# whether a customer domain may get an On-Demand certificate (ADR-028).
+{
+	auto_https off
+	admin off
+	metrics
+	# The edge Caddy is a private address on the Docker network; trusting it
+	# keeps the client's address in X-Forwarded-For (TRUSTED_PROXY_COUNT=2).
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+:8080 {
+	log_skip /api/v1/seo/gsc/callback/
+	encode zstd gzip
+
+	request_body {
+		max_size 10MB
+	}
+
+	header {
+		-Server
+		Permissions-Policy "camera=(), geolocation=(), microphone=()"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+	}
+
+	@private path /internal/metrics/ /internal/caddy/*
+	respond @private 404
+
+	@api path /api/* /internal/* /static/*
+	handle @api {
+		reverse_proxy backend:8000 {
+			health_uri /api/v1/health/live/
+			health_interval 10s
+			health_timeout 2s
+			lb_try_duration 2s
+		}
+	}
+
+	# Not `frontend`: on the edge network that name is GoldenStar's app too
+	# (compose.vps.yaml gives this stack's frontend a unique alias).
+	handle {
+		reverse_proxy saas-core-frontend:3000 {
+			health_uri /healthz
+			health_interval 10s
+			health_timeout 2s
+			lb_try_duration 2s
+		}
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
+
+# On-Demand TLS permission for the edge Caddy. Reachable only over the Docker
+# networks this container joins, never through :8080, which answers 404 above.
+# The endpoint returns allow/deny for one hostname and nothing else.
+:8081 {
+	handle /internal/caddy/domains/authorize/ {
+		reverse_proxy backend:8000 {
+			header_up Host backend
+		}
+	}
+	respond 404
+}
+
+:2019 {
+	metrics
+}

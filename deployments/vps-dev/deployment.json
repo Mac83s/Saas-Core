@@ -1,0 +1,37 @@
+{
+  "$schema": "../../packages/contracts/deployment.schema.json",
+  "schemaVersion": 1,
+  "id": "vps-dev",
+  "product": {
+    "name": "SaaS Core Business (dev VPS)",
+    "defaultLocale": "pl",
+    "supportedLocales": [
+      "pl",
+      "en"
+    ],
+    "platformDomain": "saas.goldenstar.cloud"
+  },
+  "modules": [
+    "core.health",
+    "core.identity",
+    "core.organizations",
+    "shared.billing",
+    "shared.sites",
+    "shared.media",
+    "shared.profiles",
+    "shared.notifications",
+    "shared.booking",
+    "shared.seo"
+  ],
+  "billing": {
+    "planKeys": [
+      "profile",
+      "starter",
+      "pro"
+    ]
+  },
+  "features": {
+    "customDomains": true,
+    "publicBooking": true
+  }
+}

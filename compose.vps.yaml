@@ -1,0 +1,111 @@
+# Dev VPS overlay (goldentrd, since 2026-09-10). Usage:
+#
+#   pnpm runtime:prepare        # or: node scripts/runtime-secrets.mjs
+#   docker compose -f compose.yaml -f compose.vps.yaml up -d --build
+#
+# The base file is the production-like local runtime; compose.staging.yaml
+# assumes a host of its own (its Caddy owns 80/443, S3 is external, images come
+# from GHCR). This host is shared with GoldenStar: 80/443 belong to its edge
+# Caddy (goldenstar-frontend-caddy-1), 127.0.0.1:5432 to its TimescaleDB, and
+# nothing may listen beyond 127.0.0.1. So this overlay:
+#
+# - builds the images here from the `vps-dev` profile (platformDomain
+#   saas.goldenstar.cloud, so sites answer on <slug>-<id>.saas.goldenstar.cloud);
+# - lets the edge Caddy terminate TLS and forward every Saas-Core host to this
+#   stack's Caddy under the alias `saas-core`, custom domains included: the edge
+#   issues their certificates On-Demand and asks this stack for permission on
+#   the internal listener :8081 (infra/caddy/Caddyfile.vps);
+# - keeps the local SeaweedFS and publishes it for signed uploads as
+#   s3.saas.goldenstar.cloud through the same edge (alias `saas-core-s3`);
+# - keeps mail in the file backend (.runtime/emails) until SMTP is configured.
+#
+# Interpolation comes from `.env` (DEPLOYMENT=vps-dev), secrets from
+# .runtime/secrets. Both are ignored by git. On a Linux host the secret files
+# must be 0644 inside the 0700 directory: Compose bind-mounts them with the
+# host's mode and the services run as a non-root user, so the 0600 that
+# runtime-secrets.mjs writes is unreadable in the containers (Docker Desktop on
+# WSL hides this). Root alone can still traverse the directory on the host.
+# For the same reason .runtime/logs and .runtime/emails, which the backend
+# processes write to, must belong to the containers' user:
+#   chown -R 10001:10001 .runtime/logs .runtime/emails
+#
+# The observability stack of the base file (Prometheus, Loki, Alloy, Grafana
+# and the exporters) moves behind the `observability` profile: GoldenStar's
+# monitoring already runs on this host, and Grafana's 127.0.0.1:3001 is taken.
+# Opt in with `--profile observability` when a measurement needs it.
+
+x-vps-backend-environment: &vps-backend-environment
+  ALLOWED_HOSTS: saas.goldenstar.cloud,backend,localhost,127.0.0.1
+  CSRF_TRUSTED_ORIGINS: https://saas.goldenstar.cloud
+  FRONTEND_BASE_URL: https://saas.goldenstar.cloud
+  OBJECT_STORAGE_PUBLIC_ENDPOINT_URL: https://s3.saas.goldenstar.cloud
+  DOMAIN_DNS_EXPECTED_IPV4: 193.33.111.229
+  PUBLIC_SITE_SCHEME: https
+  # The edge Caddy and this stack's Caddy both sit in front of the backend.
+  TRUSTED_PROXY_COUNT: "2"
+
+services:
+  postgres:
+    ports: !reset []
+
+  prometheus:
+    profiles: [observability]
+  loki:
+    profiles: [observability]
+  alloy:
+    profiles: [observability]
+  grafana:
+    profiles: [observability]
+  celery-exporter:
+    profiles: [observability]
+  redis-exporter:
+    profiles: [observability]
+  postgres-exporter:
+    profiles: [observability]
+
+  migrate:
+    environment: *vps-backend-environment
+
+  backend:
+    environment: *vps-backend-environment
+
+  worker:
+    environment: *vps-backend-environment
+
+  scheduler:
+    environment: *vps-backend-environment
+
+  # The caddy container also sits on the edge network, where `frontend` is
+  # GoldenStar's Next.js app: Docker DNS answers that name with both, and
+  # Caddyfile.vps would health-check the wrong one. A unique alias on the
+  # stack's own network keeps the upstream unambiguous.
+  frontend:
+    environment:
+      FRONTEND_CONTROL_HOSTS: saas.goldenstar.cloud
+    networks:
+      app:
+        aliases:
+          - saas-core-frontend
+
+  object-storage:
+    environment:
+      OBJECT_STORAGE_ALLOWED_ORIGINS: https://saas.goldenstar.cloud
+    networks:
+      goldenstar-edge:
+        aliases:
+          - saas-core-s3
+
+  caddy:
+    volumes: !override
+      - ./infra/caddy/Caddyfile.vps:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      goldenstar-edge:
+        aliases:
+          - saas-core
+
+networks:
+  goldenstar-edge:
+    external: true
+    name: goldenstar-frontend_frontend_net
