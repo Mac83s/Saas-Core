@@ -92,6 +92,7 @@ what past sessions learned. Read `.claude/skills/memex/SKILL.md` (or
 **Starting work on anything non-trivial**
 1. `memex_pack(target: "<the task in your own words>")` — before grepping or reading source.
 2. Only go to source files when the pack genuinely lacks it, and say so when it does.
+3. `memex_board(action: "queue")` — what the team handed to AI here. Build a plan or task from each item, then `memex_board(action: "pulled")`. A *changed* item was edited after you read it: re-read it and update what you built.
 
 **You made a durable decision** (an architecture choice, a rejected alternative, a constraint)
 1. `memex_remember(action: "record", …)` with `covers:` and an `origin:`.
