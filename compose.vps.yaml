@@ -17,7 +17,8 @@
 #   the internal listener :8081 (infra/caddy/Caddyfile.vps);
 # - keeps the local SeaweedFS and publishes it for signed uploads as
 #   s3.saas.goldenstar.cloud through the same edge (alias `saas-core-s3`);
-# - keeps mail in the file backend (.runtime/emails) until SMTP is configured.
+# - configures mail for Resend SMTP but keeps the file backend (.runtime/emails)
+#   until the sending domain is verified (SAAS_CORE_EMAIL_BACKEND switches it).
 #
 # Interpolation comes from `.env` (DEPLOYMENT=vps-dev), secrets from
 # .runtime/secrets. Both are ignored by git. On a Linux host the secret files
@@ -43,6 +44,18 @@ x-vps-backend-environment: &vps-backend-environment
   PUBLIC_SITE_SCHEME: https
   # The edge Caddy and this stack's Caddy both sit in front of the backend.
   TRUSTED_PROXY_COUNT: "2"
+  # Mail goes through Resend SMTP with its own sending domain, like the SEO panels.
+  # Until saas.goldenstar.cloud is verified in Resend the backend stays the file
+  # backend (.runtime/emails); afterwards set SAAS_CORE_EMAIL_BACKEND in .env to
+  # django.core.mail.backends.smtp.EmailBackend and recreate. The password is the
+  # Resend API key in .runtime/secrets/email_host_password.
+  EMAIL_BACKEND: ${SAAS_CORE_EMAIL_BACKEND:-django.core.mail.backends.filebased.EmailBackend}
+  EMAIL_HOST: smtp.resend.com
+  EMAIL_PORT: "587"
+  EMAIL_USE_TLS: "true"
+  EMAIL_HOST_USER: resend
+  EMAIL_HOST_PASSWORD_FILE: /run/secrets/email_host_password
+  DEFAULT_FROM_EMAIL: SaaS Core <no-reply@saas.goldenstar.cloud>
 
 services:
   postgres:
@@ -65,15 +78,23 @@ services:
 
   migrate:
     environment: *vps-backend-environment
+    secrets:
+      - email_host_password
 
   backend:
     environment: *vps-backend-environment
+    secrets:
+      - email_host_password
 
   worker:
     environment: *vps-backend-environment
+    secrets:
+      - email_host_password
 
   scheduler:
     environment: *vps-backend-environment
+    secrets:
+      - email_host_password
 
   # The caddy container also sits on the edge network, where `frontend` is
   # GoldenStar's Next.js app: Docker DNS answers that name with both, and
@@ -104,6 +125,10 @@ services:
       goldenstar-edge:
         aliases:
           - saas-core
+
+secrets:
+  email_host_password:
+    file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/email_host_password
 
 networks:
   goldenstar-edge:
