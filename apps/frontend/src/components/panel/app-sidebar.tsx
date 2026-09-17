@@ -6,6 +6,7 @@ import {
   CreditCardIcon,
   Globe2Icon,
   HomeIcon,
+  MilkIcon,
   MessageSquareTextIcon,
   PlugZapIcon,
   SettingsIcon,
@@ -90,6 +91,12 @@ export function AppSidebar({
       icon: PlugZapIcon,
       label: t("integrations"),
       module: "shared.notifications",
+    },
+    {
+      href: "/panel/herd",
+      icon: MilkIcon,
+      label: t("herd"),
+      module: "vertical.hoofcare",
     },
     { href: "/panel/team", icon: UsersIcon, label: t("team") },
     {

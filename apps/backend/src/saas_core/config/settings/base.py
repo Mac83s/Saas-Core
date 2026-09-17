@@ -39,7 +39,7 @@ def _settings_environment() -> str:
     if configured is not None:
         return configured.strip().lower()
     module = os.environ.get("DJANGO_SETTINGS_MODULE", "")
-    if module.endswith((".test", ".migration_check")):
+    if module.endswith((".test", ".migration_check", ".typecheck")):
         return "test"
     if module.endswith(".local"):
         return "local"

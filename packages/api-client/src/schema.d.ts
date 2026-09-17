@@ -612,6 +612,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/hoofcare/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What this deployment composed. Cheap probe for the panel and for deploys. */
+        get: operations["hoofcare_module"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hoofcare/animals/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["hoofcare_animal_list"];
+        put?: never;
+        post: operations["hoofcare_animal_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hoofcare/farms/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["hoofcare_farm_list"];
+        put?: never;
+        post: operations["hoofcare_farm_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hoofcare/visits/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["hoofcare_visit_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/invitations/accept/": {
         parameters: {
             query?: never;
@@ -2244,6 +2309,31 @@ export interface components {
         ActiveOrganizationResult: {
             organization: components["schemas"]["OrganizationSummary"];
         };
+        Animal: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly farm_id: string;
+            readonly farm_name: string;
+            national_id: string;
+            working_number?: string;
+            name?: string;
+            /** Format: date */
+            birth_date?: string | null;
+            status?: components["schemas"]["StatusFc4Enum"];
+            notes?: string;
+        };
+        AnimalInput: {
+            /** Format: uuid */
+            farm_id: string;
+            national_id: string;
+            working_number?: string;
+            name?: string;
+            /** Format: date */
+            birth_date?: string | null;
+            status?: components["schemas"]["StatusFc4Enum"];
+            notes?: string;
+        };
         ApiKey: {
             /** Format: uuid */
             id: string;
@@ -3010,6 +3100,36 @@ export interface components {
         EntryTagsSave: {
             names: string[];
         };
+        Farm: {
+            /** Format: uuid */
+            readonly id: string;
+            name: string;
+            village?: string;
+            address?: string;
+            keeper_name?: string;
+            email?: string;
+            phone?: string;
+            housing?: string;
+            notes?: string;
+            /** @default true */
+            active: boolean;
+        };
+        /**
+         * @description What a client may send. Kept apart from the response on purpose: one
+         *     serializer for both makes the generated client demand `id` when creating a
+         *     row that does not have one yet.
+         */
+        FarmInput: {
+            name: string;
+            village?: string;
+            address?: string;
+            keeper_name?: string;
+            email?: string;
+            phone?: string;
+            housing?: string;
+            notes?: string;
+            active?: boolean;
+        };
         GenericMessage: {
             detail: string;
         };
@@ -3170,6 +3290,26 @@ export interface components {
          * @enum {string}
          */
         HealthStatusEnum: "ok" | "degraded";
+        HerdVisit: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly farm_id: string;
+            readonly farm_name: string;
+            /** Format: uuid */
+            readonly appointment_id: string;
+            /** Format: date-time */
+            readonly starts_at: string;
+            readonly status: string;
+            /** Format: date-time */
+            readonly arrived_at: string;
+            /** Format: date-time */
+            readonly left_at: string;
+        };
+        HoofCareModule: {
+            module: string;
+            version: number;
+        };
         InvitationAccept: {
             token: string;
         };
@@ -3962,6 +4102,14 @@ export interface components {
          * @enum {string}
          */
         StateEnum: "queued" | "submitting" | "running" | "reconciling" | "completed" | "partial" | "failed" | "cancelled";
+        /**
+         * @description * `active` - active
+         *     * `sold` - sold
+         *     * `culled` - culled
+         *     * `dead` - dead
+         * @enum {string}
+         */
+        StatusFc4Enum: "active" | "sold" | "culled" | "dead";
         /**
          * @description * `address` - address
          *     * `details` - details
@@ -5606,6 +5754,175 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
+    };
+    hoofcare_module: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HoofCareModule"];
+                };
+            };
+        };
+    };
+    hoofcare_animal_list: {
+        parameters: {
+            query?: {
+                /** @description Ogranicz do gospodarstwa. */
+                farm_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Animal"][];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    hoofcare_animal_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnimalInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["AnimalInput"];
+                "multipart/form-data": components["schemas"]["AnimalInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Animal"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    hoofcare_farm_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Farm"][];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    hoofcare_farm_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FarmInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["FarmInput"];
+                "multipart/form-data": components["schemas"]["FarmInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Farm"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    hoofcare_visit_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HerdVisit"][];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };

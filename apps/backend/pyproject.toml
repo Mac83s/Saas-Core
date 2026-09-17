@@ -67,7 +67,7 @@ strict = true
 mypy_path = "src"
 
 [tool.django-stubs]
-django_settings_module = "saas_core.config.settings.test"
+django_settings_module = "saas_core.config.settings.typecheck"
 
 [[tool.mypy.overrides]]
 module = ["botocore", "botocore.*", "celery", "celery.*"]

@@ -113,7 +113,8 @@
     "team": "Business & team",
     "billing": "Plan & billing",
     "settings": "Account & security",
-    "credits": "Credits"
+    "credits": "Credits",
+    "herd": "Herd"
   },
   "Dashboard": {
     "eyebrow": "Management hub",
@@ -1077,5 +1078,28 @@
     "clicks": "Clicks",
     "impressions": "Impressions",
     "position": "Position"
+  },
+  "HoofCare": {
+    "title": "Herd and farms",
+    "subtitle": "Customer farms, their animals and the trimming visits booked for them.",
+    "farms": "Farms",
+    "farmsDescription": "The places a trimmer drives to.",
+    "farm": "Farm",
+    "farmName": "Name",
+    "farmVillage": "Village",
+    "addFarm": "Add farm",
+    "noFarms": "No farms yet.",
+    "showAnimals": "Show animals",
+    "animals": "Animals",
+    "animalsDescription": "The herd record — the ear tag is what a trimmer reads in the barn.",
+    "allFarms": "All farms",
+    "animalTag": "Ear tag",
+    "animalName": "Name",
+    "addAnimal": "Add animal",
+    "noAnimals": "No animals to show.",
+    "pickFarmFirst": "Pick a farm to add an animal to it.",
+    "visits": "Visits",
+    "visitsDescription": "Trimming booked in the calendar as herd visits.",
+    "noVisits": "No herd visits yet."
   }
 }

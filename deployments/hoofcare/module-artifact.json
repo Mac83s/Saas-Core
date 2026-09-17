@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:670db5dff84968cc2e9ac42ff82ce2599bd3ee095b98dcbbed9e7d375565bc14",
+  "profileHash": "sha256:5b92a9e6e722a4b9353037790048c7fa6fdb75be88f16f4f30faa10cb1dcd0e2",
   "schemaVersion": 1,
   "deployment": "hoofcare",
   "product": {
@@ -364,21 +364,35 @@
       "dependsOn": [
         "core.identity",
         "core.organizations",
+        "shared.billing",
         "shared.booking"
       ],
       "backend": {
         "djangoApp": "saas_core.modules.vertical.hoofcare",
         "urlPrefix": "/api/v1/hoofcare",
-        "permissions": [],
-        "entitlements": [],
+        "permissions": [
+          "hoofcare.herd.read",
+          "hoofcare.herd.manage"
+        ],
+        "entitlements": [
+          "hoofcare.enabled"
+        ],
         "eventSchemas": [],
         "publicTables": [],
         "platformTables": []
       },
       "frontend": {
-        "routes": [],
-        "navigation": [],
-        "translationNamespaces": []
+        "routes": [
+          "/hoofcare/farms",
+          "/hoofcare/animals",
+          "/hoofcare/visits"
+        ],
+        "navigation": [
+          "hoofcare"
+        ],
+        "translationNamespaces": [
+          "hoofcare"
+        ]
       }
     }
   ]

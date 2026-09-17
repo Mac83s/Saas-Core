@@ -112,13 +112,20 @@ def test_a_vertical_composes_only_where_its_profile_names_it(
     assert module in modules
     # Dependencies first: a vertical sits above shared, which sits above core.
     assert modules.index("shared.booking") < modules.index(module)
-    assert route in route_prefixes(profile_modules(profile))
 
     for other in ("business", "core-only"):
         elsewhere = compose(profile_modules(other), CATALOG)
         assert module not in elsewhere
         assert not [app for app in django_apps_for(elsewhere, CATALOG) if ".vertical." in app]
-        assert route not in route_prefixes(profile_modules(other))
+
+    # Building the route table imports the module's views, and a view imports
+    # models that belong to an app the running deployment may not have
+    # installed. So the routes are asserted for the profile this process is,
+    # and the composition above for the ones it is not.
+    if module in settings.ACTIVE_MODULES:
+        assert route in route_prefixes(profile_modules(profile))
+    else:
+        assert route not in route_prefixes(settings.ACTIVE_MODULES)
 
 
 def test_appointment_kinds_come_from_the_modules_the_profile_composes() -> None:
@@ -146,15 +153,19 @@ def test_the_visit_model_and_the_registry_agree_on_the_key() -> None:
 
 def test_one_vertical_never_arrives_with_another() -> None:
     """Two products, one tree: a profile must carry its vertical and no other."""
-    for profile, module, route in VERTICALS:
+    for profile, module, _route in VERTICALS:
         modules = compose(profile_modules(profile), CATALOG)
         strangers = [
             other for _, other, _ in VERTICALS if other != module and other in modules
         ]
         assert strangers == [], f"{profile} wciągnął cudzy wertykał: {strangers}"
 
-        prefixes = route_prefixes(profile_modules(profile))
-        assert [r for _, _, r in VERTICALS if r != route and r in prefixes] == []
+    # Routes only for what this process composed, for the same reason as above.
+    prefixes = route_prefixes(settings.ACTIVE_MODULES)
+    mine = {route for _, module, route in VERTICALS if module in settings.ACTIVE_MODULES}
+    others = {route for _, module, route in VERTICALS if module not in settings.ACTIVE_MODULES}
+    assert mine <= prefixes
+    assert not (others & prefixes)
 
 
 def test_core_only_schedules_no_work_for_modules_it_does_not_have() -> None:

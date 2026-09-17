@@ -37,6 +37,7 @@ FEATURE_KEYS = {
     "notifications.enabled",
     "booking.enabled",
     "medical.enabled",
+    "hoofcare.enabled",
     "custom_domain.enabled",
 }
 QUOTA_KEYS = {

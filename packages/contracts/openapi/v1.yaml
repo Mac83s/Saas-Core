@@ -1362,6 +1362,156 @@ paths:
               schema:
                 $ref: '#/components/schemas/Health'
           description: ''
+  /api/v1/hoofcare/:
+    get:
+      operationId: hoofcare_module
+      description: What this deployment composed. Cheap probe for the panel and for
+        deploys.
+      tags:
+      - hoofcare
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HoofCareModule'
+          description: ''
+  /api/v1/hoofcare/animals/:
+    get:
+      operationId: hoofcare_animal_list
+      parameters:
+      - in: query
+        name: farm_id
+        schema:
+          type: string
+        description: Ogranicz do gospodarstwa.
+      tags:
+      - hoofcare
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Animal'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: hoofcare_animal_create
+      tags:
+      - hoofcare
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnimalInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AnimalInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AnimalInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Animal'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/hoofcare/farms/:
+    get:
+      operationId: hoofcare_farm_list
+      tags:
+      - hoofcare
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Farm'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: hoofcare_farm_create
+      tags:
+      - hoofcare
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FarmInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FarmInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FarmInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Farm'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/hoofcare/visits/:
+    get:
+      operationId: hoofcare_visit_list
+      tags:
+      - hoofcare
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HerdVisit'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/invitations/accept/:
     post:
       operationId: api_v1_invitations_accept_create
@@ -6418,6 +6568,70 @@ components:
           $ref: '#/components/schemas/OrganizationSummary'
       required:
       - organization
+    Animal:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        farm_id:
+          type: string
+          format: uuid
+          readOnly: true
+        farm_name:
+          type: string
+          readOnly: true
+        national_id:
+          type: string
+          maxLength: 40
+        working_number:
+          type: string
+          maxLength: 20
+        name:
+          type: string
+          maxLength: 80
+        birth_date:
+          type:
+          - string
+          - 'null'
+          format: date
+        status:
+          $ref: '#/components/schemas/StatusFc4Enum'
+        notes:
+          type: string
+      required:
+      - farm_id
+      - farm_name
+      - id
+      - national_id
+    AnimalInput:
+      type: object
+      properties:
+        farm_id:
+          type: string
+          format: uuid
+        national_id:
+          type: string
+          maxLength: 40
+        working_number:
+          type: string
+          maxLength: 20
+        name:
+          type: string
+          maxLength: 80
+        birth_date:
+          type:
+          - string
+          - 'null'
+          format: date
+        status:
+          $ref: '#/components/schemas/StatusFc4Enum'
+        notes:
+          type: string
+      required:
+      - farm_id
+      - national_id
     ApiKey:
       type: object
       properties:
@@ -8394,6 +8608,82 @@ components:
           maxItems: 10
       required:
       - names
+    Farm:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 160
+        village:
+          type: string
+          maxLength: 120
+        address:
+          type: string
+          maxLength: 240
+        keeper_name:
+          type: string
+          maxLength: 160
+        email:
+          oneOf:
+          - type: string
+            format: email
+          - type: string
+            maxLength: 0
+        phone:
+          type: string
+          maxLength: 40
+        housing:
+          type: string
+          maxLength: 80
+        notes:
+          type: string
+        active:
+          type: boolean
+          default: true
+      required:
+      - id
+      - name
+    FarmInput:
+      type: object
+      description: |-
+        What a client may send. Kept apart from the response on purpose: one
+        serializer for both makes the generated client demand `id` when creating a
+        row that does not have one yet.
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        village:
+          type: string
+          maxLength: 120
+        address:
+          type: string
+          maxLength: 240
+        keeper_name:
+          type: string
+          maxLength: 160
+        email:
+          oneOf:
+          - type: string
+            format: email
+          - type: string
+            maxLength: 0
+        phone:
+          type: string
+          maxLength: 40
+        housing:
+          type: string
+          maxLength: 80
+        notes:
+          type: string
+        active:
+          type: boolean
+      required:
+      - name
     GenericMessage:
       type: object
       properties:
@@ -8781,6 +9071,58 @@ components:
       description: |-
         * `ok` - ok
         * `degraded` - degraded
+    HerdVisit:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        farm_id:
+          type: string
+          format: uuid
+          readOnly: true
+        farm_name:
+          type: string
+          readOnly: true
+        appointment_id:
+          type: string
+          format: uuid
+          readOnly: true
+        starts_at:
+          type: string
+          format: date-time
+          readOnly: true
+        status:
+          type: string
+          readOnly: true
+        arrived_at:
+          type: string
+          format: date-time
+          readOnly: true
+        left_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - appointment_id
+      - arrived_at
+      - farm_id
+      - farm_name
+      - id
+      - left_at
+      - starts_at
+      - status
+    HoofCareModule:
+      type: object
+      properties:
+        module:
+          type: string
+        version:
+          type: integer
+      required:
+      - module
+      - version
     InvitationAccept:
       type: object
       properties:
@@ -10723,6 +11065,18 @@ components:
         * `partial` - Partial without charge
         * `failed` - Failed
         * `cancelled` - Cancelled
+    StatusFc4Enum:
+      enum:
+      - active
+      - sold
+      - culled
+      - dead
+      type: string
+      description: |-
+        * `active` - active
+        * `sold` - sold
+        * `culled` - culled
+        * `dead` - dead
     StepEnum:
       enum:
       - address
@@ -11038,4 +11392,4 @@ components:
     cookieAuth:
       type: apiKey
       in: cookie
-      name: saas_core_business_session
+      name: saas_core_hoofcare_session

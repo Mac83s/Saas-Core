@@ -1555,6 +1555,41 @@ Appointmentu. Mamy jednego realnego użytkownika; drugi kształt pojawi się raz
 z wizytą MedPlano i dopiero wtedy warto uogólniać, żeby nie zbudować abstrakcji
 pod jeden przypadek.
 
+## Wertykał ma API i ekran (2026-09-17)
+
+`vertical.hoofcare` wystawia `/api/v1/hoofcare/farms|animals|visits`, a panel ma
+pozycję „Stado" widoczną wyłącznie w produkcie, który ten moduł składa
+(nawigacja filtruje po `deployment.modules`). Każdy use-case przechodzi przez
+`authorize_entitled`: uprawnienie `hoofcare.herd.read|manage` w rolach
+systemowych (migracja `organizations.0035`) plus entitlement `hoofcare.enabled`
+w katalogu planów (`billing.0023`).
+
+Entitlement wszedł tak, jak katalog na to pozwala: publikując następną wersję
+każdego planu, bo opublikowana wersja jest niemutowalna w modelu i w bazie.
+Konsekwencja jest celowa — subskrypcja, która zostaje na poprzedniej wersji, nie
+dostaje wertykala, dopóki na nową nie przejdzie.
+
+Przy okazji wyszły dwie dziury, które dotyczyły całej warstwy vertical, nie
+tylko tego modułu:
+
+- `mypy` i `makemigrations --check` biegły z ustawieniami `test`, czyli profilu
+  `business`, który nie składa żadnego wertykala. Modele wertykałów nie były
+  przez nie sprawdzane w ogóle — django-stubs widział menedżery jako zwykłe
+  atrybuty klasy i sypał „ambiguous", a `makemigrations` nie zgłaszał zmian w
+  modelach, których nie załadował. Jest `settings/typecheck.py` (profil z
+  wertykalem) i `backend:migrations` biegnące raz na profil.
+- `api:schema` generował kontrakt też z profilu `business`, więc endpointy
+  wertykala nigdy nie trafiały do OpenAPI ani do wygenerowanego klienta. Teraz
+  kontrakt powstaje z profilu składającego wertykał. To zostawia dług: kontrakt
+  jest jeden dla wszystkich produktów, a produkty mają różne zestawy endpointów.
+  Gdy `vertical.medical` dostanie własne API, potrzebny będzie schemat na profil.
+
+Serializery wejściowe są rozdzielone od wyjściowych, bo jeden komponent dla
+żądania i odpowiedzi kazał klientowi wysyłać `id` przy tworzeniu wiersza, który
+jeszcze go nie ma. Domyślne wartości (`active`, `status`) należą do modelu, nie
+do serializera — `default` w serializerze czyni pole wymaganym w schemacie,
+czyli dokładnie odwrotnie niż zamierzono.
+
 ## Niezmienne ograniczenia
 
 - tenantowe operacje wymagają jawnego `TenantContext`;

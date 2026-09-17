@@ -2234,3 +2234,66 @@ export async function listSeoGscSyncs(
   if (error || !data) throwProblem(error, response);
   return data;
 }
+
+// ── HoofCare (vertical) ─────────────────────────────────────────────────────
+// Present in the schema because the contract is generated from a profile that
+// composes the vertical. A deployment without it answers 404 here, which is
+// why the panel gates the whole section on `deployment.modules` rather than on
+// a failed request.
+export type HoofCareFarm = components["schemas"]["Farm"];
+export type HoofCareAnimal = components["schemas"]["Animal"];
+export type HoofCareVisit = components["schemas"]["HerdVisit"];
+
+export async function listHoofCareFarms(): Promise<HoofCareFarm[]> {
+  const { data, error, response } = await client.GET("/api/v1/hoofcare/farms/", {
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createHoofCareFarm(
+  input: components["schemas"]["FarmInput"],
+): Promise<HoofCareFarm> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST("/api/v1/hoofcare/farms/", {
+    body: input,
+    credentials: "same-origin",
+    headers: { "X-CSRFToken": csrfToken },
+  });
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function listHoofCareAnimals(farmId?: string): Promise<HoofCareAnimal[]> {
+  const { data, error, response } = await client.GET("/api/v1/hoofcare/animals/", {
+    params: farmId ? { query: { farm_id: farmId } } : undefined,
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createHoofCareAnimal(
+  input: components["schemas"]["AnimalInput"],
+): Promise<HoofCareAnimal> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST("/api/v1/hoofcare/animals/", {
+    body: input,
+    credentials: "same-origin",
+    headers: { "X-CSRFToken": csrfToken },
+  });
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function listHoofCareVisits(): Promise<HoofCareVisit[]> {
+  const { data, error, response } = await client.GET("/api/v1/hoofcare/visits/", {
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
