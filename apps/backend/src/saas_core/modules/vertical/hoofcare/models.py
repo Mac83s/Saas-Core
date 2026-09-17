@@ -5,6 +5,7 @@ import uuid
 from django.db import models
 
 from saas_core.modules.core.organizations.tenancy import TenantScopedModel
+from saas_core.modules.shared.booking.api import APPOINTMENT_MODEL
 
 
 class AnimalStatus(models.TextChoices):
@@ -97,3 +98,48 @@ class Animal(TenantScopedModel):
 
     def __str__(self) -> str:
         return f"{self.national_id} ({self.name})" if self.name else self.national_id
+
+
+class HerdVisit(TenantScopedModel):
+    """A trimming visit: the detail an appointment for a herd carries.
+
+    The appointment itself stays in `shared.booking` — slots, staff, the
+    calendar and cancellation are solved there and a vertical has no business
+    building a second one. What booking cannot know is which farm the trimmer
+    drove to, when he walked into the barn and when he left it.
+
+    The relation is one-to-one and the appointment is the parent: cancel the
+    visit in the calendar and this row goes with it, never the other way round.
+    `APPOINTMENT_KIND` is the key a service declares in
+    `Service.appointment_kind` so the panel knows an appointment of that service
+    is a herd visit.
+    """
+
+    APPOINTMENT_KIND = "hoofcare.herd_visit"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    appointment = models.OneToOneField(
+        APPOINTMENT_MODEL, on_delete=models.CASCADE, related_name="herd_visit"
+    )
+    farm = models.ForeignKey(Farm, on_delete=models.PROTECT, related_name="visits")
+    arrived_at = models.DateTimeField(null=True, blank=True)
+    left_at = models.DateTimeField(null=True, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "-created_at", "id")
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(left_at__isnull=True)
+                | models.Q(arrived_at__isnull=False),
+                name="hoofcare_visit_left_needs_arrival_ck",
+            )
+        ]
+
+    def __str__(self) -> str:
+        # The related ids are not on the stub for a lazily referenced relation,
+        # and loading the farm just to print a label would cost a query.
+        return f"wizyta {self.pk}"

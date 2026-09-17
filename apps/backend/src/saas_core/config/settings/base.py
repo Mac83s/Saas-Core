@@ -605,6 +605,17 @@ CELERY_WORKER_HIJACK_ROOT_LOGGER = False
 #: Scheduled work, grouped by the module whose code it calls. A deployment
 #: without Sites must not run Sites' sweeps: the scheduler would enqueue jobs
 #: against tables that are not there, once a minute, forever.
+#: What kind of visit a service sells, contributed by the module that knows the
+#: shape of that visit. Core has no business knowing what a herd visit is; it
+#: only knows that a deployment which composes that module may offer one, and
+#: that a key from a module this product does not have is a typo rather than a
+#: feature. Same mechanism as the routes and the beat schedule below.
+_MODULE_APPOINTMENT_KINDS: dict[str, dict[str, Any]] = {
+    "vertical.hoofcare": {
+        "hoofcare.herd_visit": "Korekcja stada w gospodarstwie",
+    },
+}
+
 _MODULE_BEAT_SCHEDULE: dict[str, dict[str, Any]] = {
     "shared.seo": {
         "seo-reconcile-audits": {
@@ -691,6 +702,10 @@ _MODULE_BEAT_SCHEDULE: dict[str, dict[str, Any]] = {
 try:
     CELERY_BEAT_SCHEDULE = select_by_module(
         _MODULE_BEAT_SCHEDULE, ACTIVE_MODULES, KNOWN_MODULES
+    )
+    #: {key: label} for the kinds this deployment actually composes.
+    APPOINTMENT_KINDS = select_by_module(
+        _MODULE_APPOINTMENT_KINDS, ACTIVE_MODULES, KNOWN_MODULES
     )
 except CompositionError as error:
     raise ImproperlyConfigured(str(error)) from error

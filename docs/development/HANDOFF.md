@@ -1526,6 +1526,35 @@ jest `Appointment`, czy własnym bytem wertykala.
 się uruchomić pod profilem wertykala, czyli jedynym, w którym te tabele w ogóle
 istnieją. Suite przechodzi pod oboma profilami: 694 testy.
 
+## Wizyta wertykala jest Appointmentem (2026-09-17)
+
+`shared.booking` dostał `api.py` — do tej pory nie miał publicznego interfejsu,
+więc wertykał nie miał legalnego sposobu, żeby dotknąć wizyty. Eksportuje
+use-case'y (`create_appointment`, `reschedule_appointment`, `cancel_appointment`,
+`list_appointments`), `AppointmentStatus` oraz `APPOINTMENT_MODEL` — etykietę do
+leniwej relacji, dzięki której wertykał nie importuje cudzego modelu.
+
+`Service.appointment_kind` mówi, jakiego rodzaju wizytą jest usługa. Dozwolone
+klucze składają się z modułów, tak samo jak trasy i harmonogram:
+`_MODULE_APPOINTMENT_KINDS` w `settings/base.py` przechodzi przez
+`select_by_module`, więc produkt bez danego wertykala nie zna jego rodzaju wizyty
+i odrzuca go przy walidacji. Rdzeń nie wie, czym jest korekcja stada — wie
+tylko, że moduł, który to wie, jest w tej kompozycji.
+
+`vertical.hoofcare.HerdVisit` to pierwszy użytkownik tego mechanizmu: relacja
+jeden-do-jednego z Appointmentem (kasowana razem z nim), gospodarstwo, wejście i
+wyjście z obory. Kalendarz, sloty, dostępność i odwoływanie zostają w bookingu.
+
+Zmierzone na uruchomionej instancji: rejestr zwraca wyłącznie
+`hoofcare.herd_visit`, usługa z kluczem `medplano.wizyta` jest odrzucana przy
+walidacji, wizyt bez ustawionego tenanta widać 0, każdy tenant widzi swoją, a
+podpięcie wizyty pod termin innego tenanta kończy się błędem wyzwalacza.
+
+Czego to jeszcze NIE rozstrzyga: pełnego, generycznego systemu rozszerzeń
+Appointmentu. Mamy jednego realnego użytkownika; drugi kształt pojawi się razem
+z wizytą MedPlano i dopiero wtedy warto uogólniać, żeby nie zbudować abstrakcji
+pod jeden przypadek.
+
 ## Niezmienne ograniczenia
 
 - tenantowe operacje wymagają jawnego `TenantContext`;

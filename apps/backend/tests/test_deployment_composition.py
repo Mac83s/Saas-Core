@@ -121,6 +121,29 @@ def test_a_vertical_composes_only_where_its_profile_names_it(
         assert route not in route_prefixes(profile_modules(other))
 
 
+def test_appointment_kinds_come_from_the_modules_the_profile_composes() -> None:
+    """A service may only sell a kind of visit this product actually has."""
+    base = import_module("saas_core.config.settings.base")
+
+    for profile, expected in (("hoofcare", {"hoofcare.herd_visit"}), ("business", set())):
+        modules = compose(profile_modules(profile), CATALOG)
+        kinds = select_by_module(
+            base._MODULE_APPOINTMENT_KINDS, modules, frozenset(CATALOG)
+        )
+        assert set(kinds) == expected
+
+
+@pytest.mark.skipif(
+    "vertical.hoofcare" not in settings.ACTIVE_MODULES,
+    reason="model tego wertykala istnieje tylko w profilu, który go składa",
+)
+def test_the_visit_model_and_the_registry_agree_on_the_key() -> None:
+    """Two strings for one key is a silent failure: the panel just sees nothing."""
+    from saas_core.modules.vertical.hoofcare.models import HerdVisit  # noqa: PLC0415
+
+    assert HerdVisit.APPOINTMENT_KIND in settings.APPOINTMENT_KINDS
+
+
 def test_one_vertical_never_arrives_with_another() -> None:
     """Two products, one tree: a profile must carry its vertical and no other."""
     for profile, module, route in VERTICALS:

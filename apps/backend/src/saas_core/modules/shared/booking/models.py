@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
+from django.conf import settings
 from django.contrib.postgres.constraints import ExclusionConstraint
 from django.contrib.postgres.fields import DateTimeRangeField, RangeOperators
 from django.core.exceptions import ValidationError
@@ -69,9 +70,20 @@ class Resource(TenantScopedModel):
 
 
 class Service(TenantScopedModel):
+    """One sellable service, and optionally the kind of visit it is.
+
+    `appointment_kind` is how a vertical says "an appointment for this service
+    carries my detail row": it holds a key from `settings.APPOINTMENT_KINDS`,
+    which the deployment composes from its modules. Booking does not know what
+    any key means, only that a service may name one and that the name has to
+    come from a module this product actually has. Empty is the normal case —
+    a plain appointment needs no extension.
+    """
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     name = models.CharField(max_length=160)
     public_slug = models.SlugField(max_length=80)
+    appointment_kind = models.CharField(max_length=64, blank=True)
     duration_minutes = models.PositiveSmallIntegerField()
     buffer_before_minutes = models.PositiveSmallIntegerField(default=0)
     buffer_after_minutes = models.PositiveSmallIntegerField(default=0)
@@ -92,6 +104,17 @@ class Service(TenantScopedModel):
                 name="booking_service_duration_ck",
             ),
         ]
+
+    def clean(self) -> None:
+        super().clean()
+        if self.appointment_kind and self.appointment_kind not in settings.APPOINTMENT_KINDS:
+            available = ", ".join(sorted(settings.APPOINTMENT_KINDS)) or "brak"
+            raise ValidationError({
+                "appointment_kind": (
+                    f"Nieznany rodzaj wizyty '{self.appointment_kind}'. "
+                    f"Ten deployment składa: {available}."
+                )
+            })
 
 
 class ServiceStaff(TenantScopedModel):
