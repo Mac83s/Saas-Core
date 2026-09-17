@@ -1501,6 +1501,31 @@ Profil produktu to `deployments/hoofcare/` (platformDomain
 artefaktów i do `deployment:check:all` dopisany został także `vps-dev`, który
 miał artefakt, ale nie był przez nie pilnowany.
 
+## Pierwsze tabele wertykala: gospodarstwo i zwierzę (2026-09-17)
+
+`vertical.hoofcare` przestał być pusty: `Farm` i `Animal` to pierwsze tabele
+tenantowe poza warstwami core i shared. Obie mają wymuszone RLS z migracji
+`hoofcare.0002`, a `Animal` dodatkowo wyzwalacz sprawdzający, że wskazane
+gospodarstwo należy do tej samej organizacji — klucz obcy mówi, że wiersz
+istnieje, nie że jest tego tenanta.
+
+Izolacja zmierzona na uruchomionej instancji, rolą `saas_core_app`
+(`rolbypassrls = false`), a nie w suicie, która łączy się właścicielem tabel:
+bez ustawionego tenanta 0 gospodarstw i 0 zwierząt, z tenantem A po jednym, z
+tenantem B po jednym. Próba wpisania zwierzęcia do cudzego gospodarstwa kończy
+się `hoofcare relation belongs to another organization`.
+
+Czego te tabele świadomie NIE mają: powiązania z `booking.Customer`. Klient i
+wizyta należą do `shared.booking`, ale ten moduł nie ma `api.py`, a kontrakt
+modułów zabrania sięgania do cudzych modeli. Zaczep powstanie razem z wizytami,
+przez publiczne API bookingu — i wtedy trzeba zdecydować, czy wizyta korekcji
+jest `Appointment`, czy własnym bytem wertykala.
+
+`test_deployment_release` porównuje teraz `record["deployment"]` z
+`settings.DEPLOYMENT` zamiast z literałem `business`. Bez tego suite nie dawała
+się uruchomić pod profilem wertykala, czyli jedynym, w którym te tabele w ogóle
+istnieją. Suite przechodzi pod oboma profilami: 694 testy.
+
 ## Niezmienne ograniczenia
 
 - tenantowe operacje wymagają jawnego `TenantContext`;

@@ -13,6 +13,7 @@ import json
 from io import StringIO
 
 import pytest
+from django.conf import settings
 from django.core.management import CommandError, call_command
 from django.db.migrations.loader import MigrationLoader
 
@@ -66,7 +67,10 @@ def test_the_release_record_says_what_this_image_is_and_where_it_stands() -> Non
     call_command("deployment_release", "--image", "backend=sha256:abc", stdout=output)
     record = json.loads(output.getvalue())
 
-    assert record["deployment"] == "business"
+    # The profile the suite runs under, not a literal: `settings.test` defaults
+    # to `business`, but a vertical's tables only exist when the suite runs under
+    # the profile that composes them, and that run must not fail here.
+    assert record["deployment"] == settings.DEPLOYMENT
     assert record["profileHash"].startswith("sha256:")
     assert record["images"] == {"backend": "sha256:abc"}
     assert record["rollback"] == {"reversible": True, "irreversible": []}
