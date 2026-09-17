@@ -76,8 +76,13 @@ wskazujący nieistniejący skill albo nieistniejącą ścieżkę psuje walidacj�
 
 ## Granice pracy
 
-Implementuj wyłącznie aktywny etap i jego konieczne fundamenty. Dziś jest to
-baza z planu 13 (P0-P3), a nie MedPlano ani żaden vertical. Po znaczącym etapie
+Implementuj wyłącznie aktywny etap i jego konieczne fundamenty. Bazą pozostaje
+plan 13 (P0-P3). Od 2026-09-17 warstwa vertical jest otwarta decyzją Macieja:
+`vertical.hoofcare` (korekcja racic) i `vertical.medical` (MedPlano) istnieją,
+mają własne profile produktów i własne instancje na dev VPS. Oba są na razie
+puste — jeden endpoint potwierdzający kompozycję, bez modeli. Modele wchodzą
+przez `change-tenant-data`, a to, co wspólne dla obu branż, należy do `shared`,
+nie do skopiowania między wertykałami. Po znaczącym etapie
 aktualizuj checklistę, `docs/development/HANDOFF.md` oraz Memex. Nie oznaczaj
 bramki jako ukończonej bez testu lub jednoznacznego artefaktu będącego dowodem;
 jeśli część zakresu zostaje otwarta, napisz wprost która i dlaczego.
