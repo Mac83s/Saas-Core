@@ -79,7 +79,7 @@ async function main() {
   const names =
     profileFlag >= 0
       ? [process.argv[profileFlag + 1]]
-      : ["core-only", "business"];
+      : ["core-only", "business", "vps-dev", "hoofcare", "medplano"];
   const check = process.argv.includes("--check");
 
   for (const name of names) {

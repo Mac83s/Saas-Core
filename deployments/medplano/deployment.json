@@ -1,27 +1,35 @@
 {
-  "$schema": "../../../packages/contracts/deployment.schema.json",
+  "$schema": "../../packages/contracts/deployment.schema.json",
   "schemaVersion": 1,
   "id": "medplano",
   "product": {
     "name": "MedPlano",
     "defaultLocale": "pl",
-    "supportedLocales": ["pl", "en"],
-    "platformDomain": "medplano.pl"
+    "supportedLocales": [
+      "pl",
+      "en"
+    ],
+    "platformDomain": "medplano.goldenstar.cloud"
   },
   "modules": [
+    "core.health",
     "core.identity",
     "core.organizations",
-    "core.audit",
     "shared.billing",
     "shared.sites",
     "shared.media",
+    "shared.profiles",
     "shared.notifications",
     "shared.booking",
-    "vertical.medical",
-    "config.medplano"
+    "shared.seo",
+    "vertical.medical"
   ],
   "billing": {
-    "planKeys": ["profile", "starter", "pro"]
+    "planKeys": [
+      "profile",
+      "starter",
+      "pro"
+    ]
   },
   "features": {
     "customDomains": true,

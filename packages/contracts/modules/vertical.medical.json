@@ -1,0 +1,20 @@
+{
+  "id": "vertical.medical",
+  "layer": "vertical",
+  "version": 1,
+  "dependsOn": ["core.identity", "core.organizations", "shared.booking"],
+  "backend": {
+    "djangoApp": "saas_core.modules.vertical.medical",
+    "urlPrefix": "/api/v1/medical",
+    "permissions": [],
+    "entitlements": [],
+    "eventSchemas": [],
+    "publicTables": [],
+    "platformTables": []
+  },
+  "frontend": {
+    "routes": [],
+    "navigation": [],
+    "translationNamespaces": []
+  }
+}

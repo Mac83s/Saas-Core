@@ -27,7 +27,7 @@
     "backend:check": "pnpm backend:lint && pnpm backend:imports && pnpm backend:migrations && pnpm backend:typecheck && pnpm backend:test",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "deployment:check": "node packages/contracts/scripts/deployment-check.mjs",
-    "deployment:check:all": "pnpm deployment:check --profile core-only && pnpm deployment:check --profile business && pnpm deployment:artifact:check",
+    "deployment:check:all": "pnpm deployment:check --profile core-only && pnpm deployment:check --profile business && pnpm deployment:check --profile vps-dev && pnpm deployment:check --profile hoofcare && pnpm deployment:check --profile medplano && pnpm deployment:artifact:check",
     "deployment:artifact": "node packages/contracts/scripts/deployment-artifact.mjs",
     "deployment:artifact:check": "node packages/contracts/scripts/deployment-artifact.mjs --check",
     "deployment:render": "node packages/contracts/scripts/deployment-render.mjs",

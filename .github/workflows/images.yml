@@ -39,6 +39,18 @@ jobs:
           - name: frontend
             dockerfile: apps/frontend/Dockerfile
             profile: business
+          - name: backend
+            dockerfile: apps/backend/Dockerfile
+            profile: hoofcare
+          - name: frontend
+            dockerfile: apps/frontend/Dockerfile
+            profile: hoofcare
+          - name: backend
+            dockerfile: apps/backend/Dockerfile
+            profile: medplano
+          - name: frontend
+            dockerfile: apps/frontend/Dockerfile
+            profile: medplano
           - name: caddy
             dockerfile: infra/caddy/Dockerfile
             profile: ""

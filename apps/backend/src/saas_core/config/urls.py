@@ -122,6 +122,14 @@ def _sites_routes() -> list[Route]:
     ]
 
 
+def _hoofcare_routes() -> list[Route]:
+    return [path("api/v1/hoofcare/", include("saas_core.modules.vertical.hoofcare.urls"))]
+
+
+def _medical_routes() -> list[Route]:
+    return [path("api/v1/medical/", include("saas_core.modules.vertical.medical.urls"))]
+
+
 #: Which module owns which routes. Ordered so a reader sees the composition in
 #: the same order the profile lists it.
 MODULE_ROUTES: dict[str, Callable[[], list[Route]]] = {
@@ -135,6 +143,8 @@ MODULE_ROUTES: dict[str, Callable[[], list[Route]]] = {
     "shared.notifications": _notification_routes,
     "shared.profiles": _profile_routes,
     "shared.booking": _booking_routes,
+    "vertical.hoofcare": _hoofcare_routes,
+    "vertical.medical": _medical_routes,
 }
 
 

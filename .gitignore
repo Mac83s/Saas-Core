@@ -17,6 +17,8 @@ htmlcov/
 
 # Runtime
 .runtime/
+# A second product on the same host keeps its own secrets and mailbox.
+.runtime-*/
 .env
 .env.*
 !.env.example

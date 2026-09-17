@@ -96,6 +96,44 @@ def test_business_registers_the_routes_core_only_refuses() -> None:
         assert present in prefixes
 
 
+#: Every vertical and the profile that owns it, with the route it registers.
+VERTICALS = (
+    ("hoofcare", "vertical.hoofcare", "api/v1/hoofcare/"),
+    ("medplano", "vertical.medical", "api/v1/medical/"),
+)
+
+
+@pytest.mark.parametrize(("profile", "module", "route"), VERTICALS)
+def test_a_vertical_composes_only_where_its_profile_names_it(
+    profile: str, module: str, route: str
+) -> None:
+    modules = compose(profile_modules(profile), CATALOG)
+
+    assert module in modules
+    # Dependencies first: a vertical sits above shared, which sits above core.
+    assert modules.index("shared.booking") < modules.index(module)
+    assert route in route_prefixes(profile_modules(profile))
+
+    for other in ("business", "core-only"):
+        elsewhere = compose(profile_modules(other), CATALOG)
+        assert module not in elsewhere
+        assert not [app for app in django_apps_for(elsewhere, CATALOG) if ".vertical." in app]
+        assert route not in route_prefixes(profile_modules(other))
+
+
+def test_one_vertical_never_arrives_with_another() -> None:
+    """Two products, one tree: a profile must carry its vertical and no other."""
+    for profile, module, route in VERTICALS:
+        modules = compose(profile_modules(profile), CATALOG)
+        strangers = [
+            other for _, other, _ in VERTICALS if other != module and other in modules
+        ]
+        assert strangers == [], f"{profile} wciągnął cudzy wertykał: {strangers}"
+
+        prefixes = route_prefixes(profile_modules(profile))
+        assert [r for _, _, r in VERTICALS if r != route and r in prefixes] == []
+
+
 def test_core_only_schedules_no_work_for_modules_it_does_not_have() -> None:
     base = import_module("saas_core.config.settings.base")
     core_only = compose(profile_modules("core-only"), CATALOG)
