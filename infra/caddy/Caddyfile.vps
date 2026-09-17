@@ -45,9 +45,11 @@
 	}
 
 	# Not `frontend`: on the edge network that name is GoldenStar's app too
-	# (compose.vps.yaml gives this stack's frontend a unique alias).
+	# (each stack's overlay gives its frontend a unique alias). The alias is a
+	# variable because more than one product now runs from this file: HoofCare's
+	# stack sets FRONTEND_UPSTREAM to its own, and vps-dev keeps the default.
 	handle {
-		reverse_proxy saas-core-frontend:3000 {
+		reverse_proxy {$FRONTEND_UPSTREAM:saas-core-frontend}:3000 {
 			health_uri /healthz
 			health_interval 10s
 			health_timeout 2s

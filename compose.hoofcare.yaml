@@ -1,0 +1,132 @@
+# HoofCare on the shared dev VPS (goldentrd), second product from this tree.
+#
+#   SAAS_CORE_SECRETS_DIR=.runtime-hoofcare/secrets node scripts/runtime-secrets.mjs
+#   docker compose --env-file .env.hoofcare -f compose.yaml -f compose.hoofcare.yaml up -d --build
+#
+# Same shape as compose.vps.yaml — the edge Caddy of GoldenStar terminates TLS
+# and forwards hoofcare.goldenstar.cloud to this stack's Caddy under the alias
+# `hoofcare` — with three differences:
+#
+# - it composes the `hoofcare` profile, so the backend carries vertical.hoofcare
+#   and the artifact hash that goes with it;
+# - its runtime directories and secrets live under .runtime-hoofcare, so two
+#   products never share a log file, a mailbox or a database password;
+# - mail stays on the file backend and billing on the simulator (ADR-034) until
+#   the Resend and Stripe keys arrive. Neither placeholder pretends to work.
+#
+# Everything a product owns is separate: its own compose project (`name` below),
+# so containers, volumes and networks do not collide with the saas-core stack
+# on this host.
+name: hoofcare
+
+# Backend and frontend carry the profile and its artifact hash, so they get
+# their own image tags. Sharing `saas-core-*:local` with the other stack means
+# the last build wins: a frontend built here would be what the saas-core stack
+# starts on its next recreate, and its /healthz would answer 503 on a hash it
+# never composed. Caddy, Redis and the object storage carry no profile and stay
+# shared.
+
+x-hoofcare-backend-environment: &hoofcare-backend-environment
+  ALLOWED_HOSTS: hoofcare.goldenstar.cloud,backend,localhost,127.0.0.1
+  CSRF_TRUSTED_ORIGINS: https://hoofcare.goldenstar.cloud
+  FRONTEND_BASE_URL: https://hoofcare.goldenstar.cloud
+  OBJECT_STORAGE_PUBLIC_ENDPOINT_URL: https://s3.hoofcare.goldenstar.cloud
+  DOMAIN_DNS_EXPECTED_IPV4: 193.33.111.229
+  PUBLIC_SITE_SCHEME: https
+  # The edge Caddy and this stack's Caddy both sit in front of the backend.
+  TRUSTED_PROXY_COUNT: "2"
+  # Mail is written to .runtime-hoofcare/emails until the Resend key is in
+  # place; then set HOOFCARE_EMAIL_BACKEND in .env.hoofcare to the SMTP backend
+  # and recreate, exactly as vps-dev did.
+  EMAIL_BACKEND: ${HOOFCARE_EMAIL_BACKEND:-django.core.mail.backends.filebased.EmailBackend}
+  EMAIL_HOST: smtp.resend.com
+  EMAIL_PORT: "587"
+  EMAIL_USE_TLS: "true"
+  EMAIL_HOST_USER: resend
+  EMAIL_HOST_PASSWORD_FILE: /run/secrets/email_host_password
+  DEFAULT_FROM_EMAIL: HoofCare <no-reply@hoofcare.goldenstar.cloud>
+
+services:
+  # Neither port may be published: 5432 belongs to GoldenStar's TimescaleDB and
+  # 6379 to the saas-core stack. Nothing here needs a host port at all.
+  postgres:
+    ports: !reset []
+  redis:
+    ports: !reset []
+
+  prometheus:
+    profiles: [observability]
+  loki:
+    profiles: [observability]
+  alloy:
+    profiles: [observability]
+  grafana:
+    profiles: [observability]
+  celery-exporter:
+    profiles: [observability]
+  redis-exporter:
+    profiles: [observability]
+  postgres-exporter:
+    profiles: [observability]
+
+  migrate:
+    image: hoofcare-backend:local
+    environment: *hoofcare-backend-environment
+    secrets:
+      - email_host_password
+
+  backend:
+    image: hoofcare-backend:local
+    environment: *hoofcare-backend-environment
+    secrets:
+      - email_host_password
+
+  worker:
+    image: hoofcare-backend:local
+    environment: *hoofcare-backend-environment
+    secrets:
+      - email_host_password
+
+  scheduler:
+    image: hoofcare-backend:local
+    environment: *hoofcare-backend-environment
+    secrets:
+      - email_host_password
+
+  frontend:
+    image: hoofcare-frontend:local
+    environment:
+      FRONTEND_CONTROL_HOSTS: hoofcare.goldenstar.cloud
+    networks:
+      app:
+        aliases:
+          - hoofcare-frontend
+
+  object-storage:
+    environment:
+      OBJECT_STORAGE_ALLOWED_ORIGINS: https://hoofcare.goldenstar.cloud
+    networks:
+      goldenstar-edge:
+        aliases:
+          - hoofcare-s3
+
+  caddy:
+    environment:
+      FRONTEND_UPSTREAM: hoofcare-frontend
+    volumes: !override
+      - ./infra/caddy/Caddyfile.vps:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      goldenstar-edge:
+        aliases:
+          - hoofcare
+
+secrets:
+  email_host_password:
+    file: ${SAAS_CORE_SECRETS_DIR:-.runtime-hoofcare/secrets}/email_host_password
+
+networks:
+  goldenstar-edge:
+    external: true
+    name: goldenstar-frontend_frontend_net

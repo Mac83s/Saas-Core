@@ -1480,6 +1480,27 @@ tabele kolekcji do konwencji modułu, bo wymuszony RLS blokował publiczny
 renderer (żądanie odwiedzającego nie ma kontekstu tenanta). Ktoś powinien
 zdecydować, która strona ma rację.
 
+## Pierwszy wertykał: `vertical.hoofcare` (2026-09-17)
+
+Warstwa `vertical` z ADR-021 nie miała do tej pory ani jednego modułu — katalog
+backendu zawierał sam `__init__.py`, frontend nie miał nawet folderu, a MedPlano
+czekał w `deployments/_planned/`. `vertical.hoofcare` jest pierwszy i na razie
+celowo pusty: jeden endpoint `GET /api/v1/hoofcare/`, który odpowiada wyłącznie
+tam, gdzie profil ten moduł złożył. Nie ma modeli ani migracji, więc nie dotyka
+jeszcze reżimów izolacji z ADR-039.
+
+Moduł jest po to, żeby zbudować na Core system dla firm korekcji racic:
+zwierzęta i identyfikacja, stado, wizyta w gospodarstwie, wpis korekcji z
+wersjonowanym katalogiem zmian, przypadek z weterynarzem, leki z karencjami,
+magazyn materiałów i raporty. Rdzeń pokrywa organizacje, kalendarz, strony,
+billing, powiadomienia i media — wertykał dokłada wyłącznie to, czego rdzeń nie
+zna. Dokumentacja przedwykonawcza produktu leży poza tym repozytorium.
+
+Profil produktu to `deployments/hoofcare/` (platformDomain
+`hoofcare.goldenstar.cloud`). Przy okazji do domyślnej listy generatora
+artefaktów i do `deployment:check:all` dopisany został także `vps-dev`, który
+miał artefakt, ale nie był przez nie pilnowany.
+
 ## Niezmienne ograniczenia
 
 - tenantowe operacje wymagają jawnego `TenantContext`;

@@ -116,7 +116,12 @@ services:
       - data
       - host-access
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      # Over TCP on purpose: during the first initdb the server accepts unix
+      # socket connections while the TCP listener is still closed, so the plain
+      # check reports healthy and whatever waits on it connects to a refused
+      # port. That is a cold-start race nobody sees until a new product is
+      # brought up on an empty volume, which is exactly when it hurts.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 10

@@ -96,6 +96,22 @@ def test_business_registers_the_routes_core_only_refuses() -> None:
         assert present in prefixes
 
 
+def test_the_vertical_layer_composes_only_where_its_profile_names_it() -> None:
+    """HoofCare is the first vertical, so this is also the layer's first proof."""
+    hoofcare = compose(profile_modules("hoofcare"), CATALOG)
+
+    assert "vertical.hoofcare" in hoofcare
+    # Dependencies first: a vertical sits above shared, which sits above core.
+    assert hoofcare.index("shared.booking") < hoofcare.index("vertical.hoofcare")
+    assert "api/v1/hoofcare/" in route_prefixes(profile_modules("hoofcare"))
+
+    for other in ("business", "core-only"):
+        modules = compose(profile_modules(other), CATALOG)
+        assert "vertical.hoofcare" not in modules
+        assert not [app for app in django_apps_for(modules, CATALOG) if ".vertical." in app]
+        assert "api/v1/hoofcare/" not in route_prefixes(profile_modules(other))
+
+
 def test_core_only_schedules_no_work_for_modules_it_does_not_have() -> None:
     base = import_module("saas_core.config.settings.base")
     core_only = compose(profile_modules("core-only"), CATALOG)
