@@ -1637,10 +1637,14 @@ Repozytoria produktów: `/root/HoofCare` i `/root/MedPlano` (upstream =
 Maciej). Obie przechodzą pełne testy w swoim profilu i `pnpm core:check`;
 `pnpm core:update` przeszedł w obu bez konfliktów.
 
-Otwarte: przeniesienie działających instancji hoofcare i medplano na dev VPS
-do ich repozytoriów (sekrety i `.env.<produkt>` leżą jeszcze w
-`/root/Saas-Core`), jednorazowe czyszczenie baz deweloperskich z uprawnień i
-cech HoofCare/medical tam, gdzie ich moduł nie jest składany.
+Instancje hoofcare i medplano na dev VPS budują się już z repozytoriów
+produktów (tam przeniesione `.env.<produkt>` i `.runtime-<produkt>`).
+
+Otwarte: jednorazowe czyszczenie baz deweloperskich z uprawnień
+`hoofcare.herd.*` i cech `hoofcare.enabled`/`medical.enabled` tam, gdzie ich
+moduł nie jest składany. Skrypt: `.runtime/adr049-cleanup.sql` (sprawdzony na
+kopii tabel MedPlano; kopie zapasowe tabel w `backups/before-adr049-cleanup.sql`
+każdego stosu). Wykonanie w bazie wymaga zgody Macieja.
 
 ## Niezmienne ograniczenia
 
