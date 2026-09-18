@@ -21,7 +21,7 @@ corepack pnpm bootstrap --profile core-only
 
 Skrypt weryfikuje Node 24, instaluje oba ekosystemy z lockfile, uruchamia
 PostgreSQL i Redis, waliduje profil, wykonuje migracje oraz generuje OpenAPI i
-klienta TypeScript. Aby przygotować MedPlano, użyj `--profile medplano`.
+klienta TypeScript. Bez `--profile` bootstrap bierze główny profil z `product.json` (w repozytorium produktu — ten produkt).
 
 Pełny runtime uruchamia jedna komenda:
 

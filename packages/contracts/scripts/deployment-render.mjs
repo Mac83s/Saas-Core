@@ -2,11 +2,15 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-import { repositoryRoot, validateDeployment } from "./deployment-check.mjs";
+import {
+  productProfile,
+  repositoryRoot,
+  validateDeployment,
+} from "./deployment-check.mjs";
 import { buildArtifact } from "./deployment-artifact.mjs";
 
 const profileFlag = process.argv.indexOf("--profile");
-const profileName =
+const requestedProfile =
   profileFlag >= 0 ? process.argv[profileFlag + 1] : undefined;
 
 export function toPublicDeployment(profile, modules, profileHash) {
@@ -23,11 +27,8 @@ export function toPublicDeployment(profile, modules, profileHash) {
 }
 
 async function main() {
-  if (!profileName) {
-    console.error("Użycie: deployment-render.mjs --profile <nazwa>");
-    process.exitCode = 2;
-    return;
-  }
+  // Without --profile: the repository's own product (product.json).
+  const profileName = requestedProfile ?? (await productProfile());
   try {
     const { profile, modules, descriptorsById } =
       await validateDeployment(profileName);

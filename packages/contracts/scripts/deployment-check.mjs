@@ -287,6 +287,15 @@ export async function validateDeployment(profileName, root = repositoryRoot) {
 }
 
 /**
+ * This repository's main profile, from its `product.json` slot (ADR-049):
+ * `business` in Saas-Core, the product's own in a product repository.
+ */
+export async function productProfile(root = repositoryRoot) {
+  const raw = await readFile(path.join(root, "product.json"), "utf8");
+  return JSON.parse(raw).profiles[0];
+}
+
+/**
  * Every profile this repository ships: `deployments/<name>/deployment.json`.
  * Parked ones (`_planned`) stay out. Discovered rather than listed, so a
  * product repository adds its profile without editing this file (ADR-049).

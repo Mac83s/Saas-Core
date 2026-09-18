@@ -1,7 +1,11 @@
 import { spawnSync } from "node:child_process";
 
+import { productProfile } from "../packages/contracts/scripts/deployment-check.mjs";
+
+// Without --profile: the repository's own product from product.json (ADR-049).
 const profileFlag = process.argv.indexOf("--profile");
-const profile = profileFlag >= 0 ? process.argv[profileFlag + 1] : "core-only";
+const profile =
+  profileFlag >= 0 ? process.argv[profileFlag + 1] : await productProfile();
 
 if (!/^[a-z][a-z0-9-]*$/.test(profile)) {
   throw new Error(`Nieprawidłowy profil deploymentu: ${profile}`);

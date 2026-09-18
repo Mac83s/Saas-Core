@@ -43,10 +43,11 @@ Plik `deployments/business/deployment.json`:
 ```
 
 Profil `deployments/core-only/deployment.json` zawiera wyłącznie moduły Core i
-służy do udowodnienia, że Core działa bez żadnego modułu Shared. Serwisy
-branżowe (np. MedPlano) dostaną własne profile, gdy powstanie ich kod; do tego
-czasu profil `deployments/_planned/medplano/deployment.json` jest poza
-katalogiem i nie jest walidowany — deklarowałby moduły, których nie ma.
+służy do udowodnienia, że Core działa bez żadnego modułu Shared. Produkty
+branżowe (HoofCare, MedPlano) mają profile we własnych repozytoriach
+(ADR-049). Główny profil repozytorium wskazuje `product.json`; z niego biorą
+domyślny profil testy, typecheck, kontrakt OpenAPI, migracje, `bootstrap`,
+`deployment:render` i macierz obrazów w CI.
 
 ## 3. Walidacja
 

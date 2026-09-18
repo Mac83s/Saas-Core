@@ -17,7 +17,9 @@ shared modules        (np. booking, billing, sites)
 core modules          (np. health, identity, organizations)
 ```
 
-Core nie zna Shared ani Vertical. Shared nie zna Vertical. Komunikacja w górę
+Core nie zna Shared ani Vertical. Shared nie zna Vertical. Moduły vertical i
+konfiguracja produktu nie leżą w Saas-Core: każdy produkt to osobne
+repozytorium wyprowadzone z Saas-Core (ADR-049, §6). Komunikacja w górę
 odbywa się przez publiczne interfejsy, zdarzenia domenowe albo rejestry
 rozszerzeń należące do niższej warstwy.
 
@@ -76,8 +78,10 @@ wyłącznie własne tabele.
    kierunku warstw.
 4. Backend generuje deterministyczną listę `INSTALLED_APPS`, URL-i, event
    handlers i konfigurację admina.
-5. Frontend otrzymuje bezsekretny, wygenerowany katalog modułów i buduje routing,
-   nawigację oraz namespace'y tłumaczeń.
+5. Frontend otrzymuje bezsekretny profil publiczny (`src/generated/deployment.ts`)
+   z listą modułów i po niej pokazuje pozycje menu. Pola `frontend` deskryptora
+   są deklaracją, nie źródłem routingu: menu, tłumaczenia i strony produktu
+   wnosi slot `apps/frontend/src/product/` (§6).
 
 Frontend nie może samodzielnie włączyć funkcji. Ostateczną decyzję podejmuje API
 na podstawie aktywnego modułu, permissionu oraz entitlementu.
@@ -93,3 +97,24 @@ na podstawie aktywnego modułu, permissionu oraz entitlementu.
 
 Naruszenie kontraktu blokuje merge i build obrazu. Dynamiczne importowanie
 modułu niewymienionego w profilu wdrożenia jest zabronione.
+
+## 6. Moduły produktu (ADR-049)
+
+Produkt (HoofCare, MedPlano, kolejne) żyje we własnym repozytorium — kopii
+Saas-Core z Saas-Core jako `upstream`. Dokłada nowe pliki i nie zmienia plików
+rdzenia poza slotami; pilnuje tego `pnpm core:check`, a rdzeń przychodzi przez
+`pnpm core:update`. Wertykał podłącza się bez edycji rdzenia:
+
+| Potrzeba | Punkt rozszerzenia |
+|---|---|
+| API | `backend.urlPrefix` + `djangoApp` (`urls.py` wertykału) |
+| uprawnienia ról systemowych | `backend.roleGrants` (tylko własne `permissions`) + migracja wertykału |
+| cecha planu | `backend.entitlements` + migracja wertykału publikująca wersję planu |
+| typ wizyty w booking | `backend.appointmentKinds` |
+| menu, tłumaczenia, treść marketingowa | `apps/frontend/src/product/index.ts` |
+| strony panelu | nowe pliki w `apps/frontend/src/app/` |
+| profil, obrazy, testy, kontrakt | `deployments/<produkt>/`, `product.json` |
+
+Punktu rozszerzenia nie ma jeszcze dla middleware i zadań cyklicznych
+wertykału. Pierwszy produkt, który ich potrzebuje, dodaje go w Saas-Core (pole
+deskryptora), a nie linię w `base.py` swojej kopii.

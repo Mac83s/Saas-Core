@@ -5,9 +5,12 @@ description: Adding a module to SaaS Core, changing what a module declares, or c
 
 # Modules and composition
 
-One repository builds several products. A module is a unit of that composition,
-and `deployments/<profile>/deployment.json` decides which units a given product
-is made of. Nothing about that is advisory: the profile produces
+Saas-Core builds the core products (`business`, `core-only`); every product
+with its own vertical is a separate repository copied from Saas-Core, which
+takes the core by merge and never edits a core file (ADR-049, `pnpm
+core:check`). A module is a unit of composition, and
+`deployments/<profile>/deployment.json` decides which units a given product is
+made of. Nothing about that is advisory: the profile produces
 `INSTALLED_APPS`, the middleware list, the URL table and the scheduled work.
 
 Read `docs/architecture/module-contract.md` and
@@ -39,7 +42,21 @@ verifies both directions.
    somebody reviewed.
 4. Add the module to the profiles that should have it, in
    `deployments/<profile>/deployment.json`.
-5. Wire what the module owns, each keyed by module id:
+5. **A vertical (in a product repository) wires itself from its descriptor** —
+   it may not edit core files:
+   - routes: `backend.urlPrefix` + `djangoApp` (its `urls.py`), mounted by
+     `config/urls.py` for any active vertical;
+   - system-role permissions: `backend.roleGrants`, only permissions it
+     declares; its own migration grants them in the database;
+   - plan features: `backend.entitlements`; its own migration publishes a new
+     plan version with the feature (plan versions are immutable);
+   - visit kinds: `backend.appointmentKinds`;
+   - panel menu, messages, marketing copy: `apps/frontend/src/product/index.ts`;
+     its pages are new files under `apps/frontend/src/app/`.
+   No extension point yet for a vertical's **middleware** or **scheduled work**:
+   the first vertical that needs one adds it to Saas-Core (a descriptor field,
+   like `appointmentKinds`), not a line in `base.py` of its own copy.
+6. A core or shared module wires what it owns, each keyed by module id:
    - routes in `apps/backend/src/saas_core/config/urls.py` (`MODULE_ROUTES`),
      built **inside a function** so a disabled module's views are never
      imported;
@@ -47,9 +64,9 @@ verifies both directions.
      `apps/backend/src/saas_core/config/settings/base.py`;
    - scheduled work in `_MODULE_BEAT_SCHEDULE` in the same file, under the
      module whose code the task calls — not the module that motivated it.
-6. Regenerate the artifact: `pnpm deployment:artifact`. It is committed, so the
+7. Regenerate the artifact: `pnpm deployment:artifact`. It is committed, so the
    change shows up as a diff in every profile that uses the module.
-7. Tables: read `change-tenant-data` before adding any model with an
+8. Tables: read `change-tenant-data` before adding any model with an
    organization.
 
 ## Traps

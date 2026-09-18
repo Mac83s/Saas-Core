@@ -39,7 +39,7 @@ PR nie może zostać połączony, dopóki nie przejdą:
 3. test granic modułów i profili deploymentu;
 4. generacja OpenAPI bez driftu i kontrola zmian łamiących;
 5. `makemigrations --check --dry-run` oraz test migracji od pustej bazy;
-6. test builda profilu `core-test` i `medplano`;
+6. test builda profilu `core-only` i głównego profilu z `product.json`;
 7. testy komponentów UI, axe i krytyczne scenariusze klawiatury;
 8. wybrany zestaw Playwright dla zmienionego obszaru.
 

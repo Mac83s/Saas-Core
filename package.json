@@ -21,7 +21,7 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "backend:lint": "uv run --project apps/backend ruff check apps/backend/src apps/backend/tests",
     "backend:imports": "uv run --project apps/backend lint-imports --config apps/backend/.importlinter",
-    "backend:migrations": "DEPLOYMENT=$(node -p \"require('./product.json').profiles[0]\") uv run --project apps/backend python apps/backend/manage.py makemigrations --check --dry-run --settings=saas_core.config.settings.migration_check",
+    "backend:migrations": "uv run --project apps/backend python apps/backend/manage.py makemigrations --check --dry-run --settings=saas_core.config.settings.migration_check",
     "backend:typecheck": "uv run --project apps/backend mypy --config-file apps/backend/pyproject.toml apps/backend/src",
     "backend:test": "uv run --project apps/backend pytest apps/backend/tests",
     "backend:check": "pnpm backend:lint && pnpm backend:imports && pnpm backend:migrations && pnpm backend:typecheck && pnpm backend:test",

@@ -13,6 +13,10 @@ resource list.
 
 ## A new profile
 
+A product with its own vertical is its own repository (ADR-049): its profile is
+a new directory in that repository, never in Saas-Core. Saas-Core carries only
+`business`, `core-only` and `vps-dev`.
+
 1. `deployments/<name>/deployment.json` — id equal to the directory name,
    product metadata, the module list (dependencies named explicitly), and
    `billing.planKeys` with exactly three keys if the profile includes
@@ -21,9 +25,11 @@ resource list.
 3. `pnpm deployment:artifact` — writes `deployments/<name>/module-artifact.json`
    and commits it. The hash is computed by that one generator; nothing else
    recomputes it.
-4. Add the profile to the CI image matrix in `.github/workflows/images.yml`, to
-   `pnpm deployment:check:all`, and to the default list in
-   `packages/contracts/scripts/deployment-artifact.mjs`.
+4. Nothing to register: `deployment:check --all` and `deployment:artifact`
+   discover every `deployments/<name>/deployment.json`. Which profiles the
+   repository builds into images, tests and generates the OpenAPI contract for
+   is `product.json` — the first entry is the main one. Do not add profile names
+   to workflows or scripts; a product repository may not edit them.
 5. A profile with no code yet is parked under `deployments/_planned/`, outside
    the pattern the validator accepts. Do not let it pretend to be valid.
 
@@ -59,6 +65,13 @@ the row next to the release manifest on the host (`docs/operations/staging.md`).
    not roll the schema back;
 3. backend and frontend go back **together** — mismatched hashes mean a 503 on
    the frontend rather than a menu leading to 404s.
+
+## A product on a server
+
+The server gets images built from the product's repository, its compose overlay
+(`compose.<product>.yaml`) and `.env.<product>`; runtime state and secrets live
+in `.runtime-<product>/` next to that repository. No source code of the core or
+of another product goes there.
 
 ## Two products on one host
 
