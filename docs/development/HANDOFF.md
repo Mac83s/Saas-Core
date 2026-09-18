@@ -1590,6 +1590,24 @@ jeszcze go nie ma. Domyślne wartości (`active`, `status`) należą do modelu, 
 do serializera — `default` w serializerze czyni pole wymaganym w schemacie,
 czyli dokładnie odwrotnie niż zamierzono.
 
+## Strony marketingowe produktów (2026-09-18)
+
+Decyzja właściciela, zapisana jako ADR-048: strona główna, cennik, kontakt, blog i
+strony prawne HoofCare, MedPlano i SaaS Core Business to **dedykowane strony
+Next.js** we froncie, na wzór paneli SEOSiteAudit i SeoContentRank — nie strony w
+builderze klientów. PL i EN, pełne SEO, treść per produkt i edytowalna, cennik z
+API billingu. Host produktu zostaje w całości aplikacji Next.js (ADR-028 bez
+zmian).
+
+Próba zbudowania ich przez workspace platformy (ADR-035) została cofnięta bez
+commita. Zostało z niej jedno znalezisko: provisioning workspace'u nadaje
+`sites.enabled`, ale nie `sites.max`, więc `create_site` pada z
+`QuotaUnavailable`.
+
+Otwarte: forma edycji treści (pliki w repo czy treść w bazie z panelu) oraz
+osobna integracja SCR dla tych stron — istniejący kontrakt content-operations ich
+nie obejmuje (plan 14, backlog).
+
 ## Niezmienne ograniczenia
 
 - tenantowe operacje wymagają jawnego `TenantContext`;
