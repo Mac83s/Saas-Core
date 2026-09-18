@@ -43,8 +43,8 @@ nigdy uruchomiony w żadnym stosie (provisioning nadawał `sites.enabled`, ale n
   nim, więc SCR nie zoptymalizuje ich przez istniejący connector. Integracja SCR
   ma odtąd dwie osobne drogi: builder klientów (istniejący kontrakt) i strony
   produktów (do zaprojektowania — patrz plan 14).
-- **Kształt tej drugiej integracji zależy od formy edycji treści**, która jest
-  jeszcze otwarta (niżej). Treść w plikach repozytorium oznacza, że SCR proponuje
+- **Kształt tej drugiej integracji zależy od formy edycji treści** — na teraz
+  pliki w repozytorium (niżej). Treść w plikach repozytorium oznacza, że SCR proponuje
   zmiany jako zmianę w repo; treść w bazie edytowana z panelu oznacza wąskie API
   z tymi samymi zasadami co content-operations (grant, digest, zatwierdzenie).
 - Scenariusz demonstracyjny W9.6 („operator publikuje stronę marketingową w
@@ -53,11 +53,12 @@ nigdy uruchomiony w żadnym stosie (provisioning nadawał `sites.enabled`, ale n
 - Znany defekt, gdyby workspace platformy miał kiedyś wrócić: provisioning nie
   nadaje quoty `sites.max`.
 
-## Otwarte
+## Forma edycji (rozstrzygnięte 2026-09-18)
 
-- **Forma edycji treści stron produktów:** pliki w repozytorium (jak w
-  SEOSiteAudit: tłumaczenia i MDX) czy treść w bazie z edycją w panelu
-  operatora. Decyduje też o kształcie integracji SCR.
+Najpierw **pliki w repozytorium**, jak w SEOSiteAudit: teksty w tłumaczeniach PL
+i EN, blog i strony prawne jako MDX. Treść jest wydzielona z komponentów, więc
+późniejsza edycja z panelu operatora to podmiana źródła, a nie przebudowa stron.
+Dla SCR oznacza to na teraz propozycję zmiany w repozytorium.
 
 ## Alternatywy odrzucone
 

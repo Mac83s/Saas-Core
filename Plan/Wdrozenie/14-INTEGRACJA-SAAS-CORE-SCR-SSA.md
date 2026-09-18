@@ -134,9 +134,9 @@ Te pozycje są zapisanym kierunkiem, ale nie są jeszcze wdrożone:
   produktów (HoofCare, MedPlano, SaaS Core Business) nie powstają w builderze
   klientów, tylko jako dedykowane strony Next.js, więc istniejący kontrakt
   content-operations ich nie obejmuje. SCR potrzebuje drugiej, osobnej drogi.
-  Jej kształt zależy od formy edycji treści tych stron, która jest jeszcze
-  otwarta: przy treści w repozytorium SCR proponuje zmianę w repo, przy treści w
-  bazie — wąskie API z grantem, digestem i zatwierdzeniem jak w content-operations.
+  Treść tych stron jest na razie w plikach repozytorium, więc SCR proponuje
+  zmianę w repo; gdy dojdzie edycja z panelu — wąskie API z grantem, digestem i
+  zatwierdzeniem jak w content-operations.
 
 Poniższe opisy zachowują wcześniejsze bramki i liczby testów jako historię.
 
