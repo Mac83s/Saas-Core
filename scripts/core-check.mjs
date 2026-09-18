@@ -56,11 +56,26 @@ try {
   process.exit(1);
 }
 
+// The memex block of AGENTS.md names the repository's own memex project, so
+// `memex connect` in a product rewrites it. The rest of the file is core.
+const MEMEX_BLOCK = /<!-- memex:begin -->[\s\S]*?<!-- memex:end -->/;
+const withoutMemexBlock = (text) => text.replace(MEMEX_BLOCK, "");
+const onlyMemexBlockChanged = (file) =>
+  file === "AGENTS.md" &&
+  withoutMemexBlock(
+    execFileSync("git", ["show", `${base}:${file}`], { encoding: "utf8" }),
+  ) === withoutMemexBlock(readFileSync(file, "utf8"));
+
 const violations = diff
   .split("\n")
   .filter(Boolean)
   .map((line) => line.split("\t"))
-  .filter(([status, file]) => status !== "A" && !owned(file))
+  .filter(
+    ([status, file]) =>
+      status !== "A" &&
+      !owned(file) &&
+      !(status === "M" && onlyMemexBlockChanged(file)),
+  )
   .map(([status, file]) => `  ${status} ${file}`);
 
 if (violations.length > 0) {
