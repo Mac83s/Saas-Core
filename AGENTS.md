@@ -87,7 +87,7 @@ repozytorium założone jako kopia Saas-Core, z Saas-Core jako `upstream`.
 - Potrzebujesz zmiany w rdzeniu, pracując nad produktem? Zrób ją w Saas-Core,
   a do produktu weź ją przez `pnpm core:update`. Nie poprawiaj rdzenia w kopii.
 - Produkt rozszerza rdzeń przez: deskryptor modułu (`urlPrefix`, `roleGrants`,
-  `appointmentKinds`, `entitlements`), własne migracje wertykału (uprawnienia
+  `appointmentKinds`, `entitlements`, `middleware`, `beatSchedule`), własne migracje wertykału (uprawnienia
   ról, cechy planów), slot `apps/frontend/src/product/index.ts` (menu,
   tłumaczenia, treść stron marketingowych), `product.json` (profile repozytorium).
 - Brakuje punktu rozszerzenia? Dodaj go w Saas-Core, zamiast nazywać produkt w
