@@ -21,11 +21,14 @@ pnpm api:check      # fails if either is stale
 `pnpm api:check` is a gate. Never hand-edit the yaml or the `.d.ts`; both are in
 `.prettierignore` so a formatter cannot fight the generator.
 
-**The schema is per product.** It is generated with the `business` profile
-because the session cookie name carries the deployment, so generation and the
-drift check must use the same profile — they agreed only by accident until
-2026-09-05. If you add a settings value that reaches the schema, expect the same
-class of problem.
+**Generation and the drift check use one settings module:**
+`saas_core.config.settings.typecheck`, which composes the `hoofcare` profile. It
+has to be a profile that composes a vertical, or the vertical's endpoints never
+reach the contract or the generated client. The session cookie name carries the
+deployment, so the two must match — they drifted apart on 2026-09-17 and CI
+would have failed on the next push. One contract still serves every product;
+splitting it per profile is recorded debt (HANDOFF). If you add a settings value
+that reaches the schema, expect the same class of problem.
 
 ## Writing an endpoint
 

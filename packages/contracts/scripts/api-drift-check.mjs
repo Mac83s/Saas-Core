@@ -58,7 +58,7 @@ try {
     "--file",
     temporarySchema,
     "--validate",
-    "--settings=saas_core.config.settings.test",
+    "--settings=saas_core.config.settings.typecheck",
   ]);
   run(process.execPath, [
     openapiTypescriptCli,
