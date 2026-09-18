@@ -40,7 +40,10 @@ produktów.
    spoza listy. Bez tego zasada zależy od pamięci, a w SSA i SCR to zawiodło.
 5. **Punkty rozszerzeń rdzenia:**
    - deskryptor modułu: `urlPrefix` (routing), `roleGrants` (uprawnienia ról
-     systemowych), `appointmentKinds` (typy wizyt), `entitlements`;
+     systemowych), `appointmentKinds` (typy wizyt), `entitlements`,
+     `middleware` (montowane po middleware tenanta), `beatSchedule` (zadania
+     cykliczne) — `deployment-check` odrzuca uprawnienia, middleware i taski
+     spoza własnego modułu;
    - własne migracje wertykału nadają uprawnienia rolom i cechy planom — rdzeń
      nie ma migracji nazywającej produkt;
    - slot frontendu `apps/frontend/src/product/index.ts`: pozycje menu,
@@ -61,13 +64,17 @@ produktów.
 - Zależność npm lub Python potrzebna produktowi wchodzi przez Saas-Core,
   bo manifesty pakietów są plikami rdzenia. Świadomy koszt: zależność trafia do
   wszystkich produktów.
+- Szablony stron i bloki stron należą do rdzenia (kontrakt z SeoContentRank i
+  renderer stron klientów). Produkt, który potrzebuje własnego, dodaje go w
+  Saas-Core.
 - Pliki generowane konfliktują przy merge'u; rozwiązaniem jest wygenerowanie
   ich od nowa (`pnpm api:schema`, `pnpm deployment:render`), nie ręczna edycja.
 - Dług „OpenAPI per profil” znika: każde repo generuje kontrakt swojego profilu.
 - Migracje `organizations.0035` i `billing.0023` stają się w rdzeniu pustymi
   węzłami grafu; ich treść przechodzi do `vertical.hoofcare`. Cechę
-  `medical.enabled` usuwamy z seedów billingu rdzenia; nadaje ją `vertical.medical`.
-  Istniejące bazy deweloperskie czyści się jednorazowo (HANDOFF).
+  `medical.enabled` usuwamy z seedów billingu rdzenia; nie wraca, dopóki nic nią
+  nie jest bramkowane. Istniejące bazy deweloperskie wyczyszczono jednorazowo
+  18.09 (HANDOFF).
 
 ## Alternatywy odrzucone
 

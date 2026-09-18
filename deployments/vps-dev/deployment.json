@@ -5,10 +5,7 @@
   "product": {
     "name": "SaaS Core Business (dev VPS)",
     "defaultLocale": "pl",
-    "supportedLocales": [
-      "pl",
-      "en"
-    ],
+    "supportedLocales": ["pl", "en"],
     "platformDomain": "saas.goldenstar.cloud"
   },
   "modules": [
@@ -24,11 +21,7 @@
     "shared.seo"
   ],
   "billing": {
-    "planKeys": [
-      "profile",
-      "starter",
-      "pro"
-    ]
+    "planKeys": ["profile", "starter", "pro"]
   },
   "features": {
     "customDomains": true,

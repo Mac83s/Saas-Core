@@ -6,8 +6,15 @@ from datetime import date, time, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 
+import psycopg
 import pytest
-from django.db import IntegrityError, close_old_connections, connection, transaction
+from django.db import (
+    IntegrityError,
+    OperationalError,
+    close_old_connections,
+    connection,
+    transaction,
+)
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -305,6 +312,41 @@ def test_two_concurrent_transactions_create_only_one_appointment(
     assert sorted(outcomes) == ["conflict", "created"]
     with tenant(member):
         assert Appointment.objects.count() == 1
+
+
+def test_a_deadlock_between_two_racing_bookings_is_a_slot_conflict(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The race above can end in a deadlock instead of an exclusion violation.
+
+    Both transactions insert their allocation, and each exclusion check waits
+    for the other's uncommitted row; PostgreSQL aborts one of them with SQLSTATE
+    40P01. Seen under load on 2026-09-18 as a 500 where a 409 belongs. Forced
+    here, because the real interleaving cannot be produced on demand.
+    """
+    monkeypatch.setattr(
+        "saas_core.modules.shared.notifications.tasks.deliver_email_task.delay",
+        lambda *_args: None,
+    )
+    member = membership("booking-deadlock")
+    configured = catalog(member)
+
+    def deadlock(*_args: Any, **_kwargs: Any) -> None:
+        try:
+            raise psycopg.errors.DeadlockDetected("deadlock detected")
+        except psycopg.errors.DeadlockDetected as cause:
+            raise OperationalError("deadlock detected") from cause
+
+    monkeypatch.setattr(AppointmentStaffAllocation.all_objects, "create", deadlock)
+    with pytest.raises(SlotUnavailable):
+        create(member, configured)
+
+    def unrelated(*_args: Any, **_kwargs: Any) -> None:
+        raise OperationalError("server closed the connection unexpectedly")
+
+    monkeypatch.setattr(AppointmentStaffAllocation.all_objects, "create", unrelated)
+    with pytest.raises(OperationalError):
+        create(member, configured, key="create-2")
 
 
 def test_reschedule_cancel_are_idempotent_and_schedule_change_preserves_snapshot(

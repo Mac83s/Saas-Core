@@ -291,3 +291,106 @@ test("profil publiczny nie przenosi sekretów ani nieznanych pól", () => {
   assert.equal(publicProfile.profileHash, "a".repeat(64));
   assert.doesNotMatch(JSON.stringify(publicProfile), /sekret/);
 });
+
+// One module, `core.health`, with the backend section under test.
+const singleModuleRoot = async (backend) => {
+  const root = await mkdtemp(path.join(tmpdir(), "saas-core-extension-"));
+  const contracts = path.join(root, "packages/contracts");
+  await mkdir(path.join(contracts, "modules"), { recursive: true });
+  await mkdir(path.join(root, "deployments/only-health"), { recursive: true });
+  for (const file of ["deployment.schema.json", "module.schema.json"]) {
+    await cp(
+      path.join(repositoryRoot, "packages/contracts", file),
+      path.join(contracts, file),
+    );
+  }
+  const healthApp = path.join(
+    root,
+    "apps/backend/src/saas_core/modules/core/health",
+  );
+  await mkdir(healthApp, { recursive: true });
+  await writeFile(path.join(healthApp, "apps.py"), "");
+  await writeFile(
+    path.join(contracts, "modules/core.health.json"),
+    JSON.stringify({
+      id: "core.health",
+      layer: "core",
+      version: 1,
+      dependsOn: [],
+      backend: {
+        djangoApp: "saas_core.modules.core.health",
+        urlPrefix: null,
+        permissions: ["health.read"],
+        entitlements: [],
+        eventSchemas: [],
+        publicTables: [],
+        platformTables: [],
+        ...backend,
+      },
+      frontend: { routes: [], navigation: [], translationNamespaces: [] },
+    }),
+  );
+  await writeFile(
+    path.join(root, "deployments/only-health/deployment.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      id: "only-health",
+      product: {
+        name: "Only health",
+        defaultLocale: "pl",
+        supportedLocales: ["pl"],
+        platformDomain: "health.localhost",
+      },
+      modules: ["core.health"],
+      features: {},
+    }),
+  );
+  return root;
+};
+
+test("moduł nadaje rolom tylko własne uprawnienia i montuje tylko własny kod (ADR-049)", async () => {
+  await assert.rejects(
+    validateDeployment(
+      "only-health",
+      await singleModuleRoot({ roleGrants: { owner: ["billing.manage"] } }),
+    ),
+    /nadaje roli owner uprawnienie billing\.manage, którego nie deklaruje/,
+  );
+  await assert.rejects(
+    validateDeployment(
+      "only-health",
+      await singleModuleRoot({
+        middleware: ["saas_core.modules.shared.sites.middleware.Foreign"],
+      }),
+    ),
+    /nie należy do saas_core\.modules\.core\.health/,
+  );
+  await assert.rejects(
+    validateDeployment(
+      "only-health",
+      await singleModuleRoot({
+        beatSchedule: {
+          foreign: {
+            task: "saas_core.modules.shared.seo.tasks.x",
+            schedule: 60,
+          },
+        },
+      }),
+    ),
+    /nie należy do saas_core\.modules\.core\.health/,
+  );
+
+  const own = await singleModuleRoot({
+    roleGrants: { owner: ["health.read"] },
+    appointmentKinds: { "health.visit": "Wizyta" },
+    middleware: ["saas_core.modules.core.health.middleware.Own"],
+    beatSchedule: {
+      "health-own": {
+        task: "saas_core.modules.core.health.tasks.own",
+        schedule: 60,
+      },
+    },
+  });
+  const result = await validateDeployment("only-health", own);
+  assert.deepEqual(result.modules, ["core.health"]);
+});

@@ -104,6 +104,34 @@
             "type": "string",
             "minLength": 1
           }
+        },
+        "middleware": {
+          "description": "Middleware classes of this module, mounted after the tenant middleware only where the module is composed (ADR-049). Must live in the module's own app.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "beatSchedule": {
+          "description": "Scheduled work of this module as {name: {task, schedule}}; schedule in seconds (ADR-049). Tasks must live in the module's own app.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["task", "schedule"],
+            "properties": {
+              "task": {
+                "type": "string",
+                "minLength": 1
+              },
+              "schedule": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              }
+            }
+          }
         }
       }
     },

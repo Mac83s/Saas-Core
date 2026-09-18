@@ -53,9 +53,13 @@ verifies both directions.
    - visit kinds: `backend.appointmentKinds`;
    - panel menu, messages, marketing copy: `apps/frontend/src/product/index.ts`;
      its pages are new files under `apps/frontend/src/app/`.
-   No extension point yet for a vertical's **middleware** or **scheduled work**:
-   the first vertical that needs one adds it to Saas-Core (a descriptor field,
-   like `appointmentKinds`), not a line in `base.py` of its own copy.
+   - middleware: `backend.middleware`, mounted after the tenant middleware;
+   - scheduled work: `backend.beatSchedule` (`{name: {task, schedule}}`);
+     `deployment-check` refuses middleware or tasks outside the module's app.
+   Page templates and site blocks stay in core (they are part of the
+   SeoContentRank contract): a product that needs one adds it to Saas-Core.
+   Any other missing extension point is added to Saas-Core, never as a line in
+   a core file of the product's copy.
 6. A core or shared module wires what it owns, each keyed by module id:
    - routes in `apps/backend/src/saas_core/config/urls.py` (`MODULE_ROUTES`),
      built **inside a function** so a disabled module's views are never

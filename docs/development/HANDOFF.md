@@ -1644,10 +1644,10 @@ Bazy deweloperskie wyczyszczone skryptem `.runtime/adr049-cleanup.sql`
 (uruchomił Maciej, 18.09): saas-core i medplano bez uprawnień `hoofcare.herd.*`
 i cech `hoofcare.enabled`/`medical.enabled`; hoofcare bez `medical.enabled`.
 
-Znane braki punktów rozszerzeń (dodać w Saas-Core przy pierwszej potrzebie,
-nie w kopii produktu): middleware i zadania cykliczne wertykału, własne
-szablony stron (`page-templates/manifest.json`) i bloki stron produktu,
-zależności npm/Python tylko przez Saas-Core.
+Punkty rozszerzeń domknięte: deskryptor ma też `middleware` i `beatSchedule`.
+Szablony i bloki stron oraz zależności npm/Python zostają w rdzeniu (produkt
+dodaje je w Saas-Core). Wyścig dwóch rezerwacji o jeden termin kończący się
+deadlockiem PostgreSQL daje teraz 409 zamiast 500.
 
 ## Niezmienne ograniczenia
 

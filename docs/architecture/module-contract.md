@@ -111,10 +111,14 @@ rdzenia poza slotami; pilnuje tego `pnpm core:check`, a rdzeń przychodzi przez
 | uprawnienia ról systemowych | `backend.roleGrants` (tylko własne `permissions`) + migracja wertykału |
 | cecha planu | `backend.entitlements` + migracja wertykału publikująca wersję planu |
 | typ wizyty w booking | `backend.appointmentKinds` |
+| middleware | `backend.middleware` (po middleware tenanta; tylko własny kod) |
+| zadania cykliczne | `backend.beatSchedule` (`{nazwa: {task, schedule}}`; tylko własne taski) |
 | menu, tłumaczenia, treść marketingowa | `apps/frontend/src/product/index.ts` |
 | strony panelu | nowe pliki w `apps/frontend/src/app/` |
 | profil, obrazy, testy, kontrakt | `deployments/<produkt>/`, `product.json` |
 
-Punktu rozszerzenia nie ma jeszcze dla middleware i zadań cyklicznych
-wertykału. Pierwszy produkt, który ich potrzebuje, dodaje go w Saas-Core (pole
-deskryptora), a nie linię w `base.py` swojej kopii.
+Szablony stron i bloki stron należą do rdzenia: produkt, który potrzebuje
+własnego, dodaje go w Saas-Core, bo szablony i bloki są częścią kontraktu
+z SeoContentRank (ADR-035, ADR-046) i renderera stron klientów. Tak samo
+zależności npm i Python — manifesty pakietów są plikami rdzenia. Brakuje
+innego punktu rozszerzenia? Dodaj go w Saas-Core, nie w kopii produktu.

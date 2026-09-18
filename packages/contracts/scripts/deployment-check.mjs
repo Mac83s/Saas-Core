@@ -150,6 +150,25 @@ const assertGrantsAreOwnPermissions = (descriptor) => {
   }
 };
 
+// ADR-049: middleware and scheduled tasks a module declares must be its own
+// code, so a descriptor cannot mount somebody else's.
+const assertDeclaredCodeIsOwn = (descriptor) => {
+  const own = descriptor.backend.djangoApp;
+  const paths = [
+    ...(descriptor.backend.middleware ?? []),
+    ...Object.values(descriptor.backend.beatSchedule ?? {}).map(
+      (entry) => entry.task,
+    ),
+  ];
+  for (const dotted of paths) {
+    if (!own || !dotted.startsWith(`${own}.`)) {
+      throw new Error(
+        `Moduł ${descriptor.id} deklaruje ${dotted}, które nie należy do ${own ?? "żadnej aplikacji"}`,
+      );
+    }
+  }
+};
+
 const loadDescriptors = async (root) => {
   const directory = path.join(root, "packages/contracts/modules");
   const files = (await readdir(directory))
@@ -249,6 +268,7 @@ export async function validateDeployment(profileName, root = repositoryRoot) {
     }
     assertDeclaredTablesBelongToModule(descriptor);
     assertGrantsAreOwnPermissions(descriptor);
+    assertDeclaredCodeIsOwn(descriptor);
     descriptorsById.set(descriptor.id, descriptor);
   }
 

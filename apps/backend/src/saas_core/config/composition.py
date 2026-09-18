@@ -41,6 +41,10 @@ class ModuleDescriptor:
     #: module without editing a file it received from Saas-Core (ADR-049).
     role_grants: dict[str, tuple[str, ...]] | None = None
     appointment_kinds: dict[str, str] | None = None
+    #: Middleware and scheduled work of a module core does not name, so a
+    #: product's vertical mounts them without editing `base.py` (ADR-049).
+    middleware: tuple[str, ...] = ()
+    beat_schedule: dict[str, dict[str, Any]] | None = None
 
 
 def load_catalog(directory: Path) -> dict[str, ModuleDescriptor]:
@@ -59,6 +63,11 @@ def load_catalog(directory: Path) -> dict[str, ModuleDescriptor]:
                 for role, grants in (raw["backend"].get("roleGrants") or {}).items()
             },
             appointment_kinds=dict(raw["backend"].get("appointmentKinds") or {}),
+            middleware=tuple(raw["backend"].get("middleware") or ()),
+            beat_schedule={
+                name: dict(entry)
+                for name, entry in (raw["backend"].get("beatSchedule") or {}).items()
+            },
         )
         if descriptor.id in descriptors:
             raise CompositionError(f"Powielony deskryptor modułu {descriptor.id}")
@@ -190,6 +199,28 @@ def appointment_kinds_for(
                 raise CompositionError(f"Typ wizyty {key} zgłoszony przez więcej niż jeden moduł")
             kinds[key] = label
     return kinds
+
+
+def middleware_for(
+    modules: tuple[str, ...] | frozenset[str],
+    catalog: dict[str, ModuleDescriptor],
+) -> tuple[str, ...]:
+    """Middleware the composed modules declare, in composition order."""
+    return tuple(path for module_id in modules for path in catalog[module_id].middleware)
+
+
+def beat_schedule_for(
+    modules: tuple[str, ...] | frozenset[str],
+    catalog: dict[str, ModuleDescriptor],
+) -> dict[str, dict[str, Any]]:
+    """Scheduled work the composed modules declare, under one name each."""
+    schedule: dict[str, dict[str, Any]] = {}
+    for module_id in modules:
+        for name, entry in (catalog[module_id].beat_schedule or {}).items():
+            if name in schedule:
+                raise CompositionError(f"Zadanie {name} zgłoszone przez więcej niż jeden moduł")
+            schedule[name] = entry
+    return schedule
 
 
 def verify_artifact(

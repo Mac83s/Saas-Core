@@ -9,7 +9,7 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
-from django.db import IntegrityError, transaction
+from django.db import DatabaseError, IntegrityError, OperationalError, transaction
 from django.utils import timezone
 from rest_framework.exceptions import APIException, NotFound, ValidationError
 
@@ -49,6 +49,21 @@ from .security import issue_self_service_token
 BOOKING_READ = "booking.appointment.read"
 BOOKING_MANAGE = "booking.appointment.manage"
 BOOKING_ENABLED = "booking.enabled"
+
+
+#: SQLSTATE of a deadlock. Two bookings racing for one slot insert their
+#: allocations at the same moment, and each exclusion check then waits for the
+#: other's uncommitted row; PostgreSQL breaks the cycle by aborting one of them.
+#: For that one it is the same outcome as the exclusion violation it would have
+#: hit a millisecond later, so it must reach the caller as a slot conflict, not
+#: as a 500.
+_DEADLOCK_DETECTED = "40P01"
+
+
+def _lost_slot_race(error: DatabaseError) -> bool:
+    return isinstance(error, IntegrityError) or (
+        getattr(error.__cause__, "sqlstate", None) == _DEADLOCK_DETECTED
+    )
 
 
 class SlotUnavailable(APIException):
@@ -270,7 +285,9 @@ def create_appointment(
                 resource=resource,
                 occupied_range=(occupied_from, occupied_until),
             )
-    except IntegrityError as error:
+    except (IntegrityError, OperationalError) as error:
+        if not _lost_slot_race(error):
+            raise
         raise SlotUnavailable from error
     AppointmentStatusHistory.all_objects.create(
         organization=organization,
@@ -381,7 +398,9 @@ def reschedule_appointment(
                 resource=resource,
                 occupied_range=(occupied_from, occupied_until),
             )
-    except IntegrityError as error:
+    except (IntegrityError, OperationalError) as error:
+        if not _lost_slot_race(error):
+            raise
         raise SlotUnavailable from error
     previous = appointment.starts_at
     appointment.starts_at, appointment.ends_at = starts_at, ends

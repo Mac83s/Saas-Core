@@ -10,9 +10,11 @@ from django.core.exceptions import ImproperlyConfigured
 from saas_core.config.composition import (
     CompositionError,
     appointment_kinds_for,
+    beat_schedule_for,
     compose,
     django_apps_for,
     load_catalog,
+    middleware_for,
     role_grants_for,
     select_by_module,
     verify_artifact,
@@ -300,6 +302,9 @@ MIDDLEWARE = [
         if module_id in ACTIVE_MODULES
     ),
     "saas_core.modules.core.organizations.middleware.TenantContextMiddleware",
+    # A product's vertical declares its own in the descriptor (ADR-049). After
+    # the tenant middleware: it sees the resolved tenant and cannot choose one.
+    *middleware_for(ACTIVE_MODULES, _module_catalog),
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -700,6 +705,11 @@ try:
     CELERY_BEAT_SCHEDULE = select_by_module(
         _MODULE_BEAT_SCHEDULE, ACTIVE_MODULES, KNOWN_MODULES
     )
+    # A product's vertical declares its scheduled work in the descriptor.
+    _declared_schedule = beat_schedule_for(ACTIVE_MODULES, _module_catalog)
+    if clash := sorted(set(_declared_schedule) & set(CELERY_BEAT_SCHEDULE)):
+        raise CompositionError(f"Zadania o tej samej nazwie co w rdzeniu: {', '.join(clash)}")
+    CELERY_BEAT_SCHEDULE |= _declared_schedule
     #: {key: label} of the visit kinds this deployment composes. A module that
     #: knows the shape of a visit declares it in its descriptor; core only
     #: knows that a key from a module this product lacks is a typo.

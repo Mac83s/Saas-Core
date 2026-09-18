@@ -24,9 +24,11 @@ from saas_core.config.composition import (
     CompositionError,
     ModuleDescriptor,
     appointment_kinds_for,
+    beat_schedule_for,
     compose,
     django_apps_for,
     load_catalog,
+    middleware_for,
     role_grants_for,
     select_by_module,
     verify_artifact,
@@ -169,6 +171,34 @@ def test_visit_kinds_and_role_grants_come_only_from_composed_modules() -> None:
         "viewer": ("example.read",),
     }
     assert role_grants_for(core_only, catalog) == {}
+
+
+def test_middleware_and_scheduled_work_come_only_from_composed_modules() -> None:
+    catalog = dict(CATALOG)
+    catalog["vertical.example"] = made_up_vertical(
+        middleware=("saas_core.modules.shared.seo.middleware.Example",),
+        beat_schedule={
+            "example-sweep": {"task": "saas_core.modules.shared.seo.tasks.x", "schedule": 60.0}
+        },
+    )
+    core_only = tuple(profile_modules("core-only"))
+
+    assert middleware_for((*core_only, "vertical.example"), catalog) == (
+        "saas_core.modules.shared.seo.middleware.Example",
+    )
+    assert middleware_for(core_only, catalog) == ()
+    assert set(beat_schedule_for((*core_only, "vertical.example"), catalog)) == {
+        "example-sweep"
+    }
+    assert beat_schedule_for(core_only, catalog) == {}
+
+
+def test_the_running_deployment_mounts_declared_middleware_after_the_tenant() -> None:
+    tenant = settings.MIDDLEWARE.index(
+        "saas_core.modules.core.organizations.middleware.TenantContextMiddleware"
+    )
+    for path in middleware_for(settings.ACTIVE_MODULES, CATALOG):
+        assert settings.MIDDLEWARE.index(path) > tenant
 
 
 def test_two_modules_cannot_claim_one_visit_kind() -> None:
