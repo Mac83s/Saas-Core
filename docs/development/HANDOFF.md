@@ -1604,9 +1604,16 @@ commita. Zostało z niej jedno znalezisko: provisioning workspace'u nadaje
 `sites.enabled`, ale nie `sites.max`, więc `create_site` pada z
 `QuotaUnavailable`.
 
-Otwarte: forma edycji treści (pliki w repo czy treść w bazie z panelu) oraz
-osobna integracja SCR dla tych stron — istniejący kontrakt content-operations ich
-nie obejmuje (plan 14, backlog).
+Forma edycji rozstrzygnięta: najpierw pliki w repo (ADR-048). Zrobione (f2a4117):
+strona główna, `/pricing`, `/contact` w PL/EN w grupie `app/[locale]/(marketing)`,
+treść per profil w `src/marketing/content`, cennik z publicznego
+`GET /api/v1/billing/plans/`, hreflang, Open Graph, JSON-LD, `sitemap.xml` i
+`robots.txt` hosta produktu. Działa na hoofcare i medplano.
+
+Otwarte: blog i strony prawne (MDX), formularz kontaktowy (po kluczach Resend),
+plany w bazie per produkt (dziś generyczne), rebuild vps-dev oraz osobna
+integracja SCR dla tych stron — kontrakt content-operations ich nie obejmuje
+(plan 14, backlog).
 
 ## Niezmienne ograniczenia
 
