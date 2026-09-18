@@ -44,11 +44,9 @@ def _plan_payload(
     }
 
 
-def customer_billing_overview() -> dict[str, Any]:
-    """Return customer-facing billing state from local, tenant-scoped data."""
-
-    context = authorize(BILLING_MANAGE)
-    public_plans = {
+def _public_plans() -> list[Plan]:
+    """The profile's plans a customer may buy, in the profile's order."""
+    by_key = {
         plan.key: plan
         for plan in Plan.objects.filter(
             key__in=settings.BILLING_PLAN_KEYS,
@@ -57,11 +55,42 @@ def customer_billing_overview() -> dict[str, Any]:
             current_version__isnull=False,
         ).select_related("current_version")
     }
-    plans = [
-        public_plans[plan_key]
-        for plan_key in settings.BILLING_PLAN_KEYS
-        if plan_key in public_plans
-    ]
+    return [by_key[key] for key in settings.BILLING_PLAN_KEYS if key in by_key]
+
+
+def public_plan_catalog() -> list[dict[str, Any]]:
+    """What a visitor sees on the pricing page before signing in.
+
+    The catalogue only — price, interval, trial and what the plan includes.
+    Nothing here belongs to an organization, so there is no tenant to set and
+    no permission to ask for; the plan tables carry no organization at all.
+    The product site reads its prices from here rather than from its own copy,
+    so a price published in billing cannot disagree with the one advertised.
+    """
+    catalog: list[dict[str, Any]] = []
+    for plan in _public_plans():
+        version = plan.current_version
+        if version is None:  # Same guard as the overview: catalogue drift.
+            continue
+        catalog.append({
+            "key": plan.key,
+            "name": plan.name,
+            "description": plan.description,
+            "currency": version.currency,
+            "billing_interval": version.billing_interval,
+            "unit_amount_minor": version.unit_amount_minor,
+            "trial_days": version.trial_days,
+            "features": version.feature_keys,
+            "quotas": version.quotas,
+        })
+    return catalog
+
+
+def customer_billing_overview() -> dict[str, Any]:
+    """Return customer-facing billing state from local, tenant-scoped data."""
+
+    context = authorize(BILLING_MANAGE)
+    plans = _public_plans()
     current_version_ids = [plan.current_version_id for plan in plans]
     checkout_versions: set[UUID] = set(
         StripePriceMapping.objects.filter(

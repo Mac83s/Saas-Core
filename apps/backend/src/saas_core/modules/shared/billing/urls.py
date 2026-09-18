@@ -9,11 +9,13 @@ from .views import (
     BillingOverviewView,
     BillingPortalView,
     BillingTrialActivationView,
+    PublicPlanCatalogView,
     StripeWebhookView,
 )
 
 urlpatterns = [
     path("overview/", BillingOverviewView.as_view(), name="billing-overview"),
+    path("plans/", PublicPlanCatalogView.as_view(), name="billing-public-plans"),
     path("details/", BillingDetailsView.as_view(), name="billing-details"),
     path(
         "trial-activation/",

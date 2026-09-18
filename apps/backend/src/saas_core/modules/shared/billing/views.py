@@ -4,17 +4,18 @@ from django.core.exceptions import ImproperlyConfigured
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema
-from rest_framework import status
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
 from .models import CreditPurchaseStatus
-from .overview import customer_billing_overview
+from .overview import customer_billing_overview, public_plan_catalog
 from .serializers import (
     BillingDetailsSerializer,
     BillingDetailsStateSerializer,
@@ -39,6 +40,44 @@ from .services import (
 )
 from .support import entitlement_support_report
 from .webhooks import InvalidStripeWebhook, StripeWebhookConflict, ingest_stripe_webhook
+
+
+class PublicCatalogThrottle(AnonRateThrottle):
+    scope = "billing_public_catalog"
+
+
+PublicPlanListSerializer = inline_serializer(
+    name="PublicPlan",
+    many=True,
+    fields={
+        "key": serializers.CharField(),
+        "name": serializers.CharField(),
+        "description": serializers.CharField(),
+        "currency": serializers.CharField(),
+        "billing_interval": serializers.CharField(),
+        "unit_amount_minor": serializers.IntegerField(),
+        "trial_days": serializers.IntegerField(),
+        "features": serializers.ListField(child=serializers.CharField()),
+        "quotas": serializers.DictField(child=serializers.IntegerField()),
+    },
+)
+
+
+class PublicPlanCatalogView(APIView):
+    """The pricing page's source: public plans, no organization, no session."""
+
+    permission_classes = [AllowAny]
+    authentication_classes: list[type] = []
+    throttle_classes = [PublicCatalogThrottle]
+
+    @extend_schema(
+        operation_id="billing_public_plans",
+        tags=["billing"],
+        auth=[],
+        responses={200: PublicPlanListSerializer},
+    )
+    def get(self, request: Request) -> Response:
+        return Response(public_plan_catalog())
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -134,12 +173,10 @@ class BillingDetailsView(APIView):
         serializer = BillingDetailsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         profile = update_billing_details(changes=dict(serializer.validated_data))
-        return Response(
-            {
-                **serializer.validated_data,
-                "missing": missing_billing_details(profile),
-            }
-        )
+        return Response({
+            **serializer.validated_data,
+            "missing": missing_billing_details(profile),
+        })
 
 
 class BillingOverviewView(APIView):

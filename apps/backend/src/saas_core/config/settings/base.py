@@ -748,6 +748,7 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "saas_core.http.exceptions.problem_details_exception_handler",
     "NUM_PROXIES": int(os.environ.get("TRUSTED_PROXY_COUNT", "1")),
     "DEFAULT_THROTTLE_RATES": {
+        "billing_public_catalog": "60/min",
         "identity_login": "5/min",
         "identity_mfa_challenge": "10/min",
         "identity_mfa_enrollment": "10/min",

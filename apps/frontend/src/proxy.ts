@@ -26,6 +26,8 @@ export default function proxy(request: NextRequest) {
       request: { headers: forwarded },
     });
   }
+  // The product's own sitemap and robots are app routes, not localized pages.
+  if (METADATA_PATHS.has(request.nextUrl.pathname)) return NextResponse.next();
   if (
     !deployment.features.publicBooking &&
     bookingPathDisabled(request.nextUrl.pathname)
@@ -34,6 +36,8 @@ export default function proxy(request: NextRequest) {
   }
   return internationalization(request);
 }
+
+const METADATA_PATHS = new Set(["/sitemap.xml", "/robots.txt"]);
 
 function bookingPathDisabled(pathname: string): boolean {
   return (

@@ -69,24 +69,6 @@
     "polish": "Polski",
     "english": "English"
   },
-  "Home": {
-    "stage": "W4",
-    "title": "A secure foundation for your SaaS product",
-    "description": "Accounts, device sessions, password reset, MFA and organizations work in a same-origin model—without authentication tokens in localStorage.",
-    "openPanel": "Open dashboard",
-    "createAccount": "Create account"
-  },
-  "Health": {
-    "title": "API status",
-    "description": "The /api/v1/health/ endpoint through the same-origin proxy.",
-    "refresh": "Refresh",
-    "unknownError": "Unknown API error",
-    "checkingConnection": "Checking connection…",
-    "ready": "API {status}; profile: {deployment}",
-    "checking": "Checking",
-    "unavailable": "Unavailable",
-    "connected": "Connected"
-  },
   "Panel": {
     "account": "Account panel",
     "greeting": "Welcome",
@@ -1101,5 +1083,41 @@
     "visits": "Visits",
     "visitsDescription": "Trimming booked in the calendar as herd visits.",
     "noVisits": "No herd visits yet."
+  },
+  "Marketing": {
+    "nav": {
+      "label": "Main navigation",
+      "menu": "Menu",
+      "features": "Features",
+      "pricing": "Pricing",
+      "contact": "Contact"
+    },
+    "signIn": "Sign in",
+    "signUp": "Create account",
+    "footer": {
+      "product": "Product",
+      "account": "Account",
+      "rights": "All rights reserved."
+    },
+    "home": {
+      "start": "Create a free account",
+      "seePricing": "See pricing",
+      "faq": "Frequently asked questions",
+      "ctaTitle": "Start working in {product}",
+      "ctaLead": "Create an account in minutes. Change your plan any time in the panel."
+    },
+    "pricing": {
+      "perMonth": "/ month",
+      "perYear": "/ year",
+      "trial": "{days, plural, one {# day} other {# days}} free trial",
+      "choose": "Choose plan",
+      "unavailable": "Pricing is temporarily unavailable.",
+      "askUs": "Get in touch."
+    },
+    "contact": {
+      "email": "E-mail",
+      "phone": "Phone",
+      "area": "Service area"
+    }
   }
 }

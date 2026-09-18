@@ -69,24 +69,6 @@
     "polish": "Polski",
     "english": "English"
   },
-  "Home": {
-    "stage": "W4",
-    "title": "Bezpieczny fundament Twojego produktu SaaS",
-    "description": "Konto, sesje urządzeń, reset hasła, MFA i organizacje działają w modelu same-origin — bez tokenów uwierzytelniających w localStorage.",
-    "openPanel": "Otwórz panel",
-    "createAccount": "Utwórz konto"
-  },
-  "Health": {
-    "title": "Stan API",
-    "description": "Endpoint /api/v1/health/ przez proxy same-origin.",
-    "refresh": "Odśwież",
-    "unknownError": "Nieznany błąd API",
-    "checkingConnection": "Sprawdzanie połączenia…",
-    "ready": "API {status}; profil: {deployment}",
-    "checking": "Sprawdzanie",
-    "unavailable": "Niedostępne",
-    "connected": "Połączono"
-  },
   "Panel": {
     "account": "Panel konta",
     "greeting": "Dzień dobry",
@@ -1101,5 +1083,41 @@
     "visits": "Wizyty",
     "visitsDescription": "Korekcje zaplanowane w kalendarzu jako wizyty stadne.",
     "noVisits": "Nie ma jeszcze żadnej wizyty stadnej."
+  },
+  "Marketing": {
+    "nav": {
+      "label": "Nawigacja główna",
+      "menu": "Menu",
+      "features": "Funkcje",
+      "pricing": "Cennik",
+      "contact": "Kontakt"
+    },
+    "signIn": "Zaloguj się",
+    "signUp": "Załóż konto",
+    "footer": {
+      "product": "Produkt",
+      "account": "Konto",
+      "rights": "Wszelkie prawa zastrzeżone."
+    },
+    "home": {
+      "start": "Załóż konto za darmo",
+      "seePricing": "Zobacz cennik",
+      "faq": "Najczęstsze pytania",
+      "ctaTitle": "Zacznij pracę w {product}",
+      "ctaLead": "Załóż konto w kilka minut. Plan zmienisz w każdej chwili w panelu."
+    },
+    "pricing": {
+      "perMonth": "/ miesiąc",
+      "perYear": "/ rok",
+      "trial": "{days, plural, one {# dzień} few {# dni} many {# dni} other {# dni}} okresu próbnego",
+      "choose": "Wybierz plan",
+      "unavailable": "Cennik jest chwilowo niedostępny.",
+      "askUs": "Napisz do nas."
+    },
+    "contact": {
+      "email": "E-mail",
+      "phone": "Telefon",
+      "area": "Obszar działania"
+    }
   }
 }

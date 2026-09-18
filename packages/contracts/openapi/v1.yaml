@@ -717,6 +717,22 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/billing/plans/:
+    get:
+      operationId: billing_public_plans
+      description: 'The pricing page''s source: public plans, no organization, no
+        session.'
+      tags:
+      - billing
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PublicPlan'
+          description: ''
   /api/v1/billing/portal/:
     post:
       operationId: billing_portal_create
@@ -10360,6 +10376,41 @@ components:
       - parent_page_id
       - path
       - title
+    PublicPlan:
+      type: object
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        currency:
+          type: string
+        billing_interval:
+          type: string
+        unit_amount_minor:
+          type: integer
+        trial_days:
+          type: integer
+        features:
+          type: array
+          items:
+            type: string
+        quotas:
+          type: object
+          additionalProperties:
+            type: integer
+      required:
+      - billing_interval
+      - currency
+      - description
+      - features
+      - key
+      - name
+      - quotas
+      - trial_days
+      - unit_amount_minor
     PublicSitePage:
       type: object
       properties:

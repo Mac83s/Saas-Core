@@ -91,6 +91,8 @@ export type CustomerCreditsOverview =
   components["schemas"]["CustomerCreditsOverview"];
 export type CreditPack = components["schemas"]["CreditPack"];
 export type CreditPurchase = components["schemas"]["CreditPurchase"];
+/** A plan as the public pricing page shows it — no organization attached. */
+export type PublicPlan = components["schemas"]["PublicPlan"];
 export type CustomerBillingOverview =
   components["schemas"]["CustomerBillingOverview"];
 export type BillingDetails = components["schemas"]["BillingDetails"];
