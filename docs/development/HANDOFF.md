@@ -1615,6 +1615,28 @@ plany w bazie per produkt (dziś generyczne), rebuild vps-dev oraz osobna
 integracja SCR dla tych stron — kontrakt content-operations ich nie obejmuje
 (plan 14, backlog).
 
+## Produkty w osobnych repozytoriach (2026-09-18, ADR-049)
+
+Decyzja właściciela: Saas-Core to rdzeń (core, shared, Business), a HoofCare i
+MedPlano to osobne repozytoria założone jako kopia Saas-Core z `upstream`.
+Aktualizacja rdzenia w produkcie: `pnpm core:update`; `pnpm core:check` (w
+`lint`) zatrzymuje build, gdy produkt zmienił plik rdzenia spoza slotów.
+
+Zrobione w Saas-Core:
+- punkty rozszerzeń: deskryptor modułu (`roleGrants`, `appointmentKinds`,
+  routing z `urlPrefix`), slot frontendu `apps/frontend/src/product/index.ts`
+  (menu, tłumaczenia, treść marketingowa), `product.json` (profil główny dla
+  testów, typecheck, kontraktu OpenAPI, migracji i obrazów);
+- rdzeń nie zna produktów: usunięte `vertical.hoofcare`, `vertical.medical`,
+  ich profile, compose, frontend; migracje `organizations.0035` i
+  `billing.0023` są pustymi węzłami, `medical.enabled` zniknął z seedów.
+  Kontrakt OpenAPI i typy klienta opisują profil `business`.
+
+Otwarte: repozytoria `/root/HoofCare` i `/root/MedPlano` (GitHub zakłada
+Maciej), przeniesienie instancji na dev VPS, jednorazowe czyszczenie baz
+deweloperskich z uprawnień i cech HoofCare/medical tam, gdzie ich moduł nie
+jest składany.
+
 ## Niezmienne ograniczenia
 
 - tenantowe operacje wymagają jawnego `TenantContext`;

@@ -12,18 +12,41 @@ export const business: ProductContent = {
       eyebrow: "Dla firm usługowych",
       headline: "Strona firmy i rezerwacje online w jednym panelu.",
       lead: "Publikujesz stronę na własnej domenie, a klienci rezerwują wizyty w Twoim kalendarzu. Bez wtyczek, bez osobnego hostingu.",
-      highlights: ["Strona firmy", "Rezerwacje", "Własna domena", "Powiadomienia"],
+      highlights: [
+        "Strona firmy",
+        "Rezerwacje",
+        "Własna domena",
+        "Powiadomienia",
+      ],
     },
     features: {
       title: "Obecność w sieci i umawianie klientów w jednym miejscu",
       lead: "Strona, kalendarz i powiadomienia działają razem od pierwszego dnia.",
       items: [
-        { title: "Strona firmy", body: "Gotowe szablony stron — uzupełniasz treść i publikujesz." },
-        { title: "Rezerwacje online", body: "Klienci widzą wolne terminy i rezerwują sami." },
-        { title: "Kalendarz zespołu", body: "Usługi, grafiki, przerwy i urlopy w jednym kalendarzu." },
-        { title: "Przypomnienia", body: "Automatyczne powiadomienia o wizytach dla klientów." },
-        { title: "Własna domena", body: "Strona pod adresem firmy, z certyfikatem." },
-        { title: "Zespół i role", body: "Każdy członek zespołu ma dostęp do tego, czego potrzebuje." },
+        {
+          title: "Strona firmy",
+          body: "Gotowe szablony stron — uzupełniasz treść i publikujesz.",
+        },
+        {
+          title: "Rezerwacje online",
+          body: "Klienci widzą wolne terminy i rezerwują sami.",
+        },
+        {
+          title: "Kalendarz zespołu",
+          body: "Usługi, grafiki, przerwy i urlopy w jednym kalendarzu.",
+        },
+        {
+          title: "Przypomnienia",
+          body: "Automatyczne powiadomienia o wizytach dla klientów.",
+        },
+        {
+          title: "Własna domena",
+          body: "Strona pod adresem firmy, z certyfikatem.",
+        },
+        {
+          title: "Zespół i role",
+          body: "Każdy członek zespołu ma dostęp do tego, czego potrzebuje.",
+        },
       ],
     },
     audiences: [
@@ -31,19 +54,28 @@ export const business: ProductContent = {
         title: "Dla właściciela",
         headline: "Jeden panel zamiast kilku narzędzi.",
         body: "Strona, kalendarz i rozliczenia w jednym miejscu.",
-        points: ["Mniej narzędzi do opłacania", "Jedno logowanie", "Jasny abonament"],
+        points: [
+          "Mniej narzędzi do opłacania",
+          "Jedno logowanie",
+          "Jasny abonament",
+        ],
       },
       {
         title: "Dla klientów",
         headline: "Rezerwacja w kilka kliknięć.",
         body: "Klient wybiera usługę i termin bez dzwonienia.",
-        points: ["Rezerwacje całą dobę", "Przypomnienia o wizycie", "Samodzielna zmiana terminu"],
+        points: [
+          "Rezerwacje całą dobę",
+          "Przypomnienia o wizycie",
+          "Samodzielna zmiana terminu",
+        ],
       },
     ],
     faq: [
       {
         question: "Czy potrzebuję własnego hostingu?",
-        answer: "Nie. Strona, certyfikat i kalendarz działają w ramach abonamentu.",
+        answer:
+          "Nie. Strona, certyfikat i kalendarz działają w ramach abonamentu.",
       },
       {
         question: "Czy jest okres próbny?",
@@ -59,7 +91,6 @@ export const business: ProductContent = {
         "storage.enabled": "Zdjęcia i pliki",
         "notifications.enabled": "Powiadomienia",
         "booking.enabled": "Rezerwacje online",
-        "medical.enabled": "Szablony branżowe",
         "custom_domain.enabled": "Własna domena",
       },
     },
@@ -81,18 +112,41 @@ export const business: ProductContent = {
       eyebrow: "For service businesses",
       headline: "Your business website and online booking in one panel.",
       lead: "Publish a site on your own domain and let customers book visits in your calendar. No plugins, no separate hosting.",
-      highlights: ["Business website", "Booking", "Custom domain", "Notifications"],
+      highlights: [
+        "Business website",
+        "Booking",
+        "Custom domain",
+        "Notifications",
+      ],
     },
     features: {
       title: "Online presence and customer booking in one place",
       lead: "Website, calendar and notifications work together from day one.",
       items: [
-        { title: "Business website", body: "Ready page templates — fill in the copy and publish." },
-        { title: "Online booking", body: "Customers see free slots and book themselves." },
-        { title: "Team calendar", body: "Services, schedules, breaks and leave in one calendar." },
-        { title: "Reminders", body: "Automatic visit notifications for customers." },
-        { title: "Custom domain", body: "A site at your own address, with a certificate." },
-        { title: "Team and roles", body: "Everyone on the team reaches what they need." },
+        {
+          title: "Business website",
+          body: "Ready page templates — fill in the copy and publish.",
+        },
+        {
+          title: "Online booking",
+          body: "Customers see free slots and book themselves.",
+        },
+        {
+          title: "Team calendar",
+          body: "Services, schedules, breaks and leave in one calendar.",
+        },
+        {
+          title: "Reminders",
+          body: "Automatic visit notifications for customers.",
+        },
+        {
+          title: "Custom domain",
+          body: "A site at your own address, with a certificate.",
+        },
+        {
+          title: "Team and roles",
+          body: "Everyone on the team reaches what they need.",
+        },
       ],
     },
     audiences: [
@@ -100,19 +154,28 @@ export const business: ProductContent = {
         title: "For the owner",
         headline: "One panel instead of several tools.",
         body: "Website, calendar and billing in one place.",
-        points: ["Fewer tools to pay for", "One sign-in", "A clear subscription"],
+        points: [
+          "Fewer tools to pay for",
+          "One sign-in",
+          "A clear subscription",
+        ],
       },
       {
         title: "For customers",
         headline: "Booking in a few clicks.",
         body: "Customers pick a service and a time without calling.",
-        points: ["Bookings around the clock", "Visit reminders", "Rescheduling on their own"],
+        points: [
+          "Bookings around the clock",
+          "Visit reminders",
+          "Rescheduling on their own",
+        ],
       },
     ],
     faq: [
       {
         question: "Do I need my own hosting?",
-        answer: "No. The site, certificate and calendar are part of the subscription.",
+        answer:
+          "No. The site, certificate and calendar are part of the subscription.",
       },
       {
         question: "Is there a trial?",
@@ -128,7 +191,6 @@ export const business: ProductContent = {
         "storage.enabled": "Photos and files",
         "notifications.enabled": "Notifications",
         "booking.enabled": "Online booking",
-        "medical.enabled": "Industry templates",
         "custom_domain.enabled": "Custom domain",
       },
     },

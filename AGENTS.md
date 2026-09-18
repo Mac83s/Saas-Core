@@ -74,15 +74,30 @@ wskazujący nieistniejący skill albo nieistniejącą ścieżkę psuje walidacj�
 - nie kopiuj wariantów shadcn do aplikacji. Rozszerzaj wspólny komponent lub
   kompozycję w `packages/ui`.
 
+## Rdzeń i repozytoria produktów (ADR-049)
+
+Saas-Core to rdzeń: `core`, `shared` i produkt ogólny Business. Nie zna żadnego
+produktu z nazwy. Każdy produkt (HoofCare, MedPlano, kolejne) to osobne
+repozytorium założone jako kopia Saas-Core, z Saas-Core jako `upstream`.
+
+- **Jeśli w katalogu głównym jest `PRODUCT.md`, pracujesz w repozytorium
+  produktu.** Jego reguły obowiązują dodatkowo. Pliki otrzymane z Saas-Core są
+  tylko do odczytu poza slotami z `scripts/core-check.mjs`; pilnuje tego
+  `pnpm core:check`. Produkt dokłada wyłącznie nowe pliki.
+- Potrzebujesz zmiany w rdzeniu, pracując nad produktem? Zrób ją w Saas-Core,
+  a do produktu weź ją przez `pnpm core:update`. Nie poprawiaj rdzenia w kopii.
+- Produkt rozszerza rdzeń przez: deskryptor modułu (`urlPrefix`, `roleGrants`,
+  `appointmentKinds`, `entitlements`), własne migracje wertykału (uprawnienia
+  ról, cechy planów), slot `apps/frontend/src/product/index.ts` (menu,
+  tłumaczenia, treść stron marketingowych), `product.json` (profile repozytorium).
+- Brakuje punktu rozszerzenia? Dodaj go w Saas-Core, zamiast nazywać produkt w
+  rdzeniu.
+
 ## Granice pracy
 
 Implementuj wyłącznie aktywny etap i jego konieczne fundamenty. Bazą pozostaje
-plan 13 (P0-P3). Od 2026-09-17 warstwa vertical jest otwarta decyzją Macieja:
-`vertical.hoofcare` (korekcja racic) i `vertical.medical` (MedPlano) istnieją,
-mają własne profile produktów i własne instancje na dev VPS. Oba są na razie
-puste — jeden endpoint potwierdzający kompozycję, bez modeli. Modele wchodzą
-przez `change-tenant-data`, a to, co wspólne dla obu branż, należy do `shared`,
-nie do skopiowania między wertykałami. Po znaczącym etapie
+plan 13 (P0-P3). To, co wspólne dla produktów, należy do `shared`, nie do
+skopiowania między wertykałami. Po znaczącym etapie
 aktualizuj checklistę, `docs/development/HANDOFF.md` oraz Memex. Nie oznaczaj
 bramki jako ukończonej bez testu lub jednoznacznego artefaktu będącego dowodem;
 jeśli część zakresu zostaje otwarta, napisz wprost która i dlaczego.

@@ -95,8 +95,7 @@
     "team": "Firma i zespół",
     "billing": "Plan i płatności",
     "settings": "Konto i bezpieczeństwo",
-    "credits": "Kredyty",
-    "herd": "Stado"
+    "credits": "Kredyty"
   },
   "Dashboard": {
     "eyebrow": "Centrum zarządzania",
@@ -1060,29 +1059,6 @@
     "clicks": "Kliknięcia",
     "impressions": "Wyświetlenia",
     "position": "Pozycja"
-  },
-  "HoofCare": {
-    "title": "Stado i gospodarstwa",
-    "subtitle": "Gospodarstwa klientów, ich zwierzęta i zaplanowane korekcje.",
-    "farms": "Gospodarstwa",
-    "farmsDescription": "Miejsca, do których jeździ korektor.",
-    "farm": "Gospodarstwo",
-    "farmName": "Nazwa",
-    "farmVillage": "Miejscowość",
-    "addFarm": "Dodaj gospodarstwo",
-    "noFarms": "Nie ma jeszcze żadnego gospodarstwa.",
-    "showAnimals": "Pokaż zwierzęta",
-    "animals": "Zwierzęta",
-    "animalsDescription": "Kartoteka stada — numer kolczyka jest tym, co korektor czyta w oborze.",
-    "allFarms": "Wszystkie gospodarstwa",
-    "animalTag": "Numer kolczyka",
-    "animalName": "Nazwa",
-    "addAnimal": "Dodaj zwierzę",
-    "noAnimals": "Brak zwierząt do pokazania.",
-    "pickFarmFirst": "Wybierz gospodarstwo, żeby dodać do niego zwierzę.",
-    "visits": "Wizyty",
-    "visitsDescription": "Korekcje zaplanowane w kalendarzu jako wizyty stadne.",
-    "noVisits": "Nie ma jeszcze żadnej wizyty stadnej."
   },
   "Marketing": {
     "nav": {

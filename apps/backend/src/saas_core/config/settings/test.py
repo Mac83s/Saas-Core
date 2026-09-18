@@ -5,13 +5,20 @@ where the profile is read and the composition decided. Until the profile
 actually composed the backend this did not matter — every image installed every
 module — so the suite ran nominally as `core-only` while testing Billing, Sites
 and Booking. `business` is the honest name for a deployment with every Shared
-module, and it is the surface these tests describe. `setdefault`, so a run can
-still ask for another profile.
+module, and it is the surface these tests describe. In a product repository
+the surface is the product, so the default is the first profile of
+`product.json` (ADR-049) — `business` here. `setdefault`, so a run can still
+ask for another profile, and an image build names its own.
 """
 
 import os
+from pathlib import Path
 
-os.environ.setdefault("DEPLOYMENT", "business")
+from saas_core.config.composition import product_profile
+
+# Only when unset: an image build names its profile and carries no product.json.
+if "DEPLOYMENT" not in os.environ:
+    os.environ["DEPLOYMENT"] = product_profile(Path(__file__).resolve().parents[6])
 
 from .base import *  # noqa: E402, F403
 

@@ -27,7 +27,9 @@ export default async function ContactPage({ params }: Props) {
   return (
     <section className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-5 py-20">
       <div className="flex flex-col gap-3">
-        <h1 className="text-4xl font-semibold tracking-tight">{contact.title}</h1>
+        <h1 className="text-4xl font-semibold tracking-tight">
+          {contact.title}
+        </h1>
         <p className="text-lg text-muted-foreground">{contact.lead}</p>
       </div>
       <dl className="grid gap-6 rounded-lg border p-6 sm:grid-cols-2">
@@ -36,7 +38,10 @@ export default async function ContactPage({ params }: Props) {
           <div>
             <dt className="text-sm text-muted-foreground">{t("email")}</dt>
             <dd>
-              <a href={`mailto:${contact.email}`} className="font-medium underline-offset-4 hover:underline">
+              <a
+                href={`mailto:${contact.email}`}
+                className="font-medium underline-offset-4 hover:underline"
+              >
                 {contact.email}
               </a>
             </dd>
@@ -44,11 +49,17 @@ export default async function ContactPage({ params }: Props) {
         </div>
         {contact.phone ? (
           <div className="flex gap-3">
-            <PhoneIcon aria-hidden="true" className="mt-0.5 size-5 text-primary" />
+            <PhoneIcon
+              aria-hidden="true"
+              className="mt-0.5 size-5 text-primary"
+            />
             <div>
               <dt className="text-sm text-muted-foreground">{t("phone")}</dt>
               <dd>
-                <a href={`tel:${contact.phone.replace(/\s/g, "")}`} className="font-medium">
+                <a
+                  href={`tel:${contact.phone.replace(/\s/g, "")}`}
+                  className="font-medium"
+                >
                   {contact.phone}
                 </a>
               </dd>
@@ -56,7 +67,10 @@ export default async function ContactPage({ params }: Props) {
           </div>
         ) : null}
         <div className="flex gap-3">
-          <MapPinIcon aria-hidden="true" className="mt-0.5 size-5 text-primary" />
+          <MapPinIcon
+            aria-hidden="true"
+            className="mt-0.5 size-5 text-primary"
+          />
           <div>
             <dt className="text-sm text-muted-foreground">{t("area")}</dt>
             <dd className="font-medium">{contact.area}</dd>

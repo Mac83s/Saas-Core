@@ -82,6 +82,28 @@
             "pattern": "^[a-z][a-z0-9]*_[a-z0-9_]+$"
           },
           "uniqueItems": true
+        },
+        "roleGrants": {
+          "description": "Permissions this module adds to each system role. The module's own migration grants them in the database (ADR-049).",
+          "type": "object",
+          "propertyNames": {
+            "enum": ["viewer", "staff", "manager", "admin", "owner"]
+          },
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          }
+        },
+        "appointmentKinds": {
+          "description": "Kinds of visit this module adds to booking, as {key: label} (ADR-049).",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },

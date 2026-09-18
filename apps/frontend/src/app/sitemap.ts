@@ -8,6 +8,8 @@ const PATHS = ["/", "/pricing", "/contact"];
 export default function sitemap(): MetadataRoute.Sitemap {
   return PATHS.map((path) => ({
     url: localizedUrl("pl", path),
-    alternates: { languages: { pl: localizedUrl("pl", path), en: localizedUrl("en", path) } },
+    alternates: {
+      languages: { pl: localizedUrl("pl", path), en: localizedUrl("en", path) },
+    },
   }));
 }

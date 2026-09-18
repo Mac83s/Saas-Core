@@ -22,7 +22,12 @@ export type ProductCopy = {
     items: { title: string; body: string }[];
   };
   /** Who the product is for; each gets its own column on the home page. */
-  audiences: { title: string; headline: string; body: string; points: string[] }[];
+  audiences: {
+    title: string;
+    headline: string;
+    body: string;
+    points: string[];
+  }[];
   faq: { question: string; answer: string }[];
   pricing: {
     title: string;

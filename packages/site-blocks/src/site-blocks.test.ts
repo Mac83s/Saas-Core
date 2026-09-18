@@ -79,11 +79,11 @@ describe("site block registry", () => {
 
   it("accepts trusted module manifests without importing vertical code", () => {
     const verticalManifest = defineSiteBlockManifest({
-      moduleId: "vertical.medical",
-      namespace: "medical",
+      moduleId: "vertical.example",
+      namespace: "example",
       blocks: [
         {
-          type: "medical.notice",
+          type: "example.notice",
           latestVersion: 1,
           schemas: [
             {
@@ -106,7 +106,7 @@ describe("site block registry", () => {
       coreSiteBlockManifest,
       verticalManifest,
     ]);
-    expect(registry.definitions.has("medical.notice")).toBe(true);
+    expect(registry.definitions.has("example.notice")).toBe(true);
     expect(() =>
       defineSiteBlockManifest({
         ...verticalManifest,
@@ -121,11 +121,11 @@ describe("site block registry", () => {
       kind: "text" | "list" = "text",
     ) =>
       defineSiteBlockManifest({
-        moduleId: "vertical.medical",
-        namespace: "medical",
+        moduleId: "vertical.example",
+        namespace: "example",
         blocks: [
           {
-            type: "medical.notice",
+            type: "example.notice",
             latestVersion: 1,
             schemas: [
               {

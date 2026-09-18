@@ -1,16 +1,13 @@
 import { deployment } from "../../generated/deployment";
+import { product } from "../../product";
 import { business } from "./business";
-import { hoofcare } from "./hoofcare";
-import { medplano } from "./medplano";
-import type { MarketingLocale, ProductContent, ProductCopy } from "./types";
+import type { MarketingLocale, ProductCopy } from "./types";
 
 export type { MarketingLocale, ProductCopy } from "./types";
 
-/** Copy per deployment profile; every other profile is the generic product. */
-const BY_PROFILE: Record<string, ProductContent> = { hoofcare, medplano };
-
+/** The product's copy from its slot (ADR-049); the generic product otherwise. */
 export function productCopy(locale: string): ProductCopy {
-  const content = BY_PROFILE[deployment.id] ?? business;
+  const content = product.marketing ?? business;
   return content[(locale === "en" ? "en" : "pl") satisfies MarketingLocale];
 }
 

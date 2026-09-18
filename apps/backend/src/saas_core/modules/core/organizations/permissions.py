@@ -1,5 +1,7 @@
 from typing import Final
 
+from django.conf import settings
+
 ORGANIZATION_READ: Final = "organization.read"
 MEMBERS_READ: Final = "organization.members.read"
 MEMBERS_MANAGE_LIMITED: Final = "organization.members.manage_limited"
@@ -9,19 +11,17 @@ BILLING_MANAGE: Final = "organization.billing.manage"
 OWNERSHIP_TRANSFER: Final = "organization.ownership.transfer"
 ORGANIZATION_ARCHIVE: Final = "organization.archive"
 
-SYSTEM_ROLE_PERMISSIONS: Final[dict[str, tuple[str, ...]]] = {
+_CORE_ROLE_PERMISSIONS: Final[dict[str, tuple[str, ...]]] = {
     "viewer": (
         ORGANIZATION_READ,
         "notifications.preferences",
         "booking.appointment.read",
-        "hoofcare.herd.read",
     ),
     "staff": (
         ORGANIZATION_READ,
         MEMBERS_READ,
         "notifications.preferences",
         "booking.appointment.read",
-        "hoofcare.herd.read",
     ),
     "manager": (
         ORGANIZATION_READ,
@@ -37,8 +37,6 @@ SYSTEM_ROLE_PERMISSIONS: Final[dict[str, tuple[str, ...]]] = {
         "profiles.manage",
         "seo.audit.read",
         "seo.gsc.read",
-        "hoofcare.herd.read",
-        "hoofcare.herd.manage",
     ),
     "admin": (
         ORGANIZATION_READ,
@@ -57,8 +55,6 @@ SYSTEM_ROLE_PERMISSIONS: Final[dict[str, tuple[str, ...]]] = {
         "booking.appointment.read",
         "booking.appointment.manage",
         "profiles.manage",
-        "hoofcare.herd.read",
-        "hoofcare.herd.manage",
     ),
     "owner": (
         ORGANIZATION_READ,
@@ -84,7 +80,14 @@ SYSTEM_ROLE_PERMISSIONS: Final[dict[str, tuple[str, ...]]] = {
         "seo.audit.run",
         "seo.gsc.read",
         "seo.gsc.manage",
-        "hoofcare.herd.read",
-        "hoofcare.herd.manage",
     ),
+}
+
+
+#: The system roles as this deployment composes them: core's grants plus what
+#: each composed module declares in its descriptor (`roleGrants`, ADR-049). The
+#: database gets the module's part from that module's own migration.
+SYSTEM_ROLE_PERMISSIONS: Final[dict[str, tuple[str, ...]]] = {
+    role: tuple(dict.fromkeys([*permissions, *settings.MODULE_ROLE_GRANTS.get(role, ())]))
+    for role, permissions in _CORE_ROLE_PERMISSIONS.items()
 }

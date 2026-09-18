@@ -46,7 +46,7 @@
 
 	# Not `frontend`: on the edge network that name is GoldenStar's app too
 	# (each stack's overlay gives its frontend a unique alias). The alias is a
-	# variable because more than one product now runs from this file: HoofCare's
+	# variable because more than one product runs from this file: a product's
 	# stack sets FRONTEND_UPSTREAM to its own, and vps-dev keeps the default.
 	handle {
 		reverse_proxy {$FRONTEND_UPSTREAM:saas-core-frontend}:3000 {

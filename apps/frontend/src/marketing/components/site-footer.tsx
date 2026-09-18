@@ -15,24 +15,45 @@ export async function SiteFooter() {
           <p className="font-semibold">{productName}</p>
           <p className="text-sm text-muted-foreground">{copy.footer.tagline}</p>
         </div>
-        <nav aria-label={t("footer.product")} className="flex flex-col gap-2 text-sm">
+        <nav
+          aria-label={t("footer.product")}
+          className="flex flex-col gap-2 text-sm"
+        >
           <p className="font-medium">{t("footer.product")}</p>
-          <Link href="/#features" className="text-muted-foreground hover:text-foreground">
+          <Link
+            href="/#features"
+            className="text-muted-foreground hover:text-foreground"
+          >
             {t("nav.features")}
           </Link>
-          <Link href="/pricing" className="text-muted-foreground hover:text-foreground">
+          <Link
+            href="/pricing"
+            className="text-muted-foreground hover:text-foreground"
+          >
             {t("nav.pricing")}
           </Link>
-          <Link href="/contact" className="text-muted-foreground hover:text-foreground">
+          <Link
+            href="/contact"
+            className="text-muted-foreground hover:text-foreground"
+          >
             {t("nav.contact")}
           </Link>
         </nav>
-        <nav aria-label={t("footer.account")} className="flex flex-col gap-2 text-sm">
+        <nav
+          aria-label={t("footer.account")}
+          className="flex flex-col gap-2 text-sm"
+        >
           <p className="font-medium">{t("footer.account")}</p>
-          <Link href="/login" className="text-muted-foreground hover:text-foreground">
+          <Link
+            href="/login"
+            className="text-muted-foreground hover:text-foreground"
+          >
             {t("signIn")}
           </Link>
-          <Link href="/register" className="text-muted-foreground hover:text-foreground">
+          <Link
+            href="/register"
+            className="text-muted-foreground hover:text-foreground"
+          >
             {t("signUp")}
           </Link>
         </nav>

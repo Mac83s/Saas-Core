@@ -13,50 +13,46 @@ permissions:
   artifact-metadata: write
 
 jobs:
-  build:
+  plan:
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      # Backend and frontend carry a deployment profile, so there is one image
+      # per product rather than one image pretending to serve both. Which
+      # profiles this repository publishes is its own `product.json` (ADR-049):
+      # Saas-Core builds business and core-only, a product repository builds
+      # its product, and neither edits this file to say so.
+      - name: Obrazy z product.json
+        id: matrix
+        run: |
+          node -e '
+            const { profiles } = require("./product.json");
+            const include = profiles.flatMap((profile) => [
+              { name: "backend", dockerfile: "apps/backend/Dockerfile", profile },
+              { name: "frontend", dockerfile: "apps/frontend/Dockerfile", profile },
+            ]);
+            include.push(
+              { name: "caddy", dockerfile: "infra/caddy/Dockerfile", profile: "" },
+              { name: "redis", dockerfile: "infra/redis/Dockerfile", profile: "" },
+            );
+            console.log(`matrix=${JSON.stringify({ include })}`);
+          ' >> "${GITHUB_OUTPUT}"
+
+  build:
+    needs: plan
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      # Backend and frontend carry a deployment profile, so there is one
-      # image per product rather than one image pretending to serve both. The
-      # backend used to build with no profile at all, which meant a core-only
-      # image published next to a business frontend — the pair the profile
-      # fingerprint now refuses to run.
-      matrix:
-        include:
-          - name: backend
-            dockerfile: apps/backend/Dockerfile
-            profile: core-only
-          - name: backend
-            dockerfile: apps/backend/Dockerfile
-            profile: business
-          - name: frontend
-            dockerfile: apps/frontend/Dockerfile
-            profile: core-only
-          - name: frontend
-            dockerfile: apps/frontend/Dockerfile
-            profile: business
-          - name: backend
-            dockerfile: apps/backend/Dockerfile
-            profile: hoofcare
-          - name: frontend
-            dockerfile: apps/frontend/Dockerfile
-            profile: hoofcare
-          - name: backend
-            dockerfile: apps/backend/Dockerfile
-            profile: medplano
-          - name: frontend
-            dockerfile: apps/frontend/Dockerfile
-            profile: medplano
-          - name: caddy
-            dockerfile: infra/caddy/Dockerfile
-            profile: ""
-          - name: redis
-            dockerfile: infra/redis/Dockerfile
-            profile: ""
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v6
         with:

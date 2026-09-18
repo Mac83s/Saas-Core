@@ -1,9 +1,9 @@
 """The deployment's own workspace.
 
 SaaS Core publishes its customers' sites, and it also has to publish its own —
-the marketing pages and the blog of MedPlano, Tanie strony and whatever comes
-next. Those pages need versions, publication, rollback and media exactly like a
-customer's, so they belong in an organization rather than in a second CMS.
+the marketing pages and the blog of whatever product runs on it. Those pages
+need versions, publication, rollback and media exactly like a customer's, so
+they belong in an organization rather than in a second CMS.
 
 What they must not have is the customer machinery around it. This workspace is
 never signed up for, never invited into, and never billed: the operator

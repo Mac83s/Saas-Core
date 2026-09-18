@@ -13,6 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # `pnpm core:check` (in `lint`) diffs against the Saas-Core commit a
+          # product stands on, so the history has to be there (ADR-049).
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
         with:
           version: 11.0.0

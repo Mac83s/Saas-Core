@@ -6,7 +6,6 @@ import {
   CreditCardIcon,
   Globe2Icon,
   HomeIcon,
-  MilkIcon,
   MessageSquareTextIcon,
   PlugZapIcon,
   SettingsIcon,
@@ -21,6 +20,7 @@ import { useTranslations } from "next-intl";
 import { Link, usePathname } from "#i18n/navigation";
 import type { OrganizationSummary } from "@saas-core/api-client";
 import { deployment } from "../../generated/deployment";
+import { product } from "../../product";
 import {
   Sidebar,
   SidebarContent,
@@ -92,12 +92,10 @@ export function AppSidebar({
       label: t("integrations"),
       module: "shared.notifications",
     },
-    {
-      href: "/panel/herd",
-      icon: MilkIcon,
-      label: t("herd"),
-      module: "vertical.hoofcare",
-    },
+    ...(product.navigation ?? []).map(({ labelKey, ...item }) => ({
+      ...item,
+      label: t(labelKey),
+    })),
     { href: "/panel/team", icon: UsersIcon, label: t("team") },
     {
       href: "/panel/settings/billing",

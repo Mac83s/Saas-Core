@@ -20,7 +20,10 @@ export async function SiteHeader() {
         <Link href="/" className="text-lg font-semibold tracking-tight">
           {productName}
         </Link>
-        <nav aria-label={t("nav.label")} className="hidden items-center gap-6 md:flex">
+        <nav
+          aria-label={t("nav.label")}
+          className="hidden items-center gap-6 md:flex"
+        >
           {links.map((link) => (
             <Link
               key={link.href}
@@ -45,8 +48,13 @@ export async function SiteHeader() {
       </div>
       {/* Native disclosure: a menu that works before any script has loaded. */}
       <details className="border-t md:hidden">
-        <summary className="cursor-pointer px-5 py-3 text-sm font-medium">{t("nav.menu")}</summary>
-        <nav aria-label={t("nav.label")} className="flex flex-col gap-1 px-5 pb-4">
+        <summary className="cursor-pointer px-5 py-3 text-sm font-medium">
+          {t("nav.menu")}
+        </summary>
+        <nav
+          aria-label={t("nav.label")}
+          className="flex flex-col gap-1 px-5 pb-4"
+        >
           {links.map((link) => (
             <Link key={link.href} href={link.href} className="py-2 text-sm">
               {link.label}

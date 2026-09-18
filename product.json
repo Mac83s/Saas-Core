@@ -1,0 +1,4 @@
+{
+  "$comment": "Slot produktu (ADR-049). Saas-Core: business. Repozytorium produktu wpisuje tu swój profil — pierwszy jest główny (typecheck, kontrakt OpenAPI, migracje); wszystkie są budowane jako obrazy.",
+  "profiles": ["business", "core-only"]
+}

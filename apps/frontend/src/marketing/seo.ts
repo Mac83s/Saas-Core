@@ -7,7 +7,9 @@ const origin = `https://${deployment.product.platformDomain}`;
 /** The address of a marketing path in a locale (`pl` has no prefix). */
 export function localizedUrl(locale: string, path: string): string {
   const clean = path === "/" ? "" : path;
-  return locale === "pl" ? `${origin}${clean || "/"}` : `${origin}/${locale}${clean}`;
+  return locale === "pl"
+    ? `${origin}${clean || "/"}`
+    : `${origin}/${locale}${clean}`;
 }
 
 /**

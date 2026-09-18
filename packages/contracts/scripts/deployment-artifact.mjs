@@ -19,7 +19,11 @@ import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-import { repositoryRoot, validateDeployment } from "./deployment-check.mjs";
+import {
+  discoverProfiles,
+  repositoryRoot,
+  validateDeployment,
+} from "./deployment-check.mjs";
 
 export const ARTIFACT_FILENAME = "module-artifact.json";
 
@@ -79,7 +83,7 @@ async function main() {
   const names =
     profileFlag >= 0
       ? [process.argv[profileFlag + 1]]
-      : ["core-only", "business", "vps-dev", "hoofcare", "medplano"];
+      : await discoverProfiles();
   const check = process.argv.includes("--check");
 
   for (const name of names) {

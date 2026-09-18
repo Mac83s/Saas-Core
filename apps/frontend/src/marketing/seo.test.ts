@@ -13,7 +13,12 @@ describe("marketing SEO", () => {
   });
 
   it("links both languages and x-default from every page", () => {
-    const meta = marketingMetadata({ locale: "en", path: "/pricing", title: "t", description: "d" });
+    const meta = marketingMetadata({
+      locale: "en",
+      path: "/pricing",
+      title: "t",
+      description: "d",
+    });
     expect(meta.alternates?.canonical).toBe(`${origin}/en/pricing`);
     expect(meta.alternates?.languages).toEqual({
       pl: `${origin}/pricing`,

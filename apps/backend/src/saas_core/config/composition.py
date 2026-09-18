@@ -34,6 +34,13 @@ class ModuleDescriptor:
     layer: str
     depends_on: tuple[str, ...]
     django_app: str | None
+    url_prefix: str | None = None
+    entitlements: tuple[str, ...] = ()
+    #: What a module adds to the system roles and to the kinds of visit a
+    #: service can sell. Declared here rather than in core, so a product adds a
+    #: module without editing a file it received from Saas-Core (ADR-049).
+    role_grants: dict[str, tuple[str, ...]] | None = None
+    appointment_kinds: dict[str, str] | None = None
 
 
 def load_catalog(directory: Path) -> dict[str, ModuleDescriptor]:
@@ -45,6 +52,13 @@ def load_catalog(directory: Path) -> dict[str, ModuleDescriptor]:
             layer=str(raw["layer"]),
             depends_on=tuple(raw.get("dependsOn") or ()),
             django_app=raw["backend"]["djangoApp"],
+            url_prefix=raw["backend"].get("urlPrefix"),
+            entitlements=tuple(raw["backend"].get("entitlements") or ()),
+            role_grants={
+                role: tuple(grants)
+                for role, grants in (raw["backend"].get("roleGrants") or {}).items()
+            },
+            appointment_kinds=dict(raw["backend"].get("appointmentKinds") or {}),
         )
         if descriptor.id in descriptors:
             raise CompositionError(f"Powielony deskryptor modułu {descriptor.id}")
@@ -52,6 +66,19 @@ def load_catalog(directory: Path) -> dict[str, ModuleDescriptor]:
     if not descriptors:
         raise CompositionError(f"Katalog modułów jest pusty: {directory}")
     return descriptors
+
+
+def product_profile(repository_root: Path) -> str:
+    """This repository's main profile, from its `product.json` slot (ADR-049).
+
+    `business` in Saas-Core, the product's own profile in a product repository —
+    so tests, static checks and the OpenAPI contract describe the product the
+    repository ships without anybody editing a settings file to say which.
+    """
+    raw: dict[str, Any] = json.loads(
+        (repository_root / "product.json").read_text(encoding="utf-8")
+    )
+    return str(raw["profiles"][0])
 
 
 def compose(
@@ -137,6 +164,32 @@ def select_by_module(
         if module_id in active:
             flattened.update(module_entries)
     return flattened
+
+
+def role_grants_for(
+    modules: tuple[str, ...] | frozenset[str],
+    catalog: dict[str, ModuleDescriptor],
+) -> dict[str, tuple[str, ...]]:
+    """Permissions the composed modules add to each system role."""
+    grants: dict[str, list[str]] = {}
+    for module_id in modules:
+        for role, permissions in (catalog[module_id].role_grants or {}).items():
+            grants.setdefault(role, []).extend(permissions)
+    return {role: tuple(dict.fromkeys(values)) for role, values in grants.items()}
+
+
+def appointment_kinds_for(
+    modules: tuple[str, ...] | frozenset[str],
+    catalog: dict[str, ModuleDescriptor],
+) -> dict[str, str]:
+    """{key: label} of the visit kinds the composed modules contribute."""
+    kinds: dict[str, str] = {}
+    for module_id in modules:
+        for key, label in (catalog[module_id].appointment_kinds or {}).items():
+            if key in kinds:
+                raise CompositionError(f"Typ wizyty {key} zgłoszony przez więcej niż jeden moduł")
+            kinds[key] = label
+    return kinds
 
 
 def verify_artifact(

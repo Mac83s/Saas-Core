@@ -1,8 +1,9 @@
 # SaaS Core
 
 Modularny monolit Django + Next.js dla wielu osobnych produktów i deploymentów.
-Profile dowodowe to `core-only` i generyczny `business`; serwisy branżowe
-(MedPlano i kolejne) powstają na tej bazie później. Fala W1 oraz lokalna część W2 są
+Profile dowodowe to `core-only` i generyczny `business`; produkty branżowe
+(HoofCare, MedPlano i kolejne) żyją w osobnych repozytoriach wyprowadzonych z
+Saas-Core i aktualizują rdzeń przez merge (ADR-049). Fala W1 oraz lokalna część W2 są
 ukończone; uruchomienie pipeline'u na prawdziwym stagingu wymaga docelowego VPS-a,
 domeny i konfiguracji GitHub Environment.
 

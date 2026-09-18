@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 from importlib import import_module
 from pathlib import Path
+from typing import Any
 
 import pytest
 from django.conf import settings
@@ -22,13 +23,16 @@ from django.conf import settings
 from saas_core.config.composition import (
     CompositionError,
     ModuleDescriptor,
+    appointment_kinds_for,
     compose,
     django_apps_for,
     load_catalog,
+    role_grants_for,
     select_by_module,
     verify_artifact,
 )
 from saas_core.config.urls import urlpatterns_for
+from saas_core.modules.core.organizations.permissions import SYSTEM_ROLE_PERMISSIONS
 
 DEPLOYMENTS = Path(settings.BASE_DIR).parent.parent / "deployments"
 CATALOG = load_catalog(settings.MODULE_CATALOG_PATH)
@@ -96,76 +100,95 @@ def test_business_registers_the_routes_core_only_refuses() -> None:
         assert present in prefixes
 
 
-#: Every vertical and the profile that owns it, with the route it registers.
-VERTICALS = (
-    ("hoofcare", "vertical.hoofcare", "api/v1/hoofcare/"),
-    ("medplano", "vertical.medical", "api/v1/medical/"),
+#: The verticals this repository carries. Saas-Core has none — a product is its
+#: own repository (ADR-049) — so these run in the product's repository, and the
+#: mechanism itself is checked below on a descriptor made up for the test.
+VERTICALS = tuple(
+    module_id for module_id, descriptor in sorted(CATALOG.items()) if descriptor.layer == "vertical"
 )
 
 
-@pytest.mark.parametrize(("profile", "module", "route"), VERTICALS)
-def test_a_vertical_composes_only_where_its_profile_names_it(
-    profile: str, module: str, route: str
-) -> None:
-    modules = compose(profile_modules(profile), CATALOG)
+def made_up_vertical(**backend: object) -> ModuleDescriptor:
+    return ModuleDescriptor(
+        id="vertical.example",
+        layer="vertical",
+        depends_on=("core.organizations",),
+        # Any app with a urls module will do; the point is where it is mounted.
+        django_app="saas_core.modules.shared.seo",
+        **backend,  # type: ignore[arg-type]
+    )
 
-    assert module in modules
-    # Dependencies first: a vertical sits above shared, which sits above core.
-    assert modules.index("shared.booking") < modules.index(module)
 
-    for other in ("business", "core-only"):
-        elsewhere = compose(profile_modules(other), CATALOG)
-        assert module not in elsewhere
-        assert not [app for app in django_apps_for(elsewhere, CATALOG) if ".vertical." in app]
+@pytest.mark.parametrize("module", VERTICALS)
+def test_a_vertical_stays_out_of_the_core_profiles(module: str) -> None:
+    for profile in ("business", "core-only"):
+        modules = compose(profile_modules(profile), CATALOG)
+        assert module not in modules
+        assert not [app for app in django_apps_for(modules, CATALOG) if ".vertical." in app]
 
-    # Building the route table imports the module's views, and a view imports
-    # models that belong to an app the running deployment may not have
-    # installed. So the routes are asserted for the profile this process is,
-    # and the composition above for the ones it is not.
+
+@pytest.mark.parametrize("module", VERTICALS)
+def test_a_composed_vertical_answers_at_its_descriptor_prefix(module: str) -> None:
+    prefix = f"{(CATALOG[module].url_prefix or '').strip('/')}/"
+    # Building the route table imports the module's views, which import models
+    # of an app this process may not have installed — so only for this process.
     if module in settings.ACTIVE_MODULES:
-        assert route in route_prefixes(profile_modules(profile))
+        assert prefix in route_prefixes(list(settings.ACTIVE_MODULES))
     else:
-        assert route not in route_prefixes(settings.ACTIVE_MODULES)
+        assert prefix not in route_prefixes(list(settings.ACTIVE_MODULES))
 
 
-def test_appointment_kinds_come_from_the_modules_the_profile_composes() -> None:
-    """A service may only sell a kind of visit this product actually has."""
-    base = import_module("saas_core.config.settings.base")
+def test_a_vertical_is_routed_from_its_descriptor_without_editing_core(
+    settings: Any,
+) -> None:
+    catalog = dict(CATALOG)
+    catalog["vertical.example"] = made_up_vertical(url_prefix="/api/v1/example")
+    settings.MODULE_CATALOG = catalog
 
-    for profile, expected in (("hoofcare", {"hoofcare.herd_visit"}), ("business", set())):
-        modules = compose(profile_modules(profile), CATALOG)
-        kinds = select_by_module(
-            base._MODULE_APPOINTMENT_KINDS, modules, frozenset(CATALOG)
-        )
-        assert set(kinds) == expected
+    with_it = route_prefixes([*profile_modules("core-only"), "vertical.example"])
+    without_it = route_prefixes(profile_modules("core-only"))
 
-
-@pytest.mark.skipif(
-    "vertical.hoofcare" not in settings.ACTIVE_MODULES,
-    reason="model tego wertykala istnieje tylko w profilu, który go składa",
-)
-def test_the_visit_model_and_the_registry_agree_on_the_key() -> None:
-    """Two strings for one key is a silent failure: the panel just sees nothing."""
-    from saas_core.modules.vertical.hoofcare.models import HerdVisit  # noqa: PLC0415
-
-    assert HerdVisit.APPOINTMENT_KIND in settings.APPOINTMENT_KINDS
+    assert "api/v1/example/" in with_it
+    assert "api/v1/example/" not in without_it
 
 
-def test_one_vertical_never_arrives_with_another() -> None:
-    """Two products, one tree: a profile must carry its vertical and no other."""
-    for profile, module, _route in VERTICALS:
-        modules = compose(profile_modules(profile), CATALOG)
-        strangers = [
-            other for _, other, _ in VERTICALS if other != module and other in modules
-        ]
-        assert strangers == [], f"{profile} wciągnął cudzy wertykał: {strangers}"
+def test_visit_kinds_and_role_grants_come_only_from_composed_modules() -> None:
+    catalog = dict(CATALOG)
+    catalog["vertical.example"] = made_up_vertical(
+        appointment_kinds={"example.visit": "Wizyta"},
+        role_grants={"owner": ("example.manage",), "viewer": ("example.read",)},
+    )
+    core_only = tuple(profile_modules("core-only"))
 
-    # Routes only for what this process composed, for the same reason as above.
-    prefixes = route_prefixes(settings.ACTIVE_MODULES)
-    mine = {route for _, module, route in VERTICALS if module in settings.ACTIVE_MODULES}
-    others = {route for _, module, route in VERTICALS if module not in settings.ACTIVE_MODULES}
-    assert mine <= prefixes
-    assert not (others & prefixes)
+    assert appointment_kinds_for((*core_only, "vertical.example"), catalog) == {
+        "example.visit": "Wizyta"
+    }
+    assert appointment_kinds_for(core_only, catalog) == {}
+    assert role_grants_for((*core_only, "vertical.example"), catalog) == {
+        "owner": ("example.manage",),
+        "viewer": ("example.read",),
+    }
+    assert role_grants_for(core_only, catalog) == {}
+
+
+def test_two_modules_cannot_claim_one_visit_kind() -> None:
+    catalog = dict(CATALOG)
+    catalog["vertical.example"] = made_up_vertical(appointment_kinds={"x.visit": "A"})
+    catalog["vertical.other"] = ModuleDescriptor(
+        id="vertical.other",
+        layer="vertical",
+        depends_on=(),
+        django_app=None,
+        appointment_kinds={"x.visit": "B"},
+    )
+
+    with pytest.raises(CompositionError, match="x.visit"):
+        appointment_kinds_for(("vertical.example", "vertical.other"), catalog)
+
+
+def test_system_roles_carry_what_the_composed_modules_grant() -> None:
+    for role, permissions in settings.MODULE_ROLE_GRANTS.items():
+        assert set(permissions) <= set(SYSTEM_ROLE_PERMISSIONS[role])
 
 
 def test_core_only_schedules_no_work_for_modules_it_does_not_have() -> None:

@@ -9,9 +9,11 @@ from django.core.exceptions import ImproperlyConfigured
 
 from saas_core.config.composition import (
     CompositionError,
+    appointment_kinds_for,
     compose,
     django_apps_for,
     load_catalog,
+    role_grants_for,
     select_by_module,
     verify_artifact,
 )
@@ -125,6 +127,12 @@ except CompositionError as error:
         f"Profil {DEPLOYMENT} nie składa się z katalogu {MODULE_CATALOG_PATH}: {error}"
     ) from error
 KNOWN_MODULES = frozenset(_module_catalog)
+#: The descriptors themselves, for code that composes by module: routing reads
+#: a vertical's `urlPrefix` from here instead of naming the vertical.
+MODULE_CATALOG = _module_catalog
+#: What the composed modules add to the system roles (ADR-049). Core owns the
+#: roles; a product's module owns what its own permissions grant.
+MODULE_ROLE_GRANTS = role_grants_for(ACTIVE_MODULES, _module_catalog)
 
 #: The fingerprint of this composed product, generated once by
 #: `pnpm deployment:artifact` and carried into every image built from that tree.
@@ -605,17 +613,6 @@ CELERY_WORKER_HIJACK_ROOT_LOGGER = False
 #: Scheduled work, grouped by the module whose code it calls. A deployment
 #: without Sites must not run Sites' sweeps: the scheduler would enqueue jobs
 #: against tables that are not there, once a minute, forever.
-#: What kind of visit a service sells, contributed by the module that knows the
-#: shape of that visit. Core has no business knowing what a herd visit is; it
-#: only knows that a deployment which composes that module may offer one, and
-#: that a key from a module this product does not have is a typo rather than a
-#: feature. Same mechanism as the routes and the beat schedule below.
-_MODULE_APPOINTMENT_KINDS: dict[str, dict[str, Any]] = {
-    "vertical.hoofcare": {
-        "hoofcare.herd_visit": "Korekcja stada w gospodarstwie",
-    },
-}
-
 _MODULE_BEAT_SCHEDULE: dict[str, dict[str, Any]] = {
     "shared.seo": {
         "seo-reconcile-audits": {
@@ -703,10 +700,10 @@ try:
     CELERY_BEAT_SCHEDULE = select_by_module(
         _MODULE_BEAT_SCHEDULE, ACTIVE_MODULES, KNOWN_MODULES
     )
-    #: {key: label} for the kinds this deployment actually composes.
-    APPOINTMENT_KINDS = select_by_module(
-        _MODULE_APPOINTMENT_KINDS, ACTIVE_MODULES, KNOWN_MODULES
-    )
+    #: {key: label} of the visit kinds this deployment composes. A module that
+    #: knows the shape of a visit declares it in its descriptor; core only
+    #: knows that a key from a module this product lacks is a typo.
+    APPOINTMENT_KINDS = appointment_kinds_for(ACTIVE_MODULES, _module_catalog)
 except CompositionError as error:
     raise ImproperlyConfigured(str(error)) from error
 

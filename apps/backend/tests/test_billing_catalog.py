@@ -4,6 +4,7 @@ import uuid
 from datetime import timedelta
 
 import pytest
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import DatabaseError, IntegrityError, transaction
 from django.utils import timezone
@@ -36,9 +37,14 @@ FEATURE_KEYS = {
     "storage.enabled",
     "notifications.enabled",
     "booking.enabled",
-    "medical.enabled",
-    "hoofcare.enabled",
     "custom_domain.enabled",
+} | {
+    # A product's vertical publishes its own feature from its own migration
+    # (ADR-049); core's catalogue carries none of them.
+    entitlement
+    for module_id in settings.ACTIVE_MODULES
+    if settings.MODULE_CATALOG[module_id].layer == "vertical"
+    for entitlement in settings.MODULE_CATALOG[module_id].entitlements
 }
 QUOTA_KEYS = {
     "sites.max",

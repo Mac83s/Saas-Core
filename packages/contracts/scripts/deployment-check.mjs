@@ -133,6 +133,23 @@ const assertDeclaredTablesBelongToModule = (descriptor) => {
   }
 };
 
+// ADR-049: a module may grant roles only the permissions it declares, so a
+// product cannot hand out core's or another module's permissions on the side.
+const assertGrantsAreOwnPermissions = (descriptor) => {
+  const own = new Set(descriptor.backend.permissions);
+  for (const [role, grants] of Object.entries(
+    descriptor.backend.roleGrants ?? {},
+  )) {
+    for (const permission of grants) {
+      if (!own.has(permission)) {
+        throw new Error(
+          `Moduł ${descriptor.id} nadaje roli ${role} uprawnienie ${permission}, którego nie deklaruje`,
+        );
+      }
+    }
+  }
+};
+
 const loadDescriptors = async (root) => {
   const directory = path.join(root, "packages/contracts/modules");
   const files = (await readdir(directory))
@@ -231,6 +248,7 @@ export async function validateDeployment(profileName, root = repositoryRoot) {
       await assertDjangoAppExists(descriptor, root);
     }
     assertDeclaredTablesBelongToModule(descriptor);
+    assertGrantsAreOwnPermissions(descriptor);
     descriptorsById.set(descriptor.id, descriptor);
   }
 
@@ -268,25 +286,46 @@ export async function validateDeployment(profileName, root = repositoryRoot) {
   };
 }
 
+/**
+ * Every profile this repository ships: `deployments/<name>/deployment.json`.
+ * Parked ones (`_planned`) stay out. Discovered rather than listed, so a
+ * product repository adds its profile without editing this file (ADR-049).
+ */
+export async function discoverProfiles(root = repositoryRoot) {
+  const entries = await readdir(path.join(root, "deployments"), {
+    withFileTypes: true,
+  });
+  const names = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory() || entry.name.startsWith("_")) continue;
+    const files = await readdir(path.join(root, "deployments", entry.name));
+    if (files.includes("deployment.json")) names.push(entry.name);
+  }
+  return names.sort();
+}
+
 const isMain =
   process.argv[1] &&
   pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url;
 if (isMain) {
   const profileFlag = process.argv.indexOf("--profile");
-  const profileName =
-    profileFlag >= 0 ? process.argv[profileFlag + 1] : undefined;
-  if (!profileName) {
-    console.error("Użycie: deployment-check.mjs --profile <nazwa>");
+  const profileNames = process.argv.includes("--all")
+    ? await discoverProfiles()
+    : [profileFlag >= 0 ? process.argv[profileFlag + 1] : undefined];
+  if (!profileNames[0]) {
+    console.error("Użycie: deployment-check.mjs --profile <nazwa> | --all");
     process.exitCode = 2;
   } else {
-    try {
-      const result = await validateDeployment(profileName);
-      console.log(
-        `Profil ${profileName} poprawny: ${result.modules.join(" -> ")}`,
-      );
-    } catch (error) {
-      console.error(error instanceof Error ? error.message : error);
-      process.exitCode = 1;
+    for (const profileName of profileNames) {
+      try {
+        const result = await validateDeployment(profileName);
+        console.log(
+          `Profil ${profileName} poprawny: ${result.modules.join(" -> ")}`,
+        );
+      } catch (error) {
+        console.error(error instanceof Error ? error.message : error);
+        process.exitCode = 1;
+      }
     }
   }
 }

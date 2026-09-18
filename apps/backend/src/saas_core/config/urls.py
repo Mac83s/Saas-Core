@@ -122,14 +122,6 @@ def _sites_routes() -> list[Route]:
     ]
 
 
-def _hoofcare_routes() -> list[Route]:
-    return [path("api/v1/hoofcare/", include("saas_core.modules.vertical.hoofcare.urls"))]
-
-
-def _medical_routes() -> list[Route]:
-    return [path("api/v1/medical/", include("saas_core.modules.vertical.medical.urls"))]
-
-
 #: Which module owns which routes. Ordered so a reader sees the composition in
 #: the same order the profile lists it.
 MODULE_ROUTES: dict[str, Callable[[], list[Route]]] = {
@@ -143,9 +135,24 @@ MODULE_ROUTES: dict[str, Callable[[], list[Route]]] = {
     "shared.notifications": _notification_routes,
     "shared.profiles": _profile_routes,
     "shared.booking": _booking_routes,
-    "vertical.hoofcare": _hoofcare_routes,
-    "vertical.medical": _medical_routes,
 }
+
+
+def _descriptor_routes(module_id: str) -> list[Route]:
+    """Routes of a module core does not name — a product's vertical (ADR-049).
+
+    The descriptor says where its API lives and which Django app serves it, so
+    a product adds a module without editing this file.
+    """
+    descriptor = settings.MODULE_CATALOG[module_id]
+    if (
+        descriptor.layer != "vertical"
+        or descriptor.url_prefix is None
+        or descriptor.django_app is None
+    ):
+        return []
+    prefix = descriptor.url_prefix.strip("/")
+    return [path(f"{prefix}/", include(f"{descriptor.django_app}.urls"))]
 
 
 def urlpatterns_for(active_modules: Collection[str]) -> list[Route]:
@@ -162,6 +169,8 @@ def urlpatterns_for(active_modules: Collection[str]) -> list[Route]:
     for module_id, build in MODULE_ROUTES.items():
         if module_id in active:
             routes.extend(build())
+    for module_id in sorted(active - set(MODULE_ROUTES)):
+        routes.extend(_descriptor_routes(module_id))
     routes += [
         path("api/schema/", SpectacularAPIView.as_view(), name="openapi-schema"),
         path(

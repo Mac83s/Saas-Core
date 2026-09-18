@@ -27,8 +27,7 @@ def seed_profile_plan(apps: Any, schema_editor: Any) -> None:
                 "storage.enabled",
                 "notifications.enabled",
                 "booking.enabled",
-                "medical.enabled",
-            ],
+                        ],
             "quotas": {
                 "sites.max": 1,
                 "locations.max": 1,

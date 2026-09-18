@@ -7,7 +7,6 @@ FEATURES = {
     "storage.enabled": ("Pliki i media", "shared.media"),
     "notifications.enabled": ("Powiadomienia", "shared.notifications"),
     "booking.enabled": ("Rezerwacje", "shared.booking"),
-    "medical.enabled": ("Funkcje medyczne", "vertical.medical"),
     "custom_domain.enabled": ("Własna domena", "shared.sites"),
 }
 
@@ -25,7 +24,6 @@ BASE_FEATURES = [
     "storage.enabled",
     "notifications.enabled",
     "booking.enabled",
-    "medical.enabled",
 ]
 
 PLANS = {

@@ -38,7 +38,9 @@ export default async function PricingPage({ params }: Props) {
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-5 py-20">
       <div className="flex max-w-2xl flex-col gap-3">
-        <h1 className="text-4xl font-semibold tracking-tight">{pricing.title}</h1>
+        <h1 className="text-4xl font-semibold tracking-tight">
+          {pricing.title}
+        </h1>
         <p className="text-lg text-muted-foreground">{pricing.lead}</p>
       </div>
 
@@ -58,24 +60,37 @@ export default async function PricingPage({ params }: Props) {
                   <CardTitle>
                     <h2 className="text-xl">{plan.name}</h2>
                   </CardTitle>
-                  {plan.description ? <CardDescription>{plan.description}</CardDescription> : null}
+                  {plan.description ? (
+                    <CardDescription>{plan.description}</CardDescription>
+                  ) : null}
                 </CardHeader>
                 <CardContent className="flex flex-col gap-5">
                   <p>
-                    <span className="text-3xl font-semibold">{formatPrice(plan, locale)}</span>{" "}
+                    <span className="text-3xl font-semibold">
+                      {formatPrice(plan, locale)}
+                    </span>{" "}
                     <span className="text-sm text-muted-foreground">
-                      {t(plan.billing_interval === "year" ? "perYear" : "perMonth")}
+                      {t(
+                        plan.billing_interval === "year"
+                          ? "perYear"
+                          : "perMonth",
+                      )}
                     </span>
                   </p>
                   {plan.trial_days > 0 ? (
-                    <p className="text-sm text-primary">{t("trial", { days: plan.trial_days })}</p>
+                    <p className="text-sm text-primary">
+                      {t("trial", { days: plan.trial_days })}
+                    </p>
                   ) : null}
                   <ul className="flex flex-col gap-2 text-sm">
                     {plan.features
                       .filter((key) => key in pricing.features)
                       .map((key) => (
                         <li key={key} className="flex items-center gap-2">
-                          <CheckIcon aria-hidden="true" className="size-4 text-primary" />
+                          <CheckIcon
+                            aria-hidden="true"
+                            className="size-4 text-primary"
+                          />
                           {pricing.features[key]}
                         </li>
                       ))}

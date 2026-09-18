@@ -261,7 +261,7 @@ test("nazwa profilu nie może uciec poza katalog deployments", async () => {
   );
   // Parked profiles live outside the catalog on purpose and are not checkable.
   await assert.rejects(
-    validateDeployment("_planned/medplano"),
+    validateDeployment("_planned/example"),
     /Nieprawidłowa nazwa profilu/,
   );
 });
