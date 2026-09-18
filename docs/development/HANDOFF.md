@@ -1640,11 +1640,14 @@ Maciej). Obie przechodzą pełne testy w swoim profilu i `pnpm core:check`;
 Instancje hoofcare i medplano na dev VPS budują się już z repozytoriów
 produktów (tam przeniesione `.env.<produkt>` i `.runtime-<produkt>`).
 
-Otwarte: jednorazowe czyszczenie baz deweloperskich z uprawnień
-`hoofcare.herd.*` i cech `hoofcare.enabled`/`medical.enabled` tam, gdzie ich
-moduł nie jest składany. Skrypt: `.runtime/adr049-cleanup.sql` (sprawdzony na
-kopii tabel MedPlano; kopie zapasowe tabel w `backups/before-adr049-cleanup.sql`
-każdego stosu). Wykonanie w bazie wymaga zgody Macieja.
+Bazy deweloperskie wyczyszczone skryptem `.runtime/adr049-cleanup.sql`
+(uruchomił Maciej, 18.09): saas-core i medplano bez uprawnień `hoofcare.herd.*`
+i cech `hoofcare.enabled`/`medical.enabled`; hoofcare bez `medical.enabled`.
+
+Znane braki punktów rozszerzeń (dodać w Saas-Core przy pierwszej potrzebie,
+nie w kopii produktu): middleware i zadania cykliczne wertykału, własne
+szablony stron (`page-templates/manifest.json`) i bloki stron produktu,
+zależności npm/Python tylko przez Saas-Core.
 
 ## Niezmienne ograniczenia
 
