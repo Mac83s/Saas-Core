@@ -1632,10 +1632,15 @@ Zrobione w Saas-Core:
   `billing.0023` są pustymi węzłami, `medical.enabled` zniknął z seedów.
   Kontrakt OpenAPI i typy klienta opisują profil `business`.
 
-Otwarte: repozytoria `/root/HoofCare` i `/root/MedPlano` (GitHub zakłada
-Maciej), przeniesienie instancji na dev VPS, jednorazowe czyszczenie baz
-deweloperskich z uprawnień i cech HoofCare/medical tam, gdzie ich moduł nie
-jest składany.
+Repozytoria produktów: `/root/HoofCare` i `/root/MedPlano` (upstream =
+`/root/Saas-Core`, push do upstream wyłączony; zdalne na GitHubie zakłada
+Maciej). Obie przechodzą pełne testy w swoim profilu i `pnpm core:check`;
+`pnpm core:update` przeszedł w obu bez konfliktów.
+
+Otwarte: przeniesienie działających instancji hoofcare i medplano na dev VPS
+do ich repozytoriów (sekrety i `.env.<produkt>` leżą jeszcze w
+`/root/Saas-Core`), jednorazowe czyszczenie baz deweloperskich z uprawnień i
+cech HoofCare/medical tam, gdzie ich moduł nie jest składany.
 
 ## Niezmienne ograniczenia
 
