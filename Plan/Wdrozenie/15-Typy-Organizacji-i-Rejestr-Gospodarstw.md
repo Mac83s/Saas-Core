@@ -1,0 +1,73 @@
+# 15 — Typy organizacji i rejestr gospodarstw
+
+Decyzje: ADR-050 (typy organizacji), ADR-051 (rejestr gospodarstw), w HoofCare
+HC-ADR-001. Każdy etap kończy się czymś do przeklikania na dev VPS i testem,
+który dowodzi zakresu. Izolację między organizacjami dowodzimy na działającym
+stacku.
+
+## Etap 1A — typy organizacji (Saas-Core)
+
+Zakres:
+1. Kontrakt `packages/contracts/organization-types.schema.json`. Opcjonalny
+   plik profilu `deployments/<p>/organization-types.json`. Bez pliku: jeden typ
+   `business`. Walidacja w `deployment-check`: moduły typu ⊆ moduły profilu,
+   plany typu (1–3) istnieją, uprawnienia ról należą do modułów typu.
+2. `Organization.organization_type`. Migracja nadaje istniejącym typ domyślny.
+   API tworzenia organizacji wymaga typu z katalogu.
+3. Bramka modułów per typ: moduł spoza typu organizacji odpowiada 404. Jedno
+   miejsce w rdzeniu (middleware po tenancie), nie w każdym widoku.
+4. Plany per typ: katalog publiczny i checkout filtrowane typem. Cennik na
+   stronie marketingowej pokazuje plany typu wybranego na stronie.
+5. Rejestracja z pytaniem „kim jesteś” (typy z `selfSignup`) i założeniem
+   organizacji w tym samym przepływie. Koniec stanu „użytkownik bez firmy”.
+6. Sesja i `organizations/current` zwracają typ i jego publiczną część. Menu
+   panelu filtruje pozycje rdzenia i produktu typem.
+
+Dowód: testy kompozycji i walidatora. Na stacku: organizacja typu A nie dostaje
+API modułu spoza typu, rejestracja zakłada organizację wybranego typu, a
+checkout odrzuca plan innego typu.
+
+## Etap 1B — role i usługi per typ (Saas-Core)
+
+1. Role systemowe per typ z katalogu. Komenda `apply_organization_types` po
+   `migrate`: idempotentna, z audytem i system checkiem zgodności. Migracja
+   przepina członkostwa na role typu domyślnego bez zmiany uprawnień.
+2. Role własne organizacji: tworzenie z uprawnień modułów typu, przypisanie
+   członkom, UI w „Zespół”.
+3. Szablony usług rezerwacji per typ: szybkie zakładanie usług z szablonu w
+   „Usługi i grafik”.
+
+Dowód: rola własna ogranicza API na stacku; zmiana katalogu po redeployu
+aktualizuje role bez migracji.
+
+## Etap 2 — `shared.farms`: karty firm (Saas-Core + HoofCare)
+
+1. Moduł `shared.farms`: gospodarstwo (numer siedziby stada, NIP opcjonalny,
+   adres, hodowca, kontakt), zwierzę (gatunek, numer identyfikacyjny, numer
+   roboczy, imię, płeć, data urodzenia, status), katalog gatunków (bydło
+   aktywne).
+2. HoofCare: przeniesienie `Farm`/`Animal` do `shared.farms` (migracja danych
+   deweloperskich) i typy `trimming_company` i `farm` w katalogu.
+3. Wizyta korekcyjna z wyborem karty gospodarstwa w kalendarzu. Rdzeń potrzebuje
+   punktu rozszerzenia „szczegóły wizyty modułu” w formularzu rezerwacji.
+
+## Etap 3 — konto rolnika, połączenie i synchronizacja
+
+Rejestr rolnika, kod aktywacji, ekran łączenia sztuk i dołączania kart innych
+firm, udział z zakresem i cofaniem, synchronizacja z nazwanymi drzwiami, akcja
+obsługi „połącz bez kodu”, pakiet rolnika z 6 miesiącami okresu próbnego.
+
+## Etap 4 — korekcja i wpisy zdrowotne (HoofCare)
+
+Wpis korekcji z wersjonowanym katalogiem zmian bydła, zakończenie wizyty,
+raport dla hodowcy, publikacja wpisów do rejestru rolnika.
+
+## Etap 5 — sprzedaż zwierząt
+
+Ruch zwierzęcia między rejestrami z historią wpisów zdrowotnych.
+
+## Poza planem (świadomie)
+
+Uprawnienia zawężone do obiektu (RACICE 4.4), wspólne logowanie rolnika w wielu
+aplikacjach i wydzielenie rejestru do osobnej usługi. Wracamy do nich przy
+drugiej aplikacji rolniczej.
