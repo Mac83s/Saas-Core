@@ -14,6 +14,7 @@ from rest_framework.views import APIView
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
 from .authorization import authorize
+from .context import context_from_membership
 from .custom_roles import create_role, delete_role, list_roles, update_role
 from .lifecycle import (
     accept_invitation,
@@ -324,6 +325,7 @@ def _organization_summary(access: OrganizationAccess) -> dict[str, object]:
         "version": organization.version,
         "membership_status": membership.status,
         "role": membership.role.key,
+        "permissions": sorted(context_from_membership(membership).permissions),
         "active": access.active,
     }
 
@@ -347,6 +349,8 @@ def _membership_summary(membership: Membership) -> dict[str, object]:
         "id": str(membership.id),
         "user_id": str(membership.user_id),
         "email": membership.user.email,
+        "first_name": membership.user.first_name,
+        "last_name": membership.user.last_name,
         "role": membership.role.key,
         "status": membership.status,
         "joined_at": membership.joined_at,

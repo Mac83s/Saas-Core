@@ -42,6 +42,16 @@ class StaffMember(TenantScopedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     display_name = models.CharField(max_length=160)
     public_slug = models.SlugField(max_length=80)
+    #: The team member's account, when the person in the calendar also logs in.
+    #: That is what makes "my visits" computable; a calendar entry for someone
+    #: without an account (a subcontractor) simply has none.
+    membership = models.ForeignKey(
+        "organizations.Membership",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -52,7 +62,12 @@ class StaffMember(TenantScopedModel):
         constraints = [
             models.UniqueConstraint(
                 fields=["organization", "public_slug"], name="booking_staff_org_slug_uq"
-            )
+            ),
+            models.UniqueConstraint(
+                fields=["organization", "membership"],
+                condition=models.Q(membership__isnull=False),
+                name="booking_staff_org_membership_uq",
+            ),
         ]
 
 

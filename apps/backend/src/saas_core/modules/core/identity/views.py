@@ -37,6 +37,7 @@ from .serializers import (
     TotpConfirmResultSerializer,
     TotpSetupSerializer,
     UserSummarySerializer,
+    UserUpdateSerializer,
     VerificationConfirmSerializer,
     VerificationRequestSerializer,
     VerificationResultSerializer,
@@ -46,6 +47,7 @@ from .services import (
     confirm_email_verification,
     register_user,
     request_email_verification,
+    update_profile,
 )
 from .sessions import (
     complete_mfa_enrollment_login,
@@ -300,10 +302,29 @@ class PasswordResetConfirmView(PublicIdentityView):
         return Response({"status": "password_updated"})
 
 
+@method_decorator(csrf_protect, name="dispatch")
 class CurrentUserView(ProtectedIdentityView):
     @extend_schema(responses={200: UserSummarySerializer, 403: ProblemDetailsSerializer})
     def get(self, request: Request) -> Response:
         return Response(_user_summary(cast(User, request.user)))
+
+    @extend_schema(
+        request=UserUpdateSerializer,
+        responses={
+            200: UserSummarySerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+        },
+    )
+    def patch(self, request: Request) -> Response:
+        serializer = UserUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = update_profile(
+            user=cast(User, request.user),
+            changes=dict(serializer.validated_data),
+            correlation_id=getattr(request, "correlation_id", None),
+        )
+        return Response(_user_summary(user))
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -361,6 +382,8 @@ def _user_summary(user: User) -> dict[str, str]:
     return {
         "id": str(user.id),
         "email": user.email,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
         "status": user.status,
         "locale": user.locale,
         "timezone": user.timezone,

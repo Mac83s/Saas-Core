@@ -203,6 +203,20 @@ export async function getCurrentUser(): Promise<UserSummary> {
   return data;
 }
 
+/** The person's own name (greeting, initials, who did the visit). */
+export async function updateCurrentUser(
+  input: components["schemas"]["PatchedUserUpdate"],
+): Promise<UserSummary> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PATCH("/api/v1/auth/me/", {
+    body: input,
+    credentials: "same-origin",
+    headers: { "X-CSRFToken": csrfToken },
+  });
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export async function registerAccount(
   input: RegistrationInput,
 ): Promise<string> {
@@ -1348,13 +1362,38 @@ export async function configureBookingSchedule(
   return data as { id: string };
 }
 
-export async function listBookingAppointments(): Promise<BookingAppointment[]> {
+export async function listBookingAppointments(
+  filters: { mine?: boolean } = {},
+): Promise<BookingAppointment[]> {
   const { data, error, response } = await client.GET(
     "/api/v1/booking/appointments/",
-    { credentials: "same-origin", cache: "no-store" },
+    {
+      params: filters.mine ? { query: { mine: true } } : undefined,
+      credentials: "same-origin",
+      cache: "no-store",
+    },
   );
   if (error || !data) throwProblem(error, response);
   return data.items;
+}
+
+/** Renames, (de)activates or links a calendar entry to a team member. */
+export async function updateBookingStaff(
+  staffId: string,
+  input: components["schemas"]["PatchedStaffUpdate"],
+): Promise<components["schemas"]["Staff"]> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PATCH(
+    "/api/v1/booking/catalog/staff/{staff_id}/",
+    {
+      params: { path: { staff_id: staffId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
 }
 
 export async function getBookingSlots(query: {

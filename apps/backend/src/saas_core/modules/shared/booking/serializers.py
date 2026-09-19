@@ -18,6 +18,14 @@ class CatalogCreateSerializer(serializers.Serializer[dict[str, Any]]):
     #: For a service: the kind of visit a module provides (e.g. from a service
     #: template of the organization's type, ADR-050).
     appointment_kind = serializers.CharField(max_length=64, required=False, allow_blank=True)
+    #: For staff: the team member's account this calendar entry stands for.
+    membership_id = serializers.UUIDField(required=False, allow_null=True)
+
+
+class StaffUpdateSerializer(serializers.Serializer[dict[str, Any]]):
+    name = serializers.CharField(max_length=160, required=False)
+    active = serializers.BooleanField(required=False)
+    membership_id = serializers.UUIDField(required=False, allow_null=True)
 
 
 class ScheduleCreateSerializer(serializers.Serializer[dict[str, Any]]):
@@ -70,7 +78,10 @@ class AppointmentSerializer(serializers.Serializer[dict[str, Any]]):
     service_name = serializers.CharField()
     status = serializers.CharField()
     customer_name = serializers.CharField()
+    staff_id = serializers.UUIDField()
     staff_name = serializers.CharField()
+    #: The calendar entry's team member, for "my visits" (null: no account).
+    staff_membership_id = serializers.UUIDField(allow_null=True)
     location_name = serializers.CharField()
     resource_name = serializers.CharField(allow_null=True)
     self_service_token = serializers.CharField(required=False, allow_null=True)
@@ -106,6 +117,7 @@ class StaffSerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     name = serializers.CharField()
     public_slug = serializers.CharField()
+    membership_id = serializers.UUIDField(allow_null=True)
 
 
 class ServiceSerializer(serializers.Serializer[dict[str, Any]]):

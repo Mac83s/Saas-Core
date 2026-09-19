@@ -83,6 +83,10 @@ class OrganizationSummarySerializer(serializers.Serializer[dict[str, Any]]):
     version = serializers.IntegerField()
     membership_status = serializers.CharField()
     role = serializers.CharField()
+    #: What this membership may do here. Roles differ per organization type
+    #: (ADR-050), so a screen hides what the person cannot use by permission,
+    #: never by the role's name. The API still checks every call.
+    permissions = serializers.ListField(child=serializers.CharField())
     active = serializers.BooleanField()
 
 
@@ -116,6 +120,8 @@ class MembershipSummarySerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     user_id = serializers.UUIDField()
     email = serializers.EmailField()
+    first_name = serializers.CharField()
+    last_name = serializers.CharField()
     role = serializers.CharField()
     status = serializers.CharField()
     joined_at = serializers.DateTimeField()

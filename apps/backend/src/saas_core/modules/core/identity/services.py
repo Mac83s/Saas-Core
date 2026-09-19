@@ -29,6 +29,26 @@ class InvalidVerificationToken(APIException):
     default_code = "invalid_verification_token"
 
 
+@transaction.atomic
+def update_profile(
+    *, user: User, changes: dict[str, str], correlation_id: uuid.UUID | None = None
+) -> User:
+    """The person's own name; audited like the other account changes."""
+    cleaned = {field: value.strip() for field, value in changes.items()}
+    changed = [field for field, value in cleaned.items() if getattr(user, field) != value]
+    if changed:
+        for field in changed:
+            setattr(user, field, cleaned[field])
+        user.save(update_fields=[*changed, "updated_at"])
+        AccountAuditEvent.objects.create(
+            event_type=AccountAuditEventType.PROFILE_UPDATED,
+            subject_user=user,
+            actor_user=user,
+            correlation_id=correlation_id,
+        )
+    return user
+
+
 def register_user(*, email: str, password: str, locale: str) -> None:
     normalized_email = User.objects.normalize_email(email)
     created = False

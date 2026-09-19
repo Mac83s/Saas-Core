@@ -32,6 +32,8 @@ from .serializers import (
     RescheduleSerializer,
     ScheduleCreateSerializer,
     SlotListSerializer,
+    StaffSerializer,
+    StaffUpdateSerializer,
 )
 from .services import (
     BOOKING_ENABLED,
@@ -44,6 +46,7 @@ from .services import (
     list_appointments,
     list_catalog,
     reschedule_appointment,
+    update_staff,
 )
 
 IDEMPOTENCY = OpenApiParameter("Idempotency-Key", str, OpenApiParameter.HEADER, required=True)
@@ -69,7 +72,9 @@ def _appointment_payload(value: Any, token: str | None = None) -> dict[str, Any]
         "service_name": value.service_name,
         "status": value.status,
         "customer_name": value.customer.display_name,
+        "staff_id": value.staff_id,
         "staff_name": value.staff.display_name,
+        "staff_membership_id": value.staff.membership_id,
         "location_name": value.location.name,
         "resource_name": value.resource.name if value.resource else None,
         **({"self_service_token": token} if token else {}),
@@ -84,7 +89,13 @@ def _catalog_payload(value: dict[str, list[Any]], *, public: bool = False) -> di
             if x.active
         ],
         "staff": [
-            {"id": x.id, "name": x.display_name, "public_slug": x.public_slug}
+            {
+                "id": x.id,
+                "name": x.display_name,
+                "public_slug": x.public_slug,
+                # Who on the team has an account is not the public's business.
+                "membership_id": None if public else x.membership_id,
+            }
             for x in value["staff"]
             if x.active
         ],
@@ -94,6 +105,7 @@ def _catalog_payload(value: dict[str, list[Any]], *, public: bool = False) -> di
                 "name": x.name,
                 "public_slug": x.public_slug,
                 "duration_minutes": x.duration_minutes,
+                "appointment_kind": x.appointment_kind,
             }
             for x in value["services"]
             if x.active
@@ -127,12 +139,44 @@ class BookingCatalogView(APIView):
         if kind != "service":
             data.pop("appointment_kind", None)
         if kind == "staff":
-            data = {"display_name": name, "public_slug": data.get("public_slug", "")}
+            data = {
+                "display_name": name,
+                "public_slug": data.get("public_slug", ""),
+                "membership_id": data.get("membership_id"),
+            }
         elif kind == "resource":
             data = {"name": name, "kind": data.get("resource_kind", "generic")}
         else:
             data["name"] = name
         return Response({"id": create_catalog_item(kind=kind, data=data).id}, status=201)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class BookingStaffView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        request=StaffUpdateSerializer,
+        responses={
+            200: StaffSerializer,
+            400: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def patch(self, request: Request, staff_id: UUID) -> Response:
+        serializer = StaffUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = dict(serializer.validated_data)
+        if "name" in data:
+            data["display_name"] = data.pop("name")
+        staff = update_staff(staff_id=staff_id, data=data)
+        return Response({
+            "id": staff.id,
+            "name": staff.display_name,
+            "public_slug": staff.public_slug,
+            "membership_id": staff.membership_id,
+        })
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -192,9 +236,21 @@ class BookingSlotsView(APIView):
 class AppointmentListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @extend_schema(tags=["booking"], responses={200: AppointmentListSerializer})
+    @extend_schema(
+        tags=["booking"],
+        parameters=[
+            OpenApiParameter(
+                "mine",
+                bool,
+                OpenApiParameter.QUERY,
+                description="Tylko wizyty pracownika kalendarza powiązanego z moim kontem.",
+            )
+        ],
+        responses={200: AppointmentListSerializer},
+    )
     def get(self, request: Request) -> Response:
-        return Response({"items": [_appointment_payload(x) for x in list_appointments()]})
+        mine = request.query_params.get("mine", "").lower() in {"1", "true"}
+        return Response({"items": [_appointment_payload(x) for x in list_appointments(mine=mine)]})
 
     @extend_schema(
         tags=["booking"],

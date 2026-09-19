@@ -16,7 +16,11 @@ from rest_framework.exceptions import APIException, NotFound, ValidationError
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import record_audit
 from saas_core.modules.core.organizations.context import require_tenant_context
-from saas_core.modules.core.organizations.models import Organization
+from saas_core.modules.core.organizations.models import (
+    Membership,
+    MembershipStatus,
+    Organization,
+)
 from saas_core.modules.core.organizations.tasks import issue_tenant_task_contract
 from saas_core.modules.shared.billing.authorization import authorize_entitled
 from saas_core.modules.shared.notifications.security import decrypt_secret, encrypt_secret
@@ -119,7 +123,14 @@ def create_catalog_item(*, kind: str, data: dict[str, Any]) -> Any:
     if kind == "location":
         item: Any = Location.all_objects.create(organization=organization, **data)
     elif kind == "staff":
-        item = StaffMember.all_objects.create(organization=organization, **data)
+        _assert_member_of(organization, data.get("membership_id"))
+        try:
+            with transaction.atomic():
+                item = StaffMember.all_objects.create(organization=organization, **data)
+        except IntegrityError as error:
+            raise ValidationError({
+                "membership_id": "Ten członek zespołu ma już swój wpis w kalendarzu."
+            }) from error
     elif kind == "service":
         _assert_appointment_kind_available(organization, data.get("appointment_kind", ""))
         item = Service.all_objects.create(organization=organization, **data)
@@ -138,6 +149,53 @@ def create_catalog_item(*, kind: str, data: dict[str, Any]) -> Any:
         target_id=item.id,
     )
     return item
+
+
+def _assert_member_of(organization: Organization, membership_id: UUID | None) -> None:
+    """A calendar entry may stand for an active member of this organization only.
+
+    Read under the tenant, so another organization's membership is simply not
+    found; the database guard on `booking_staffmember` is the second line.
+    """
+    if membership_id is None:
+        return
+    if not Membership.objects.filter(
+        pk=membership_id, organization=organization, status=MembershipStatus.ACTIVE
+    ).exists():
+        raise ValidationError({"membership_id": "Nie ma takiego aktywnego członka zespołu."})
+
+
+@transaction.atomic
+def update_staff(*, staff_id: UUID, data: dict[str, Any]) -> StaffMember:
+    """Renames, (de)activates or links a calendar entry to a team member."""
+    context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
+    organization = Organization.objects.get(pk=context.organization_id)
+    staff = (
+        StaffMember.all_objects.select_for_update()
+        .filter(organization=organization, pk=staff_id)
+        .first()
+    )
+    if staff is None:
+        raise NotFound("Nie ma takiego pracownika kalendarza.")
+    if "membership_id" in data:
+        _assert_member_of(organization, data["membership_id"])
+    for field, value in data.items():
+        setattr(staff, field, value)
+    try:
+        with transaction.atomic():
+            staff.save()
+    except IntegrityError as error:
+        raise ValidationError({
+            "membership_id": "Ten członek zespołu ma już swój wpis w kalendarzu."
+        }) from error
+    record_audit(
+        organization=organization,
+        action="booking.catalog.changed",
+        actor=User.objects.get(pk=context.actor_id),
+        target_type="staff",
+        target_id=staff.id,
+    )
+    return staff
 
 
 @transaction.atomic
@@ -167,11 +225,16 @@ def configure_schedule(*, kind: str, data: dict[str, Any]) -> Any:
     return item
 
 
-def list_appointments(*, starts_from: datetime | None = None) -> list[Appointment]:
+def list_appointments(
+    *, starts_from: datetime | None = None, mine: bool = False
+) -> list[Appointment]:
+    """`mine`: only the calendar entries linked to the caller's membership."""
     context = authorize_entitled(BOOKING_READ, BOOKING_ENABLED)
     query = Appointment.all_objects.filter(organization_id=context.organization_id)
     if starts_from:
         query = query.filter(starts_at__gte=starts_from)
+    if mine:
+        query = query.filter(staff__membership_id=context.membership_id)
     return list(query.select_related("customer", "service", "staff", "location", "resource")[:500])
 
 

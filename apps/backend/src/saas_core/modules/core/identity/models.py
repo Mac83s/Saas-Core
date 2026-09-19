@@ -57,6 +57,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     status = models.CharField(max_length=16, choices=UserStatus, default=UserStatus.PENDING)
     locale = models.CharField(max_length=10, default="pl")
     timezone = models.CharField(max_length=64, default="Europe/Warsaw")
+    #: How the person is greeted and shown to a team ("Dzień dobry, Marcin",
+    #: initials, who did the visit). Optional: an account starts with an e-mail.
+    first_name = models.CharField(max_length=80, blank=True)
+    last_name = models.CharField(max_length=80, blank=True)
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=False)
     date_joined = models.DateTimeField(default=django_timezone.now)
@@ -267,6 +271,7 @@ class AccountAuditEventType(models.TextChoices):
     PASSWORD_RESET = "password_reset", "Zmieniono hasło przez reset"
     MFA_ENABLED = "mfa_enabled", "Włączono MFA"
     SESSION_REVOKED = "session_revoked", "Unieważniono sesję"
+    PROFILE_UPDATED = "profile_updated", "Zmieniono dane osobowe"
 
 
 class AccountAuditEvent(models.Model):

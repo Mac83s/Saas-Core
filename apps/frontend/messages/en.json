@@ -128,7 +128,13 @@
   "AccountSettings": {
     "eyebrow": "Account & security",
     "title": "Your account",
-    "description": "Control active sessions, devices, and sign-in security."
+    "description": "Control active sessions, devices, and sign-in security.",
+    "nameTitle": "Your name",
+    "nameDescription": "How the panel greets you and how your team sees you.",
+    "first_name": "First name",
+    "last_name": "Last name",
+    "nameSave": "Save",
+    "nameSaved": "Saved."
   },
   "CustomerBilling": {
     "eyebrow": "Plan & billing",

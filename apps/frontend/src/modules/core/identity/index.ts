@@ -6,4 +6,5 @@ export {
   RegistrationForm,
   VerificationForm,
 } from "./auth-forms";
+export { ProfileNameForm } from "./profile-name-form";
 export { LogoutButton, SessionManager } from "./session-controls";

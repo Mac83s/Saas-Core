@@ -128,7 +128,13 @@
   "AccountSettings": {
     "eyebrow": "Konto i bezpieczeństwo",
     "title": "Twoje konto",
-    "description": "Kontroluj aktywne sesje, urządzenia i zabezpieczenia logowania."
+    "description": "Kontroluj aktywne sesje, urządzenia i zabezpieczenia logowania.",
+    "nameTitle": "Imię i nazwisko",
+    "nameDescription": "Tak panel się z Tobą wita i tak widzi Cię zespół.",
+    "first_name": "Imię",
+    "last_name": "Nazwisko",
+    "nameSave": "Zapisz",
+    "nameSaved": "Zapisano."
   },
   "CustomerBilling": {
     "eyebrow": "Plan i płatności",

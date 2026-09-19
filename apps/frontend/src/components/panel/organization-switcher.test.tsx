@@ -67,6 +67,7 @@ function organization(id: string, name: string, active: boolean) {
     version: 1,
     membership_status: "active",
     role: "owner",
+    permissions: ["organization.read"],
     active,
   };
 }

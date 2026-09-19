@@ -7,6 +7,7 @@ from .views import (
     BookingCatalogView,
     BookingScheduleView,
     BookingSlotsView,
+    BookingStaffView,
     CustomerAnonymizeView,
     PublicBookingCatalogView,
     PublicBookingCreateView,
@@ -20,6 +21,7 @@ app_name = "booking"
 
 urlpatterns = [
     path("catalog/", BookingCatalogView.as_view(), name="catalog"),
+    path("catalog/staff/<uuid:staff_id>/", BookingStaffView.as_view(), name="staff"),
     path("schedule/", BookingScheduleView.as_view(), name="schedule"),
     path("slots/", BookingSlotsView.as_view(), name="slots"),
     path("appointments/", AppointmentListCreateView.as_view(), name="appointments"),

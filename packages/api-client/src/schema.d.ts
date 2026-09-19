@@ -113,7 +113,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        patch: operations["api_v1_auth_me_partial_update"];
         trace?: never;
     };
     "/api/v1/auth/mfa/totp/confirm/": {
@@ -451,6 +451,22 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/catalog/staff/{staff_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["api_v1_booking_catalog_staff_partial_update"];
         trace?: never;
     };
     "/api/v1/booking/customers/{customer_id}/anonymize/": {
@@ -2459,7 +2475,11 @@ export interface components {
             service_name: string;
             status: string;
             customer_name: string;
+            /** Format: uuid */
+            staff_id: string;
             staff_name: string;
+            /** Format: uuid */
+            staff_membership_id: string | null;
             location_name: string;
             resource_name: string | null;
             self_service_token?: string | null;
@@ -2682,6 +2702,8 @@ export interface components {
             buffer_after_minutes?: number;
             minimum_notice_minutes?: number;
             appointment_kind?: string;
+            /** Format: uuid */
+            membership_id?: string | null;
         };
         /**
          * @description * `location` - location
@@ -3485,6 +3507,8 @@ export interface components {
             user_id: string;
             /** Format: email */
             email: string;
+            first_name: string;
+            last_name: string;
             role: string;
             status: string;
             /** Format: date-time */
@@ -3566,6 +3590,7 @@ export interface components {
             version: number;
             membership_status: string;
             role: string;
+            permissions: string[];
             active: boolean;
         };
         OwnershipTransfer: {
@@ -3770,6 +3795,17 @@ export interface components {
             version?: number;
             name?: string;
             permissions?: string[];
+        };
+        PatchedStaffUpdate: {
+            name?: string;
+            active?: boolean;
+            /** Format: uuid */
+            membership_id?: string | null;
+        };
+        /** @description What a person may change about themselves from the panel. */
+        PatchedUserUpdate: {
+            first_name?: string;
+            last_name?: string;
         };
         /**
          * @description * `stripe` - stripe
@@ -4241,6 +4277,8 @@ export interface components {
             id: string;
             name: string;
             public_slug: string;
+            /** Format: uuid */
+            membership_id: string | null;
         };
         /**
          * @description * `queued` - Queued
@@ -4350,6 +4388,8 @@ export interface components {
             id: string;
             /** Format: email */
             email: string;
+            first_name: string;
+            last_name: string;
             status: string;
             locale: string;
             timezone: string;
@@ -4678,6 +4718,47 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserSummary"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_auth_me_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedUserUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedUserUpdate"];
+                "multipart/form-data": components["schemas"]["PatchedUserUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserSummary"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
             403: {
@@ -5473,7 +5554,10 @@ export interface operations {
     };
     api_v1_booking_appointments_retrieve: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Tylko wizyty pracownika kalendarza powiązanego z moim kontem. */
+                mine?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -5614,6 +5698,49 @@ export interface operations {
                 };
             };
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_booking_catalog_staff_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                staff_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedStaffUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedStaffUpdate"];
+                "multipart/form-data": components["schemas"]["PatchedStaffUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Staff"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

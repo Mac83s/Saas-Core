@@ -77,9 +77,18 @@ class TotpConfirmResultSerializer(serializers.Serializer[dict[str, Any]]):
 class UserSummarySerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     email = serializers.EmailField()
+    first_name = serializers.CharField()
+    last_name = serializers.CharField()
     status = serializers.CharField()
     locale = serializers.CharField()
     timezone = serializers.CharField()
+
+
+class UserUpdateSerializer(serializers.Serializer[dict[str, Any]]):
+    """What a person may change about themselves from the panel."""
+
+    first_name = serializers.CharField(max_length=80, required=False, allow_blank=True)
+    last_name = serializers.CharField(max_length=80, required=False, allow_blank=True)
 
 
 class SessionSummarySerializer(serializers.Serializer[dict[str, Any]]):
