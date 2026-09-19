@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ChevronRightIcon, PlusIcon, SearchIcon } from "lucide-react";
+import { PlusIcon, WarehouseIcon } from "lucide-react";
 
 import { createFarm, listFarms, type Farm } from "@saas-core/api-client";
-import { Badge } from "@saas-core/ui/components/badge";
-import { Button } from "@saas-core/ui/components/button";
+import { Button, buttonVariants } from "@saas-core/ui/components/button";
 import {
   Card,
   CardContent,
@@ -20,139 +19,298 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@saas-core/ui/components/dialog";
 import { Input } from "@saas-core/ui/components/input";
+import { Label } from "@saas-core/ui/components/label";
 
 import { Link } from "#i18n/navigation";
 import { FarmForm } from "./farm-form";
-import { farmProblem } from "./problem";
+import { farmProblem, farmProblemKind, type FarmProblem } from "./problem";
 
-/** The organization's farms (ADR-051): a company's cards or a farmer's own. */
-export function FarmsPanel() {
+// Shared by both farm screens; they are each other's only neighbours, so they
+// live here rather than in a file of their own.
+export const focusRing =
+  "rounded-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
+
+/** Without `farms.read` nothing is fetched; the screen says so instead. */
+export function FarmNoAccess() {
+  const t = useTranslations("Farms");
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          <h2>{t("noAccessTitle")}</h2>
+        </CardTitle>
+        <CardDescription>{t("problem_access")}</CardDescription>
+      </CardHeader>
+    </Card>
+  );
+}
+
+/**
+ * A failed read, with the one way out that fits it: retry when the call may
+ * work next time, the plan when the organization has not bought the register,
+ * nothing when neither would help.
+ */
+export function FarmNotice({
+  kind,
+  onRetry,
+}: {
+  kind: FarmProblem;
+  onRetry: () => void;
+}) {
+  const t = useTranslations("Farms");
+  return (
+    <div
+      className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/30 p-4"
+      role="alert"
+    >
+      <p className="text-sm text-destructive">{t(`problem_${kind}`)}</p>
+      {kind === "load" ? (
+        <Button onClick={onRetry} variant="outline">
+          {t("retry")}
+        </Button>
+      ) : null}
+      {kind === "plan" ? (
+        <Link
+          className={buttonVariants({ variant: "outline" })}
+          href="/panel/settings/billing"
+        >
+          {t("openBilling")}
+        </Link>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The organization's farms (ADR-051): a service company's client cards or a
+ * farmer's own register. The columns are what the register knows — a farm's
+ * visits live in another module and are not shown here.
+ */
+export function FarmsPanel({
+  canManage = false,
+  canRead = false,
+}: {
+  /** farms.manage: add and edit farms. */
+  canManage?: boolean;
+  /** farms.read: see the register at all. The API enforces both. */
+  canRead?: boolean;
+} = {}) {
   const t = useTranslations("Farms");
   const common = useTranslations("Common");
-  const [farms, setFarms] = useState<Farm[]>([]);
+  const [farms, setFarms] = useState<Farm[]>();
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [problem, setProblem] = useState<string>();
+  const [problem, setProblem] = useState<FarmProblem>();
+  const [notice, setNotice] = useState("");
   const [adding, setAdding] = useState(false);
+  const [reloads, setReloads] = useState(0);
+  const refresh = () => setReloads((value) => value + 1);
 
-  // Only the answer to the newest query may land: an older, slower search
-  // would otherwise replace the list under a newer one.
-  const latest = useRef(0);
-  const load = useCallback(
-    async (query: string) => {
-      const request = ++latest.current;
-      setLoading(true);
-      try {
-        const found = await listFarms(query || undefined);
-        if (request !== latest.current) return;
-        setFarms(found);
-        setProblem(undefined);
-      } catch (error) {
-        if (request === latest.current)
-          setProblem(farmProblem(error, t("loadFailed")));
-      } finally {
-        if (request === latest.current) setLoading(false);
-      }
-    },
-    [t],
-  );
-
+  // The server searches, so a big register stays on one screen. Only the
+  // answer to the newest query may land: an older, slower search would
+  // otherwise replace the list under a newer one.
   useEffect(() => {
-    const timer = setTimeout(() => void load(search.trim()), 250);
-    return () => clearTimeout(timer);
-  }, [load, search]);
+    if (!canRead) return;
+    let current = true;
+    const timer = setTimeout(() => {
+      listFarms(search.trim() || undefined)
+        .then((found) => {
+          if (!current) return;
+          setFarms(found);
+          setProblem(undefined);
+        })
+        .catch((error: unknown) => {
+          if (current) setProblem(farmProblemKind(error));
+        });
+    }, 250);
+    return () => {
+      current = false;
+      clearTimeout(timer);
+    };
+  }, [canRead, reloads, search]);
+
+  const list = !canRead ? (
+    <FarmNoAccess />
+  ) : (
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          <h2>{t("listTitle", { count: farms?.length ?? 0 })}</h2>
+        </CardTitle>
+        <CardDescription>{t("listDescription")}</CardDescription>
+        <div className="grid gap-1.5 pt-2 sm:max-w-md">
+          <Label htmlFor="farms-search">{t("search")}</Label>
+          <Input
+            id="farms-search"
+            onChange={(event) => setSearch(event.target.value)}
+            type="search"
+            value={search}
+          />
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {problem && !farms ? (
+          <FarmNotice kind={problem} onRetry={refresh} />
+        ) : !farms ? (
+          <div aria-busy="true" className="space-y-2">
+            <span className="sr-only">{t("loading")}</span>
+            {[0, 1, 2].map((row) => (
+              <div
+                className="h-14 animate-pulse rounded-lg bg-muted"
+                key={row}
+              />
+            ))}
+          </div>
+        ) : (
+          <>
+            {problem ? <FarmNotice kind={problem} onRetry={refresh} /> : null}
+            {farms.length === 0 && search.trim() ? (
+              <div className="space-y-3">
+                <p className="text-muted-foreground">{t("noResults")}</p>
+                <Button onClick={() => setSearch("")} variant="outline">
+                  {t("clearSearch")}
+                </Button>
+              </div>
+            ) : farms.length === 0 ? (
+              <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed bg-muted/30 p-6">
+                <WarehouseIcon
+                  aria-hidden="true"
+                  className="size-8 text-primary"
+                />
+                <h3 className="font-semibold">{t("emptyTitle")}</h3>
+                <p className="max-w-xl text-muted-foreground">
+                  {t(canManage ? "empty" : "emptyReadOnly")}
+                </p>
+                {canManage ? (
+                  <Button onClick={() => setAdding(true)}>
+                    <PlusIcon aria-hidden="true" />
+                    {t("add")}
+                  </Button>
+                ) : null}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <caption className="sr-only">{t("tableCaption")}</caption>
+                  <thead className="border-b text-xs text-muted-foreground">
+                    <tr>
+                      <th className="py-2 pr-3 font-medium" scope="col">
+                        {t("colFarm")}
+                      </th>
+                      <th
+                        className="hidden py-2 pr-3 font-medium md:table-cell"
+                        scope="col"
+                      >
+                        {t("village")}
+                      </th>
+                      <th className="py-2 pr-3 font-medium" scope="col">
+                        {t("colKeeper")}
+                      </th>
+                      <th className="py-2 text-right font-medium" scope="col">
+                        {t("animals")}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {farms.map((farm) => (
+                      <tr key={farm.id}>
+                        <th
+                          className="py-3 pr-3 text-left align-top font-normal"
+                          scope="row"
+                        >
+                          <Link
+                            className={`font-medium wrap-anywhere hover:underline ${focusRing}`}
+                            href={`/panel/farms/${farm.id}`}
+                          >
+                            {farm.name}
+                          </Link>
+                          {farm.herd_number ? (
+                            <p className="text-xs text-muted-foreground tabular-nums">
+                              {farm.herd_number}
+                            </p>
+                          ) : null}
+                          {farm.village ? (
+                            <p className="text-muted-foreground md:hidden">
+                              {farm.village}
+                            </p>
+                          ) : null}
+                        </th>
+                        <td className="hidden py-3 pr-3 align-top md:table-cell">
+                          {farm.village || "—"}
+                        </td>
+                        <td className="py-3 pr-3 align-top">
+                          <p className="wrap-anywhere">
+                            {farm.keeper_name || "—"}
+                          </p>
+                          {farm.phone ? (
+                            <a
+                              className={`text-muted-foreground hover:text-foreground hover:underline ${focusRing}`}
+                              href={`tel:${farm.phone.replaceAll(" ", "")}`}
+                            >
+                              {farm.phone}
+                            </a>
+                          ) : null}
+                        </td>
+                        <td className="py-3 text-right align-top tabular-nums">
+                          {farm.animal_count}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        )}
+        <p aria-live="polite" className="text-sm text-success-foreground">
+          {notice}
+        </p>
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-primary">{t("eyebrow")}</p>
+          <h1 className="text-3xl font-semibold tracking-tight">
             {t("title")}
           </h1>
-          <p className="text-muted-foreground">{t("description")}</p>
+          <p className="max-w-2xl text-muted-foreground">{t("description")}</p>
         </div>
-        <Button onClick={() => setAdding(true)} type="button">
-          <PlusIcon aria-hidden="true" />
-          {t("add")}
-        </Button>
-      </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("listTitle", { count: farms.length })}</CardTitle>
-          <CardDescription>{t("listDescription")}</CardDescription>
-          <div className="relative pt-2">
-            <SearchIcon
-              aria-hidden="true"
-              className="pointer-events-none absolute left-3 top-1/2 mt-1 size-4 -translate-y-1/2 text-muted-foreground"
-            />
-            <Input
-              aria-label={t("search")}
-              className="pl-9"
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={t("search")}
-              value={search}
-            />
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {problem ? (
-            <p className="text-sm text-destructive" role="alert">
-              {problem}
-            </p>
-          ) : null}
-          {!loading && !problem && farms.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              {search ? t("noResults") : t("empty")}
-            </p>
-          ) : null}
-          {farms.map((farm) => (
-            <Link
-              className="flex items-center gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50"
-              href={`/panel/farms/${farm.id}`}
-              key={farm.id}
-            >
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-medium">{farm.name}</p>
-                <p className="truncate text-sm text-muted-foreground">
-                  {[farm.village, farm.keeper_name, farm.phone]
-                    .filter(Boolean)
-                    .join(" · ") || t("noDetails")}
-                </p>
-              </div>
-              {farm.herd_number ? (
-                <Badge variant="outline">{farm.herd_number}</Badge>
-              ) : null}
-              <ChevronRightIcon
-                aria-hidden="true"
-                className="size-4 text-muted-foreground"
+        {canRead && canManage ? (
+          <Dialog onOpenChange={setAdding} open={adding}>
+            <DialogTrigger render={<Button />}>
+              <PlusIcon aria-hidden="true" />
+              {t("add")}
+            </DialogTrigger>
+            <DialogContent closeLabel={common("close")}>
+              <DialogHeader>
+                <DialogTitle>{t("add")}</DialogTitle>
+                <DialogDescription>{t("addDescription")}</DialogDescription>
+              </DialogHeader>
+              <FarmForm
+                onSubmit={async (values) => {
+                  try {
+                    const farm = await createFarm(values);
+                    setAdding(false);
+                    setNotice(t("added", { name: farm.name }));
+                    refresh();
+                    return undefined;
+                  } catch (error) {
+                    return farmProblem(error, t("saveFailed"));
+                  }
+                }}
+                submitLabel={t("add")}
               />
-            </Link>
-          ))}
-        </CardContent>
-      </Card>
-      <Dialog onOpenChange={setAdding} open={adding}>
-        <DialogContent closeLabel={common("close")}>
-          <DialogHeader>
-            <DialogTitle>{t("add")}</DialogTitle>
-            <DialogDescription>{t("addDescription")}</DialogDescription>
-          </DialogHeader>
-          <FarmForm
-            onSubmit={async (values) => {
-              try {
-                await createFarm(values);
-                setAdding(false);
-                await load(search.trim());
-                return undefined;
-              } catch (error) {
-                return farmProblem(error, t("saveFailed"));
-              }
-            }}
-            submitLabel={t("add")}
-          />
-        </DialogContent>
-      </Dialog>
+            </DialogContent>
+          </Dialog>
+        ) : null}
+      </header>
+      {list}
     </div>
   );
 }

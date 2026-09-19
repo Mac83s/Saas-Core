@@ -1,5 +1,17 @@
 import { ApiProblemError } from "@saas-core/api-client";
 
+/** Why a read failed, and therefore what the person can do about it. */
+export type FarmProblem = "load" | "access" | "plan" | "missing";
+
+export function farmProblemKind(error: unknown): FarmProblem {
+  if (!(error instanceof ApiProblemError)) return "load";
+  const { code, status } = error.problem;
+  if (code === "entitlement_required") return "plan";
+  if (status === 403) return "access";
+  if (status === 404) return "missing";
+  return "load";
+}
+
 /**
  * The first human sentence of a Problem Details answer. A validation error
  * carries `{field: [message]}` in `detail`; show its first message rather than

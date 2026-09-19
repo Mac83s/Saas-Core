@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 
-import { modulesFor } from "#lib/organization-types";
+import { allows, panelAccess } from "#lib/panel-navigation";
 import { getServerCurrentOrganization } from "#lib/server-auth";
 import { FarmDetail } from "../../../../../modules/shared/farms";
 
@@ -13,11 +13,16 @@ export default async function FarmPage({
     params,
     getServerCurrentOrganization(),
   ]);
-  if (!modulesFor(organization?.organization_type).has("shared.farms"))
-    notFound();
+  const access = panelAccess(organization);
+  if (!allows(access, { module: "shared.farms" })) notFound();
   return (
-    <main className="mx-auto w-full max-w-5xl px-5 py-10">
-      <FarmDetail farmId={farmId} />
+    <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:py-10">
+      {/* The API decides; these only keep the panel from leading to a 403. */}
+      <FarmDetail
+        canManage={allows(access, { permission: "farms.manage" })}
+        canRead={allows(access, { permission: "farms.read" })}
+        farmId={farmId}
+      />
     </main>
   );
 }

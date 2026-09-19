@@ -103,7 +103,11 @@ export function FarmForm({
       <FieldGroup>
         <Field data-invalid={Boolean(form.formState.errors.name)}>
           <FieldLabel htmlFor="farm-name">{t("name")}</FieldLabel>
-          <Input id="farm-name" {...form.register("name")} />
+          <Input
+            aria-invalid={Boolean(form.formState.errors.name)}
+            id="farm-name"
+            {...form.register("name")}
+          />
           <FieldError errors={[form.formState.errors.name]} />
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -114,6 +118,7 @@ export function FarmForm({
             >
               <FieldLabel htmlFor={`farm-${name}`}>{t(name)}</FieldLabel>
               <Input
+                aria-invalid={Boolean(form.formState.errors[name])}
                 id={`farm-${name}`}
                 type={name === "email" ? "email" : "text"}
                 {...form.register(name)}
