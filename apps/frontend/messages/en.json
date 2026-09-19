@@ -1280,5 +1280,16 @@
     "sex_male": "Male",
     "sex_unknown": "Unknown",
     "birthDate": "Birth date"
+  },
+  "StaffAccounts": {
+    "title": "Calendar staff accounts",
+    "description": "Link a calendar person to their team account. Only then do they see their own visits under “Mine”.",
+    "noAccount": "— no account —",
+    "linkedElsewhere": "{name} — already linked to someone else",
+    "saved": "Link saved: {name}.",
+    "error": "Could not save the link: {name}.",
+    "loadError": "Could not load the calendar and team.",
+    "retry": "Try again",
+    "empty": "The calendar has no staff yet."
   }
 }

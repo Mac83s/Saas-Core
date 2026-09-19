@@ -1280,5 +1280,16 @@
     "sex_male": "Samiec",
     "sex_unknown": "Nieznana",
     "birthDate": "Data urodzenia"
+  },
+  "StaffAccounts": {
+    "title": "Konta pracowników kalendarza",
+    "description": "Połącz osobę z kalendarza z jej kontem w zespole. Dopiero wtedy widzi swoje wizyty w „Moje”.",
+    "noAccount": "— bez konta —",
+    "linkedElsewhere": "{name} — już połączone z inną osobą",
+    "saved": "Zapisano powiązanie: {name}.",
+    "error": "Nie udało się zapisać powiązania: {name}.",
+    "loadError": "Nie udało się wczytać kalendarza i zespołu.",
+    "retry": "Spróbuj ponownie",
+    "empty": "W kalendarzu nie ma jeszcze pracowników."
   }
 }
