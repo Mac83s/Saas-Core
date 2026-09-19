@@ -32,8 +32,10 @@ const tokens = {
 
 export function SectionLibrary({
   onAdd,
+  triggerLabel,
 }: {
   onAdd: (block: BlockFormValues) => void;
+  triggerLabel?: string;
 }) {
   const t = useTranslations("Sites.sectionLibrary");
   const common = useTranslations("Common");
@@ -67,7 +69,7 @@ export function SectionLibrary({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button type="button" variant="outline" />}>
-        {t("open")}
+        {triggerLabel ?? t("open")}
       </DialogTrigger>
       <DialogContent
         className="max-h-[90vh] overflow-y-auto sm:max-w-6xl"

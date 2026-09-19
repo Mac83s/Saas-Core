@@ -705,7 +705,8 @@
       "movedSection": "Sekcja przeniesiona na pozycję {position} z {count}.",
       "editText": "Edytuj na podglądzie: {field}",
       "inlineHint": "Enter zatwierdza, Escape anuluje. Kliknięcie poza polem zatwierdza zmianę.",
-      "inlineMultilineHint": "Enter dodaje wiersz. Ctrl+Enter zatwierdza, Escape anuluje. Kliknięcie poza polem zatwierdza zmianę."
+      "inlineMultilineHint": "Enter dodaje wiersz. Ctrl+Enter zatwierdza, Escape anuluje. Kliknięcie poza polem zatwierdza zmianę.",
+      "insertAfter": "Dodaj sekcję poniżej"
     }
   },
   "BillingSupport": {

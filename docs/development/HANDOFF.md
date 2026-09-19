@@ -1,5 +1,25 @@
 # Handoff następnej sesji
 
+## Site Studio — kontekstowe dodawanie i odbiór przyrostu, 2026-09-19
+
+„Dodaj sekcję poniżej” otwiera tę samą bibliotekę co główny przycisk, lecz
+wstawia wybrany wariant za zaznaczonym blokiem. Działa z undo/redo i zachowuje
+treść sąsiadów. Test obejmuje zapis kolejności hero/oferta/hero.
+
+Dowody całego przyrostu: pełny frontend 158/158 przed ostatnim dodatkiem,
+po dodatku testy edytora 24/24; UI 53/53; renderer 20/20; backend 726/2 skip
+w 399 s na bazie 55432; typecheck UI, site-blocks i frontend, lint zmian,
+OpenAPI bez driftu. Chromium sprawdził drag/drop, inline, Escape i undo
+przy 1440/390 na syntetycznym API. Osobny kontekst mobilny z dotykiem
+potwierdził inline, przyciski zmiany kolejności, dodanie między sekcjami
+i zapis. Bramka runtime pozostaje otwarta.
+
+Następny krok: tenantowy podgląd prywatnych mediów, docelowe trzy obszary
+studia i odbiór zalogowanego panelu. API mediów obecnie udostępnia upload
+i listę assetów, ale brak downloadu dla tego podglądu. Nie wdrożono zmian
+ani nie synchronizowano produktów. Szczegóły: docs/architecture/site-studio-editor.md.
+
+
 ## Site Studio — edycja tekstu w miejscu, 2026-09-19
 
 Renderer otrzymuje opcjonalny adapter text(path,value) z panelu. Ścieżki

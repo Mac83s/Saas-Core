@@ -705,7 +705,8 @@
       "movedSection": "Section moved to position {position} of {count}.",
       "editText": "Edit on canvas: {field}",
       "inlineHint": "Enter applies, Escape cancels. Leaving the field applies the change.",
-      "inlineMultilineHint": "Enter adds a line. Ctrl+Enter applies, Escape cancels. Leaving the field applies the change."
+      "inlineMultilineHint": "Enter adds a line. Ctrl+Enter applies, Escape cancels. Leaving the field applies the change.",
+      "insertAfter": "Add section below"
     }
   },
   "BillingSupport": {

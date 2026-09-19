@@ -18,6 +18,10 @@ potwierdzoną przez ten przyrost. Drop nie importuje tekstu, plików ani bloków
 z innego edytora. Anulowany gest, zmieniona lista i blokada podczas zapisu
 unieważniają źródło operacji.
 
+„Dodaj sekcję poniżej” używa tej samej biblioteki i wstawia receptę za
+zaznaczonym blokiem. Wstawienie i jego cofnięcie zachowują sąsiednie treści;
+wybrana sekcja otwiera się w inspektorze.
+
 ## Tekst w miejscu
 
 `registry.render(block, key, editor?)` przyjmuje opcjonalny adapter kodu panelu.

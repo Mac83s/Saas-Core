@@ -784,6 +784,13 @@ export function PageEditor({
                         >
                           {t("studio.duplicate")}
                         </Button>
+                        <SectionLibrary
+                          triggerLabel={t("studio.insertAfter")}
+                          onAdd={(block) => {
+                            blocks.insert(activeSection + 1, block);
+                            setSelectedSection(activeSection + 1);
+                          }}
+                        />
                         <BlockFields
                           assets={assets}
                           form={draftForm}

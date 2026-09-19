@@ -869,3 +869,42 @@ test("inline list editing addresses the selected item even when titles are ident
     ],
   });
 });
+
+test("the contextual library inserts between sections and undo restores the original order", async () => {
+  renderEditor(
+    "pl",
+    polishMessages,
+    vi.fn().mockResolvedValue(undefined),
+    true,
+  );
+  await screen.findByLabelText("Nagłówek");
+  fireEvent.click(screen.getByRole("button", { name: "Powiel sekcję" }));
+  fireEvent.change(screen.getByLabelText("Nagłówek"), {
+    target: { value: "Ostatnia sekcja" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /Edytuj sekcję 1:/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Dodaj sekcję poniżej" }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Dodaj: Karty usług" }),
+  );
+  expect(screen.getAllByRole("button", { name: /Edytuj sekcję/ })).toHaveLength(
+    3,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Cofnij" }));
+  expect(screen.getAllByRole("button", { name: /Edytuj sekcję/ })).toHaveLength(
+    2,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Ponów" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
+  );
+  await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
+  expect(
+    savePageDraft.mock.calls[0]?.[1].blocks.map(
+      (block: { block_type: string }) => block.block_type,
+    ),
+  ).toEqual(["core.hero", "core.feature_list", "core.hero"]);
+  expect(savePageDraft.mock.calls[0]?.[1].blocks[2].data.title).toBe(
+    "Ostatnia sekcja",
+  );
+});
