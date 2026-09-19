@@ -665,7 +665,30 @@
     "proposalAcceptPageHint": "Acceptance saves the change in the draft. Publish the site separately from the Publication tab.",
     "proposalAcceptEntryHint": "Acceptance keeps the change in the draft. Publish the entry separately from the Blog tab.",
     "proposalNotFound": "This proposal no longer exists.",
-    "proposalSuperseded": "The draft changed after this proposal — look at it before undoing."
+    "proposalSuperseded": "The draft changed after this proposal — look at it before undoing.",
+    "sectionLibrary": {
+      "open": "Section library",
+      "title": "Choose a section",
+      "description": "Ready-made layouts with editable content. Industry variants extend the universal library.",
+      "industry": "Industry",
+      "allIndustries": "All industries",
+      "category": "Category",
+      "allCategories": "All categories",
+      "hero": "Introduction",
+      "feature_list": "Offer",
+      "faq": "Questions and answers",
+      "universalIncluded": "Universal variants remain available for every industry.",
+      "universal": "Universal",
+      "previewNamed": "Preview: {name}",
+      "addNamed": "Add: {name}",
+      "preview": "Section preview",
+      "add": "Add section",
+      "empty": "No sections match the selected filters.",
+      "mobile": "Phone view",
+      "mobileBehavior": "Columns stack on narrow screens. All content remains available.",
+      "layout": "Section layout",
+      "preservesContent": "Changing the layout preserves your content."
+    }
   },
   "BillingSupport": {
     "navigation": "Billing & access",

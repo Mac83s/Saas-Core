@@ -1,3 +1,7 @@
+import heroV4Schema from "@saas-core/contracts/site-blocks/core.hero.v4.schema.json";
+import featureListV2Schema from "@saas-core/contracts/site-blocks/core.feature_list.v2.schema.json";
+import faqV2Schema from "@saas-core/contracts/site-blocks/core.faq.v2.schema.json";
+import { renderSectionLayout } from "./section-layouts";
 import { createElement } from "react";
 
 import contactV1Schema from "@saas-core/contracts/site-blocks/core.contact.v1.schema.json";
@@ -44,6 +48,8 @@ export function publicMediaPath(assetId: string): string {
 }
 
 function HeroBlock({ data }: { data: JsonObject }) {
+  const variant = renderSectionLayout("core.hero", data);
+  if (variant) return variant;
   const hero = data as HeroV3Data;
   const action = hero.action;
   return createElement(
@@ -90,6 +96,8 @@ function RichTextBlock({ data }: { data: JsonObject }) {
 }
 
 function FeatureListBlock({ data }: { data: JsonObject }) {
+  const variant = renderSectionLayout("core.feature_list", data);
+  if (variant) return variant;
   const featureList = data as FeatureListV1Data;
   return createElement(
     "section",
@@ -114,6 +122,8 @@ function FeatureListBlock({ data }: { data: JsonObject }) {
 }
 
 function FaqBlock({ data }: { data: JsonObject }) {
+  const variant = renderSectionLayout("core.faq", data);
+  if (variant) return variant;
   const faq = data as FaqV1Data;
   return createElement(
     "section",
@@ -337,13 +347,18 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
   blocks: [
     {
       type: "core.hero",
-      latestVersion: 3,
+      latestVersion: 4,
       schemas: [
         { version: 1, schema: heroV1Schema },
         { version: 2, schema: heroV2Schema },
         { version: 3, schema: heroV3Schema },
+        { version: 4, schema: heroV4Schema },
       ],
-      migrators: { 1: migrateHeroV1ToV2, 2: migrateHeroV2ToV3 },
+      migrators: {
+        1: migrateHeroV1ToV2,
+        2: migrateHeroV2ToV3,
+        3: (data) => ({ ...data }),
+      },
       component: HeroBlock,
       catalog: {
         category: "start",
@@ -376,9 +391,12 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
     },
     {
       type: "core.feature_list",
-      latestVersion: 1,
-      schemas: [{ version: 1, schema: featureListV1Schema }],
-      migrators: {},
+      latestVersion: 2,
+      schemas: [
+        { version: 1, schema: featureListV1Schema },
+        { version: 2, schema: featureListV2Schema },
+      ],
+      migrators: { 1: (data) => ({ ...data }) },
       component: FeatureListBlock,
       catalog: {
         category: "offer",
@@ -399,9 +417,12 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
     },
     {
       type: "core.faq",
-      latestVersion: 1,
-      schemas: [{ version: 1, schema: faqV1Schema }],
-      migrators: {},
+      latestVersion: 2,
+      schemas: [
+        { version: 1, schema: faqV1Schema },
+        { version: 2, schema: faqV2Schema },
+      ],
+      migrators: { 1: (data) => ({ ...data }) },
       component: FaqBlock,
       catalog: {
         category: "faq",

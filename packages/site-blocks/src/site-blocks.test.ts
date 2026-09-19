@@ -38,11 +38,11 @@ describe("site block registry", () => {
     const migrated = registry.migrate(legacyHero);
 
     expect(legacyHero).toEqual(original);
-    // v1 -> v2 -> v3 in one pass. The picture v3 added is optional, so a hero
+    // v1 -> v2 -> v3 -> v4 in one pass. The picture v3 added is optional, so a hero
     // published before images existed arrives with its fields untouched.
     expect(migrated).toEqual({
       block_type: "core.hero",
-      schema_version: 3,
+      schema_version: 4,
       data: {
         title: "Bezpieczna strona organizacji",
         text: "Treść zachowana ze starszej publikacji.",
@@ -268,7 +268,12 @@ describe("page templates", () => {
     const full = createSiteBlockRegistry([coreSiteBlockManifest]);
     expect(
       availablePageTemplates(full, ["sites.enabled"]).map(({ id }) => id),
-    ).toEqual(["core.profile", "core.specialist_landing", "core.company"]);
+    ).toEqual([
+      "core.profile",
+      "core.specialist_landing",
+      "core.company",
+      "core.service_landing",
+    ]);
 
     // Without the entitlement the recipe declares, nothing is offered.
     expect(availablePageTemplates(full, [])).toEqual([]);

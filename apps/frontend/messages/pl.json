@@ -665,7 +665,30 @@
     "proposalAcceptPageHint": "Przyjęcie zapisuje zmianę w szkicu. Witrynę opublikujesz osobno na zakładce Publikacja.",
     "proposalAcceptEntryHint": "Przyjęcie zachowuje zmianę w szkicu. Wpis opublikujesz osobno na zakładce Blog.",
     "proposalNotFound": "Ta propozycja już nie istnieje.",
-    "proposalSuperseded": "Szkic zmienił się po tej propozycji — obejrzyj go, zanim cofniesz."
+    "proposalSuperseded": "Szkic zmienił się po tej propozycji — obejrzyj go, zanim cofniesz.",
+    "sectionLibrary": {
+      "open": "Biblioteka sekcji",
+      "title": "Wybierz sekcję",
+      "description": "Gotowe układy z edytowalną treścią. Warianty branżowe uzupełniają bibliotekę uniwersalną.",
+      "industry": "Branża",
+      "allIndustries": "Wszystkie branże",
+      "category": "Kategoria",
+      "allCategories": "Wszystkie kategorie",
+      "hero": "Wprowadzenie",
+      "feature_list": "Oferta",
+      "faq": "Pytania i odpowiedzi",
+      "universalIncluded": "Warianty uniwersalne są dostępne przy każdym wyborze branży.",
+      "universal": "Uniwersalny",
+      "previewNamed": "Podgląd: {name}",
+      "addNamed": "Dodaj: {name}",
+      "preview": "Podgląd sekcji",
+      "add": "Dodaj sekcję",
+      "empty": "Brak sekcji spełniających wybrane filtry.",
+      "mobile": "Widok telefonu",
+      "mobileBehavior": "Na wąskich ekranach kolumny układają się pionowo. Wszystkie elementy pozostają dostępne.",
+      "layout": "Układ sekcji",
+      "preservesContent": "Zmiana układu zachowuje Twoją treść."
+    }
   },
   "BillingSupport": {
     "navigation": "Billing i dostęp",

@@ -15,3 +15,11 @@ export {
   validateDesignTokens,
 } from "./renderer";
 export type * from "./types";
+export {
+  coreSectionTemplates,
+  sectionIndustries,
+  sectionTemplateBlock,
+  availableSectionTemplates,
+  replaceSectionLayout,
+} from "./section-templates";
+export type { SectionTemplate, CatalogLocale } from "./section-templates";

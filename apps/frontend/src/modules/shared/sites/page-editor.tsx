@@ -98,6 +98,7 @@ import {
   type BlockOption,
 } from "./block-form";
 import { mutationKey, type MutationReceipt } from "./idempotency";
+import { SectionLibrary } from "./section-library";
 import { PageUrlDialog } from "./page-url";
 import { sitesErrorMessage } from "./problem";
 
@@ -592,6 +593,7 @@ export function PageEditor({
               </div>
             )}
 
+            <SectionLibrary onAdd={(block) => blocks.append(block)} />
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
               <Field className="flex-1">
                 <FieldLabel htmlFor="block-picker">{t("addBlock")}</FieldLabel>

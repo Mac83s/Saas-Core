@@ -7,9 +7,10 @@
  *  panel, the future drag-and-drop canvas and the AI generator agree on what a
  *  block is — a second copy would drift the moment a block gains a field. */
 
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   useFieldArray,
+  useWatch,
   type FieldValues,
   type Path,
   type UseFormReturn,
@@ -19,6 +20,7 @@ import { z } from "zod";
 
 import {
   coreSiteBlockManifest,
+  coreSectionTemplates,
   createSiteBlockRegistry,
   InvalidBlockDataError,
   type BlockFieldDefinition,
@@ -201,6 +203,16 @@ export function BlockFields<TValues extends FieldValues>({
   const t = useTranslations("Sites");
   const prefix = `blocks.${index}` as const;
   const option = blockOption(type);
+  const locale = useLocale() === "en" ? "en" : "pl";
+  const layouts = coreSectionTemplates().filter(
+    (template) => template.blockType === type,
+  );
+  const layoutPath = `${prefix}.data.layout` as Path<TValues>;
+  const selectedLayout =
+    useWatch({ control: form.control, name: layoutPath }) ?? "classic";
+  const selectedTemplate = layouts.find(
+    (template) => template.layout === selectedLayout,
+  );
   return (
     <fieldset className="space-y-4 rounded-lg border p-4">
       <legend className="px-1 font-medium">
@@ -237,6 +249,30 @@ export function BlockFields<TValues extends FieldValues>({
           <Trash2Icon aria-hidden="true" />
         </Button>
       </div>
+      {layouts.length > 0 && (
+        <Field>
+          <FieldLabel htmlFor={`block-layout-${index}`}>
+            {t("sectionLibrary.layout")}
+          </FieldLabel>
+          <NativeSelect
+            id={`block-layout-${index}`}
+            {...form.register(layoutPath)}
+            value={String(selectedLayout)}
+          >
+            {layouts.map((template) => (
+              <option key={template.id} value={template.layout}>
+                {template.labels[locale].name}
+              </option>
+            ))}
+          </NativeSelect>
+          {selectedTemplate && (
+            <p className="text-sm text-muted-foreground">
+              {selectedTemplate.labels[locale].description}{" "}
+              {t("sectionLibrary.preservesContent")}
+            </p>
+          )}
+        </Field>
+      )}
       <input
         type="hidden"
         {...form.register(`${prefix}.block_type` as Path<TValues>)}
@@ -450,7 +486,8 @@ function withEditableFields(
   data: JsonObject,
   fields: readonly BlockFieldDefinition[],
 ): JsonObject {
-  const merged = structuredClone(emptyFieldData(fields));
+  // Preserve validated presentation fields that do not use a text form field.
+  const merged = { ...emptyFieldData(fields), ...structuredClone(data) };
   for (const field of fields) {
     const stored = readAt(data, field.path);
     if (stored === undefined) continue;

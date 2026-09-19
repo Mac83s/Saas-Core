@@ -1,0 +1,88 @@
+{
+  "id": "core.service_landing",
+  "version": 1,
+  "category": "landing",
+  "labels": {
+    "pl": {
+      "name": "Oferta usługowa",
+      "description": "Wprowadzenie, karty usług, rozwijane FAQ i kontakt. Sekcje można edytować i zmieniać ich układ."
+    },
+    "en": {
+      "name": "Service landing page",
+      "description": "Introduction, service cards, expandable FAQ and contact. Edit each section and change its layout."
+    }
+  },
+  "requiredEntitlements": ["sites.enabled"],
+  "industries": [],
+  "sectionRefs": [
+    {
+      "position": 0,
+      "id": "core.hero_centered",
+      "version": 1
+    },
+    {
+      "position": 1,
+      "id": "core.feature_list_cards",
+      "version": 1
+    },
+    {
+      "position": 2,
+      "id": "core.faq_accordion",
+      "version": 1
+    }
+  ],
+  "blocks": [
+    {
+      "block_type": "core.hero",
+      "schema_version": 4,
+      "data": {
+        "title": "Powiedz, w czym pomagasz",
+        "text": "Opisz swoją ofertę i dla kogo jest przeznaczona.",
+        "layout": "centered"
+      }
+    },
+    {
+      "block_type": "core.feature_list",
+      "schema_version": 2,
+      "data": {
+        "title": "Karty usług",
+        "items": [
+          {
+            "title": "Pierwsza usługa",
+            "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+          },
+          {
+            "title": "Druga usługa",
+            "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+          },
+          {
+            "title": "Trzecia usługa",
+            "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+          }
+        ],
+        "layout": "cards"
+      }
+    },
+    {
+      "block_type": "core.faq",
+      "schema_version": 2,
+      "data": {
+        "title": "Pytania i odpowiedzi",
+        "items": [
+          {
+            "question": "Jak rozpocząć współpracę?",
+            "answer": "Opisz pierwszy krok i sposób kontaktu."
+          }
+        ],
+        "layout": "accordion"
+      }
+    },
+    {
+      "block_type": "core.contact",
+      "schema_version": 1,
+      "data": {
+        "title": "Kontakt"
+      }
+    }
+  ]
+}

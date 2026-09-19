@@ -1,3 +1,4 @@
+import serviceLandingV1 from "@saas-core/contracts/page-templates/core.service_landing.v1.json";
 import companyV1 from "@saas-core/contracts/page-templates/core.company.v1.json";
 import profileV1 from "@saas-core/contracts/page-templates/core.profile.v1.json";
 import specialistLandingV1 from "@saas-core/contracts/page-templates/core.specialist_landing.v1.json";
@@ -14,6 +15,7 @@ const recipes: readonly PageTemplate[] = [
   profileV1 as unknown as PageTemplate,
   specialistLandingV1 as unknown as PageTemplate,
   companyV1 as unknown as PageTemplate,
+  serviceLandingV1 as unknown as PageTemplate,
 ];
 
 /** Recipes are seed content, not a second content model: applying one produces

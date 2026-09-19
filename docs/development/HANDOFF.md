@@ -1,5 +1,41 @@
 # Handoff następnej sesji
 
+## Site Studio — pierwszy katalog wariantów, 2026-09-19
+
+W `/panel/sites` dodano bibliotekę 15 sekcji: 9 wariantów domyślnych (hero,
+oferta, FAQ) i 6 branżowych wariantów oferty (po 2: medycyna, rolnictwo,
+elektronika). Filtr branży zachowuje bazę uniwersalną. Karty mają miniatury,
+opisy PL/EN i podgląd desktop/telefon. Układ można zmienić w formularzu bez
+nadpisywania treści. Nowa recepta `core.service_landing` składa trzy warianty
+oraz kontakt; przypina wersje sekcji, ale renderer używa materializowanych
+bloków. Seedy sekcji są PL/EN; seed całej strony jest PL, jak wcześniejsze
+recepty. Lokalizacja całych recept pozostaje otwarta.
+
+Kontrakty: `section-templates.v1.json` i jego JSON Schema, hero v4,
+feature_list v2, faq v2; dotychczasowe wersje i recepty zachowane. Układ siedzi
+w `data.layout` z allowlistą backendu. Nie dodano modeli ani endpointów.
+Formularz wcześniej kopiował tylko pola tekstowe z katalogu i usuwał `layout`;
+`withEditableFields` teraz zachowuje wszystkie zwalidowane dane. Test obejmuje
+wybór branżowej sekcji i zapis jej układu.
+
+Dokumentacja i macierz 20 kierunków na każdy z 10 typów:
+`docs/architecture/site-section-catalog.md`. Macierz nie oznacza 200 gotowych
+rendererów. Plan w Memex: `saas-core-site-studio-templates`, fazy 1–2 w toku.
+
+Weryfikacja: pełny backend 726 zaliczonych / 2 pominięte (testowa baza na
+55432), w tym Sites API 32/32; pełny frontend 151/151, a po dodaniu
+kontroli biblioteki EN/axe testy edytora 17/17; site-blocks 19/19; kontrakty
+Node (4 pliki); TypeScript, lint zmienionych plików i brak driftu OpenAPI.
+Chromium w jednorazowym kontenerze: 15 układów przy 1100/390 px bez poziomego
+przepełnienia, FAQ obsługiwane Enterem. To fixture renderera, nie dowód
+zalogowanego panelu ani publikacji przez Caddy.
+
+Nie wdrożono ani nie przeniesiono zmian do produktów. Kolejny krok:
+uzupełnić metadane treści i rekomendacji, przeprowadzić odbiór panelu na
+stacku i prototyp edytora wizualnego. Własne szablony, pełna biblioteka,
+rollout HoofCare/MedPlano i późniejszy Asystent AI pozostają otwarte.
+
+
 ## Powłoka panelu 1a z projektu HoofCare, 2026-09-19
 
 Menu ma dwie grupy: „Praca” (Dziś, Kalendarz, Gospodarstwa oraz pozycje

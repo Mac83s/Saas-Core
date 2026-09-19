@@ -2213,3 +2213,76 @@ def test_contract_directories_are_checked_before_the_workers_start() -> None:
     with override_settings(PAGE_TEMPLATE_CONTRACTS_PATH="/does/not/exist"):
         errors = check_content_contracts()
     assert [error.id for error in errors] == ["sites.E002"]
+
+
+def test_section_layout_roundtrip_and_invalid_layout_rejected() -> None:
+    client, _, _ = sites_client(slug="section-layout")
+    site = create_site(client)
+    page = create_page(client, site.data["id"])
+    url = f"/api/v1/sites/pages/{page.data['id']}/draft/"
+    data = {
+        "title": "Actual offer",
+        "layout": "specification",
+        "items": [
+            {"title": "Device", "text": "Actual scope"},
+        ],
+    }
+    response = client.put(
+        url,
+        {
+            "expected_version": 0,
+            "blocks": [
+                {"block_type": "core.feature_list", "schema_version": 2, "data": data},
+            ],
+        },
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+        HTTP_IDEMPOTENCY_KEY="section-layout-save",
+    )
+    assert response.status_code == 201
+    assert response.data["blocks"][0]["data"] == data
+    saved = client.get(url)
+    assert saved.status_code == 200
+    assert saved.data["blocks"][0]["data"] == data
+    invalid = client.put(
+        url,
+        {
+            "expected_version": 1,
+            "blocks": [
+                {
+                    "block_type": "core.feature_list",
+                    "schema_version": 2,
+                    "data": {**data, "layout": "arbitrary-code"},
+                },
+            ],
+        },
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+        HTTP_IDEMPOTENCY_KEY="section-layout-invalid",
+    )
+    assert invalid.status_code == 400
+    assert invalid.data["code"] == "invalid_site_block_data"
+    assert PageVersion.all_objects.filter(page_id=page.data["id"]).count() == 1
+
+
+def test_all_section_seeds_validate_in_backend() -> None:
+    from saas_core.modules.shared.sites.block_contracts import validate_site_block
+    from saas_core.modules.shared.sites.page_templates import page_template_catalog
+
+    catalog = json.loads(
+        (settings.SITE_BLOCK_CONTRACTS_PATH / "section-templates.v1.json").read_text()
+    )
+    for template in catalog["templates"]:
+        for data in template["seed"].values():
+            validate_site_block(
+                block_type=template["blockType"],
+                schema_version=template["schemaVersion"],
+                data=data,
+            )
+    recipe = page_template_catalog().get(template_id="core.service_landing", version=1)
+    assert [block["data"].get("layout") for block in recipe.blocks] == [
+        "centered",
+        "cards",
+        "accordion",
+        None,
+    ]

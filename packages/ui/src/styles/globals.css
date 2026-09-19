@@ -309,3 +309,186 @@
     stroke-width: 2.75;
   }
 }
+
+/* Site Studio layouts share the public renderer and theme. Container queries
+   make the editor's mobile canvas behave like a narrow published page. */
+.site-theme {
+  container-type: inline-size;
+}
+.site-section {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.site-section h1 {
+  font-size: clamp(2.25rem, 7cqw, 5rem);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+  max-width: 20ch;
+}
+.site-section h2 {
+  font-size: 1.875rem;
+  line-height: 1.2;
+  margin-bottom: 1.5rem;
+}
+.site-section h3,
+.site-section dt,
+.site-section summary {
+  font-weight: 600;
+}
+.site-section p,
+.site-section dd {
+  line-height: 1.7;
+}
+.site-section img {
+  width: 100%;
+  max-height: 32rem;
+  object-fit: cover;
+  border-radius: 1rem;
+}
+.site-section__body,
+.site-section__intro {
+  display: grid;
+  gap: 1.5rem;
+  align-content: center;
+}
+.site-section__action {
+  justify-self: start;
+  background: var(--site-accent);
+  color: white;
+  padding: 0.8rem 1.25rem;
+  border-radius: 0.5rem;
+  text-decoration: none;
+}
+.site-section--hero {
+  display: grid;
+  gap: 2rem;
+  min-height: 24rem;
+  align-items: center;
+}
+.site-section--centered {
+  text-align: center;
+  justify-items: center;
+}
+.site-section--centered .site-section__body {
+  justify-items: center;
+  max-width: 60ch;
+}
+.site-section--centered .site-section__action {
+  justify-self: center;
+}
+.site-section ul,
+.site-section ol {
+  display: grid;
+  gap: 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.site-section dl {
+  margin: 0;
+}
+.site-section li p {
+  margin-top: 0.5rem;
+}
+.site-section--cards li {
+  border: 1px solid currentColor;
+  border-radius: 1rem;
+  padding: 1.5rem;
+}
+.site-section--columns li {
+  border-bottom: 1px solid currentColor;
+  padding-bottom: 1.25rem;
+}
+.site-section--consultation li {
+  border-inline-start: 0.25rem solid var(--site-accent);
+  padding-inline-start: 1.25rem;
+}
+.site-section__step {
+  font-weight: 700;
+  color: var(--site-accent);
+  font-size: 1.25rem;
+}
+.site-section--care_path ol {
+  border-inline-start: 2px solid var(--site-accent);
+  margin-inline-start: 1rem;
+}
+.site-section--care_path li {
+  display: grid;
+  grid-template-columns: 2.5rem 1fr;
+  gap: 1rem;
+  margin-inline-start: -1rem;
+}
+.site-section--care_path .site-section__step {
+  background: var(--background);
+  align-self: start;
+}
+.site-section--field_steps li {
+  border-top: 3px solid var(--site-accent);
+  padding-top: 1rem;
+}
+.site-section--coverage dl {
+  display: grid;
+  gap: 1rem;
+}
+.site-section--coverage dl > div {
+  border-inline-start: 0.25rem solid var(--site-accent);
+  padding: 1rem;
+  background: color-mix(in srgb, var(--site-accent) 7%, transparent);
+}
+.site-section--specification dl > div {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+.site-section--specification dl > div:nth-child(odd) {
+  background: color-mix(in srgb, var(--site-accent) 7%, transparent);
+}
+.site-section--service_flow li {
+  display: grid;
+  grid-template-columns: 2.5rem 1fr;
+  gap: 1rem;
+}
+.site-section--service_flow li:first-child {
+  padding: 1.5rem;
+  border: 2px solid var(--site-accent);
+  border-radius: 1rem;
+}
+.site-section--faq details {
+  border-bottom: 1px solid currentColor;
+  padding: 1.25rem 0;
+}
+.site-section--faq summary {
+  cursor: pointer;
+}
+.site-section--faq details p,
+.site-section--faq dd {
+  margin: 1rem 0;
+}
+.site-section--faq dl > div {
+  margin-bottom: 1.5rem;
+}
+@container (min-width: 640px) {
+  .site-section--split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.5rem;
+  }
+  .site-section--cards ul {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .site-section--columns {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 2.5rem;
+  }
+  .site-section--consultation ul,
+  .site-section--coverage dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .site-section--field_steps ol {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .site-section--specification dl > div {
+    grid-template-columns: 1fr 2fr;
+  }
+}

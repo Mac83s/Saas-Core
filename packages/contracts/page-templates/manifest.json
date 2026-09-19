@@ -1,21 +1,34 @@
 {
   "schemaVersion": 1,
-  "recipe": "page-template.schema.json",
+  "recipe": "page-template.v2.schema.json",
   "templates": [
     {
       "id": "core.profile",
       "latestVersion": 1,
-      "versions": { "1": "core.profile.v1.json" }
+      "versions": {
+        "1": "core.profile.v1.json"
+      }
     },
     {
       "id": "core.specialist_landing",
       "latestVersion": 1,
-      "versions": { "1": "core.specialist_landing.v1.json" }
+      "versions": {
+        "1": "core.specialist_landing.v1.json"
+      }
     },
     {
       "id": "core.company",
       "latestVersion": 1,
-      "versions": { "1": "core.company.v1.json" }
+      "versions": {
+        "1": "core.company.v1.json"
+      }
+    },
+    {
+      "id": "core.service_landing",
+      "latestVersion": 1,
+      "versions": {
+        "1": "core.service_landing.v1.json"
+      }
     }
   ]
 }

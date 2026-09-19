@@ -1,0 +1,1087 @@
+{
+  "schemaVersion": 1,
+  "industries": [
+    {
+      "id": "medicine",
+      "labels": {
+        "pl": "Medycyna",
+        "en": "Medicine"
+      }
+    },
+    {
+      "id": "agriculture",
+      "labels": {
+        "pl": "Rolnictwo",
+        "en": "Agriculture"
+      }
+    },
+    {
+      "id": "electronics",
+      "labels": {
+        "pl": "Elektronika",
+        "en": "Electronics"
+      }
+    }
+  ],
+  "templates": [
+    {
+      "id": "core.hero_classic",
+      "version": 1,
+      "blockType": "core.hero",
+      "schemaVersion": 4,
+      "layout": "classic",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Klasyczne wprowadzenie",
+          "description": "Nagłówek, opis i działanie w jednym ciągu.",
+          "usage": "Najlepiej na początku strony."
+        },
+        "en": {
+          "name": "Classic introduction",
+          "description": "Heading, description and action in a single flow.",
+          "usage": "Best at the start of the page."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Powiedz, w czym pomagasz",
+          "text": "Opisz swoją ofertę i dla kogo jest przeznaczona.",
+          "layout": "classic"
+        },
+        "en": {
+          "title": "Tell visitors how you help",
+          "text": "Describe your offer and who it is for.",
+          "layout": "classic"
+        }
+      }
+    },
+    {
+      "id": "core.hero_centered",
+      "version": 1,
+      "blockType": "core.hero",
+      "schemaVersion": 4,
+      "layout": "centered",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Wyśrodkowane wprowadzenie",
+          "description": "Krótki komunikat z centralnie ustawionym przyciskiem.",
+          "usage": "Najlepiej na początku strony."
+        },
+        "en": {
+          "name": "Centered introduction",
+          "description": "A short message with a centered action.",
+          "usage": "Best at the start of the page."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Powiedz, w czym pomagasz",
+          "text": "Opisz swoją ofertę i dla kogo jest przeznaczona.",
+          "layout": "centered"
+        },
+        "en": {
+          "title": "Tell visitors how you help",
+          "text": "Describe your offer and who it is for.",
+          "layout": "centered"
+        }
+      }
+    },
+    {
+      "id": "core.hero_split",
+      "version": 1,
+      "blockType": "core.hero",
+      "schemaVersion": 4,
+      "layout": "split",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Wprowadzenie w dwóch kolumnach",
+          "description": "Nagłówek obok opisu; opcjonalne zdjęcie w osobnej kolumnie.",
+          "usage": "Najlepiej na początku strony."
+        },
+        "en": {
+          "name": "Two-column introduction",
+          "description": "Heading beside the description; optional image in its own column.",
+          "usage": "Best at the start of the page."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Powiedz, w czym pomagasz",
+          "text": "Opisz swoją ofertę i dla kogo jest przeznaczona.",
+          "layout": "split"
+        },
+        "en": {
+          "title": "Tell visitors how you help",
+          "text": "Describe your offer and who it is for.",
+          "layout": "split"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_classic",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 2,
+      "layout": "classic",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Prosta lista oferty",
+          "description": "Równa lista usług z krótkimi opisami.",
+          "usage": "Łącz z wprowadzeniem i sekcją kontaktu."
+        },
+        "en": {
+          "name": "Simple offer list",
+          "description": "An even list of services with short descriptions.",
+          "usage": "Combine with an introduction and contact section."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Prosta lista oferty",
+          "items": [
+            {
+              "title": "Pierwsza usługa",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Druga usługa",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Trzecia usługa",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            }
+          ],
+          "layout": "classic"
+        },
+        "en": {
+          "title": "Simple offer list",
+          "items": [
+            {
+              "title": "First service",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Second service",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Third service",
+              "text": "Describe what you actually offer."
+            }
+          ],
+          "layout": "classic"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_cards",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 2,
+      "layout": "cards",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Karty usług",
+          "description": "Każda usługa w osobnej karcie. Dobre dla 3–6 pozycji.",
+          "usage": "Łącz z wprowadzeniem i sekcją kontaktu."
+        },
+        "en": {
+          "name": "Service cards",
+          "description": "Each service has a separate card. Best for 3–6 items.",
+          "usage": "Combine with an introduction and contact section."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Karty usług",
+          "items": [
+            {
+              "title": "Pierwsza usługa",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Druga usługa",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Trzecia usługa",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            }
+          ],
+          "layout": "cards"
+        },
+        "en": {
+          "title": "Service cards",
+          "items": [
+            {
+              "title": "First service",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Second service",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Third service",
+              "text": "Describe what you actually offer."
+            }
+          ],
+          "layout": "cards"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_columns",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 2,
+      "layout": "columns",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Oferta redakcyjna",
+          "description": "Tytuł sekcji obok listy; więcej miejsca na opisy.",
+          "usage": "Łącz z wprowadzeniem i sekcją kontaktu."
+        },
+        "en": {
+          "name": "Editorial offer",
+          "description": "Section heading beside a list with room for descriptions.",
+          "usage": "Combine with an introduction and contact section."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Oferta redakcyjna",
+          "items": [
+            {
+              "title": "Pierwsza usługa",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Druga usługa",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Trzecia usługa",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            }
+          ],
+          "layout": "columns"
+        },
+        "en": {
+          "title": "Editorial offer",
+          "items": [
+            {
+              "title": "First service",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Second service",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Third service",
+              "text": "Describe what you actually offer."
+            }
+          ],
+          "layout": "columns"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_care_path",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 2,
+      "layout": "care_path",
+      "kind": "industry",
+      "industries": ["medicine"],
+      "labels": {
+        "pl": {
+          "name": "Ścieżka konsultacji",
+          "description": "Ponumerowana oś: przygotowanie, konsultacja, dalsze kroki.",
+          "usage": "Łącz z wprowadzeniem i sekcją kontaktu."
+        },
+        "en": {
+          "name": "Consultation pathway",
+          "description": "A numbered timeline: preparation, consultation, next steps.",
+          "usage": "Combine with an introduction and contact section."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Ścieżka konsultacji",
+          "items": [
+            {
+              "title": "Przygotowanie",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Konsultacja",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Dalsze kroki",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            }
+          ],
+          "layout": "care_path"
+        },
+        "en": {
+          "title": "Consultation pathway",
+          "items": [
+            {
+              "title": "Preparation",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Consultation",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Next steps",
+              "text": "Describe what you actually offer."
+            }
+          ],
+          "layout": "care_path"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_consultation",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 2,
+      "layout": "consultation",
+      "kind": "industry",
+      "industries": ["medicine"],
+      "labels": {
+        "pl": {
+          "name": "Zakres konsultacji",
+          "description": "Lista tematów w dwóch kolumnach; każdy temat ma własny opis.",
+          "usage": "Łącz z wprowadzeniem i sekcją kontaktu."
+        },
+        "en": {
+          "name": "Consultation scope",
+          "description": "Topics in two columns, each with its own description.",
+          "usage": "Combine with an introduction and contact section."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Zakres konsultacji",
+          "items": [
+            {
+              "title": "Temat konsultacji",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Drugi temat",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Przygotowanie",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            }
+          ],
+          "layout": "consultation"
+        },
+        "en": {
+          "title": "Consultation scope",
+          "items": [
+            {
+              "title": "Consultation topic",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Another topic",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Preparation",
+              "text": "Describe what you actually offer."
+            }
+          ],
+          "layout": "consultation"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_field_steps",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 2,
+      "layout": "field_steps",
+      "kind": "industry",
+      "industries": ["agriculture"],
+      "labels": {
+        "pl": {
+          "name": "Przebieg usługi terenowej",
+          "description": "Kolejne etapy pracy pokazane jako pozioma sekwencja.",
+          "usage": "Łącz z wprowadzeniem i sekcją kontaktu."
+        },
+        "en": {
+          "name": "Field service steps",
+          "description": "Stages of field work presented as a horizontal sequence.",
+          "usage": "Combine with an introduction and contact section."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Przebieg usługi terenowej",
+          "items": [
+            {
+              "title": "Zgłoszenie",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Przyjazd",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Wykonanie usługi",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            }
+          ],
+          "layout": "field_steps"
+        },
+        "en": {
+          "title": "Field service steps",
+          "items": [
+            {
+              "title": "Request",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Arrival",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Service delivery",
+              "text": "Describe what you actually offer."
+            }
+          ],
+          "layout": "field_steps"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_coverage",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 2,
+      "layout": "coverage",
+      "kind": "industry",
+      "industries": ["agriculture"],
+      "labels": {
+        "pl": {
+          "name": "Obszary obsługi",
+          "description": "Lista regionów z opisem zakresu lub warunków dojazdu.",
+          "usage": "Łącz z wprowadzeniem i sekcją kontaktu."
+        },
+        "en": {
+          "name": "Service areas",
+          "description": "Regions with service scope or travel conditions.",
+          "usage": "Combine with an introduction and contact section."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Obszary obsługi",
+          "items": [
+            {
+              "title": "Pierwszy obszar",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Drugi obszar",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Warunki dojazdu",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            }
+          ],
+          "layout": "coverage"
+        },
+        "en": {
+          "title": "Service areas",
+          "items": [
+            {
+              "title": "First area",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Second area",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Travel conditions",
+              "text": "Describe what you actually offer."
+            }
+          ],
+          "layout": "coverage"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_specification",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 2,
+      "layout": "specification",
+      "kind": "industry",
+      "industries": ["electronics"],
+      "labels": {
+        "pl": {
+          "name": "Parametry i możliwości",
+          "description": "Nazwy parametrów i objaśnienia w wyrównanych wierszach.",
+          "usage": "Łącz z wprowadzeniem i sekcją kontaktu."
+        },
+        "en": {
+          "name": "Specifications and capabilities",
+          "description": "Parameter names and explanations in aligned rows.",
+          "usage": "Combine with an introduction and contact section."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Parametry i możliwości",
+          "items": [
+            {
+              "title": "Rodzaj urządzenia",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Zakres diagnostyki",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Możliwości naprawy",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            }
+          ],
+          "layout": "specification"
+        },
+        "en": {
+          "title": "Specifications and capabilities",
+          "items": [
+            {
+              "title": "Device type",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Diagnostic scope",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Repair capabilities",
+              "text": "Describe what you actually offer."
+            }
+          ],
+          "layout": "specification"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_service_flow",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 2,
+      "layout": "service_flow",
+      "kind": "industry",
+      "industries": ["electronics"],
+      "labels": {
+        "pl": {
+          "name": "Etapy serwisu",
+          "description": "Pierwszy etap wyróżniony, pozostałe jako numerowana lista.",
+          "usage": "Łącz z wprowadzeniem i sekcją kontaktu."
+        },
+        "en": {
+          "name": "Repair stages",
+          "description": "The first stage is highlighted, followed by a numbered list.",
+          "usage": "Combine with an introduction and contact section."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Etapy serwisu",
+          "items": [
+            {
+              "title": "Przyjęcie urządzenia",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Diagnostyka",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Odbiór",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            }
+          ],
+          "layout": "service_flow"
+        },
+        "en": {
+          "title": "Repair stages",
+          "items": [
+            {
+              "title": "Device intake",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Diagnostics",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Collection",
+              "text": "Describe what you actually offer."
+            }
+          ],
+          "layout": "service_flow"
+        }
+      }
+    },
+    {
+      "id": "core.faq_classic",
+      "version": 1,
+      "blockType": "core.faq",
+      "schemaVersion": 2,
+      "layout": "classic",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Pytania i odpowiedzi",
+          "description": "Wszystkie odpowiedzi widoczne od razu.",
+          "usage": "Łącz z wprowadzeniem i sekcją kontaktu."
+        },
+        "en": {
+          "name": "Questions and answers",
+          "description": "All answers immediately visible.",
+          "usage": "Combine with an introduction and contact section."
+        }
+      },
+      "goals": ["answer_questions"],
+      "composition": {
+        "role": "reassurance",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Pytania i odpowiedzi",
+          "items": [
+            {
+              "question": "Jak rozpocząć współpracę?",
+              "answer": "Opisz pierwszy krok i sposób kontaktu."
+            }
+          ],
+          "layout": "classic"
+        },
+        "en": {
+          "title": "Questions and answers",
+          "items": [
+            {
+              "question": "How do we get started?",
+              "answer": "Describe the first step and how to contact you."
+            }
+          ],
+          "layout": "classic"
+        }
+      }
+    },
+    {
+      "id": "core.faq_accordion",
+      "version": 1,
+      "blockType": "core.faq",
+      "schemaVersion": 2,
+      "layout": "accordion",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Rozwijane odpowiedzi",
+          "description": "Pytania rozwijane klawiaturą lub kliknięciem.",
+          "usage": "Łącz z wprowadzeniem i sekcją kontaktu."
+        },
+        "en": {
+          "name": "Expandable answers",
+          "description": "Questions expanded using a keyboard or click.",
+          "usage": "Combine with an introduction and contact section."
+        }
+      },
+      "goals": ["answer_questions"],
+      "composition": {
+        "role": "reassurance",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Pytania i odpowiedzi",
+          "items": [
+            {
+              "question": "Jak rozpocząć współpracę?",
+              "answer": "Opisz pierwszy krok i sposób kontaktu."
+            }
+          ],
+          "layout": "accordion"
+        },
+        "en": {
+          "title": "Questions and answers",
+          "items": [
+            {
+              "question": "How do we get started?",
+              "answer": "Describe the first step and how to contact you."
+            }
+          ],
+          "layout": "accordion"
+        }
+      }
+    },
+    {
+      "id": "core.faq_split",
+      "version": 1,
+      "blockType": "core.faq",
+      "schemaVersion": 2,
+      "layout": "split",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "FAQ w dwóch kolumnach",
+          "description": "Tytuł obok pytań; odpowiedzi stale widoczne.",
+          "usage": "Łącz z wprowadzeniem i sekcją kontaktu."
+        },
+        "en": {
+          "name": "Two-column FAQ",
+          "description": "Heading beside questions, with answers always visible.",
+          "usage": "Combine with an introduction and contact section."
+        }
+      },
+      "goals": ["answer_questions"],
+      "composition": {
+        "role": "reassurance",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Pytania i odpowiedzi",
+          "items": [
+            {
+              "question": "Jak rozpocząć współpracę?",
+              "answer": "Opisz pierwszy krok i sposób kontaktu."
+            }
+          ],
+          "layout": "split"
+        },
+        "en": {
+          "title": "Questions and answers",
+          "items": [
+            {
+              "question": "How do we get started?",
+              "answer": "Describe the first step and how to contact you."
+            }
+          ],
+          "layout": "split"
+        }
+      }
+    }
+  ]
+}

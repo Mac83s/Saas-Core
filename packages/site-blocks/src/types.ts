@@ -214,6 +214,12 @@ export interface ApprovedTemplateMedia {
 /** A versioned, immutable recipe: applying it copies these blocks into a new
  *  draft, and later edits to the page never touch the template (ADR-031). */
 export interface PageTemplate {
+  readonly industries?: readonly string[];
+  readonly sectionRefs?: readonly {
+    position: number;
+    id: string;
+    version: number;
+  }[];
   readonly id: string;
   readonly version: number;
   readonly category: "profile" | "landing" | "company";

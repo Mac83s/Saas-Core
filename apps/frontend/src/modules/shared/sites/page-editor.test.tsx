@@ -149,7 +149,7 @@ beforeEach(() => {
     blocks: [
       {
         ...draft.blocks[0],
-        schema_version: 3,
+        schema_version: 4,
         data: { title: "Nowy nagłówek", text: "Opis hero" },
       },
     ],
@@ -182,7 +182,7 @@ test("migruje hero v1 i zapisuje nową wersję draftu przez aktualny kontrakt", 
         block_type: "core.hero",
         // Saved at the current contract version: the editor migrates a v1
         // draft on load, so what leaves the panel is always the latest.
-        schema_version: 3,
+        schema_version: 4,
         data: { title: "Nowy nagłówek", text: "Opis hero" },
       },
     ],
@@ -241,9 +241,10 @@ test("dodaje sekcję z powtarzalną listą i zapisuje jej wpisy", async () => {
   await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
   expect(savePageDraft.mock.calls[0]?.[1].blocks[1]).toEqual({
     block_type: "core.faq",
-    schema_version: 1,
+    schema_version: 2,
     // `title` was left blank and is optional, so it is absent rather than "".
     data: {
+      layout: "classic",
       items: [{ question: "Ile trwa wizyta?", answer: "Około godziny." }],
     },
   });
@@ -574,3 +575,73 @@ function renderEditor(
     </NextIntlClientProvider>,
   );
 }
+
+test("biblioteka filtruje branżę, zachowuje bazę i zapisuje wybraną sekcję", async () => {
+  renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
+  await screen.findByLabelText("Nagłówek");
+  fireEvent.click(screen.getByRole("button", { name: "Biblioteka sekcji" }));
+  fireEvent.change(await screen.findByLabelText("Branża"), {
+    target: { value: "medicine" },
+  });
+  expect(
+    screen.getByRole("button", { name: "Dodaj: Karty usług" }),
+  ).toBeDefined();
+  expect(
+    screen.queryByRole("button", { name: "Dodaj: Obszary obsługi" }),
+  ).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Dodaj: Ścieżka konsultacji" }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
+  );
+  await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
+  expect(savePageDraft.mock.calls[0]?.[1].blocks[1]).toMatchObject({
+    block_type: "core.feature_list",
+    schema_version: 2,
+    data: {
+      layout: "care_path",
+      items: [
+        { title: "Przygotowanie" },
+        { title: "Konsultacja" },
+        { title: "Dalsze kroki" },
+      ],
+    },
+  });
+});
+
+test("zmiana układu zachowuje tekst istniejącej sekcji", async () => {
+  renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
+  await screen.findByLabelText("Nagłówek");
+  fireEvent.change(screen.getByLabelText("Układ sekcji"), {
+    target: { value: "split" },
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
+  );
+  await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
+  expect(savePageDraft.mock.calls[0]?.[1].blocks[0]).toMatchObject({
+    schema_version: 4,
+    data: { title: "Stary nagłówek", text: "Opis hero", layout: "split" },
+  });
+});
+
+test("biblioteka EN pokazuje opis, dostępny podgląd i angielską treść", async () => {
+  renderEditor("en", englishMessages, vi.fn().mockResolvedValue(undefined));
+  await screen.findByLabelText("Heading");
+  fireEvent.click(screen.getByRole("button", { name: "Section library" }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Preview: Expandable answers" }),
+  );
+  const preview = screen.getByRole("region", { name: "Section preview" });
+  expect(document.activeElement).toBe(preview);
+  expect(preview.textContent).toContain("How do we get started?");
+  const result = await axe.run(screen.getByRole("dialog"), {
+    rules: { "color-contrast": { enabled: false } },
+  });
+  expect(result.violations).toEqual([]);
+  fireEvent.click(screen.getByRole("button", { name: "Add: Service cards" }));
+  expect(
+    (screen.getAllByLabelText("Heading")[1] as HTMLInputElement).value,
+  ).toBe("Service cards");
+});

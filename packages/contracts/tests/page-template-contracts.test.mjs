@@ -43,7 +43,12 @@ test("every template recipe matches the recipe schema and its manifest entry", a
   assert.equal(manifest.schemaVersion, 1);
   assert.deepEqual(
     manifest.templates.map((entry) => entry.id),
-    ["core.profile", "core.specialist_landing", "core.company"],
+    [
+      "core.profile",
+      "core.specialist_landing",
+      "core.company",
+      "core.service_landing",
+    ],
   );
 
   for (const { entry, version, recipe } of templates) {
@@ -91,12 +96,10 @@ test("template blocks validate against the canonical block contracts", async () 
         known,
         `${recipe.id} block ${index}: unknown type ${block.block_type}`,
       );
-      // Seeding an outdated version would hand every new page a draft that is
-      // already pending migration.
-      assert.equal(
-        block.schema_version,
-        known.latest,
-        `${recipe.id} block ${index}: ${block.block_type} should seed v${known.latest}`,
+      // Immutable historical recipes remain valid; editing migrates their blocks.
+      assert.ok(
+        block.schema_version <= known.latest,
+        `${recipe.id} block ${index}: ${block.block_type} must use a supported version`,
       );
       const validate = known.byVersion.get(block.schema_version);
       assert.ok(validate, `${recipe.id} block ${index}: unknown version`);
@@ -176,4 +179,31 @@ test("recipe schema accepts only explicit approved image metadata", async () => 
 
   candidate.media[0].contentType = "image/svg+xml";
   assert.equal(validateRecipe(candidate), false);
+});
+
+test("composed page recipes pin section versions and materialize their exact seed data", async () => {
+  const { templates } = await loadTemplates();
+  const catalog = await readJson("site-blocks", "section-templates.v1.json");
+  const industries = new Set(catalog.industries.map((item) => item.id));
+  for (const { recipe } of templates) {
+    for (const industry of recipe.industries ?? [])
+      assert.ok(industries.has(industry));
+    const positions = new Set();
+    for (const ref of recipe.sectionRefs ?? []) {
+      assert.ok(
+        !positions.has(ref.position),
+        "section position must be unique",
+      );
+      positions.add(ref.position);
+      const section = catalog.templates.find(
+        (item) => item.id === ref.id && item.version === ref.version,
+      );
+      assert.ok(section, `Missing pinned section ${ref.id}@${ref.version}`);
+      assert.deepEqual(recipe.blocks[ref.position], {
+        block_type: section.blockType,
+        schema_version: section.schemaVersion,
+        data: section.seed.pl,
+      });
+    }
+  }
 });
