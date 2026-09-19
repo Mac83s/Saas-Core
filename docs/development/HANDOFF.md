@@ -1,5 +1,23 @@
 # Handoff następnej sesji
 
+## Site Studio — edycja tekstu w miejscu, 2026-09-19
+
+Renderer otrzymuje opcjonalny adapter text(path,value) z panelu. Ścieżki
+odwołują się do pól manifestu, także indeksów list; nie ma dopasowywania
+po tekście. Natywne input/textarea zatwierdzają jeden krok historii na
+blur/Enter; Escape anuluje, IME i tekst wielowierszowy zachowują własną
+obsługę Enter. Niepoprawne pole wraca focusem do inspektora.
+Publiczny renderer bez adaptera zachowuje stary markup, linki i nagłówki.
+
+Dowody: edytor 23/23, UI 53/53, renderer 20/20 (snapshot bez aktualizacji),
+typecheck trzech pakietów i lint zmian. Chromium potwierdza inline tekst
+z dosłownym HTML, Escape, undo i rzeczywiste drag/drop na fixture API,
+1440/390 px bez przepełnienia. Pełne bramki integracyjne opisuje kolejny wpis
+worklog. Szczegóły i wynik prototypu Puck 0.23.0:
+`docs/architecture/site-studio-editor.md`. W tym przyroście pozostajemy przy
+interakcjach RHF, bez drugiego modelu dokumentu i historii.
+
+
 ## Site Studio — przestawianie sekcji, 2026-09-19
 
 Canvas używa współdzielonego ReorderList z packages/ui. Drag/drop i strzałki

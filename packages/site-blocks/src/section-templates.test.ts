@@ -155,3 +155,34 @@ describe("section template contract", () => {
     }
   });
 });
+
+describe("editor adapter", () => {
+  it("maps every rendered text to its exact data path for every localized layout", () => {
+    for (const template of coreSectionTemplates())
+      for (const locale of ["pl", "en"] as const) {
+        const block = sectionTemplateBlock(template, locale, registry);
+        const before = structuredClone(block);
+        const paths: string[] = [];
+        renderToStaticMarkup(
+          registry.render(block, "editor", {
+            text: (path, value) => {
+              let original: unknown = block.data;
+              for (const part of path)
+                original = (original as Record<string, unknown>)[part];
+              expect(value).toBe(original);
+              paths.push(path.join("."));
+              return value;
+            },
+          }),
+        );
+        expect(paths.length).toBeGreaterThan(1);
+        expect(new Set(paths).size).toBe(paths.length);
+        expect(block).toEqual(before);
+        const html = renderToStaticMarkup(registry.render(block, "public"));
+        expect(html).not.toContain("data-inline");
+        expect(html).not.toContain("<button");
+        if (template.layout === "accordion")
+          expect(html).not.toContain("open=");
+      }
+  });
+});

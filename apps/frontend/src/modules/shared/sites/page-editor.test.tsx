@@ -716,6 +716,13 @@ test.each([
     const heading = await screen.findByLabelText(
       locale === "pl" ? "Nagłówek" : "Heading",
     );
+    expect(
+      (
+        await axe.run(result.container, {
+          rules: { "color-contrast": { enabled: false } },
+        })
+      ).violations,
+    ).toEqual([]);
     fireEvent.change(heading, { target: { value: "" } });
     expect(screen.getByTestId("live-canvas").textContent).toContain(
       messages.Sites.studio.incomplete,
@@ -765,4 +772,100 @@ test("moving a section by keyboard follows its inspector and is one undo step", 
       (block: { data: { title: string } }) => block.data.title,
     ),
   ).toEqual(["Druga sekcja", "Stary nagłówek"]);
+});
+
+test("inline text commits to the existing form, cancels and undoes without submitting", async () => {
+  renderEditor(
+    "pl",
+    polishMessages,
+    vi.fn().mockResolvedValue(undefined),
+    true,
+  );
+  await screen.findByLabelText("Nagłówek");
+  const label = "Edytuj na podglądzie: Nagłówek";
+  fireEvent.click(screen.getByRole("button", { name: label }));
+  fireEvent.change(screen.getByRole("textbox", { name: label }), {
+    target: { value: "<b>Tekst dosłowny</b>" },
+  });
+  fireEvent.keyDown(screen.getByRole("textbox", { name: label }), {
+    key: "Enter",
+  });
+  expect((screen.getByLabelText("Nagłówek") as HTMLInputElement).value).toBe(
+    "<b>Tekst dosłowny</b>",
+  );
+  expect(screen.getByTestId("live-canvas").querySelector("b")).toBeNull();
+  expect(savePageDraft).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: label }));
+  fireEvent.change(screen.getByRole("textbox", { name: label }), {
+    target: { value: "Anulowana zmiana" },
+  });
+  fireEvent.keyDown(screen.getByRole("textbox", { name: label }), {
+    key: "Escape",
+  });
+  expect((screen.getByLabelText("Nagłówek") as HTMLInputElement).value).toBe(
+    "<b>Tekst dosłowny</b>",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Cofnij" }));
+  expect((screen.getByLabelText("Nagłówek") as HTMLInputElement).value).toBe(
+    "Stary nagłówek",
+  );
+  fireEvent.click(screen.getByRole("button", { name: label }));
+  fireEvent.change(screen.getByRole("textbox", { name: label }), {
+    target: { value: "" },
+  });
+  fireEvent.keyDown(screen.getByRole("textbox", { name: label }), {
+    key: "Enter",
+  });
+  await waitFor(() => expect(screen.getByLabelText("Nagłówek")).toHaveFocus());
+  expect(screen.getByTestId("live-canvas").textContent).toContain(
+    polishMessages.Sites.studio.incomplete,
+  );
+});
+
+test("inline list editing addresses the selected item even when titles are identical", async () => {
+  getPageDraft.mockResolvedValue({
+    ...draft,
+    blocks: [
+      {
+        ...draft.blocks[0],
+        block_type: "core.feature_list",
+        schema_version: 2,
+        data: {
+          layout: "cards",
+          title: "Oferta",
+          items: [
+            { title: "Ta sama nazwa", text: "Pierwsza" },
+            { title: "Ta sama nazwa", text: "Druga" },
+          ],
+        },
+      },
+    ],
+  });
+  renderEditor(
+    "pl",
+    polishMessages,
+    vi.fn().mockResolvedValue(undefined),
+    true,
+  );
+  const controls = await screen.findAllByRole("button", {
+    name: "Edytuj na podglądzie: Nazwa pozycji",
+  });
+  fireEvent.click(controls[1]);
+  const input = screen.getByRole("textbox", {
+    name: "Edytuj na podglądzie: Nazwa pozycji",
+  });
+  fireEvent.change(input, { target: { value: "Zmieniona druga pozycja" } });
+  fireEvent.blur(input);
+  fireEvent.click(
+    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
+  );
+  await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
+  expect(savePageDraft.mock.calls[0]?.[1].blocks[0].data).toEqual({
+    layout: "cards",
+    title: "Oferta",
+    items: [
+      { title: "Ta sama nazwa", text: "Pierwsza" },
+      { title: "Zmieniona druga pozycja", text: "Druga" },
+    ],
+  });
 });

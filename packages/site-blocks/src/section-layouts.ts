@@ -1,6 +1,9 @@
 import { createElement as h, type ReactElement } from "react";
 
+import { plainBlockText } from "./block-text";
+
 import type {
+  BlockEditor,
   FaqV1Data,
   FeatureListV1Data,
   HeroV3Data,
@@ -11,7 +14,9 @@ import type {
 export function renderSectionLayout(
   type: string,
   data: JsonObject,
+  editor?: BlockEditor,
 ): ReactElement | null {
+  const text = editor?.text ?? plainBlockText;
   const layout = data.layout;
   if (typeof layout !== "string" || layout === "classic") return null;
   const props = {
@@ -21,22 +26,26 @@ export function renderSectionLayout(
   };
   if (type === "core.hero") {
     const hero = data as HeroV3Data;
-    const title = h("h1", null, hero.title);
+    const title = h(
+      "h1",
+      editor ? { role: "presentation" } : null,
+      text(["title"], hero.title),
+    );
     const body = h(
       "div",
       { className: "site-section__body" },
-      hero.text ? h("p", null, hero.text) : null,
+      hero.text ? h("p", null, text(["text"], hero.text)) : null,
       hero.action
         ? h(
-            "a",
+            editor ? "span" : "a",
             {
-              href: hero.action.href,
+              href: editor ? undefined : hero.action.href,
               rel: hero.action.href.startsWith("https://")
                 ? "noreferrer"
                 : undefined,
               className: "site-section__action",
             },
-            hero.action.label,
+            text(["action", "label"], hero.action.label),
           )
         : null,
     );
@@ -63,7 +72,13 @@ export function renderSectionLayout(
     return h(
       "section",
       props,
-      faq.title ? h("h2", null, faq.title) : null,
+      faq.title
+        ? h(
+            "h2",
+            editor ? { role: "presentation" } : null,
+            text(["title"], faq.title),
+          )
+        : null,
       layout === "accordion"
         ? h(
             "div",
@@ -71,9 +86,13 @@ export function renderSectionLayout(
             faq.items.map((item, i) =>
               h(
                 "details",
-                { key: i },
-                h("summary", null, item.question),
-                h("p", null, item.answer),
+                { key: i, open: editor ? true : undefined },
+                h(
+                  "summary",
+                  null,
+                  text(["items", String(i), "question"], item.question),
+                ),
+                h("p", null, text(["items", String(i), "answer"], item.answer)),
               ),
             ),
           )
@@ -84,8 +103,16 @@ export function renderSectionLayout(
               h(
                 "div",
                 { key: i },
-                h("dt", null, item.question),
-                h("dd", null, item.answer),
+                h(
+                  "dt",
+                  null,
+                  text(["items", String(i), "question"], item.question),
+                ),
+                h(
+                  "dd",
+                  null,
+                  text(["items", String(i), "answer"], item.answer),
+                ),
               ),
             ),
           ),
@@ -93,7 +120,13 @@ export function renderSectionLayout(
   }
   if (type === "core.feature_list") {
     const offer = data as FeatureListV1Data;
-    const heading = offer.title ? h("h2", null, offer.title) : null;
+    const heading = offer.title
+      ? h(
+          "h2",
+          editor ? { role: "presentation" } : null,
+          text(["title"], offer.title),
+        )
+      : null;
     if (layout === "specification" || layout === "coverage") {
       return h(
         "section",
@@ -106,8 +139,10 @@ export function renderSectionLayout(
             h(
               "div",
               { key: i },
-              h("dt", null, item.title),
-              item.text ? h("dd", null, item.text) : null,
+              h("dt", null, text(["items", String(i), "title"], item.title)),
+              item.text
+                ? h("dd", null, text(["items", String(i), "text"], item.text))
+                : null,
             ),
           ),
         ),
@@ -137,8 +172,14 @@ export function renderSectionLayout(
             h(
               "div",
               null,
-              h("h3", null, item.title),
-              item.text ? h("p", null, item.text) : null,
+              h(
+                "h3",
+                editor ? { role: "presentation" } : null,
+                text(["items", String(i), "title"], item.title),
+              ),
+              item.text
+                ? h("p", null, text(["items", String(i), "text"], item.text))
+                : null,
             ),
           ),
         ),

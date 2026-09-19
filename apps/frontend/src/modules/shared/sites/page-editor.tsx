@@ -740,6 +740,25 @@ export function PageEditor({
                 {visual && blocks.fields.length > 0 ? (
                   <SectionCanvas
                     blocks={liveBlocks}
+                    onTextChange={(index, path, value) => {
+                      if (loading || draftForm.formState.isSubmitting) return;
+                      draftForm.setValue(
+                        `blocks.${index}.data.${path.join(".")}`,
+                        value,
+                        { shouldDirty: true, shouldValidate: true },
+                      );
+                      if (
+                        !blockFormSchema.safeParse(
+                          draftForm.getValues(`blocks.${index}`),
+                        ).success
+                      ) {
+                        requestAnimationFrame(() =>
+                          draftForm.setFocus(
+                            `blocks.${index}.data.${path.join(".")}`,
+                          ),
+                        );
+                      }
+                    }}
                     blockIds={blocks.fields.map((field) => field.id)}
                     disabled={loading || draftForm.formState.isSubmitting}
                     onMove={(from, to) => {

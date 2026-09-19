@@ -1,6 +1,7 @@
 import heroV4Schema from "@saas-core/contracts/site-blocks/core.hero.v4.schema.json";
 import featureListV2Schema from "@saas-core/contracts/site-blocks/core.feature_list.v2.schema.json";
 import faqV2Schema from "@saas-core/contracts/site-blocks/core.faq.v2.schema.json";
+import { plainBlockText } from "./block-text";
 import { renderSectionLayout } from "./section-layouts";
 import { createElement } from "react";
 
@@ -18,6 +19,7 @@ import richTextV1Schema from "@saas-core/contracts/site-blocks/core.rich_text.v1
 import testimonialsV1Schema from "@saas-core/contracts/site-blocks/core.testimonials.v1.schema.json";
 
 import type {
+  BlockComponentProps,
   BookingV1Data,
   ContactV1Data,
   EntryListV1Data,
@@ -47,8 +49,9 @@ export function publicMediaPath(assetId: string): string {
   return `/media/${assetId}`;
 }
 
-function HeroBlock({ data }: { data: JsonObject }) {
-  const variant = renderSectionLayout("core.hero", data);
+function HeroBlock({ data, editor }: BlockComponentProps) {
+  const text = editor?.text ?? plainBlockText;
+  const variant = renderSectionLayout("core.hero", data, editor);
   if (variant) return variant;
   const hero = data as HeroV3Data;
   const action = hero.action;
@@ -58,7 +61,11 @@ function HeroBlock({ data }: { data: JsonObject }) {
       className: "site-block site-block--hero",
       "data-block-type": "core.hero",
     },
-    createElement("h1", null, hero.title),
+    createElement(
+      "h1",
+      editor ? { role: "presentation" } : null,
+      text(["title"], hero.title),
+    ),
     hero.image
       ? createElement("img", {
           alt: hero.image.alt,
@@ -69,21 +76,22 @@ function HeroBlock({ data }: { data: JsonObject }) {
           src: publicMediaPath(hero.image.asset_id),
         })
       : null,
-    hero.text ? createElement("p", null, hero.text) : null,
+    hero.text ? createElement("p", null, text(["text"], hero.text)) : null,
     action
       ? createElement(
-          "a",
+          editor ? "span" : "a",
           {
-            href: action.href,
+            href: editor ? undefined : action.href,
             rel: externalRel(action.href),
           },
-          action.label,
+          text(["action", "label"], action.label),
         )
       : null,
   );
 }
 
-function RichTextBlock({ data }: { data: JsonObject }) {
+function RichTextBlock({ data, editor }: BlockComponentProps) {
+  const text = editor?.text ?? plainBlockText;
   const richText = data as RichTextV1Data;
   return createElement(
     "section",
@@ -91,12 +99,13 @@ function RichTextBlock({ data }: { data: JsonObject }) {
       className: "site-block site-block--rich-text",
       "data-block-type": "core.rich_text",
     },
-    createElement("p", null, richText.text),
+    createElement("p", null, text(["text"], richText.text)),
   );
 }
 
-function FeatureListBlock({ data }: { data: JsonObject }) {
-  const variant = renderSectionLayout("core.feature_list", data);
+function FeatureListBlock({ data, editor }: BlockComponentProps) {
+  const text = editor?.text ?? plainBlockText;
+  const variant = renderSectionLayout("core.feature_list", data, editor);
   if (variant) return variant;
   const featureList = data as FeatureListV1Data;
   return createElement(
@@ -105,7 +114,13 @@ function FeatureListBlock({ data }: { data: JsonObject }) {
       className: "site-block site-block--feature-list",
       "data-block-type": "core.feature_list",
     },
-    featureList.title ? createElement("h2", null, featureList.title) : null,
+    featureList.title
+      ? createElement(
+          "h2",
+          editor ? { role: "presentation" } : null,
+          text(["title"], featureList.title),
+        )
+      : null,
     createElement(
       "ul",
       null,
@@ -113,16 +128,27 @@ function FeatureListBlock({ data }: { data: JsonObject }) {
         createElement(
           "li",
           { key: index },
-          createElement("h3", null, item.title),
-          item.text ? createElement("p", null, item.text) : null,
+          createElement(
+            "h3",
+            editor ? { role: "presentation" } : null,
+            text(["items", String(index), "title"], item.title),
+          ),
+          item.text
+            ? createElement(
+                "p",
+                null,
+                text(["items", String(index), "text"], item.text),
+              )
+            : null,
         ),
       ),
     ),
   );
 }
 
-function FaqBlock({ data }: { data: JsonObject }) {
-  const variant = renderSectionLayout("core.faq", data);
+function FaqBlock({ data, editor }: BlockComponentProps) {
+  const text = editor?.text ?? plainBlockText;
+  const variant = renderSectionLayout("core.faq", data, editor);
   if (variant) return variant;
   const faq = data as FaqV1Data;
   return createElement(
@@ -131,19 +157,34 @@ function FaqBlock({ data }: { data: JsonObject }) {
       className: "site-block site-block--faq",
       "data-block-type": "core.faq",
     },
-    faq.title ? createElement("h2", null, faq.title) : null,
+    faq.title
+      ? createElement(
+          "h2",
+          editor ? { role: "presentation" } : null,
+          text(["title"], faq.title),
+        )
+      : null,
     createElement(
       "dl",
       null,
       faq.items.flatMap((item, index) => [
-        createElement("dt", { key: `q-${index}` }, item.question),
-        createElement("dd", { key: `a-${index}` }, item.answer),
+        createElement(
+          "dt",
+          { key: `q-${index}` },
+          text(["items", String(index), "question"], item.question),
+        ),
+        createElement(
+          "dd",
+          { key: `a-${index}` },
+          text(["items", String(index), "answer"], item.answer),
+        ),
       ]),
     ),
   );
 }
 
-function ContactBlock({ data }: { data: JsonObject }) {
+function ContactBlock({ data, editor }: BlockComponentProps) {
+  const text = editor?.text ?? plainBlockText;
   const contact = data as ContactV1Data;
   return createElement(
     "section",
@@ -151,26 +192,43 @@ function ContactBlock({ data }: { data: JsonObject }) {
       className: "site-block site-block--contact",
       "data-block-type": "core.contact",
     },
-    contact.title ? createElement("h2", null, contact.title) : null,
+    contact.title
+      ? createElement(
+          "h2",
+          editor ? { role: "presentation" } : null,
+          text(["title"], contact.title),
+        )
+      : null,
     createElement(
       "address",
       null,
       contact.email
-        ? createElement("a", { href: `mailto:${contact.email}` }, contact.email)
+        ? createElement(
+            editor ? "span" : "a",
+            { href: editor ? undefined : `mailto:${contact.email}` },
+            text(["email"], contact.email),
+          )
         : null,
       contact.phone
         ? createElement(
-            "a",
-            { href: `tel:${contact.phone.replace(/[^0-9+]/g, "")}` },
-            contact.phone,
+            editor ? "span" : "a",
+            {
+              href: editor
+                ? undefined
+                : `tel:${contact.phone.replace(/[^0-9+]/g, "")}`,
+            },
+            text(["phone"], contact.phone),
           )
         : null,
-      contact.address ? createElement("p", null, contact.address) : null,
+      contact.address
+        ? createElement("p", null, text(["address"], contact.address))
+        : null,
     ),
   );
 }
 
-function TestimonialsBlock({ data }: { data: JsonObject }) {
+function TestimonialsBlock({ data, editor }: BlockComponentProps) {
+  const text = editor?.text ?? plainBlockText;
   const testimonials = data as TestimonialsV1Data;
   return createElement(
     "section",
@@ -178,7 +236,13 @@ function TestimonialsBlock({ data }: { data: JsonObject }) {
       className: "site-block site-block--testimonials",
       "data-block-type": "core.testimonials",
     },
-    testimonials.title ? createElement("h2", null, testimonials.title) : null,
+    testimonials.title
+      ? createElement(
+          "h2",
+          editor ? { role: "presentation" } : null,
+          text(["title"], testimonials.title),
+        )
+      : null,
     createElement(
       "ul",
       null,
@@ -189,12 +253,26 @@ function TestimonialsBlock({ data }: { data: JsonObject }) {
           createElement(
             "blockquote",
             null,
-            createElement("p", null, item.quote),
+            createElement(
+              "p",
+              null,
+              text(["items", String(index), "quote"], item.quote),
+            ),
             createElement(
               "footer",
               null,
-              createElement("cite", null, item.author),
-              item.role ? createElement("span", null, item.role) : null,
+              createElement(
+                "cite",
+                null,
+                text(["items", String(index), "author"], item.author),
+              ),
+              item.role
+                ? createElement(
+                    "span",
+                    null,
+                    text(["items", String(index), "role"], item.role),
+                  )
+                : null,
             ),
           ),
         ),
@@ -203,7 +281,8 @@ function TestimonialsBlock({ data }: { data: JsonObject }) {
   );
 }
 
-function PricingBlock({ data }: { data: JsonObject }) {
+function PricingBlock({ data, editor }: BlockComponentProps) {
+  const text = editor?.text ?? plainBlockText;
   const pricing = data as PricingV1Data;
   return createElement(
     "section",
@@ -211,7 +290,13 @@ function PricingBlock({ data }: { data: JsonObject }) {
       className: "site-block site-block--pricing",
       "data-block-type": "core.pricing",
     },
-    pricing.title ? createElement("h2", null, pricing.title) : null,
+    pricing.title
+      ? createElement(
+          "h2",
+          editor ? { role: "presentation" } : null,
+          text(["title"], pricing.title),
+        )
+      : null,
     createElement(
       "ul",
       null,
@@ -222,10 +307,25 @@ function PricingBlock({ data }: { data: JsonObject }) {
           createElement(
             "article",
             null,
-            createElement("h3", null, item.name),
-            createElement("p", { className: "site-block__price" }, item.price),
+            createElement(
+              "h3",
+              editor ? { role: "presentation" } : null,
+              text(["items", String(index), "name"], item.name),
+            ),
+            createElement(
+              "p",
+              { className: "site-block__price" },
+              text(["items", String(index), "price"], item.price),
+            ),
             item.description
-              ? createElement("p", null, item.description)
+              ? createElement(
+                  "p",
+                  null,
+                  text(
+                    ["items", String(index), "description"],
+                    item.description,
+                  ),
+                )
               : null,
           ),
         ),
@@ -234,7 +334,8 @@ function PricingBlock({ data }: { data: JsonObject }) {
   );
 }
 
-function BookingBlock({ data }: { data: JsonObject }) {
+function BookingBlock({ data, editor }: BlockComponentProps) {
+  const text = editor?.text ?? plainBlockText;
   const booking = data as BookingV1Data;
   return createElement(
     "section",
@@ -242,17 +343,27 @@ function BookingBlock({ data }: { data: JsonObject }) {
       className: "site-block site-block--booking",
       "data-block-type": "core.booking",
     },
-    createElement("h2", null, booking.title),
-    booking.text ? createElement("p", null, booking.text) : null,
     createElement(
-      "a",
-      { href: booking.action.href, rel: externalRel(booking.action.href) },
-      booking.action.label,
+      "h2",
+      editor ? { role: "presentation" } : null,
+      text(["title"], booking.title),
+    ),
+    booking.text
+      ? createElement("p", null, text(["text"], booking.text))
+      : null,
+    createElement(
+      editor ? "span" : "a",
+      {
+        href: editor ? undefined : booking.action.href,
+        rel: externalRel(booking.action.href),
+      },
+      text(["action", "label"], booking.action.label),
     ),
   );
 }
 
-function FooterBlock({ data }: { data: JsonObject }) {
+function FooterBlock({ data, editor }: BlockComponentProps) {
+  const text = editor?.text ?? plainBlockText;
   const footer = data as FooterV1Data;
   return createElement(
     "footer",
@@ -260,7 +371,7 @@ function FooterBlock({ data }: { data: JsonObject }) {
       className: "site-block site-block--footer",
       "data-block-type": "core.footer",
     },
-    createElement("p", null, footer.text),
+    createElement("p", null, text(["text"], footer.text)),
     footer.links === undefined
       ? null
       : createElement(
@@ -271,9 +382,12 @@ function FooterBlock({ data }: { data: JsonObject }) {
               "li",
               { key: index },
               createElement(
-                "a",
-                { href: link.href, rel: externalRel(link.href) },
-                link.label,
+                editor ? "span" : "a",
+                {
+                  href: editor ? undefined : link.href,
+                  rel: externalRel(link.href),
+                },
+                text(["links", String(index), "label"], link.label),
               ),
             ),
           ),
@@ -284,7 +398,8 @@ function FooterBlock({ data }: { data: JsonObject }) {
 /** The blog index, and any "latest posts" section an operator places by hand.
  *  The items are a projection of what is published (ADR-035 §7), so the block
  *  renders whatever it is handed rather than reaching for data itself. */
-function EntryListBlock({ data }: { data: JsonObject }) {
+function EntryListBlock({ data, editor }: BlockComponentProps) {
+  const text = editor?.text ?? plainBlockText;
   const list = data as EntryListV1Data;
   return createElement(
     "section",
@@ -292,9 +407,15 @@ function EntryListBlock({ data }: { data: JsonObject }) {
       className: "site-block site-block--entry-list",
       "data-block-type": "core.entry_list",
     },
-    list.title === undefined ? null : createElement("h2", null, list.title),
+    list.title === undefined
+      ? null
+      : createElement(
+          "h2",
+          editor ? { role: "presentation" } : null,
+          text(["title"], list.title),
+        ),
     list.items.length === 0
-      ? createElement("p", null, list.empty_text ?? "")
+      ? createElement("p", null, text(["empty_text"], list.empty_text ?? ""))
       : createElement(
           "ul",
           null,
@@ -303,9 +424,13 @@ function EntryListBlock({ data }: { data: JsonObject }) {
               "li",
               { key: index },
               createElement(
-                "a",
-                { href: item.path },
-                createElement("h3", null, item.title),
+                editor ? "span" : "a",
+                { href: editor ? undefined : item.path },
+                createElement(
+                  "h3",
+                  editor ? { role: "presentation" } : null,
+                  text(["items", String(index), "title"], item.title),
+                ),
               ),
               item.published_at === undefined
                 ? null
@@ -316,7 +441,11 @@ function EntryListBlock({ data }: { data: JsonObject }) {
                   ),
               item.excerpt === undefined
                 ? null
-                : createElement("p", null, item.excerpt),
+                : createElement(
+                    "p",
+                    null,
+                    text(["items", String(index), "excerpt"], item.excerpt),
+                  ),
             ),
           ),
         ),

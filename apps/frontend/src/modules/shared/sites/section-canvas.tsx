@@ -2,6 +2,8 @@
 
 import { useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
+import type { BlockFieldDefinition } from "@saas-core/site-blocks";
+import { InlineText } from "@saas-core/ui/components/inline-text";
 import { ReorderList } from "@saas-core/ui/components/reorder-list";
 import { Button } from "@saas-core/ui/components/button";
 import {
@@ -18,12 +20,14 @@ export function SectionCanvas({
   inspector,
   blockIds,
   onMove,
+  onTextChange,
   disabled,
 }: {
   blocks: BlockFormValues[];
   blockIds: string[];
   onMove: (from: number, to: number) => void;
   disabled: boolean;
+  onTextChange: (index: number, path: readonly string[], value: string) => void;
   selected: number;
   onSelect: (index: number) => void;
   inspector: ReactNode;
@@ -92,7 +96,39 @@ export function SectionCanvas({
                 try {
                   rendered = registry.render(
                     blockPayload(block),
-                    String(index),
+                    blockIds[index],
+                    selected === index
+                      ? {
+                          text: (path, value) => {
+                            const definition = inlineField(
+                              blockOptions.find(
+                                (option) => option.type === block.block_type,
+                              )?.fields ?? [],
+                              path,
+                            );
+                            if (!definition) return value;
+                            return (
+                              <InlineText
+                                key={path.join(".")}
+                                value={value}
+                                disabled={disabled}
+                                label={t("studio.editText", {
+                                  field: t(definition.labelKey),
+                                })}
+                                instructions={t(
+                                  definition.kind === "textarea"
+                                    ? "studio.inlineMultilineHint"
+                                    : "studio.inlineHint",
+                                )}
+                                multiline={definition.kind === "textarea"}
+                                onCommit={(next) =>
+                                  onTextChange(index, path, next)
+                                }
+                              />
+                            );
+                          },
+                        }
+                      : undefined,
                   );
                 } catch {
                   rendered = (
@@ -108,23 +144,40 @@ export function SectionCanvas({
                 );
                 return (
                   <div
-                    key={index}
                     className={`relative rounded border-2 ${selected === index ? "border-primary" : "border-transparent"}`}
                   >
-                    <div className="absolute right-2 top-2 z-10">{handle}</div>
-                    <div aria-hidden="true" inert>
-                      {rendered}
+                    <div className="flex items-center justify-between gap-2 border-b bg-background p-2 text-sm">
+                      <button
+                        type="button"
+                        className="min-w-0 rounded text-left focus-visible:outline-2 focus-visible:outline-primary"
+                        aria-label={t("studio.selectSection", {
+                          number: index + 1,
+                          name: label,
+                        })}
+                        aria-pressed={selected === index}
+                        onClick={() => onSelect(index)}
+                      >
+                        {index + 1}. {label}
+                      </button>
+                      {handle}
                     </div>
-                    <button
-                      type="button"
-                      className="absolute inset-0 cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                      aria-label={t("studio.selectSection", {
-                        number: index + 1,
-                        name: label,
-                      })}
-                      aria-pressed={selected === index}
-                      onClick={() => onSelect(index)}
-                    />
+                    <div className="relative">
+                      <div
+                        aria-hidden={selected !== index ? true : undefined}
+                        inert={selected !== index}
+                      >
+                        {rendered}
+                      </div>
+                      {selected !== index && (
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          aria-hidden="true"
+                          className="absolute inset-0 cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                          onClick={() => onSelect(index)}
+                        />
+                      )}
+                    </div>
                   </div>
                 );
               }}
@@ -141,4 +194,22 @@ export function SectionCanvas({
       </div>
     </div>
   );
+}
+
+/** Only text fields from the manifest may become inline controls. */
+function inlineField(
+  fields: readonly BlockFieldDefinition[],
+  path: readonly string[],
+): BlockFieldDefinition | undefined {
+  const field = fields.find((candidate) =>
+    candidate.path.every((part, index) => path[index] === part),
+  );
+  if (!field) return undefined;
+  const rest = path.slice(field.path.length);
+  if (field.kind === "list" && /^\d+$/.test(rest[0] ?? ""))
+    return inlineField(field.item ?? [], rest.slice(1));
+  return rest.length === 0 &&
+    (field.kind === "text" || field.kind === "textarea")
+    ? field
+    : undefined;
 }

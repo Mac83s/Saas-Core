@@ -1,4 +1,4 @@
-import type { ComponentType, ReactElement } from "react";
+import type { ComponentType, ReactElement, ReactNode } from "react";
 
 export type JsonPrimitive = boolean | number | string | null;
 export type JsonValue = JsonPrimitive | JsonValue[] | JsonObject;
@@ -138,12 +138,25 @@ export interface BlockCatalogEntry {
   readonly fields: readonly BlockFieldDefinition[];
 }
 
+/** An editor adapter is code supplied by the panel, never serialized block data. */
+export type BlockTextRenderer = (
+  path: readonly string[],
+  value: string,
+) => ReactNode;
+export interface BlockEditor {
+  readonly text: BlockTextRenderer;
+}
+export interface BlockComponentProps {
+  data: JsonObject;
+  editor?: BlockEditor;
+}
+
 export interface BlockDefinition {
   readonly type: string;
   readonly latestVersion: number;
   readonly schemas: readonly BlockSchemaVersion[];
   readonly migrators: Readonly<Record<number, BlockMigrator>>;
-  readonly component: ComponentType<{ data: JsonObject }>;
+  readonly component: ComponentType<BlockComponentProps>;
   /** Absent for a block that exists only to render older publications and is no
    *  longer offered in the library. */
   readonly catalog?: BlockCatalogEntry;
@@ -233,5 +246,5 @@ export interface BlockRegistry {
   readonly definitions: ReadonlyMap<string, BlockDefinition>;
   validate(block: SiteBlock): void;
   migrate(block: SiteBlock): SiteBlock;
-  render(block: SiteBlock, key: string): ReactElement;
+  render(block: SiteBlock, key: string, editor?: BlockEditor): ReactElement;
 }
