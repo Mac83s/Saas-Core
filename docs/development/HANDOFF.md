@@ -16,6 +16,9 @@ rolą; zostaje też bez aktywnej firmy, bo po logowaniu na kilka członkostw
 „Pracy” i „Więcej”. Karta abonamentu tylko u właściciela i tylko, gdy wymaga
 uwagi (okres próbny, płatność, anulowany, ograniczony dostęp, brak planu).
 
+Slot `src/product/dashboard.tsx` (rdzeń: `null`) pozwala produktowi podstawić
+własną stronę „Dziś” pod `/panel`; komponent dostaje `access` i `firstName`.
+
 Bramki: moduł, `permissions` bieżącego członkostwa z API (`b7433d7`),
 właściciel, `limited` roli typu (korektor nie widzi Abonamentu). Strona
 „Dziś” filtruje kafle tymi samymi bramkami (`allows`).

@@ -19,6 +19,7 @@ import {
   getServerUser,
 } from "#lib/server-auth";
 import { allows, panelAccess } from "#lib/panel-navigation";
+import ProductDashboard from "../../../product/dashboard";
 import { Badge } from "@saas-core/ui/components/badge";
 import { buttonVariants } from "@saas-core/ui/components/button";
 import {
@@ -37,6 +38,10 @@ export default async function PanelPage() {
     getTranslations("Dashboard"),
   ]);
   const access = panelAccess(organization);
+  if (ProductDashboard)
+    return (
+      <ProductDashboard access={access} firstName={user?.first_name ?? ""} />
+    );
   const modules = new Set(access.modules);
   const canManageBilling = access.isOwner;
   // The same gates as the menu, so the start page offers no tile the menu hides.

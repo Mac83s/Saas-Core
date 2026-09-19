@@ -1,6 +1,8 @@
+import type { ComponentType } from "react";
 import type { LucideIcon } from "lucide-react";
 
 import type { ProductContent } from "../marketing/content/types";
+import type { PanelAccess } from "./panel-navigation";
 
 export type ProductNavigationItem = {
   href: string;
@@ -36,3 +38,16 @@ export type ProductExtension = {
   /** Copy for the marketing pages; without it they show the generic product. */
   marketing?: ProductContent;
 };
+
+/**
+ * The product's own "Today" under /panel (slot file `src/product/dashboard.tsx`,
+ * ADR-049). Core ships `null` there and shows its start page instead. A file of
+ * its own rather than a field of `product`, because `product` is imported by
+ * the menu on the client and would carry the whole dashboard into it.
+ */
+export type ProductDashboardProps = {
+  access: PanelAccess;
+  /** For the greeting; empty until the person gives a name. */
+  firstName: string;
+};
+export type ProductDashboard = ComponentType<ProductDashboardProps>;
