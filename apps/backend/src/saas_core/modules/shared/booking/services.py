@@ -22,6 +22,7 @@ from saas_core.modules.core.organizations.models import (
     Organization,
 )
 from saas_core.modules.core.organizations.tasks import issue_tenant_task_contract
+from saas_core.modules.shared.billing.api import FeatureOperation
 from saas_core.modules.shared.billing.authorization import authorize_entitled
 from saas_core.modules.shared.notifications.security import decrypt_secret, encrypt_secret
 from saas_core.modules.shared.notifications.services import queue_email
@@ -241,7 +242,8 @@ def list_appointments(
     """`mine`: only the calendar entries linked to the caller's membership;
     `appointment_kinds`: only services of these kinds (a vertical's own visits);
     `starts_until` is exclusive, so one day is `[midnight, next midnight)`."""
-    context = authorize_entitled(BOOKING_READ, BOOKING_ENABLED)
+    # A read: it keeps working when the plan has lapsed to read-only.
+    context = authorize_entitled(BOOKING_READ, BOOKING_ENABLED, operation=FeatureOperation.READ)
     query = Appointment.all_objects.filter(organization_id=context.organization_id)
     if starts_from:
         query = query.filter(starts_at__gte=starts_from)

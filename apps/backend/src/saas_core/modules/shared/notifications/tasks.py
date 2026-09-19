@@ -26,12 +26,18 @@ logger = logging.getLogger("saas_core.security")
 def deliver_email_task(self: Any, message_id: str, signed_tenant_context: str) -> None:
     try:
         parsed = UUID(message_id)
+        deferred: DeliveryDeferred | None = None
         with tenant_task_context(signed_tenant_context, expected_causation_id=f"email:{parsed}"):
-            message = deliver_email(parsed)
+            try:
+                message = deliver_email(parsed)
+            except DeliveryDeferred as error:
+                # Leave the context first: raised inside it, the deferral would
+                # roll back the failed attempt it reports.
+                deferred = error
+        if deferred is not None:
+            raise self.retry(countdown=deferred.countdown) from deferred
         if message.status != DeliveryStatus.QUEUED:
             _complete_route("email", message_id)
-    except DeliveryDeferred as error:
-        raise self.retry(countdown=error.countdown) from error
     except (InvalidTenantTaskContext, ValueError):
         logger.warning(
             "notifications_email_task_rejected",
@@ -43,12 +49,16 @@ def deliver_email_task(self: Any, message_id: str, signed_tenant_context: str) -
 def deliver_webhook_task(self: Any, delivery_id: str, signed_tenant_context: str) -> None:
     try:
         parsed = UUID(delivery_id)
+        deferred: DeliveryDeferred | None = None
         with tenant_task_context(signed_tenant_context, expected_causation_id=None):
-            delivery = deliver_webhook(parsed)
+            try:
+                delivery = deliver_webhook(parsed)
+            except DeliveryDeferred as error:
+                deferred = error  # retried after the context commits the attempt
+        if deferred is not None:
+            raise self.retry(countdown=deferred.countdown) from deferred
         if delivery.status != DeliveryStatus.QUEUED:
             _complete_route("webhook", delivery_id)
-    except DeliveryDeferred as error:
-        raise self.retry(countdown=error.countdown) from error
     except (InvalidTenantTaskContext, ValueError):
         logger.warning(
             "notifications_webhook_task_rejected",

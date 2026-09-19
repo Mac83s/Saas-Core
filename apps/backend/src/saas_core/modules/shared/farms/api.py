@@ -84,5 +84,6 @@ __all__ = [
     "animal_for_tenant",
     "farm_animals",
     "farm_for_tenant",
+    "normalize_identifier",
     "resolve_animal",
 ]

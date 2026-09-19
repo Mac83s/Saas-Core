@@ -345,3 +345,35 @@ def test_a_module_mails_its_own_template_with_a_file_resolved_at_delivery(
             deliver_email(missing.id, provider=provider)
         missing.refresh_from_db()
         assert missing.last_error_code == "attachment_unavailable"
+
+
+def test_a_failed_attempt_survives_the_task_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The retry is raised after the task's tenant context commits the attempt."""
+    from celery.exceptions import Retry  # noqa: PLC0415
+
+    from saas_core.modules.shared.notifications.models import NotificationAttempt  # noqa: PLC0415
+    from saas_core.modules.shared.notifications.tasks import deliver_email_task  # noqa: PLC0415
+
+    member = membership(slug="ponowienie")
+    message = queued_message(member, monkeypatch)
+    monkeypatch.setattr(
+        "saas_core.modules.shared.notifications.delivery.get_email_provider",
+        lambda: FakeEmailProvider(fail_before=True),
+    )
+    with pytest.raises(Retry):
+        deliver_email_task.run(str(message.id), message.signed_tenant_context)
+    stored = NotificationMessage.all_objects.get(pk=message.id)
+    assert (stored.attempt_count, stored.last_error_code) == (1, "provider_unavailable")
+    assert NotificationAttempt.all_objects.filter(message_id=message.id).count() == 1
+
+
+def test_a_problem_carries_the_code_the_module_raised() -> None:
+    from rest_framework.exceptions import APIException, NotFound  # noqa: PLC0415
+
+    from saas_core.http.exceptions import problem_code  # noqa: PLC0415
+
+    assert problem_code(NotFound("Nie ma.", code="catalog_not_found")) == "catalog_not_found"
+    assert problem_code(NotFound("Nie ma.")) == "not_found"
+    explicit = APIException({"code": "x", "queue_mode": "herd"})
+    explicit.problem_code = "visit_already_started"  # type: ignore[attr-defined]
+    assert problem_code(explicit) == "visit_already_started"

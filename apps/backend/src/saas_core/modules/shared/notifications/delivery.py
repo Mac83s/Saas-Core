@@ -311,7 +311,6 @@ def deliver_webhook(
     )
 
 
-@transaction.atomic
 def _mark_webhook_failed(
     delivery_id: UUID,
     attempt_number: int,
@@ -319,6 +318,23 @@ def _mark_webhook_failed(
     response_status: int | None = None,
     response_digest: str = "",
 ) -> WebhookDelivery:
+    """Records the failed attempt, then defers — as `_mark_email_failed`."""
+    delivery, delay = _record_webhook_failure(
+        delivery_id, attempt_number, error_code, response_status, response_digest
+    )
+    if delay is None:
+        return delivery
+    raise DeliveryDeferred(delay)
+
+
+@transaction.atomic
+def _record_webhook_failure(
+    delivery_id: UUID,
+    attempt_number: int,
+    error_code: str,
+    response_status: int | None,
+    response_digest: str,
+) -> tuple[WebhookDelivery, int | None]:
     delivery = WebhookDelivery.all_objects.select_for_update().get(pk=delivery_id)
     WebhookAttempt.all_objects.get_or_create(
         delivery=delivery,
@@ -336,10 +352,10 @@ def _mark_webhook_failed(
         delivery.next_attempt_at = None
         delivery.save(update_fields=["status", "next_attempt_at", "last_error_code", "updated_at"])
         DELIVERY_RESULTS.labels(channel="webhook", outcome="dead_letter").inc()
-        return delivery
+        return delivery, None
     delay = min(7200, 2**delivery.attempt_count * 30)
     delivery.status = DeliveryStatus.QUEUED
     delivery.next_attempt_at = timezone.now() + timedelta(seconds=delay)
     delivery.save(update_fields=["status", "next_attempt_at", "last_error_code", "updated_at"])
     DELIVERY_RESULTS.labels(channel="webhook", outcome="retry").inc()
-    raise DeliveryDeferred(delay)
+    return delivery, delay
