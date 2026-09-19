@@ -38,9 +38,14 @@ export default async function PanelPage() {
     getTranslations("Dashboard"),
   ]);
   const access = panelAccess(organization);
-  if (ProductDashboard)
+  // A product's "Today" only where it applies (e.g. HoofCare's for trimming
+  // companies, not for the farms of the same deployment).
+  if (ProductDashboard && allows(access, ProductDashboard))
     return (
-      <ProductDashboard access={access} firstName={user?.first_name ?? ""} />
+      <ProductDashboard.component
+        access={access}
+        firstName={user?.first_name ?? ""}
+      />
     );
   const modules = new Set(access.modules);
   const canManageBilling = access.isOwner;

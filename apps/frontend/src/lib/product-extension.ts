@@ -50,4 +50,6 @@ export type ProductDashboardProps = {
   /** For the greeting; empty until the person gives a name. */
   firstName: string;
 };
-export type ProductDashboard = ComponentType<ProductDashboardProps>;
+export type ProductDashboard = {
+  component: ComponentType<ProductDashboardProps>;
+} & Pick<ProductNavigationItem, "module" | "organizationTypes" | "permission">;

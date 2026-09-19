@@ -20,5 +20,14 @@ export default getRequestConfig(async ({ requestLocale }) => {
   )) {
     messages[namespace] = { ...core[namespace], ...entries };
   }
-  return { locale, messages };
+  // Without a zone next-intl formats in the server's, and the containers run
+  // in UTC: an 08:00 visit read "06:00". Screens that know the organization's
+  // zone pass it themselves.
+  // ponytail: one zone per deployment; per-organization zones when a product
+  // serves more than one country.
+  return {
+    locale,
+    messages,
+    timeZone: process.env.APP_TIME_ZONE ?? "Europe/Warsaw",
+  };
 });
