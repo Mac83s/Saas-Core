@@ -1,10 +1,14 @@
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 
+import { getServerCurrentOrganization } from "#lib/server-auth";
 import { CreditsPanel } from "../../../../../modules/shared/billing";
 
 export default async function CreditsSettingsPage() {
-  const t = await getTranslations("Credits");
+  const [t, organization] = await Promise.all([
+    getTranslations("Credits"),
+    getServerCurrentOrganization(),
+  ]);
   return (
     <main className="mx-auto w-full max-w-7xl space-y-7 px-4 py-8 sm:px-6 lg:py-10">
       <header className="space-y-2">
@@ -13,9 +17,9 @@ export default async function CreditsSettingsPage() {
         <p className="max-w-3xl text-muted-foreground">{t("description")}</p>
       </header>
       <Suspense
-        fallback={<div className="h-96 animate-pulse rounded-2xl bg-muted" />}
+        fallback={<div className="h-96 animate-pulse rounded-xl bg-muted" />}
       >
-        <CreditsPanel />
+        <CreditsPanel canManageBilling={organization?.role === "owner"} />
       </Suspense>
     </main>
   );

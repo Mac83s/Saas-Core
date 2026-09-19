@@ -4,11 +4,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import {
+  CalendarClockIcon,
   CheckIcon,
   CircleAlertIcon,
   CreditCardIcon,
   ExternalLinkIcon,
+  InfoIcon,
   LoaderCircleIcon,
+  LockKeyholeIcon,
+  MinusIcon,
   RefreshCwIcon,
   SparklesIcon,
 } from "lucide-react";
@@ -22,7 +26,7 @@ import {
   type CustomerBillingOverview,
   type CustomerPlan,
 } from "@saas-core/api-client";
-import { BillingDetailsForm } from "./billing-details-form";
+import { billingAttention } from "#lib/billing-attention";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
 import {
@@ -34,16 +38,51 @@ import {
   CardTitle,
 } from "@saas-core/ui/components/card";
 import { cn } from "@saas-core/ui/lib/utils";
+import { BillingDetailsForm } from "./billing-details-form";
+import {
+  DemoPaymentBanner,
+  Fact,
+  Notice,
+  SectionHeader,
+  formatDay,
+  formatMoney,
+} from "./parts";
 
-export function CustomerBillingPanel() {
+/** The plan offered first to an organization without one. */
+const RECOMMENDED_PLAN = "starter";
+
+/**
+ * Limits compared between plans, in the order an owner weighs them. A key the
+ * catalogue does not use is skipped.
+ * ponytail: core's quota keys only; a product's own quota needs a label here.
+ */
+const QUOTAS = [
+  "sites.max",
+  "team_members.max",
+  "locations.max",
+  "appointments.monthly",
+  "storage.bytes",
+  "email.monthly",
+  "credits.monthly",
+] as const;
+
+export function CustomerBillingPanel({
+  featureLabels = {},
+}: {
+  /** Plan features as a customer reads them — the pricing page's own words. */
+  featureLabels?: Record<string, string>;
+}) {
   const t = useTranslations("CustomerBilling");
-  const locale = useLocale();
   const searchParams = useSearchParams();
   const checkoutState = searchParams.get("checkout");
   const checkoutSessionId = searchParams.get("session_id");
+  // Another screen sends the owner here when its feature is not in the plan.
+  const requestedFeature = searchParams.get("feature");
   const checkoutKeys = useRef<Record<string, string>>({});
   const activationResultRef = useRef<HTMLDivElement>(null);
   const [overview, setOverview] = useState<CustomerBillingOverview>();
+  // When the overview was read: "days left" is counted from it, not from render.
+  const [loadedAt, setLoadedAt] = useState(0);
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState<string>();
   const [problem, setProblem] = useState<string>();
@@ -56,9 +95,10 @@ export function CustomerBillingPanel() {
     setProblemRetry(undefined);
     try {
       setOverview(await getCustomerBillingOverview());
+      setLoadedAt(Date.now());
     } catch (error) {
       setProblem(errorMessage(error, t));
-      setProblemRetry("load");
+      setProblemRetry(retryAfterLoad(error));
     } finally {
       setLoading(false);
     }
@@ -68,12 +108,14 @@ export function CustomerBillingPanel() {
     let mounted = true;
     void getCustomerBillingOverview()
       .then((data) => {
-        if (mounted) setOverview(data);
+        if (!mounted) return;
+        setOverview(data);
+        setLoadedAt(Date.now());
       })
       .catch((error: unknown) => {
         if (mounted) {
           setProblem(errorMessage(error, t));
-          setProblemRetry("load");
+          setProblemRetry(retryAfterLoad(error));
         }
       })
       .finally(() => {
@@ -90,7 +132,7 @@ export function CustomerBillingPanel() {
 
   async function choosePlan(plan: CustomerPlan) {
     if (
-      plan.is_current ||
+      (plan.is_current && overview?.has_active_subscription) ||
       pending ||
       (overview?.payment_mode === "simulated" &&
         overview.has_active_subscription)
@@ -168,37 +210,52 @@ export function CustomerBillingPanel() {
     }
   }
 
-  const subscription = overview?.subscription;
   const isSimulated = overview?.payment_mode === "simulated";
+  // A free trial is granted once per organization: after any earlier plan the
+  // activation starts a paid one, so the panel does not promise a trial.
+  const trialEligible =
+    !overview?.subscription || overview.subscription.state === "unconfigured";
+  const livePlan = overview?.has_active_subscription
+    ? overview.plans.find((plan) => plan.is_current)
+    : undefined;
+  // Only a feature the pricing page names: the message has to say which.
+  const featureLabel = requestedFeature
+    ? featureLabels[requestedFeature]
+    : undefined;
+  const missingFeature =
+    requestedFeature &&
+    featureLabel &&
+    !livePlan?.features.includes(requestedFeature)
+      ? { key: requestedFeature, label: featureLabel }
+      : undefined;
+  // The same question as the plan buttons ask: a canceled plan still has a
+  // payload, and reading its presence as "already subscribed" is what
+  // silently skipped the activation after a real payment.
+  const awaitingActivation =
+    checkoutState === "success" &&
+    overview !== undefined &&
+    !overview.has_active_subscription &&
+    !activated;
+  // One primary action per screen. Back from the payment form it is the
+  // activation; otherwise one plan stands out — the cheapest with the feature
+  // asked for, else the usual first choice for an organization without a
+  // plan — and for a subscriber it is the payment portal.
+  const highlighted = awaitingActivation
+    ? undefined
+    : missingFeature
+      ? overview?.plans.find((plan) =>
+          plan.features.includes(missingFeature.key),
+        )?.key
+      : overview?.has_active_subscription
+        ? undefined
+        : RECOMMENDED_PLAN;
 
   return (
     <div className="space-y-8">
-      {isSimulated ? (
-        <aside
-          aria-label={t("simulationBannerTitle")}
-          className="flex items-start gap-3 rounded-2xl border border-info-foreground/30 bg-info p-4 text-sm"
-        >
-          <SparklesIcon
-            aria-hidden="true"
-            className="mt-0.5 size-5 shrink-0 text-info-foreground"
-          />
-          <div>
-            <p className="font-medium">{t("simulationBannerTitle")}</p>
-            <p className="mt-1 text-muted-foreground">
-              {t("simulationBannerDescription")}
-            </p>
-          </div>
-        </aside>
-      ) : null}
+      {isSimulated ? <DemoPaymentBanner /> : null}
 
-      {/* The same question as the plan buttons ask: a canceled plan still has a
-          payload, and reading its presence as "already subscribed" is what
-          silently skipped the activation after a real payment. */}
-      {checkoutState === "success" &&
-      overview &&
-      !overview.has_active_subscription &&
-      !activated ? (
-        <Card className="border-primary/30 bg-primary/[0.035]">
+      {awaitingActivation ? (
+        <Card className="ring-2 ring-primary">
           <CardHeader>
             <CardTitle>
               <h2 className="flex items-center gap-2">
@@ -213,8 +270,12 @@ export function CustomerBillingPanel() {
             <CardDescription>
               {t(
                 isSimulated
-                  ? "simulatedCheckoutSuccessDescription"
-                  : "checkoutSuccessDescription",
+                  ? trialEligible
+                    ? "simulatedCheckoutSuccessDescription"
+                    : "simulatedCheckoutSuccessPaidDescription"
+                  : trialEligible
+                    ? "checkoutSuccessDescription"
+                    : "checkoutSuccessPaidDescription",
               )}
             </CardDescription>
           </CardHeader>
@@ -229,94 +290,85 @@ export function CustomerBillingPanel() {
               ) : (
                 <SparklesIcon aria-hidden="true" />
               )}
-              {t("activateTrial")}
+              {t(trialEligible ? "activateTrial" : "activatePlan")}
             </Button>
           </CardFooter>
         </Card>
       ) : null}
 
       {activated ? (
-        <div
+        <Notice
           aria-live="polite"
-          className="flex items-start gap-3 rounded-2xl border border-success-foreground/30 bg-success p-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          icon={CheckIcon}
           ref={activationResultRef}
           role="status"
           tabIndex={-1}
+          title={t(
+            overview?.subscription?.state === "trialing"
+              ? "trialActivatedTitle"
+              : "planActivatedTitle",
+          )}
+          tone="success"
         >
-          <CheckIcon
-            aria-hidden="true"
-            className="mt-0.5 size-5 shrink-0 text-success-foreground"
-          />
-          <div>
-            <p className="font-medium">{t("trialActivatedTitle")}</p>
-            <p className="mt-1 text-muted-foreground">
-              {t("trialActivatedDescription")}
-            </p>
-          </div>
-        </div>
+          {t("trialActivatedDescription")}
+        </Notice>
       ) : null}
 
       {checkoutState === "canceled" && overview ? (
-        <div
-          className="flex items-start gap-3 rounded-2xl border border-warning-foreground/30 bg-warning p-4 text-sm"
+        <Notice
+          icon={CircleAlertIcon}
           role="status"
+          title={t(
+            isSimulated
+              ? "simulatedCheckoutCanceledTitle"
+              : "checkoutCanceledTitle",
+          )}
+          tone="warning"
         >
-          <CircleAlertIcon
-            aria-hidden="true"
-            className="mt-0.5 size-5 text-warning-foreground"
-          />
-          <div>
-            <p className="font-medium">
-              {t(
-                isSimulated
-                  ? "simulatedCheckoutCanceledTitle"
-                  : "checkoutCanceledTitle",
-              )}
-            </p>
-            <p className="mt-1 text-muted-foreground">
-              {t(
-                isSimulated
-                  ? "simulatedCheckoutCanceledDescription"
-                  : "checkoutCanceledDescription",
-              )}
-            </p>
-          </div>
-        </div>
+          {t(
+            isSimulated
+              ? "simulatedCheckoutCanceledDescription"
+              : "checkoutCanceledDescription",
+          )}
+        </Notice>
       ) : null}
 
       {problem ? (
-        <div
-          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
+        <Notice
+          action={
+            problemRetry ? (
+              <Button
+                disabled={loading || Boolean(pending)}
+                onClick={() =>
+                  void (problemRetry === "activation"
+                    ? activateTrial()
+                    : load())
+                }
+                type="button"
+                variant="outline"
+              >
+                <RefreshCwIcon
+                  aria-hidden="true"
+                  className={loading || pending ? "animate-spin" : ""}
+                />
+                {t(problemRetry === "activation" ? "retryActivation" : "retry")}
+              </Button>
+            ) : null
+          }
+          icon={CircleAlertIcon}
           role="alert"
-        >
-          <span>{problem}</span>
-          {problemRetry ? (
-            <Button
-              disabled={loading || Boolean(pending)}
-              onClick={() =>
-                void (problemRetry === "activation" ? activateTrial() : load())
-              }
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <RefreshCwIcon
-                aria-hidden="true"
-                className={loading || pending ? "animate-spin" : ""}
-              />
-              {t(problemRetry === "activation" ? "retryActivation" : "retry")}
-            </Button>
-          ) : null}
-        </div>
+          title={problem}
+          tone="destructive"
+        />
       ) : null}
 
       {loading && !overview ? (
-        <div aria-label={t("loading")} className="space-y-4">
-          <div className="h-48 animate-pulse rounded-2xl bg-muted" />
+        <div aria-busy="true" aria-label={t("loading")} className="space-y-4">
+          <div className="h-44 animate-pulse rounded-xl bg-muted" />
           <div className="grid gap-4 lg:grid-cols-3">
             {[0, 1, 2].map((item) => (
               <div
-                className="h-96 animate-pulse rounded-2xl bg-muted"
+                className="h-96 animate-pulse rounded-xl bg-muted"
                 key={item}
               />
             ))}
@@ -325,151 +377,262 @@ export function CustomerBillingPanel() {
       ) : null}
 
       {overview ? (
-        <section aria-labelledby="current-plan-heading">
-          <Card>
-            <CardHeader>
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="space-y-1">
-                  <CardTitle>
-                    <h2 id="current-plan-heading">{t("currentPlan")}</h2>
-                  </CardTitle>
-                  <CardDescription>
-                    {subscription
-                      ? t("currentPlanDescription", {
-                          plan: planLabel(subscription.plan_key, t),
-                          state: stateLabel(subscription.state, t, isSimulated),
-                        })
-                      : t("noPlanDescription")}
-                  </CardDescription>
-                </div>
-                {subscription ? (
-                  <Badge
-                    variant={
-                      subscription.access_mode === "full"
-                        ? "default"
-                        : "outline"
-                    }
-                  >
-                    {stateLabel(subscription.state, t, isSimulated)}
-                  </Badge>
-                ) : (
-                  <Badge variant="outline">{t("noPlan")}</Badge>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-3">
-              <StatusValue
-                label={t("planLabel")}
-                value={subscription ? planLabel(subscription.plan_key, t) : "—"}
-              />
-              <StatusValue
-                label={t("trialEnds")}
-                value={formatDate(subscription?.trial_end, locale)}
-              />
-              <StatusValue
-                label={t("periodEnds")}
-                value={formatDate(subscription?.current_period_end, locale)}
-              />
-            </CardContent>
-            {subscription?.cancel_at_period_end ? (
-              <CardContent className="pt-0">
-                <div className="rounded-xl border border-warning-foreground/30 bg-warning p-4 text-sm">
-                  {t("cancellationScheduled", {
-                    date: formatDate(subscription.current_period_end, locale),
-                  })}
-                </div>
-              </CardContent>
-            ) : null}
-            {subscription && subscription.access_mode !== "full" ? (
-              <CardContent className="pt-0">
-                <div className="rounded-xl border border-warning-foreground/30 bg-warning p-4 text-sm">
-                  {accessModeLabel(subscription.access_mode, t, isSimulated)}
-                </div>
-              </CardContent>
-            ) : null}
-            {subscription?.grace_period_end ? (
-              <CardContent className="pt-0">
-                <div className="rounded-xl border border-warning-foreground/30 bg-warning p-4 text-sm">
-                  {t(isSimulated ? "simulatedGraceEnds" : "graceEnds", {
-                    date: formatDate(subscription.grace_period_end, locale),
-                  })}
-                </div>
-              </CardContent>
-            ) : null}
-            {overview.payment_mode === "stripe" &&
-            overview.portal_available &&
-            overview.can_manage ? (
-              <CardFooter className="justify-end">
-                <Button
-                  disabled={Boolean(pending)}
-                  onClick={() => void openPortal()}
-                  variant="outline"
-                >
-                  {pending === "portal" ? (
-                    <LoaderCircleIcon
-                      aria-hidden="true"
-                      className="animate-spin"
-                    />
-                  ) : (
-                    <CreditCardIcon aria-hidden="true" />
-                  )}
-                  {t("managePayment")}
-                  <ExternalLinkIcon aria-hidden="true" />
-                </Button>
-              </CardFooter>
-            ) : null}
-          </Card>
-        </section>
-      ) : null}
-
-      {overview ? (
-        <BillingDetailsForm
-          canManage={overview.can_manage}
-          details={overview.billing_details}
-          onSaved={(billing_details) =>
-            setOverview({ ...overview, billing_details })
-          }
-        />
-      ) : null}
-
-      {overview ? (
-        <section aria-labelledby="plans-heading" className="space-y-4">
-          <div className="max-w-3xl space-y-2">
-            <h2
-              className="text-2xl font-semibold tracking-tight"
+        <>
+          <CurrentPlan
+            emphasizePortal={overview.has_active_subscription && !highlighted}
+            now={loadedAt}
+            onPortal={() => void openPortal()}
+            overview={overview}
+            pending={pending}
+          />
+          <BillingDetailsForm
+            canManage={overview.can_manage}
+            details={overview.billing_details}
+            onSaved={(billing_details) =>
+              setOverview({ ...overview, billing_details })
+            }
+          />
+          <section aria-labelledby="plans-heading" className="space-y-4">
+            <SectionHeader
+              description={t("plansDescription")}
               id="plans-heading"
-            >
-              {t("plansTitle")}
-            </h2>
-            <p className="text-muted-foreground">{t("plansDescription")}</p>
-          </div>
-          <div className="grid items-stretch gap-4 lg:grid-cols-3">
-            {overview.plans.map((plan) => (
-              <PlanCard
-                busy={Boolean(pending)}
-                canManage={overview.can_manage}
-                detailsComplete={overview.billing_details.missing.length === 0}
-                hasSubscription={overview.has_active_subscription}
-                highlighted={plan.key === "starter"}
-                key={`${plan.key}:${plan.version}`}
-                locale={locale}
-                onChoose={() => void choosePlan(plan)}
-                pending={pending === plan.key}
-                plan={plan}
-                paymentMode={overview.payment_mode}
-              />
-            ))}
-          </div>
-        </section>
+              title={t("plansTitle")}
+            />
+            {missingFeature ? (
+              <Notice
+                icon={LockKeyholeIcon}
+                title={t("featureMissingTitle", {
+                  feature: missingFeature.label,
+                })}
+                tone="warning"
+              >
+                {highlighted ? t("featureMissingBody") : null}
+              </Notice>
+            ) : null}
+            <ul className="grid items-stretch gap-4 lg:grid-cols-3">
+              {overview.plans.map((plan) => (
+                <li className="flex" key={`${plan.key}:${plan.version}`}>
+                  <PlanCard
+                    badge={
+                      plan.is_current && overview.has_active_subscription
+                        ? t("currentPlan")
+                        : plan.key !== highlighted
+                          ? undefined
+                          : missingFeature
+                            ? t("includesFeature")
+                            : t("recommended")
+                    }
+                    busy={Boolean(pending)}
+                    canManage={overview.can_manage}
+                    detailsComplete={
+                      overview.billing_details.missing.length === 0
+                    }
+                    featureLabels={featureLabels}
+                    hasSubscription={overview.has_active_subscription}
+                    highlighted={plan.key === highlighted}
+                    onChoose={() => void choosePlan(plan)}
+                    paymentMode={overview.payment_mode}
+                    pending={pending === plan.key}
+                    plan={plan}
+                    plans={overview.plans}
+                    showTrial={trialEligible}
+                  />
+                </li>
+              ))}
+            </ul>
+          </section>
+        </>
       ) : null}
     </div>
   );
 }
 
+function CurrentPlan({
+  overview,
+  now,
+  pending,
+  emphasizePortal,
+  onPortal,
+}: {
+  overview: CustomerBillingOverview;
+  now: number;
+  pending: string | undefined;
+  emphasizePortal: boolean;
+  onPortal: () => void;
+}) {
+  const t = useTranslations("CustomerBilling");
+  const locale = useLocale();
+  const subscription = overview.subscription;
+  const isSimulated = overview.payment_mode === "simulated";
+  const plan = overview.plans.find((item) => item.is_current);
+  const portal =
+    overview.payment_mode === "stripe" &&
+    overview.portal_available &&
+    overview.can_manage;
+  // Scheduled to end: a live plan that will not renew.
+  const ending =
+    overview.has_active_subscription && subscription?.cancel_at_period_end
+      ? (subscription.current_period_end ?? subscription.trial_end)
+      : null;
+  const attention = billingAttention(subscription, now);
+  const day = (value: string) => formatDay(value, locale);
+  const payment = (label: string, date: string) => ({
+    label,
+    value: plan
+      ? t("paymentValue", {
+          date: day(date),
+          amount: formatMoney(plan.unit_amount_minor, plan.currency, locale),
+        })
+      : day(date),
+  });
+
+  const facts: { label: string; value: string }[] = [];
+  if (plan && overview.has_active_subscription)
+    facts.push({
+      label: t("priceLabel"),
+      value: `${formatMoney(plan.unit_amount_minor, plan.currency, locale)} ${t(
+        plan.billing_interval === "year" ? "perYearNet" : "perMonthNet",
+      )}`,
+    });
+  if (subscription?.state === "trialing" && subscription.trial_end) {
+    facts.push({ label: t("trialEnds"), value: day(subscription.trial_end) });
+    if (!ending) facts.push(payment(t("firstPayment"), subscription.trial_end));
+  } else if (ending) {
+    facts.push({ label: t("planEnds"), value: day(ending) });
+  } else if (
+    subscription?.state === "active" &&
+    subscription.current_period_end
+  ) {
+    facts.push(payment(t("nextPayment"), subscription.current_period_end));
+  } else if (
+    subscription?.state === "grace_period" &&
+    subscription.grace_period_end
+  ) {
+    facts.push({
+      label: t("accessUntil"),
+      value: day(subscription.grace_period_end),
+    });
+  }
+
+  // One message, the most urgent: access, then money, then dates.
+  const notice =
+    attention?.kind === "limited" ? (
+      <Notice icon={LockKeyholeIcon} title={t("limitedTitle")} tone="warning">
+        {accessModeLabel(subscription?.access_mode ?? null, t, isSimulated)}
+      </Notice>
+    ) : attention?.kind === "payment" ? (
+      <Notice
+        icon={CircleAlertIcon}
+        title={t(isSimulated ? "simulatedPaymentTitle" : "paymentFailedTitle")}
+        tone="destructive"
+      >
+        {subscription?.grace_period_end
+          ? t(isSimulated ? "simulatedGraceEnds" : "graceEnds", {
+              date: day(subscription.grace_period_end),
+            })
+          : null}
+      </Notice>
+    ) : ending ? (
+      <Notice
+        icon={CalendarClockIcon}
+        title={t("cancelScheduledTitle", { date: day(ending) })}
+        tone="warning"
+      >
+        {t(portal ? "cancelScheduledPortal" : "cancelScheduledBody")}
+      </Notice>
+    ) : attention?.kind === "trial" ? (
+      <Notice
+        icon={InfoIcon}
+        title={
+          attention.days === null
+            ? t("trialNoDate")
+            : t("trialDaysLeft", { days: attention.days })
+        }
+        tone="info"
+      >
+        {t(isSimulated ? "trialBodySimulated" : "trialBody")}
+      </Notice>
+    ) : attention?.kind === "canceled" ? (
+      <Notice icon={CircleAlertIcon} title={t("canceledTitle")} tone="warning">
+        {t("canceledBody")}
+      </Notice>
+    ) : null;
+
+  return (
+    <section aria-labelledby="current-plan-heading">
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1">
+              <CardTitle className="text-muted-foreground">
+                <h2 id="current-plan-heading">{t("currentPlan")}</h2>
+              </CardTitle>
+              <p className="text-2xl font-semibold tracking-tight">
+                {subscription?.plan_key
+                  ? planLabel(subscription.plan_key, overview.plans, t)
+                  : t("noPlan")}
+              </p>
+            </div>
+            {subscription ? (
+              <Badge variant={stateBadge(subscription.state, ending)}>
+                {ending
+                  ? t("states.cancel_scheduled")
+                  : stateLabel(subscription.state, t, isSimulated)}
+              </Badge>
+            ) : null}
+          </div>
+          {!subscription?.plan_key ? (
+            <CardDescription>{t("noPlanDescription")}</CardDescription>
+          ) : null}
+        </CardHeader>
+        {facts.length > 0 || notice ? (
+          <CardContent className="space-y-4">
+            {facts.length > 0 ? (
+              <dl className="grid gap-3 sm:grid-cols-3">
+                {facts.map((fact) => (
+                  <Fact key={fact.label} {...fact} />
+                ))}
+              </dl>
+            ) : null}
+            {notice}
+          </CardContent>
+        ) : null}
+        {portal ? (
+          <CardFooter className="flex-wrap gap-3">
+            <Button
+              disabled={Boolean(pending)}
+              onClick={onPortal}
+              variant={emphasizePortal ? "default" : "outline"}
+            >
+              {pending === "portal" ? (
+                <LoaderCircleIcon aria-hidden="true" className="animate-spin" />
+              ) : (
+                <CreditCardIcon aria-hidden="true" />
+              )}
+              {t(
+                subscription?.state === "grace_period"
+                  ? "updatePayment"
+                  : "managePayment",
+              )}
+              <ExternalLinkIcon aria-hidden="true" />
+            </Button>
+            <p className="min-w-0 flex-1 basis-56 text-sm text-muted-foreground">
+              {t("portalHelp")}
+            </p>
+          </CardFooter>
+        ) : null}
+      </Card>
+    </section>
+  );
+}
+
 function PlanCard({
   plan,
-  locale,
+  plans,
+  badge,
   highlighted,
+  showTrial,
+  featureLabels,
   pending,
   busy,
   canManage,
@@ -479,8 +642,11 @@ function PlanCard({
   onChoose,
 }: {
   plan: CustomerPlan;
-  locale: string;
+  plans: CustomerPlan[];
+  badge: string | undefined;
   highlighted: boolean;
+  showTrial: boolean;
+  featureLabels: Record<string, string>;
   pending: boolean;
   busy: boolean;
   canManage: boolean;
@@ -490,61 +656,124 @@ function PlanCard({
   onChoose: () => void;
 }) {
   const t = useTranslations("CustomerBilling");
-  const benefits = planBenefits(plan, t, locale);
+  const locale = useLocale();
+  // The snapshot keeps naming the last plan after it ended, and the API sells
+  // it again then; only a live plan is the one there is nothing to buy.
+  const current = plan.is_current && hasSubscription;
   const simulatedPlanLocked =
-    paymentMode === "simulated" && hasSubscription && !plan.is_current;
+    paymentMode === "simulated" && hasSubscription && !current;
+  // Every card lists the same rows in the same order, so the plans compare
+  // line by line; a limit a plan lacks reads as a dash.
+  const quotas = QUOTAS.filter((key) =>
+    plans.some((item) => key in item.quotas),
+  );
+  const features = Object.keys(featureLabels).filter((key) =>
+    plans.some((item) => item.features.includes(key)),
+  );
   return (
     <Card
       className={cn(
-        "relative rounded-2xl",
-        highlighted && "border-primary/40 ring-2 ring-primary/20",
+        "w-full",
+        highlighted && "ring-2 ring-primary",
+        current && "ring-2 ring-foreground/25",
       )}
     >
-      {highlighted ? (
-        <Badge className="absolute right-4 top-4" variant="default">
-          {t("recommended")}
-        </Badge>
-      ) : null}
-      <CardHeader className="pr-28">
-        <CardTitle className="text-xl">
-          <h3>{planLabel(plan.key, t)}</h3>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-6">
-        <div>
+      <CardHeader className="gap-2">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <CardTitle className="text-lg font-semibold">
+            <h3>{planLabel(plan.key, plans, t)}</h3>
+          </CardTitle>
+          {badge ? (
+            <Badge variant={highlighted ? "default" : "secondary"}>
+              {badge}
+            </Badge>
+          ) : null}
+        </div>
+        <p>
           <span className="text-3xl font-semibold tracking-tight">
-            {formatPrice(plan.unit_amount_minor, plan.currency, locale)}
+            {formatMoney(plan.unit_amount_minor, plan.currency, locale)}
           </span>
           <span className="text-sm text-muted-foreground">
             {" "}
             {t(plan.billing_interval === "year" ? "perYearNet" : "perMonthNet")}
           </span>
-          {plan.trial_days > 0 ? (
-            <p className="mt-2 text-sm font-medium text-primary">
-              {t("trialDays", { count: plan.trial_days })}
-            </p>
-          ) : null}
-        </div>
-        <p className="min-h-12 text-sm leading-6 text-muted-foreground">
-          {planDescription(plan, t)}
         </p>
-        <ul className="space-y-3 text-sm">
-          {benefits.map((benefit) => (
-            <li className="flex items-start gap-2" key={benefit}>
-              <CheckIcon
-                aria-hidden="true"
-                className="mt-0.5 size-4 shrink-0 text-primary"
-              />
-              <span>{benefit}</span>
-            </li>
-          ))}
-        </ul>
+        {showTrial && plan.trial_days > 0 ? (
+          <p className="text-sm font-medium text-primary">
+            {t("trialDays", { count: plan.trial_days })}
+          </p>
+        ) : null}
+      </CardHeader>
+      <CardContent className="flex flex-1 flex-col gap-5">
+        {quotas.length > 0 ? (
+          <div className="space-y-2">
+            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              {t("limits")}
+            </p>
+            <dl className="divide-y divide-border">
+              {quotas.map((key) => (
+                <div
+                  className="flex items-baseline justify-between gap-3 py-2"
+                  key={key}
+                >
+                  <dt className="text-muted-foreground">
+                    {t(`quotas.${key.replace(".", "_")}`)}
+                  </dt>
+                  <dd className="font-medium tabular-nums">
+                    {key in plan.quotas
+                      ? quotaValue(key, plan.quotas[key]!, locale)
+                      : "—"}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        ) : null}
+        {features.length > 0 ? (
+          <div className="space-y-2">
+            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              {t("features")}
+            </p>
+            <ul className="space-y-2">
+              {features.map((key) => {
+                const included = plan.features.includes(key);
+                return (
+                  <li
+                    className={cn(
+                      "flex items-start gap-2",
+                      !included && "text-muted-foreground",
+                    )}
+                    key={key}
+                  >
+                    {included ? (
+                      <CheckIcon
+                        aria-hidden="true"
+                        className="mt-0.5 size-4 shrink-0 text-primary"
+                      />
+                    ) : (
+                      <MinusIcon
+                        aria-hidden="true"
+                        className="mt-0.5 size-4 shrink-0"
+                      />
+                    )}
+                    <span>
+                      {featureLabels[key]}
+                      {included ? null : (
+                        <span className="sr-only">: {t("notIncluded")}</span>
+                      )}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : null}
       </CardContent>
       <CardFooter>
         <Button
           className="w-full"
           disabled={
-            plan.is_current ||
+            current ||
             simulatedPlanLocked ||
             !detailsComplete ||
             (!hasSubscription && !plan.checkout_available) ||
@@ -558,7 +787,7 @@ function PlanCard({
           {pending ? (
             <LoaderCircleIcon aria-hidden="true" className="animate-spin" />
           ) : null}
-          {plan.is_current
+          {current
             ? t("current")
             : !canManage
               ? t(
@@ -589,51 +818,26 @@ function PlanCard({
   );
 }
 
-function StatusValue({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl bg-muted/50 p-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </p>
-      <p className="mt-1 font-semibold">{value}</p>
-    </div>
-  );
-}
-
 type Translator = ReturnType<typeof useTranslations<"CustomerBilling">>;
 
-function planBenefits(plan: CustomerPlan, t: Translator, locale: string) {
-  const items = [
-    t("sitesLimit", { count: plan.quotas["sites.max"] ?? 0 }),
-    t("locationsLimit", { count: plan.quotas["locations.max"] ?? 0 }),
-    t("appointmentsLimit", {
-      count: new Intl.NumberFormat(locale).format(
-        plan.quotas["appointments.monthly"] ?? 0,
-      ),
-    }),
-  ];
-  if (plan.features.includes("custom_domain.enabled"))
-    items.push(t("customDomain"));
-  else items.push(t("platformDomain"));
-  return items;
+function quotaValue(key: string, value: number, locale: string) {
+  if (key === "storage.bytes")
+    return new Intl.NumberFormat(locale, {
+      style: "unit",
+      unit: "gigabyte",
+      maximumFractionDigits: 1,
+    }).format(value / 1024 ** 3);
+  return new Intl.NumberFormat(locale).format(value);
 }
 
-function planLabel(key: string | null | undefined, t: Translator) {
+/** Core plans have translated names; any other plan keeps its catalogue name. */
+function planLabel(key: string, plans: CustomerPlan[], t: Translator) {
   const labels: Record<string, string> = {
     profile: t("planProfile"),
     starter: t("planWebsite"),
     pro: t("planPro"),
   };
-  return key ? (labels[key] ?? key) : "—";
-}
-
-function planDescription(plan: CustomerPlan, t: Translator) {
-  const descriptions: Record<string, string> = {
-    profile: t("planProfileDescription"),
-    starter: t("planWebsiteDescription"),
-    pro: t("planProDescription"),
-  };
-  return descriptions[plan.key] ?? plan.description;
+  return labels[key] ?? plans.find((plan) => plan.key === key)?.name ?? key;
 }
 
 function stateLabel(state: string, t: Translator, isSimulated = false) {
@@ -651,6 +855,15 @@ function stateLabel(state: string, t: Translator, isSimulated = false) {
   return known.has(state) ? t(`states.${state}`) : state;
 }
 
+function stateBadge(
+  state: string,
+  ending: string | null,
+): "default" | "destructive" | "outline" {
+  if (state === "grace_period" || state === "suspended") return "destructive";
+  if (!ending && (state === "active" || state === "trialing")) return "default";
+  return "outline";
+}
+
 function accessModeLabel(
   mode: string | null,
   t: Translator,
@@ -664,20 +877,11 @@ function accessModeLabel(
   return t("accessModes.unknown");
 }
 
-function formatPrice(amount: number, currency: string, locale: string) {
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency,
-    maximumFractionDigits: 0,
-  }).format(amount / 100);
-}
-
-function formatDate(value: string | null | undefined, locale: string) {
-  return value
-    ? new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(
-        new Date(value),
-      )
-    : "—";
+/** Retrying a refusal of permission only repeats it. */
+function retryAfterLoad(error: unknown): "load" | undefined {
+  return isProblemCode(error, "organization_permission_denied")
+    ? undefined
+    : "load";
 }
 
 function errorMessage(
