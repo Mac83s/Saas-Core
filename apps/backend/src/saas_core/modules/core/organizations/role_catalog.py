@@ -134,4 +134,8 @@ def sync_system_roles(using: str = "default") -> dict[str, int]:
 def sync_after_migrate(sender: Any, using: str = "default", **_: Any) -> None:
     changes = sync_system_roles(using)
     if any(changes.values()):
-        logger.info("organization_type_roles_synced", extra=changes)
+        # Prefixed: `created` is a LogRecord attribute and may not be overwritten.
+        logger.info(
+            "organization_type_roles_synced",
+            extra={f"roles_{key}": value for key, value in changes.items()},
+        )
