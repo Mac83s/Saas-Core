@@ -99,9 +99,14 @@ wspólne dla kilku aplikacji rolniczych muszą leżeć w warstwie `shared`.
   `farms.read`/`farms.manage` (role globalne przez `roleGrants` i migrację),
   cecha planu `farms.enabled` publikowana migracją modułu. API `/api/v1/farms/`
   i ekrany „Gospodarstwa” w panelu. `api.py`: `FARM_MODEL`, `farm_for_tenant`.
+- Po przeglądzie (`95acd54`): numer siedziby stada przechowywany bez
+  separatorów (`PL012345678001`), bo jedno stado wpisywano w kilku zapisach;
+  duplikaty rozstrzyga constraint bazy; `animal_count` liczy baza.
 - Profil wzorcowy `agro` (Business + rejestr) jest profilem głównym Saas-Core
-  w `product.json`: testy, typecheck i kontrakt obejmują rejestr. Obrazy
-  (`images`) nadal tylko `business` i `core-only`.
+  w `product.json`: testy obejmują rejestr. Obrazy (`images`) nadal tylko
+  `business` i `core-only`. Typecheck i kontrakt obejmują cały katalog
+  modułów w każdym repozytorium, więc także produkty bez rejestru.
+- HoofCare przeniósł swoje `Farm`/`Animal` do rejestru (HC-ADR-001).
 
 ## Alternatywy odrzucone
 

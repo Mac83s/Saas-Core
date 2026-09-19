@@ -60,7 +60,16 @@ przekazaniem własności 400, zaproszenie „korektor” 201, globalny „manage
 Dowód: rola własna ogranicza API na stacku; zmiana katalogu po redeployu
 aktualizuje role bez migracji.
 
-## Etap 2 — `shared.farms`: karty firm (Saas-Core + HoofCare)
+## Etap 2 — `shared.farms`: karty firm (Saas-Core + HoofCare) — ZROBIONE 2026-09-19
+
+Stan: Saas-Core `56696c4` (moduł, profil `agro`) + `95acd54` (poprawki po
+przeglądzie: kontrola statyczna całego katalogu, `billing.feature_migrations`,
+jedna postać numeru siedziby stada, wyścigi → 400, licznik zwierząt w bazie);
+HoofCare `bff4d49` (migracja 0007, planowanie wizyty, panel „Wizyty w
+gospodarstwach”); MedPlano bierze rdzeń bez składania rejestru. Punkt 3 bez
+rozszerzenia formularza rezerwacji rdzenia: wizytę planuje ekran wertykału
+przez `booking.api.create_appointment` i wolne terminy z `/booking/slots/`.
+Dowody w HANDOFF.
 
 1. Moduł `shared.farms`: gospodarstwo (numer siedziby stada, NIP opcjonalny,
    adres, hodowca, kontakt), zwierzę (gatunek, numer identyfikacyjny, numer

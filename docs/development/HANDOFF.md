@@ -1,5 +1,53 @@
 # Handoff następnej sesji
 
+## Rejestr gospodarstw `shared.farms` i wizyty HoofCare (etap 2 planu 15), 2026-09-19
+
+Saas-Core `56696c4` + `95acd54`, HoofCare `a037ef1` (rdzeń) + `bff4d49`,
+MedPlano `28030d7` (rdzeń). ADR-051 „Wdrożenie etapu 2”, HC-ADR-001
+„Wdrożenie etapu 2”, plan 15 etap 2 ZROBIONE.
+
+- Rdzeń: moduł `shared.farms` (gospodarstwa, zwierzęta, katalog gatunków,
+  RLS i strażnik relacji, audyt, `farms.read`/`farms.manage`, cecha
+  `farms.enabled`), panel „Gospodarstwa”. Profil wzorcowy `agro` jest główny
+  w `product.json` Saas-Core; obrazy dalej `business` i `core-only`.
+- **Kontrola statyczna obejmuje cały katalog modułów** (`settings/typecheck`,
+  także `migration_check` i OpenAPI), nie tylko główny profil. Powód: moduł
+  wspólny, którego produkt nie składa (MedPlano bez rejestru), nadal jest kodem
+  rdzenia typowanym przez api-client i mypy. Kontrakt MedPlano opisuje więc
+  ścieżki `/api/v1/farms/`, które w runtime zwracają 404.
+- Moduł publikuje swoją cechę planu przez
+  `billing.feature_migrations.publish_feature`/`withdraw_feature` (ponowne
+  zastosowanie po rollbacku przepina plany, wycofanie nie kasuje cechy z
+  nadaniami). Ta sama poprawka w billing 0017.
+- Numer siedziby stada przechowywany bez separatorów (`PL012345678001`).
+- HoofCare: migracja 0007 przeniosła 3 gospodarstwa i 3 zwierzęta ze stosu;
+  `POST /api/v1/hoofcare/visits/` planuje wizytę w wolnym terminie rezerwacji.
+
+Dowody: przegląd 3 soczewkami z weryfikacją (13 potwierdzonych błędów,
+wszystkie poprawione); Saas-Core backend 715 passed / 2 skipped, frontend
+137/137; HoofCare backend 723 passed, frontend 137/137 + test panelu wizyt;
+kopia z głównym profilem bez rejestru: mypy 372 pliki bez błędów, kontrakt z
+rejestrem; migracja 0007 na bazie tymczasowej: przód, cofnięcie (tabele z RLS i
+triggerami, dane wracają), przód ponownie bez duplikatów. Na stosie hoofcare:
+migracje OK, plany `profile/starter/pro` v5 z `farms.enabled`, role typów z
+`farms.*`; API: numer w dwóch zapisach → 400, NIP „brak” → 400, `farm_id=abc`
+→ 400, licznik zwierząt 1; wizyta 201, powtórka z kluczem 200 (ta sama),
+bez klucza 400, gospodarstwo bez kontaktu 400, usługa innego rodzaju 400 (w
+kalendarzu nadal 1 wizyta), zajęty termin 409, cudze gospodarstwo 404; rola
+aplikacji `saas_core_app` (bez BYPASSRLS): bez tenanta 0 wierszy, każdy tenant
+widzi tylko swoje gospodarstwa, wstawienie do cudzej organizacji odrzucone.
+MedPlano i HoofCare przebudowane, `/healthz` 200.
+
+Otwarte:
+- organizacja z subskrypcją na starej wersji planu (na stosie
+  `korekcja-racic-nowak`, trial) nie ma `farms.enabled`, więc nie widzi
+  przeniesionych gospodarstw, dopóki nie przejdzie na nową wersję. Tak działa
+  reguła niezmiennych wersji planu; dla prawdziwych klientów potrzebna decyzja
+  (migracja subskrypcji albo nadanie cechy);
+- wizyta w HoofCare: przyjazd/wyjazd i odwołanie z ekranu wertykału (odwołanie
+  jest w kalendarzu rdzenia);
+- etapy 3–5 planu 15.
+
 ## Styl bazowy panelu z projektu HoofCare, 2026-09-19
 
 Panel dostał styl „Neutralny (shadcn)” z projektu Claude Design „UI mockupy do
