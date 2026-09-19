@@ -18,7 +18,7 @@ import {
   getServerSites,
   getServerUser,
 } from "#lib/server-auth";
-import { modulesFor } from "#lib/organization-types";
+import { allows, panelAccess } from "#lib/panel-navigation";
 import { Badge } from "@saas-core/ui/components/badge";
 import { buttonVariants } from "@saas-core/ui/components/button";
 import {
@@ -36,8 +36,11 @@ export default async function PanelPage() {
     getServerCurrentOrganization(),
     getTranslations("Dashboard"),
   ]);
-  const modules = modulesFor(organization?.organization_type);
-  const canManageBilling = organization?.role === "owner";
+  const access = panelAccess(organization);
+  const modules = new Set(access.modules);
+  const canManageBilling = access.isOwner;
+  // The same gates as the menu, so the start page offers no tile the menu hides.
+  const can = (permission: string) => allows(access, { permission });
   const billing =
     canManageBilling && modules.has("shared.billing")
       ? await getServerCustomerBillingOverview()
@@ -61,7 +64,7 @@ export default async function PanelPage() {
     modules.has("shared.sites") &&
     modules.has("shared.booking");
   const actions = [
-    modules.has("shared.sites")
+    modules.has("shared.sites") && can("site.content.edit")
       ? {
           href: "/panel/sites",
           icon: Globe2Icon,
@@ -69,7 +72,7 @@ export default async function PanelPage() {
           description: t("websiteDescription"),
         }
       : null,
-    modules.has("shared.booking")
+    modules.has("shared.booking") && can("booking.appointment.read")
       ? {
           href: "/panel/calendar",
           icon: CalendarDaysIcon,
@@ -77,12 +80,14 @@ export default async function PanelPage() {
           description: t("calendarDescription"),
         }
       : null,
-    {
-      href: "/panel/team",
-      icon: UsersIcon,
-      title: t("teamTitle"),
-      description: t("teamDescription"),
-    },
+    can("organization.members.read")
+      ? {
+          href: "/panel/team",
+          icon: UsersIcon,
+          title: t("teamTitle"),
+          description: t("teamDescription"),
+        }
+      : null,
     modules.has("shared.billing") && canManageBilling
       ? {
           href: "/panel/settings/billing",
@@ -94,11 +99,13 @@ export default async function PanelPage() {
   ].filter((item): item is NonNullable<typeof item> => item !== null);
   const primaryAction = needsPlan
     ? { href: "/panel/settings/billing", label: t("primaryPlanAction") }
-    : modules.has("shared.sites") && !hasWebsite
+    : modules.has("shared.sites") && can("site.content.edit") && !hasWebsite
       ? { href: "/panel/sites", label: t("primaryAction") }
-      : modules.has("shared.booking") && !hasBooking
+      : modules.has("shared.booking") &&
+          can("booking.appointment.manage") &&
+          !hasBooking
         ? { href: "/panel/calendar", label: t("calendarTitle") }
-        : modules.has("shared.sites")
+        : modules.has("shared.sites") && can("site.content.edit")
           ? { href: "/panel/sites", label: t("primaryAction") }
           : null;
 
@@ -113,7 +120,11 @@ export default async function PanelPage() {
           <div className="space-y-3">
             <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
               {t("greeting", {
-                name: organization?.name ?? user?.email.split("@")[0] ?? "",
+                name:
+                  user?.first_name ||
+                  organization?.name ||
+                  user?.email.split("@")[0] ||
+                  "",
               })}
             </h1>
             <p className="max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">

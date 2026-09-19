@@ -11,7 +11,14 @@ export type ProductNavigationItem = {
   module?: string;
   /** Shown only to organizations of these types (ADR-050); all when absent. */
   organizationTypes?: readonly string[];
+  /** "Praca" (daily work, the default) or "Firma" (running the business). */
+  group?: "work" | "company";
+  /** Hidden from a role of the organization's type that lacks it. */
+  permission?: string;
 };
+
+/** The one action the panel header offers everywhere, e.g. "Start trimming". */
+export type ProductPrimaryAction = Omit<ProductNavigationItem, "group">;
 
 type Messages = Record<string, Record<string, unknown>>;
 
@@ -21,8 +28,9 @@ type Messages = Record<string, Record<string, unknown>>;
  * `src/app`, so they need no entry here.
  */
 export type ProductExtension = {
-  /** Panel entries, placed after core's module entries and before "Team". */
+  /** Panel entries, appended to their group after core's own. */
   navigation?: ProductNavigationItem[];
+  primaryAction?: ProductPrimaryAction;
   /** Merged into core messages namespace by namespace. */
   messages?: Partial<Record<"pl" | "en", Messages>>;
   /** Copy for the marketing pages; without it they show the generic product. */

@@ -1,5 +1,33 @@
 # Handoff następnej sesji
 
+## Powłoka panelu 1a z projektu HoofCare, 2026-09-19
+
+Menu ma dwie grupy: „Praca” (Dziś, Kalendarz, Gospodarstwa oraz pozycje
+produktu z `group: "work"`) i „Firma” (Zespół, Strona internetowa, Wiadomości,
+Abonament, pozycje produktu z `group: "company"`, na końcu Ustawienia). SEO,
+Kredyty i Integracje zeszły z menu do zakładek wpisu, do którego należą
+(`PANEL_SECTIONS` w `lib/panel-navigation.ts`). Wpis prowadzi do pierwszej
+zakładki, którą dana osoba może otworzyć: właściciela Abonament prowadzi do
+planu, admina do kredytów. Nagłówek: stan połączenia, PL/EN, dzwonek,
+opcjonalna akcja główna produktu (`primaryAction` w slocie) i menu konta
+(imię, e-mail, ustawienia konta, wyloguj). Na górze menu przełącznik firmy z
+rolą; zostaje też bez aktywnej firmy, bo po logowaniu na kilka członkostw
+żadna nie jest aktywna. Poniżej 1024 px dolny pasek: trzy pierwsze wpisy
+„Pracy” i „Więcej”. Karta abonamentu tylko u właściciela i tylko, gdy wymaga
+uwagi (okres próbny, płatność, anulowany, ograniczony dostęp, brak planu).
+
+Bramki: moduł, `permissions` bieżącego członkostwa z API (`b7433d7`),
+właściciel, `limited` roli typu (korektor nie widzi Abonamentu). Strona
+„Dziś” filtruje kafle tymi samymi bramkami (`allows`).
+
+Otwarte: „Ustawienia” to nadal konto (sesje) + Zaawansowane (integracje), a
+dane firmy leżą w „Zespole”, aż powstanie ekran Ustawień z projektu (prompt
+12). Treść „Dziś” to wciąż kafle startowe rdzenia; pulpit dnia HoofCare
+przyjdzie ze slotem produktu. Wyszukiwarki z makiety nie ma (brak API).
+Dowody: frontend 147/147, UI 48/48, typy i lint czyste, przegląd trzema
+soczewkami (19 potwierdzonych uwag naprawionych), zrzuty podglądu powłoki
+(właściciel, korektor, bez aktywnej firmy; jasny i ciemny; 1440, 1024 i 390 px).
+
 ## Rejestr gospodarstw `shared.farms` i wizyty HoofCare (etap 2 planu 15), 2026-09-19
 
 Saas-Core `56696c4` + `95acd54`, HoofCare `a037ef1` (rdzeń) + `bff4d49`,

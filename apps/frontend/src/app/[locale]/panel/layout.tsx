@@ -3,21 +3,24 @@ import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 
 import { AppSidebar } from "#components/panel/app-sidebar";
-import { LocaleSwitcher } from "#components/locale-switcher";
+import { MobileTabBar } from "#components/panel/mobile-tab-bar";
+import { PanelHeader } from "#components/panel/panel-header";
+import { SectionTabs } from "#components/panel/section-tabs";
+import { billingAttention } from "#lib/billing-attention";
 import {
   getServerCurrentOrganization,
   getServerCustomerBillingOverview,
   getServerOrganizations,
   getServerUser,
 } from "#lib/server-auth";
-import { modulesFor } from "#lib/organization-types";
-import { LogoutButton } from "../../../modules/core/identity";
-import { NotificationBell } from "../../../modules/shared/notifications";
+import { typeRole, typeText } from "#lib/organization-types";
+import { panelAccess, type PanelAccess } from "#lib/panel-navigation";
 import {
   SidebarInset,
   SidebarProvider,
-  SidebarTrigger,
 } from "@saas-core/ui/components/sidebar";
+
+const GLOBAL_ROLES = new Set(["owner", "admin", "manager", "staff", "viewer"]);
 
 export default async function PanelLayout({
   children,
@@ -31,56 +34,50 @@ export default async function PanelLayout({
     getServerUser(),
     getServerCurrentOrganization(),
     getServerOrganizations(),
-    getTranslations("DashboardNav"),
+    getTranslations("Organizations"),
   ]);
   const prefix = locale === "pl" ? "" : `/${locale}`;
   if (!user) redirect(`${prefix}/login`);
   // An account without an organization has nothing to show yet: it starts by
   // saying who it is (ADR-050) instead of landing in an empty panel.
   if (organizations.length === 0) redirect(`${prefix}/onboarding`);
-  const modules = modulesFor(organization?.organization_type);
-  const billing =
-    organization?.role === "owner" && modules.has("shared.billing")
-      ? await getServerCustomerBillingOverview()
-      : null;
+
+  const access = panelAccess(organization);
+  const typeRoleInfo = typeRole(
+    organization?.organization_type,
+    organization?.role,
+  );
+  const roleLabel = !organization
+    ? ""
+    : typeRoleInfo
+      ? typeText(typeRoleInfo.label, locale)
+      : GLOBAL_ROLES.has(organization.role)
+        ? t(organization.role as "owner")
+        : t("customRole");
+  const attention = await ownerBillingAttention(access);
 
   return (
     <SidebarProvider>
       <AppSidebar
-        canManageBilling={organization?.role === "owner"}
-        modules={[...modules]}
-        organizationName={organization?.name}
-        organizationType={organization?.organization_type}
+        access={access}
+        attention={attention}
         organizations={organizations}
-        planKey={billing?.subscription?.plan_key}
-        planState={billing?.subscription?.state}
-        userEmail={user.email}
+        roleLabel={roleLabel}
       />
-      <SidebarInset>
-        <header className="sticky top-0 z-30 border-b bg-background/90 backdrop-blur-xl">
-          <div className="flex h-16 items-center gap-3 px-4 sm:px-6">
-            <SidebarTrigger
-              aria-controls="customer-dashboard-sidebar"
-              aria-label={t("toggleNavigation")}
-            />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold">{t("panel")}</p>
-              <p className="hidden truncate text-xs text-muted-foreground sm:block">
-                {t("panelDescription")}
-              </p>
-            </div>
-            <div className="ml-auto flex items-center gap-2 sm:gap-3">
-              <span className="hidden max-w-56 truncate text-sm text-muted-foreground xl:inline">
-                {user.email}
-              </span>
-              <NotificationBell />
-              <LocaleSwitcher />
-              <LogoutButton />
-            </div>
-          </div>
-        </header>
-        {children}
+      <SidebarInset className="flex min-h-svh flex-col">
+        <PanelHeader access={access} user={user} />
+        <SectionTabs access={access} />
+        <div className="flex-1 pb-20 lg:pb-0">{children}</div>
+        <MobileTabBar access={access} />
       </SidebarInset>
     </SidebarProvider>
   );
+}
+
+/** The subscription card is the owner's business; everyone else skips the call. */
+async function ownerBillingAttention(access: PanelAccess) {
+  if (!access.isOwner || !access.modules.includes("shared.billing"))
+    return null;
+  const billing = await getServerCustomerBillingOverview();
+  return billing ? billingAttention(billing.subscription, Date.now()) : null;
 }

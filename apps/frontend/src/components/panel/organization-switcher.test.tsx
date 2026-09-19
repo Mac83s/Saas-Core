@@ -38,19 +38,41 @@ test("przełącza aktywną organizację i odświeża shell", async () => {
             organization("org-one", "Pierwsza firma", true),
             organization("org-two", "Druga firma", false),
           ]}
+          roleLabel="Właściciel"
         />
       </SidebarProvider>
     </NextIntlClientProvider>,
   );
 
-  fireEvent.change(screen.getByLabelText("Wybierz organizację"), {
-    target: { value: "org-two" },
-  });
+  fireEvent.click(screen.getByRole("button", { name: /Pierwsza firma/ }));
+  fireEvent.click(
+    await screen.findByRole("menuitemradio", { name: "Druga firma" }),
+  );
 
   await waitFor(() =>
     expect(selectActiveOrganization).toHaveBeenCalledWith("org-two"),
   );
   expect(refresh).toHaveBeenCalledOnce();
+});
+
+test("bez aktywnej organizacji zostaje i prosi o wybór", () => {
+  render(
+    <NextIntlClientProvider locale="pl" messages={messages}>
+      <SidebarProvider>
+        <OrganizationSwitcher
+          organizations={[
+            organization("org-one", "Pierwsza firma", false),
+            organization("org-two", "Druga firma", false),
+          ]}
+          roleLabel=""
+        />
+      </SidebarProvider>
+    </NextIntlClientProvider>,
+  );
+
+  expect(
+    screen.getByRole("button", { name: "Wybierz organizację" }),
+  ).not.toBeNull();
 });
 
 function organization(id: string, name: string, active: boolean) {

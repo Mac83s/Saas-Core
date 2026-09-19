@@ -1,34 +1,11 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { NextIntlClientProvider } from "next-intl";
 
 import messages from "../../../messages/pl.json";
-
-/**
- * Two products, one panel component.
- *
- * The backend refuses to answer for a module a deployment does not have; the
- * menu has to stop offering it for the same reason, or `core-only` would show
- * a customer a plan page that answers 404. The composition is the only thing
- * deciding this, so it is the only thing this test changes.
- */
-const { profile } = vi.hoisted(() => ({
-  profile: {
-    modules: [] as string[],
-  },
-}));
-
-vi.mock("../../generated/deployment", () => ({
-  deployment: {
-    schemaVersion: 1,
-    id: "test",
-    product: { name: "Test", defaultLocale: "pl", supportedLocales: ["pl"] },
-    get modules() {
-      return profile.modules;
-    },
-    features: {},
-    profileHash: "sha256:test",
-  },
-}));
+import type { PanelAccess } from "#lib/panel-navigation";
+import { SidebarProvider } from "@saas-core/ui/components/sidebar";
+import { AppSidebar } from "./app-sidebar";
 
 vi.mock("#i18n/navigation", () => ({
   usePathname: () => "/panel",
@@ -52,39 +29,40 @@ const BUSINESS = [
   "shared.booking",
   "shared.seo",
 ];
+const HOOFCARE = [...BUSINESS, "shared.farms", "vertical.hoofcare"];
+/** The permissions of HoofCare's `trimmer` role, as its profile declares them. */
+const TRIMMER = [
+  "booking.appointment.read",
+  "farms.manage",
+  "farms.read",
+  "hoofcare.herd.manage",
+  "hoofcare.herd.read",
+  "media.manage",
+  "media.read",
+  "notifications.preferences",
+  "organization.read",
+];
 
-async function renderSidebar(modules: string[]) {
-  profile.modules = modules;
-  // The composition is read at import time, so each profile needs its own
-  // module graph — and everything sharing a React context with the component
-  // has to come from that same graph, or the provider it finds is a different
-  // one from the provider the test rendered.
-  vi.resetModules();
-  const { AppSidebar } = await import("./app-sidebar");
-  const { SidebarProvider } = await import("@saas-core/ui/components/sidebar");
-  const { NextIntlClientProvider } = await import("next-intl");
+function renderSidebar(access: Partial<PanelAccess>) {
   render(
     <NextIntlClientProvider locale="pl" messages={messages}>
       <SidebarProvider>
         <AppSidebar
-          userEmail="ktos@example.test"
-          modules={modules}
-          organizationName="Firma"
+          access={{
+            modules: CORE_ONLY,
+            permissions: null,
+            isOwner: true,
+            limited: false,
+            ...access,
+          }}
+          attention={null}
           organizations={[]}
-          canManageBilling
+          roleLabel="Właściciel"
         />
       </SidebarProvider>
     </NextIntlClientProvider>,
   );
 }
-
-const MODULE_LINKS = [
-  "/panel/calendar",
-  "/panel/sites",
-  "/panel/seo",
-  "/panel/notifications",
-  "/panel/settings/billing",
-];
 
 const hrefs = () =>
   screen
@@ -94,23 +72,56 @@ const hrefs = () =>
 
 afterEach(cleanup);
 
+/**
+ * The backend refuses to answer for a module a deployment does not have, and
+ * for a permission the role lacks; the menu stops offering either for the
+ * same reason, so a trimmer is not led to a page that answers 403.
+ */
 describe("menu panelu", () => {
-  it("nie oferuje modułu, którego deployment nie ma", async () => {
-    await renderSidebar(CORE_ONLY);
+  it("nie oferuje modułu, którego deployment nie ma", () => {
+    renderSidebar({ modules: CORE_ONLY });
 
     const links = hrefs();
-    expect(links).toContain("/panel");
-    for (const link of MODULE_LINKS) {
-      expect(links).not.toContain(link);
-    }
+    expect(links).toEqual(["/panel", "/panel/team", "/panel/settings/account"]);
   });
 
-  it("oferuje je, gdy deployment je składa", async () => {
-    await renderSidebar(BUSINESS);
+  it("dzieli menu na Pracę i Firmę", () => {
+    renderSidebar({ modules: BUSINESS });
 
-    const links = hrefs();
-    for (const link of MODULE_LINKS) {
-      expect(links).toContain(link);
-    }
+    expect(screen.getByRole("navigation", { name: "Praca" })).not.toBeNull();
+    expect(screen.getByRole("navigation", { name: "Firma" })).not.toBeNull();
+    expect(hrefs()).toEqual([
+      "/panel",
+      "/panel/calendar",
+      "/panel/team",
+      "/panel/sites",
+      "/panel/notifications",
+      "/panel/settings/billing",
+      "/panel/settings/account",
+    ]);
+  });
+
+  it("korektor widzi pracę, bez zespołu, strony, wiadomości i abonamentu", () => {
+    renderSidebar({
+      modules: HOOFCARE,
+      permissions: TRIMMER,
+      isOwner: false,
+      limited: true,
+      organizationType: "trimming_company",
+    });
+
+    expect(hrefs()).toEqual([
+      "/panel",
+      "/panel/calendar",
+      "/panel/farms",
+      "/panel/settings/account",
+    ]);
+  });
+
+  it("administrator bez własności trafia z Abonamentu do kredytów", () => {
+    renderSidebar({ modules: BUSINESS, isOwner: false });
+
+    expect(hrefs()).toContain("/panel/settings/credits");
+    expect(hrefs()).not.toContain("/panel/settings/billing");
   });
 });

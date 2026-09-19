@@ -299,6 +299,18 @@
     letter-spacing: -0.02em;
   }
 
+  /* The panel's sticky header and, below lg, its bottom tab bar cover the
+     page's edges; focus scrolling keeps the focused control clear of both. */
+  html:has(#customer-dashboard-sidebar) {
+    scroll-padding-top: 4.5rem;
+  }
+
+  @media (width < 64rem) {
+    html:has(#customer-dashboard-sidebar) {
+      scroll-padding-bottom: 4.5rem;
+    }
+  }
+
   /* The design draws every Lucide icon at stroke 2.75 — heavier and rounder
      than the library's 2. The attribute Lucide sets loses to any CSS rule. */
   .lucide {

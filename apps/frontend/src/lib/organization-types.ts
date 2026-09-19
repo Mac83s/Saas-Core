@@ -46,6 +46,21 @@ export function modulesFor(key?: string | null): Set<string> {
   );
 }
 
+/**
+ * A role the organization's type declares (ADR-050), with its label and
+ * permissions; null for the global roles and custom ones, whose permissions
+ * the profile does not carry. The API enforces access either way — this only
+ * decides what the panel offers.
+ */
+export function typeRole(
+  typeKey?: string | null,
+  roleKey?: string | null,
+): OrganizationTypeInfo["roles"][number] | null {
+  return (
+    organizationType(typeKey).roles.find((role) => role.key === roleKey) ?? null
+  );
+}
+
 export function typeText(
   text: { pl: string; en: string } | null,
   locale: string,

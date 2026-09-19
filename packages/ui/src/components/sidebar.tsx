@@ -67,7 +67,7 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   return (
     <SidebarContext.Provider value={value}>
       <div
-        className="group/sidebar-wrapper flex min-h-svh w-full bg-muted/30"
+        className="group/sidebar-wrapper flex min-h-svh w-full bg-background"
         data-collapsed={collapsed || undefined}
       >
         {children}
@@ -101,6 +101,8 @@ export function Sidebar({
     focusable()[0]?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        // A menu open inside the drawer handles its own Escape first.
+        if (event.defaultPrevented) return;
         event.preventDefault();
         closeMobile();
         return;
@@ -139,7 +141,7 @@ export function Sidebar({
       <aside
         aria-modal={mobileDialogOpen ? "true" : undefined}
         className={cn(
-          "invisible fixed inset-y-0 left-0 z-50 flex w-72 -translate-x-full flex-col border-r bg-background shadow-xl transition-[width,transform] duration-200 lg:visible lg:sticky lg:top-0 lg:z-20 lg:h-svh lg:translate-x-0 lg:shadow-none",
+          "invisible fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col border-r bg-muted shadow-xl transition-[width,transform] duration-200 lg:visible lg:sticky lg:top-0 lg:z-20 lg:h-svh lg:translate-x-0 lg:shadow-none",
           collapsed && "lg:w-20",
           mobileOpen && "visible translate-x-0",
           className,
@@ -157,7 +159,7 @@ export function SidebarHeader({
   className,
   ...props
 }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("border-b p-4", className)} {...props} />;
+  return <div className={cn("px-2.5 pt-4 pb-2", className)} {...props} />;
 }
 
 export function SidebarContent({
@@ -165,7 +167,10 @@ export function SidebarContent({
   ...props
 }: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("flex-1 overflow-y-auto p-3", className)} {...props} />
+    <div
+      className={cn("flex-1 overflow-y-auto px-2.5 py-2", className)}
+      {...props}
+    />
   );
 }
 
@@ -173,7 +178,7 @@ export function SidebarFooter({
   className,
   ...props
 }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("border-t p-3", className)} {...props} />;
+  return <div className={cn("px-2.5 pt-2 pb-4", className)} {...props} />;
 }
 
 export function SidebarInset({
