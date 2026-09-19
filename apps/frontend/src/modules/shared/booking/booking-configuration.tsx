@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useLocale, useTranslations } from "next-intl";
 import { z } from "zod";
 
 import {
+  ApiProblemError,
   configureBookingSchedule,
   createBookingCatalogItem,
   type BookingCatalog,
@@ -34,7 +36,8 @@ const scheduleSchema = z.object({
   service_id: z.string().uuid(),
   staff_id: z.string().uuid(),
   location_id: z.string().uuid(),
-  resource_id: z.string().uuid().optional(),
+  // Optional: the select's empty choice sends "".
+  resource_id: z.union([z.literal(""), z.string().uuid()]),
   weekday: z.number().int().min(0).max(6),
   local_start: z.string().min(1),
   local_end: z.string().min(1),
@@ -53,6 +56,20 @@ export function BookingConfiguration({
   const t = useTranslations("BookingConfiguration");
   const locale = useLocale();
   const existing = new Set(catalog?.services.map((service) => service.name));
+  const [problem, setProblem] = useState<string>();
+
+  // An add that fails, or a form that is not complete, says so.
+  async function attempt(action: () => Promise<void>) {
+    setProblem(undefined);
+    try {
+      await action();
+    } catch (error) {
+      setProblem(
+        error instanceof ApiProblemError ? error.message : t("saveError"),
+      );
+    }
+  }
+  const incomplete = () => setProblem(t("incomplete"));
 
   async function addFromTemplate(
     template: OrganizationTypeInfo["serviceTemplates"][number],
@@ -100,7 +117,7 @@ export function BookingConfiguration({
     );
     catalogForm.reset({ kind: value.kind, name: "", public_slug: "" });
     await onChanged();
-  });
+  }, incomplete);
 
   const addSchedule = scheduleForm.handleSubmit(async (value) => {
     await configureBookingSchedule({
@@ -129,10 +146,15 @@ export function BookingConfiguration({
       local_end: value.local_end,
     });
     await onChanged();
-  });
+  }, incomplete);
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
+      {problem ? (
+        <p className="text-sm text-destructive lg:col-span-2" role="alert">
+          {problem}
+        </p>
+      ) : null}
       <Card>
         <CardHeader>
           <CardTitle>{t("catalogTitle")}</CardTitle>
@@ -149,8 +171,9 @@ export function BookingConfiguration({
                     <Button
                       disabled={existing.has(label)}
                       key={template.key}
-                      onClick={() => void addFromTemplate(template)}
-                      size="sm"
+                      onClick={() =>
+                        void attempt(() => addFromTemplate(template))
+                      }
                       type="button"
                       variant="outline"
                     >
@@ -162,7 +185,10 @@ export function BookingConfiguration({
               </div>
             </div>
           ) : null}
-          <form className="space-y-3" onSubmit={addCatalogItem}>
+          <form
+            className="space-y-3"
+            onSubmit={(event) => void attempt(() => addCatalogItem(event))}
+          >
             <Label htmlFor="catalog-kind">{t("kind")}</Label>
             <NativeSelect id="catalog-kind" {...catalogForm.register("kind")}>
               <option value="location">{t("location")}</option>
@@ -186,7 +212,10 @@ export function BookingConfiguration({
           <CardDescription>{t("scheduleDescription")}</CardDescription>
         </CardHeader>
         <CardContent>
-          <form className="space-y-3" onSubmit={addSchedule}>
+          <form
+            className="space-y-3"
+            onSubmit={(event) => void attempt(() => addSchedule(event))}
+          >
             {(["service", "staff", "location", "resource"] as const).map(
               (kind) => {
                 const values =

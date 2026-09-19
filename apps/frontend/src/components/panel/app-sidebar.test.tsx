@@ -86,7 +86,7 @@ describe("menu panelu", () => {
     renderSidebar({ modules: CORE_ONLY });
 
     const links = hrefs();
-    expect(links).toEqual(["/panel", "/panel/team", "/panel/settings/account"]);
+    expect(links).toEqual(["/panel", "/panel/team", "/panel/settings/company"]);
   });
 
   it("dzieli menu na Pracę i Firmę", () => {
@@ -101,7 +101,7 @@ describe("menu panelu", () => {
       "/panel/sites",
       "/panel/notifications",
       "/panel/settings/billing",
-      "/panel/settings/account",
+      "/panel/settings/company",
     ]);
   });
 

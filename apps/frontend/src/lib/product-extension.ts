@@ -22,6 +22,19 @@ export type ProductNavigationItem = {
 /** The one action the panel header offers everywhere, e.g. "Start trimming". */
 export type ProductPrimaryAction = Omit<ProductNavigationItem, "group">;
 
+/**
+ * A settings page of the product's own (e.g. the defaults of its field work),
+ * shown as a tab of "Ustawienia" after core's tabs. The page is a file of the
+ * product's own, by convention under `src/app/[locale]/panel/settings/`; the
+ * tab bar shows on every path under `href`. `labelKey` is a `DashboardNav`
+ * message the product brings, and the gates work as in `navigation`: a tab the
+ * person may not open is not offered.
+ */
+export type ProductSettingsSection = Pick<
+  ProductNavigationItem,
+  "href" | "labelKey" | "module" | "permission" | "organizationTypes"
+>;
+
 type Messages = Record<string, Record<string, unknown>>;
 
 /**
@@ -33,6 +46,8 @@ export type ProductExtension = {
   /** Panel entries, appended to their group after core's own. */
   navigation?: ProductNavigationItem[];
   primaryAction?: ProductPrimaryAction;
+  /** Tabs of "Ustawienia", appended after core's own (Company … Advanced). */
+  settingsSections?: ProductSettingsSection[];
   /** Merged into core messages namespace by namespace. */
   messages?: Partial<Record<"pl" | "en", Messages>>;
   /** Copy for the marketing pages; without it they show the generic product. */

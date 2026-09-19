@@ -36,7 +36,12 @@ export type PanelNavItem = ProductNavigationItem & {
 
 export type PanelSectionTab = Pick<
   PanelNavItem,
-  "href" | "labelKey" | "module" | "permission" | "ownerOnly"
+  | "href"
+  | "labelKey"
+  | "module"
+  | "permission"
+  | "ownerOnly"
+  | "organizationTypes"
 >;
 
 export const PANEL_SECTIONS = {
@@ -63,13 +68,26 @@ export const PANEL_SECTIONS = {
     },
   ],
   settings: [
+    {
+      href: "/panel/settings/company",
+      labelKey: "sectionCompany",
+      permission: "organization.settings.manage",
+    },
     { href: "/panel/settings/account", labelKey: "sectionAccount" },
+    {
+      href: "/panel/settings/services",
+      labelKey: "sectionServices",
+      module: "shared.booking",
+      permission: "booking.appointment.manage",
+    },
     {
       href: "/panel/integrations",
       labelKey: "sectionAdvanced",
       module: "shared.notifications",
       permission: "integrations.manage",
     },
+    // The product's own settings come after core's (ProductSettingsSection).
+    ...(product.settingsSections ?? []),
   ],
 } satisfies Record<string, PanelSectionTab[]>;
 
@@ -158,7 +176,7 @@ const COMPANY: PanelNavItem[] = [
 ];
 
 const SETTINGS: PanelNavItem = {
-  href: "/panel/settings/account",
+  href: "/panel/settings/company",
   icon: SettingsIcon,
   labelKey: "settings",
   group: "company",
