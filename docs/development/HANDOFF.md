@@ -1,5 +1,41 @@
 # Handoff następnej sesji
 
+## Etap 4 planu 15: korekcja w terenie i raport HoofCare, 2026-09-19/20
+
+Rdzeń dołożył punkty rozszerzeń, produkt całą pracę w terenie. Saas-Core:
+`b7433d7` (uprawnienia członkostwa w OrganizationSummary, imię i nazwisko,
+`StaffMember.membership` i filtr `?mine=`), `d4cb6db`
+(`booking.complete_appointment`, `appointment_for_tenant`,
+`staff_for_membership`, okno dat i rodzaje w `list_appointments`, blokada
+odwołania wizyty, która się odbyła, `farms.resolve_animal`), `dec9d5d`
+(`notifications.api`: szablony produktu i załączniki rozwiązywane przy
+dostawie, `profiles.organization_contact`, `fpdf2`), `5ee16aa` i `b8d7c42`
+(poprawki po przeglądzie). HoofCare: `6777930`, `c3df0d2`, `2fe1910`,
+`2330d22`, `25ed22a`, `4856209`.
+
+Co warto wiedzieć:
+- **Problem Details niesie kod modułu.** Handler bierze `problem_code` albo kod
+  z tekstowego detalu, nie tylko `default_code` klasy. Wcześniej moduł z jedną
+  klasą wyjątku i wieloma kodami zwracał zawsze ten sam.
+- **Nieudana próba dostawy jest trwała.** `DeliveryDeferred` leci po wyjściu z
+  transakcji tenanta (e-maile i webhooki), inaczej wycofywał zapis próby i
+  wiadomość nigdy nie trafiała do dead-letter.
+- **Załącznik nie jest kopiowany do outboxu.** Wiadomość trzyma `<prefiks>:<id>`,
+  a moduł rejestruje resolver w `AppConfig.ready`; plik powstaje przy dostawie w
+  kontekście tenanta. Brak pliku = ponowienie, nigdy wysyłka bez załącznika.
+- **Temat szablonu też wypełnia pola kontekstu** (bez escapowania HTML).
+- Katalog zmian HoofCare jest w kodzie i wersjonowany; v1 ma kody ICAR
+  (decyzja właściciela 19.09) i pozostaje szkicem do potwierdzenia pola SH.
+
+Dowody: Saas-Core 743 testy / 2 pominięte, HoofCare 765 (przed ostatnią
+poprawką), mypy i kontrakt czyste; migracje 0009–0012 przód/wstecz/przód na
+bazie tymczasowej; na stosie hoofcare pełny przebieg przez API (start, wpis,
+powtórka 200, inna treść 409, zakończenie zamyka rezerwację, PDF, wysyłka z
+załącznikiem, wizyta zamrożona 409) i izolacja nowych tabel rolą aplikacji.
+
+Otwarte: publikacja wpisów do rejestru rolnika (etap 3), zamrożenie katalogu v1,
+zdjęcia i materiały, tryb offline.
+
 ## Site Studio — biblioteka, płótno i inspektor, 2026-09-19
 
 Edytor ma trzy kolumny od 1536 px, dwie od 1280 px i układ pionowy poniżej.

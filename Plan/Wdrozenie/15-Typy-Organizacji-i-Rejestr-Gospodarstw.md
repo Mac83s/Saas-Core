@@ -86,10 +86,24 @@ Rejestr rolnika, kod aktywacji, ekran łączenia sztuk i dołączania kart innyc
 firm, udział z zakresem i cofaniem, synchronizacja z nazwanymi drzwiami, akcja
 obsługi „połącz bez kodu”, pakiet rolnika z 6 miesiącami okresu próbnego.
 
-## Etap 4 — korekcja i wpisy zdrowotne (HoofCare)
+## Etap 4 — korekcja i wpisy zdrowotne (HoofCare) — ZROBIONE 2026-09-19/20 (bez publikacji do rejestru)
 
-Wpis korekcji z wersjonowanym katalogiem zmian bydła, zakończenie wizyty,
-raport dla hodowcy, publikacja wpisów do rejestru rolnika.
+Stan: HoofCare `6777930` (kontrakt), `c3df0d2` (praca w terenie), `2fe1910`
+(raport), `2330d22` (poprawki po przeglądzie), `25ed22a` (katalog ICAR);
+Saas-Core `b7433d7` (uprawnienia członkostwa, imię, pracownik kalendarza),
+`d4cb6db` (zamknięcie wizyty, krowa spoza kolejki), `dec9d5d` (szablony i
+załączniki powiadomień, kontakt firmy, fpdf2), `5ee16aa` + `b8d7c42`
+(poprawki po przeglądzie). Decyzje w HC-ADR-002, projekt w
+`docs/product/Etap-4-Korekcja-W-Terenie-Projekt.md` (HoofCare).
+
+Zrobione: wpis korekcji z katalogiem ICAR v1 (wersjonowany, przypinany do
+wizyty), kolejka i przebieg wizyty, kontrole wyliczane z wpisów, panel „Dziś”,
+zakończenie wizyty zamykające rezerwację, raport z PDF, archiwum i wysyłką
+e-mailem z załącznikiem, zamrożenie wizyty po wysyłce.
+
+Otwarte: publikacja wpisów do rejestru rolnika (czeka na etap 3), zamrożenie
+katalogu v1 (pole SH do potwierdzenia), zdjęcia, materiały i leki (RACICE 13.5,
+13.6, 16), tryb offline.
 
 ## Etap 5 — sprzedaż zwierząt
 
