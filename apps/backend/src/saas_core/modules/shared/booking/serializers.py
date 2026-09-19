@@ -113,6 +113,8 @@ class ServiceSerializer(serializers.Serializer[dict[str, Any]]):
     name = serializers.CharField()
     public_slug = serializers.CharField()
     duration_minutes = serializers.IntegerField()
+    #: Lets a vertical's screen offer only its own kind of visit (ADR-050).
+    appointment_kind = serializers.CharField()
 
 
 class ResourceSerializer(serializers.Serializer[dict[str, Any]]):

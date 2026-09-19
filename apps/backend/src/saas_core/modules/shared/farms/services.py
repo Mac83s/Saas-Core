@@ -8,11 +8,12 @@ simply not found — the database guard is the second line, not the first.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any, cast
 from uuid import UUID
 
-from django.db import transaction
-from django.db.models import Q
+from django.db import IntegrityError, transaction
+from django.db.models import Count, Q
 from django.http import HttpRequest
 from rest_framework.exceptions import NotFound, ValidationError
 
@@ -37,6 +38,31 @@ FARMS_ENABLED = "farms.enabled"
 #: A working list; nobody scrolls past a few hundred rows without searching.
 PAGE_LIMIT = 500
 
+#: The unique constraints a person can hit, and what to tell them. The database
+#: decides, so two people saving the same farm at once get the same answer as
+#: one person saving it twice.
+DUPLICATES = {
+    "farms_farm_org_name_uq": ("name", "Gospodarstwo o tej nazwie już jest."),
+    "farms_farm_org_herd_number_uq": (
+        "herd_number",
+        "Gospodarstwo z tym numerem siedziby stada już jest.",
+    ),
+    "farms_animal_farm_tag_uq": ("national_id", "To zwierzę jest już w tym gospodarstwie."),
+}
+
+
+def _unique[T](write: Callable[[], T]) -> T:
+    try:
+        with transaction.atomic():
+            return write()
+    except IntegrityError as error:
+        diag = getattr(error.__cause__, "diag", None)
+        duplicate = DUPLICATES.get(getattr(diag, "constraint_name", None) or "")
+        if duplicate is None:
+            raise
+        field, message = duplicate
+        raise ValidationError({field: message}) from error
+
 
 def _clean_farm(data: dict[str, Any]) -> dict[str, Any]:
     cleaned = dict(data)
@@ -47,8 +73,10 @@ def _clean_farm(data: dict[str, Any]) -> dict[str, Any]:
                 "herd_number": "Numer siedziby stada ma postać np. PL012345678-001."
             })
     if "tax_id" in cleaned:
-        cleaned["tax_id"] = "".join(ch for ch in cleaned["tax_id"] or "" if ch.isdigit())
-        if cleaned["tax_id"] and not TAX_ID.fullmatch(cleaned["tax_id"]):
+        raw = (cleaned["tax_id"] or "").strip()
+        cleaned["tax_id"] = "".join(ch for ch in raw if ch.isdigit())
+        # Only an empty field clears the NIP; "brak" is a typo, not a request.
+        if raw and not TAX_ID.fullmatch(cleaned["tax_id"]):
             raise ValidationError({"tax_id": "NIP ma 10 cyfr."})
     return cleaned
 
@@ -85,14 +113,18 @@ def list_farms(*, search: str = "") -> list[Farm]:
             Q(name__icontains=search)
             | Q(village__icontains=search)
             | Q(keeper_name__icontains=search)
-            | Q(herd_number__icontains=normalize_herd_number(search))
+            | Q(herd_number__icontains=normalize_identifier(search))
         )
-    return list(query[:PAGE_LIMIT])
+    return list(query.annotate(animal_count=Count("animals"))[:PAGE_LIMIT])
 
 
 def get_farm(farm_id: UUID) -> Farm:
     context = authorize_entitled(FARMS_READ, FARMS_ENABLED, operation=FeatureOperation.READ)
-    farm = Farm.all_objects.filter(organization_id=context.organization_id, id=farm_id).first()
+    farm = (
+        Farm.all_objects.filter(organization_id=context.organization_id, id=farm_id)
+        .annotate(animal_count=Count("animals"))
+        .first()
+    )
     if farm is None:
         raise NotFound("Nie ma takiego gospodarstwa.")
     return farm
@@ -102,20 +134,11 @@ def get_farm(farm_id: UUID) -> Farm:
 def create_farm(*, request: HttpRequest, data: dict[str, Any]) -> Farm:
     context = authorize_entitled(FARMS_MANAGE, FARMS_ENABLED)
     cleaned = _clean_farm(data)
-    if Farm.all_objects.filter(
-        organization_id=context.organization_id, name=cleaned["name"]
-    ).exists():
-        raise ValidationError({"name": "Gospodarstwo o tej nazwie już jest."})
-    if (
-        cleaned.get("herd_number")
-        and Farm.all_objects.filter(
-            organization_id=context.organization_id, herd_number=cleaned["herd_number"]
-        ).exists()
-    ):
-        raise ValidationError({
-            "herd_number": "Gospodarstwo z tym numerem siedziby stada już jest."
-        })
-    farm = Farm.all_objects.create(organization_id=context.organization_id, **cleaned)
+    farm = _unique(
+        lambda: Farm.all_objects.create(organization_id=context.organization_id, **cleaned)
+    )
+    # The reads annotate `animal_count`; a written farm answers with it too.
+    setattr(farm, "animal_count", 0)  # noqa: B010
     _audit(request, context.organization_id, OrganizationAuditAction.FARM_CREATED, farm)
     return farm
 
@@ -133,16 +156,8 @@ def update_farm(*, request: HttpRequest, farm_id: UUID, data: dict[str, Any]) ->
     cleaned = _clean_farm(data)
     for field, value in cleaned.items():
         setattr(farm, field, value)
-    duplicates = Farm.all_objects.filter(organization_id=context.organization_id).exclude(
-        id=farm.id
-    )
-    if duplicates.filter(name=farm.name).exists():
-        raise ValidationError({"name": "Gospodarstwo o tej nazwie już jest."})
-    if farm.herd_number and duplicates.filter(herd_number=farm.herd_number).exists():
-        raise ValidationError({
-            "herd_number": "Gospodarstwo z tym numerem siedziby stada już jest."
-        })
-    farm.save()
+    _unique(farm.save)
+    setattr(farm, "animal_count", Animal.all_objects.filter(farm=farm).count())  # noqa: B010
     _audit(request, context.organization_id, OrganizationAuditAction.FARM_UPDATED, farm)
     return farm
 
@@ -170,15 +185,10 @@ def create_animal(*, request: HttpRequest, farm_id: UUID, data: dict[str, Any]) 
         raise NotFound("Nie ma takiego gospodarstwa.")
     species = data.pop("species", "cattle")
     cleaned = _clean_animal(data, species=species)
-    if Animal.all_objects.filter(
-        organization_id=context.organization_id,
-        farm=farm,
-        species=species,
-        national_id=cleaned["national_id"],
-    ).exists():
-        raise ValidationError({"national_id": "To zwierzę jest już w tym gospodarstwie."})
-    animal = Animal.all_objects.create(
-        organization_id=context.organization_id, farm=farm, species=species, **cleaned
+    animal = _unique(
+        lambda: Animal.all_objects.create(
+            organization_id=context.organization_id, farm=farm, species=species, **cleaned
+        )
     )
     _audit(request, context.organization_id, OrganizationAuditAction.ANIMAL_CREATED, animal)
     return animal
@@ -197,17 +207,6 @@ def update_animal(*, request: HttpRequest, animal_id: UUID, data: dict[str, Any]
     cleaned = _clean_animal(data, species=animal.species)
     for field, value in cleaned.items():
         setattr(animal, field, value)
-    if (
-        Animal.all_objects.filter(
-            organization_id=context.organization_id,
-            farm_id=animal.farm_id,
-            species=animal.species,
-            national_id=animal.national_id,
-        )
-        .exclude(id=animal.id)
-        .exists()
-    ):
-        raise ValidationError({"national_id": "To zwierzę jest już w tym gospodarstwie."})
-    animal.save()
+    _unique(animal.save)
     _audit(request, context.organization_id, OrganizationAuditAction.ANIMAL_UPDATED, animal)
     return animal

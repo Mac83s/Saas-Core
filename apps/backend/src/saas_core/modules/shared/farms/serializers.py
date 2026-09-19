@@ -22,6 +22,7 @@ class FarmSerializer(serializers.Serializer[Any]):
     housing = serializers.CharField(read_only=True)
     notes = serializers.CharField(read_only=True)
     active = serializers.BooleanField(read_only=True)
+    animal_count = serializers.IntegerField(read_only=True)
     updated_at = serializers.DateTimeField(read_only=True)
 
 

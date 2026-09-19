@@ -3188,6 +3188,7 @@ export interface components {
             readonly housing: string;
             readonly notes: string;
             readonly active: boolean;
+            readonly animal_count: number;
             /** Format: date-time */
             readonly updated_at: string;
         };
@@ -4055,6 +4056,7 @@ export interface components {
             name: string;
             public_slug: string;
             duration_minutes: number;
+            appointment_kind: string;
         };
         SessionSummary: {
             /** Format: uuid */

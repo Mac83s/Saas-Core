@@ -1529,6 +1529,7 @@ paths:
         name: farm_id
         schema:
           type: string
+          format: uuid
         description: Ogranicz do gospodarstwa.
       - in: query
         name: q
@@ -9024,6 +9025,9 @@ components:
         active:
           type: boolean
           readOnly: true
+        animal_count:
+          type: integer
+          readOnly: true
         updated_at:
           type: string
           format: date-time
@@ -9031,6 +9035,7 @@ components:
       required:
       - active
       - address
+      - animal_count
       - email
       - herd_number
       - housing
@@ -11137,7 +11142,10 @@ components:
           type: string
         duration_minutes:
           type: integer
+        appointment_kind:
+          type: string
       required:
+      - appointment_kind
       - duration_minutes
       - id
       - name

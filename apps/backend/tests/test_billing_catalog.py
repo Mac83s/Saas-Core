@@ -218,3 +218,43 @@ def test_only_one_snapshot_per_organization_is_allowed() -> None:
 
     with pytest.raises(IntegrityError), transaction.atomic():
         EntitlementSnapshot.all_objects.create(organization=tenant)
+
+
+def test_a_module_feature_survives_a_rollback_and_a_second_publish() -> None:
+    """A module's feature migration run back and forth leaves plans selling it."""
+    from django.apps import apps  # noqa: PLC0415
+
+    from saas_core.modules.shared.billing.feature_migrations import (  # noqa: PLC0415
+        publish_feature,
+        withdraw_feature,
+    )
+
+    key = "rollback.enabled"
+
+    def selling() -> set[bool]:
+        return {
+            key in plan.current_version.feature_keys
+            for plan in Plan.objects.select_related("current_version")
+        }
+
+    publish_feature(apps, key=key, name="Próba", module="shared.billing")
+    assert selling() == {True}
+    withdraw_feature(apps, key=key)
+    assert selling() == {False}
+    assert not Feature.objects.filter(key=key).exists()
+
+    # Published once more: the versions carrying it exist, the plans point back.
+    publish_feature(apps, key=key, name="Próba", module="shared.billing")
+    assert selling() == {True}
+
+    # An override ever granted on it protects the row: switched off, not deleted.
+    EntitlementGrant.all_objects.create(
+        organization=organization(slug="rollback-grant"),
+        source=GrantSource.OVERRIDE,
+        feature=Feature.objects.get(key=key),
+        enabled=True,
+        granted_by=actor(),
+        reason="Pilot",
+    )
+    withdraw_feature(apps, key=key)
+    assert Feature.objects.get(key=key).is_active is False

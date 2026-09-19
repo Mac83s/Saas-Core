@@ -12,6 +12,9 @@ app registry without importing a private model.
 
 from .models import AppointmentStatus
 from .services import (
+    BOOKING_ENABLED,
+    BOOKING_MANAGE,
+    BOOKING_READ,
     BookingIdempotencyConflict,
     CreatedAppointment,
     SlotUnavailable,
@@ -26,6 +29,9 @@ APPOINTMENT_MODEL = "booking.Appointment"
 
 __all__ = [
     "APPOINTMENT_MODEL",
+    "BOOKING_ENABLED",
+    "BOOKING_MANAGE",
+    "BOOKING_READ",
     "AppointmentStatus",
     "BookingIdempotencyConflict",
     "CreatedAppointment",

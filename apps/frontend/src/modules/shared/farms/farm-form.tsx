@@ -51,7 +51,12 @@ export function FarmForm({
 }: {
   farm?: Farm;
   submitLabel: string;
-  onSubmit: (values: Values) => Promise<string | undefined>;
+  /** `changed` holds only the edited fields: an edit sends just those, so two
+   * people changing different fields of one farm do not undo each other. */
+  onSubmit: (
+    values: Values,
+    changed: Partial<Values>,
+  ) => Promise<string | undefined>;
 }) {
   const t = useTranslations("Farms");
   const schema = useMemo(
@@ -85,7 +90,11 @@ export function FarmForm({
   });
 
   async function submit(values: Values) {
-    const problem = await onSubmit(values);
+    const dirty = form.formState.dirtyFields;
+    const changed = Object.fromEntries(
+      Object.entries(values).filter(([key]) => dirty[key as keyof Values]),
+    ) as Partial<Values>;
+    const problem = await onSubmit(values, changed);
     if (problem) form.setError("root", { type: "server", message: problem });
   }
 

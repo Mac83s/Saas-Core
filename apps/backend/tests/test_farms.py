@@ -114,20 +114,26 @@ def test_a_farm_is_identified_by_its_herd_number_and_audited() -> None:
                 "tax_id": "777-000-00-00",
             },
         )
-        assert farm.herd_number == "PL012345678-001"
+        assert farm.herd_number == "PL012345678001"
         assert farm.tax_id == "7770000000"
 
-        with pytest.raises(ValidationError, match="numerem siedziby stada"):
-            create_farm(
-                request=request, data={"name": "Duplikat", "herd_number": "PL012345678-001"}
-            )
+        # One herd however the suffix is typed: the database constraint answers.
+        for spelling in ("PL012345678-001", "PL 012345678 001"):
+            with pytest.raises(ValidationError, match="numerem siedziby stada"):
+                create_farm(request=request, data={"name": spelling, "herd_number": spelling})
+        with pytest.raises(ValidationError, match="nazwie"):
+            create_farm(request=request, data={"name": "Gospodarstwo Nowak"})
         with pytest.raises(ValidationError, match="PL012345678-001"):
             create_farm(request=request, data={"name": "Zły numer", "herd_number": "12"})
         with pytest.raises(ValidationError, match="10 cyfr"):
             create_farm(request=request, data={"name": "Zły NIP", "tax_id": "123"})
+        # A word where the NIP goes is a mistake, not a request to erase it.
+        with pytest.raises(ValidationError, match="10 cyfr"):
+            update_farm(request=request, farm_id=farm.id, data={"tax_id": "brak"})
 
-        update_farm(request=request, farm_id=farm.id, data={"village": "Żydowo"})
-        assert [item.name for item in list_farms(search="012345678")] == ["Gospodarstwo Nowak"]
+        updated = update_farm(request=request, farm_id=farm.id, data={"village": "Żydowo"})
+        assert (updated.tax_id, updated.animal_count) == ("7770000000", 0)
+        assert [item.name for item in list_farms(search="012345678-001")] == ["Gospodarstwo Nowak"]
         assert [item.name for item in list_farms(search="żydowo")] == ["Gospodarstwo Nowak"]
 
     actions = set(
@@ -142,6 +148,7 @@ def test_an_animal_is_a_species_and_a_normalized_identifier() -> None:
     from saas_core.modules.shared.farms.services import (  # noqa: PLC0415
         create_animal,
         create_farm,
+        get_farm,
         list_animals,
         update_animal,
     )
@@ -168,6 +175,7 @@ def test_an_animal_is_a_species_and_a_normalized_identifier() -> None:
             create_animal(request=request, farm_id=farm.id, data={"national_id": "krowa"})
 
         update_animal(request=request, animal_id=animal.id, data={"status": "sold"})
+        assert get_farm(farm.id).animal_count == 1
         assert [item.status for item in list_animals(search="8765")] == ["sold"]
         assert [item.name for item in list_animals(search="luna")] == ["LUNA"]
 

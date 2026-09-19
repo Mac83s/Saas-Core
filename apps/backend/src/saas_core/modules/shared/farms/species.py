@@ -62,11 +62,16 @@ def normalize_identifier(raw: str) -> str:
 
 
 def normalize_herd_number(raw: str) -> str:
-    """`pl 012345678-001` and `PL012345678-001` are the same herd."""
-    return re.sub(r"\s", "", raw).upper()
+    """`pl 012345678-001`, `PL012345678 001` and `PL012345678001` are one herd.
+
+    Stored without separators, because the herd suffix is typed with a hyphen,
+    a space or nothing, and the number is what a farmer's register is matched on.
+    """
+    return normalize_identifier(raw)
 
 
-#: Polish producer number with the herd suffix, e.g. PL012345678-001; other EU
-#: countries use the same shape with their own code.
-HERD_NUMBER = re.compile(r"^[A-Z]{2}\d{6,12}(-\d{3})?$")
+#: Country code and digits: the Polish producer number with its three-digit herd
+#: suffix is PL + 12 digits (written PL012345678-001); other EU countries use the
+#: same shape with their own code.
+HERD_NUMBER = re.compile(r"^[A-Z]{2}\d{6,15}$")
 TAX_ID = re.compile(r"^\d{10}$")

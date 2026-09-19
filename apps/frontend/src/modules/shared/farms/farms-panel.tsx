@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ChevronRightIcon, PlusIcon, SearchIcon } from "lucide-react";
 
@@ -37,16 +37,23 @@ export function FarmsPanel() {
   const [problem, setProblem] = useState<string>();
   const [adding, setAdding] = useState(false);
 
+  // Only the answer to the newest query may land: an older, slower search
+  // would otherwise replace the list under a newer one.
+  const latest = useRef(0);
   const load = useCallback(
     async (query: string) => {
+      const request = ++latest.current;
       setLoading(true);
       try {
-        setFarms(await listFarms(query || undefined));
+        const found = await listFarms(query || undefined);
+        if (request !== latest.current) return;
+        setFarms(found);
         setProblem(undefined);
       } catch (error) {
-        setProblem(farmProblem(error, t("loadFailed")));
+        if (request === latest.current)
+          setProblem(farmProblem(error, t("loadFailed")));
       } finally {
-        setLoading(false);
+        if (request === latest.current) setLoading(false);
       }
     },
     [t],

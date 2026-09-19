@@ -70,15 +70,15 @@ export function FarmDetail({ farmId }: { farmId: string }) {
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
 
+  // Bumped after a change so the list below reloads with the current search.
+  const [version, setVersion] = useState(0);
   const load = useCallback(async () => {
     try {
-      const [loadedFarm, loadedAnimals, loadedSpecies] = await Promise.all([
+      const [loadedFarm, loadedSpecies] = await Promise.all([
         readFarm(farmId),
-        listFarmAnimals({ farmId }),
         listFarmSpecies(),
       ]);
       setFarm(loadedFarm);
-      setAnimals(loadedAnimals);
       setSpecies(loadedSpecies);
       setProblem(undefined);
     } catch (error) {
@@ -91,16 +91,32 @@ export function FarmDetail({ farmId }: { farmId: string }) {
     void load();
   }, [load]);
 
-  const visible = useMemo(() => {
-    const needle = search.replaceAll(/\s/g, "").toUpperCase();
-    if (!needle) return animals;
-    return animals.filter(
-      (animal) =>
-        animal.national_id.includes(needle) ||
-        animal.working_number.toUpperCase() === needle ||
-        animal.name.toUpperCase().includes(needle),
-    );
-  }, [animals, search]);
+  /** After a change: the farm's count and the animals on screen. */
+  const reload = async () => {
+    await load();
+    setVersion((value) => value + 1);
+  };
+
+  // The server searches (a big herd is longer than one page), and only the
+  // answer to the newest query may land.
+  useEffect(() => {
+    let current = true;
+    const timer = setTimeout(async () => {
+      try {
+        const found = await listFarmAnimals({
+          farmId,
+          search: search.trim() || undefined,
+        });
+        if (current) setAnimals(found);
+      } catch (error) {
+        if (current) setProblem(farmProblem(error, t("loadFailed")));
+      }
+    }, 250);
+    return () => {
+      current = false;
+      clearTimeout(timer);
+    };
+  }, [farmId, search, t, version]);
 
   const schema = useMemo(
     () =>
@@ -139,7 +155,7 @@ export function FarmDetail({ farmId }: { farmId: string }) {
       });
       animalForm.reset();
       setAdding(false);
-      await load();
+      await reload();
     } catch (error) {
       animalForm.setError("root", {
         type: "server",
@@ -153,7 +169,7 @@ export function FarmDetail({ farmId }: { farmId: string }) {
       await updateFarmAnimal(animal.id, {
         status: status as (typeof STATUSES)[number],
       });
-      await load();
+      await reload();
     } catch (error) {
       setProblem(farmProblem(error, t("saveFailed")));
     }
@@ -212,7 +228,7 @@ export function FarmDetail({ farmId }: { farmId: string }) {
               </Badge>
             ) : null}
             <Badge variant="secondary">
-              {t("animalCount", { count: animals.length })}
+              {t("animalCount", { count: farm.animal_count })}
             </Badge>
           </CardContent>
         </Card>
@@ -235,10 +251,10 @@ export function FarmDetail({ farmId }: { farmId: string }) {
             placeholder={t("searchAnimals")}
             value={search}
           />
-          {visible.length === 0 ? (
+          {animals.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t("noAnimals")}</p>
           ) : null}
-          {visible.map((animal) => (
+          {animals.map((animal) => (
             <div
               className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center"
               key={animal.id}
@@ -282,9 +298,9 @@ export function FarmDetail({ farmId }: { farmId: string }) {
           {farm ? (
             <FarmForm
               farm={farm}
-              onSubmit={async (values) => {
+              onSubmit={async (_values, changed) => {
                 try {
-                  setFarm(await updateFarm(farm.id, values));
+                  setFarm(await updateFarm(farm.id, changed));
                   setEditing(false);
                   return undefined;
                 } catch (error) {

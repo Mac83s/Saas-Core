@@ -22,10 +22,14 @@ pnpm api:check      # fails if either is stale
 `.prettierignore` so a formatter cannot fight the generator.
 
 **Generation and the drift check use one settings module:**
-`saas_core.config.settings.typecheck`, which composes the first profile in
-`product.json` — `business` here, the product's own in a product repository
-(ADR-049). It has to be the profile that composes the product's vertical, or
-the vertical's endpoints never reach the contract or the generated client. The session cookie name carries the
+`saas_core.config.settings.typecheck`. It starts as the first profile in
+`product.json` (`agro` here, the product's own in a product repository,
+ADR-049) and then installs **every module in the catalogue**: the contract,
+mypy and `makemigrations --check` cover all code the repository ships, not only
+what its main profile runs. A shared module a product leaves out (MedPlano
+without `shared.farms`) still has core's api-client and panel typed against it;
+under the main profile alone its endpoints vanished from the product's
+`schema.d.ts` and mypy reported its querysets as ambiguous. The session cookie name carries the
 deployment, so the two must match — they drifted apart on 2026-09-17 and CI
 would have failed on the next push. One contract still serves every product;
 splitting it per profile is recorded debt (HANDOFF). If you add a settings value

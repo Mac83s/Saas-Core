@@ -29,8 +29,10 @@ a new directory in that repository, never in Saas-Core. Saas-Core carries only
    recomputes it.
 4. Nothing to register: `deployment:check --all` and `deployment:artifact`
    discover every `deployments/<name>/deployment.json`. Which profiles the
-   repository builds into images, tests and generates the OpenAPI contract for
-   is `product.json` — the first entry is the main one. Do not add profile names
+   repository builds into images and tests is `product.json` — the first entry
+   is the main one; `images` narrows the image list when a main profile is only
+   a reference (`agro` in Saas-Core). Static checks and the OpenAPI contract
+   cover the whole module catalogue, not a profile. Do not add profile names
    to workflows or scripts; a product repository may not edit them.
 5. A profile with no code yet is parked under `deployments/_planned/`, outside
    the pattern the validator accepts. Do not let it pretend to be valid.

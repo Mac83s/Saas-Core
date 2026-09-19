@@ -49,7 +49,11 @@ verifies both directions.
    - system-role permissions: `backend.roleGrants`, only permissions it
      declares; its own migration grants them in the database;
    - plan features: `backend.entitlements`; its own migration publishes a new
-     plan version with the feature (plan versions are immutable);
+     plan version with the feature (plan versions are immutable) by calling
+     `billing.feature_migrations.publish_feature` / `withdraw_feature`. Do not
+     copy the loop: a rolled-back and re-applied copy left plans on the version
+     without the feature, and a reverse that deletes the feature fails once an
+     override referenced it (review of 19.09);
    - visit kinds: `backend.appointmentKinds`;
    - panel menu, messages, marketing copy: `apps/frontend/src/product/index.ts`;
      its pages are new files under `apps/frontend/src/app/`.

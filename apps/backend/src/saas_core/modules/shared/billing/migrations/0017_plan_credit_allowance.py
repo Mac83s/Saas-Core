@@ -26,6 +26,8 @@ def publish_versions_with_allowance(apps: Any, schema_editor: Any) -> None:
         if latest is None:
             continue
         if latest.quotas.get(ALLOWANCE_QUOTA_KEY) == allowance:
+            # Published before and rolled back: point the plan at it again.
+            plan_model.objects.filter(pk=plan.pk).update(current_version=latest)
             continue
         published = version_model.objects.create(
             plan=plan,

@@ -7,6 +7,7 @@ from django.http import HttpRequest
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
 from drf_spectacular.utils import OpenApiParameter, extend_schema
+from rest_framework.exceptions import ParseError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -102,7 +103,7 @@ class AnimalListCreateView(APIView):
 
     @extend_schema(
         parameters=[
-            OpenApiParameter("farm_id", str, description="Ogranicz do gospodarstwa."),
+            OpenApiParameter("farm_id", UUID, description="Ogranicz do gospodarstwa."),
             OpenApiParameter("q", str, description="Szukaj po numerze, numerze roboczym, imieniu."),
         ],
         responses={200: AnimalSerializer(many=True), **ERRORS},
@@ -111,10 +112,11 @@ class AnimalListCreateView(APIView):
     )
     def get(self, request: Request) -> Response:
         raw = request.query_params.get("farm_id")
-        animals = list_animals(
-            farm_id=UUID(raw) if raw else None,
-            search=request.query_params.get("q", "").strip(),
-        )
+        try:
+            farm_id = UUID(raw) if raw else None
+        except ValueError as error:
+            raise ParseError("Nieprawidłowy identyfikator gospodarstwa.") from error
+        animals = list_animals(farm_id=farm_id, search=request.query_params.get("q", "").strip())
         return Response(AnimalSerializer(animals, many=True).data)
 
     @extend_schema(

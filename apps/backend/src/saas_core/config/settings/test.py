@@ -7,7 +7,8 @@ module — so the suite ran nominally as `core-only` while testing Billing, Site
 and Booking. `business` is the honest name for a deployment with every Shared
 module, and it is the surface these tests describe. In a product repository
 the surface is the product, so the default is the first profile of
-`product.json` (ADR-049) — `business` here. `setdefault`, so a run can still
+`product.json` (ADR-049) — `agro` here, Business plus the farm register.
+`setdefault`, so a run can still
 ask for another profile, and an image build names its own.
 """
 
