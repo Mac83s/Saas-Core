@@ -1,4 +1,5 @@
 {
-  "$comment": "Slot produktu (ADR-049). Saas-Core: business. Repozytorium produktu wpisuje tu swój profil — pierwszy jest główny (typecheck, kontrakt OpenAPI, migracje); wszystkie są budowane jako obrazy.",
-  "profiles": ["business", "core-only"]
+  "$comment": "Slot produktu (ADR-049). Pierwszy profil jest główny: testy, typecheck, kontrakt OpenAPI i migracje. `images` (domyślnie wszystkie `profiles`) to profile budowane jako obrazy. Saas-Core: główny `agro` — nadzbiór modułów rdzenia, żeby testy i kontrakt obejmowały też rejestr gospodarstw — a obrazy tylko `business` i `core-only`.",
+  "profiles": ["agro", "business", "core-only"],
+  "images": ["business", "core-only"]
 }

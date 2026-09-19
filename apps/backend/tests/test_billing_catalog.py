@@ -39,11 +39,10 @@ FEATURE_KEYS = {
     "booking.enabled",
     "custom_domain.enabled",
 } | {
-    # A product's vertical publishes its own feature from its own migration
-    # (ADR-049); core's catalogue carries none of them.
+    # A module outside the pilot catalogue (the farm register, a product's
+    # vertical, ADR-049) publishes its own feature from its own migration.
     entitlement
     for module_id in settings.ACTIVE_MODULES
-    if settings.MODULE_CATALOG[module_id].layer == "vertical"
     for entitlement in settings.MODULE_CATALOG[module_id].entitlements
 }
 QUOTA_KEYS = {

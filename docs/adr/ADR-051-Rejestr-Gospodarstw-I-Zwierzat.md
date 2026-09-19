@@ -89,6 +89,20 @@ wspólne dla kilku aplikacji rolniczych muszą leżeć w warstwie `shared`.
 - Tryb offline korektora (dokumentacja RACICE 2.2) może oprzeć się na tej samej
   lokalnej kopii.
 
+## Wdrożenie etapu 2 (2026-09-19)
+
+- `shared.farms` w Saas-Core: `Farm` (nazwa unikalna w organizacji, numer
+  siedziby stada znormalizowany i unikalny w organizacji, gdy podany, NIP 10
+  cyfr), `Animal` (gatunek z katalogu `species.py`, numer znormalizowany i
+  sprawdzany wzorcem gatunku, unikalny w gospodarstwie). Wymuszone RLS i
+  strażnik relacji zwierzę→gospodarstwo tej samej organizacji. Uprawnienia
+  `farms.read`/`farms.manage` (role globalne przez `roleGrants` i migrację),
+  cecha planu `farms.enabled` publikowana migracją modułu. API `/api/v1/farms/`
+  i ekrany „Gospodarstwa” w panelu. `api.py`: `FARM_MODEL`, `farm_for_tenant`.
+- Profil wzorcowy `agro` (Business + rejestr) jest profilem głównym Saas-Core
+  w `product.json`: testy, typecheck i kontrakt obejmują rejestr. Obrazy
+  (`images`) nadal tylko `business` i `core-only`.
+
 ## Alternatywy odrzucone
 
 - **Jeden wspólny rekord gospodarstwa z dostępem przez udział w RLS.** Wymagałby

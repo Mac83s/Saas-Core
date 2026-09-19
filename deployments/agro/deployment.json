@@ -1,0 +1,31 @@
+{
+  "$schema": "../../packages/contracts/deployment.schema.json",
+  "schemaVersion": 1,
+  "id": "agro",
+  "product": {
+    "name": "SaaS Core Agro (profil wzorcowy)",
+    "defaultLocale": "pl",
+    "supportedLocales": ["pl", "en"],
+    "platformDomain": "agro.localhost"
+  },
+  "modules": [
+    "core.health",
+    "core.identity",
+    "core.organizations",
+    "shared.billing",
+    "shared.sites",
+    "shared.media",
+    "shared.profiles",
+    "shared.notifications",
+    "shared.booking",
+    "shared.seo",
+    "shared.farms"
+  ],
+  "billing": {
+    "planKeys": ["profile", "starter", "pro"]
+  },
+  "features": {
+    "customDomains": true,
+    "publicBooking": true
+  }
+}

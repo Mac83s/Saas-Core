@@ -29,14 +29,14 @@ jobs:
       # Backend and frontend carry a deployment profile, so there is one image
       # per product rather than one image pretending to serve both. Which
       # profiles this repository publishes is its own `product.json` (ADR-049):
-      # Saas-Core builds business and core-only, a product repository builds
+      # Saas-Core builds business and core-only (its `images`), a product repository builds
       # its product, and neither edits this file to say so.
       - name: Obrazy z product.json
         id: matrix
         run: |
           node -e '
-            const { profiles } = require("./product.json");
-            const include = profiles.flatMap((profile) => [
+            const product = require("./product.json");
+            const include = (product.images ?? product.profiles).flatMap((profile) => [
               { name: "backend", dockerfile: "apps/backend/Dockerfile", profile },
               { name: "frontend", dockerfile: "apps/frontend/Dockerfile", profile },
             ]);

@@ -597,6 +597,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/farms/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["farms_list"];
+        put?: never;
+        post: operations["farms_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/farms/{farm_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["farms_read"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["farms_update"];
+        trace?: never;
+    };
+    "/api/v1/farms/animals/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["farms_animal_list"];
+        put?: never;
+        post: operations["farms_animal_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/farms/animals/{animal_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["farms_animal_update"];
+        trace?: never;
+    };
+    "/api/v1/farms/species/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The species catalogue; inactive ones are listed so a client can say "soon". */
+        get: operations["farms_species"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health/": {
         parameters: {
             query?: never;
@@ -2295,6 +2376,37 @@ export interface components {
         ActiveOrganizationResult: {
             organization: components["schemas"]["OrganizationSummary"];
         };
+        Animal: {
+            /** Format: uuid */
+            readonly id: string;
+            /** Format: uuid */
+            readonly farm_id: string;
+            readonly farm_name: string;
+            readonly species: string;
+            readonly national_id: string;
+            readonly working_number: string;
+            readonly name: string;
+            readonly sex: string;
+            /** Format: date */
+            readonly birth_date: string | null;
+            readonly status: string;
+            readonly notes: string;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        AnimalInput: {
+            /** Format: uuid */
+            farm_id: string;
+            species?: components["schemas"]["SpeciesEnum"];
+            national_id: string;
+            working_number?: string;
+            name?: string;
+            sex?: components["schemas"]["SexEnum"];
+            /** Format: date */
+            birth_date?: string | null;
+            status?: components["schemas"]["Status891Enum"];
+            notes?: string;
+        };
         ApiKey: {
             /** Format: uuid */
             id: string;
@@ -3062,6 +3174,47 @@ export interface components {
         EntryTagsSave: {
             names: string[];
         };
+        Farm: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly name: string;
+            readonly herd_number: string;
+            readonly tax_id: string;
+            readonly village: string;
+            readonly address: string;
+            readonly keeper_name: string;
+            readonly email: string;
+            readonly phone: string;
+            readonly housing: string;
+            readonly notes: string;
+            readonly active: boolean;
+            /** Format: date-time */
+            readonly updated_at: string;
+        };
+        /**
+         * @description What a client may send; kept apart from the response so the generated
+         *     client does not demand `id` for a row that does not exist yet.
+         */
+        FarmInput: {
+            name: string;
+            herd_number?: string;
+            tax_id?: string;
+            village?: string;
+            address?: string;
+            keeper_name?: string;
+            email?: string;
+            phone?: string;
+            housing?: string;
+            notes?: string;
+            active?: boolean;
+        };
+        FarmSpecies: {
+            key: string;
+            label: {
+                [key: string]: string;
+            };
+            active: boolean;
+        };
         GenericMessage: {
             detail: string;
         };
@@ -3574,6 +3727,33 @@ export interface components {
          * @enum {string}
          */
         PasswordResetResultStatusEnum: "password_updated";
+        PatchedAnimalUpdate: {
+            national_id?: string;
+            working_number?: string;
+            name?: string;
+            sex?: components["schemas"]["SexEnum"];
+            /** Format: date */
+            birth_date?: string | null;
+            status?: components["schemas"]["Status891Enum"];
+            notes?: string;
+        };
+        /**
+         * @description What a client may send; kept apart from the response so the generated
+         *     client does not demand `id` for a row that does not exist yet.
+         */
+        PatchedFarmUpdate: {
+            name?: string;
+            herd_number?: string;
+            tax_id?: string;
+            village?: string;
+            address?: string;
+            keeper_name?: string;
+            email?: string;
+            phone?: string;
+            housing?: string;
+            notes?: string;
+            active?: boolean;
+        };
         PatchedMembershipUpdate: {
             role?: string;
             status?: components["schemas"]["MembershipUpdateStatusEnum"];
@@ -3895,6 +4075,13 @@ export interface components {
          * @enum {string}
          */
         SeverityEnum: "info" | "warning" | "critical";
+        /**
+         * @description * `female` - Samica
+         *     * `male` - Samiec
+         *     * `unknown` - Nieznana
+         * @enum {string}
+         */
+        SexEnum: "female" | "male" | "unknown";
         SiteCreate: {
             name: string;
             slug: string;
@@ -4038,6 +4225,15 @@ export interface components {
         SlotList: {
             items: components["schemas"]["Slot"][];
         };
+        /**
+         * @description * `cattle` - cattle
+         *     * `sheep` - sheep
+         *     * `goat` - goat
+         *     * `horse` - horse
+         *     * `pig` - pig
+         * @enum {string}
+         */
+        SpeciesEnum: "cattle" | "sheep" | "goat" | "horse" | "pig";
         Staff: {
             /** Format: uuid */
             id: string;
@@ -4056,6 +4252,14 @@ export interface components {
          * @enum {string}
          */
         StateEnum: "queued" | "submitting" | "running" | "reconciling" | "completed" | "partial" | "failed" | "cancelled";
+        /**
+         * @description * `active` - W stadzie
+         *     * `sold` - Sprzedane
+         *     * `culled` - Wybrakowane
+         *     * `dead` - Padłe
+         * @enum {string}
+         */
+        Status891Enum: "active" | "sold" | "culled" | "dead";
         /**
          * @description * `address` - address
          *     * `details` - details
@@ -5676,6 +5880,364 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SlotList"];
+                };
+            };
+        };
+    };
+    farms_list: {
+        parameters: {
+            query?: {
+                /** @description Szukaj po nazwie, miejscowości, hodowcy, numerze. */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Farm"][];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    farms_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FarmInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["FarmInput"];
+                "multipart/form-data": components["schemas"]["FarmInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Farm"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    farms_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                farm_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Farm"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    farms_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                farm_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedFarmUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedFarmUpdate"];
+                "multipart/form-data": components["schemas"]["PatchedFarmUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Farm"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    farms_animal_list: {
+        parameters: {
+            query?: {
+                /** @description Ogranicz do gospodarstwa. */
+                farm_id?: string;
+                /** @description Szukaj po numerze, numerze roboczym, imieniu. */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Animal"][];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    farms_animal_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnimalInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["AnimalInput"];
+                "multipart/form-data": components["schemas"]["AnimalInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Animal"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    farms_animal_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                animal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedAnimalUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedAnimalUpdate"];
+                "multipart/form-data": components["schemas"]["PatchedAnimalUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Animal"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    farms_species: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FarmSpecies"][];
                 };
             };
         };

@@ -1,0 +1,27 @@
+{
+  "id": "shared.farms",
+  "layer": "shared",
+  "version": 1,
+  "dependsOn": ["core.identity", "core.organizations", "shared.billing"],
+  "backend": {
+    "djangoApp": "saas_core.modules.shared.farms",
+    "urlPrefix": "/api/v1/farms",
+    "permissions": ["farms.read", "farms.manage"],
+    "roleGrants": {
+      "viewer": ["farms.read"],
+      "staff": ["farms.read"],
+      "manager": ["farms.read", "farms.manage"],
+      "admin": ["farms.read", "farms.manage"],
+      "owner": ["farms.read", "farms.manage"]
+    },
+    "entitlements": ["farms.enabled"],
+    "eventSchemas": [],
+    "publicTables": [],
+    "platformTables": []
+  },
+  "frontend": {
+    "routes": ["/panel/farms", "/panel/farms/[farmId]"],
+    "navigation": ["farms"],
+    "translationNamespaces": ["Farms"]
+  }
+}

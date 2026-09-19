@@ -1350,6 +1350,333 @@ paths:
               schema:
                 $ref: '#/components/schemas/SlotList'
           description: ''
+  /api/v1/farms/:
+    get:
+      operationId: farms_list
+      parameters:
+      - in: query
+        name: q
+        schema:
+          type: string
+        description: Szukaj po nazwie, miejscowości, hodowcy, numerze.
+      tags:
+      - farms
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Farm'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: farms_create
+      tags:
+      - farms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FarmInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FarmInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FarmInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Farm'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/farms/{farm_id}/:
+    get:
+      operationId: farms_read
+      parameters:
+      - in: path
+        name: farm_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - farms
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Farm'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    patch:
+      operationId: farms_update
+      parameters:
+      - in: path
+        name: farm_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - farms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedFarmUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedFarmUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedFarmUpdate'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Farm'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/farms/animals/:
+    get:
+      operationId: farms_animal_list
+      parameters:
+      - in: query
+        name: farm_id
+        schema:
+          type: string
+        description: Ogranicz do gospodarstwa.
+      - in: query
+        name: q
+        schema:
+          type: string
+        description: Szukaj po numerze, numerze roboczym, imieniu.
+      tags:
+      - farms
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Animal'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: farms_animal_create
+      tags:
+      - farms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnimalInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AnimalInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AnimalInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Animal'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/farms/animals/{animal_id}/:
+    patch:
+      operationId: farms_animal_update
+      parameters:
+      - in: path
+        name: animal_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - farms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedAnimalUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedAnimalUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedAnimalUpdate'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Animal'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/farms/species/:
+    get:
+      operationId: farms_species
+      description: The species catalogue; inactive ones are listed so a client can
+        say "soon".
+      tags:
+      - farms
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FarmSpecies'
+          description: ''
   /api/v1/health/:
     get:
       operationId: api_v1_health_retrieve
@@ -6589,6 +6916,95 @@ components:
           $ref: '#/components/schemas/OrganizationSummary'
       required:
       - organization
+    Animal:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        farm_id:
+          type: string
+          format: uuid
+          readOnly: true
+        farm_name:
+          type: string
+          readOnly: true
+        species:
+          type: string
+          readOnly: true
+        national_id:
+          type: string
+          readOnly: true
+        working_number:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        sex:
+          type: string
+          readOnly: true
+        birth_date:
+          type:
+          - string
+          - 'null'
+          format: date
+          readOnly: true
+        status:
+          type: string
+          readOnly: true
+        notes:
+          type: string
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - birth_date
+      - farm_id
+      - farm_name
+      - id
+      - name
+      - national_id
+      - notes
+      - sex
+      - species
+      - status
+      - updated_at
+      - working_number
+    AnimalInput:
+      type: object
+      properties:
+        farm_id:
+          type: string
+          format: uuid
+        species:
+          $ref: '#/components/schemas/SpeciesEnum'
+        national_id:
+          type: string
+          maxLength: 40
+        working_number:
+          type: string
+          maxLength: 20
+        name:
+          type: string
+          maxLength: 80
+        sex:
+          $ref: '#/components/schemas/SexEnum'
+        birth_date:
+          type:
+          - string
+          - 'null'
+          format: date
+        status:
+          $ref: '#/components/schemas/Status891Enum'
+        notes:
+          type: string
+      required:
+      - farm_id
+      - national_id
     ApiKey:
       type: object
       properties:
@@ -8568,6 +8984,121 @@ components:
           maxItems: 10
       required:
       - names
+    Farm:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+        herd_number:
+          type: string
+          readOnly: true
+        tax_id:
+          type: string
+          readOnly: true
+        village:
+          type: string
+          readOnly: true
+        address:
+          type: string
+          readOnly: true
+        keeper_name:
+          type: string
+          readOnly: true
+        email:
+          type: string
+          readOnly: true
+        phone:
+          type: string
+          readOnly: true
+        housing:
+          type: string
+          readOnly: true
+        notes:
+          type: string
+          readOnly: true
+        active:
+          type: boolean
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - active
+      - address
+      - email
+      - herd_number
+      - housing
+      - id
+      - keeper_name
+      - name
+      - notes
+      - phone
+      - tax_id
+      - updated_at
+      - village
+    FarmInput:
+      type: object
+      description: |-
+        What a client may send; kept apart from the response so the generated
+        client does not demand `id` for a row that does not exist yet.
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        herd_number:
+          type: string
+          maxLength: 24
+        tax_id:
+          type: string
+          maxLength: 16
+        village:
+          type: string
+          maxLength: 120
+        address:
+          type: string
+          maxLength: 240
+        keeper_name:
+          type: string
+          maxLength: 160
+        email:
+          oneOf:
+          - type: string
+            format: email
+          - type: string
+            maxLength: 0
+        phone:
+          type: string
+          maxLength: 40
+        housing:
+          type: string
+          maxLength: 80
+        notes:
+          type: string
+        active:
+          type: boolean
+      required:
+      - name
+    FarmSpecies:
+      type: object
+      properties:
+        key:
+          type: string
+        label:
+          type: object
+          additionalProperties:
+            type: string
+        active:
+          type: boolean
+      required:
+      - active
+      - key
+      - label
     GenericMessage:
       type: object
       properties:
@@ -9834,6 +10365,69 @@ components:
       - password_updated
       type: string
       description: '* `password_updated` - password_updated'
+    PatchedAnimalUpdate:
+      type: object
+      properties:
+        national_id:
+          type: string
+          maxLength: 40
+        working_number:
+          type: string
+          maxLength: 20
+        name:
+          type: string
+          maxLength: 80
+        sex:
+          $ref: '#/components/schemas/SexEnum'
+        birth_date:
+          type:
+          - string
+          - 'null'
+          format: date
+        status:
+          $ref: '#/components/schemas/Status891Enum'
+        notes:
+          type: string
+    PatchedFarmUpdate:
+      type: object
+      description: |-
+        What a client may send; kept apart from the response so the generated
+        client does not demand `id` for a row that does not exist yet.
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        herd_number:
+          type: string
+          maxLength: 24
+        tax_id:
+          type: string
+          maxLength: 16
+        village:
+          type: string
+          maxLength: 120
+        address:
+          type: string
+          maxLength: 240
+        keeper_name:
+          type: string
+          maxLength: 160
+        email:
+          oneOf:
+          - type: string
+            format: email
+          - type: string
+            maxLength: 0
+        phone:
+          type: string
+          maxLength: 40
+        housing:
+          type: string
+          maxLength: 80
+        notes:
+          type: string
+        active:
+          type: boolean
     PatchedMembershipUpdate:
       type: object
       properties:
@@ -10584,6 +11178,16 @@ components:
         * `info` - info
         * `warning` - warning
         * `critical` - critical
+    SexEnum:
+      enum:
+      - female
+      - male
+      - unknown
+      type: string
+      description: |-
+        * `female` - Samica
+        * `male` - Samiec
+        * `unknown` - Nieznana
     SiteCreate:
       type: object
       properties:
@@ -10978,6 +11582,20 @@ components:
             $ref: '#/components/schemas/Slot'
       required:
       - items
+    SpeciesEnum:
+      enum:
+      - cattle
+      - sheep
+      - goat
+      - horse
+      - pig
+      type: string
+      description: |-
+        * `cattle` - cattle
+        * `sheep` - sheep
+        * `goat` - goat
+        * `horse` - horse
+        * `pig` - pig
     Staff:
       type: object
       properties:
@@ -11012,6 +11630,18 @@ components:
         * `partial` - Partial without charge
         * `failed` - Failed
         * `cancelled` - Cancelled
+    Status891Enum:
+      enum:
+      - active
+      - sold
+      - culled
+      - dead
+      type: string
+      description: |-
+        * `active` - W stadzie
+        * `sold` - Sprzedane
+        * `culled` - Wybrakowane
+        * `dead` - Padłe
     StepEnum:
       enum:
       - address
@@ -11327,4 +11957,4 @@ components:
     cookieAuth:
       type: apiKey
       in: cookie
-      name: saas_core_business_session
+      name: saas_core_agro_session

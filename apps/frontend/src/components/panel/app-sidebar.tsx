@@ -11,6 +11,7 @@ import {
   SettingsIcon,
   SearchCheckIcon,
   UsersIcon,
+  WarehouseIcon,
   WandSparklesIcon,
   XIcon,
   type LucideIcon,
@@ -72,6 +73,12 @@ export function AppSidebar({
       icon: CalendarDaysIcon,
       label: t("calendar"),
       module: "shared.booking",
+    },
+    {
+      href: "/panel/farms",
+      icon: WarehouseIcon,
+      label: t("farms"),
+      module: "shared.farms",
     },
     {
       href: "/panel/sites",

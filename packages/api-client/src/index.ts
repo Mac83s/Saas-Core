@@ -2296,6 +2296,128 @@ export async function listSeoGscSyncs(
   return data;
 }
 
+// ── Farm register (shared.farms, ADR-051) ─────────────────────────────────
+export type Farm = components["schemas"]["Farm"];
+export type FarmInput = components["schemas"]["FarmInput"];
+export type FarmUpdateInput = components["schemas"]["PatchedFarmUpdate"];
+export type FarmAnimal = components["schemas"]["Animal"];
+export type FarmAnimalInput = components["schemas"]["AnimalInput"];
+export type FarmAnimalUpdateInput =
+  components["schemas"]["PatchedAnimalUpdate"];
+export type FarmSpecies = components["schemas"]["FarmSpecies"];
+
+export async function listFarms(search?: string): Promise<Farm[]> {
+  const { data, error, response } = await client.GET("/api/v1/farms/", {
+    params: search ? { query: { q: search } } : undefined,
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function readFarm(farmId: string): Promise<Farm> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/farms/{farm_id}/",
+    {
+      params: { path: { farm_id: farmId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createFarm(input: FarmInput): Promise<Farm> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST("/api/v1/farms/", {
+    body: input,
+    credentials: "same-origin",
+    headers: { "X-CSRFToken": csrfToken },
+  });
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function updateFarm(
+  farmId: string,
+  input: FarmUpdateInput,
+): Promise<Farm> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PATCH(
+    "/api/v1/farms/{farm_id}/",
+    {
+      params: { path: { farm_id: farmId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function listFarmAnimals(
+  filters: {
+    farmId?: string;
+    search?: string;
+  } = {},
+): Promise<FarmAnimal[]> {
+  const query: { farm_id?: string; q?: string } = {};
+  if (filters.farmId) query.farm_id = filters.farmId;
+  if (filters.search) query.q = filters.search;
+  const { data, error, response } = await client.GET("/api/v1/farms/animals/", {
+    params: { query },
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createFarmAnimal(
+  input: FarmAnimalInput,
+): Promise<FarmAnimal> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/farms/animals/",
+    {
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function updateFarmAnimal(
+  animalId: string,
+  input: FarmAnimalUpdateInput,
+): Promise<FarmAnimal> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PATCH(
+    "/api/v1/farms/animals/{animal_id}/",
+    {
+      params: { path: { animal_id: animalId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function listFarmSpecies(): Promise<FarmSpecies[]> {
+  const { data, error, response } = await client.GET("/api/v1/farms/species/", {
+    credentials: "same-origin",
+  });
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 // ── For product modules (ADR-049) ───────────────────────────────────────────
 // A product's vertical calls its own endpoints with the same client, CSRF and
 // Problem Details handling as core, from its own files — so it never has to

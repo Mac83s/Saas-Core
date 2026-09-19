@@ -1,15 +1,15 @@
 // Wygenerowano przez pnpm deployment:render. Nie edytuj ręcznie.
 export const deployment = {
   "schemaVersion": 1,
-  "id": "business",
+  "id": "agro",
   "product": {
-    "name": "SaaS Core Business",
+    "name": "SaaS Core Agro (profil wzorcowy)",
     "defaultLocale": "pl",
     "supportedLocales": [
       "pl",
       "en"
     ],
-    "platformDomain": "business.localhost"
+    "platformDomain": "agro.localhost"
   },
   "modules": [
     "core.health",
@@ -21,7 +21,8 @@ export const deployment = {
     "shared.profiles",
     "shared.notifications",
     "shared.booking",
-    "shared.seo"
+    "shared.seo",
+    "shared.farms"
   ],
   "features": {
     "customDomains": true,
@@ -42,7 +43,8 @@ export const deployment = {
         "shared.profiles",
         "shared.notifications",
         "shared.booking",
-        "shared.seo"
+        "shared.seo",
+        "shared.farms"
       ],
       "planKeys": [
         "profile",
@@ -54,5 +56,5 @@ export const deployment = {
       "serviceTemplates": []
     }
   ],
-  "profileHash": "sha256:d1c21e12783bda7757c5eb6e741b26dfc3da88022654c9fff456d677169ea1f6"
+  "profileHash": "sha256:51febbe0d0e8044341effa865c5ea94f896e582a953b7a6658102b8f94653f40"
 } as const
