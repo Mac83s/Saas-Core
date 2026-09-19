@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -11,7 +11,7 @@ import {
   type Path,
   type UseFormReturn,
 } from "react-hook-form";
-import { LoaderCircleIcon } from "lucide-react";
+import { LoaderCircleIcon, PencilIcon } from "lucide-react";
 import { z } from "zod";
 
 import {
@@ -89,6 +89,11 @@ const COUNTRIES = [
 
 type Country = { code: string; name: string };
 
+/**
+ * The invoice details ADR-040 requires before the first purchase. While they
+ * are missing the form is open, because the plans cannot be bought without it;
+ * once complete they fold into a summary, edited on request.
+ */
 export function BillingDetailsForm({
   details,
   canManage,
@@ -100,8 +105,14 @@ export function BillingDetailsForm({
 }) {
   const t = useTranslations("CustomerBilling");
   const locale = useLocale();
+  const incomplete = details.missing.length > 0;
+  const [editing, setEditing] = useState(canManage && incomplete);
   const [saved, setSaved] = useState(false);
   const [problem, setProblem] = useState<string | undefined>(undefined);
+  const editButton = useRef<HTMLButtonElement>(null);
+  // Set by the person's own switch between summary and form: the control they
+  // used disappears, so focus follows them to the other side.
+  const moveFocus = useRef(false);
 
   const schema = useMemo(
     () =>
@@ -141,93 +152,203 @@ export function BillingDetailsForm({
     })).sort((a, b) => a.name.localeCompare(b.name, locale));
   }, [locale]);
 
+  useEffect(() => {
+    if (!moveFocus.current) return;
+    moveFocus.current = false;
+    if (editing) form.setFocus("legal_name");
+    else editButton.current?.focus();
+  }, [editing, form]);
+
+  function toggle(open: boolean) {
+    moveFocus.current = true;
+    setSaved(false);
+    setProblem(undefined);
+    if (!open) form.reset();
+    setEditing(open);
+  }
+
   async function save(values: Values) {
     setProblem(undefined);
     setSaved(false);
     try {
-      onSaved(await updateBillingDetails(values));
+      const next = await updateBillingDetails(values);
+      onSaved(next);
+      form.reset(values);
       setSaved(true);
+      if (next.missing.length === 0) {
+        moveFocus.current = true;
+        setEditing(false);
+      }
     } catch (error) {
       setProblem(
         error instanceof ApiProblemError &&
           typeof error.problem.detail === "string"
           ? error.problem.detail
-          : t("checkoutUnavailable"),
+          : t("detailsSaveError"),
       );
     }
   }
 
+  const country = details.country_code
+    ? new Intl.DisplayNames([locale], { type: "region" }).of(
+        details.country_code,
+      )
+    : "";
+  const address = [
+    details.address_line1,
+    [details.postal_code, details.city].filter(Boolean).join(" "),
+    country,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          <h2>{t("detailsTitle")}</h2>
-        </CardTitle>
-        <CardDescription>{t("detailsDescription")}</CardDescription>
-      </CardHeader>
-      <form onSubmit={form.handleSubmit(save)}>
-        <CardContent>
-          {details.missing.length > 0 ? (
-            <p className="mb-4 text-sm font-medium text-warning-foreground">
-              {t("detailsMissing")}
-            </p>
-          ) : null}
-          <FieldGroup className="sm:grid sm:grid-cols-2 sm:gap-4">
-            <SelectField
-              control={form.control}
-              label={t("customerKind")}
-              name="customer_kind"
-              options={[
-                ["company", t("customerKindCompany")],
-                ["individual", t("customerKindIndividual")],
-              ]}
-            />
-            <TextField form={form} label={t("legalName")} name="legal_name" />
-            <TextField form={form} label={t("taxId")} name="tax_id" />
-            <TextField
-              form={form}
-              label={t("billingEmail")}
-              name="billing_email"
-              type="email"
-            />
-            <CountryField
-              control={form.control}
-              countries={countries}
-              label={t("country")}
-              name="country_code"
-            />
-            <TextField
-              form={form}
-              label={t("addressLine1")}
-              name="address_line1"
-            />
-            <TextField form={form} label={t("postalCode")} name="postal_code" />
-            <TextField form={form} label={t("city")} name="city" />
-          </FieldGroup>
-          {problem ? (
-            <p className="mt-4 text-sm text-destructive" role="alert">
-              {problem}
-            </p>
-          ) : null}
-          {saved ? (
-            <p className="mt-4 text-sm text-muted-foreground" role="status">
-              {t("detailsSaved")}
-            </p>
-          ) : null}
-        </CardContent>
-        <CardFooter>
-          <Button
-            disabled={!canManage || form.formState.isSubmitting}
-            type="submit"
+    <section aria-labelledby="billing-details-heading">
+      <Card>
+        <CardHeader>
+          <CardTitle>
+            <h2 id="billing-details-heading">{t("detailsTitle")}</h2>
+          </CardTitle>
+          <CardDescription>{t("detailsDescription")}</CardDescription>
+        </CardHeader>
+        {editing ? (
+          <form
+            noValidate
+            onSubmit={(event) => void form.handleSubmit(save)(event)}
           >
-            {form.formState.isSubmitting ? (
-              <LoaderCircleIcon aria-hidden="true" className="animate-spin" />
-            ) : null}
-            {canManage ? t("saveDetails") : t("ownerOnly")}
-          </Button>
-        </CardFooter>
-      </form>
-    </Card>
+            <CardContent>
+              {incomplete ? (
+                <p className="mb-4 text-sm font-medium text-warning-foreground">
+                  {t("detailsMissing")}
+                </p>
+              ) : null}
+              <FieldGroup className="sm:grid sm:grid-cols-2 sm:gap-4">
+                <SelectField
+                  control={form.control}
+                  label={t("customerKind")}
+                  name="customer_kind"
+                  options={[
+                    ["company", t("customerKindCompany")],
+                    ["individual", t("customerKindIndividual")],
+                  ]}
+                />
+                <TextField
+                  form={form}
+                  label={t("legalName")}
+                  name="legal_name"
+                />
+                <TextField form={form} label={t("taxId")} name="tax_id" />
+                <TextField
+                  form={form}
+                  label={t("billingEmail")}
+                  name="billing_email"
+                  type="email"
+                />
+                <CountryField
+                  control={form.control}
+                  countries={countries}
+                  label={t("country")}
+                  name="country_code"
+                />
+                <TextField
+                  form={form}
+                  label={t("addressLine1")}
+                  name="address_line1"
+                />
+                <TextField
+                  form={form}
+                  label={t("postalCode")}
+                  name="postal_code"
+                />
+                <TextField form={form} label={t("city")} name="city" />
+              </FieldGroup>
+              {problem ? (
+                <p className="mt-4 text-sm text-destructive" role="alert">
+                  {problem}
+                </p>
+              ) : null}
+            </CardContent>
+            <CardFooter className="mt-4 flex-wrap gap-3">
+              <Button disabled={form.formState.isSubmitting} type="submit">
+                {form.formState.isSubmitting ? (
+                  <LoaderCircleIcon
+                    aria-hidden="true"
+                    className="animate-spin"
+                  />
+                ) : null}
+                {t("saveDetails")}
+              </Button>
+              {incomplete ? null : (
+                <Button
+                  onClick={() => toggle(false)}
+                  type="button"
+                  variant="ghost"
+                >
+                  {t("cancelEdit")}
+                </Button>
+              )}
+            </CardFooter>
+          </form>
+        ) : (
+          <>
+            <CardContent className="space-y-4">
+              <dl className="grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                <SummaryRow
+                  label={t("buyer")}
+                  value={[
+                    t(
+                      details.customer_kind === "individual"
+                        ? "customerKindIndividual"
+                        : "customerKindCompany",
+                    ),
+                    details.legal_name,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                />
+                <SummaryRow label={t("taxId")} value={details.tax_id} />
+                <SummaryRow label={t("address")} value={address} />
+                <SummaryRow
+                  label={t("billingEmail")}
+                  value={details.billing_email}
+                />
+              </dl>
+              {saved ? (
+                <p className="text-sm text-success-foreground" role="status">
+                  {t("detailsSaved")}
+                </p>
+              ) : null}
+            </CardContent>
+            <CardFooter className="flex-wrap gap-3">
+              {canManage ? (
+                <Button
+                  onClick={() => toggle(true)}
+                  ref={editButton}
+                  type="button"
+                  variant="outline"
+                >
+                  <PencilIcon aria-hidden="true" />
+                  {t("editDetails")}
+                </Button>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {t("detailsOwnerOnly")}
+                </p>
+              )}
+            </CardFooter>
+          </>
+        )}
+      </Card>
+    </section>
+  );
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="font-medium break-words">{value || "—"}</dd>
+    </div>
   );
 }
 

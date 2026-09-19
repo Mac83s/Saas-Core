@@ -11,6 +11,7 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import englishMessages from "../../../../messages/en.json";
 import polishMessages from "../../../../messages/pl.json";
+import { ApiProblemError } from "@saas-core/api-client";
 import { NotificationsPanel } from "./notifications-panel";
 
 const {
@@ -25,6 +26,7 @@ const {
   updateNotificationPreferences: vi.fn(),
 }));
 
+vi.mock("#i18n/navigation", () => ({ Link: "a" }));
 vi.mock("@saas-core/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@saas-core/api-client")>()),
   getNotificationPreferences,
@@ -42,56 +44,170 @@ beforeEach(() => {
   getNotificationTemplates.mockResolvedValue({
     items: [
       {
-        key: "system.activity",
+        key: "booking.reminder",
         version: 1,
         category: "required",
+        locales: ["en", "pl"],
+        context_fields: ["organization_name", "starts_at"],
+      },
+      {
+        key: "product.update",
+        version: 1,
+        category: "marketing",
         locales: ["en", "pl"],
         context_fields: ["display_name", "message"],
       },
     ],
   });
-  previewNotificationTemplate.mockResolvedValue({
-    subject: "Ważna informacja o koncie",
-    html_body: "<p>Bezpieczny podgląd</p>",
-  });
+  previewNotificationTemplate.mockImplementation(
+    async ({ locale }: { locale: string }) => ({
+      subject: `Temat z API (${locale})`,
+      html_body: "<p>Treść dla {organization_name}</p>",
+    }),
+  );
   updateNotificationPreferences.mockImplementation(async (value) => value);
 });
 
 afterEach(cleanup);
 
-test.each([
-  ["pl", polishMessages],
-  ["en", englishMessages],
-] as const)(
-  "renders accessible preferences and templates in %s",
-  async (locale, messages) => {
-    const rendered = render(
-      <NextIntlClientProvider locale={locale} messages={messages}>
-        <NotificationsPanel />
-      </NextIntlClientProvider>,
-    );
+function renderPanel(locale: "pl" | "en" = "pl", canManageBilling = true) {
+  return render(
+    <NextIntlClientProvider
+      locale={locale}
+      messages={locale === "pl" ? polishMessages : englishMessages}
+    >
+      <NotificationsPanel canManageBilling={canManageBilling} />
+    </NextIntlClientProvider>,
+  );
+}
 
-    expect(await screen.findByText("system.activity v1")).not.toBeNull();
+test.each([
+  ["pl", "Przypomnienie o rezerwacji", "Nazwa firmy", "Twoje powiadomienia"],
+  ["en", "Booking reminder", "Business name", "Your notifications"],
+] as const)(
+  "pokazuje szablony z nazwami, zmiennymi i podglądem w locale %s",
+  async (locale, templateName, variable, preferences) => {
+    const rendered = renderPanel(locale);
+
+    expect(
+      await screen.findByRole("heading", { name: templateName }),
+    ).not.toBeNull();
+    expect(screen.getByText("{organization_name}")).not.toBeNull();
+    expect(screen.getByText(variable)).not.toBeNull();
+    expect(await screen.findByText(`Temat z API (${locale})`)).not.toBeNull();
+    expect(screen.getByRole("heading", { name: preferences })).not.toBeNull();
     expect((await axe.run(rendered.container)).violations).toHaveLength(0);
   },
 );
 
-test("updates consent and previews without sending a message", async () => {
-  render(
-    <NextIntlClientProvider locale="pl" messages={polishMessages}>
-      <NotificationsPanel />
-    </NextIntlClientProvider>,
+test("podgląd podstawia zmienne szablonu i zmienia język bez wysyłania", async () => {
+  renderPanel();
+
+  expect(await screen.findByText("Temat z API (pl)")).not.toBeNull();
+  // Each variable stands in for itself, so the preview shows where it lands.
+  expect(previewNotificationTemplate).toHaveBeenLastCalledWith({
+    key: "booking.reminder",
+    version: 1,
+    locale: "pl",
+    context: {
+      organization_name: "{organization_name}",
+      starts_at: "{starts_at}",
+    },
+  });
+
+  fireEvent.click(screen.getByRole("button", { name: "English" }));
+  expect(await screen.findByText("Temat z API (en)")).not.toBeNull();
+
+  // Another template keeps the language chosen for the preview.
+  fireEvent.click(screen.getByRole("button", { name: /Nowości w usłudze/ }));
+  await waitFor(() =>
+    expect(previewNotificationTemplate).toHaveBeenLastCalledWith({
+      key: "product.update",
+      version: 1,
+      locale: "en",
+      context: { display_name: "{display_name}", message: "{message}" },
+    }),
   );
-  await screen.findByText("system.activity v1");
-  fireEvent.click(screen.getByRole("checkbox"));
+  expect(
+    screen.getByRole("button", { name: /Nowości w usłudze/ }),
+  ).toHaveAttribute("aria-pressed", "true");
+  expect(previewNotificationTemplate).toHaveBeenCalledTimes(3);
+});
+
+test("zapisuje zgodę marketingową we własnych preferencjach", async () => {
+  renderPanel();
+
+  const consent = await screen.findByRole("checkbox", {
+    name: /Wiadomości marketingowe/,
+  });
+  fireEvent.click(consent);
   fireEvent.click(screen.getByRole("button", { name: "Zapisz preferencje" }));
+
   await waitFor(() =>
     expect(updateNotificationPreferences).toHaveBeenCalledWith({
       locale: "pl",
       marketing_enabled: true,
     }),
   );
-  fireEvent.click(screen.getByRole("button", { name: "Podgląd" }));
-  expect(await screen.findByText("Ważna informacja o koncie")).not.toBeNull();
-  expect(previewNotificationTemplate).toHaveBeenCalledOnce();
+  expect(await screen.findByRole("status")).toHaveTextContent(
+    "Preferencje zapisane.",
+  );
 });
+
+test("bez wiadomości w planie właściciel dostaje drogę do planów", async () => {
+  getNotificationTemplates.mockRejectedValue(problem("entitlement_required"));
+  getNotificationPreferences.mockRejectedValue(problem("entitlement_required"));
+
+  renderPanel();
+
+  expect(
+    await screen.findByText("Wiadomości nie są dostępne w Twoim planie"),
+  ).not.toBeNull();
+  expect(
+    screen.getByRole("link", { name: "Porównaj plany" }).getAttribute("href"),
+  ).toBe("/panel/settings/billing?feature=notifications.enabled");
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("heading", { name: "Twoje powiadomienia" }),
+    ).toBeNull(),
+  );
+});
+
+test("bez wiadomości w planie pozostali dostają prośbę do właściciela", async () => {
+  getNotificationTemplates.mockRejectedValue(problem("entitlement_required"));
+
+  renderPanel("pl", false);
+
+  expect(
+    await screen.findByText("Poproś właściciela firmy o zmianę planu."),
+  ).not.toBeNull();
+  expect(screen.queryByRole("link", { name: "Porównaj plany" })).toBeNull();
+});
+
+test("po błędzie szablonów pozwala ponowić, a preferencje działają dalej", async () => {
+  getNotificationTemplates.mockRejectedValueOnce(new Error("offline"));
+
+  renderPanel();
+
+  expect(
+    await screen.findByText("Nie udało się pobrać szablonów wiadomości."),
+  ).not.toBeNull();
+  expect(
+    await screen.findByRole("button", { name: "Zapisz preferencje" }),
+  ).not.toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Spróbuj ponownie" }));
+  expect(
+    await screen.findByRole("heading", { name: "Przypomnienie o rezerwacji" }),
+  ).not.toBeNull();
+});
+
+function problem(code: string) {
+  return new ApiProblemError({
+    type: "about:blank",
+    title: "Forbidden",
+    status: 403,
+    code,
+    detail: "Plan organizacji nie pozwala na tę operację.",
+    correlation_id: null,
+  });
+}

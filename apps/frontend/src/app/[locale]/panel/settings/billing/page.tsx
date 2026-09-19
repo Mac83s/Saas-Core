@@ -1,10 +1,14 @@
 import { Suspense } from "react";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 
+import { productCopy } from "../../../../../marketing/content";
 import { CustomerBillingPanel } from "../../../../../modules/shared/billing";
 
 export default async function BillingSettingsPage() {
-  const t = await getTranslations("CustomerBilling");
+  const [t, locale] = await Promise.all([
+    getTranslations("CustomerBilling"),
+    getLocale(),
+  ]);
   return (
     <main className="mx-auto w-full max-w-7xl space-y-7 px-4 py-8 sm:px-6 lg:py-10">
       <header className="space-y-2">
@@ -13,9 +17,13 @@ export default async function BillingSettingsPage() {
         <p className="max-w-3xl text-muted-foreground">{t("description")}</p>
       </header>
       <Suspense
-        fallback={<div className="h-96 animate-pulse rounded-2xl bg-muted" />}
+        fallback={<div className="h-96 animate-pulse rounded-xl bg-muted" />}
       >
-        <CustomerBillingPanel />
+        {/* The plans name their features in the words of the pricing page, so
+            the offer reads the same before and after signing in. */}
+        <CustomerBillingPanel
+          featureLabels={productCopy(locale).pricing.features}
+        />
       </Suspense>
     </main>
   );
