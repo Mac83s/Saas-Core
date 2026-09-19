@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -19,6 +19,7 @@ import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -43,7 +44,12 @@ import {
 } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
 
+import { typeRole, typeText } from "#lib/organization-types";
+import { roleAccess } from "./role-access";
+
 type Values = { name: string; permissions: string[] };
+
+const GLOBAL_ROLES = new Set(["owner", "admin", "manager", "staff", "viewer"]);
 
 /** A permission's human label; the raw key when no module translated it. */
 export function usePermissionLabel(): (permission: string) => string {
@@ -51,6 +57,54 @@ export function usePermissionLabel(): (permission: string) => string {
   return (permission) => {
     const key = permission.replaceAll(".", "_");
     return t.has(key) ? t(key) : permission;
+  };
+}
+
+/**
+ * A role's name: the label its organization type gives it (ADR-050), core's
+ * translation of a global role, or the name the organization chose.
+ */
+export function useRoleLabel(
+  catalog: RoleCatalog | undefined,
+  organizationType?: string,
+): (key: string) => string {
+  const t = useTranslations("Organizations");
+  const locale = useLocale();
+  return (key) => {
+    const typed = typeRole(organizationType, key);
+    if (typed) return typeText(typed.label, locale);
+    if (GLOBAL_ROLES.has(key)) return t(key);
+    return catalog?.roles.find((role) => role.key === key)?.name ?? key;
+  };
+}
+
+/** One sentence on what a role may do, from its permissions (role-access). */
+export function useRoleDescription(
+  catalog: RoleCatalog | undefined,
+): (role: RoleSummary) => string {
+  const t = useTranslations("Roles");
+  const permissionLabel = usePermissionLabel();
+  const offered = catalog?.roles.flatMap((role) => role.permissions) ?? [];
+  const areas = (keys: string[]) =>
+    keys.map((key) => t(`area_${key}`)).join(", ");
+  return (role) => {
+    const access = roleAccess(role.permissions, offered);
+    if (access.kind !== "list")
+      return access.kind === "except"
+        ? t("accessExcept", { areas: areas(access.areas) })
+        : t(access.kind === "full" ? "accessFull" : "accessBasic");
+    return [
+      access.edit.length ? t("accessEdit", { areas: areas(access.edit) }) : "",
+      access.view.length ? t("accessView", { areas: areas(access.view) }) : "",
+      access.also.length
+        ? t("accessAlso", {
+            items: access.also.map(permissionLabel).join(", "),
+          })
+        : "",
+      access.none.length ? t("accessNone", { areas: areas(access.none) }) : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
   };
 }
 
@@ -63,14 +117,18 @@ export function RolesCard({
   catalog,
   canManage,
   onChanged,
+  organizationType,
 }: {
   catalog: RoleCatalog;
   canManage: boolean;
   onChanged: () => Promise<void>;
+  organizationType?: string;
 }) {
   const t = useTranslations("Roles");
   const common = useTranslations("Common");
   const permissionLabel = usePermissionLabel();
+  const roleLabel = useRoleLabel(catalog, organizationType);
+  const describe = useRoleDescription(catalog);
   const [editing, setEditing] = useState<RoleSummary | "new" | null>(null);
   const [problem, setProblem] = useState<string>();
   const schema = useMemo(
@@ -132,16 +190,18 @@ export function RolesCard({
 
   return (
     <Card>
-      <CardHeader className="flex-row items-start justify-between gap-4">
-        <div>
-          <CardTitle>{t("title")}</CardTitle>
-          <CardDescription>{t("description")}</CardDescription>
-        </div>
+      <CardHeader>
+        <CardTitle>
+          <h2>{t("title")}</h2>
+        </CardTitle>
+        <CardDescription>{t("description")}</CardDescription>
         {canManage ? (
-          <Button onClick={() => open("new")} size="sm" type="button">
-            <PlusIcon aria-hidden="true" />
-            {t("create")}
-          </Button>
+          <CardAction>
+            <Button onClick={() => open("new")} type="button" variant="outline">
+              <PlusIcon aria-hidden="true" />
+              {t("create")}
+            </Button>
+          </CardAction>
         ) : null}
       </CardHeader>
       <CardContent className="space-y-3">
@@ -156,10 +216,8 @@ export function RolesCard({
             key={role.key}
           >
             <div className="min-w-0 flex-1">
-              <p className="font-medium">{role.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {t("permissionCount", { count: role.permissions.length })}
-              </p>
+              <p className="font-medium">{roleLabel(role.key)}</p>
+              <p className="text-muted-foreground">{describe(role)}</p>
             </div>
             <Badge variant={role.scope === "system" ? "secondary" : "outline"}>
               {role.scope === "system" ? t("system") : t("own")}
@@ -169,7 +227,7 @@ export function RolesCard({
                 <Button
                   aria-label={`${t("edit")}: ${role.name}`}
                   onClick={() => open(role)}
-                  size="icon-sm"
+                  size="icon"
                   type="button"
                   variant="ghost"
                 >
@@ -178,7 +236,7 @@ export function RolesCard({
                 <Button
                   aria-label={`${t("delete")}: ${role.name}`}
                   onClick={() => void remove(role)}
-                  size="icon-sm"
+                  size="icon"
                   type="button"
                   variant="ghost"
                 >
