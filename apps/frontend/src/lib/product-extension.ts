@@ -68,3 +68,26 @@ export type ProductDashboardProps = {
 export type ProductDashboard = {
   component: ComponentType<ProductDashboardProps>;
 } & Pick<ProductNavigationItem, "module" | "organizationTypes" | "permission">;
+
+/**
+ * A section a product renders inside the animal card (slot file
+ * `src/product/animal-sections.tsx`, ADR-049 + ADR-051). The register of farms
+ * and animals is core's; what a trade records about an animal — HoofCare's
+ * trimmings with their ICAR lesion codes and limbs, another product's
+ * treatments — belongs to the product, and core does not know it exists. The
+ * section is handed the two identifiers core owns and fetches everything else
+ * from the product's own endpoints. Core ships no section, so its card shows
+ * the register's own details only.
+ *
+ * A file of its own rather than a field of `product`, for the same reason as
+ * the dashboard: `product` is imported by the menu on the client.
+ */
+export type ProductAnimalSectionProps = {
+  animalId: string;
+  farmId: string;
+};
+export type ProductAnimalSection = {
+  /** React key, and the order the card renders the sections in. */
+  id: string;
+  component: ComponentType<ProductAnimalSectionProps>;
+} & Pick<ProductNavigationItem, "module" | "organizationTypes" | "permission">;
