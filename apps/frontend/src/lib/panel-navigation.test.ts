@@ -2,8 +2,24 @@ import { describe, expect, it, vi } from "vitest";
 
 import { billingAttention } from "./billing-attention";
 
-vi.mock("../product", () => ({ product: {} }));
-import { isActive, panelNavigation, sectionTabs } from "./panel-navigation";
+// A product that adds a settings tab of its own, for its own module only.
+vi.mock("../product", () => ({
+  product: {
+    settingsSections: [
+      {
+        href: "/panel/settings/field-work",
+        labelKey: "fieldWork",
+        module: "vertical.demo",
+      },
+    ],
+  },
+}));
+import {
+  isActive,
+  panelNavigation,
+  sectionTabs,
+  type PanelAccess,
+} from "./panel-navigation";
 
 const OWNER = {
   modules: [
@@ -45,6 +61,53 @@ describe("sekcje menu", () => {
     expect(
       sectionTabs("/panel/settings/credits", { ...OWNER, isOwner: false }),
     ).toBeNull();
+  });
+});
+
+describe("ustawienia", () => {
+  const settings = (access: PanelAccess) =>
+    panelNavigation(access).company.at(-1)!;
+  /** A limited role: daily work, none of the company's settings. */
+  const LIMITED = {
+    ...OWNER,
+    modules: [...OWNER.modules, "shared.booking"],
+    permissions: ["booking.appointment.read", "organization.read"],
+    isOwner: false,
+    limited: true,
+  };
+
+  it("Firma, Konto, Usługi i grafik, Zaawansowane, a na końcu zakładki produktu", () => {
+    const tabs = sectionTabs("/panel/settings/account", {
+      ...OWNER,
+      modules: [...OWNER.modules, "shared.booking", "vertical.demo"],
+    });
+    expect(tabs?.map((tab) => tab.href)).toEqual([
+      "/panel/settings/company",
+      "/panel/settings/account",
+      "/panel/settings/services",
+      "/panel/integrations",
+      "/panel/settings/field-work",
+    ]);
+  });
+
+  it("zakładka produktu tylko z jej modułem, usługi tylko z rezerwacjami", () => {
+    expect(
+      sectionTabs("/panel/settings/account", OWNER)?.map((tab) => tab.href),
+    ).toEqual([
+      "/panel/settings/company",
+      "/panel/settings/account",
+      "/panel/integrations",
+    ]);
+  });
+
+  it("„Ustawienia” prowadzą do pierwszej zakładki, którą osoba może otworzyć", () => {
+    expect(settings(OWNER).href).toBe("/panel/settings/company");
+    expect(isActive("/panel/settings/services", settings(OWNER))).toBe(true);
+    expect(isActive("/panel/integrations", settings(OWNER))).toBe(true);
+
+    expect(settings(LIMITED).href).toBe("/panel/settings/account");
+    // Their only tab: no tab bar to choose from.
+    expect(sectionTabs("/panel/settings/account", LIMITED)).toBeNull();
   });
 });
 

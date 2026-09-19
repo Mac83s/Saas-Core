@@ -32,7 +32,6 @@ import {
   listOrganizations,
   revokeInvitation,
   selectActiveOrganization,
-  updateCurrentOrganization,
   updateMembership,
   type InvitationSummary,
   type MembershipSummary,
@@ -100,10 +99,6 @@ type CreateValues = {
   timezone: string;
   currency: string;
 };
-type SettingsValues = Pick<
-  CreateValues,
-  "name" | "default_locale" | "timezone" | "currency"
->;
 type InviteValues = { email: string; role: string };
 type RoleOption = readonly [string, string];
 
@@ -170,7 +165,6 @@ export function OrganizationPanel() {
       currency: "PLN",
     },
   });
-  const settingsForm = useForm<SettingsValues>();
   const inviteForm = useForm<InviteValues>({
     resolver: zodResolver(inviteSchema),
     defaultValues: { email: "", role: "staff" },
@@ -222,16 +216,6 @@ export function OrganizationPanel() {
     };
   }, [router, t]);
 
-  useEffect(() => {
-    if (!active) return;
-    settingsForm.reset({
-      name: active.name,
-      default_locale: active.default_locale === "en" ? "en" : "pl",
-      timezone: active.timezone,
-      currency: active.currency,
-    });
-  }, [active, settingsForm]);
-
   async function switchOrganization(organization: OrganizationSummary | null) {
     if (!organization || organization.active) return;
     setSwitching(true);
@@ -255,17 +239,6 @@ export function OrganizationPanel() {
       createForm.reset();
       await load();
       router.refresh();
-    } catch (error) {
-      setProblem(organizationErrorMessage(error, t("problem")));
-    }
-  }
-
-  async function submitSettings(values: SettingsValues) {
-    if (!active) return;
-    setProblem(undefined);
-    try {
-      await updateCurrentOrganization({ ...values, version: active.version });
-      await load();
     } catch (error) {
       setProblem(organizationErrorMessage(error, t("problem")));
     }
@@ -387,15 +360,6 @@ export function OrganizationPanel() {
 
       {active && (
         <div className="grid gap-6 xl:grid-cols-2">
-          {canManageSettings && (
-            <SettingsCard
-              common={common}
-              form={settingsForm}
-              locale={locale}
-              onSubmit={submitSettings}
-              t={t}
-            />
-          )}
           {canReadMembers && (
             <MembersCard
               activeRole={active.role}
@@ -541,58 +505,6 @@ function CreateOrganizationDialog({
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function SettingsCard({
-  form,
-  onSubmit,
-  locale,
-  t,
-  common,
-}: {
-  form: UseFormReturn<SettingsValues>;
-  onSubmit: SubmitHandler<SettingsValues>;
-  locale: string;
-  t: Translator;
-  common: CommonTranslator;
-}) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("settings")}</CardTitle>
-        <CardDescription>{t("settingsDescription")}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
-          <TextField form={form} label={t("name")} name="name" />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <SelectField
-              control={form.control}
-              label={t("locale")}
-              name="default_locale"
-              options={[
-                ["pl", common("polish")],
-                ["en", common("english")],
-              ]}
-            />
-            <SelectField
-              control={form.control}
-              label={t("currency")}
-              name="currency"
-              options={CURRENCIES.map((currency) => [
-                currency,
-                currencyLabel(currency, locale),
-              ])}
-            />
-          </div>
-          <TimezoneField control={form.control} locale={locale} t={t} />
-          <Button disabled={form.formState.isSubmitting} type="submit">
-            {common("save")}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
   );
 }
 

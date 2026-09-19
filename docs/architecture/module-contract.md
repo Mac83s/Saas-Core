@@ -113,7 +113,7 @@ rdzenia poza slotami; pilnuje tego `pnpm core:check`, a rdzeń przychodzi przez
 | typ wizyty w booking | `backend.appointmentKinds` |
 | middleware | `backend.middleware` (po middleware tenanta; tylko własny kod) |
 | zadania cykliczne | `backend.beatSchedule` (`{nazwa: {task, schedule}}`; tylko własne taski) |
-| menu, tłumaczenia, treść marketingowa | `apps/frontend/src/product/index.ts` |
+| menu, zakładki „Ustawień” (`settingsSections`), tłumaczenia, treść marketingowa | `apps/frontend/src/product/index.ts` |
 | strony panelu | nowe pliki w `apps/frontend/src/app/` |
 | profil, obrazy, testy, kontrakt | `deployments/<produkt>/`, `product.json` |
 

@@ -6,5 +6,6 @@ export {
   RegistrationForm,
   VerificationForm,
 } from "./auth-forms";
+export { PasswordCard, TwoFactorCard } from "./account-security";
 export { ProfileNameForm } from "./profile-name-form";
 export { LogoutButton, SessionManager } from "./session-controls";
