@@ -13,29 +13,15 @@ import {
   type SubmitHandler,
   type UseFormReturn,
 } from "react-hook-form";
-import {
-  Building2Icon,
-  PlusIcon,
-  RefreshCwIcon,
-  UserPlusIcon,
-} from "lucide-react";
+import { Building2Icon, PlusIcon, RefreshCwIcon } from "lucide-react";
 import { z } from "zod";
 
 import {
   ApiProblemError,
-  createInvitation,
   createOrganization,
-  listInvitations,
-  listMemberships,
-  listRoles,
-  type RoleCatalog,
   listOrganizations,
-  revokeInvitation,
   selectActiveOrganization,
   updateCurrentOrganization,
-  updateMembership,
-  type InvitationSummary,
-  type MembershipSummary,
   type OrganizationSummary,
 } from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
@@ -82,7 +68,6 @@ import {
 
 import { useRouter } from "#i18n/navigation";
 import { selfSignupTypes, typeText } from "#lib/organization-types";
-import { RolesCard } from "./roles-card";
 import { organizationErrorMessage } from "./problem";
 
 const TIMEZONES =
@@ -104,38 +89,20 @@ type SettingsValues = Pick<
   CreateValues,
   "name" | "default_locale" | "timezone" | "currency"
 >;
-type InviteValues = { email: string; role: string };
-type RoleOption = readonly [string, string];
 
+/** The person's organizations. The active one's team is TeamPanel's. */
 export function OrganizationPanel() {
   const t = useTranslations("Organizations");
   const common = useTranslations("Common");
   const locale = useLocale();
   const router = useRouter();
   const [organizations, setOrganizations] = useState<OrganizationSummary[]>([]);
-  const [members, setMembers] = useState<MembershipSummary[]>([]);
-  const [invitations, setInvitations] = useState<InvitationSummary[]>([]);
-  const [roleCatalog, setRoleCatalog] = useState<RoleCatalog | null>(null);
   const [loading, setLoading] = useState(true);
   const [problem, setProblem] = useState<string>();
   const [createOpen, setCreateOpen] = useState(false);
-  const [inviteOpen, setInviteOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
   const active = organizations.find((item) => item.active);
-  const canReadMembers = active && active.role !== "viewer";
-  const canManageMembers =
-    active && ["manager", "admin", "owner"].includes(active.role);
   const canManageSettings = active && ["admin", "owner"].includes(active.role);
-  // Roles come from the organization's type and its own (ADR-050); core's
-  // translated names are used where a key has one.
-  const roleName = (key: string): string =>
-    GLOBAL_ROLE_KEYS.has(key)
-      ? roleLabel(t, key)
-      : (roleCatalog?.roles.find((role) => role.key === key)?.name ?? key);
-  const roleOptions = (limitedOnly: boolean): RoleOption[] =>
-    (roleCatalog?.roles ?? [])
-      .filter((role) => role.key !== "owner" && (!limitedOnly || role.limited))
-      .map((role) => [role.key, roleName(role.key)] as const);
 
   const createSchema = useMemo(
     () =>
@@ -147,14 +114,6 @@ export function OrganizationPanel() {
         default_locale: z.enum(["pl", "en"]),
         timezone: z.string().min(1, t("required")),
         currency: z.string().regex(/^[A-Z]{3}$/),
-      }),
-    [t],
-  );
-  const inviteSchema = useMemo(
-    () =>
-      z.object({
-        email: z.email(t("invalidEmail")),
-        role: z.string().min(1),
       }),
     [t],
   );
@@ -171,20 +130,12 @@ export function OrganizationPanel() {
     },
   });
   const settingsForm = useForm<SettingsValues>();
-  const inviteForm = useForm<InviteValues>({
-    resolver: zodResolver(inviteSchema),
-    defaultValues: { email: "", role: "staff" },
-  });
 
   const load = useCallback(async () => {
     setLoading(true);
     setProblem(undefined);
     try {
-      const data = await fetchOrganizationData();
-      setOrganizations(data.organizations);
-      setMembers(data.members);
-      setInvitations(data.invitations);
-      setRoleCatalog(data.roles);
+      setOrganizations(await listOrganizations());
     } catch (error) {
       if (error instanceof ApiProblemError && error.problem.status === 403) {
         router.replace("/login");
@@ -198,13 +149,9 @@ export function OrganizationPanel() {
 
   useEffect(() => {
     let mounted = true;
-    void fetchOrganizationData()
+    void listOrganizations()
       .then((data) => {
-        if (!mounted) return;
-        setOrganizations(data.organizations);
-        setMembers(data.members);
-        setInvitations(data.invitations);
-        setRoleCatalog(data.roles);
+        if (mounted) setOrganizations(data);
       })
       .catch((error: unknown) => {
         if (!mounted) return;
@@ -265,39 +212,6 @@ export function OrganizationPanel() {
     setProblem(undefined);
     try {
       await updateCurrentOrganization({ ...values, version: active.version });
-      await load();
-    } catch (error) {
-      setProblem(organizationErrorMessage(error, t("problem")));
-    }
-  }
-
-  async function submitInvitation(values: InviteValues) {
-    setProblem(undefined);
-    try {
-      await createInvitation(values);
-      setInviteOpen(false);
-      inviteForm.reset();
-      await load();
-    } catch (error) {
-      setProblem(organizationErrorMessage(error, t("problem")));
-    }
-  }
-
-  async function changeRole(member: MembershipSummary, role: string | null) {
-    if (!role || role === member.role) return;
-    setProblem(undefined);
-    try {
-      await updateMembership(member.id, { role });
-      await load();
-    } catch (error) {
-      setProblem(organizationErrorMessage(error, t("problem")));
-    }
-  }
-
-  async function revokePendingInvitation(id: string) {
-    setProblem(undefined);
-    try {
-      await revokeInvitation(id);
       await load();
     } catch (error) {
       setProblem(organizationErrorMessage(error, t("problem")));
@@ -396,41 +310,6 @@ export function OrganizationPanel() {
               t={t}
             />
           )}
-          {canReadMembers && (
-            <MembersCard
-              activeRole={active.role}
-              canManage={Boolean(canManageMembers)}
-              locale={locale}
-              members={members}
-              onRoleChange={changeRole}
-              roleName={roleName}
-              roleOptions={roleOptions}
-              t={t}
-            />
-          )}
-          {canReadMembers && (
-            <InvitationsCard
-              canManage={Boolean(canManageMembers)}
-              common={common}
-              form={inviteForm}
-              invitations={invitations}
-              inviteOpen={inviteOpen}
-              locale={locale}
-              onInviteOpenChange={setInviteOpen}
-              onRevoke={revokePendingInvitation}
-              onSubmit={submitInvitation}
-              roleName={roleName}
-              roleOptions={roleOptions}
-              t={t}
-            />
-          )}
-          {canReadMembers && roleCatalog && (
-            <RolesCard
-              canManage={Boolean(canManageSettings)}
-              catalog={roleCatalog}
-              onChanged={load}
-            />
-          )}
         </div>
       )}
     </section>
@@ -439,25 +318,6 @@ export function OrganizationPanel() {
 
 type Translator = ReturnType<typeof useTranslations<"Organizations">>;
 type CommonTranslator = ReturnType<typeof useTranslations<"Common">>;
-
-async function fetchOrganizationData(): Promise<{
-  organizations: OrganizationSummary[];
-  members: MembershipSummary[];
-  invitations: InvitationSummary[];
-  roles: RoleCatalog | null;
-}> {
-  const organizations = await listOrganizations();
-  const selected = organizations.find((item) => item.active);
-  if (!selected || selected.role === "viewer") {
-    return { organizations, members: [], invitations: [], roles: null };
-  }
-  const [members, invitations, roles] = await Promise.all([
-    listMemberships(),
-    listInvitations(),
-    listRoles(),
-  ]);
-  return { organizations, members, invitations, roles };
-}
 
 function CreateOrganizationDialog({
   open,
@@ -478,7 +338,7 @@ function CreateOrganizationDialog({
 }) {
   return (
     <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogTrigger render={<Button />}>
+      <DialogTrigger render={<Button variant="outline" />}>
         <PlusIcon aria-hidden="true" /> {t("create")}
       </DialogTrigger>
       <DialogContent closeLabel={common("close")}>
@@ -591,198 +451,6 @@ function SettingsCard({
             {common("save")}
           </Button>
         </form>
-      </CardContent>
-    </Card>
-  );
-}
-
-function MembersCard({
-  members,
-  canManage,
-  activeRole,
-  roleName,
-  roleOptions,
-  onRoleChange,
-  locale,
-  t,
-}: {
-  members: MembershipSummary[];
-  canManage: boolean;
-  activeRole: string;
-  onRoleChange: (
-    member: MembershipSummary,
-    role: string | null,
-  ) => Promise<void>;
-  roleName: (key: string) => string;
-  roleOptions: (limitedOnly: boolean) => RoleOption[];
-  locale: string;
-  t: Translator;
-}) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("members")}</CardTitle>
-        <CardDescription>{t("membersDescription")}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {members.length === 0 && (
-          <p className="text-sm text-muted-foreground">{t("noMembers")}</p>
-        )}
-        {members.map((member: MembershipSummary) => {
-          const roles = roleOptions(activeRole === "manager");
-          const manageable =
-            canManage &&
-            member.role !== "owner" &&
-            (activeRole !== "manager" ||
-              roles.some(([key]) => key === member.role));
-          return (
-            <div
-              className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center"
-              key={member.id}
-            >
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-medium">{member.email}</p>
-                <p className="text-xs text-muted-foreground">
-                  {t("joined")}: {formatDate(member.joined_at, locale)}
-                </p>
-              </div>
-              {manageable ? (
-                <Select
-                  onValueChange={(role) => void onRoleChange(member, role)}
-                  value={member.role}
-                >
-                  <SelectTrigger
-                    aria-label={`${t("role")}: ${member.email}`}
-                    size="sm"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {roles.map(([key, label]) => (
-                      <SelectItem key={key} value={key}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Badge variant="outline">{roleName(member.role)}</Badge>
-              )}
-              <Badge variant="secondary">{statusLabel(t, member.status)}</Badge>
-            </div>
-          );
-        })}
-      </CardContent>
-    </Card>
-  );
-}
-
-function InvitationsCard({
-  invitations,
-  canManage,
-  inviteOpen,
-  roleName,
-  roleOptions,
-  onInviteOpenChange,
-  form,
-  onSubmit,
-  onRevoke,
-  locale,
-  t,
-  common,
-}: {
-  invitations: InvitationSummary[];
-  canManage: boolean;
-  inviteOpen: boolean;
-  onInviteOpenChange: (open: boolean) => void;
-  form: UseFormReturn<InviteValues>;
-  onSubmit: SubmitHandler<InviteValues>;
-  onRevoke: (id: string) => Promise<void>;
-  roleName: (key: string) => string;
-  roleOptions: (limitedOnly: boolean) => RoleOption[];
-  locale: string;
-  t: Translator;
-  common: CommonTranslator;
-}) {
-  return (
-    <Card>
-      <CardHeader className="flex-row items-start justify-between gap-4">
-        <div>
-          <CardTitle>{t("invitations")}</CardTitle>
-          <CardDescription>{t("inviteDescription")}</CardDescription>
-        </div>
-        {canManage && (
-          <Dialog onOpenChange={onInviteOpenChange} open={inviteOpen}>
-            <DialogTrigger render={<Button size="sm" />}>
-              <UserPlusIcon aria-hidden="true" />
-              {t("invite")}
-            </DialogTrigger>
-            <DialogContent closeLabel={common("close")}>
-              <DialogHeader>
-                <DialogTitle>{t("invite")}</DialogTitle>
-                <DialogDescription>{t("inviteDescription")}</DialogDescription>
-              </DialogHeader>
-              <form
-                className="space-y-4"
-                onSubmit={form.handleSubmit(onSubmit)}
-              >
-                <TextField
-                  form={form}
-                  label={t("email")}
-                  name="email"
-                  type="email"
-                />
-                <SelectField
-                  control={form.control}
-                  label={t("role")}
-                  name="role"
-                  options={roleOptions(false)}
-                />
-                <DialogFooter>
-                  <DialogClose render={<Button variant="outline" />}>
-                    {common("cancel")}
-                  </DialogClose>
-                  <Button disabled={form.formState.isSubmitting} type="submit">
-                    {form.formState.isSubmitting
-                      ? t("sending")
-                      : t("sendInvitation")}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        )}
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {invitations.length === 0 && (
-          <p className="text-sm text-muted-foreground">{t("noInvitations")}</p>
-        )}
-        {invitations.map((invitation: InvitationSummary) => (
-          <div
-            className="flex items-center gap-3 rounded-lg border p-3"
-            key={invitation.id}
-          >
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium">{invitation.email}</p>
-              <p className="text-xs text-muted-foreground">
-                {roleName(invitation.role)} · {t("expires")}:{" "}
-                {formatDate(invitation.expires_at, locale)}
-              </p>
-            </div>
-            <Badge variant="secondary">
-              {statusLabel(t, invitation.status)}
-            </Badge>
-            {canManage && invitation.status === "pending" && (
-              <Button
-                onClick={() => void onRevoke(invitation.id)}
-                size="sm"
-                variant="outline"
-              >
-                {t("revoke")}
-              </Button>
-            )}
-          </div>
-        ))}
       </CardContent>
     </Card>
   );
@@ -914,14 +582,6 @@ function Problem({ message }: { message: string }) {
   );
 }
 
-const GLOBAL_ROLE_KEYS = new Set([
-  "owner",
-  "admin",
-  "manager",
-  "staff",
-  "viewer",
-]);
-
 function roleLabel(t: Translator, role: string): string {
   const keys = {
     owner: "owner",
@@ -931,27 +591,6 @@ function roleLabel(t: Translator, role: string): string {
     viewer: "viewer",
   } as const;
   return role in keys ? t(keys[role as keyof typeof keys]) : role;
-}
-
-function statusLabel(t: Translator, status: string): string {
-  const keys = {
-    onboarding: "onboarding",
-    suspended: "suspended",
-    archived: "archived",
-    pending: "pending",
-    accepted: "accepted",
-    revoked: "revoked",
-    expired: "expired",
-    active: "active",
-  } as const;
-  return status in keys ? t(keys[status as keyof typeof keys]) : status;
-}
-
-function formatDate(value: string, locale: string): string {
-  return new Intl.DateTimeFormat(locale, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
 }
 
 function currencyLabel(currency: string, locale: string): string {
