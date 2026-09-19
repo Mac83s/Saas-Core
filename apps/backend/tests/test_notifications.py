@@ -297,6 +297,7 @@ def test_a_module_mails_its_own_template_with_a_file_resolved_at_delivery(
     class Capturing(FakeEmailProvider):
         def send(self, **kwargs: Any) -> ProviderMessage:
             self.attachments = list(kwargs.get("attachments", ()))
+            self.subject = kwargs["subject"]
             return super().send(**kwargs)
 
     monkeypatch.setattr(
@@ -340,6 +341,7 @@ def test_a_module_mails_its_own_template_with_a_file_resolved_at_delivery(
     with tenant(member):
         assert deliver_email(sent.id, provider=provider).status == DeliveryStatus.SENT
         assert [a.filename for a in provider.attachments] == ["raport.pdf"]
+        assert provider.subject == "Raport Nowak"  # the subject's fields are filled too
         # A file that is not there is retried like a provider outage, never sent without it.
         with pytest.raises(DeliveryDeferred):
             deliver_email(missing.id, provider=provider)

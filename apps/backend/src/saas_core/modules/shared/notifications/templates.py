@@ -138,15 +138,19 @@ def render_template(
     template = TEMPLATES.get((key, version))
     if template is None or locale not in template.subjects:
         raise ValueError("Nieznany szablon, wersja albo locale.")
-    fields = {
-        field_name
-        for _, field_name, _, _ in Formatter().parse(template.bodies[locale])
-        if field_name
-    }
+    fields = _fields(template.bodies[locale])
     if fields != set(context) or not fields <= template.allowed_context:
         raise ValueError("Kontekst nie odpowiada kontraktowi szablonu.")
+    if not _fields(template.subjects[locale]) <= fields:
+        raise ValueError("Temat używa pola spoza treści szablonu.")
     safe_context = {key: escape(str(value)) for key, value in context.items()}
-    return template.subjects[locale], template.bodies[locale].format_map(safe_context)
+    # The subject is a plain-text header: filled, never HTML-escaped.
+    subject = template.subjects[locale].format_map({k: str(v) for k, v in context.items()})
+    return subject, template.bodies[locale].format_map(safe_context)
+
+
+def _fields(text: str) -> set[str]:
+    return {field_name for _, field_name, _, _ in Formatter().parse(text) if field_name}
 
 
 def template_catalog() -> list[dict[str, object]]:
