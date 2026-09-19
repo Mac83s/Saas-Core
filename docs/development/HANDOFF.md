@@ -1670,6 +1670,20 @@ Następny: etap 1B (role systemowe per typ z katalogu, role własne, szablony
 usług). Znany flaky test: `page-editor.test.tsx` przekracza 5 s pod obciążeniem
 (zielony osobno).
 
+## Typy organizacji — etap 1B (2026-09-19)
+
+- Typ może mieć `roles` (owner + admin wymagane, `limited`) i
+  `serviceTemplates`. `role_catalog.sync_system_roles` po każdym `migrate`
+  zakłada/aktualizuje role typu i przepina członkostwa z ról globalnych.
+- Role własne organizacji: `current/roles/` + karta „Role” w „Firma i zespół”;
+  role członków i zaproszeń z API. Szablony usług w konfiguracji kalendarza;
+  usługa może nieść tylko typ wizyty modułu swojego typu.
+- Testy rdzenia: `apps/backend/tests/conftest.py` odkłada role typów (testy
+  rdzenia opisują role globalne); globalne role w testach przez
+  `organization_type=""`. vitest `testTimeout` 15 s.
+- Następny: etap 2 planu 15 (`shared.farms`: karty gospodarstw firm, wizyta z
+  wyborem gospodarstwa).
+
 ## Niezmienne ograniczenia
 
 - tenantowe operacje wymagają jawnego `TenantContext`;

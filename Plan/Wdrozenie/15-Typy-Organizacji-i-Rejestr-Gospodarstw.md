@@ -37,7 +37,17 @@ Dowód: testy kompozycji i walidatora. Na stacku: organizacja typu A nie dostaje
 API modułu spoza typu, rejestracja zakłada organizację wybranego typu, a
 checkout odrzuca plan innego typu.
 
-## Etap 1B — role i usługi per typ (Saas-Core)
+## Etap 1B — role i usługi per typ (Saas-Core) — ZROBIONE 2026-09-19
+
+Stan: Saas-Core `e3ce6fc` (+ poprawki testów `4e36962`, `ed9be79`, logu
+`637a005`); HoofCare `8082c3e` (role i szablony obu typów). Role typu zapisuje
+`post_migrate` po każdym `migrate` (nie osobna komenda). Dowód na stosie
+hoofcare: migrate zsynchronizował role (w bazie 9 ról typów obok 6
+globalnych), właściciele obu organizacji testowych przepięci na role swoich
+typów, firma widzi 5 ról typu i 23 nadawalne uprawnienia (w tym stada),
+gospodarstwo 4 role i 14 uprawnień (bez stada); rola własna 201, rola z
+przekazaniem własności 400, zaproszenie „korektor” 201, globalny „manager”
+403.
 
 1. Role systemowe per typ z katalogu. Komenda `apply_organization_types` po
    `migrate`: idempotentna, z audytem i system checkiem zgodności. Migracja
