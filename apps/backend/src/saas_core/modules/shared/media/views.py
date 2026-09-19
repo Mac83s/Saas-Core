@@ -3,8 +3,10 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
+from django.http import HttpResponse
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import serializers, status
 from rest_framework.permissions import IsAuthenticated
@@ -25,6 +27,7 @@ from .services import (
     complete_media_upload,
     initiate_media_upload,
     list_media_assets,
+    read_media_preview,
     tombstone_media_asset,
 )
 
@@ -81,6 +84,30 @@ class MediaAssetListView(APIView):
             "items": [_asset_payload(asset) for asset in assets],
             "next_cursor": next_cursor,
         })
+
+
+class MediaAssetPreviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="media_asset_preview",
+        tags=["media"],
+        responses={
+            (200, "image/webp"): OpenApiTypes.BINARY,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+            503: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, request: Request, asset_id: UUID) -> HttpResponse:
+        return HttpResponse(read_media_preview(asset_id=asset_id), content_type="image/webp")
+
+    def finalize_response(self, request: Request, response: Any, *args: Any, **kwargs: Any) -> Any:
+        response = super().finalize_response(request, response, *args, **kwargs)
+        response["Cache-Control"] = "private, no-store"
+        response["X-Content-Type-Options"] = "nosniff"
+        return response
 
 
 @method_decorator(csrf_protect, name="dispatch")

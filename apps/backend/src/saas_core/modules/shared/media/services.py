@@ -149,6 +149,43 @@ def list_media_assets(*, cursor: UUID | None, limit: int) -> tuple[list[MediaAss
     return rows[:limit], next_cursor
 
 
+class MediaPreviewUnavailable(APIException):
+    status_code = 503
+    default_detail = "Podgląd medium jest chwilowo niedostępny."
+    default_code = "media_preview_unavailable"
+
+
+def read_media_preview(*, asset_id: UUID, storage: ObjectStorage | None = None) -> bytes:
+    context = authorize_entitled(MEDIA_READ, STORAGE_ENABLED, operation=FeatureOperation.READ)
+    asset = MediaAsset.all_objects.filter(
+        id=asset_id,
+        organization_id=context.organization_id,
+        deleted_at__isnull=True,
+        state=MediaAssetState.READY,
+    ).first()
+    if asset is None:
+        raise MediaAssetNotFound()
+    # Only our processed WebP is readable, never an uploaded original or an
+    # arbitrary object key supplied in JSON metadata.
+    preview = asset.variants.get("preview")
+    object_key = _variant_object_key(asset, "preview")
+    if (
+        not isinstance(preview, dict)
+        or preview.get("object_key") != object_key
+        or preview.get("content_type") != "image/webp"
+    ):
+        raise MediaAssetNotFound()
+    try:
+        return (storage or get_object_storage()).read(
+            object_key=object_key,
+            max_bytes=10 * 1024**2,
+        )
+    except ObjectNotFoundError as error:
+        raise MediaAssetNotFound() from error
+    except (ObjectStorageError, ObjectTooLargeError) as error:
+        raise MediaPreviewUnavailable() from error
+
+
 @transaction.atomic
 def initiate_media_upload(
     *,

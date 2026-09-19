@@ -1151,6 +1151,25 @@ export async function listMediaAssets(): Promise<MediaAssetList> {
   return data;
 }
 
+/** Authenticated, tenant-scoped processed image; never a public storage URL. */
+export async function getMediaAssetPreview(
+  assetId: string,
+  signal?: AbortSignal,
+): Promise<Blob> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/media/{asset_id}/preview/",
+    {
+      params: { path: { asset_id: assetId } },
+      credentials: "same-origin",
+      cache: "no-store",
+      parseAs: "blob",
+      signal,
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export async function initiateMediaUpload(
   input: MediaUploadInput,
   idempotencyKey: string,

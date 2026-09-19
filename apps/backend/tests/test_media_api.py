@@ -1123,3 +1123,137 @@ def test_media_list_and_database_rls_isolate_tenants_and_block_cross_tenant_inse
         MediaReference.all_objects.filter(pk=reference.id).update(owner_id=uuid7())
     with pytest.raises(DatabaseError), transaction.atomic():
         MediaReference.all_objects.filter(pk=reference.id).delete()
+
+
+def test_private_preview_returns_processed_image_after_tenant_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from django.test.utils import CaptureQueriesContext
+
+    client, organization, user = media_client(slug="preview-owner")
+    asset = create_ready_asset(organization, user, suffix="preview")
+    storage = MemoryStorage()
+    content = encoded_image("WEBP")
+    storage.objects[asset.variants["preview"]["object_key"]] = (content, "image/webp")
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.services.get_object_storage",
+        lambda: storage,
+    )
+    with CaptureQueriesContext(connection) as queries:
+        response = client.get(f"{MEDIA_URL}{asset.id}/preview/")
+    assert response.status_code == 200
+    assert response.content == content
+    assert response["Content-Type"] == "image/webp"
+    assert response["Cache-Control"] == "private, no-store"
+    assert response["X-Content-Type-Options"] == "nosniff"
+    sql = [query["sql"] for query in queries.captured_queries]
+    context_index = next(
+        i for i, query in enumerate(sql) if "SET LOCAL app.organization_id" in query
+    )
+    asset_index = next(i for i, query in enumerate(sql) if 'FROM "media_mediaasset"' in query)
+    assert context_index < asset_index
+    assert str(organization.id) in sql[context_index]
+
+
+@pytest.mark.parametrize(
+    "denied", ["anonymous", "permission", "entitlement", "suspended", "context"]
+)
+def test_private_preview_denied_before_asset_or_storage_read(
+    denied: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from django.test.utils import CaptureQueriesContext
+
+    client, organization, _ = media_client(
+        slug=f"preview-{denied}",
+        role_key="viewer" if denied == "permission" else "manager",
+        feature_enabled=denied != "entitlement",
+    )
+    if denied == "anonymous":
+        client = APIClient()
+    elif denied == "suspended":
+        organization.status = OrganizationStatus.SUSPENDED
+        organization.save()
+    elif denied == "context":
+        Membership.objects.filter(organization=organization).delete()
+
+    def unexpected_storage() -> None:
+        pytest.fail("Denied preview must not access storage")
+
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.services.get_object_storage",
+        unexpected_storage,
+    )
+    with CaptureQueriesContext(connection) as queries:
+        response = client.get(f"{MEDIA_URL}{uuid7()}/preview/")
+    assert response.status_code in (403, 409)
+    assert not any('FROM "media_mediaasset"' in q["sql"] for q in queries.captured_queries)
+
+
+@pytest.mark.parametrize(
+    "hidden", ["foreign", "deleted", "pending", "missing", "bad_key", "bad_type"]
+)
+def test_private_preview_hides_unavailable_assets_without_storage_access(
+    hidden: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, organization, user = media_client(slug=f"preview-hidden-{hidden}")
+    asset = create_ready_asset(organization, user, suffix=hidden)
+    if hidden == "foreign":
+        client, _, _ = media_client(slug="preview-foreign-reader")
+    elif hidden == "deleted":
+        asset.deleted_at = timezone.now()
+        asset.deleted_by = user
+        asset.deletion_idempotency_key = "preview-deleted"
+    elif hidden == "pending":
+        asset.state = MediaAssetState.UPLOADED
+        asset.quota_committed = False
+    elif hidden == "missing":
+        asset.variants = {}
+    elif hidden == "bad_key":
+        asset.variants["preview"]["object_key"] = "another-tenant/private.webp"
+    elif hidden == "bad_type":
+        asset.variants["preview"]["content_type"] = "image/svg+xml"
+    asset.save()
+
+    def unexpected_storage() -> None:
+        pytest.fail("Hidden preview must not access storage")
+
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.services.get_object_storage",
+        unexpected_storage,
+    )
+    response = client.get(f"{MEDIA_URL}{asset.id}/preview/")
+    assert response.status_code == 404
+    assert response.data["code"] == "media_asset_not_found"
+    assert response["Cache-Control"] == "private, no-store"
+
+
+@pytest.mark.parametrize("failure", ["missing", "unavailable", "oversized"])
+def test_private_preview_storage_failure_is_controlled(
+    failure: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from saas_core.modules.shared.media.storage import ObjectStorageError, ObjectTooLargeError
+
+    client, organization, user = media_client(slug=f"preview-storage-{failure}")
+    asset = create_ready_asset(organization, user, suffix=failure)
+    errors = {
+        "missing": ObjectNotFoundError,
+        "unavailable": ObjectStorageError,
+        "oversized": ObjectTooLargeError,
+    }
+
+    class FailedStorage:
+        def read(self, *, object_key: str, max_bytes: int) -> bytes:
+            assert max_bytes == 10 * 1024**2
+            raise errors[failure]("private-storage-key")
+
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.services.get_object_storage",
+        FailedStorage,
+    )
+    response = client.get(f"{MEDIA_URL}{asset.id}/preview/")
+    assert response.status_code == (404 if failure == "missing" else 503)
+    assert b"private-storage-key" not in response.content
+    assert response["Cache-Control"] == "private, no-store"
