@@ -48,6 +48,8 @@ class NotificationMessage(TenantScopedModel):
     locale = models.CharField(max_length=10, choices=(("pl", "Polski"), ("en", "English")))
     category = models.CharField(max_length=16, choices=MessageCategory)
     context = models.JSONField(default=dict)
+    #: `<prefix>:<id>` of a file resolved at delivery (attachments.py); "" = none.
+    attachment_ref = models.CharField(max_length=200, blank=True)
     status = models.CharField(max_length=20, choices=DeliveryStatus, default=DeliveryStatus.QUEUED)
     provider_message_id = models.CharField(max_length=160, blank=True)
     idempotency_key = models.CharField(max_length=160)

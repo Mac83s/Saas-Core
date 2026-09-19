@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol, cast
 
 from django.conf import settings
 from django.core.mail import EmailMessage
 from django.utils.module_loading import import_string
+
+from .attachments import Attachment
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,6 +26,7 @@ class EmailProvider(Protocol):
         subject: str,
         html_body: str,
         idempotency_key: str,
+        attachments: Sequence[Attachment] = (),
     ) -> ProviderMessage: ...
 
     def status_for_idempotency_key(self, idempotency_key: str) -> ProviderMessage | None: ...
@@ -40,6 +44,7 @@ class DjangoEmailProvider:
         subject: str,
         html_body: str,
         idempotency_key: str,
+        attachments: Sequence[Attachment] = (),
     ) -> ProviderMessage:
         accepted = self._accepted.get(idempotency_key)
         if accepted is not None:
@@ -53,6 +58,8 @@ class DjangoEmailProvider:
             headers={"X-Idempotency-Key": idempotency_key},
         )
         message.content_subtype = "html"
+        for attachment in attachments:
+            message.attach(attachment.filename, attachment.content, attachment.mimetype)
         message.send(fail_silently=False)
         result = ProviderMessage(id=provider_id, status="sent")
         self._accepted[idempotency_key] = result

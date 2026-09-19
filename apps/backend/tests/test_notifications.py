@@ -258,3 +258,90 @@ def test_support_requires_permission_and_mfa_and_retries_same_message(
     with tenant(viewer), pytest.raises(Exception) as denied:
         support_retry_message(message_id=message.id, reason="cross tenant")
     assert denied.value.__class__.__name__ == "OrganizationPermissionDenied"
+
+
+def test_a_module_mails_its_own_template_with_a_file_resolved_at_delivery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from saas_core.modules.shared.notifications.api import (  # noqa: PLC0415
+        Attachment,
+        EmailTemplate,
+        register_attachment_resolver,
+        register_email_template,
+    )
+
+    template = EmailTemplate(
+        key="test.report",
+        version=1,
+        category="required",
+        subjects={"pl": "Raport {farm}", "en": "Report {farm}"},
+        bodies={"pl": "<p>Raport dla {farm}</p>", "en": "<p>Report for {farm}</p>"},
+        allowed_context=frozenset({"farm"}),
+    )
+    register_email_template(template)
+    register_email_template(template)  # the same again is fine
+    with pytest.raises(ValueError, match="już istnieje"):
+        register_email_template(
+            EmailTemplate(
+                key="test.report",
+                version=1,
+                category="marketing",
+                subjects=template.subjects,
+                bodies=template.bodies,
+                allowed_context=template.allowed_context,
+            )
+        )
+    files = {"ok": Attachment("raport.pdf", b"%PDF-1.4", "application/pdf")}
+    register_attachment_resolver("test-file", lambda value: files[value])
+
+    class Capturing(FakeEmailProvider):
+        def send(self, **kwargs: Any) -> ProviderMessage:
+            self.attachments = list(kwargs.get("attachments", ()))
+            return super().send(**kwargs)
+
+    monkeypatch.setattr(
+        "saas_core.modules.shared.notifications.tasks.deliver_email_task.delay",
+        lambda *_args: None,
+    )
+    member = membership(slug="zalacznik")
+    with tenant(member):
+        with pytest.raises(ValidationError):
+            queue_email(
+                recipient_email="farma@example.test",
+                template_key="test.report",
+                template_version=1,
+                locale="pl",
+                template_context={"farm": "Nowak"},
+                idempotency_key="report-bad",
+                causation_id="test",
+                attachment_ref="unknown:1",
+            )
+        sent, _ = queue_email(
+            recipient_email="farma@example.test",
+            template_key="test.report",
+            template_version=1,
+            locale="pl",
+            template_context={"farm": "Nowak"},
+            idempotency_key="report-ok",
+            causation_id="test",
+            attachment_ref="test-file:ok",
+        )
+        missing, _ = queue_email(
+            recipient_email="farma@example.test",
+            template_key="test.report",
+            template_version=1,
+            locale="pl",
+            template_context={"farm": "Nowak"},
+            idempotency_key="report-missing",
+            causation_id="test",
+            attachment_ref="test-file:gone",
+        )
+    provider = Capturing()
+    with tenant(member):
+        assert deliver_email(sent.id, provider=provider).status == DeliveryStatus.SENT
+        assert [a.filename for a in provider.attachments] == ["raport.pdf"]
+        # A file that is not there is retried like a provider outage, never sent without it.
+        with pytest.raises(DeliveryDeferred):
+            deliver_email(missing.id, provider=provider)
+        missing.refresh_from_db()
+        assert missing.last_error_code == "attachment_unavailable"

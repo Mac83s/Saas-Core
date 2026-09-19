@@ -26,6 +26,7 @@ from saas_core.modules.core.organizations.tasks import issue_tenant_task_contrac
 from saas_core.modules.shared.billing.authorization import authorize_entitled
 from saas_core.observability import correlation_id
 
+from .attachments import is_known
 from .models import (
     ApiKey,
     ApiKeyCredentialRoute,
@@ -161,10 +162,13 @@ def queue_email(
     idempotency_key: str,
     causation_id: str,
     recipient_user: User | None = None,
+    attachment_ref: str = "",
 ) -> tuple[NotificationMessage, bool]:
     tenant = require_tenant_context()
     if not idempotency_key or len(idempotency_key) > 160:
         raise ValidationError("Nieprawidłowy klucz idempotencji.")
+    if attachment_ref and not is_known(attachment_ref):
+        raise ValidationError("Nieznany załącznik wiadomości.")
     template = TEMPLATES.get((template_key, template_version))
     if template is None:
         raise ValidationError("Nieznany szablon wiadomości.")
@@ -187,6 +191,7 @@ def queue_email(
         locale=locale,
         category=template.category,
         context=template_context,
+        attachment_ref=attachment_ref,
         idempotency_key=idempotency_key,
         correlation_id=correlation_id.get() or uuid7(),
         causation_id=causation_id,

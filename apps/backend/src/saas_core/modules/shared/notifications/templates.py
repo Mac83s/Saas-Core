@@ -120,6 +120,18 @@ TEMPLATES: dict[tuple[str, int], EmailTemplate] = {
 }
 
 
+def register_email_template(template: EmailTemplate) -> None:
+    """A product's own template, registered from its `AppConfig.ready`.
+
+    A published (key, version) never changes: registering a different template
+    under the same pair is an error, registering the same one again is not.
+    """
+    existing = TEMPLATES.get((template.key, template.version))
+    if existing is not None and existing != template:
+        raise ValueError(f"Szablon {template.key} v{template.version} już istnieje.")
+    TEMPLATES[(template.key, template.version)] = template
+
+
 def render_template(
     *, key: str, version: int, locale: str, context: dict[str, Any]
 ) -> tuple[str, str]:

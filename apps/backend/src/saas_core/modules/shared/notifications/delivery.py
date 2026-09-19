@@ -10,6 +10,7 @@ from uuid import UUID
 from django.db import transaction
 from django.utils import timezone
 
+from .attachments import Attachment, resolve_attachment
 from .metrics import DELIVERY_RESULTS, PROVIDER_STATUSES
 from .models import (
     DeliveryStatus,
@@ -99,12 +100,23 @@ def deliver_email(
             locale=message.locale,
             context=message.context,
         )
+        # Resolved in the tenant context the message was queued in, inside the
+        # same transaction that read the message.
+        attachments: list[Attachment] | None = []
+        if message.attachment_ref:
+            try:
+                attachments = [resolve_attachment(message.attachment_ref)]
+            except Exception:  # noqa: BLE001 - any failure: the file is not there to send
+                attachments = None
+    if attachments is None:
+        return _mark_email_failed(message_id, attempt_number, "attachment_unavailable")
     try:
         result = provider.send(
             recipient=message.recipient_email,
             subject=subject,
             html_body=html_body,
             idempotency_key=message.idempotency_key,
+            attachments=attachments,
         )
     except Exception:
         accepted = provider.status_for_idempotency_key(message.idempotency_key)
@@ -155,10 +167,24 @@ def _mark_email_sent(
     return message
 
 
-@transaction.atomic
 def _mark_email_failed(
     message_id: UUID, attempt_number: int, error_code: str
 ) -> NotificationMessage:
+    """Records the failed attempt, then defers the retry.
+
+    The deferral is raised after the transaction commits: raised inside it, it
+    would roll back the very attempt and error code it is reporting.
+    """
+    message, delay = _record_email_failure(message_id, attempt_number, error_code)
+    if delay is None:
+        return message
+    raise DeliveryDeferred(delay)
+
+
+@transaction.atomic
+def _record_email_failure(
+    message_id: UUID, attempt_number: int, error_code: str
+) -> tuple[NotificationMessage, int | None]:
     message = NotificationMessage.all_objects.select_for_update().get(pk=message_id)
     NotificationAttempt.all_objects.get_or_create(
         message=message,
@@ -175,13 +201,13 @@ def _mark_email_failed(
         message.next_attempt_at = None
         message.save(update_fields=["status", "next_attempt_at", "last_error_code", "updated_at"])
         DELIVERY_RESULTS.labels(channel="email", outcome="dead_letter").inc()
-        return message
+        return message, None
     delay = min(3600, 2**message.attempt_count * 30)
     message.status = DeliveryStatus.QUEUED
     message.next_attempt_at = timezone.now() + timedelta(seconds=delay)
     message.save(update_fields=["status", "next_attempt_at", "last_error_code", "updated_at"])
     DELIVERY_RESULTS.labels(channel="email", outcome="retry").inc()
-    raise DeliveryDeferred(delay)
+    return message, delay
 
 
 @transaction.atomic
