@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { billingAttention } from "./billing-attention";
+
+vi.mock("../product", () => ({ product: {} }));
 import { isActive, panelNavigation, sectionTabs } from "./panel-navigation";
 
 const OWNER = {

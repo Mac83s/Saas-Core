@@ -7,6 +7,10 @@ import type { PanelAccess } from "#lib/panel-navigation";
 import { SidebarProvider } from "@saas-core/ui/components/sidebar";
 import { AppSidebar } from "./app-sidebar";
 
+// Core's menu alone: a product repository fills this slot with its own
+// entries and messages, which this test neither knows nor needs.
+vi.mock("../../product", () => ({ product: {} }));
+
 vi.mock("#i18n/navigation", () => ({
   usePathname: () => "/panel",
   // The organization switcher inside the sidebar refreshes the shell.

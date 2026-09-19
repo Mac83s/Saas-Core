@@ -112,7 +112,10 @@
     "noPlan": "Nie wybrano planu",
     "openBilling": "Przejdź do abonamentu",
     "sectionAdvanced": "Zaawansowane",
-    "canceled": "Plan anulowany"
+    "canceled": "Plan anulowany",
+    "theme": "Motyw",
+    "themeLight": "Jasny motyw",
+    "themeDark": "Ciemny motyw"
   },
   "Dashboard": {
     "eyebrow": "Centrum zarządzania",

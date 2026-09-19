@@ -1,10 +1,22 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
-import { LogOutIcon, SettingsIcon, WifiOffIcon } from "lucide-react";
+import {
+  LogOutIcon,
+  MoonIcon,
+  SettingsIcon,
+  SunIcon,
+  WifiOffIcon,
+} from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { Link, usePathname, useRouter } from "#i18n/navigation";
+import {
+  currentColorScheme,
+  setColorScheme,
+  subscribeColorScheme,
+  type ColorScheme,
+} from "#lib/color-scheme";
 import { allows, type PanelAccess } from "#lib/panel-navigation";
 import { logoutAccount, type UserSummary } from "@saas-core/api-client";
 import { buttonVariants } from "@saas-core/ui/components/button";
@@ -44,7 +56,8 @@ export function PanelHeader({
           className="size-11"
         />
         <ConnectionStatus />
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-1 sm:gap-2">
+          <ThemeToggle />
           <LocaleToggle />
           <NotificationBell />
           {action && ActionIcon && allows(access, action) ? (
@@ -103,6 +116,65 @@ function ConnectionStatus() {
   );
 }
 
+const segment =
+  "flex min-h-11 min-w-11 items-center justify-center px-2.5 transition-colors not-first:border-l not-first:border-foreground/15 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring";
+const segmentOn =
+  "bg-primary text-primary-foreground focus-visible:outline-primary-foreground";
+
+function ThemeToggle() {
+  const t = useTranslations("DashboardNav");
+  const scheme = useSyncExternalStore(
+    subscribeColorScheme,
+    currentColorScheme,
+    (): ColorScheme => "light",
+  );
+  const options = [
+    { value: "light", icon: SunIcon, label: t("themeLight") },
+    { value: "dark", icon: MoonIcon, label: t("themeDark") },
+  ] as const;
+  const next = scheme === "dark" ? options[0] : options[1];
+  return (
+    <>
+      {/* Phones get one button: the header has no room for two segments. */}
+      <button
+        aria-label={t("themeDark")}
+        aria-pressed={scheme === "dark"}
+        className={cn(
+          segment,
+          "rounded-lg border border-foreground/15 hover:bg-foreground/6 sm:hidden",
+        )}
+        onClick={() => setColorScheme(next.value)}
+        title={next.label}
+        type="button"
+      >
+        <next.icon aria-hidden="true" className="size-4" />
+      </button>
+      <div
+        aria-label={t("theme")}
+        className="flex overflow-hidden rounded-lg border border-foreground/15 max-sm:hidden"
+        role="group"
+      >
+        {options.map(({ value, icon: Icon, label }) => (
+          <button
+            aria-label={label}
+            aria-pressed={scheme === value}
+            className={cn(
+              segment,
+              scheme === value ? segmentOn : "hover:bg-foreground/6",
+            )}
+            key={value}
+            onClick={() => setColorScheme(value)}
+            title={label}
+            type="button"
+          >
+            <Icon aria-hidden="true" className="size-4" />
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
 function LocaleToggle() {
   const t = useTranslations("Panel");
   const locale = useLocale();
@@ -116,10 +188,9 @@ function LocaleToggle() {
         <Link
           aria-current={code === locale ? "true" : undefined}
           className={cn(
-            "flex min-h-11 min-w-11 items-center justify-center px-2.5 uppercase transition-colors not-first:border-l not-first:border-foreground/15 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
-            code === locale
-              ? "bg-primary text-primary-foreground focus-visible:outline-primary-foreground"
-              : "hover:bg-foreground/6",
+            segment,
+            "uppercase",
+            code === locale ? segmentOn : "hover:bg-foreground/6",
           )}
           href={pathname}
           hrefLang={code}

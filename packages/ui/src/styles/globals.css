@@ -3,17 +3,11 @@
 @source "../../../apps/**/*.{ts,tsx}";
 @source "../**/*.{ts,tsx}";
 
-/* Dark follows the operating system, but only on documents that opt in with
-   `data-color-scheme="auto"` on <html>: the panel does, the renderer of
-   customers' public sites does not, so a visitor's dark OS never repaints a
-   customer's site. */
-@custom-variant dark {
-  @media (prefers-color-scheme: dark) {
-    &:where([data-color-scheme="auto"], [data-color-scheme="auto"] *) {
-      @slot;
-    }
-  }
-}
+/* Light by default; dark only when the person picks it with the switch in
+   the panel header, which sets `data-color-scheme="dark"` on <html> (and a
+   script in the app layout restores it before first paint). The renderer of
+   customers' public sites never sets it, so their sites stay as designed. */
+@custom-variant dark (&:where([data-color-scheme="dark"], [data-color-scheme="dark"] *));
 
 /* Base style "Neutralny (shadcn)" from the HoofCare panel design (Claude
    Design, 19.09.2026): zinc neutrals, one teal accent, Geist, 8px radius.
@@ -56,35 +50,33 @@
    dark ink on it: the design's #0f766e would pass under white text yet fail as
    a link on the dark ground. Contrast pairs are kept at WCAG AA against their
    own surface, matching the acceptance gate in ADR-031. */
-@media (prefers-color-scheme: dark) {
-  [data-color-scheme="auto"] {
-    color-scheme: dark;
-    --background: #09090b;
-    --foreground: #fafafa;
-    --card: #18181b;
-    --card-foreground: #fafafa;
-    --popover: #18181b;
-    --popover-foreground: #fafafa;
-    --primary: #14b8a6;
-    --primary-foreground: #042f2e;
-    --secondary: #27272a;
-    --secondary-foreground: #fafafa;
-    --muted: #27272a;
-    --muted-foreground: #a1a1aa;
-    --accent: #27272a;
-    --accent-foreground: #fafafa;
-    --destructive: #f87171;
-    --destructive-foreground: #09090b;
-    --success: #052e22;
-    --success-foreground: #6ee7b7;
-    --warning: #3a2c0b;
-    --warning-foreground: #f6d68a;
-    --info: #082f49;
-    --info-foreground: #7dd3fc;
-    --border: rgb(250 250 250 / 12%);
-    --input: rgb(250 250 250 / 18%);
-    --ring: #14b8a6;
-  }
+[data-color-scheme="dark"] {
+  color-scheme: dark;
+  --background: #09090b;
+  --foreground: #fafafa;
+  --card: #18181b;
+  --card-foreground: #fafafa;
+  --popover: #18181b;
+  --popover-foreground: #fafafa;
+  --primary: #14b8a6;
+  --primary-foreground: #042f2e;
+  --secondary: #27272a;
+  --secondary-foreground: #fafafa;
+  --muted: #27272a;
+  --muted-foreground: #a1a1aa;
+  --accent: #27272a;
+  --accent-foreground: #fafafa;
+  --destructive: #f87171;
+  --destructive-foreground: #09090b;
+  --success: #052e22;
+  --success-foreground: #6ee7b7;
+  --warning: #3a2c0b;
+  --warning-foreground: #f6d68a;
+  --info: #082f49;
+  --info-foreground: #7dd3fc;
+  --border: rgb(250 250 250 / 12%);
+  --input: rgb(250 250 250 / 18%);
+  --ring: #14b8a6;
 }
 
 .site-theme {

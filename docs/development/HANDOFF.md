@@ -87,11 +87,13 @@ emerald i sky w 12 plikach. Przyciski i pola mają domyślnie 44 px (brief: cele
 dotykowe min. 44 px w panelu), `sm` 36 px, `lg` 48 px. Ikony Lucide mają
 stroke 2.75, tak jak w makietach.
 
-Tryb ciemny działa według ustawień systemu, ale tylko w dokumentach z
-`data-color-scheme="auto"` na `<html>`: ma go layout `[locale]`, a renderer
-publicznych stron klientów nie, więc strona klienta nigdy nie ciemnieje. Akcent
-w ciemnym to jaśniejszy teal `#14b8a6` z ciemnym tekstem, bo `#0f766e` nie
-przechodzi AA jako link na ciemnym tle.
+Domyślny jest jasny motyw, niezależnie od systemu (decyzja Macieja 19.09).
+Ciemny włącza przełącznik obok PL/EN w nagłówku panelu. Ustawia on
+`data-color-scheme="dark"` na `<html>`, a wybór trzyma w localStorage.
+Skrypt w `<head>` layoutu `[locale]` przywraca go przed pierwszym
+malowaniem. Renderer publicznych stron klientów go nie ma, więc strona klienta
+nigdy nie ciemnieje. Akcent w ciemnym to jaśniejszy teal `#14b8a6` z ciemnym
+tekstem, bo `#0f766e` nie przechodzi AA jako link na ciemnym tle.
 
 Warianty kolorystyczne per produkt (5, dostarczy Maciej) dojdą jako osobne bloki
 tokenów wybierane w slocie produktu. Każdy blok musi przejść

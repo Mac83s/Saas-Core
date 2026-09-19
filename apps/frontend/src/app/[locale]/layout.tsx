@@ -6,6 +6,7 @@ import { Geist } from "next/font/google";
 import { notFound } from "next/navigation";
 
 import { deployment } from "../../generated/deployment";
+import { COLOR_SCHEME_SCRIPT } from "#lib/color-scheme";
 import { routing } from "#i18n/routing";
 import "@saas-core/ui/globals.css";
 
@@ -39,7 +40,11 @@ export default async function LocaleLayout({
   setRequestLocale(locale);
 
   return (
-    <html lang={locale} className={geist.variable} data-color-scheme="auto">
+    // The head script may mark <html> dark before React hydrates it.
+    <html lang={locale} className={geist.variable} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: COLOR_SCHEME_SCRIPT }} />
+      </head>
       <body>
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
       </body>

@@ -112,7 +112,10 @@
     "noPlan": "No plan selected",
     "openBilling": "Go to subscription",
     "sectionAdvanced": "Advanced",
-    "canceled": "Plan canceled"
+    "canceled": "Plan canceled",
+    "theme": "Theme",
+    "themeLight": "Light theme",
+    "themeDark": "Dark theme"
   },
   "Dashboard": {
     "eyebrow": "Management hub",

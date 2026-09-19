@@ -59,7 +59,7 @@ const PAIRS: [text: string, surface: string][] = [
 
 describe.each([
   ["light", ":root"],
-  ["dark", '[data-color-scheme="auto"]'],
+  ["dark", '[data-color-scheme="dark"]'],
 ])("%s theme", (_name, selector) => {
   const theme = tokens(selector);
 
