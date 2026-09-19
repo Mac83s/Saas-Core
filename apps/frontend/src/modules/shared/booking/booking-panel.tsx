@@ -1,330 +1,771 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useLocale, useTimeZone, useTranslations } from "next-intl";
+import {
+  CalendarPlusIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  PlusIcon,
+  Settings2Icon,
+} from "lucide-react";
 
 import {
   ApiProblemError,
-  cancelBookingAppointment,
-  createBookingAppointment,
   getBookingCatalog,
-  getBookingSlots,
   listBookingAppointments,
-  rescheduleBookingAppointment,
   type BookingAppointment,
   type BookingCatalog,
 } from "@saas-core/api-client";
-import { Badge } from "@saas-core/ui/components/badge";
-import { Button } from "@saas-core/ui/components/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@saas-core/ui/components/card";
-import { Input } from "@saas-core/ui/components/input";
+import { Button, buttonVariants } from "@saas-core/ui/components/button";
 import { Label } from "@saas-core/ui/components/label";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
+import { cn } from "@saas-core/ui/lib/utils";
 
-import { organizationType as organizationTypeInfo } from "#lib/organization-types";
-import { BookingConfiguration } from "./booking-configuration";
+import { Link } from "#i18n/navigation";
+import {
+  AppointmentDialog,
+  NewAppointmentDialog,
+  StatusBadge,
+  STATUSES,
+  statusLabel,
+  statusStyle,
+} from "./appointment-dialogs";
+import {
+  addDays,
+  addMonths,
+  dateFormat,
+  formatDay,
+  formatDayRange,
+  formatWhen,
+  wallClock,
+  weekStart,
+} from "./calendar-time";
 
+type View = "day" | "week" | "month";
+const VIEWS: View[] = ["day", "week", "month"];
+type OpenAppointment = (
+  appointment: BookingAppointment,
+  opener: HTMLElement,
+) => void;
+
+const focusRing =
+  "outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
+
+/**
+ * The team's appointments by day, week or month. Services, staff and working
+ * hours are set up in Settings; this screen only links there.
+ */
 export function BookingPanel({
-  organizationType,
+  canManage = true,
+  timeZone,
 }: {
-  /** Chooses the service templates offered (ADR-050). */
-  organizationType?: string;
+  /** booking.appointment.manage: plan, move and cancel appointments. */
+  canManage?: boolean;
+  /** The organization's zone: days and times are the business's own. */
+  timeZone?: string;
 } = {}) {
-  const t = useTranslations("Booking");
+  const t = useTranslations("Calendar");
+  const locale = useLocale();
+  const appZone = useTimeZone();
+  const zone = timeZone ?? appZone ?? "UTC";
+  const today = wallClock(new Date(), zone).day;
   const [catalog, setCatalog] = useState<BookingCatalog>();
-  const [appointments, setAppointments] = useState<BookingAppointment[]>([]);
-  const [problem, setProblem] = useState<string>();
-  const [slot, setSlot] = useState("");
-  const [slots, setSlots] = useState<
-    Array<{
-      starts_at: string;
-      staff_id: string;
-      resource_id: string | null;
-    }>
-  >([]);
-  const [appointmentId, setAppointmentId] = useState("");
-  const [customerName, setCustomerName] = useState("");
-  const [customerEmail, setCustomerEmail] = useState("");
-  const [serviceId, setServiceId] = useState("");
-  const [locationId, setLocationId] = useState("");
-  const [newStartsAt, setNewStartsAt] = useState("");
-
-  const load = useCallback(async () => {
-    try {
-      const [nextCatalog, nextAppointments] = await Promise.all([
-        getBookingCatalog(),
-        listBookingAppointments(),
-      ]);
-      setCatalog(nextCatalog);
-      setAppointments(nextAppointments);
-      setProblem(undefined);
-    } catch (error) {
-      setProblem(problemText(error, t("loadError")));
-    }
-  }, [t]);
+  const [appointments, setAppointments] = useState<BookingAppointment[]>();
+  const [problem, setProblem] = useState<"load" | "plan" | "access">();
+  const [reloads, setReloads] = useState(0);
+  const [view, setView] = useState<View>("week");
+  const [cursor, setCursor] = useState(today);
+  const [staffFilter, setStaffFilter] = useState("");
+  const [serviceFilter, setServiceFilter] = useState("");
+  const [selected, setSelected] = useState<BookingAppointment>();
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [notice, setNotice] = useState("");
+  const opener = useRef<HTMLElement | null>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
+  const mine = staffFilter === "mine";
 
   useEffect(() => {
-    // The loader only updates state after its awaited requests settle.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void load();
-  }, [load]);
-
-  const cancel = async (id: string) => {
-    try {
-      await cancelBookingAppointment(id, crypto.randomUUID());
-      await load();
-    } catch (error) {
-      setProblem(problemText(error, t("cancelError")));
-    }
-  };
-
-  const searchSlots = async () => {
-    if (!serviceId || !locationId) return;
-    const from = new Date();
-    const to = new Date(from);
-    to.setDate(to.getDate() + 14);
-    try {
-      const value = await getBookingSlots({
-        service_id: serviceId,
-        location_id: locationId,
-        from: from.toISOString().slice(0, 10),
-        to: to.toISOString().slice(0, 10),
+    let current = true;
+    Promise.all([
+      getBookingCatalog(),
+      // ponytail: the API has no date window and returns the first 500
+      // appointments by start time, so past 500 in history the newest drop
+      // out. Needs from/to on GET /booking/appointments/ (the service has it).
+      listBookingAppointments(mine ? { mine } : {}),
+    ])
+      .then(([nextCatalog, nextAppointments]) => {
+        if (!current) return;
+        setCatalog(nextCatalog);
+        setAppointments(nextAppointments);
+        setProblem(undefined);
+      })
+      .catch((error: unknown) => {
+        if (!current) return;
+        const code = error instanceof ApiProblemError ? error.problem.code : "";
+        setProblem(
+          code === "entitlement_required"
+            ? "plan"
+            : code === "organization_permission_denied"
+              ? "access"
+              : "load",
+        );
       });
-      setSlots(value.items);
-    } catch {
-      setProblem(t("loadError"));
+    return () => {
+      current = false;
+    };
+  }, [mine, reloads]);
+  const refresh = () => setReloads((value) => value + 1);
+
+  const byDay = useMemo(() => {
+    const days = new Map<string, BookingAppointment[]>();
+    for (const item of appointments ?? []) {
+      if (staffFilter && !mine && item.staff_id !== staffFilter) continue;
+      if (serviceFilter && item.service_name !== serviceFilter) continue;
+      const day = wallClock(item.starts_at, zone).day;
+      const list = days.get(day);
+      if (list) list.push(item);
+      else days.set(day, [item]);
     }
+    return days;
+  }, [appointments, mine, serviceFilter, staffFilter, zone]);
+
+  // An appointment keeps the service name it was booked under, so the filter
+  // offers those names too, not only today's catalogue.
+  const serviceNames = useMemo(
+    () =>
+      [
+        ...new Set([
+          ...(catalog?.services ?? []).map((item) => item.name),
+          ...(appointments ?? []).map((item) => item.service_name),
+        ]),
+      ].sort((a, b) => a.localeCompare(b, locale)),
+    [appointments, catalog, locale],
+  );
+
+  const days = useMemo(() => {
+    if (view === "day") return [cursor];
+    const first = weekStart(
+      view === "week" ? cursor : `${cursor.slice(0, 7)}-01`,
+    );
+    const last =
+      view === "week"
+        ? addDays(first, 6)
+        : addDays(weekStart(addDays(addMonths(cursor, 1), -1)), 6);
+    const count = (Date.parse(last) - Date.parse(first)) / 86_400_000 + 1;
+    return Array.from({ length: count }, (_, index) => addDays(first, index));
+  }, [cursor, view]);
+
+  const title =
+    view === "day"
+      ? formatDay(cursor, locale, {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })
+      : view === "week"
+        ? formatDayRange(days[0], days[6], locale)
+        : formatDay(cursor, locale, { month: "long", year: "numeric" });
+
+  const move = (step: number) =>
+    setCursor(
+      view === "day"
+        ? addDays(cursor, step)
+        : view === "week"
+          ? addDays(cursor, 7 * step)
+          : addMonths(cursor, step),
+    );
+
+  // The opening button can be gone when a dialog closes (the appointment
+  // moved to another day); focus then lands on the calendar's heading.
+  const restoreFocus = () =>
+    opener.current?.isConnected ? opener.current : heading.current;
+
+  const openAppointment: OpenAppointment = (appointment, target) => {
+    opener.current = target;
+    setSelected(appointment);
+    setDetailsOpen(true);
   };
 
-  const create = async () => {
-    const selected = slots.find((item) => item.starts_at === slot);
-    if (!selected) return;
-    try {
-      await createBookingAppointment(
-        {
-          service_id: serviceId,
-          location_id: locationId,
-          staff_id: selected.staff_id,
-          resource_id: selected.resource_id,
-          starts_at: selected.starts_at,
-          customer: {
-            display_name: customerName,
-            email: customerEmail,
-            phone: "",
-            locale: "pl",
-          },
-        },
-        crypto.randomUUID(),
-      );
-      await load();
-    } catch (error) {
-      setProblem(problemText(error, t("createError")));
-    }
+  const openDay = (day: string) => {
+    setCursor(day);
+    setView("day");
+    // The day's button is not part of the day view; keep focus on the page.
+    heading.current?.focus();
   };
 
-  const reschedule = async () => {
-    if (!appointmentId || !newStartsAt) return;
-    try {
-      await rescheduleBookingAppointment(
-        appointmentId,
-        new Date(newStartsAt).toISOString(),
-        crypto.randomUUID(),
+  const startCreating = (target: HTMLElement) => {
+    opener.current = target;
+    setCreating(true);
+  };
+
+  // A booking needs a service and a place; without them the form cannot work.
+  const ready = Boolean(catalog?.services.length && catalog.locations.length);
+
+  const problemNotice = problem ? (
+    <div
+      className="flex flex-wrap items-center gap-3 rounded-lg border border-destructive/30 p-4"
+      role="alert"
+    >
+      <p className="text-sm text-destructive">
+        {t(
+          problem === "plan"
+            ? "notInPlan"
+            : problem === "access"
+              ? "noAccess"
+              : "loadError",
+        )}
+      </p>
+      {problem === "load" ? (
+        <Button onClick={refresh} variant="outline">
+          {t("retry")}
+        </Button>
+      ) : problem === "plan" ? (
+        <Link
+          className={buttonVariants({ variant: "outline" })}
+          href="/panel/settings/billing"
+        >
+          {t("openBilling")}
+        </Link>
+      ) : null}
+    </div>
+  ) : null;
+
+  const emptyState =
+    !catalog || !appointments ? null : !ready && canManage ? (
+      <EmptyState
+        action={
+          <Link className={buttonVariants()} href="/panel/settings/services">
+            <Settings2Icon aria-hidden="true" />
+            {t("settingsLink")}
+          </Link>
+        }
+        text={t("setupText")}
+        title={t("setupTitle")}
+      />
+    ) : appointments.length === 0 && !mine ? (
+      <EmptyState
+        action={
+          canManage && ready ? (
+            <Button onClick={(event) => startCreating(event.currentTarget)}>
+              <PlusIcon aria-hidden="true" />
+              {t("firstAppointment")}
+            </Button>
+          ) : null
+        }
+        text={canManage && ready ? t("emptyText") : t("emptyReadOnly")}
+        title={t("emptyTitle")}
+      />
+    ) : null;
+
+  const views = {
+    day: () => {
+      const items = byDay.get(cursor) ?? [];
+      return items.length ? (
+        <ol className="space-y-2">
+          {items.map((item) => (
+            <li key={item.id}>
+              <AppointmentCard
+                appointment={item}
+                onOpen={openAppointment}
+                wide
+                zone={zone}
+              />
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="rounded-xl border p-6 text-sm text-muted-foreground">
+          {t("noAppointmentsDay")}
+        </p>
       );
-      await load();
-    } catch (error) {
-      setProblem(problemText(error, t("rescheduleError")));
-    }
+    },
+    week: () => (
+      <ol className="grid gap-3 lg:grid-cols-7">
+        {days.map((day) => {
+          const items = byDay.get(day) ?? [];
+          return (
+            <li
+              className="min-w-0 space-y-2 rounded-xl border bg-card/50 p-2"
+              key={day}
+            >
+              <h3>
+                <DayButton
+                  count={items.length}
+                  day={day}
+                  onOpen={openDay}
+                  today={today}
+                />
+              </h3>
+              {items.length ? (
+                <ul className="space-y-2">
+                  {items.map((item) => (
+                    <li key={item.id}>
+                      <AppointmentCard
+                        appointment={item}
+                        onOpen={openAppointment}
+                        zone={zone}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="px-2 pb-1 text-xs text-muted-foreground">
+                  {t("noAppointments")}
+                </p>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    ),
+    month: () => (
+      <div className="space-y-1">
+        <div
+          aria-hidden="true"
+          className="grid grid-cols-7 text-center text-xs font-medium text-muted-foreground"
+        >
+          {days.slice(0, 7).map((day) => (
+            <span key={day}>
+              {formatDay(day, locale, { weekday: "short" })}
+            </span>
+          ))}
+        </div>
+        <ol className="grid grid-cols-7 gap-px overflow-hidden rounded-xl border bg-border">
+          {days.map((day) => {
+            const items = byDay.get(day) ?? [];
+            return (
+              <li
+                className={cn(
+                  "flex min-h-20 min-w-0 flex-col gap-1 bg-background p-1 sm:min-h-32",
+                  day.slice(0, 7) !== cursor.slice(0, 7) &&
+                    "bg-muted/50 text-muted-foreground",
+                )}
+                key={day}
+              >
+                <DayButton
+                  count={items.length}
+                  day={day}
+                  month
+                  onOpen={openDay}
+                  today={today}
+                />
+                <ul className="hidden space-y-1 sm:block">
+                  {items.slice(0, 3).map((item) => (
+                    <li key={item.id}>
+                      <MonthAppointment
+                        appointment={item}
+                        onOpen={openAppointment}
+                        zone={zone}
+                      />
+                    </li>
+                  ))}
+                </ul>
+                {items.length > 3 ? (
+                  <button
+                    className={cn(
+                      "hidden min-h-8 rounded-md px-1.5 text-left text-xs font-medium text-primary hover:underline sm:block pointer-coarse:min-h-11",
+                      focusRing,
+                    )}
+                    onClick={() => openDay(day)}
+                    type="button"
+                  >
+                    {t("more", { count: items.length - 3 })}
+                    <span className="sr-only">
+                      {", "}
+                      {formatDay(day, locale, {
+                        day: "numeric",
+                        month: "long",
+                      })}
+                    </span>
+                  </button>
+                ) : null}
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+    ),
   };
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="text-sm font-medium text-primary">{t("eyebrow")}</p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight">
-          {t("title")}
-        </h1>
-        <p className="mt-2 text-muted-foreground">{t("description")}</p>
-      </div>
-      {problem ? (
-        <p
-          className="rounded-lg border border-destructive/30 p-4 text-sm text-destructive"
-          role="alert"
-        >
-          {problem}
-        </p>
-      ) : null}
-      <div className="grid gap-4 sm:grid-cols-4">
-        {(["locations", "staff", "services", "resources"] as const).map(
-          (key) => (
-            <Card key={key}>
-              <CardHeader className="pb-2">
-                <CardDescription>{t(key)}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-3xl font-semibold">
-                  {catalog?.[key].length ?? 0}
-                </p>
-              </CardContent>
-            </Card>
-          ),
-        )}
-      </div>
-      <BookingConfiguration
-        catalog={catalog}
-        onChanged={load}
-        serviceTemplates={
-          organizationTypeInfo(organizationType).serviceTemplates
-        }
-      />
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("createTitle")}</CardTitle>
-          <CardDescription>{t("createDescription")}</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2">
-          <div>
-            <Label htmlFor="panel-service">{t("services")}</Label>
-            <NativeSelect
-              id="panel-service"
-              onChange={(event) => setServiceId(event.target.value)}
-              value={serviceId}
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div className="space-y-2">
+          <p className="text-sm font-medium text-primary">{t("eyebrow")}</p>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            {t("title")}
+          </h1>
+          <p className="max-w-2xl text-muted-foreground">
+            {t("description", { zone: zone.replaceAll("_", " ") })}
+          </p>
+        </div>
+        {canManage ? (
+          <div className="flex flex-wrap gap-2">
+            <Link
+              className={buttonVariants({ variant: "ghost" })}
+              href="/panel/settings/services"
             >
-              <option value="">{t("choose")}</option>
-              {catalog?.services.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </NativeSelect>
+              <Settings2Icon aria-hidden="true" />
+              {t("settingsLink")}
+            </Link>
+            {ready ? (
+              <Button onClick={(event) => startCreating(event.currentTarget)}>
+                <PlusIcon aria-hidden="true" />
+                {t("newAppointment")}
+              </Button>
+            ) : null}
           </div>
-          <div>
-            <Label htmlFor="panel-location">{t("locations")}</Label>
-            <NativeSelect
-              id="panel-location"
-              onChange={(event) => setLocationId(event.target.value)}
-              value={locationId}
-            >
-              <option value="">{t("choose")}</option>
-              {catalog?.locations.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </NativeSelect>
-          </div>
+        ) : null}
+      </header>
+
+      <section aria-labelledby="calendar-range" className="space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button onClick={() => setCursor(today)} variant="outline">
+            {t("today")}
+          </Button>
           <Button
-            onClick={() => void searchSlots()}
-            type="button"
+            aria-label={t(`previous_${view}`)}
+            onClick={() => move(-1)}
+            size="icon"
             variant="outline"
           >
-            {t("search")}
+            <ChevronLeftIcon aria-hidden="true" />
           </Button>
-          <NativeSelect
-            aria-label={t("slot")}
-            onChange={(event) => setSlot(event.target.value)}
-            value={slot}
+          <Button
+            aria-label={t(`next_${view}`)}
+            onClick={() => move(1)}
+            size="icon"
+            variant="outline"
           >
-            <option value="">{t("choose")}</option>
-            {slots.map((item) => (
-              <option key={item.starts_at} value={item.starts_at}>
-                {new Date(item.starts_at).toLocaleString()}
-              </option>
+            <ChevronRightIcon aria-hidden="true" />
+          </Button>
+          <h2
+            aria-live="polite"
+            className="ml-1 text-xl font-semibold outline-none first-letter:uppercase"
+            id="calendar-range"
+            ref={heading}
+            tabIndex={-1}
+          >
+            {title}
+          </h2>
+          <div
+            aria-label={t("view")}
+            className="flex rounded-lg border p-0.5 sm:ml-auto"
+            role="group"
+          >
+            {VIEWS.map((item) => (
+              <Button
+                aria-pressed={view === item}
+                key={item}
+                onClick={() => setView(item)}
+                variant={view === item ? "secondary" : "ghost"}
+              >
+                {t(`view_${item}`)}
+              </Button>
             ))}
-          </NativeSelect>
-          <Input
-            aria-label={t("customerName")}
-            onChange={(event) => setCustomerName(event.target.value)}
-            placeholder={t("customerName")}
-            value={customerName}
-          />
-          <Input
-            aria-label="E-mail"
-            onChange={(event) => setCustomerEmail(event.target.value)}
-            placeholder="E-mail"
-            type="email"
-            value={customerEmail}
-          />
-          <Button onClick={() => void create()}>{t("create")}</Button>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("calendar")}</CardTitle>
-          <CardDescription>{t("calendarDescription")}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {appointments.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("empty")}</p>
-          ) : null}
-          {appointments.map((item) => (
-            <article
-              className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center"
-              key={item.id}
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="grid w-full gap-1.5 sm:w-60">
+            <Label htmlFor="calendar-staff">{t("staffFilter")}</Label>
+            <NativeSelect
+              id="calendar-staff"
+              onChange={(event) => setStaffFilter(event.target.value)}
+              value={staffFilter}
             >
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="font-medium">{item.service_name}</p>
-                  <Badge variant="outline">{t(`status_${item.status}`)}</Badge>
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {new Intl.DateTimeFormat(undefined, {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                    timeZone: item.timezone,
-                  }).format(new Date(item.starts_at))}{" "}
-                  · {item.staff_name} · {item.location_name}
-                </p>
-                <p className="text-sm">{item.customer_name}</p>
-              </div>
-              {item.status === "confirmed" ? (
-                <div className="flex gap-2">
-                  <Button
-                    onClick={() => setAppointmentId(item.id)}
-                    variant="outline"
-                  >
-                    {t("change")}
-                  </Button>
-                  <Button
-                    onClick={() => void cancel(item.id)}
-                    variant="outline"
-                  >
-                    {t("cancel")}
-                  </Button>
-                </div>
-              ) : null}
-            </article>
-          ))}
-        </CardContent>
-      </Card>
-      {appointmentId ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("changeTitle")}</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3 sm:flex-row">
-            <Input
-              aria-label={t("newTime")}
-              onChange={(event) => setNewStartsAt(event.target.value)}
-              type="datetime-local"
-              value={newStartsAt}
-            />
-            <Button onClick={() => void reschedule()}>{t("save")}</Button>
-          </CardContent>
-        </Card>
+              <option value="">{t("allStaff")}</option>
+              <option value="mine">{t("mine")}</option>
+              {catalog?.staff.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+          <div className="grid w-full gap-1.5 sm:w-60">
+            <Label htmlFor="calendar-service">{t("serviceFilter")}</Label>
+            <NativeSelect
+              id="calendar-service"
+              onChange={(event) => setServiceFilter(event.target.value)}
+              value={serviceFilter}
+            >
+              <option value="">{t("allServices")}</option>
+              {serviceNames.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+          <ul
+            aria-label={t("legend")}
+            className="flex flex-wrap gap-2 lg:ml-auto"
+          >
+            {STATUSES.map((status) => (
+              <li key={status}>
+                <StatusBadge status={status} />
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <p className="text-sm text-success-foreground" role="status">
+          {notice}
+        </p>
+
+        {problem && !appointments ? (
+          problemNotice
+        ) : !appointments ? (
+          <div aria-busy="true" className="grid gap-3 lg:grid-cols-7">
+            <span className="sr-only">{t("loading")}</span>
+            {Array.from({ length: 7 }, (_, index) => (
+              <div
+                className="h-24 animate-pulse rounded-xl bg-muted lg:h-48"
+                key={index}
+              />
+            ))}
+          </div>
+        ) : (
+          <>
+            {problemNotice}
+            {emptyState}
+            {views[view]()}
+          </>
+        )}
+      </section>
+
+      <AppointmentDialog
+        appointment={selected}
+        canManage={canManage}
+        catalog={catalog}
+        onChanged={(appointment) => {
+          setSelected(appointment);
+          refresh();
+        }}
+        onOpenChange={setDetailsOpen}
+        open={detailsOpen}
+        restoreFocus={restoreFocus}
+        zone={zone}
+      />
+      {catalog ? (
+        <NewAppointmentDialog
+          catalog={catalog}
+          day={cursor}
+          onCreated={(appointment) => {
+            setCreating(false);
+            setNotice(
+              t("created", {
+                customer: appointment.customer_name,
+                when: formatWhen(appointment, locale, zone),
+              }),
+            );
+            setCursor(wallClock(appointment.starts_at, zone).day);
+            refresh();
+          }}
+          onOpenChange={setCreating}
+          open={creating}
+          restoreFocus={restoreFocus}
+          zone={zone}
+        />
       ) : null}
     </div>
   );
 }
 
-function problemText(error: unknown, fallback: string): string {
-  return error instanceof ApiProblemError &&
-    typeof error.problem.detail === "string"
-    ? error.problem.detail
-    : fallback;
+function EmptyState({
+  action,
+  text,
+  title,
+}: {
+  action: ReactNode;
+  text: string;
+  title: string;
+}) {
+  return (
+    <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed bg-muted/30 p-6">
+      <CalendarPlusIcon aria-hidden="true" className="size-8 text-primary" />
+      <h3 className="font-semibold">{title}</h3>
+      <p className="max-w-xl text-sm text-muted-foreground">{text}</p>
+      {action}
+    </div>
+  );
+}
+
+/** A day's heading in the week and month grids; it opens the day view. */
+function DayButton({
+  count,
+  day,
+  month = false,
+  onOpen,
+  today,
+}: {
+  count: number;
+  day: string;
+  month?: boolean;
+  onOpen: (day: string) => void;
+  today: string;
+}) {
+  const t = useTranslations("Calendar");
+  const locale = useLocale();
+  const number = (
+    <span
+      className={cn(
+        "flex size-7 items-center justify-center rounded-full tabular-nums",
+        day === today && "bg-primary font-semibold text-primary-foreground",
+      )}
+    >
+      {Number(day.slice(8))}
+    </span>
+  );
+  const appointments = count ? `, ${t("count", { count })}` : "";
+  return (
+    <button
+      aria-current={day === today ? "date" : undefined}
+      className={cn(
+        "flex min-h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-sm font-medium hover:bg-muted",
+        month && "flex-col justify-center gap-0.5 px-0 sm:items-start sm:px-1",
+        focusRing,
+      )}
+      onClick={() => onOpen(day)}
+      type="button"
+    >
+      {month ? (
+        <>
+          {/* The number is inside the spoken date, so the name keeps it. */}
+          <span aria-hidden="true">{number}</span>
+          {count ? (
+            <span
+              aria-hidden="true"
+              className="text-[0.7rem] font-semibold text-primary sm:hidden"
+            >
+              {count}
+            </span>
+          ) : null}
+          <span className="sr-only">
+            {formatDay(day, locale, {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+            })}
+            {appointments}
+          </span>
+        </>
+      ) : (
+        <>
+          <span className="text-muted-foreground">
+            {formatDay(day, locale, { weekday: "short" })}
+          </span>{" "}
+          {number}
+          <span className="sr-only">{appointments}</span>
+        </>
+      )}
+    </button>
+  );
+}
+
+function AppointmentCard({
+  appointment,
+  onOpen,
+  wide = false,
+  zone,
+}: {
+  appointment: BookingAppointment;
+  onOpen: OpenAppointment;
+  /** The day view: one row per appointment on wider screens. */
+  wide?: boolean;
+  zone: string;
+}) {
+  const locale = useLocale();
+  const details = [
+    appointment.service_name,
+    appointment.staff_name,
+    wide ? appointment.location_name : null,
+  ].filter(Boolean);
+  return (
+    <button
+      className={cn(
+        "flex min-h-11 w-full flex-col items-start gap-1 rounded-lg border border-l-4 bg-background p-2.5 text-left text-sm transition-colors hover:bg-muted",
+        wide && "sm:flex-row sm:items-center sm:gap-4",
+        statusStyle(appointment.status).border,
+        focusRing,
+      )}
+      onClick={(event) => onOpen(appointment, event.currentTarget)}
+      type="button"
+    >
+      <span
+        className={cn(
+          "font-semibold tabular-nums",
+          wide && "sm:w-36 sm:shrink-0",
+          appointment.status === "canceled" && "line-through",
+        )}
+      >
+        {dateFormat(locale, {
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone: zone,
+        }).formatRange(
+          new Date(appointment.starts_at),
+          new Date(appointment.ends_at),
+        )}
+      </span>{" "}
+      {/* Spaces between the parts keep the spoken name from running together. */}
+      <span className={cn("w-full min-w-0", wide && "sm:flex-1")}>
+        <span className="block truncate font-medium">
+          {appointment.customer_name}
+        </span>{" "}
+        <span className="block truncate text-xs text-muted-foreground">
+          {details.join(" · ")}
+        </span>
+      </span>{" "}
+      <StatusBadge status={appointment.status} />
+    </button>
+  );
+}
+
+/** The month grid's short form: start time and customer, the rest spoken. */
+function MonthAppointment({
+  appointment,
+  onOpen,
+  zone,
+}: {
+  appointment: BookingAppointment;
+  onOpen: OpenAppointment;
+  zone: string;
+}) {
+  const t = useTranslations("Calendar");
+  const locale = useLocale();
+  const { icon: Icon, border } = statusStyle(appointment.status);
+  return (
+    <button
+      className={cn(
+        "flex min-h-8 w-full items-center gap-1 rounded-md border-l-4 bg-muted/60 px-1.5 text-left text-xs hover:bg-muted pointer-coarse:min-h-11",
+        border,
+        focusRing,
+      )}
+      onClick={(event) => onOpen(appointment, event.currentTarget)}
+      type="button"
+    >
+      <Icon aria-hidden="true" className="size-3.5 shrink-0" />
+      <span
+        className={cn(
+          "tabular-nums",
+          appointment.status === "canceled" && "line-through",
+        )}
+      >
+        {dateFormat(locale, {
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone: zone,
+        }).format(new Date(appointment.starts_at))}
+      </span>{" "}
+      <span className="truncate">{appointment.customer_name}</span>
+      <span className="sr-only">
+        {`, ${statusLabel(t, appointment.status)}, ${appointment.service_name}, ${appointment.staff_name}`}
+      </span>
+    </button>
+  );
 }
