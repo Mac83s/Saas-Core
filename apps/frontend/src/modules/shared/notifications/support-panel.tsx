@@ -100,7 +100,7 @@ export function NotificationSupportPanel() {
               {t("retry")}
             </Button>
             {result ? (
-              <p className="text-sm text-emerald-700" role="status">
+              <p className="text-sm text-success-foreground" role="status">
                 {result}
               </p>
             ) : null}

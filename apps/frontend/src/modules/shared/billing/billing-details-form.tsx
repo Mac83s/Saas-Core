@@ -168,7 +168,7 @@ export function BillingDetailsForm({
       <form onSubmit={form.handleSubmit(save)}>
         <CardContent>
           {details.missing.length > 0 ? (
-            <p className="mb-4 text-sm font-medium text-amber-700 dark:text-amber-500">
+            <p className="mb-4 text-sm font-medium text-warning-foreground">
               {t("detailsMissing")}
             </p>
           ) : null}

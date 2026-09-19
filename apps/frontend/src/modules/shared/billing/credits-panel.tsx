@@ -141,7 +141,7 @@ export function CreditsPanel() {
             />
           </div>
           {overview?.plan_required ? (
-            <p className="mt-6 text-sm text-amber-700 dark:text-amber-500">
+            <p className="mt-6 text-sm text-warning-foreground">
               {t("planRequired")}{" "}
               <Link className="underline" href="/panel/settings/billing">
                 {t("planLink")}

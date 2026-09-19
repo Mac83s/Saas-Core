@@ -108,7 +108,7 @@ export function IntegrationsPanel() {
       ) : null}
       {revealedSecret ? (
         <div
-          className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"
+          className="rounded-lg border border-warning-foreground/30 bg-warning p-4 text-sm text-warning-foreground"
           role="status"
         >
           <p className="font-medium">{t("copyNow")}</p>

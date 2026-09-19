@@ -379,7 +379,7 @@ function AddressStep({
 
           {availability && !availability.available ? (
             <div
-              className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm"
+              className="rounded-xl border border-warning-foreground/30 bg-warning p-4 text-sm"
               role="status"
             >
               <p>{t(`subdomainReason_${availability.reason}`)}</p>

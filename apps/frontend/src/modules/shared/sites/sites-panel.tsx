@@ -491,13 +491,13 @@ export function SitesPanel({
 
       {planAttention && (
         <div
-          className="flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm"
+          className="flex flex-wrap items-start justify-between gap-4 rounded-2xl border border-warning-foreground/30 bg-warning p-4 text-sm"
           role="alert"
         >
           <div className="flex min-w-0 items-start gap-3">
             <LockKeyholeIcon
               aria-hidden="true"
-              className="mt-0.5 size-5 shrink-0 text-amber-700"
+              className="mt-0.5 size-5 shrink-0 text-warning-foreground"
             />
             <div>
               <p className="font-medium">{t("planAttentionTitle")}</p>
@@ -1080,7 +1080,7 @@ function ReadinessCard({
               {loading ? t("publishing") : t("publish")}
             </Button>
             {publication && (
-              <p className="text-sm text-emerald-700" role="status">
+              <p className="text-sm text-success-foreground" role="status">
                 {t("publishedSequence", { sequence: publication.sequence })}
               </p>
             )}

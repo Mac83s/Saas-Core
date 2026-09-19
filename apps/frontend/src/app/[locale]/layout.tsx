@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
+import { Geist } from "next/font/google";
 import { notFound } from "next/navigation";
 
 import { deployment } from "../../generated/deployment";
@@ -15,6 +16,12 @@ export const metadata: Metadata = {
   title: deployment.product.name,
   description: `${deployment.product.name} — panel`,
 };
+
+// Self-hosted at build time; latin-ext carries the Polish diacritics.
+const geist = Geist({
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-geist",
+});
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
@@ -32,7 +39,7 @@ export default async function LocaleLayout({
   setRequestLocale(locale);
 
   return (
-    <html lang={locale}>
+    <html lang={locale} className={geist.variable} data-color-scheme="auto">
       <body>
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
       </body>

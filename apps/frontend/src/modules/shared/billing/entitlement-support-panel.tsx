@@ -222,7 +222,7 @@ function DecisionDetails({
           {item.available ? (
             <ShieldCheckIcon
               aria-hidden="true"
-              className="size-5 text-emerald-600"
+              className="size-5 text-success-foreground"
             />
           ) : (
             <ShieldXIcon

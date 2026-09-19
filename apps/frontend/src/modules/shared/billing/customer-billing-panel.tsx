@@ -176,11 +176,11 @@ export function CustomerBillingPanel() {
       {isSimulated ? (
         <aside
           aria-label={t("simulationBannerTitle")}
-          className="flex items-start gap-3 rounded-2xl border border-sky-600/30 bg-sky-600/5 p-4 text-sm"
+          className="flex items-start gap-3 rounded-2xl border border-info-foreground/30 bg-info p-4 text-sm"
         >
           <SparklesIcon
             aria-hidden="true"
-            className="mt-0.5 size-5 shrink-0 text-sky-700"
+            className="mt-0.5 size-5 shrink-0 text-info-foreground"
           />
           <div>
             <p className="font-medium">{t("simulationBannerTitle")}</p>
@@ -238,14 +238,14 @@ export function CustomerBillingPanel() {
       {activated ? (
         <div
           aria-live="polite"
-          className="flex items-start gap-3 rounded-2xl border border-emerald-600/30 bg-emerald-600/5 p-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex items-start gap-3 rounded-2xl border border-success-foreground/30 bg-success p-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
           ref={activationResultRef}
           role="status"
           tabIndex={-1}
         >
           <CheckIcon
             aria-hidden="true"
-            className="mt-0.5 size-5 shrink-0 text-emerald-700"
+            className="mt-0.5 size-5 shrink-0 text-success-foreground"
           />
           <div>
             <p className="font-medium">{t("trialActivatedTitle")}</p>
@@ -258,12 +258,12 @@ export function CustomerBillingPanel() {
 
       {checkoutState === "canceled" && overview ? (
         <div
-          className="flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm"
+          className="flex items-start gap-3 rounded-2xl border border-warning-foreground/30 bg-warning p-4 text-sm"
           role="status"
         >
           <CircleAlertIcon
             aria-hidden="true"
-            className="mt-0.5 size-5 text-amber-600"
+            className="mt-0.5 size-5 text-warning-foreground"
           />
           <div>
             <p className="font-medium">
@@ -373,7 +373,7 @@ export function CustomerBillingPanel() {
             </CardContent>
             {subscription?.cancel_at_period_end ? (
               <CardContent className="pt-0">
-                <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
+                <div className="rounded-xl border border-warning-foreground/30 bg-warning p-4 text-sm">
                   {t("cancellationScheduled", {
                     date: formatDate(subscription.current_period_end, locale),
                   })}
@@ -382,14 +382,14 @@ export function CustomerBillingPanel() {
             ) : null}
             {subscription && subscription.access_mode !== "full" ? (
               <CardContent className="pt-0">
-                <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
+                <div className="rounded-xl border border-warning-foreground/30 bg-warning p-4 text-sm">
                   {accessModeLabel(subscription.access_mode, t, isSimulated)}
                 </div>
               </CardContent>
             ) : null}
             {subscription?.grace_period_end ? (
               <CardContent className="pt-0">
-                <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-sm">
+                <div className="rounded-xl border border-warning-foreground/30 bg-warning p-4 text-sm">
                   {t(isSimulated ? "simulatedGraceEnds" : "graceEnds", {
                     date: formatDate(subscription.grace_period_end, locale),
                   })}

@@ -233,13 +233,13 @@ function RoadmapStep({
     <li
       className={cn(
         "flex items-center gap-3 rounded-xl border bg-background p-3",
-        complete && "border-emerald-600/20 bg-emerald-600/[0.035]",
+        complete && "border-success-foreground/20 bg-success",
       )}
     >
       <span
         className={cn(
           "flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground",
-          complete && "bg-emerald-600",
+          complete && "bg-success-foreground text-success",
         )}
       >
         {complete ? (

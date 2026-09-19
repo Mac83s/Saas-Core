@@ -1,5 +1,33 @@
 # Handoff następnej sesji
 
+## Styl bazowy panelu z projektu HoofCare, 2026-09-19
+
+Panel dostał styl „Neutralny (shadcn)” z projektu Claude Design „UI mockupy do
+dokumentu” (powłoka 1a, ekran Dziś). Tokeny w `packages/ui/src/styles/globals.css`:
+neutralne zinc, jeden akcent teal `#0f766e`, font Geist (next/font, latin-ext),
+promień 8 px, szare karty na białym tle. Nowe pary `success`, `warning` i `info`
+(tło + `-foreground`) zastąpiły wszystkie wpisane na sztywno kolory amber,
+emerald i sky w 12 plikach. Przyciski i pola mają domyślnie 44 px (brief: cele
+dotykowe min. 44 px w panelu), `sm` 36 px, `lg` 48 px. Ikony Lucide mają
+stroke 2.75, tak jak w makietach.
+
+Tryb ciemny działa według ustawień systemu, ale tylko w dokumentach z
+`data-color-scheme="auto"` na `<html>`: ma go layout `[locale]`, a renderer
+publicznych stron klientów nie, więc strona klienta nigdy nie ciemnieje. Akcent
+w ciemnym to jaśniejszy teal `#14b8a6` z ciemnym tekstem, bo `#0f766e` nie
+przechodzi AA jako link na ciemnym tle.
+
+Warianty kolorystyczne per produkt (5, dostarczy Maciej) dojdą jako osobne bloki
+tokenów wybierane w slocie produktu. Każdy blok musi przejść
+`packages/ui/src/styles/tokens.test.ts`: 20 par tekst/tło na AA w jasnym i
+ciemnym (axe w jsdom kontrastu nie sprawdza).
+
+Dowody: tokens.test 40/40 (celowo zepsuta para go wywala), UI 48/48, frontend
+136/136, ESLint i TypeScript czyste; zrzuty z `next dev` (logowanie, rejestracja,
+strona główna, cennik, galeria kontrolek) w jasnym i ciemnym, 1440 i 390 px.
+Otwarte: widoki panelu po zalogowaniu nie były oglądane na żywo; powłoka 1a i
+ekrany z projektu to kolejne etapy.
+
 ## Sites: podgląd i przejście do opublikowanej witryny, 2026-09-07
 
 Commit 0ee32c7 domyka pierwszy brak w codziennym przepływie właściciela strony.

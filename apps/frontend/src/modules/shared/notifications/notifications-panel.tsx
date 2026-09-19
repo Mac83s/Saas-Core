@@ -125,7 +125,7 @@ export function NotificationsPanel() {
               </p>
             ) : null}
             {saved ? (
-              <p className="text-sm text-emerald-700" role="status">
+              <p className="text-sm text-success-foreground" role="status">
                 {t("saved")}
               </p>
             ) : null}

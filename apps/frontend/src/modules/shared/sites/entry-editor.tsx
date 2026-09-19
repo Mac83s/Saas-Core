@@ -166,7 +166,7 @@ export function EntryEditor({
             distinguishes it from their own unsaved work. */}
         {proposal && !locked && (
           <p
-            className="rounded-lg border border-sky-500/40 bg-sky-500/5 p-3 text-sm"
+            className="rounded-lg border border-info-foreground/30 bg-info p-3 text-sm"
             role="status"
           >
             {t("entryProposalHint")}
@@ -174,7 +174,7 @@ export function EntryEditor({
         )}
         {locked && (
           <p
-            className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm"
+            className="rounded-lg border border-warning-foreground/30 bg-warning p-3 text-sm"
             role="status"
           >
             {t("automationLockedHint")}
