@@ -214,3 +214,35 @@ def test_the_register_is_closed_without_its_entitlement() -> None:
     member = membership("bez-rejestru", entitled=False)
     with tenant(member), pytest.raises(EntitlementRequired):
         list_farms()
+
+
+def test_a_cow_found_in_the_barn_is_resolved_or_recorded_once() -> None:
+    from saas_core.modules.shared.farms.api import farm_animals, resolve_animal  # noqa: PLC0415
+    from saas_core.modules.shared.farms.services import create_farm  # noqa: PLC0415
+
+    member = membership("obora")
+    with tenant(member) as request:
+        farm = create_farm(request=request, data={"name": "Obora"})
+        first, created = resolve_animal(
+            request=request,
+            organization_id=member.organization_id,
+            farm_id=farm.id,
+            national_id="pl 005 432 198 999",
+        )
+        again, created_again = resolve_animal(
+            request=request,
+            organization_id=member.organization_id,
+            farm_id=farm.id,
+            national_id="PL005432198999",
+        )
+        assert (created, created_again, again.id) == (True, False, first.id)
+        with pytest.raises(ValidationError, match="formatu"):
+            resolve_animal(
+                request=request,
+                organization_id=member.organization_id,
+                farm_id=farm.id,
+                national_id="krowa",
+            )
+        assert [a.national_id for a in farm_animals(member.organization_id, farm.id)] == [
+            "PL005432198999"
+        ]

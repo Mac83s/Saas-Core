@@ -79,6 +79,7 @@ def test_a_person_names_themselves_once_and_the_team_sees_it() -> None:
 
 @pytest.mark.django_db(transaction=True)
 def test_a_calendar_entry_stands_for_one_member_of_its_own_organization() -> None:
+    from saas_core.modules.shared.booking.api import staff_for_membership  # noqa: PLC0415
     from saas_core.modules.shared.booking.services import (  # noqa: PLC0415
         create_catalog_item,
         list_appointments,
@@ -93,6 +94,8 @@ def test_a_calendar_entry_stands_for_one_member_of_its_own_organization() -> Non
     with tenant(owner):
         linked = update_staff(staff_id=staff.id, data={"membership_id": owner.id})
         assert linked.membership_id == owner.id
+        assert staff_for_membership(owner.organization_id, owner.id) == linked
+        assert staff_for_membership(other.organization_id, owner.id) is None
         with pytest.raises(ValidationError, match="ma już swój wpis"):
             create_catalog_item(
                 kind="staff",

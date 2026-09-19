@@ -26,13 +26,17 @@ def token_digest(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+#: The role of the tenant context a customer's public link acts under.
+PUBLIC_BOOKING_ROLE = "public_booking"
+
+
 @contextmanager
 def public_booking_context(organization_id: UUID) -> Iterator[TenantContext]:
     context = TenantContext(
         organization_id=organization_id,
         membership_id=organization_id,
         actor_id=organization_id,
-        role_key="public_booking",
+        role_key=PUBLIC_BOOKING_ROLE,
         permissions=PUBLIC_BOOKING_PERMISSIONS,
         principal_kind="service",
     )

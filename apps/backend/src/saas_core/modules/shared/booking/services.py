@@ -48,7 +48,7 @@ from .models import (
     StaffMember,
     TimeOff,
 )
-from .security import issue_self_service_token
+from .security import PUBLIC_BOOKING_ROLE, issue_self_service_token
 
 BOOKING_READ = "booking.appointment.read"
 BOOKING_MANAGE = "booking.appointment.manage"
@@ -68,6 +68,12 @@ def _lost_slot_race(error: DatabaseError) -> bool:
     return isinstance(error, IntegrityError) or (
         getattr(error.__cause__, "sqlstate", None) == _DEADLOCK_DETECTED
     )
+
+
+class AppointmentNotChangeable(APIException):
+    status_code = 409
+    default_detail = "Tej wizyty nie można już zmienić."
+    default_code = "appointment_not_changeable"
 
 
 class SlotUnavailable(APIException):
@@ -226,13 +232,23 @@ def configure_schedule(*, kind: str, data: dict[str, Any]) -> Any:
 
 
 def list_appointments(
-    *, starts_from: datetime | None = None, mine: bool = False
+    *,
+    starts_from: datetime | None = None,
+    starts_until: datetime | None = None,
+    appointment_kinds: frozenset[str] | set[str] | None = None,
+    mine: bool = False,
 ) -> list[Appointment]:
-    """`mine`: only the calendar entries linked to the caller's membership."""
+    """`mine`: only the calendar entries linked to the caller's membership;
+    `appointment_kinds`: only services of these kinds (a vertical's own visits);
+    `starts_until` is exclusive, so one day is `[midnight, next midnight)`."""
     context = authorize_entitled(BOOKING_READ, BOOKING_ENABLED)
     query = Appointment.all_objects.filter(organization_id=context.organization_id)
     if starts_from:
         query = query.filter(starts_at__gte=starts_from)
+    if starts_until:
+        query = query.filter(starts_at__lt=starts_until)
+    if appointment_kinds is not None:
+        query = query.filter(service__appointment_kind__in=appointment_kinds)
     if mine:
         query = query.filter(staff__membership_id=context.membership_id)
     return list(query.select_related("customer", "service", "staff", "location", "resource")[:500])
@@ -430,6 +446,7 @@ def reschedule_appointment(
     appointment = Appointment.all_objects.select_for_update().filter(pk=appointment_id).first()
     if not appointment or appointment.status != AppointmentStatus.CONFIRMED:
         raise NotFound("Aktywna rezerwacja nie istnieje.")
+    _refuse_customer_after_start(context.role_key, appointment)
     request_hash = _hash({"starts_at": starts_at.isoformat()})
     existing = BookingMutation.all_objects.filter(
         action="reschedule", principal_ref=principal_ref, idempotency_key=idempotency_key
@@ -531,6 +548,10 @@ def cancel_appointment(
         if existing.request_hash != request_hash:
             raise BookingIdempotencyConflict
         return appointment
+    if appointment.status in {AppointmentStatus.COMPLETED, AppointmentStatus.NO_SHOW}:
+        # A visit that took place is not called off afterwards.
+        raise AppointmentNotChangeable
+    _refuse_customer_after_start(context.role_key, appointment)
     if appointment.status != AppointmentStatus.CANCELED:
         old = appointment.status
         appointment.status = AppointmentStatus.CANCELED
@@ -563,6 +584,80 @@ def cancel_appointment(
         actor=User.objects.filter(pk=context.actor_id).first(),
         target_type="appointment",
         target_id=appointment.id,
+    )
+    return appointment
+
+
+def _refuse_customer_after_start(role_key: str, appointment: Appointment) -> None:
+    """A customer's self-service link moves or calls off a visit only before it
+    starts; once the provider is on site, changes go through the provider."""
+    if role_key == PUBLIC_BOOKING_ROLE and appointment.starts_at <= timezone.now():
+        raise AppointmentNotChangeable
+
+
+def staff_for_membership(organization_id: UUID, membership_id: UUID) -> StaffMember | None:
+    """The calendar entry of a team member, if their account has one."""
+    return StaffMember.all_objects.filter(
+        organization_id=organization_id, membership_id=membership_id
+    ).first()
+
+
+def appointment_for_tenant(organization_id: UUID, appointment_id: UUID) -> Appointment | None:
+    """The appointment if it belongs to this organization; None otherwise."""
+    return (
+        Appointment.all_objects.filter(organization_id=organization_id, pk=appointment_id)
+        .select_related("customer", "service", "staff", "location", "resource")
+        .first()
+    )
+
+
+@transaction.atomic
+def complete_appointment(
+    *, appointment_id: UUID, idempotency_key: str, principal_ref: str
+) -> Appointment:
+    """Marks a confirmed appointment as done; the customer's self-service link
+    stops working, because there is nothing left to move or call off."""
+    context = require_tenant_context()
+    appointment = Appointment.all_objects.select_for_update().filter(pk=appointment_id).first()
+    if not appointment:
+        raise NotFound("Rezerwacja nie istnieje.")
+    request_hash = _hash({"complete": True})
+    existing = BookingMutation.all_objects.filter(
+        action="complete", principal_ref=principal_ref, idempotency_key=idempotency_key
+    ).first()
+    if existing:
+        if existing.request_hash != request_hash:
+            raise BookingIdempotencyConflict
+        return appointment
+    if appointment.status != AppointmentStatus.COMPLETED:
+        if appointment.status != AppointmentStatus.CONFIRMED:
+            raise AppointmentNotChangeable
+        appointment.status = AppointmentStatus.COMPLETED
+        appointment.save(update_fields=["status", "updated_at"])
+        SelfServiceRoute.objects.filter(appointment_id=appointment.id).update(
+            revoked_at=timezone.now()
+        )
+        AppointmentStatusHistory.all_objects.create(
+            organization_id=context.organization_id,
+            appointment=appointment,
+            from_status=AppointmentStatus.CONFIRMED,
+            to_status=AppointmentStatus.COMPLETED,
+            actor_kind=context.principal_kind,
+        )
+        record_audit(
+            organization=Organization.objects.get(pk=context.organization_id),
+            action="booking.appointment.completed",
+            actor=User.objects.filter(pk=context.actor_id).first(),
+            target_type="appointment",
+            target_id=appointment.id,
+        )
+    BookingMutation.all_objects.create(
+        organization_id=context.organization_id,
+        appointment=appointment,
+        action="complete",
+        principal_ref=principal_ref,
+        idempotency_key=idempotency_key,
+        request_hash=request_hash,
     )
     return appointment
 
