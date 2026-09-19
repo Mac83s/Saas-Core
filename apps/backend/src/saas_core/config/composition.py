@@ -77,6 +77,57 @@ def load_catalog(directory: Path) -> dict[str, ModuleDescriptor]:
     return descriptors
 
 
+@dataclass(frozen=True, slots=True)
+class OrganizationType:
+    """A kind of organization the product composes (ADR-050).
+
+    `modules` are the shared and vertical modules an organization of this type
+    may use; core modules belong to every organization.
+    """
+
+    key: str
+    label: dict[str, str]
+    modules: frozenset[str]
+    plan_keys: tuple[str, ...]
+    self_signup: bool
+
+
+def organization_types_from(
+    artifact: dict[str, Any],
+    modules: tuple[str, ...],
+) -> tuple[OrganizationType, ...]:
+    """The product's organization types as the artifact generator resolved them.
+
+    The generator applies the default once (`business`, everything); reading
+    its result keeps backend and frontend on one list. The first type is the
+    default for organizations that do not name one.
+    """
+    raw_types = artifact.get("organizationTypes")
+    if not isinstance(raw_types, list) or not raw_types:
+        raise CompositionError(
+            "Artefakt nie niesie typów organizacji — uruchom deployment:artifact"
+        )
+    composed = set(modules)
+    types: list[OrganizationType] = []
+    for raw in raw_types:
+        type_modules = frozenset(str(module) for module in raw["modules"])
+        foreign = sorted(type_modules - composed)
+        if foreign:
+            raise CompositionError(
+                f"Typ organizacji {raw['key']} używa modułów spoza profilu: {', '.join(foreign)}"
+            )
+        types.append(
+            OrganizationType(
+                key=str(raw["key"]),
+                label={str(k): str(v) for k, v in raw["label"].items()},
+                modules=type_modules,
+                plan_keys=tuple(str(plan) for plan in raw.get("planKeys") or ()),
+                self_signup=bool(raw["selfSignup"]),
+            )
+        )
+    return tuple(types)
+
+
 def product_profile(repository_root: Path) -> str:
     """This repository's main profile, from its `product.json` slot (ADR-049).
 

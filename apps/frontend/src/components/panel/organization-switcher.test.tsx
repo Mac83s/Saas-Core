@@ -59,6 +59,7 @@ function organization(id: string, name: string, active: boolean) {
     name,
     slug: id,
     workspace_kind: "business",
+    organization_type: "business",
     status: "active",
     default_locale: "pl",
     timezone: "Europe/Warsaw",

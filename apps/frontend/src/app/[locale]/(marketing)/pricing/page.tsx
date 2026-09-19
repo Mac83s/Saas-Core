@@ -3,6 +3,7 @@ import { CheckIcon } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
 import { Link } from "#i18n/navigation";
+import { selfSignupTypes, typeText } from "#lib/organization-types";
 import { productCopy, productName } from "../../../../marketing/content";
 import { formatPrice, getPublicPlans } from "../../../../marketing/plans";
 import { marketingMetadata } from "../../../../marketing/seo";
@@ -16,7 +17,10 @@ import {
   CardTitle,
 } from "@saas-core/ui/components/card";
 
-type Props = { params: Promise<{ locale: string }> };
+type Props = {
+  params: Promise<{ locale: string }>;
+  searchParams?: Promise<{ type?: string }>;
+};
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale } = await params;
@@ -29,11 +33,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   });
 }
 
-export default async function PricingPage({ params }: Props) {
+export default async function PricingPage({ params, searchParams }: Props) {
   const { locale } = await params;
+  const requested = (await searchParams)?.type;
   const { pricing } = productCopy(locale);
   const t = await getTranslations("Marketing.pricing");
-  const plans = await getPublicPlans();
+  // A product with several kinds of customer prices each separately (ADR-050).
+  const active =
+    selfSignupTypes.find((type) => type.key === requested) ??
+    selfSignupTypes[0];
+  const plans = await getPublicPlans(active?.key);
 
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-5 py-20">
@@ -43,6 +52,21 @@ export default async function PricingPage({ params }: Props) {
         </h1>
         <p className="text-lg text-muted-foreground">{pricing.lead}</p>
       </div>
+
+      {selfSignupTypes.length > 1 ? (
+        <nav aria-label={t("forWhom")} className="flex flex-wrap gap-2">
+          {selfSignupTypes.map((type) => (
+            <Link
+              aria-current={type.key === active?.key ? "page" : undefined}
+              className="rounded-full border px-4 py-2 text-sm aria-[current=page]:border-primary aria-[current=page]:bg-primary aria-[current=page]:text-primary-foreground"
+              href={{ pathname: "/pricing", query: { type: type.key } }}
+              key={type.key}
+            >
+              {typeText(type.label, locale)}
+            </Link>
+          ))}
+        </nav>
+      ) : null}
 
       {plans.length === 0 ? (
         <p className="rounded-lg border p-6 text-muted-foreground">

@@ -10,7 +10,7 @@ import {
   getServerOrganizations,
   getServerUser,
 } from "#lib/server-auth";
-import { deployment } from "../../../generated/deployment";
+import { modulesFor } from "#lib/organization-types";
 import { LogoutButton } from "../../../modules/core/identity";
 import { NotificationBell } from "../../../modules/shared/notifications";
 import {
@@ -33,10 +33,14 @@ export default async function PanelLayout({
     getServerOrganizations(),
     getTranslations("DashboardNav"),
   ]);
-  if (!user) redirect(locale === "pl" ? "/login" : `/${locale}/login`);
+  const prefix = locale === "pl" ? "" : `/${locale}`;
+  if (!user) redirect(`${prefix}/login`);
+  // An account without an organization has nothing to show yet: it starts by
+  // saying who it is (ADR-050) instead of landing in an empty panel.
+  if (organizations.length === 0) redirect(`${prefix}/onboarding`);
+  const modules = modulesFor(organization?.organization_type);
   const billing =
-    organization?.role === "owner" &&
-    new Set<string>(deployment.modules).has("shared.billing")
+    organization?.role === "owner" && modules.has("shared.billing")
       ? await getServerCustomerBillingOverview()
       : null;
 
@@ -44,7 +48,9 @@ export default async function PanelLayout({
     <SidebarProvider>
       <AppSidebar
         canManageBilling={organization?.role === "owner"}
+        modules={[...modules]}
         organizationName={organization?.name}
+        organizationType={organization?.organization_type}
         organizations={organizations}
         planKey={billing?.subscription?.plan_key}
         planState={billing?.subscription?.state}

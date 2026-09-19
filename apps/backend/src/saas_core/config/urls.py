@@ -182,4 +182,21 @@ def urlpatterns_for(active_modules: Collection[str]) -> list[Route]:
     return routes
 
 
+def module_route_prefixes(active_modules: Collection[str]) -> dict[str, str]:
+    """{static URL prefix: module} for the shared and vertical modules composed.
+
+    What the module gate (ADR-050) looks up to know which module a request
+    belongs to. Core routes are left out: core belongs to every organization.
+    """
+    prefixes: dict[str, str] = {}
+    for module_id in active_modules:
+        if not module_id.startswith(("shared.", "vertical.")):
+            continue
+        build = MODULE_ROUTES.get(module_id)
+        routes = build() if build is not None else _descriptor_routes(module_id)
+        for route in routes:
+            prefixes["/" + str(route.pattern).split("<", 1)[0]] = module_id
+    return prefixes
+
+
 urlpatterns = urlpatterns_for(settings.ACTIVE_MODULES)

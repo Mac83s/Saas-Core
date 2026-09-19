@@ -47,8 +47,13 @@ export function AppSidebar({
   canManageBilling,
   planKey,
   planState,
+  modules: allowedModules,
+  organizationType,
 }: {
   userEmail: string;
+  /** Core plus the organization type's modules (ADR-050). */
+  modules: string[];
+  organizationType?: string;
   organizationName?: string;
   organizations: OrganizationSummary[];
   canManageBilling: boolean;
@@ -59,7 +64,7 @@ export function AppSidebar({
   const billing = useTranslations("CustomerBilling");
   const pathname = usePathname();
   const { closeMobile } = useSidebar();
-  const modules = new Set<string>(deployment.modules);
+  const modules = new Set<string>(allowedModules);
   const navigation: NavigationItem[] = [
     { href: "/panel", icon: HomeIcon, label: t("start") },
     {
@@ -92,10 +97,19 @@ export function AppSidebar({
       label: t("integrations"),
       module: "shared.notifications",
     },
-    ...(product.navigation ?? []).map(({ labelKey, ...item }) => ({
-      ...item,
-      label: t(labelKey),
-    })),
+    ...(product.navigation ?? [])
+      .filter(
+        (item) =>
+          !item.organizationTypes ||
+          (organizationType !== undefined &&
+            item.organizationTypes.includes(organizationType)),
+      )
+      .map(({ labelKey, href, icon, module }) => ({
+        href,
+        icon,
+        module,
+        label: t(labelKey),
+      })),
     { href: "/panel/team", icon: UsersIcon, label: t("team") },
     {
       href: "/panel/settings/billing",

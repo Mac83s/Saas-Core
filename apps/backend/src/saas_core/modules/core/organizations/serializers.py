@@ -1,6 +1,7 @@
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from django.conf import settings
 from django.core.validators import RegexValidator
 from rest_framework import serializers
 
@@ -18,6 +19,9 @@ class OrganizationCreateSerializer(serializers.Serializer[dict[str, Any]]):
     default_locale = serializers.ChoiceField(choices=["pl", "en"], default="pl")
     timezone = serializers.CharField(max_length=64, default="Europe/Warsaw")
     currency = serializers.RegexField(r"^[A-Z]{3}$", default="PLN")
+    #: A key of a type the product lets people create themselves (ADR-050).
+    #: Optional only where the product has exactly one such type.
+    organization_type = serializers.CharField(max_length=40, required=False)
 
     def validate_timezone(self, value: str) -> str:
         try:
@@ -25,6 +29,21 @@ class OrganizationCreateSerializer(serializers.Serializer[dict[str, Any]]):
         except ZoneInfoNotFoundError as error:
             raise serializers.ValidationError("Nieznana strefa czasowa.") from error
         return value
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        offered = [
+            key
+            for key, organization_type in settings.ORGANIZATION_TYPES.items()
+            if organization_type.self_signup
+        ]
+        chosen = attrs.get("organization_type")
+        if chosen is None and len(offered) == 1:
+            attrs["organization_type"] = offered[0]
+        elif chosen not in offered:
+            raise serializers.ValidationError(
+                {"organization_type": "Wybierz typ organizacji spośród dostępnych."}
+            )
+        return attrs
 
 
 class OrganizationUpdateSerializer(serializers.Serializer[dict[str, Any]]):
@@ -56,6 +75,7 @@ class OrganizationSummarySerializer(serializers.Serializer[dict[str, Any]]):
     name = serializers.CharField()
     slug = serializers.CharField()
     workspace_kind = serializers.CharField()
+    organization_type = serializers.CharField()
     status = serializers.CharField()
     default_locale = serializers.CharField()
     timezone = serializers.CharField()

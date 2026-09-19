@@ -62,6 +62,69 @@ export const assertBillingConfiguration = (
   }
 };
 
+/**
+ * The organization types a profile composes (ADR-050), with the default a
+ * profile without the section gets: one `business` type with every
+ * non-core module and every plan. Computed once, here; the artifact carries
+ * the result, so the backend and the frontend read the same list rather than
+ * each re-deriving the default.
+ */
+export const effectiveOrganizationTypes = (profile, modules) => {
+  if (profile.organizationTypes) {
+    return profile.organizationTypes.map((type) => ({
+      key: type.key,
+      label: type.label,
+      description: type.description ?? null,
+      modules: [...type.modules],
+      planKeys: [...(type.planKeys ?? profile.billing?.planKeys ?? [])],
+      selfSignup: type.selfSignup,
+    }));
+  }
+  return [
+    {
+      key: "business",
+      label: { pl: "Firma", en: "Business" },
+      description: null,
+      modules: modules.filter((id) => !id.startsWith("core.")),
+      planKeys: [...(profile.billing?.planKeys ?? [])],
+      selfSignup: true,
+    },
+  ];
+};
+
+const assertOrganizationTypes = (profile, profileName) => {
+  const composed = new Set(profile.modules);
+  const plans = new Set(profile.billing?.planKeys ?? []);
+  const keys = new Set();
+  for (const type of profile.organizationTypes ?? []) {
+    if (keys.has(type.key)) {
+      throw new Error(
+        `Profil ${profileName}: powielony typ organizacji ${type.key}`,
+      );
+    }
+    keys.add(type.key);
+    for (const moduleId of type.modules) {
+      if (!composed.has(moduleId)) {
+        throw new Error(
+          `Profil ${profileName}: typ ${type.key} używa modułu ${moduleId}, którego profil nie składa`,
+        );
+      }
+    }
+    for (const plan of type.planKeys ?? []) {
+      if (!plans.has(plan)) {
+        throw new Error(
+          `Profil ${profileName}: typ ${type.key} oferuje plan ${plan} spoza billing.planKeys`,
+        );
+      }
+    }
+    if (composed.has("shared.billing") && !type.planKeys) {
+      throw new Error(
+        `Profil ${profileName}: typ ${type.key} musi wskazać planKeys, bo profil składa shared.billing`,
+      );
+    }
+  }
+};
+
 // The catalog describes code that exists. A descriptor for an app nobody has
 // written passes schema and graph checks and only fails at boot, in the image.
 //
@@ -240,6 +303,7 @@ export async function validateDeployment(profileName, root = repositoryRoot) {
     throw new Error("Domyślne locale musi należeć do supportedLocales");
   }
   assertBillingConfiguration(profile, profileName);
+  assertOrganizationTypes(profile, profileName);
 
   const validateModule = createValidator(moduleSchema);
   const checkDjangoApps = await backendSourcePresent(root);

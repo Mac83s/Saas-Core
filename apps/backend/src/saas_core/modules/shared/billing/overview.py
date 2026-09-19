@@ -16,6 +16,7 @@ from .models import (
     StripePriceMapping,
     SubscriptionState,
 )
+from .plan_offer import plan_keys_for_organization, plan_keys_for_type
 from .services import missing_billing_details, reusable_customer_id
 
 
@@ -44,21 +45,21 @@ def _plan_payload(
     }
 
 
-def _public_plans() -> list[Plan]:
-    """The profile's plans a customer may buy, in the profile's order."""
+def _public_plans(plan_keys: tuple[str, ...]) -> list[Plan]:
+    """The given plans a customer may buy, in the profile's order."""
     by_key = {
         plan.key: plan
         for plan in Plan.objects.filter(
-            key__in=settings.BILLING_PLAN_KEYS,
+            key__in=plan_keys,
             is_active=True,
             is_public=True,
             current_version__isnull=False,
         ).select_related("current_version")
     }
-    return [by_key[key] for key in settings.BILLING_PLAN_KEYS if key in by_key]
+    return [by_key[key] for key in plan_keys if key in by_key]
 
 
-def public_plan_catalog() -> list[dict[str, Any]]:
+def public_plan_catalog(organization_type: str | None = None) -> list[dict[str, Any]]:
     """What a visitor sees on the pricing page before signing in.
 
     The catalogue only — price, interval, trial and what the plan includes.
@@ -68,7 +69,11 @@ def public_plan_catalog() -> list[dict[str, Any]]:
     so a price published in billing cannot disagree with the one advertised.
     """
     catalog: list[dict[str, Any]] = []
-    for plan in _public_plans():
+    # Without a type the visitor sees the default one: the product's main
+    # customer, the one its pricing page is about.
+    for plan in _public_plans(
+        plan_keys_for_type(organization_type or settings.DEFAULT_ORGANIZATION_TYPE)
+    ):
         version = plan.current_version
         if version is None:  # Same guard as the overview: catalogue drift.
             continue
@@ -90,7 +95,7 @@ def customer_billing_overview() -> dict[str, Any]:
     """Return customer-facing billing state from local, tenant-scoped data."""
 
     context = authorize(BILLING_MANAGE)
-    plans = _public_plans()
+    plans = _public_plans(plan_keys_for_organization(context.organization_id))
     current_version_ids = [plan.current_version_id for plan in plans]
     checkout_versions: set[UUID] = set(
         StripePriceMapping.objects.filter(

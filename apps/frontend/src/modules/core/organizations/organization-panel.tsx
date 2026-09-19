@@ -79,6 +79,7 @@ import {
 } from "@saas-core/ui/components/select";
 
 import { useRouter } from "#i18n/navigation";
+import { selfSignupTypes, typeText } from "#lib/organization-types";
 import { organizationErrorMessage } from "./problem";
 
 const TIMEZONES =
@@ -92,6 +93,7 @@ type CreateValues = {
   name: string;
   slug: string;
   workspace_kind: "personal" | "business";
+  organization_type: string;
   default_locale: "pl" | "en";
   timezone: string;
   currency: string;
@@ -127,6 +129,7 @@ export function OrganizationPanel() {
         name: z.string().min(2, t("required")),
         slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, t("invalidSlug")),
         workspace_kind: z.enum(["personal", "business"]),
+        organization_type: z.string().min(1),
         default_locale: z.enum(["pl", "en"]),
         timezone: z.string().min(1, t("required")),
         currency: z.string().regex(/^[A-Z]{3}$/),
@@ -147,6 +150,7 @@ export function OrganizationPanel() {
       name: "",
       slug: "",
       workspace_kind: "business",
+      organization_type: selfSignupTypes[0]?.key ?? "",
       default_locale: locale === "en" ? "en" : "pl",
       timezone: "Europe/Warsaw",
       currency: "PLN",
@@ -457,6 +461,17 @@ function CreateOrganizationDialog({
           <FieldGroup>
             <TextField form={form} label={t("name")} name="name" />
             <TextField form={form} label={t("slug")} name="slug" />
+            {selfSignupTypes.length > 1 ? (
+              <SelectField
+                control={form.control}
+                label={t("organizationType")}
+                name="organization_type"
+                options={selfSignupTypes.map((type) => [
+                  type.key,
+                  typeText(type.label, locale),
+                ])}
+              />
+            ) : null}
             <SelectField
               control={form.control}
               label={t("kind")}

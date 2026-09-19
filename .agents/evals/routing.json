@@ -5,31 +5,55 @@
       "id": "new-endpoint",
       "task": "Dodaj endpoint zwracający Problem Details, zaktualizuj wygenerowany kontrakt i klienta TypeScript.",
       "expect": "change-api-and-events",
-      "terms": ["endpoint", "serializer", "OpenAPI", "TypeScript client"]
+      "terms": [
+        "endpoint",
+        "serializer",
+        "OpenAPI",
+        "TypeScript client"
+      ]
     },
     {
       "id": "tenant-migration",
       "task": "Dodaj model tenantowy z migracją zakładającą politykę RLS i zadaniem w tle.",
       "expect": "change-tenant-data",
-      "terms": ["migration", "RLS", "organization_id", "TenantContext"]
+      "terms": [
+        "migration",
+        "RLS",
+        "organization_id",
+        "TenantContext"
+      ]
     },
     {
       "id": "booking-change",
       "task": "Zmień wyszukiwanie wolnych terminów i przekładanie wizyt.",
       "expect": "develop-booking",
-      "terms": ["appointments", "slot search", "availability rules", "self-service"]
+      "terms": [
+        "appointments",
+        "slot search",
+        "availability rules",
+        "self-service"
+      ]
     },
     {
       "id": "sites-publication",
       "task": "Zmień publikację strony i obsługę domeny klienta.",
       "expect": "develop-sites",
-      "terms": ["publication", "domains", "public renderer", "page templates"]
+      "terms": [
+        "publication",
+        "domains",
+        "public renderer",
+        "page templates"
+      ]
     },
     {
       "id": "connect-webhook",
       "task": "Przyjmij zdarzenie od providera płatności i wystaw je dalej przez outbox.",
       "expect": "change-api-and-events",
-      "terms": ["event", "outbox", "endpoint"],
+      "terms": [
+        "event",
+        "outbox",
+        "endpoint"
+      ],
       "note": "Do P5 nie ma skill płatnościowego; webhook jest endpointem i zdarzeniem, więc świadomie prowadzi go skill ogólny od API."
     },
     {
@@ -47,19 +71,45 @@
       "id": "new-deployment",
       "task": "Utwórz nowy profil produktu, zbuduj obrazy i zapisz wiersz release'u.",
       "expect": "prepare-product-deployment",
-      "terms": ["deployment profile", "images", "rollback", "profile hash"]
+      "terms": [
+        "deployment profile",
+        "images",
+        "rollback",
+        "profile hash"
+      ]
     },
     {
       "id": "release-acceptance",
       "task": "Odbierz przyrost przed przekazaniem i zdecyduj, czy da się go wycofać.",
       "expect": "verify-saas-core-release",
-      "terms": ["release candidate", "gates", "evidence", "rolled back"]
+      "terms": [
+        "release candidate",
+        "gates",
+        "evidence",
+        "rolled back"
+      ]
     },
     {
       "id": "stale-skill",
       "task": "Instrukcja wskazuje przeniesiony plik po zmianie ADR-u; napraw katalog.",
       "expect": "maintain-saas-core-skills",
-      "terms": ["skill catalogue", "ai:validate", "stale", "ADR"]
+      "terms": [
+        "skill catalogue",
+        "ai:validate",
+        "stale",
+        "ADR"
+      ]
+    },
+    {
+      "id": "organization-type",
+      "task": "Dodaj w produkcie nowy typ organizacji (gospodarstwo) z własnymi modułami, planami i rejestracją, i schowaj przed nim moduł strony internetowej.",
+      "expect": "develop-organization-types",
+      "terms": [
+        "organizationTypes",
+        "kinds of organization",
+        "module gate",
+        "onboarding"
+      ]
     }
   ],
   "coverage": {

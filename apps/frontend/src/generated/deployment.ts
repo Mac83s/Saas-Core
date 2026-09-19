@@ -27,5 +27,30 @@ export const deployment = {
     "customDomains": true,
     "publicBooking": true
   },
-  "profileHash": "sha256:4ff69cf4be23258e8ed2637416f2ccf803f780d689b920b32a711024e45b093f"
+  "organizationTypes": [
+    {
+      "key": "business",
+      "label": {
+        "pl": "Firma",
+        "en": "Business"
+      },
+      "description": null,
+      "modules": [
+        "shared.billing",
+        "shared.sites",
+        "shared.media",
+        "shared.profiles",
+        "shared.notifications",
+        "shared.booking",
+        "shared.seo"
+      ],
+      "planKeys": [
+        "profile",
+        "starter",
+        "pro"
+      ],
+      "selfSignup": true
+    }
+  ],
+  "profileHash": "sha256:747b11b729e8b5110dfcf3d7cf381dc81bc4d285ea50e270b2486d6ed9d16035"
 } as const

@@ -4,7 +4,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema, inline_serializer
+from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
@@ -74,10 +74,18 @@ class PublicPlanCatalogView(APIView):
         operation_id="billing_public_plans",
         tags=["billing"],
         auth=[],
+        parameters=[
+            OpenApiParameter(
+                "organization_type",
+                str,
+                required=False,
+                description="Typ organizacji (ADR-050); bez niego typ domyślny produktu.",
+            )
+        ],
         responses={200: PublicPlanListSerializer},
     )
     def get(self, request: Request) -> Response:
-        return Response(public_plan_catalog())
+        return Response(public_plan_catalog(request.query_params.get("organization_type")))
 
 
 @method_decorator(csrf_exempt, name="dispatch")

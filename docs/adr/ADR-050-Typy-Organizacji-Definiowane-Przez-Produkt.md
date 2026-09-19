@@ -21,10 +21,12 @@ deklaracją produktu, a nie kodem w rdzeniu.
 
 ## Decyzja
 
-1. **Katalog typów organizacji deklaruje produkt** w pliku
-   `deployments/<profil>/organization-types.json`, walidowanym schematem z
-   `packages/contracts/organization-types.schema.json`. Profil bez katalogu ma
-   jeden typ domyślny, `business`, zachowujący się jak dziś.
+1. **Katalog typów organizacji deklaruje produkt** w sekcji `organizationTypes`
+   swojego `deployments/<profil>/deployment.json`, walidowanej schematem
+   `packages/contracts/deployment.schema.json`. Sekcja jest częścią profilu, więc
+   trafia do obrazu bez nowych plików. Generator artefaktu rozwiązuje ją raz
+   (także domyślny typ `business` dla profilu bez sekcji), a backend i frontend
+   czytają ten sam wynik z artefaktu i profilu publicznego.
 2. **Organizacja ma typ** (`Organization.organization_type`). Typ nadaje się przy
    zakładaniu organizacji i nie zmienia się samowolnie. Istniejące organizacje
    dostają typ domyślny profilu.
@@ -36,16 +38,19 @@ deklaracją produktu, a nie kodem w rdzeniu.
      systemowe są per typ, niezmienialne przez organizację. Organizacja może
      tworzyć role własne z uprawnień swoich modułów (model `Role` ma już zakres
      organizacji);
-   - **planach.** Typ ma własną listę kluczy planów, np. pakiet rolnika z 6
-     miesiącami okresu próbnego albo plany firmy. Reguła „dokładnie trzy plany na
-     profil” zmienia się na „od jednego do trzech na typ”. Checkout odrzuca plan
-     spoza typu organizacji;
+   - **planach.** Typ wybiera z planów profilu od jednego do trzech, np. plany
+     firmy albo pakiet rolnika z 6 miesiącami okresu próbnego. Checkout,
+     przegląd abonamentu i publiczny cennik pokazują tylko plany typu. Profil
+     nadal ma dokładnie trzy plany; regułę poluzujemy, gdy dojdzie pakiet
+     rolnika (etap 3 planu 15);
    - **szablonach usług rezerwacji**, np. korekcja stada dla firmy, wynajem
      kombajnu i koszenie dla gospodarstwa. Organizacja zakłada z nich własne
      usługi. Organizacja każdego typu z modułem rezerwacji może oferować usługi
      innym;
-   - **rejestracji.** Typ z `selfSignup` pojawia się w pytaniu „kim jesteś”.
-     Organizacja powstaje w kroku rejestracji, a nie w ukrytym dialogu.
+   - **pierwszym uruchomieniu.** Konto bez organizacji po zalogowaniu trafia
+     na ekran „kim jesteś” z typami `selfSignup` i zakłada organizację, zanim
+     zobaczy panel. Sam formularz rejestracji się nie zmienia: nie ujawnia, czy
+     konto istnieje, więc nie może zakładać organizacji.
 4. **Uprawnienia ról systemowych pochodzą z katalogu, a nie z migracji.**
    Idempotentna komenda uruchamiana po `migrate` (`apply_organization_types`)
    zakłada i aktualizuje role systemowe typów. Każdą zmianę zapisuje w
@@ -60,7 +65,7 @@ deklaracją produktu, a nie kodem w rdzeniu.
 
 ## Konsekwencje
 
-- Rejestracja zakłada organizację od razu. Znika stan „użytkownik bez firmy”
+- Pierwsze logowanie zakłada organizację. Znika stan „użytkownik bez firmy”
   z przeglądu panelu z 18.09.
 - Role systemowe przestają być globalne: klucz roli jest unikalny w obrębie
   typu. Migracja przepina istniejące członkostwa na role typu domyślnego bez

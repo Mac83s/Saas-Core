@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 import {
+  effectiveOrganizationTypes,
   productProfile,
   repositoryRoot,
   validateDeployment,
@@ -20,6 +21,7 @@ export function toPublicDeployment(profile, modules, profileHash) {
     product: profile.product,
     modules,
     features: profile.features,
+    organizationTypes: effectiveOrganizationTypes(profile, modules),
     // The fingerprint of the tree this bundle was built from. The panel
     // compares it with the backend's so a mismatched pair of images says so.
     profileHash,

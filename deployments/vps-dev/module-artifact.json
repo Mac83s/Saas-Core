@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:94571fc5daaa9781966e5d89c6d68e07f675f7526c1bea1fc4514f7d440c548d",
+  "profileHash": "sha256:501a1d4e03710ff4c443ec1cc73e6138dd70708d54d7509578b74511eb38c615",
   "schemaVersion": 1,
   "deployment": "vps-dev",
   "product": {
@@ -15,6 +15,31 @@
     "customDomains": true,
     "publicBooking": true
   },
+  "organizationTypes": [
+    {
+      "key": "business",
+      "label": {
+        "pl": "Firma",
+        "en": "Business"
+      },
+      "description": null,
+      "modules": [
+        "shared.billing",
+        "shared.sites",
+        "shared.media",
+        "shared.profiles",
+        "shared.notifications",
+        "shared.booking",
+        "shared.seo"
+      ],
+      "planKeys": [
+        "profile",
+        "starter",
+        "pro"
+      ],
+      "selfSignup": true
+    }
+  ],
   "modules": [
     {
       "id": "core.health",

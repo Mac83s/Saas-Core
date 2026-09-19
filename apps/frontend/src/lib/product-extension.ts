@@ -9,6 +9,8 @@ export type ProductNavigationItem = {
   labelKey: string;
   /** Shown only when the deployment composes this module. */
   module?: string;
+  /** Shown only to organizations of these types (ADR-050); all when absent. */
+  organizationTypes?: readonly string[];
 };
 
 type Messages = Record<string, Record<string, unknown>>;

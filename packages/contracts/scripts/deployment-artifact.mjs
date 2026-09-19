@@ -21,6 +21,7 @@ import path from "node:path";
 
 import {
   discoverProfiles,
+  effectiveOrganizationTypes,
   repositoryRoot,
   validateDeployment,
 } from "./deployment-check.mjs";
@@ -45,6 +46,10 @@ export function buildArtifact(profile, modules, descriptorsById) {
     deployment: profile.id,
     product: profile.product,
     features: profile.features,
+    // What each kind of organization may use (ADR-050). In the fingerprint,
+    // because a backend and a frontend that disagree about it gate different
+    // things.
+    organizationTypes: effectiveOrganizationTypes(profile, modules),
     // In composed order: two profiles with the same modules in a different
     // order are the same product, but a process installs them in this one.
     modules: modules.map((id) => {

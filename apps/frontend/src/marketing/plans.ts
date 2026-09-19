@@ -11,11 +11,21 @@ const backendUrl = process.env.BACKEND_INTERNAL_URL ?? "http://127.0.0.1:8000";
  * An unreachable backend gives an empty list, and the page says so, rather than
  * failing the whole marketing site.
  */
-export async function getPublicPlans(): Promise<PublicPlan[]> {
+export async function getPublicPlans(
+  organizationType?: string,
+): Promise<PublicPlan[]> {
+  // Each kind of organization has its own plans (ADR-050); without one the
+  // backend answers with the product's default type.
+  const query = organizationType
+    ? `?organization_type=${encodeURIComponent(organizationType)}`
+    : "";
   try {
-    const response = await fetch(`${backendUrl}/api/v1/billing/plans/`, {
-      next: { revalidate: 300 },
-    });
+    const response = await fetch(
+      `${backendUrl}/api/v1/billing/plans/${query}`,
+      {
+        next: { revalidate: 300 },
+      },
+    );
     if (!response.ok) return [];
     return (await response.json()) as PublicPlan[];
   } catch {

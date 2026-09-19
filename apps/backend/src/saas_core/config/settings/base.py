@@ -15,6 +15,7 @@ from saas_core.config.composition import (
     django_apps_for,
     load_catalog,
     middleware_for,
+    organization_types_from,
     role_grants_for,
     select_by_module,
     verify_artifact,
@@ -148,12 +149,21 @@ MODULE_ARTIFACT_PATH = Path(
     )
 )
 try:
+    _module_artifact = json.loads(MODULE_ARTIFACT_PATH.read_text(encoding="utf-8"))
     PROFILE_HASH = verify_artifact(
-        json.loads(MODULE_ARTIFACT_PATH.read_text(encoding="utf-8")),
+        _module_artifact,
         deployment=DEPLOYMENT,
         modules=ACTIVE_MODULES,
         catalog=_module_catalog,
     )
+    #: The kinds of organization this product has (ADR-050), keyed; the first
+    #: one is the default. Each decides which shared and vertical modules its
+    #: organizations may use and which plans they are offered.
+    ORGANIZATION_TYPES = {
+        organization_type.key: organization_type
+        for organization_type in organization_types_from(_module_artifact, ACTIVE_MODULES)
+    }
+    DEFAULT_ORGANIZATION_TYPE = next(iter(ORGANIZATION_TYPES))
 except (OSError, KeyError, TypeError, json.JSONDecodeError) as error:
     raise ImproperlyConfigured(
         f"Nie można odczytać artefaktu modułów: {MODULE_ARTIFACT_PATH}"
@@ -302,6 +312,8 @@ MIDDLEWARE = [
         if module_id in ACTIVE_MODULES
     ),
     "saas_core.modules.core.organizations.middleware.TenantContextMiddleware",
+    # ADR-050: the organization's type decides which modules it may call.
+    "saas_core.config.module_gate.ModuleGateMiddleware",
     # A product's vertical declares its own in the descriptor (ADR-049). After
     # the tenant middleware: it sees the resolved tenant and cannot choose one.
     *middleware_for(ACTIVE_MODULES, _module_catalog),

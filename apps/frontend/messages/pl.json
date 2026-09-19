@@ -956,7 +956,8 @@
     "problem": "Nie udało się wykonać operacji.",
     "required": "To pole jest wymagane.",
     "invalidSlug": "Użyj małych liter, cyfr i łączników.",
-    "invalidEmail": "Podaj prawidłowy adres e-mail."
+    "invalidEmail": "Podaj prawidłowy adres e-mail.",
+    "organizationType": "Typ organizacji"
   },
   "InvitationAcceptance": {
     "title": "Przyjmij zaproszenie",
@@ -1088,12 +1089,24 @@
       "trial": "{days, plural, one {# dzień} few {# dni} many {# dni} other {# dni}} okresu próbnego",
       "choose": "Wybierz plan",
       "unavailable": "Cennik jest chwilowo niedostępny.",
-      "askUs": "Napisz do nas."
+      "askUs": "Napisz do nas.",
+      "forWhom": "Dla kogo"
     },
     "contact": {
       "email": "E-mail",
       "phone": "Telefon",
       "area": "Obszar działania"
     }
+  },
+  "Onboarding": {
+    "title": "Zacznijmy od Twojej organizacji",
+    "description": "Powiedz nam, kim jesteś i jak się nazywasz — panel dopasuje się do Twojej pracy.",
+    "whoAreYou": "Kim jesteś?",
+    "name": "Nazwa",
+    "nameHint": "Nazwa, pod którą występujesz jako: {type}.",
+    "nameRequired": "Podaj nazwę (co najmniej 2 znaki).",
+    "create": "Utwórz i przejdź do panelu",
+    "creating": "Tworzenie…",
+    "failed": "Nie udało się utworzyć organizacji. Spróbuj ponownie."
   }
 }

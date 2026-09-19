@@ -311,6 +311,7 @@ def _organization_summary(access: OrganizationAccess) -> dict[str, object]:
         "name": organization.name,
         "slug": organization.slug,
         "workspace_kind": organization.workspace_kind,
+        "organization_type": organization.organization_type,
         "status": organization.status,
         "default_locale": organization.default_locale,
         "timezone": organization.timezone,

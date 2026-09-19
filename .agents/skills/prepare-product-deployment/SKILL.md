@@ -21,6 +21,8 @@ a new directory in that repository, never in Saas-Core. Saas-Core carries only
    product metadata, the module list (dependencies named explicitly), and
    `billing.planKeys` with exactly three keys if the profile includes
    `shared.billing`.
+   Optional `organizationTypes` declares the kinds of organization and what
+   each may use — see `develop-organization-types`.
 2. `pnpm deployment:check --profile <name>` until it passes.
 3. `pnpm deployment:artifact` — writes `deployments/<name>/module-artifact.json`
    and commits it. The hash is computed by that one generator; nothing else

@@ -722,6 +722,12 @@ paths:
       operationId: billing_public_plans
       description: 'The pricing page''s source: public plans, no organization, no
         session.'
+      parameters:
+      - in: query
+        name: organization_type
+        schema:
+          type: string
+        description: Typ organizacji (ADR-050); bez niego typ domyślny produktu.
       tags:
       - billing
       responses:
@@ -9218,6 +9224,9 @@ components:
           type: string
           default: PLN
           pattern: ^[A-Z]{3}$
+        organization_type:
+          type: string
+          maxLength: 40
       required:
       - name
       - slug
@@ -9232,6 +9241,8 @@ components:
         slug:
           type: string
         workspace_kind:
+          type: string
+        organization_type:
           type: string
         status:
           type: string
@@ -9256,6 +9267,7 @@ components:
       - id
       - membership_status
       - name
+      - organization_type
       - role
       - slug
       - status

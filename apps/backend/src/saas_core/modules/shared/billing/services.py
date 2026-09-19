@@ -40,6 +40,7 @@ from .models import (
     StripePriceMapping,
     SubscriptionState,
 )
+from .plan_offer import plan_keys_for_organization
 from .provider import (
     BillingProviderCapabilityError,
     BillingProviderError,
@@ -389,7 +390,8 @@ def create_setup_checkout(*, plan_key: str, idempotency_key: str) -> CheckoutRes
         StripePriceMapping.objects.select_related("plan_version__plan")
         .filter(
             plan_version__plan__key=plan_key,
-            plan_version__plan__key__in=settings.BILLING_PLAN_KEYS,
+            # Only a plan the organization's type is offered (ADR-050).
+            plan_version__plan__key__in=plan_keys_for_organization(context.organization_id),
             plan_version__plan__is_active=True,
             plan_version__plan__is_public=True,
             plan_version__plan__current_version_id=F("plan_version_id"),

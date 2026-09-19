@@ -956,7 +956,8 @@
     "problem": "The operation could not be completed.",
     "required": "This field is required.",
     "invalidSlug": "Use lowercase letters, digits and hyphens.",
-    "invalidEmail": "Enter a valid email address."
+    "invalidEmail": "Enter a valid email address.",
+    "organizationType": "Organization type"
   },
   "InvitationAcceptance": {
     "title": "Accept invitation",
@@ -1088,12 +1089,24 @@
       "trial": "{days, plural, one {# day} other {# days}} free trial",
       "choose": "Choose plan",
       "unavailable": "Pricing is temporarily unavailable.",
-      "askUs": "Get in touch."
+      "askUs": "Get in touch.",
+      "forWhom": "For whom"
     },
     "contact": {
       "email": "E-mail",
       "phone": "Phone",
       "area": "Service area"
     }
+  },
+  "Onboarding": {
+    "title": "Let's start with your organization",
+    "description": "Tell us who you are and what you are called — the panel adapts to your work.",
+    "whoAreYou": "Who are you?",
+    "name": "Name",
+    "nameHint": "The name you work under as: {type}.",
+    "nameRequired": "Enter a name (at least 2 characters).",
+    "create": "Create and open the panel",
+    "creating": "Creating…",
+    "failed": "The organization could not be created. Please try again."
   }
 }

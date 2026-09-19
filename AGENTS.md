@@ -55,6 +55,7 @@ intencji bywa zawodne, a te instrukcje niosą pułapki, które już kosztowały 
 | endpointu, kontraktu `packages/contracts/openapi/` albo klienta `packages/api-client/`               | `change-api-and-events`     |
 | stron, publikacji, domen, mediów publicznych albo kontraktu `packages/contracts/content-operations/` | `develop-sites`             |
 | usług, grafiku, slotów, wizyt, klienta końcowego i self-service w `apps/backend/src/saas_core/modules/shared/booking/` | `develop-booking`           |
+| typów organizacji (`organizationTypes` w profilu), bramki modułów, planów per typ i onboardingu w `apps/backend/src/saas_core/config/module_gate.py` | `develop-organization-types` |
 | odbioru przyrostu, release'u i decyzji „czy to jest skończone"                                       | `verify-saas-core-release`  |
 | samego katalogu instrukcji: `.agents/skills/` i `.claude/skills/`                                   | `maintain-saas-core-skills` |
 

@@ -1,0 +1,150 @@
+"""Organization types the product declares (ADR-050).
+
+The gate is proven here through the API; that it holds under RLS on a running
+stack is recorded in the handoff, because this database connects as the owner.
+"""
+
+from __future__ import annotations
+
+from dataclasses import replace
+from typing import Any
+
+import pytest
+from django.conf import settings
+from django.core.cache import cache
+from rest_framework.test import APIClient
+
+from saas_core.config.composition import CompositionError, organization_types_from
+from saas_core.modules.core.organizations.models import Organization
+from saas_core.modules.shared.billing.overview import public_plan_catalog
+from saas_core.modules.shared.billing.plan_offer import plan_keys_for_type
+from test_organization_api import (
+    ORGANIZATIONS_URL,
+    active_user,
+    csrf_value,
+    login,
+    membership_for,
+)
+
+pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture(autouse=True)
+def clear_session_cache() -> None:
+    cache.clear()
+
+
+def with_types(settings: Any, **types: Any) -> None:
+    settings.ORGANIZATION_TYPES = types
+    settings.DEFAULT_ORGANIZATION_TYPE = next(iter(types))
+
+
+def business() -> Any:
+    return settings.ORGANIZATION_TYPES["business"]
+
+
+def test_a_profile_without_types_has_one_business_type_with_everything() -> None:
+    assert list(settings.ORGANIZATION_TYPES) == ["business"]
+    only = business()
+    assert only.modules == frozenset(
+        module for module in settings.ACTIVE_MODULES if not module.startswith("core.")
+    )
+    assert only.plan_keys == tuple(settings.BILLING_PLAN_KEYS)
+    assert only.self_signup is True
+    assert Organization().organization_type == "business"
+
+
+def test_a_type_may_not_use_a_module_the_profile_does_not_compose() -> None:
+    artifact = {
+        "organizationTypes": [
+            {
+                "key": "farm",
+                "label": {"pl": "Gospodarstwo", "en": "Farm"},
+                "modules": ["vertical.nothing"],
+                "planKeys": [],
+                "selfSignup": True,
+            }
+        ]
+    }
+    with pytest.raises(CompositionError, match="vertical.nothing"):
+        organization_types_from(artifact, ("core.identity",))
+    with pytest.raises(CompositionError, match="deployment:artifact"):
+        organization_types_from({}, ("core.identity",))
+
+
+def test_a_new_organization_takes_the_only_offered_type_or_a_chosen_one(
+    settings: Any,
+) -> None:
+    client = APIClient()
+    user = active_user()
+    login(client, user)
+    body = {"name": "Nowa", "slug": "nowa"}
+
+    created = client.post(
+        ORGANIZATIONS_URL, body, format="json", HTTP_X_CSRFTOKEN=csrf_value(client)
+    )
+    assert created.status_code == 201, created.data
+    assert created.data["organization_type"] == "business"
+
+    with_types(
+        settings,
+        business=business(),
+        farm=replace(business(), key="farm", modules=frozenset({"shared.booking"})),
+        hidden=replace(business(), key="hidden", self_signup=False),
+    )
+    ambiguous = client.post(
+        ORGANIZATIONS_URL,
+        {"name": "Druga", "slug": "druga"},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    assert ambiguous.status_code == 400
+    assert "organization_type" in str(ambiguous.data)
+
+    refused = client.post(
+        ORGANIZATIONS_URL,
+        {"name": "Ukryta", "slug": "ukryta", "organization_type": "hidden"},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    assert refused.status_code == 400
+
+    farm = client.post(
+        ORGANIZATIONS_URL,
+        {"name": "Gospodarstwo", "slug": "gospodarstwo", "organization_type": "farm"},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    assert farm.status_code == 201, farm.data
+    assert farm.data["organization_type"] == "farm"
+
+
+def test_an_organization_cannot_call_a_module_its_type_does_not_have(settings: Any) -> None:
+    client = APIClient()
+    user = active_user()
+    membership_for(user)
+    login(client, user)
+
+    # Billing's overview asks for a permission, not a plan, so it answers any owner.
+    assert client.get("/api/v1/billing/overview/").status_code == 200
+
+    with_types(settings, business=replace(business(), modules=frozenset({"shared.booking"})))
+    gated = client.get("/api/v1/billing/overview/")
+    assert gated.status_code == 404
+    assert gated.json()["code"] == "module_not_available"
+    # Core stays reachable whatever the type: it belongs to every organization.
+    assert client.get("/api/v1/organizations/current/").status_code == 200
+
+
+def test_plans_are_offered_per_type(settings: Any) -> None:
+    first, *rest = settings.BILLING_PLAN_KEYS
+    with_types(
+        settings,
+        business=replace(business(), plan_keys=tuple(rest)),
+        farm=replace(business(), key="farm", plan_keys=(first,)),
+    )
+
+    assert plan_keys_for_type("farm") == (first,)
+    assert plan_keys_for_type("unknown") == ()
+    assert [plan["key"] for plan in public_plan_catalog("farm")] == [first]
+    assert [plan["key"] for plan in public_plan_catalog()] == list(rest)

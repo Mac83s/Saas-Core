@@ -18,7 +18,7 @@ import {
   getServerSites,
   getServerUser,
 } from "#lib/server-auth";
-import { deployment } from "../../../generated/deployment";
+import { modulesFor } from "#lib/organization-types";
 import { Badge } from "@saas-core/ui/components/badge";
 import { buttonVariants } from "@saas-core/ui/components/button";
 import {
@@ -31,12 +31,12 @@ import {
 import { cn } from "@saas-core/ui/lib/utils";
 
 export default async function PanelPage() {
-  const modules = new Set<string>(deployment.modules);
   const [user, organization, t] = await Promise.all([
     getServerUser(),
     getServerCurrentOrganization(),
     getTranslations("Dashboard"),
   ]);
+  const modules = modulesFor(organization?.organization_type);
   const canManageBilling = organization?.role === "owner";
   const billing =
     canManageBilling && modules.has("shared.billing")

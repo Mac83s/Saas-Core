@@ -68,6 +68,7 @@ async function renderSidebar(modules: string[]) {
       <SidebarProvider>
         <AppSidebar
           userEmail="ktos@example.test"
+          modules={modules}
           organizationName="Firma"
           organizations={[]}
           canManageBilling

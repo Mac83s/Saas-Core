@@ -100,6 +100,7 @@ def create_organization(
     default_locale: str,
     timezone: str,
     currency: str,
+    organization_type: str,
 ) -> OrganizationAccess:
     user = cast(User, request.user)
     if workspace_kind == WorkspaceKind.PLATFORM:
@@ -110,6 +111,7 @@ def create_organization(
         name=name,
         slug=slug,
         workspace_kind=workspace_kind,
+        organization_type=organization_type,
         default_locale=default_locale,
         timezone=timezone,
         currency=currency,

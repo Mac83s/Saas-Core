@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:610734bdecbf8e43258c0dea1be9cbcce5de66f972c69fc7bcab047339dabb22",
+  "profileHash": "sha256:74af6fcb8e21f9516b0484158d79ef29e5500c84d99aa559645d2d88bbc5cf0e",
   "schemaVersion": 1,
   "deployment": "core-only",
   "product": {
@@ -15,6 +15,19 @@
     "customDomains": false,
     "publicBooking": false
   },
+  "organizationTypes": [
+    {
+      "key": "business",
+      "label": {
+        "pl": "Firma",
+        "en": "Business"
+      },
+      "description": null,
+      "modules": [],
+      "planKeys": [],
+      "selfSignup": true
+    }
+  ],
   "modules": [
     {
       "id": "core.health",

@@ -29,6 +29,11 @@ class WorkspaceKind(models.TextChoices):
     PLATFORM = "platform", "Workspace platformy"
 
 
+def default_organization_type() -> str:
+    """The product's first organization type (ADR-050)."""
+    return str(settings.DEFAULT_ORGANIZATION_TYPE)
+
+
 class Organization(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     name = models.CharField(max_length=160)
@@ -52,6 +57,10 @@ class Organization(models.Model):
         choices=OrganizationStatus,
         default=OrganizationStatus.ONBOARDING,
     )
+    #: The product's kind of organization (ADR-050) — a key from
+    #: `settings.ORGANIZATION_TYPES`. It decides which shared and vertical
+    #: modules and which plans the organization gets; set once, at creation.
+    organization_type = models.CharField(max_length=40, default=default_organization_type)
     default_locale = models.CharField(
         max_length=10,
         choices=[("pl", "Polski"), ("en", "English")],
@@ -104,6 +113,8 @@ class Organization(models.Model):
         super().clean()
         self.slug = self.slug.strip().lower()
         self.currency = self.currency.strip().upper()
+        if self.organization_type not in settings.ORGANIZATION_TYPES:
+            raise ValidationError({"organization_type": "Nieznany typ organizacji."})
         try:
             ZoneInfo(self.timezone)
         except ZoneInfoNotFoundError as error:

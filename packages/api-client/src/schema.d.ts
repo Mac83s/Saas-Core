@@ -3361,6 +3361,7 @@ export interface components {
             timezone: string;
             /** @default PLN */
             currency: string;
+            organization_type?: string;
         };
         OrganizationSummary: {
             /** Format: uuid */
@@ -3368,6 +3369,7 @@ export interface components {
             name: string;
             slug: string;
             workspace_kind: string;
+            organization_type: string;
             status: string;
             default_locale: string;
             timezone: string;
@@ -4981,7 +4983,10 @@ export interface operations {
     };
     billing_public_plans: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Typ organizacji (ADR-050); bez niego typ domyślny produktu. */
+                organization_type?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;

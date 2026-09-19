@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
-import { cp, mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 
 import {
   assertBillingConfiguration,
+  effectiveOrganizationTypes,
   repositoryRoot,
   validateDeployment,
 } from "../scripts/deployment-check.mjs";
@@ -284,6 +285,7 @@ test("profil publiczny nie przenosi sekretów ani nieznanych pól", () => {
     "features",
     "id",
     "modules",
+    "organizationTypes",
     "product",
     "profileHash",
     "schemaVersion",
@@ -393,4 +395,74 @@ test("moduł nadaje rolom tylko własne uprawnienia i montuje tylko własny kod 
   });
   const result = await validateDeployment("only-health", own);
   assert.deepEqual(result.modules, ["core.health"]);
+});
+
+// A profile with shared.billing and two organization types, for ADR-050.
+const typedProfileRoot = async (organizationTypes) => {
+  const root = await mkdtemp(path.join(tmpdir(), "saas-core-org-types-"));
+  await cp(
+    path.join(repositoryRoot, "packages/contracts"),
+    path.join(root, "packages/contracts"),
+    {
+      recursive: true,
+      filter: (source) => !source.includes("node_modules"),
+    },
+  );
+  await mkdir(path.join(root, "deployments/typed"), { recursive: true });
+  const business = JSON.parse(
+    await readFile(
+      path.join(repositoryRoot, "deployments/business/deployment.json"),
+      "utf8",
+    ),
+  );
+  await writeFile(
+    path.join(root, "deployments/typed/deployment.json"),
+    JSON.stringify({ ...business, id: "typed", organizationTypes }),
+  );
+  return root;
+};
+
+test("typy organizacji używają tylko modułów i planów profilu (ADR-050)", async () => {
+  const company = {
+    key: "company",
+    label: { pl: "Firma", en: "Company" },
+    modules: ["shared.billing", "shared.booking"],
+    planKeys: ["profile"],
+    selfSignup: true,
+  };
+  const ok = await validateDeployment(
+    "typed",
+    await typedProfileRoot([company]),
+  );
+  assert.ok(ok.modules.includes("shared.booking"));
+
+  await assert.rejects(
+    validateDeployment(
+      "typed",
+      await typedProfileRoot([{ ...company, modules: ["vertical.nothing"] }]),
+    ),
+    /typ company używa modułu vertical\.nothing, którego profil nie składa/,
+  );
+  await assert.rejects(
+    validateDeployment(
+      "typed",
+      await typedProfileRoot([{ ...company, planKeys: ["gold"] }]),
+    ),
+    /typ company oferuje plan gold spoza billing\.planKeys/,
+  );
+  await assert.rejects(
+    validateDeployment("typed", await typedProfileRoot([company, company])),
+    /powielony typ organizacji company/,
+  );
+});
+
+test("profil bez typów dostaje jeden typ business ze wszystkim (ADR-050)", () => {
+  const [only] = effectiveOrganizationTypes(
+    { billing: { planKeys: ["a", "b", "c"] } },
+    ["core.identity", "shared.billing", "vertical.x"],
+  );
+  assert.equal(only.key, "business");
+  assert.deepEqual(only.modules, ["shared.billing", "vertical.x"]);
+  assert.deepEqual(only.planKeys, ["a", "b", "c"]);
+  assert.equal(only.selfSignup, true);
 });
