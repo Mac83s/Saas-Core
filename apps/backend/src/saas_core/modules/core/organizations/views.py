@@ -14,6 +14,7 @@ from rest_framework.views import APIView
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
 from .authorization import authorize
+from .custom_roles import create_role, delete_role, list_roles, update_role
 from .lifecycle import (
     accept_invitation,
     create_invitation,
@@ -24,7 +25,7 @@ from .lifecycle import (
     transfer_ownership,
     update_membership,
 )
-from .models import Invitation, InvitationStatus, Membership, Organization
+from .models import Invitation, InvitationStatus, Membership, Organization, Role
 from .permissions import ORGANIZATION_READ
 from .serializers import (
     ActiveOrganizationResultSerializer,
@@ -40,6 +41,10 @@ from .serializers import (
     OrganizationSummarySerializer,
     OrganizationUpdateSerializer,
     OwnershipTransferSerializer,
+    RoleCatalogSerializer,
+    RoleCreateSerializer,
+    RoleSummarySerializer,
+    RoleUpdateSerializer,
 )
 from .services import (
     OrganizationAccess,
@@ -346,3 +351,76 @@ def _membership_summary(membership: Membership) -> dict[str, object]:
         "status": membership.status,
         "joined_at": membership.joined_at,
     }
+
+
+def _role_summary(role: Role, limited: frozenset[str]) -> dict[str, object]:
+    return {
+        "key": role.key,
+        "name": role.name,
+        "scope": role.scope,
+        "permissions": list(role.permissions),
+        "limited": role.organization_id is None and role.key in limited,
+        "version": role.version,
+    }
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class RoleListCreateView(ProtectedOrganizationView):
+    """The roles an organization can hand out: its type's and its own (ADR-050)."""
+
+    @extend_schema(responses={200: RoleCatalogSerializer, 403: ProblemDetailsSerializer})
+    def get(self, _request: Request) -> Response:
+        catalog = list_roles()
+        return Response(
+            {
+                "roles": [_role_summary(role, catalog.limited) for role in catalog.roles],
+                "grantable_permissions": list(catalog.grantable),
+            }
+        )
+
+    @extend_schema(
+        request=RoleCreateSerializer,
+        responses={
+            201: RoleSummarySerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = RoleCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        role = create_role(request=cast(HttpRequest, request), **serializer.validated_data)
+        return Response(_role_summary(role, frozenset()), status=status.HTTP_201_CREATED)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class RoleDetailView(ProtectedOrganizationView):
+    @extend_schema(
+        request=RoleUpdateSerializer,
+        responses={
+            200: RoleSummarySerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def patch(self, request: Request, role_key: str) -> Response:
+        serializer = RoleUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        role = update_role(
+            request=cast(HttpRequest, request), key=role_key, **serializer.validated_data
+        )
+        return Response(_role_summary(role, frozenset()))
+
+    @extend_schema(
+        responses={
+            204: None,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        }
+    )
+    def delete(self, request: Request, role_key: str) -> Response:
+        delete_role(request=cast(HttpRequest, request), key=role_key)
+        return Response(status=status.HTTP_204_NO_CONTENT)

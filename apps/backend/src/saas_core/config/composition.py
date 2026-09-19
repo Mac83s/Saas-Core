@@ -35,6 +35,7 @@ class ModuleDescriptor:
     depends_on: tuple[str, ...]
     django_app: str | None
     url_prefix: str | None = None
+    permissions: tuple[str, ...] = ()
     entitlements: tuple[str, ...] = ()
     #: What a module adds to the system roles and to the kinds of visit a
     #: service can sell. Declared here rather than in core, so a product adds a
@@ -57,6 +58,7 @@ def load_catalog(directory: Path) -> dict[str, ModuleDescriptor]:
             depends_on=tuple(raw.get("dependsOn") or ()),
             django_app=raw["backend"]["djangoApp"],
             url_prefix=raw["backend"].get("urlPrefix"),
+            permissions=tuple(raw["backend"].get("permissions") or ()),
             entitlements=tuple(raw["backend"].get("entitlements") or ()),
             role_grants={
                 role: tuple(grants)
@@ -78,6 +80,27 @@ def load_catalog(directory: Path) -> dict[str, ModuleDescriptor]:
 
 
 @dataclass(frozen=True, slots=True)
+class RoleTemplate:
+    """A system role a type declares (ADR-050); `limited` roles may be handed
+    out by someone with only limited member management."""
+
+    key: str
+    label: dict[str, str]
+    permissions: tuple[str, ...]
+    limited: bool
+
+
+@dataclass(frozen=True, slots=True)
+class ServiceTemplate:
+    """A ready-made bookable service for organizations of one type."""
+
+    key: str
+    label: dict[str, str]
+    duration_minutes: int
+    appointment_kind: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class OrganizationType:
     """A kind of organization the product composes (ADR-050).
 
@@ -90,6 +113,9 @@ class OrganizationType:
     modules: frozenset[str]
     plan_keys: tuple[str, ...]
     self_signup: bool
+    #: Empty: the organization uses core's global system roles.
+    roles: tuple[RoleTemplate, ...] = ()
+    service_templates: tuple[ServiceTemplate, ...] = ()
 
 
 def organization_types_from(
@@ -123,6 +149,24 @@ def organization_types_from(
                 modules=type_modules,
                 plan_keys=tuple(str(plan) for plan in raw.get("planKeys") or ()),
                 self_signup=bool(raw["selfSignup"]),
+                roles=tuple(
+                    RoleTemplate(
+                        key=str(role["key"]),
+                        label={str(k): str(v) for k, v in role["label"].items()},
+                        permissions=tuple(str(p) for p in role["permissions"]),
+                        limited=bool(role.get("limited", False)),
+                    )
+                    for role in raw.get("roles") or ()
+                ),
+                service_templates=tuple(
+                    ServiceTemplate(
+                        key=str(template["key"]),
+                        label={str(k): str(v) for k, v in template["label"].items()},
+                        duration_minutes=int(template["durationMinutes"]),
+                        appointment_kind=template.get("appointmentKind"),
+                    )
+                    for template in raw.get("serviceTemplates") or ()
+                ),
             )
         )
     return tuple(types)

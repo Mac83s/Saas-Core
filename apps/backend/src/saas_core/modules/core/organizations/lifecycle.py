@@ -8,7 +8,6 @@ from uuid import UUID, uuid7
 from django.conf import settings
 from django.contrib.auth import logout as django_logout
 from django.db import IntegrityError, transaction
-from django.db.models import Q
 from django.http import HttpRequest
 from django.utils import timezone
 from rest_framework.exceptions import APIException, NotFound
@@ -40,9 +39,8 @@ from .permissions import (
 )
 from .platform_workspace import assert_not_platform
 from .pre_tenant import PRE_TENANT_DB
+from .role_catalog import limited_role_keys, system_role, system_roles
 from .tasks import issue_tenant_task_contract, send_organization_invitation
-
-LIMITED_ROLE_KEYS = {"viewer", "staff"}
 
 
 class InvitationConflict(APIException):
@@ -270,7 +268,12 @@ def revoke_invitation(*, request: HttpRequest, invitation_id: UUID) -> Invitatio
     )
     if invitation is None:
         raise InvitationNotFound
-    _ensure_limited_role_access(context.role_key, context.permissions, invitation.role.key)
+    _ensure_limited_role_access(
+        context.role_key,
+        context.permissions,
+        invitation.role.key,
+        _organization_type(context.organization_id),
+    )
     if invitation.status != InvitationStatus.PENDING:
         raise InvitationConflict
     invitation.status = InvitationStatus.REVOKED
@@ -313,7 +316,12 @@ def update_membership(
     if membership.role.key == "owner":
         raise OwnerLifecycleConflict
     limited = not context.has_permission(MEMBERS_MANAGE)
-    _ensure_limited_role_access(context.role_key, context.permissions, membership.role.key)
+    _ensure_limited_role_access(
+        context.role_key,
+        context.permissions,
+        membership.role.key,
+        membership.organization.organization_type,
+    )
 
     changed = False
     if role_key is not None and role_key != membership.role.key:
@@ -405,8 +413,9 @@ def transfer_ownership(*, request: HttpRequest, membership_id: UUID) -> None:
     )
     if target is None:
         raise MembershipNotFound
-    owner_role = Role.objects.get(key="owner", organization=None)
-    admin_role = Role.objects.get(key="admin", organization=None)
+    organization_type = current_owner.organization.organization_type
+    owner_role = system_role(organization_type, "owner")
+    admin_role = system_role(organization_type, "admin")
     current_owner.role = admin_role
     target.role = owner_role
     current_owner.save(update_fields=["role", "updated_at"])
@@ -430,13 +439,23 @@ def _authorize_member_management() -> TenantContext:
         return authorize(MEMBERS_MANAGE_LIMITED)
 
 
+def _organization_type(organization_id: UUID) -> str:
+    return (
+        Organization.objects.filter(pk=organization_id)
+        .values_list("organization_type", flat=True)
+        .first()
+        or ""
+    )
+
+
 def _assignable_role(*, organization_id: UUID, role_key: str, limited: bool) -> Role:
-    if role_key == "owner" or (limited and role_key not in LIMITED_ROLE_KEYS):
+    """A system role of the organization's type (ADR-050) or its own role."""
+    organization_type = _organization_type(organization_id)
+    if role_key == "owner" or (limited and role_key not in limited_role_keys(organization_type)):
         raise OrganizationPermissionDenied
     role = (
-        Role.objects.filter(key=role_key)
-        .filter(Q(organization__isnull=True) | Q(organization_id=organization_id))
-        .first()
+        system_roles(organization_type).filter(key=role_key).first()
+        or Role.objects.filter(key=role_key, organization_id=organization_id).first()
     )
     if role is None:
         raise OrganizationPermissionDenied
@@ -447,8 +466,11 @@ def _ensure_limited_role_access(
     actor_role_key: str,
     actor_permissions: frozenset[str],
     target_role_key: str,
+    organization_type: str,
 ) -> None:
-    if MEMBERS_MANAGE not in actor_permissions and target_role_key not in LIMITED_ROLE_KEYS:
+    if MEMBERS_MANAGE not in actor_permissions and target_role_key not in limited_role_keys(
+        organization_type
+    ):
         raise OrganizationPermissionDenied
     if actor_role_key == "manager" and target_role_key == "manager":
         raise OrganizationPermissionDenied

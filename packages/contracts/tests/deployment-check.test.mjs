@@ -466,3 +466,62 @@ test("profil bez typów dostaje jeden typ business ze wszystkim (ADR-050)", () =
   assert.deepEqual(only.planKeys, ["a", "b", "c"]);
   assert.equal(only.selfSignup, true);
 });
+
+test("role typu: owner i admin, uprawnienia modułów typu, owner z całym rdzeniem (ADR-050)", async () => {
+  const core = [
+    "organization.read",
+    "organization.members.manage",
+    "organization.members.read",
+    "organization.members.manage_limited",
+    "organization.settings.manage",
+    "organization.ownership.transfer",
+    "organization.archive",
+  ];
+  const type = (roles) => ({
+    key: "company",
+    label: { pl: "Firma", en: "Company" },
+    modules: ["shared.billing", "shared.booking"],
+    planKeys: ["profile"],
+    selfSignup: true,
+    roles,
+  });
+  const role = (key, permissions) => ({
+    key,
+    label: { pl: key, en: key },
+    permissions,
+  });
+
+  const ok = await typedProfileRoot([
+    type([
+      role("owner", [...core, "booking.appointment.manage"]),
+      role("admin", ["organization.read"]),
+    ]),
+  ]);
+  await validateDeployment("typed", ok);
+
+  await assert.rejects(
+    validateDeployment(
+      "typed",
+      await typedProfileRoot([type([role("owner", core), role("worker", [])])]),
+    ),
+    /nie ma roli admin/,
+  );
+  await assert.rejects(
+    validateDeployment(
+      "typed",
+      await typedProfileRoot([
+        type([role("owner", [...core, "site.publish"]), role("admin", [])]),
+      ]),
+    ),
+    /company\.owner nadaje site\.publish/,
+  );
+  await assert.rejects(
+    validateDeployment(
+      "typed",
+      await typedProfileRoot([
+        type([role("owner", ["organization.read"]), role("admin", [])]),
+      ]),
+    ),
+    /company\.owner musi mieć organization\.members\.manage/,
+  );
+});

@@ -140,3 +140,28 @@ class OwnershipTransferSerializer(serializers.Serializer[dict[str, Any]]):
 
 class LifecycleResultSerializer(serializers.Serializer[dict[str, Any]]):
     status = serializers.CharField()
+
+
+class RoleSummarySerializer(serializers.Serializer[dict[str, Any]]):
+    key = serializers.CharField()
+    name = serializers.CharField()
+    scope = serializers.ChoiceField(choices=["system", "organization"])
+    permissions = serializers.ListField(child=serializers.CharField())
+    limited = serializers.BooleanField()
+    version = serializers.IntegerField()
+
+
+class RoleCatalogSerializer(serializers.Serializer[dict[str, Any]]):
+    roles = RoleSummarySerializer(many=True)
+    grantable_permissions = serializers.ListField(child=serializers.CharField())
+
+
+class RoleCreateSerializer(serializers.Serializer[dict[str, Any]]):
+    name = serializers.CharField(max_length=80, trim_whitespace=True)
+    permissions = serializers.ListField(child=serializers.CharField(max_length=120))
+
+
+class RoleUpdateSerializer(serializers.Serializer[dict[str, Any]]):
+    version = serializers.IntegerField(min_value=1)
+    name = serializers.CharField(max_length=80, trim_whitespace=True, required=False)
+    permissions = serializers.ListField(child=serializers.CharField(max_length=120), required=False)

@@ -24,12 +24,12 @@ from .models import (
     Organization,
     OrganizationAuditAction,
     OrganizationStatus,
-    Role,
     WorkspaceKind,
 )
 from .permissions import ORGANIZATION_ARCHIVE, SETTINGS_MANAGE
 from .platform_workspace import PlatformWorkspaceForbidden
 from .pre_tenant import PRE_TENANT_DB
+from .role_catalog import system_roles
 
 
 class OrganizationNotFound(NotFound):
@@ -126,7 +126,7 @@ def create_organization(
     except IntegrityError as error:
         raise OrganizationSlugConflict from error
     BillingProfile.objects.create(organization=organization)
-    owner_role = Role.objects.select_for_update().get(key="owner", organization=None)
+    owner_role = system_roles(organization_type).select_for_update().get(key="owner")
     membership = Membership.objects.create(
         organization=organization,
         user=user,

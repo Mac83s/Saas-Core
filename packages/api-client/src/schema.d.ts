@@ -1093,6 +1093,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organizations/current/roles/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The roles an organization can hand out: its type's and its own (ADR-050). */
+        get: operations["api_v1_organizations_current_roles_retrieve"];
+        put?: never;
+        /** @description The roles an organization can hand out: its type's and its own (ADR-050). */
+        post: operations["api_v1_organizations_current_roles_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organizations/current/roles/{role_key}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["api_v1_organizations_current_roles_destroy"];
+        options?: never;
+        head?: never;
+        patch: operations["api_v1_organizations_current_roles_partial_update"];
+        trace?: never;
+    };
     "/api/v1/profiles/": {
         parameters: {
             query?: never;
@@ -2535,6 +2569,7 @@ export interface components {
             buffer_before_minutes?: number;
             buffer_after_minutes?: number;
             minimum_notice_minutes?: number;
+            appointment_kind?: string;
         };
         /**
          * @description * `location` - location
@@ -3550,6 +3585,11 @@ export interface components {
             timezone?: string;
             currency?: string;
         };
+        PatchedRoleUpdate: {
+            version?: number;
+            name?: string;
+            permissions?: string[];
+        };
         /**
          * @description * `stripe` - stripe
          *     * `simulated` - simulated
@@ -3777,6 +3817,22 @@ export interface components {
          * @enum {string}
          */
         ResourceTypeEnum: "page" | "page_version" | "site_publication" | "content_collection" | "content_entry" | "content_entry_version" | "content_entry_publication";
+        RoleCatalog: {
+            roles: components["schemas"]["RoleSummary"][];
+            grantable_permissions: string[];
+        };
+        RoleCreate: {
+            name: string;
+            permissions: string[];
+        };
+        RoleSummary: {
+            key: string;
+            name: string;
+            scope: components["schemas"]["ScopeEnum"];
+            permissions: string[];
+            limited: boolean;
+            version: number;
+        };
         ScheduleCreate: {
             kind: components["schemas"]["ScheduleCreateKindEnum"];
             /** Format: uuid */
@@ -3807,6 +3863,12 @@ export interface components {
          * @enum {string}
          */
         ScheduleCreateKindEnum: "availability" | "time_off" | "service_staff" | "service_location" | "service_resource";
+        /**
+         * @description * `system` - system
+         *     * `organization` - organization
+         * @enum {string}
+         */
+        ScopeEnum: "system" | "organization";
         Service: {
             /** Format: uuid */
             id: string;
@@ -6967,6 +7029,177 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LifecycleResult"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_organizations_current_roles_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleCatalog"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_organizations_current_roles_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["RoleCreate"];
+                "multipart/form-data": components["schemas"]["RoleCreate"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleSummary"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_organizations_current_roles_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_organizations_current_roles_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedRoleUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedRoleUpdate"];
+                "multipart/form-data": components["schemas"]["PatchedRoleUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleSummary"];
                 };
             };
             400: {

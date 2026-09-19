@@ -27,6 +27,8 @@ import {
   createOrganization,
   listInvitations,
   listMemberships,
+  listRoles,
+  type RoleCatalog,
   listOrganizations,
   revokeInvitation,
   selectActiveOrganization,
@@ -80,6 +82,7 @@ import {
 
 import { useRouter } from "#i18n/navigation";
 import { selfSignupTypes, typeText } from "#lib/organization-types";
+import { RolesCard } from "./roles-card";
 import { organizationErrorMessage } from "./problem";
 
 const TIMEZONES =
@@ -87,7 +90,6 @@ const TIMEZONES =
     ? Intl.supportedValuesOf("timeZone")
     : ["Europe/Warsaw", "Europe/London", "America/New_York", "Asia/Tokyo"];
 const CURRENCIES = ["PLN", "EUR", "USD", "GBP"] as const;
-const ROLES = ["viewer", "staff", "manager", "admin"] as const;
 
 type CreateValues = {
   name: string;
@@ -102,7 +104,8 @@ type SettingsValues = Pick<
   CreateValues,
   "name" | "default_locale" | "timezone" | "currency"
 >;
-type InviteValues = { email: string; role: (typeof ROLES)[number] };
+type InviteValues = { email: string; role: string };
+type RoleOption = readonly [string, string];
 
 export function OrganizationPanel() {
   const t = useTranslations("Organizations");
@@ -112,6 +115,7 @@ export function OrganizationPanel() {
   const [organizations, setOrganizations] = useState<OrganizationSummary[]>([]);
   const [members, setMembers] = useState<MembershipSummary[]>([]);
   const [invitations, setInvitations] = useState<InvitationSummary[]>([]);
+  const [roleCatalog, setRoleCatalog] = useState<RoleCatalog | null>(null);
   const [loading, setLoading] = useState(true);
   const [problem, setProblem] = useState<string>();
   const [createOpen, setCreateOpen] = useState(false);
@@ -122,6 +126,16 @@ export function OrganizationPanel() {
   const canManageMembers =
     active && ["manager", "admin", "owner"].includes(active.role);
   const canManageSettings = active && ["admin", "owner"].includes(active.role);
+  // Roles come from the organization's type and its own (ADR-050); core's
+  // translated names are used where a key has one.
+  const roleName = (key: string): string =>
+    GLOBAL_ROLE_KEYS.has(key)
+      ? roleLabel(t, key)
+      : (roleCatalog?.roles.find((role) => role.key === key)?.name ?? key);
+  const roleOptions = (limitedOnly: boolean): RoleOption[] =>
+    (roleCatalog?.roles ?? [])
+      .filter((role) => role.key !== "owner" && (!limitedOnly || role.limited))
+      .map((role) => [role.key, roleName(role.key)] as const);
 
   const createSchema = useMemo(
     () =>
@@ -140,7 +154,7 @@ export function OrganizationPanel() {
     () =>
       z.object({
         email: z.email(t("invalidEmail")),
-        role: z.enum(ROLES),
+        role: z.string().min(1),
       }),
     [t],
   );
@@ -170,6 +184,7 @@ export function OrganizationPanel() {
       setOrganizations(data.organizations);
       setMembers(data.members);
       setInvitations(data.invitations);
+      setRoleCatalog(data.roles);
     } catch (error) {
       if (error instanceof ApiProblemError && error.problem.status === 403) {
         router.replace("/login");
@@ -189,6 +204,7 @@ export function OrganizationPanel() {
         setOrganizations(data.organizations);
         setMembers(data.members);
         setInvitations(data.invitations);
+        setRoleCatalog(data.roles);
       })
       .catch((error: unknown) => {
         if (!mounted) return;
@@ -387,6 +403,8 @@ export function OrganizationPanel() {
               locale={locale}
               members={members}
               onRoleChange={changeRole}
+              roleName={roleName}
+              roleOptions={roleOptions}
               t={t}
             />
           )}
@@ -401,7 +419,16 @@ export function OrganizationPanel() {
               onInviteOpenChange={setInviteOpen}
               onRevoke={revokePendingInvitation}
               onSubmit={submitInvitation}
+              roleName={roleName}
+              roleOptions={roleOptions}
               t={t}
+            />
+          )}
+          {canReadMembers && roleCatalog && (
+            <RolesCard
+              canManage={Boolean(canManageSettings)}
+              catalog={roleCatalog}
+              onChanged={load}
             />
           )}
         </div>
@@ -417,17 +444,19 @@ async function fetchOrganizationData(): Promise<{
   organizations: OrganizationSummary[];
   members: MembershipSummary[];
   invitations: InvitationSummary[];
+  roles: RoleCatalog | null;
 }> {
   const organizations = await listOrganizations();
   const selected = organizations.find((item) => item.active);
   if (!selected || selected.role === "viewer") {
-    return { organizations, members: [], invitations: [] };
+    return { organizations, members: [], invitations: [], roles: null };
   }
-  const [members, invitations] = await Promise.all([
+  const [members, invitations, roles] = await Promise.all([
     listMemberships(),
     listInvitations(),
+    listRoles(),
   ]);
-  return { organizations, members, invitations };
+  return { organizations, members, invitations, roles };
 }
 
 function CreateOrganizationDialog({
@@ -571,6 +600,8 @@ function MembersCard({
   members,
   canManage,
   activeRole,
+  roleName,
+  roleOptions,
   onRoleChange,
   locale,
   t,
@@ -582,6 +613,8 @@ function MembersCard({
     member: MembershipSummary,
     role: string | null,
   ) => Promise<void>;
+  roleName: (key: string) => string;
+  roleOptions: (limitedOnly: boolean) => RoleOption[];
   locale: string;
   t: Translator;
 }) {
@@ -596,12 +629,12 @@ function MembersCard({
           <p className="text-sm text-muted-foreground">{t("noMembers")}</p>
         )}
         {members.map((member: MembershipSummary) => {
+          const roles = roleOptions(activeRole === "manager");
           const manageable =
             canManage &&
             member.role !== "owner" &&
             (activeRole !== "manager" ||
-              ["viewer", "staff"].includes(member.role));
-          const roles = activeRole === "manager" ? ROLES.slice(0, 2) : ROLES;
+              roles.some(([key]) => key === member.role));
           return (
             <div
               className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center"
@@ -625,15 +658,15 @@ function MembersCard({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {roles.map((role) => (
-                      <SelectItem key={role} value={role}>
-                        {roleLabel(t, role)}
+                    {roles.map(([key, label]) => (
+                      <SelectItem key={key} value={key}>
+                        {label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               ) : (
-                <Badge variant="outline">{roleLabel(t, member.role)}</Badge>
+                <Badge variant="outline">{roleName(member.role)}</Badge>
               )}
               <Badge variant="secondary">{statusLabel(t, member.status)}</Badge>
             </div>
@@ -648,6 +681,8 @@ function InvitationsCard({
   invitations,
   canManage,
   inviteOpen,
+  roleName,
+  roleOptions,
   onInviteOpenChange,
   form,
   onSubmit,
@@ -663,6 +698,8 @@ function InvitationsCard({
   form: UseFormReturn<InviteValues>;
   onSubmit: SubmitHandler<InviteValues>;
   onRevoke: (id: string) => Promise<void>;
+  roleName: (key: string) => string;
+  roleOptions: (limitedOnly: boolean) => RoleOption[];
   locale: string;
   t: Translator;
   common: CommonTranslator;
@@ -699,7 +736,7 @@ function InvitationsCard({
                   control={form.control}
                   label={t("role")}
                   name="role"
-                  options={ROLES.map((role) => [role, roleLabel(t, role)])}
+                  options={roleOptions(false)}
                 />
                 <DialogFooter>
                   <DialogClose render={<Button variant="outline" />}>
@@ -728,7 +765,7 @@ function InvitationsCard({
             <div className="min-w-0 flex-1">
               <p className="truncate font-medium">{invitation.email}</p>
               <p className="text-xs text-muted-foreground">
-                {roleLabel(t, invitation.role)} · {t("expires")}:{" "}
+                {roleName(invitation.role)} · {t("expires")}:{" "}
                 {formatDate(invitation.expires_at, locale)}
               </p>
             </div>
@@ -876,6 +913,14 @@ function Problem({ message }: { message: string }) {
     </div>
   );
 }
+
+const GLOBAL_ROLE_KEYS = new Set([
+  "owner",
+  "admin",
+  "manager",
+  "staff",
+  "viewer",
+]);
 
 function roleLabel(t: Translator, role: string): string {
   const keys = {

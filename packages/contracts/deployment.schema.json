@@ -147,6 +147,89 @@
           "selfSignup": {
             "description": "Czy użytkownik może sam założyć organizację tego typu.",
             "type": "boolean"
+          },
+          "roles": {
+            "description": "Role systemowe typu (ADR-050). Wymagane role owner i admin. Bez tej listy typ używa ról globalnych rdzenia.",
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["key", "label", "permissions"],
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]*$",
+                  "maxLength": 64
+                },
+                "label": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["pl", "en"],
+                  "properties": {
+                    "pl": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "en": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "permissions": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "limited": {
+                  "description": "Rolę może nadać osoba z ograniczonym zarządzaniem członkami (np. kierownik).",
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "serviceTemplates": {
+            "description": "Szablony usług rezerwacji typu (ADR-050): gotowe usługi do założenia jednym kliknięciem.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["key", "label", "durationMinutes"],
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "label": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["pl", "en"],
+                  "properties": {
+                    "pl": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "en": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "durationMinutes": {
+                  "type": "integer",
+                  "minimum": 5,
+                  "maximum": 1440
+                },
+                "appointmentKind": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
           }
         }
       }

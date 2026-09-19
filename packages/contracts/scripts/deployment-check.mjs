@@ -78,6 +78,18 @@ export const effectiveOrganizationTypes = (profile, modules) => {
       modules: [...type.modules],
       planKeys: [...(type.planKeys ?? profile.billing?.planKeys ?? [])],
       selfSignup: type.selfSignup,
+      roles: (type.roles ?? []).map((role) => ({
+        key: role.key,
+        label: role.label,
+        permissions: [...role.permissions],
+        limited: role.limited ?? false,
+      })),
+      serviceTemplates: (type.serviceTemplates ?? []).map((template) => ({
+        key: template.key,
+        label: template.label,
+        durationMinutes: template.durationMinutes,
+        appointmentKind: template.appointmentKind ?? null,
+      })),
     }));
   }
   return [
@@ -88,8 +100,61 @@ export const effectiveOrganizationTypes = (profile, modules) => {
       modules: modules.filter((id) => !id.startsWith("core.")),
       planKeys: [...(profile.billing?.planKeys ?? [])],
       selfSignup: true,
+      roles: [],
+      serviceTemplates: [],
     },
   ];
+};
+
+// Roles of a type (ADR-050): owner and admin must exist (ownership transfer
+// demotes the owner to admin), every permission must be declared by a module
+// the type composes, and the owner holds all of core.organizations'.
+const assertTypeRoles = (
+  type,
+  profileName,
+  descriptorsById,
+  profileModules,
+) => {
+  if (!type.roles) return;
+  const available = new Set(
+    [
+      ...profileModules.filter((id) => id.startsWith("core.")),
+      ...type.modules,
+    ].flatMap((id) => descriptorsById.get(id)?.backend.permissions ?? []),
+  );
+  const keys = new Set(type.roles.map((role) => role.key));
+  for (const required of ["owner", "admin"]) {
+    if (!keys.has(required)) {
+      throw new Error(
+        `Profil ${profileName}: typ ${type.key} nie ma roli ${required}`,
+      );
+    }
+  }
+  if (keys.size !== type.roles.length) {
+    throw new Error(
+      `Profil ${profileName}: typ ${type.key} powtarza klucz roli`,
+    );
+  }
+  for (const role of type.roles) {
+    for (const permission of role.permissions) {
+      if (!available.has(permission)) {
+        throw new Error(
+          `Profil ${profileName}: rola ${type.key}.${role.key} nadaje ${permission}, którego nie deklaruje żaden moduł typu`,
+        );
+      }
+    }
+  }
+  const owner = new Set(
+    type.roles.find((role) => role.key === "owner").permissions,
+  );
+  for (const permission of descriptorsById.get("core.organizations")?.backend
+    .permissions ?? []) {
+    if (!owner.has(permission)) {
+      throw new Error(
+        `Profil ${profileName}: rola ${type.key}.owner musi mieć ${permission}`,
+      );
+    }
+  }
 };
 
 const assertOrganizationTypes = (profile, profileName) => {
@@ -334,6 +399,9 @@ export async function validateDeployment(profileName, root = repositoryRoot) {
     assertGrantsAreOwnPermissions(descriptor);
     assertDeclaredCodeIsOwn(descriptor);
     descriptorsById.set(descriptor.id, descriptor);
+  }
+  for (const type of profile.organizationTypes ?? []) {
+    assertTypeRoles(type, profileName, descriptorsById, profile.modules);
   }
 
   const selected = new Set(profile.modules);

@@ -15,6 +15,9 @@ class CatalogCreateSerializer(serializers.Serializer[dict[str, Any]]):
     buffer_before_minutes = serializers.IntegerField(min_value=0, max_value=1440, required=False)
     buffer_after_minutes = serializers.IntegerField(min_value=0, max_value=1440, required=False)
     minimum_notice_minutes = serializers.IntegerField(min_value=0, required=False)
+    #: For a service: the kind of visit a module provides (e.g. from a service
+    #: template of the organization's type, ADR-050).
+    appointment_kind = serializers.CharField(max_length=64, required=False, allow_blank=True)
 
 
 class ScheduleCreateSerializer(serializers.Serializer[dict[str, Any]]):

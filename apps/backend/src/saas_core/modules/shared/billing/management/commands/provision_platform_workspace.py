@@ -28,12 +28,12 @@ from saas_core.modules.core.organizations.context import (
 from saas_core.modules.core.organizations.models import (
     Membership,
     MembershipStatus,
-    Role,
 )
 from saas_core.modules.core.organizations.platform_workspace import (
     PlatformWorkspaceConflict,
     ensure_platform_workspace,
 )
+from saas_core.modules.core.organizations.role_catalog import system_roles
 from saas_core.modules.shared.billing.overrides import (
     OverrideTargetConflict,
     create_entitlement_override,
@@ -81,7 +81,11 @@ class Command(BaseCommand):
             # ADR-041: membership carries a policy, so the operator's own
             # membership in the workspace is written from inside it.
             set_local_organization_id(organization.id)
-            owner_role = Role.objects.select_for_update().get(key="owner", organization=None)
+            owner_role = (
+                system_roles(organization.organization_type)
+                .select_for_update()
+                .get(key="owner")
+            )
             membership, membership_created = Membership.objects.get_or_create(
                 organization=organization,
                 user=operator,

@@ -16,6 +16,7 @@ from django.db import (
     transaction,
 )
 from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 from rest_framework.test import APIClient
 
 from saas_core.modules.core.identity.models import User, UserStatus
@@ -59,6 +60,7 @@ from saas_core.modules.shared.booking.services import (
     anonymize_customer,
     cancel_appointment,
     create_appointment,
+    create_catalog_item,
     reschedule_appointment,
 )
 
@@ -456,3 +458,13 @@ def test_booking_tables_force_rls_and_cross_tenant_relations_fail_at_database() 
             "WHERE relname IN ('booking_customer', 'booking_appointment') ORDER BY relname"
         )
         assert cursor.fetchall() == [(True, True), (True, True)]
+
+
+def test_a_service_sells_only_a_visit_kind_its_organization_type_has() -> None:
+    """ADR-050: a kind of visit belongs to a module, and the module to a type."""
+    member = membership("booking-kind")
+    with tenant(member), pytest.raises(ValidationError):
+        create_catalog_item(
+            kind="service",
+            data={"name": "Cudza wizyta", "duration_minutes": 30, "appointment_kind": "x.visit"},
+        )

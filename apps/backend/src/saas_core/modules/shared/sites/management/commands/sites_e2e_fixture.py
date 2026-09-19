@@ -14,9 +14,9 @@ from saas_core.modules.core.organizations.models import (
     Organization,
     OrganizationAuditEntry,
     OrganizationStatus,
-    Role,
 )
 from saas_core.modules.core.organizations.pre_tenant import PRE_TENANT_DB
+from saas_core.modules.core.organizations.role_catalog import system_role
 from saas_core.modules.shared.billing.models import (
     AccessMode,
     EntitlementSnapshot,
@@ -71,7 +71,7 @@ class Command(BaseCommand):
             Membership.objects.create(
                 organization=organization,
                 user=user,
-                role=Role.objects.get(key="admin", organization=None),
+                role=system_role(organization.organization_type, "admin"),
             )
             # billing_entitlementsnapshot forces row-level security (ADR-039),
             # and the app role has no way in without the tenant being set. The

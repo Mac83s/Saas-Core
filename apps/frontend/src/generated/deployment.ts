@@ -49,8 +49,10 @@ export const deployment = {
         "starter",
         "pro"
       ],
-      "selfSignup": true
+      "selfSignup": true,
+      "roles": [],
+      "serviceTemplates": []
     }
   ],
-  "profileHash": "sha256:747b11b729e8b5110dfcf3d7cf381dc81bc4d285ea50e270b2486d6ed9d16035"
+  "profileHash": "sha256:d1c21e12783bda7757c5eb6e741b26dfc3da88022654c9fff456d677169ea1f6"
 } as const

@@ -27,9 +27,15 @@ import { Input } from "@saas-core/ui/components/input";
 import { Label } from "@saas-core/ui/components/label";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
+import { organizationType as organizationTypeInfo } from "#lib/organization-types";
 import { BookingConfiguration } from "./booking-configuration";
 
-export function BookingPanel() {
+export function BookingPanel({
+  organizationType,
+}: {
+  /** Chooses the service templates offered (ADR-050). */
+  organizationType?: string;
+} = {}) {
   const t = useTranslations("Booking");
   const [catalog, setCatalog] = useState<BookingCatalog>();
   const [appointments, setAppointments] = useState<BookingAppointment[]>([]);
@@ -169,7 +175,13 @@ export function BookingPanel() {
           ),
         )}
       </div>
-      <BookingConfiguration catalog={catalog} onChanged={load} />
+      <BookingConfiguration
+        catalog={catalog}
+        onChanged={load}
+        serviceTemplates={
+          organizationTypeInfo(organizationType).serviceTemplates
+        }
+      />
       <Card>
         <CardHeader>
           <CardTitle>{t("createTitle")}</CardTitle>

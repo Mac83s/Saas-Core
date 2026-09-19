@@ -78,6 +78,10 @@ export type OrganizationUpdateInput =
 export type InvitationSummary = components["schemas"]["InvitationSummary"];
 export type InvitationCreateInput = components["schemas"]["InvitationCreate"];
 export type MembershipSummary = components["schemas"]["MembershipSummary"];
+export type RoleSummary = components["schemas"]["RoleSummary"];
+export type RoleCatalog = components["schemas"]["RoleCatalog"];
+export type RoleCreateInput = components["schemas"]["RoleCreate"];
+export type RoleUpdateInput = components["schemas"]["PatchedRoleUpdate"];
 export type MembershipUpdateInput =
   components["schemas"]["PatchedMembershipUpdate"];
 export type EntitlementSupportReport =
@@ -632,6 +636,61 @@ export async function acceptInvitation(
   );
   if (error || !data) throwProblem(error, response);
   return data;
+}
+
+/** The roles the organization can hand out: its type's and its own (ADR-050). */
+export async function listRoles(): Promise<RoleCatalog> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/organizations/current/roles/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createRole(input: RoleCreateInput): Promise<RoleSummary> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/organizations/current/roles/",
+    {
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function updateRole(
+  roleKey: string,
+  input: RoleUpdateInput,
+): Promise<RoleSummary> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PATCH(
+    "/api/v1/organizations/current/roles/{role_key}/",
+    {
+      params: { path: { role_key: roleKey } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function deleteRole(roleKey: string): Promise<void> {
+  const csrfToken = await getCsrfToken();
+  const { error, response } = await client.DELETE(
+    "/api/v1/organizations/current/roles/{role_key}/",
+    {
+      params: { path: { role_key: roleKey } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error) throwProblem(error, response);
 }
 
 export async function listMemberships(): Promise<MembershipSummary[]> {

@@ -769,7 +769,9 @@
     "day_3": "Thu",
     "day_4": "Fri",
     "day_5": "Sat",
-    "day_6": "Sun"
+    "day_6": "Sun",
+    "fromTemplate": "From a template",
+    "minutes": "{count} min"
   },
   "BookingSelfService": {
     "title": "Manage booking",
@@ -1108,5 +1110,46 @@
     "create": "Create and open the panel",
     "creating": "Creating…",
     "failed": "The organization could not be created. Please try again."
+  },
+  "Roles": {
+    "title": "Roles",
+    "description": "System roles of your kind of organization and roles you create yourself.",
+    "system": "System",
+    "own": "Own",
+    "create": "New role",
+    "edit": "Edit",
+    "delete": "Delete",
+    "name": "Role name",
+    "permissions": "Permissions",
+    "save": "Save role",
+    "saving": "Saving…",
+    "permissionCount": "{count, plural, one {# permission} other {# permissions}}",
+    "nameRequired": "Enter a role name.",
+    "failed": "The role could not be saved.",
+    "inUse": "Someone has or had this role — change it instead of deleting.",
+    "createDescription": "Choose what people with this role may do."
+  },
+  "Permissions": {
+    "organization_read": "View the organization",
+    "organization_members_read": "View the team",
+    "organization_members_manage": "Manage the team",
+    "organization_members_manage_limited": "Invite staff",
+    "organization_settings_manage": "Organization settings",
+    "organization_billing_manage": "Subscription and payments",
+    "booking_appointment_read": "View the calendar",
+    "booking_appointment_manage": "Manage appointments",
+    "media_read": "View files",
+    "media_manage": "Manage files",
+    "notifications_preferences": "Own notifications",
+    "notifications_manage": "Customer messages",
+    "notifications_support": "Delivery support",
+    "integrations_manage": "Integrations (API, webhooks)",
+    "profiles_manage": "Public profile",
+    "seo_audit_read": "View SEO audits",
+    "seo_audit_run": "Order SEO audits",
+    "seo_gsc_read": "View Search Console",
+    "seo_gsc_manage": "Connect Search Console",
+    "site_content_edit": "Edit the website",
+    "site_publish": "Publish the website"
   }
 }

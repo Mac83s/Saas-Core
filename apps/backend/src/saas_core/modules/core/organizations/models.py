@@ -145,6 +145,9 @@ class Role(models.Model):
     key = models.SlugField(max_length=64)
     name = models.CharField(max_length=80)
     scope = models.CharField(max_length=16, choices=RoleScope)
+    #: For a system role: the organization type that declares it (ADR-050), or
+    #: empty for core's global roles, which types without their own use.
+    organization_type = models.CharField(max_length=40, blank=True, default="")
     permissions = models.JSONField(default=list)
     is_immutable = models.BooleanField(default=False)
     version = models.PositiveIntegerField(default=1)
@@ -155,9 +158,9 @@ class Role(models.Model):
         ordering = ("scope", "key")
         constraints = [
             models.UniqueConstraint(
-                fields=["key"],
+                fields=["organization_type", "key"],
                 condition=models.Q(organization__isnull=True),
-                name="organizations_role_system_key_uq",
+                name="organizations_role_system_type_key_uq",
             ),
             models.UniqueConstraint(
                 fields=["organization", "key"],
@@ -451,6 +454,9 @@ class OrganizationAuditAction(models.TextChoices):
     MEMBERSHIP_REVOKED = "membership.revoked", "Odebrano dostęp członkowi"
     MEMBERSHIP_LEFT = "membership.left", "Członek opuścił organizację"
     OWNERSHIP_TRANSFERRED = "ownership.transferred", "Przeniesiono własność"
+    ROLE_CREATED = "role.created", "Utworzono rolę"
+    ROLE_UPDATED = "role.updated", "Zmieniono rolę"
+    ROLE_DELETED = "role.deleted", "Usunięto rolę"
     BILLING_PROFILE_UPDATED = "billing.profile.updated", "Zmieniono dane do faktury"
     BILLING_CHECKOUT_CREATED = "billing.checkout.created", "Utworzono Checkout"
     BILLING_PORTAL_CREATED = "billing.portal.created", "Utworzono sesję portalu"

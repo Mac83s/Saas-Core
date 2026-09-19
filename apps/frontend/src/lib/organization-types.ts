@@ -8,6 +8,18 @@ export type OrganizationTypeInfo = {
   modules: readonly string[];
   planKeys: readonly string[];
   selfSignup: boolean;
+  roles: readonly {
+    key: string;
+    label: { pl: string; en: string };
+    permissions: readonly string[];
+    limited: boolean;
+  }[];
+  serviceTemplates: readonly {
+    key: string;
+    label: { pl: string; en: string };
+    durationMinutes: number;
+    appointmentKind: string | null;
+  }[];
 };
 
 const types: readonly OrganizationTypeInfo[] = deployment.organizationTypes;

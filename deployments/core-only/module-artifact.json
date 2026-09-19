@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:74af6fcb8e21f9516b0484158d79ef29e5500c84d99aa559645d2d88bbc5cf0e",
+  "profileHash": "sha256:cb2f8c5cdbcc7d76dc6498be570f515f078fe73e28a1108c1dff9b5aaef2f336",
   "schemaVersion": 1,
   "deployment": "core-only",
   "product": {
@@ -25,7 +25,9 @@
       "description": null,
       "modules": [],
       "planKeys": [],
-      "selfSignup": true
+      "selfSignup": true,
+      "roles": [],
+      "serviceTemplates": []
     }
   ],
   "modules": [
@@ -87,7 +89,12 @@
         "urlPrefix": "/api/v1/organizations",
         "permissions": [
           "organization.read",
-          "organization.members.manage"
+          "organization.members.manage",
+          "organization.members.read",
+          "organization.members.manage_limited",
+          "organization.settings.manage",
+          "organization.ownership.transfer",
+          "organization.archive"
         ],
         "entitlements": [],
         "eventSchemas": [

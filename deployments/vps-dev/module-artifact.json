@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:501a1d4e03710ff4c443ec1cc73e6138dd70708d54d7509578b74511eb38c615",
+  "profileHash": "sha256:827643cd900ffb712b48263476bb011845acf27b9ed964eee716398bbec77c70",
   "schemaVersion": 1,
   "deployment": "vps-dev",
   "product": {
@@ -37,7 +37,9 @@
         "starter",
         "pro"
       ],
-      "selfSignup": true
+      "selfSignup": true,
+      "roles": [],
+      "serviceTemplates": []
     }
   ],
   "modules": [
@@ -99,7 +101,12 @@
         "urlPrefix": "/api/v1/organizations",
         "permissions": [
           "organization.read",
-          "organization.members.manage"
+          "organization.members.manage",
+          "organization.members.read",
+          "organization.members.manage_limited",
+          "organization.settings.manage",
+          "organization.ownership.transfer",
+          "organization.archive"
         ],
         "entitlements": [],
         "eventSchemas": [

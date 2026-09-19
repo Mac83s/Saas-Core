@@ -124,6 +124,8 @@ class BookingCatalogView(APIView):
         data = dict(serializer.validated_data)
         kind = data.pop("kind")
         name = data.pop("name")
+        if kind != "service":
+            data.pop("appointment_kind", None)
         if kind == "staff":
             data = {"display_name": name, "public_slug": data.get("public_slug", "")}
         elif kind == "resource":

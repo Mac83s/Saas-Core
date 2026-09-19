@@ -769,7 +769,9 @@
     "day_3": "Czw.",
     "day_4": "Pt.",
     "day_5": "Sob.",
-    "day_6": "Niedz."
+    "day_6": "Niedz.",
+    "fromTemplate": "Z szablonu",
+    "minutes": "{count} min"
   },
   "BookingSelfService": {
     "title": "Zarządzaj rezerwacją",
@@ -1108,5 +1110,46 @@
     "create": "Utwórz i przejdź do panelu",
     "creating": "Tworzenie…",
     "failed": "Nie udało się utworzyć organizacji. Spróbuj ponownie."
+  },
+  "Roles": {
+    "title": "Role",
+    "description": "Role systemowe Twojego typu organizacji i role, które tworzy Twoja organizacja.",
+    "system": "Systemowa",
+    "own": "Własna",
+    "create": "Nowa rola",
+    "edit": "Edytuj",
+    "delete": "Usuń",
+    "name": "Nazwa roli",
+    "permissions": "Uprawnienia",
+    "save": "Zapisz rolę",
+    "saving": "Zapisywanie…",
+    "permissionCount": "{count, plural, one {# uprawnienie} few {# uprawnienia} many {# uprawnień} other {# uprawnień}}",
+    "nameRequired": "Podaj nazwę roli.",
+    "failed": "Nie udało się zapisać roli.",
+    "inUse": "Tę rolę ktoś ma albo miał — zmień ją zamiast usuwać.",
+    "createDescription": "Wybierz, co osoby z tą rolą mogą robić."
+  },
+  "Permissions": {
+    "organization_read": "Podgląd organizacji",
+    "organization_members_read": "Podgląd zespołu",
+    "organization_members_manage": "Zarządzanie zespołem",
+    "organization_members_manage_limited": "Zapraszanie pracowników",
+    "organization_settings_manage": "Ustawienia organizacji",
+    "organization_billing_manage": "Abonament i płatności",
+    "booking_appointment_read": "Podgląd kalendarza",
+    "booking_appointment_manage": "Zarządzanie wizytami",
+    "media_read": "Podgląd plików",
+    "media_manage": "Zarządzanie plikami",
+    "notifications_preferences": "Własne powiadomienia",
+    "notifications_manage": "Wiadomości do klientów",
+    "notifications_support": "Wsparcie wysyłki",
+    "integrations_manage": "Integracje (API, webhooki)",
+    "profiles_manage": "Profil publiczny",
+    "seo_audit_read": "Podgląd audytów SEO",
+    "seo_audit_run": "Zamawianie audytów SEO",
+    "seo_gsc_read": "Podgląd Search Console",
+    "seo_gsc_manage": "Połączenie Search Console",
+    "site_content_edit": "Edycja strony",
+    "site_publish": "Publikacja strony"
   }
 }

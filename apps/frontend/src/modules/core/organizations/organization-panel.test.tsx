@@ -5,13 +5,19 @@ import { beforeEach, expect, test, vi } from "vitest";
 import messages from "../../../../messages/pl.json";
 import { OrganizationPanel } from "./organization-panel";
 
-const { listOrganizations, listMemberships, listInvitations, router } =
-  vi.hoisted(() => ({
-    listOrganizations: vi.fn(),
-    listMemberships: vi.fn(),
-    listInvitations: vi.fn(),
-    router: { replace: vi.fn(), refresh: vi.fn() },
-  }));
+const {
+  listOrganizations,
+  listMemberships,
+  listInvitations,
+  listRoles,
+  router,
+} = vi.hoisted(() => ({
+  listOrganizations: vi.fn(),
+  listMemberships: vi.fn(),
+  listInvitations: vi.fn(),
+  listRoles: vi.fn(),
+  router: { replace: vi.fn(), refresh: vi.fn() },
+}));
 
 vi.mock("#i18n/navigation", () => ({
   useRouter: () => router,
@@ -22,6 +28,7 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   listOrganizations,
   listMemberships,
   listInvitations,
+  listRoles,
 }));
 
 beforeEach(() => vi.clearAllMocks());
@@ -54,6 +61,27 @@ test("ładuje aktywną organizację, członków i zaproszenia", async () => {
     },
   ]);
   listInvitations.mockResolvedValue([]);
+  listRoles.mockResolvedValue({
+    roles: [
+      {
+        key: "owner",
+        name: "Właściciel gospodarstwa",
+        scope: "system",
+        permissions: [],
+        limited: false,
+        version: 1,
+      },
+      {
+        key: "custom-1a2b",
+        name: "Biuro",
+        scope: "organization",
+        permissions: ["organization.read"],
+        limited: false,
+        version: 1,
+      },
+    ],
+    grantable_permissions: ["organization.read"],
+  });
 
   render(
     <NextIntlClientProvider locale="pl" messages={messages}>
@@ -68,4 +96,6 @@ test("ładuje aktywną organizację, członków i zaproszenia", async () => {
   expect(screen.getByText("Właściciel")).not.toBeNull();
   expect(listMemberships).toHaveBeenCalledOnce();
   expect(listInvitations).toHaveBeenCalledOnce();
+  // The organization's own role is listed next to its type's (ADR-050).
+  expect(await screen.findByText("Biuro")).toBeInTheDocument();
 });

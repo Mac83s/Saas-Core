@@ -2569,6 +2569,155 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/organizations/current/roles/:
+    get:
+      operationId: api_v1_organizations_current_roles_retrieve
+      description: 'The roles an organization can hand out: its type''s and its own
+        (ADR-050).'
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleCatalog'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: api_v1_organizations_current_roles_create
+      description: 'The roles an organization can hand out: its type''s and its own
+        (ADR-050).'
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/RoleCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RoleCreate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleSummary'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/organizations/current/roles/{role_key}/:
+    patch:
+      operationId: api_v1_organizations_current_roles_partial_update
+      parameters:
+      - in: path
+        name: role_key
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedRoleUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedRoleUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedRoleUpdate'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleSummary'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    delete:
+      operationId: api_v1_organizations_current_roles_destroy
+      parameters:
+      - in: path
+        name: role_key
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/profiles/:
     get:
       operationId: api_v1_profiles_list
@@ -7200,6 +7349,9 @@ components:
         minimum_notice_minutes:
           type: integer
           minimum: 0
+        appointment_kind:
+          type: string
+          maxLength: 64
       required:
       - kind
       - name
@@ -9708,6 +9860,20 @@ components:
         currency:
           type: string
           pattern: ^[A-Z]{3}$
+    PatchedRoleUpdate:
+      type: object
+      properties:
+        version:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+          maxLength: 80
+        permissions:
+          type: array
+          items:
+            type: string
+            maxLength: 120
     PaymentModeEnum:
       enum:
       - stripe
@@ -10249,6 +10415,58 @@ components:
         * `content_entry` - content_entry
         * `content_entry_version` - content_entry_version
         * `content_entry_publication` - content_entry_publication
+    RoleCatalog:
+      type: object
+      properties:
+        roles:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoleSummary'
+        grantable_permissions:
+          type: array
+          items:
+            type: string
+      required:
+      - grantable_permissions
+      - roles
+    RoleCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 80
+        permissions:
+          type: array
+          items:
+            type: string
+            maxLength: 120
+      required:
+      - name
+      - permissions
+    RoleSummary:
+      type: object
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        scope:
+          $ref: '#/components/schemas/ScopeEnum'
+        permissions:
+          type: array
+          items:
+            type: string
+        limited:
+          type: boolean
+        version:
+          type: integer
+      required:
+      - key
+      - limited
+      - name
+      - permissions
+      - scope
+      - version
     ScheduleCreate:
       type: object
       properties:
@@ -10305,6 +10523,14 @@ components:
         * `service_staff` - service_staff
         * `service_location` - service_location
         * `service_resource` - service_resource
+    ScopeEnum:
+      enum:
+      - system
+      - organization
+      type: string
+      description: |-
+        * `system` - system
+        * `organization` - organization
     Service:
       type: object
       properties:

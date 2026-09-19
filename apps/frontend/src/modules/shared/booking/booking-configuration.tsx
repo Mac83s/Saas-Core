@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { z } from "zod";
 
 import {
@@ -21,6 +21,8 @@ import {
 import { Input } from "@saas-core/ui/components/input";
 import { Label } from "@saas-core/ui/components/label";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
+
+import { typeText, type OrganizationTypeInfo } from "#lib/organization-types";
 
 const catalogSchema = z.object({
   kind: z.enum(["location", "staff", "service", "resource"]),
@@ -41,11 +43,31 @@ const scheduleSchema = z.object({
 export function BookingConfiguration({
   catalog,
   onChanged,
+  serviceTemplates = [],
 }: {
   catalog?: BookingCatalog;
   onChanged: () => Promise<void>;
+  /** Ready-made services of the organization's type (ADR-050). */
+  serviceTemplates?: OrganizationTypeInfo["serviceTemplates"];
 }) {
   const t = useTranslations("BookingConfiguration");
+  const locale = useLocale();
+  const existing = new Set(catalog?.services.map((service) => service.name));
+
+  async function addFromTemplate(
+    template: OrganizationTypeInfo["serviceTemplates"][number],
+  ) {
+    await createBookingCatalogItem({
+      kind: "service",
+      name: typeText(template.label, locale),
+      duration_minutes: template.durationMinutes,
+      minimum_notice_minutes: 60,
+      ...(template.appointmentKind
+        ? { appointment_kind: template.appointmentKind }
+        : {}),
+    });
+    await onChanged();
+  }
   const catalogForm = useForm<z.infer<typeof catalogSchema>>({
     resolver: zodResolver(catalogSchema),
     defaultValues: { kind: "service", name: "", public_slug: "" },
@@ -117,6 +139,29 @@ export function BookingConfiguration({
           <CardDescription>{t("catalogDescription")}</CardDescription>
         </CardHeader>
         <CardContent>
+          {serviceTemplates.length > 0 ? (
+            <div className="mb-4 space-y-2">
+              <p className="text-sm font-medium">{t("fromTemplate")}</p>
+              <div className="flex flex-wrap gap-2">
+                {serviceTemplates.map((template) => {
+                  const label = typeText(template.label, locale);
+                  return (
+                    <Button
+                      disabled={existing.has(label)}
+                      key={template.key}
+                      onClick={() => void addFromTemplate(template)}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      + {label} ·{" "}
+                      {t("minutes", { count: template.durationMinutes })}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
           <form className="space-y-3" onSubmit={addCatalogItem}>
             <Label htmlFor="catalog-kind">{t("kind")}</Label>
             <NativeSelect id="catalog-kind" {...catalogForm.register("kind")}>

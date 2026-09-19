@@ -43,22 +43,27 @@ deklaracją produktu, a nie kodem w rdzeniu.
      przegląd abonamentu i publiczny cennik pokazują tylko plany typu. Profil
      nadal ma dokładnie trzy plany; regułę poluzujemy, gdy dojdzie pakiet
      rolnika (etap 3 planu 15);
-   - **szablonach usług rezerwacji**, np. korekcja stada dla firmy, wynajem
-     kombajnu i koszenie dla gospodarstwa. Organizacja zakłada z nich własne
-     usługi. Organizacja każdego typu z modułem rezerwacji może oferować usługi
-     innym;
+   - **szablonach usług rezerwacji** (`serviceTemplates`: nazwa, czas,
+     opcjonalny typ wizyty), np. korekcja stada dla firmy, wynajem kombajnu i
+     koszenie dla gospodarstwa. Organizacja zakłada z nich usługi jednym
+     kliknięciem. Usługa może sprzedawać tylko typ wizyty modułu, który typ
+     organizacji składa;
    - **pierwszym uruchomieniu.** Konto bez organizacji po zalogowaniu trafia
      na ekran „kim jesteś” z typami `selfSignup` i zakłada organizację, zanim
      zobaczy panel. Sam formularz rejestracji się nie zmienia: nie ujawnia, czy
      konto istnieje, więc nie może zakładać organizacji.
-4. **Uprawnienia ról systemowych pochodzą z katalogu, a nie z migracji.**
-   Idempotentna komenda uruchamiana po `migrate` (`apply_organization_types`)
-   zakłada i aktualizuje role systemowe typów. Każdą zmianę zapisuje w
-   dzienniku audytu i podbija wersję roli. Moduł nadal deklaruje swoje
-   uprawnienia w deskryptorze, a katalog może użyć tylko uprawnień modułów, które
-   typ składa (walidacja w `deployment-check`). `roleGrants` z deskryptora
-   (ADR-049) zostaje dla typu domyślnego i znika, gdy produkt przejdzie na
-   katalog.
+4. **Uprawnienia ról systemowych pochodzą z katalogu, a nie z migracji.** Typ
+   może zadeklarować `roles` (klucz, nazwa, uprawnienia, `limited`). Wymagane
+   są `owner` (z wszystkimi uprawnieniami `core.organizations`) i `admin`,
+   bo przekazanie własności degraduje właściciela do administratora. Po każdym
+   `migrate` sygnał `post_migrate` (`role_catalog.sync_system_roles`) zakłada
+   i aktualizuje role systemowe typu, podbija wersję zmienionej roli i
+   przepina członkostwa organizacji tego typu z ról globalnych na role typu o
+   tym samym kluczu. `migrate` działa rolą właściciela tabel, więc może pisać
+   globalne wiersze, których rola aplikacji nie może. Typ bez `roles` używa
+   ról globalnych rdzenia, a do nich nadal trafiają `roleGrants` z
+   deskryptorów (ADR-049). Organizacja tworzy role własne z uprawnień modułów
+   swojego typu, poza przekazaniem własności i archiwizacją.
 5. **Sesja i API bieżącej organizacji zwracają typ i jego publiczną część**:
    moduły, etykiety i szablony usług. Z nich frontend buduje menu. Pozycje
    produktu w slocie frontendu mogą wskazać typy, dla których się pokazują.
@@ -68,14 +73,13 @@ deklaracją produktu, a nie kodem w rdzeniu.
 - Pierwsze logowanie zakłada organizację. Znika stan „użytkownik bez firmy”
   z przeglądu panelu z 18.09.
 - Role systemowe przestają być globalne: klucz roli jest unikalny w obrębie
-  typu. Migracja przepina istniejące członkostwa na role typu domyślnego bez
-  zmiany uprawnień.
+  typu (migracja 0037). Istniejące członkostwa przepina synchronizacja, tylko
+  gdy typ ma własne role.
 - Uprawnienia zawężone do obiektu (gospodarstwo, wizyta; dokumentacja RACICE
   4.4) nie są częścią tej decyzji. Zbudujemy je na tym fundamencie, gdy będą
   potrzebne.
-- Zmiana katalogu typów to zmiana wdrożenia. Komenda synchronizacji jest częścią
-  każdego release'u, a jej brak oznacza role niezgodne z katalogiem, więc
-  pilnuje tego system check przy starcie.
+- Zmiana katalogu typów to zmiana wdrożenia: role dogania kolejny `migrate`,
+  który i tak jest częścią każdego release'u.
 - Kształt katalogu jest punktem rozszerzenia z ADR-049. Jego zmiana jest
   zmianą łamiącą dla produktów.
 

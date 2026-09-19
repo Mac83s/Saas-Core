@@ -96,6 +96,22 @@ def list_catalog() -> dict[str, list[Any]]:
     }
 
 
+def _assert_appointment_kind_available(organization: Organization, kind: str) -> None:
+    """A service may sell a kind of visit only a module of the organization's
+    type provides (ADR-050): a farm cannot sell a trimming company's visit."""
+    if not kind:
+        return
+    organization_type = settings.ORGANIZATION_TYPES.get(organization.organization_type)
+    allowed = organization_type.modules if organization_type is not None else frozenset()
+    owners = [
+        module_id
+        for module_id, descriptor in settings.MODULE_CATALOG.items()
+        if kind in (descriptor.appointment_kinds or {})
+    ]
+    if kind not in settings.APPOINTMENT_KINDS or not any(owner in allowed for owner in owners):
+        raise ValidationError({"appointment_kind": "Ten typ wizyty nie jest dostępny."})
+
+
 @transaction.atomic
 def create_catalog_item(*, kind: str, data: dict[str, Any]) -> Any:
     context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
@@ -105,6 +121,7 @@ def create_catalog_item(*, kind: str, data: dict[str, Any]) -> Any:
     elif kind == "staff":
         item = StaffMember.all_objects.create(organization=organization, **data)
     elif kind == "service":
+        _assert_appointment_kind_available(organization, data.get("appointment_kind", ""))
         item = Service.all_objects.create(organization=organization, **data)
     elif kind == "resource":
         item = Resource.all_objects.create(organization=organization, **data)

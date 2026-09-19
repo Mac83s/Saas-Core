@@ -6,7 +6,15 @@
   "backend": {
     "djangoApp": "saas_core.modules.core.organizations",
     "urlPrefix": "/api/v1/organizations",
-    "permissions": ["organization.read", "organization.members.manage"],
+    "permissions": [
+      "organization.read",
+      "organization.members.manage",
+      "organization.members.read",
+      "organization.members.manage_limited",
+      "organization.settings.manage",
+      "organization.ownership.transfer",
+      "organization.archive"
+    ],
     "entitlements": [],
     "eventSchemas": ["organizations.organization.created.v1"],
     "publicTables": [],
