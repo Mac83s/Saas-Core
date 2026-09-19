@@ -91,6 +91,7 @@ def create_membership(
     owner_role, _ = Role.objects.get_or_create(
         key="owner",
         organization=None,
+        organization_type="",
         defaults={
             "name": "Owner",
             "scope": RoleScope.SYSTEM,

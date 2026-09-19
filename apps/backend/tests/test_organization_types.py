@@ -42,7 +42,9 @@ def with_types(settings: Any, **types: Any) -> None:
 def business() -> Any:
     """The profile's default type, renamed `business` — tests below set types
     themselves, so they hold in Saas-Core and in every product repository."""
-    return replace(settings.ORGANIZATION_TYPES[settings.DEFAULT_ORGANIZATION_TYPE], key="business")
+    return replace(
+        settings.ORGANIZATION_TYPES[settings.DEFAULT_ORGANIZATION_TYPE], key="business", roles=()
+    )
 
 
 def test_the_profile_types_stay_inside_the_profile() -> None:

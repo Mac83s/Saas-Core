@@ -49,15 +49,15 @@ def role(key: str, *permissions: str, limited: bool = False) -> RoleTemplate:
 def farm_types(settings: Any, *roles: RoleTemplate) -> None:
     default = settings.ORGANIZATION_TYPES[settings.DEFAULT_ORGANIZATION_TYPE]
     settings.ORGANIZATION_TYPES = {
-        "farm": replace(default, key="farm", roles=roles),
+        "test_farm": replace(default, key="test_farm", roles=roles),
     }
-    settings.DEFAULT_ORGANIZATION_TYPE = "farm"
+    settings.DEFAULT_ORGANIZATION_TYPE = "test_farm"
 
 
 def test_the_catalogue_writes_typed_roles_and_moves_memberships(settings: Any) -> None:
     user = active_user()
     membership = membership_for(user, role_key="admin")
-    Organization.objects.filter(pk=membership.organization_id).update(organization_type="farm")
+    Organization.objects.filter(pk=membership.organization_id).update(organization_type="test_farm")
     farm_types(
         settings,
         role("owner", *CORE_OWNER),
@@ -69,7 +69,7 @@ def test_the_catalogue_writes_typed_roles_and_moves_memberships(settings: Any) -
     assert first["created"] == 3
     assert first["moved"] == 1
     membership.refresh_from_db()
-    assert membership.role.organization_type == "farm"
+    assert membership.role.organization_type == "test_farm"
     assert membership.role.key == "admin"
     assert sync_system_roles() == {"created": 0, "updated": 0, "moved": 0}
 
@@ -80,7 +80,7 @@ def test_the_catalogue_writes_typed_roles_and_moves_memberships(settings: Any) -
         role("herd_manager", "organization.read", limited=True),
     )
     assert sync_system_roles()["updated"] == 1
-    admin = Role.objects.get(organization__isnull=True, organization_type="farm", key="admin")
+    admin = Role.objects.get(organization__isnull=True, organization_type="test_farm", key="admin")
     assert admin.permissions == ["organization.read"]
     assert admin.version == 2
 
@@ -93,13 +93,13 @@ def test_a_typed_organization_gets_its_type_owner(settings: Any) -> None:
 
     created = client.post(
         ORGANIZATIONS_URL,
-        {"name": "Farma", "slug": "farma", "organization_type": "farm"},
+        {"name": "Farma", "slug": "farma", "organization_type": "test_farm"},
         format="json",
         HTTP_X_CSRFTOKEN=csrf_value(client),
     )
     assert created.status_code == 201, created.data
     owner = Membership.objects.get(organization_id=created.data["id"])
-    assert (owner.role.organization_type, owner.role.key) == ("farm", "owner")
+    assert (owner.role.organization_type, owner.role.key) == ("test_farm", "owner")
 
 
 def test_an_organization_defines_its_own_role_within_its_modules() -> None:

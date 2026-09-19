@@ -82,6 +82,7 @@ def membership(*, slug: str, role: str = "owner") -> Membership:
     system_role, _ = Role.objects.get_or_create(
         key=role,
         organization=None,
+        organization_type="",
         defaults={
             "name": role.title(),
             "scope": RoleScope.SYSTEM,

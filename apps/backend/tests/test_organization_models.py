@@ -29,7 +29,10 @@ def create_user(*, email: str = "owner@example.com") -> User:
 
 
 def test_system_roles_are_seeded_with_stable_permissions() -> None:
-    roles = {role.key: role for role in Role.objects.filter(scope=RoleScope.SYSTEM)}
+    roles = {
+        role.key: role
+        for role in Role.objects.filter(scope=RoleScope.SYSTEM, organization_type="")
+    }
 
     assert set(roles) == set(SYSTEM_ROLE_PERMISSIONS)
     for key, permissions in SYSTEM_ROLE_PERMISSIONS.items():
