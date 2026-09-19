@@ -41,7 +41,7 @@ def test_blueprint_authorization_matrix(surface: Any, blueprint: Any, boundary: 
     client = person
     if boundary == "permission":
         Membership.objects.filter(organization=organization, user=owner).update(
-            role=Role.objects.get(key="viewer", organization=None)
+            role=Role.objects.get(key="viewer", organization=None, organization_type="")
         )
     elif boundary == "feature":
         EntitlementSnapshot.all_objects.filter(organization=organization).update(

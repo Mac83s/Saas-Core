@@ -178,7 +178,7 @@ def test_refusal_creates_no_order_or_reservation(seo: Any, refusal: str) -> None
         from saas_core.modules.core.organizations.models import Role
 
         Membership.objects.filter(organization=org).update(
-            role=Role.objects.get(key="manager", organization=None)
+            role=Role.objects.get(key="manager", organization=None, organization_type="")
         )
     elif refusal == "domain":
         Domain.all_objects.filter(site=site).update(status="pending")

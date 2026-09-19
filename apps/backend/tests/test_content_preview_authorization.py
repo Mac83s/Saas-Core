@@ -155,7 +155,7 @@ def test_preview_checks_session_permission(surface: Any) -> None:
 
     person, organization, owner, document = surface
     Membership.objects.filter(organization=organization, user=owner).update(
-        role=Role.objects.get(key="viewer", organization=None),
+        role=Role.objects.get(key="viewer", organization=None, organization_type=""),
     )
     response = _preview(person, document)
     assert response.status_code == 403, response.content

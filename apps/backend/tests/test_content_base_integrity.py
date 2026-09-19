@@ -231,7 +231,7 @@ def test_content_base_authorization_matrix(surface: Any, refusal: str) -> None:
     expected_status = 403
     if refusal == "permission":
         Membership.objects.filter(organization=organization, user=owner).update(
-            role=Role.objects.get(key="viewer", organization=None),
+            role=Role.objects.get(key="viewer", organization=None, organization_type=""),
         )
     elif refusal == "entitlement":
         EntitlementSnapshot.all_objects.filter(organization=organization).update(

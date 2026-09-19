@@ -39,7 +39,7 @@ def test_system_roles_are_seeded_with_stable_permissions() -> None:
 
 
 def test_system_roles_are_immutable_at_database_boundary() -> None:
-    owner = Role.objects.get(key="owner", organization=None)
+    owner = Role.objects.get(key="owner", organization=None, organization_type="")
 
     with pytest.raises(DatabaseError), transaction.atomic():
         Role.objects.filter(pk=owner.pk).update(name="Tampered")
@@ -100,7 +100,7 @@ def test_archiving_keeps_status_timestamp_and_version_consistent() -> None:
 def test_only_one_current_membership_is_allowed_but_history_is_preserved() -> None:
     organization = create_organization()
     user = create_user()
-    role = Role.objects.get(key="owner", organization=None)
+    role = Role.objects.get(key="owner", organization=None, organization_type="")
     Membership.objects.create(organization=organization, user=user, role=role)
 
     with pytest.raises(IntegrityError), transaction.atomic():
@@ -150,7 +150,7 @@ def test_revoked_membership_requires_revocation_timestamp() -> None:
     membership = Membership.objects.create(
         organization=organization,
         user=create_user(),
-        role=Role.objects.get(key="viewer", organization=None),
+        role=Role.objects.get(key="viewer", organization=None, organization_type=""),
     )
 
     with pytest.raises(IntegrityError), transaction.atomic():

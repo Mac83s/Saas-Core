@@ -90,7 +90,7 @@ def sites_client(
     Membership.objects.create(
         organization=organization,
         user=user,
-        role=Role.objects.get(key=role_key, organization=None),
+        role=Role.objects.get(key=role_key, organization=None, organization_type=""),
     )
     EntitlementSnapshot.all_objects.create(
         organization=organization,
@@ -452,7 +452,7 @@ def test_sites_require_permission_entitlement_and_active_tenant() -> None:
         Membership.objects.create(
             organization=organization,
             user=user,
-            role=Role.objects.get(key="manager", organization=None),
+            role=Role.objects.get(key="manager", organization=None, organization_type=""),
         )
     client = APIClient(enforce_csrf_checks=True)
     csrf = client.get("/api/v1/auth/csrf/").data["csrf_token"]
@@ -755,7 +755,7 @@ def test_page_template_import_materializes_approved_media_once_per_tenant(
             Membership.objects.create(
                 organization=organization,
                 user=second_user,
-                role=Role.objects.get(key="manager", organization=None),
+                role=Role.objects.get(key="manager", organization=None, organization_type=""),
             )
             second_client = APIClient(enforce_csrf_checks=True)
             csrf = second_client.get("/api/v1/auth/csrf/").data["csrf_token"]

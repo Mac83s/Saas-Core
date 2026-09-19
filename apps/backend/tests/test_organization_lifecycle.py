@@ -65,7 +65,7 @@ def organization_with_member(
     return Membership.objects.create(
         organization=tenant,
         user=user,
-        role=Role.objects.get(key=role_key, organization=None),
+        role=Role.objects.get(key=role_key, organization=None, organization_type=""),
     )
 
 

@@ -58,7 +58,7 @@ def membership_for(
     return Membership.objects.create(
         organization=organization,
         user=user,
-        role=Role.objects.get(key=role_key, organization=None),
+        role=Role.objects.get(key=role_key, organization=None, organization_type=""),
         status=membership_status,
     )
 

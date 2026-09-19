@@ -146,7 +146,7 @@ def test_entering_the_workspace_requires_confirmed_operator_mfa() -> None:
     Membership.objects.create(
         organization=workspace,
         user=person,
-        role=Role.objects.get(key="owner", organization=None),
+        role=Role.objects.get(key="owner", organization=None, organization_type=""),
         status=MembershipStatus.ACTIVE,
     )
 
@@ -199,7 +199,7 @@ def test_nobody_is_invited_into_the_platform_workspace() -> None:
     membership = Membership.objects.create(
         organization=workspace,
         user=person,
-        role=Role.objects.get(key="owner", organization=None),
+        role=Role.objects.get(key="owner", organization=None, organization_type=""),
         status=MembershipStatus.ACTIVE,
     )
 
@@ -240,7 +240,7 @@ def test_the_deployment_does_not_sell_itself_a_subscription() -> None:
     membership = Membership.objects.create(
         organization=workspace,
         user=person,
-        role=Role.objects.get(key="owner", organization=None),
+        role=Role.objects.get(key="owner", organization=None, organization_type=""),
         status=MembershipStatus.ACTIVE,
     )
 
@@ -318,7 +318,7 @@ def test_a_customer_membership_never_reaches_the_platform_workspace() -> None:
     Membership.objects.create(
         organization=own,
         user=outsider,
-        role=Role.objects.get(key="owner", organization=None),
+        role=Role.objects.get(key="owner", organization=None, organization_type=""),
         status=MembershipStatus.ACTIVE,
     )
 

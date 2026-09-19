@@ -91,7 +91,7 @@ def _member(organization: Organization) -> Membership:
     return Membership.objects.create(
         organization=organization,
         user=user,
-        role=Role.objects.get(key="admin", organization=None),
+        role=Role.objects.get(key="admin", organization=None, organization_type=""),
     )
 
 

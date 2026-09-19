@@ -68,12 +68,12 @@ def tenant_with_notice(
     Membership.objects.create(
         organization=organization,
         user=owner,
-        role=Role.objects.get(key="owner", organization=None),
+        role=Role.objects.get(key="owner", organization=None, organization_type=""),
     )
     Membership.objects.create(
         organization=organization,
         user=member,
-        role=Role.objects.get(key="staff", organization=None),
+        role=Role.objects.get(key="staff", organization=None, organization_type=""),
     )
     mapping = StripePriceMapping.objects.create(
         plan_version=PlanVersion.objects.get(plan__key="starter", version=1),

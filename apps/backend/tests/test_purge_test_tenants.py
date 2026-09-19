@@ -48,7 +48,7 @@ def make_tenant(*, slug: str, email: str) -> tuple[Organization, User]:
     Membership.objects.create(
         organization=organization,
         user=user,
-        role=Role.objects.get(key="admin", organization=None),
+        role=Role.objects.get(key="admin", organization=None, organization_type=""),
     )
     # A row that protects the organization, so the command has to walk a
     # refusal instead of deleting in one call.
@@ -106,7 +106,7 @@ def test_an_organization_holding_a_real_member_is_left_alone() -> None:
     Membership.objects.create(
         organization=organization,
         user=owner,
-        role=Role.objects.get(key="owner", organization=None),
+        role=Role.objects.get(key="owner", organization=None, organization_type=""),
     )
 
     call_command("purge_test_tenants", "--email", test_user.email, "--apply")
