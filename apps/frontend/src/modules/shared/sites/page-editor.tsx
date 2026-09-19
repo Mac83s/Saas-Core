@@ -101,7 +101,7 @@ import { mutationKey, type MutationReceipt } from "./idempotency";
 import { renderPrivateMedia } from "./private-media-preview";
 import { SectionCanvas } from "./section-canvas";
 import { useDraftHistory } from "./draft-history";
-import { SectionLibrary } from "./section-library";
+import { SectionLibrary, SectionLibraryContent } from "./section-library";
 import { PageUrlDialog } from "./page-url";
 import { sitesErrorMessage } from "./problem";
 
@@ -562,6 +562,61 @@ export function PageEditor({
     );
   }, [preview]);
 
+  const blockPicker = (afterSelected: boolean) => (
+    <div
+      className={
+        afterSelected
+          ? "grid gap-3"
+          : "flex flex-col gap-3 sm:flex-row sm:items-end"
+      }
+    >
+      <Field className="flex-1">
+        <FieldLabel htmlFor="block-picker">{t("addBlock")}</FieldLabel>
+        <Combobox
+          isItemEqualToValue={(item, value) => item.type === value.type}
+          itemToStringLabel={(item) => t(item.labelKey)}
+          itemToStringValue={(item) => item.type}
+          items={blockOptions}
+          onValueChange={setSelectedBlock}
+          value={selectedBlock}
+        >
+          <ComboboxInput
+            id="block-picker"
+            placeholder={t("searchBlocks")}
+            triggerLabel={t("openOptions")}
+          />
+          <ComboboxContent>
+            <ComboboxEmpty>{t("noBlocks")}</ComboboxEmpty>
+            <ComboboxList>
+              {blockOptions.map((option) => (
+                <ComboboxItem key={option.type} value={option}>
+                  {t(option.labelKey)}
+                </ComboboxItem>
+              ))}
+            </ComboboxList>
+          </ComboboxContent>
+        </Combobox>
+      </Field>
+      <Button
+        disabled={!selectedBlock}
+        onClick={() => {
+          if (!selectedBlock) return;
+          const position = afterSelected
+            ? activeSection + 1
+            : blocks.fields.length;
+          blocks.insert(position, emptyBlock(selectedBlock.type));
+          setSelectedSection(position);
+          setSelectedBlock(null);
+        }}
+        type="button"
+        variant="outline"
+      >
+        <PlusIcon aria-hidden="true" />
+        {t("add")}
+      </Button>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       {problem && (
@@ -648,59 +703,17 @@ export function PageEditor({
                   {t("studio.redo")}
                 </Button>
               </div>
-              <SectionLibrary
-                onAdd={(block) => {
-                  blocks.append(block);
-                  setSelectedSection(blocks.fields.length);
-                }}
-              />
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                <Field className="flex-1">
-                  <FieldLabel htmlFor="block-picker">
-                    {t("addBlock")}
-                  </FieldLabel>
-                  <Combobox
-                    isItemEqualToValue={(item, value) =>
-                      item.type === value.type
-                    }
-                    itemToStringLabel={(item) => t(item.labelKey)}
-                    itemToStringValue={(item) => item.type}
-                    items={blockOptions}
-                    onValueChange={setSelectedBlock}
-                    value={selectedBlock}
-                  >
-                    <ComboboxInput
-                      id="block-picker"
-                      placeholder={t("searchBlocks")}
-                      triggerLabel={t("openOptions")}
-                    />
-                    <ComboboxContent>
-                      <ComboboxEmpty>{t("noBlocks")}</ComboboxEmpty>
-                      <ComboboxList>
-                        {blockOptions.map((option) => (
-                          <ComboboxItem key={option.type} value={option}>
-                            {t(option.labelKey)}
-                          </ComboboxItem>
-                        ))}
-                      </ComboboxList>
-                    </ComboboxContent>
-                  </Combobox>
-                </Field>
-                <Button
-                  disabled={!selectedBlock}
-                  onClick={() => {
-                    if (!selectedBlock) return;
-                    blocks.append(emptyBlock(selectedBlock.type));
-                    setSelectedSection(blocks.fields.length);
-                    setSelectedBlock(null);
-                  }}
-                  type="button"
-                  variant="outline"
-                >
-                  <PlusIcon aria-hidden="true" />
-                  {t("add")}
-                </Button>
-              </div>
+              {(!visual || blocks.fields.length === 0) && (
+                <>
+                  <SectionLibrary
+                    onAdd={(block) => {
+                      blocks.append(block);
+                      setSelectedSection(blocks.fields.length);
+                    }}
+                  />
+                  {blockPicker(false)}
+                </>
+              )}
 
               <div className="space-y-4">
                 {blocks.fields.length === 0 && (
@@ -741,6 +754,21 @@ export function PageEditor({
                 )}
                 {visual && blocks.fields.length > 0 ? (
                   <SectionCanvas
+                    library={
+                      <>
+                        <p className="text-sm text-muted-foreground">
+                          {t("studio.libraryPlacement")}
+                        </p>
+                        {blockPicker(true)}
+                        <SectionLibraryContent
+                          compact
+                          onAdd={(block) => {
+                            blocks.insert(activeSection + 1, block);
+                            setSelectedSection(activeSection + 1);
+                          }}
+                        />
+                      </>
+                    }
                     blocks={liveBlocks}
                     onTextChange={(index, path, value) => {
                       if (loading || draftForm.formState.isSubmitting) return;

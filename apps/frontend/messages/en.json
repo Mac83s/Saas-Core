@@ -690,6 +690,7 @@
       "preservesContent": "Changing the layout preserves your content."
     },
     "studio": {
+      "libraryPlacement": "Choose a layout to insert it after the selected section.",
       "imageLoading": "Loading image…",
       "imageUnavailable": "Image unavailable. Check whether the file is ready.",
       "imageRetry": "Try again",

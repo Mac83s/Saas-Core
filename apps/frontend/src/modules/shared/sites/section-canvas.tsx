@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { renderPrivateMedia } from "./private-media-preview";
 import { useTranslations } from "next-intl";
 import type { BlockFieldDefinition } from "@saas-core/site-blocks";
@@ -19,6 +19,7 @@ export function SectionCanvas({
   selected,
   onSelect,
   inspector,
+  library,
   blockIds,
   onMove,
   onTextChange,
@@ -32,8 +33,11 @@ export function SectionCanvas({
   selected: number;
   onSelect: (index: number) => void;
   inspector: ReactNode;
+  library: ReactNode;
 }) {
   const t = useTranslations("Sites");
+  const libraryId = useId();
+  const [libraryOpen, setLibraryOpen] = useState(false);
   const [viewport, setViewport] = useState<"desktop" | "tablet" | "mobile">(
     "desktop",
   );
@@ -60,7 +64,34 @@ export function SectionCanvas({
           </Button>
         ))}
       </div>
-      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <div
+        data-testid="studio-workspace"
+        className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_18rem] 2xl:grid-cols-[15rem_minmax(0,1fr)_18rem]"
+      >
+        <aside
+          className="min-w-0 space-y-3 rounded-lg border p-3 xl:col-span-2 2xl:col-span-1 2xl:sticky 2xl:top-4"
+          aria-label={t("sectionLibrary.title")}
+        >
+          <h3 className="hidden font-semibold 2xl:block">
+            {t("sectionLibrary.title")}
+          </h3>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full 2xl:hidden"
+            aria-expanded={libraryOpen}
+            aria-controls={libraryId}
+            onClick={() => setLibraryOpen(!libraryOpen)}
+          >
+            {t("sectionLibrary.open")}
+          </Button>
+          <div
+            id={libraryId}
+            className={`${libraryOpen ? "block" : "hidden"} max-h-[60vh] space-y-4 overflow-y-auto p-1.5 2xl:block 2xl:max-h-[75vh]`}
+          >
+            {library}
+          </div>
+        </aside>
         <div className="min-w-0 overflow-x-auto rounded-lg border bg-muted/30 p-3">
           <div
             data-testid="live-canvas"
@@ -187,10 +218,11 @@ export function SectionCanvas({
           </div>
         </div>
         <div
-          className="min-w-0 space-y-3"
+          className="min-w-0 space-y-3 xl:sticky xl:top-4 xl:max-h-[85vh] xl:overflow-y-auto"
           aria-label={t("studio.inspector")}
           role="region"
         >
+          <h3 className="font-semibold">{t("studio.inspector")}</h3>
           {inspector}
         </div>
       </div>

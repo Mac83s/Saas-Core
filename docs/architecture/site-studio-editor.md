@@ -22,6 +22,21 @@ unieważniają źródło operacji.
 zaznaczonym blokiem. Wstawienie i jego cofnięcie zachowują sąsiednie treści;
 wybrana sekcja otwiera się w inspektorze.
 
+## Obszary pracy
+
+Dla szerokości od 1536 px biblioteka, płótno i inspektor tworzą trzy kolumny.
+Biblioteka i inspektor pozostają widoczne podczas przewijania; ich dłuższa
+zawartość ma własne przewijanie. Przy 1280–1535 px płótno i inspektor są obok
+siebie, a bibliotekę rozwija się nad nimi. Na mniejszym ekranie wszystkie
+obszary są w jednej kolumnie, a biblioteka początkowo jest zwinięta.
+
+Boczna biblioteka używa tego samego katalogu, kart, filtrów i podglądu co
+okno „Dodaj sekcję poniżej”. Pola filtrów mają lokalne ID, więc okno może być
+otwarte obok biblioteki bez kolizji etykiet. Dodanie wariantu lub pustego
+bloku w bocznym panelu wstawia go za wybraną sekcją, wybiera nowy blok i
+pozostaje jednym krokiem undo. W formularzach dodawanie działa nadal na końcu.
+Nie ma osobnego modelu treści dla bocznego panelu.
+
 ## Tekst w miejscu
 
 `registry.render(block, key, editor?, imageRenderer?)` przyjmuje opcjonalny adapter kodu panelu.
@@ -96,7 +111,7 @@ Artefakty lokalne: `.runtime/site-studio/private-media/`.
 
 ## Otwarty odbiór
 
-Nadal wymagane: docelowy układ biblioteka/canvas/inspektor, odbiór
+Nadal wymagane: odbiór
 zalogowanego panelu i publikacji po hostname oraz synchronizacja produktów.
 Testy Chromium używają rzeczywistych komponentów i syntetycznego API;
 nie zastępują tych bramek.

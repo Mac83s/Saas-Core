@@ -908,3 +908,58 @@ test("the contextual library inserts between sections and undo restores the orig
     "Ostatnia sekcja",
   );
 });
+
+test.each(["pl", "en"] as const)(
+  "studio rail inserts after the selection and shares undo (%s)",
+  async (locale) => {
+    renderEditor(
+      locale,
+      locale === "pl" ? polishMessages : englishMessages,
+      vi.fn().mockResolvedValue(undefined),
+      true,
+    );
+    await screen.findByLabelText(locale === "pl" ? "Nagłówek" : "Heading");
+    const toggle = screen.getByRole("button", {
+      name: locale === "pl" ? "Biblioteka sekcji" : "Section library",
+    });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    fireEvent.change(
+      screen.getByLabelText(locale === "pl" ? "Branża" : "Industry"),
+      { target: { value: "medicine" } },
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name:
+          locale === "pl"
+            ? "Dodaj: Ścieżka konsultacji"
+            : "Add: Consultation pathway",
+      }),
+    );
+    expect(
+      screen.getByTestId("live-canvas").querySelectorAll("[data-block-type]"),
+    ).toHaveLength(2);
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: locale === "pl" ? "Cofnij" : "Undo",
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("live-canvas").querySelectorAll("[data-block-type]"),
+      ).toHaveLength(1),
+    );
+    // Contextual dialog can coexist with the rail without duplicate field IDs.
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: locale === "pl" ? "Dodaj sekcję poniżej" : "Add section below",
+      }),
+    );
+    await screen.findByRole("dialog");
+    const ids = [...document.querySelectorAll("[id]")].map(
+      (element) => element.id,
+    );
+    expect(new Set(ids).size).toBe(ids.length);
+  },
+);

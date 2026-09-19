@@ -1,5 +1,27 @@
 # Handoff następnej sesji
 
+## Site Studio — biblioteka, płótno i inspektor, 2026-09-19
+
+Edytor ma trzy kolumny od 1536 px, dwie od 1280 px i układ pionowy poniżej.
+Biblioteka jest stale widoczna na szerokim ekranie, a na mniejszych rozwijana.
+Boczny katalog i okno kontekstowe współdzielą karty, filtry i podgląd; ID pól
+nie kolidują. Dodawanie z panelu wstawia za zaznaczoną sekcją i podlega undo.
+Biblioteka i inspektor mają własne przewijanie na szerokim ekranie.
+
+Dowody: pełny frontend 165/165, edytor 26/26 (PL/EN, axe, wstawianie, undo,
+jednoczesny panel i dialog), typecheck i lint frontendu, format oraz API bez
+driftu. Testy przeglądarkowe używają rzeczywistych komponentów z fixture API;
+nie są dowodem wdrożenia. Chromium potwierdza trzy kolumny przy 1720 px,
+wstawianie i undo, mobilne zwijanie oraz brak przepełnienia strony i biblioteki
+przy 1720/1280/390 px. Artefakty: `.runtime/site-studio/workspace-layout/`.
+Szczegóły układu: docs/architecture/site-studio-editor.md.
+
+Faza 3 nadal doing: pozostaje odbiór zalogowanego panelu i publikacji na
+stacku. Następnie faza 4 (własne szablony) oraz rozwinięcie katalogu według
+planu Memex `saas-core-site-studio-templates`. AI pozostaje odroczoną fazą 8.
+Nie wykonano deploymentu ani aktualizacji repozytoriów produktów.
+
+
 ## Site Studio — prywatny podgląd mediów, 2026-09-19
 
 Canvas i zapisany podgląd pobierają przetworzony WebP przez nowy chroniony
