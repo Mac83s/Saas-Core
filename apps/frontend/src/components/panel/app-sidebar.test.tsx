@@ -118,6 +118,7 @@ describe("menu panelu", () => {
       "/panel",
       "/panel/calendar",
       "/panel/farms",
+      "/panel/animals",
       "/panel/settings/account",
     ]);
   });

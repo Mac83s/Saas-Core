@@ -4,6 +4,7 @@ import {
   Globe2Icon,
   HomeIcon,
   MessageSquareTextIcon,
+  PawPrintIcon,
   SettingsIcon,
   UsersIcon,
   WarehouseIcon,
@@ -132,6 +133,15 @@ const WORK: PanelNavItem[] = [
     href: "/panel/farms",
     icon: WarehouseIcon,
     labelKey: "farms",
+    group: "work",
+    module: "shared.farms",
+    permission: "farms.read",
+  },
+  {
+    // Every farm's animals at once: how a trimmer looks for one ear tag.
+    href: "/panel/animals",
+    icon: PawPrintIcon,
+    labelKey: "animals",
     group: "work",
     module: "shared.farms",
     permission: "farms.read",
