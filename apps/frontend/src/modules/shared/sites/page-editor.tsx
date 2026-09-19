@@ -98,6 +98,8 @@ import {
   type BlockOption,
 } from "./block-form";
 import { mutationKey, type MutationReceipt } from "./idempotency";
+import { SectionCanvas } from "./section-canvas";
+import { useDraftHistory } from "./draft-history";
 import { SectionLibrary } from "./section-library";
 import { PageUrlDialog } from "./page-url";
 import { sitesErrorMessage } from "./problem";
@@ -265,6 +267,14 @@ export function PageEditor({
     defaultValues: emptyTranslation(),
   });
   const blocks = useFieldArray({ control: draftForm.control, name: "blocks" });
+  const liveBlocks = useWatch({ control: draftForm.control, name: "blocks" });
+  const history = useDraftHistory(draftForm);
+  const [visual, setVisual] = useState(true);
+  const [selectedSection, setSelectedSection] = useState(0);
+  const activeSection = Math.min(
+    selectedSection,
+    Math.max(0, blocks.fields.length - 1),
+  );
   const selectedMediaIds = useWatch({
     control: draftForm.control,
     name: "media_asset_ids",
@@ -572,7 +582,12 @@ export function PageEditor({
           <form
             className="space-y-5"
             onSubmit={(event) => {
-              void draftForm.handleSubmit(handleSaveDraft)(event);
+              void draftForm.handleSubmit(handleSaveDraft, (errors) => {
+                const first = Object.keys(errors.blocks ?? {}).find((key) =>
+                  /^\d+$/.test(key),
+                );
+                if (first !== undefined) setSelectedSection(Number(first));
+              })(event);
             }}
           >
             {draftConflict && (
@@ -593,134 +608,76 @@ export function PageEditor({
               </div>
             )}
 
-            <SectionLibrary onAdd={(block) => blocks.append(block)} />
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-              <Field className="flex-1">
-                <FieldLabel htmlFor="block-picker">{t("addBlock")}</FieldLabel>
-                <Combobox
-                  isItemEqualToValue={(item, value) => item.type === value.type}
-                  itemToStringLabel={(item) => t(item.labelKey)}
-                  itemToStringValue={(item) => item.type}
-                  items={blockOptions}
-                  onValueChange={setSelectedBlock}
-                  value={selectedBlock}
+            <fieldset
+              disabled={loading || draftForm.formState.isSubmitting}
+              className="min-w-0 space-y-5"
+            >
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  aria-pressed={visual}
+                  onClick={() => setVisual(true)}
                 >
-                  <ComboboxInput
-                    id="block-picker"
-                    placeholder={t("searchBlocks")}
-                    triggerLabel={t("openOptions")}
-                  />
-                  <ComboboxContent>
-                    <ComboboxEmpty>{t("noBlocks")}</ComboboxEmpty>
-                    <ComboboxList>
-                      {blockOptions.map((option) => (
-                        <ComboboxItem key={option.type} value={option}>
-                          {t(option.labelKey)}
-                        </ComboboxItem>
-                      ))}
-                    </ComboboxList>
-                  </ComboboxContent>
-                </Combobox>
-              </Field>
-              <Button
-                disabled={!selectedBlock}
-                onClick={() => {
-                  if (!selectedBlock) return;
-                  blocks.append(emptyBlock(selectedBlock.type));
-                  setSelectedBlock(null);
-                }}
-                type="button"
-                variant="outline"
-              >
-                <PlusIcon aria-hidden="true" />
-                {t("add")}
-              </Button>
-            </div>
-
-            <div className="space-y-4">
-              {blocks.fields.length === 0 && (
-                <div className="space-y-4 rounded-lg border border-dashed p-4">
-                  <p className="text-sm text-muted-foreground">
-                    {t("emptyBlocks")}
-                  </p>
-                  <div>
-                    <h3 className="font-medium">{t("startFromTemplate")}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {t("startFromTemplateDescription")}
-                    </p>
-                  </div>
-                  <ul className="grid gap-3 sm:grid-cols-3">
-                    {pageTemplates.map((template) => (
-                      <li key={template.id}>
-                        <TemplateOption
-                          closeLabel={common("close")}
-                          loading={loading}
-                          locale={templateLocale}
-                          onApply={() => void applyTemplate(template)}
-                          previewLabel={t("previewTemplate")}
-                          previewTitle={t("previewNamedTemplate", {
-                            name: template.labels[templateLocale].name,
-                          })}
-                          template={template}
-                          thumbnailLabel={t("templateThumbnail", {
-                            name: template.labels[templateLocale].name,
-                          })}
-                          useLabel={t("useNamedTemplate", {
-                            name: template.labels[templateLocale].name,
-                          })}
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {blocks.fields.map((field, index) => (
-                <BlockFields
-                  assets={assets}
-                  form={draftForm}
-                  index={index}
-                  key={field.id}
-                  moveDown={() => blocks.swap(index, index + 1)}
-                  moveUp={() => blocks.swap(index, index - 1)}
-                  onRemove={() => blocks.remove(index)}
-                  type={field.block_type}
-                  isFirst={index === 0}
-                  isLast={index === blocks.fields.length - 1}
-                />
-              ))}
-            </div>
-
-            <div className="space-y-3 rounded-lg border p-4">
-              <div>
-                <h3 className="font-medium">{t("media")}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {t("mediaDescription")}
-                </p>
+                  {t("studio.visual")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  aria-pressed={!visual}
+                  onClick={() => setVisual(false)}
+                >
+                  {t("studio.forms")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!history.canUndo}
+                  onClick={history.undo}
+                >
+                  {t("studio.undo")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!history.canRedo}
+                  onClick={history.redo}
+                >
+                  {t("studio.redo")}
+                </Button>
               </div>
+              <SectionLibrary
+                onAdd={(block) => {
+                  blocks.append(block);
+                  setSelectedSection(blocks.fields.length);
+                }}
+              />
               <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
                 <Field className="flex-1">
-                  <FieldLabel htmlFor="media-picker">
-                    {t("chooseMedia")}
+                  <FieldLabel htmlFor="block-picker">
+                    {t("addBlock")}
                   </FieldLabel>
                   <Combobox
-                    isItemEqualToValue={(item, value) => item.id === value.id}
-                    itemToStringLabel={(item) => item.original_filename}
-                    itemToStringValue={(item) => item.id}
-                    items={selectableAssets}
-                    onValueChange={setAssetOption}
-                    value={assetOption}
+                    isItemEqualToValue={(item, value) =>
+                      item.type === value.type
+                    }
+                    itemToStringLabel={(item) => t(item.labelKey)}
+                    itemToStringValue={(item) => item.type}
+                    items={blockOptions}
+                    onValueChange={setSelectedBlock}
+                    value={selectedBlock}
                   >
                     <ComboboxInput
-                      id="media-picker"
-                      placeholder={t("searchMedia")}
+                      id="block-picker"
+                      placeholder={t("searchBlocks")}
                       triggerLabel={t("openOptions")}
                     />
                     <ComboboxContent>
-                      <ComboboxEmpty>{t("noReadyMedia")}</ComboboxEmpty>
+                      <ComboboxEmpty>{t("noBlocks")}</ComboboxEmpty>
                       <ComboboxList>
-                        {selectableAssets.map((asset) => (
-                          <ComboboxItem key={asset.id} value={asset}>
-                            {asset.original_filename}
+                        {blockOptions.map((option) => (
+                          <ComboboxItem key={option.type} value={option}>
+                            {t(option.labelKey)}
                           </ComboboxItem>
                         ))}
                       </ComboboxList>
@@ -728,15 +685,12 @@ export function PageEditor({
                   </Combobox>
                 </Field>
                 <Button
-                  disabled={!assetOption}
+                  disabled={!selectedBlock}
                   onClick={() => {
-                    if (!assetOption) return;
-                    draftForm.setValue(
-                      "media_asset_ids",
-                      [...selectedMediaIds, assetOption.id],
-                      { shouldDirty: true },
-                    );
-                    setAssetOption(null);
+                    if (!selectedBlock) return;
+                    blocks.append(emptyBlock(selectedBlock.type));
+                    setSelectedSection(blocks.fields.length);
+                    setSelectedBlock(null);
                   }}
                   type="button"
                   variant="outline"
@@ -745,79 +699,237 @@ export function PageEditor({
                   {t("add")}
                 </Button>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {selectedMediaIds.map((assetId) => {
-                  const asset = assets.find((item) => item.id === assetId);
-                  return (
-                    <Badge key={assetId} variant="secondary">
-                      {asset?.original_filename ?? assetId}
-                      <button
-                        aria-label={t("removeMedia", {
-                          name: asset?.original_filename ?? assetId,
-                        })}
-                        className="ml-1 rounded p-0.5 hover:bg-background"
-                        onClick={() =>
-                          draftForm.setValue(
-                            "media_asset_ids",
-                            selectedMediaIds.filter((id) => id !== assetId),
-                            { shouldDirty: true },
-                          )
-                        }
-                        type="button"
-                      >
-                        <Trash2Icon aria-hidden="true" className="size-3" />
-                      </button>
-                    </Badge>
-                  );
-                })}
-              </div>
-              <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-                <Field>
-                  <FieldLabel htmlFor="media-upload">
-                    {t("uploadImage")}
-                  </FieldLabel>
-                  <Input
-                    accept="image/jpeg,image/png,image/webp"
-                    id="media-upload"
-                    onChange={(event) => setFile(event.target.files?.[0])}
-                    type="file"
+
+              <div className="space-y-4">
+                {blocks.fields.length === 0 && (
+                  <div className="space-y-4 rounded-lg border border-dashed p-4">
+                    <p className="text-sm text-muted-foreground">
+                      {t("emptyBlocks")}
+                    </p>
+                    <div>
+                      <h3 className="font-medium">{t("startFromTemplate")}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {t("startFromTemplateDescription")}
+                      </p>
+                    </div>
+                    <ul className="grid gap-3 sm:grid-cols-3">
+                      {pageTemplates.map((template) => (
+                        <li key={template.id}>
+                          <TemplateOption
+                            closeLabel={common("close")}
+                            loading={loading}
+                            locale={templateLocale}
+                            onApply={() => void applyTemplate(template)}
+                            previewLabel={t("previewTemplate")}
+                            previewTitle={t("previewNamedTemplate", {
+                              name: template.labels[templateLocale].name,
+                            })}
+                            template={template}
+                            thumbnailLabel={t("templateThumbnail", {
+                              name: template.labels[templateLocale].name,
+                            })}
+                            useLabel={t("useNamedTemplate", {
+                              name: template.labels[templateLocale].name,
+                            })}
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {visual && blocks.fields.length > 0 ? (
+                  <SectionCanvas
+                    blocks={liveBlocks}
+                    selected={activeSection}
+                    onSelect={setSelectedSection}
+                    inspector={
+                      <>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            blocks.insert(
+                              activeSection + 1,
+                              structuredClone(
+                                draftForm.getValues(`blocks.${activeSection}`),
+                              ),
+                            );
+                            setSelectedSection(activeSection + 1);
+                          }}
+                        >
+                          {t("studio.duplicate")}
+                        </Button>
+                        <BlockFields
+                          assets={assets}
+                          form={draftForm}
+                          index={activeSection}
+                          key={blocks.fields[activeSection].id}
+                          type={blocks.fields[activeSection].block_type}
+                          isFirst={activeSection === 0}
+                          isLast={activeSection === blocks.fields.length - 1}
+                          moveUp={() => {
+                            blocks.swap(activeSection, activeSection - 1);
+                            setSelectedSection(activeSection - 1);
+                          }}
+                          moveDown={() => {
+                            blocks.swap(activeSection, activeSection + 1);
+                            setSelectedSection(activeSection + 1);
+                          }}
+                          onRemove={() => blocks.remove(activeSection)}
+                        />
+                      </>
+                    }
                   />
-                </Field>
+                ) : (
+                  <>
+                    {" "}
+                    {blocks.fields.map((field, index) => (
+                      <BlockFields
+                        assets={assets}
+                        form={draftForm}
+                        index={index}
+                        key={field.id}
+                        moveDown={() => blocks.swap(index, index + 1)}
+                        moveUp={() => blocks.swap(index, index - 1)}
+                        onRemove={() => blocks.remove(index)}
+                        type={field.block_type}
+                        isFirst={index === 0}
+                        isLast={index === blocks.fields.length - 1}
+                      />
+                    ))}
+                  </>
+                )}
+              </div>
+
+              <div className="space-y-3 rounded-lg border p-4">
+                <div>
+                  <h3 className="font-medium">{t("media")}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {t("mediaDescription")}
+                  </p>
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                  <Field className="flex-1">
+                    <FieldLabel htmlFor="media-picker">
+                      {t("chooseMedia")}
+                    </FieldLabel>
+                    <Combobox
+                      isItemEqualToValue={(item, value) => item.id === value.id}
+                      itemToStringLabel={(item) => item.original_filename}
+                      itemToStringValue={(item) => item.id}
+                      items={selectableAssets}
+                      onValueChange={setAssetOption}
+                      value={assetOption}
+                    >
+                      <ComboboxInput
+                        id="media-picker"
+                        placeholder={t("searchMedia")}
+                        triggerLabel={t("openOptions")}
+                      />
+                      <ComboboxContent>
+                        <ComboboxEmpty>{t("noReadyMedia")}</ComboboxEmpty>
+                        <ComboboxList>
+                          {selectableAssets.map((asset) => (
+                            <ComboboxItem key={asset.id} value={asset}>
+                              {asset.original_filename}
+                            </ComboboxItem>
+                          ))}
+                        </ComboboxList>
+                      </ComboboxContent>
+                    </Combobox>
+                  </Field>
+                  <Button
+                    disabled={!assetOption}
+                    onClick={() => {
+                      if (!assetOption) return;
+                      draftForm.setValue(
+                        "media_asset_ids",
+                        [...selectedMediaIds, assetOption.id],
+                        { shouldDirty: true },
+                      );
+                      setAssetOption(null);
+                    }}
+                    type="button"
+                    variant="outline"
+                  >
+                    <PlusIcon aria-hidden="true" />
+                    {t("add")}
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {selectedMediaIds.map((assetId) => {
+                    const asset = assets.find((item) => item.id === assetId);
+                    return (
+                      <Badge key={assetId} variant="secondary">
+                        {asset?.original_filename ?? assetId}
+                        <button
+                          aria-label={t("removeMedia", {
+                            name: asset?.original_filename ?? assetId,
+                          })}
+                          className="ml-1 rounded p-0.5 hover:bg-background"
+                          onClick={() =>
+                            draftForm.setValue(
+                              "media_asset_ids",
+                              selectedMediaIds.filter((id) => id !== assetId),
+                              { shouldDirty: true },
+                            )
+                          }
+                          type="button"
+                        >
+                          <Trash2Icon aria-hidden="true" className="size-3" />
+                        </button>
+                      </Badge>
+                    );
+                  })}
+                </div>
+                <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                  <Field>
+                    <FieldLabel htmlFor="media-upload">
+                      {t("uploadImage")}
+                    </FieldLabel>
+                    <Input
+                      accept="image/jpeg,image/png,image/webp"
+                      id="media-upload"
+                      onChange={(event) => setFile(event.target.files?.[0])}
+                      type="file"
+                    />
+                  </Field>
+                  <Button
+                    disabled={!file || loading}
+                    onClick={() => void uploadFile()}
+                    type="button"
+                    variant="outline"
+                  >
+                    <ImagePlusIcon aria-hidden="true" />
+                    {t("upload")}
+                  </Button>
+                </div>
+                {uploadStatus && (
+                  <p className="text-sm text-muted-foreground" role="status">
+                    {uploadStatus}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                <Button disabled={loading || draftConflict} type="submit">
+                  <SaveIcon aria-hidden="true" />
+                  {t("saveDraft")}
+                </Button>
                 <Button
-                  disabled={!file || loading}
-                  onClick={() => void uploadFile()}
+                  disabled={loading || !draft?.draft_id}
+                  onClick={() => void showPreview()}
                   type="button"
                   variant="outline"
                 >
-                  <ImagePlusIcon aria-hidden="true" />
-                  {t("upload")}
+                  <EyeIcon aria-hidden="true" />
+                  {t("preview")}
                 </Button>
+                <Badge variant="outline">
+                  {t("versionValue", { version: draft?.version ?? 0 })}
+                </Badge>
               </div>
-              {uploadStatus && (
-                <p className="text-sm text-muted-foreground" role="status">
-                  {uploadStatus}
-                </p>
-              )}
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <Button disabled={loading || draftConflict} type="submit">
-                <SaveIcon aria-hidden="true" />
-                {t("saveDraft")}
-              </Button>
-              <Button
-                disabled={loading || !draft?.draft_id}
-                onClick={() => void showPreview()}
-                type="button"
-                variant="outline"
-              >
-                <EyeIcon aria-hidden="true" />
-                {t("preview")}
-              </Button>
-              <Badge variant="outline">
-                {t("versionValue", { version: draft?.version ?? 0 })}
-              </Badge>
-            </div>
+            </fieldset>
           </form>
         </CardContent>
       </Card>

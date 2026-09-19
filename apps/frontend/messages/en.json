@@ -688,6 +688,17 @@
       "mobileBehavior": "Columns stack on narrow screens. All content remains available.",
       "layout": "Section layout",
       "preservesContent": "Changing the layout preserves your content."
+    },
+    "studio": {
+      "visual": "Visual editor",
+      "forms": "Forms",
+      "undo": "Undo",
+      "redo": "Redo",
+      "duplicate": "Duplicate section",
+      "liveDescription": "Changes appear immediately. Save the draft to keep them.",
+      "incomplete": "Complete the required section fields in the inspector.",
+      "selectSection": "Edit section {number}: {name}",
+      "inspector": "Selected section inspector"
     }
   },
   "BillingSupport": {

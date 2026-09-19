@@ -1,5 +1,35 @@
 # Handoff następnej sesji
 
+## Site Studio — podgląd na żywo i lokalna historia, 2026-09-19
+
+Domyślny tryb edytora strony pokazuje kanoniczny renderer sekcji oraz jeden
+inspektor. Wybór sekcji działa kliknięciem i klawiaturą; zmiany formularza
+od razu odświeżają canvas. Dostępne są powielanie, przestawianie przyciskami,
+usuwanie, trzy szerokości podglądu i przełącznik do wszystkich formularzy.
+Niepełna sekcja pokazuje placeholder; nie blokuje edycji pozostałych.
+Walidacja zapisu wskazuje pierwszą błędną sekcję.
+
+RHF pozostaje jedynym stanem edytowanej treści. Lokalna historia obejmuje
+bloki i referencje mediów, przechowuje do 100 kroków, grupuje wpisywanie
+w jednym polu przez 600 ms i odcina redo po nowej zmianie. Pobranie, import
+lub udany zapis rozpoczynają nową historię. Konflikt 409 zachowuje treść
+i historię. Edycja jest blokowana podczas zapisu. Publikacja i API bez zmian.
+
+Dowody: frontend 155/155 (20 testów edytora), TypeScript, ESLint zmienionych
+plików i kontrola driftu OpenAPI. Axe PL/EN bez kontroli kontrastu w jsdom.
+Chromium: edycja, undo/redo, powielanie, wybór Enterem, granica historii po
+zapisie, brak przepełnienia dokumentu przy 1440/390 px. Fixture używa
+prawdziwego PageEditor i renderera, syntetycznych danych i stubów API;
+nie jest odbiorem zalogowanego panelu. Zrzuty i skrypty lokalnie:
+`.runtime/site-studio/visual-editor/`. Backend: 726 zaliczonych / 2 pominięte, testowa baza 55432.
+
+Faza 3 pozostaje w toku: prototyp porównawczy Puck, przeciąganie przez
+prymitywy UI, inline text, docelowy układ biblioteka/canvas/inspektor,
+podgląd prywatnych mediów i odbiór na stacku są otwarte. Nie dodano
+zależności od zewnętrznego edytora; przyrost nie przesądza jego wyboru.
+Nie wykonano wdrożenia ani synchronizacji produktów. Następny krok:
+dokończyć interakcje fazy 3 i potwierdzić je na zalogowanym /panel/sites.
+
 ## Site Studio — pierwszy katalog wariantów, 2026-09-19
 
 W `/panel/sites` dodano bibliotekę 15 sekcji: 9 wariantów domyślnych (hero,

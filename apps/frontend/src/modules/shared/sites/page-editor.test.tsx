@@ -564,8 +564,9 @@ function renderEditor(
   locale: "pl" | "en",
   messages: typeof polishMessages | typeof englishMessages,
   onChanged: () => Promise<void>,
+  visual = false,
 ) {
-  return render(
+  const result = render(
     <NextIntlClientProvider
       locale={locale}
       messages={messages}
@@ -574,6 +575,13 @@ function renderEditor(
       <PageEditor onChanged={onChanged} page={page} />
     </NextIntlClientProvider>,
   );
+  if (!visual)
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: locale === "pl" ? "Formularze" : "Forms",
+      }),
+    );
+  return result;
 }
 
 test("biblioteka filtruje branżę, zachowuje bazę i zapisuje wybraną sekcję", async () => {
@@ -645,3 +653,79 @@ test("biblioteka EN pokazuje opis, dostępny podgląd i angielską treść", asy
     (screen.getAllByLabelText("Heading")[1] as HTMLInputElement).value,
   ).toBe("Service cards");
 });
+
+test("visual canvas follows edits, undo/redo and section duplication without saving", async () => {
+  renderEditor(
+    "pl",
+    polishMessages,
+    vi.fn().mockResolvedValue(undefined),
+    true,
+  );
+  const heading = await screen.findByLabelText("Nagłówek");
+  expect(
+    (screen.getByRole("button", { name: "Cofnij" }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true);
+  fireEvent.change(heading, { target: { value: "Treść na żywo" } });
+  expect(screen.getByTestId("live-canvas").textContent).toContain(
+    "Treść na żywo",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Cofnij" }));
+  expect(screen.getByTestId("live-canvas").textContent).toContain(
+    "Stary nagłówek",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Ponów" }));
+  expect(screen.getByTestId("live-canvas").textContent).toContain(
+    "Treść na żywo",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Powiel sekcję" }));
+  expect(screen.getAllByRole("button", { name: /Edytuj sekcję/ })).toHaveLength(
+    2,
+  );
+  fireEvent.change(screen.getByLabelText("Nagłówek"), {
+    target: { value: "Druga sekcja" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /Edytuj sekcję 1:/ }));
+  expect((screen.getByLabelText("Nagłówek") as HTMLInputElement).value).toBe(
+    "Treść na żywo",
+  );
+  expect(savePageDraft).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Cofnij" }));
+  fireEvent.click(screen.getByRole("button", { name: "Cofnij" }));
+  expect(screen.getAllByRole("button", { name: /Edytuj sekcję/ })).toHaveLength(
+    1,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Ponów" }));
+  expect(screen.getAllByRole("button", { name: /Edytuj sekcję/ })).toHaveLength(
+    2,
+  );
+});
+
+test.each([
+  ["pl", polishMessages],
+  ["en", englishMessages],
+] as const)(
+  "visual editor is accessible in %s and handles incomplete content",
+  async (locale, messages) => {
+    const result = renderEditor(
+      locale,
+      messages,
+      vi.fn().mockResolvedValue(undefined),
+      true,
+    );
+    const heading = await screen.findByLabelText(
+      locale === "pl" ? "Nagłówek" : "Heading",
+    );
+    fireEvent.change(heading, { target: { value: "" } });
+    expect(screen.getByTestId("live-canvas").textContent).toContain(
+      messages.Sites.studio.incomplete,
+    );
+    expect(
+      (
+        await axe.run(result.container, {
+          rules: { "color-contrast": { enabled: false } },
+        })
+      ).violations,
+    ).toEqual([]);
+  },
+);
