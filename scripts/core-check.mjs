@@ -22,6 +22,8 @@ const PRODUCT_OWNED = [
   "README.md",
   ".mcp.json",
   "apps/frontend/src/product/",
+  // Which skill covers the product's own vertical module (`pnpm ai:eval`).
+  ".agents/evals/routing.product.json",
   // Generated for the product's own profile. After a merge, regenerate them
   // (`pnpm api:schema`, `pnpm deployment:render`) instead of resolving by hand.
   "packages/contracts/openapi/v1.yaml",

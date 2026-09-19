@@ -25,6 +25,15 @@ const repositoryRoot = path.resolve(
 
 const CANONICAL_ROOT = path.join(repositoryRoot, ".agents/skills");
 const EVALS = path.join(repositoryRoot, ".agents/evals/routing.json");
+/**
+ * A product repository (ADR-049) adds its own vertical module, and this file
+ * is core, so it cannot name it. Coverage for the product's modules lives in
+ * its own slot next to it.
+ */
+const PRODUCT_EVALS = path.join(
+  repositoryRoot,
+  ".agents/evals/routing.product.json",
+);
 const MODULES = path.join(repositoryRoot, "packages/contracts/modules");
 
 const problems = [];
@@ -59,6 +68,10 @@ const score = (haystack, terms) =>
 
 async function main() {
   const evals = JSON.parse(await readFile(EVALS, "utf8"));
+  const product = await readFile(PRODUCT_EVALS, "utf8").catch(() => null);
+  if (product !== null) {
+    Object.assign(evals.coverage, JSON.parse(product).coverage);
+  }
   const descriptions = await skillDescriptions();
   const seen = new Set();
 

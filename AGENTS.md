@@ -90,7 +90,9 @@ repozytorium założone jako kopia Saas-Core, z Saas-Core jako `upstream`.
 - Produkt rozszerza rdzeń przez: deskryptor modułu (`urlPrefix`, `roleGrants`,
   `appointmentKinds`, `entitlements`, `middleware`, `beatSchedule`), własne migracje wertykału (uprawnienia
   ról, cechy planów), slot `apps/frontend/src/product/index.ts` (menu,
-  tłumaczenia, treść stron marketingowych), `product.json` (profile repozytorium).
+  tłumaczenia, treść stron marketingowych), `product.json` (profile repozytorium),
+  `.agents/evals/routing.product.json` (który skill obsługuje moduł wertykału —
+  bez tego wpisu `pnpm ai:eval` zgłasza moduł bez pokrycia).
 - Brakuje punktu rozszerzenia? Dodaj go w Saas-Core, zamiast nazywać produkt w
   rdzeniu.
 
