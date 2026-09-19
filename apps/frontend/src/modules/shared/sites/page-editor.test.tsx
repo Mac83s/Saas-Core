@@ -729,3 +729,40 @@ test.each([
     ).toEqual([]);
   },
 );
+
+test("moving a section by keyboard follows its inspector and is one undo step", async () => {
+  renderEditor(
+    "pl",
+    polishMessages,
+    vi.fn().mockResolvedValue(undefined),
+    true,
+  );
+  await screen.findByLabelText("Nagłówek");
+  fireEvent.click(screen.getByRole("button", { name: "Powiel sekcję" }));
+  fireEvent.change(screen.getByLabelText("Nagłówek"), {
+    target: { value: "Druga sekcja" },
+  });
+  fireEvent.keyDown(screen.getByRole("button", { name: "Przenieś sekcję 2" }), {
+    key: "ArrowUp",
+  });
+  expect(
+    screen.getByTestId("live-canvas").querySelector("h1")?.textContent,
+  ).toBe("Druga sekcja");
+  expect((screen.getByLabelText("Nagłówek") as HTMLInputElement).value).toBe(
+    "Druga sekcja",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Cofnij" }));
+  expect(
+    screen.getByTestId("live-canvas").querySelector("h1")?.textContent,
+  ).toBe("Stary nagłówek");
+  fireEvent.click(screen.getByRole("button", { name: "Ponów" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
+  );
+  await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
+  expect(
+    savePageDraft.mock.calls[0]?.[1].blocks.map(
+      (block: { data: { title: string } }) => block.data.title,
+    ),
+  ).toEqual(["Druga sekcja", "Stary nagłówek"]);
+});

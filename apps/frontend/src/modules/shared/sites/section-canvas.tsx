@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
+import { ReorderList } from "@saas-core/ui/components/reorder-list";
 import { Button } from "@saas-core/ui/components/button";
 import {
   blockOptions,
@@ -15,8 +16,14 @@ export function SectionCanvas({
   selected,
   onSelect,
   inspector,
+  blockIds,
+  onMove,
+  disabled,
 }: {
   blocks: BlockFormValues[];
+  blockIds: string[];
+  onMove: (from: number, to: number) => void;
+  disabled: boolean;
   selected: number;
   onSelect: (index: number) => void;
   inspector: ReactNode;
@@ -40,7 +47,7 @@ export function SectionCanvas({
             key={value}
             type="button"
             size="sm"
-            variant="outline"
+            variant={viewport === value ? "default" : "outline"}
             aria-pressed={viewport === value}
             onClick={() => setViewport(value)}
           >
@@ -64,42 +71,64 @@ export function SectionCanvas({
               minHeight: 200,
             }}
           >
-            {blocks.map((block, index) => {
-              let rendered: ReactNode;
-              try {
-                rendered = registry.render(blockPayload(block), String(index));
-              } catch {
-                rendered = (
-                  <p className="p-6 text-sm text-muted-foreground">
-                    {t("studio.incomplete")}
-                  </p>
-                );
+            <ReorderList
+              items={blocks.map((block, index) => ({
+                id: blockIds[index],
+                block,
+              }))}
+              label={t("studio.sections")}
+              instructions={t("studio.reorderInstructions")}
+              handleLabel={(_item, index) =>
+                t("studio.reorderSection", { number: index + 1 })
               }
-              const label = t(
-                blockOptions.find((option) => option.type === block.block_type)
-                  ?.labelKey ?? "addBlock",
-              );
-              return (
-                <div
-                  key={index}
-                  className={`relative rounded border-2 ${selected === index ? "border-primary" : "border-transparent"}`}
-                >
-                  <div aria-hidden="true" inert>
-                    {rendered}
+              movedLabel={(_item, position, count) =>
+                t("studio.movedSection", { position, count })
+              }
+              onMove={onMove}
+              disabled={disabled}
+            >
+              {({ block }, index, handle) => {
+                let rendered: ReactNode;
+                try {
+                  rendered = registry.render(
+                    blockPayload(block),
+                    String(index),
+                  );
+                } catch {
+                  rendered = (
+                    <p className="p-6 text-sm text-muted-foreground">
+                      {t("studio.incomplete")}
+                    </p>
+                  );
+                }
+                const label = t(
+                  blockOptions.find(
+                    (option) => option.type === block.block_type,
+                  )?.labelKey ?? "addBlock",
+                );
+                return (
+                  <div
+                    key={index}
+                    className={`relative rounded border-2 ${selected === index ? "border-primary" : "border-transparent"}`}
+                  >
+                    <div className="absolute right-2 top-2 z-10">{handle}</div>
+                    <div aria-hidden="true" inert>
+                      {rendered}
+                    </div>
+                    <button
+                      type="button"
+                      className="absolute inset-0 cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                      aria-label={t("studio.selectSection", {
+                        number: index + 1,
+                        name: label,
+                      })}
+                      aria-pressed={selected === index}
+                      onClick={() => onSelect(index)}
+                    />
                   </div>
-                  <button
-                    type="button"
-                    className="absolute inset-0 cursor-pointer rounded focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                    aria-label={t("studio.selectSection", {
-                      number: index + 1,
-                      name: label,
-                    })}
-                    aria-pressed={selected === index}
-                    onClick={() => onSelect(index)}
-                  />
-                </div>
-              );
-            })}
+                );
+              }}
+            </ReorderList>
           </div>
         </div>
         <div

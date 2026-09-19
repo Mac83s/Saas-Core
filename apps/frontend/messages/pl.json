@@ -698,7 +698,11 @@
       "liveDescription": "Zmiany widoczne na bieżąco. Zapisz wersję roboczą, aby je zachować.",
       "incomplete": "Uzupełnij wymagane pola sekcji w panelu edycji.",
       "selectSection": "Edytuj sekcję {number}: {name}",
-      "inspector": "Edycja wybranej sekcji"
+      "inspector": "Edycja wybranej sekcji",
+      "sections": "Sekcje strony",
+      "reorderInstructions": "Przeciągnij sekcję lub użyj strzałek w górę i w dół na uchwycie.",
+      "reorderSection": "Przenieś sekcję {number}",
+      "movedSection": "Sekcja przeniesiona na pozycję {position} z {count}."
     }
   },
   "BillingSupport": {

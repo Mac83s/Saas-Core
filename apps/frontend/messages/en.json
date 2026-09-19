@@ -698,7 +698,11 @@
       "liveDescription": "Changes appear immediately. Save the draft to keep them.",
       "incomplete": "Complete the required section fields in the inspector.",
       "selectSection": "Edit section {number}: {name}",
-      "inspector": "Selected section inspector"
+      "inspector": "Selected section inspector",
+      "sections": "Page sections",
+      "reorderInstructions": "Drag a section or use the up and down arrows on its handle.",
+      "reorderSection": "Move section {number}",
+      "movedSection": "Section moved to position {position} of {count}."
     }
   },
   "BillingSupport": {

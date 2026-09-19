@@ -740,6 +740,12 @@ export function PageEditor({
                 {visual && blocks.fields.length > 0 ? (
                   <SectionCanvas
                     blocks={liveBlocks}
+                    blockIds={blocks.fields.map((field) => field.id)}
+                    disabled={loading || draftForm.formState.isSubmitting}
+                    onMove={(from, to) => {
+                      blocks.move(from, to);
+                      setSelectedSection(to);
+                    }}
                     selected={activeSection}
                     onSelect={setSelectedSection}
                     inspector={
@@ -782,7 +788,6 @@ export function PageEditor({
                   />
                 ) : (
                   <>
-                    {" "}
                     {blocks.fields.map((field, index) => (
                       <BlockFields
                         assets={assets}

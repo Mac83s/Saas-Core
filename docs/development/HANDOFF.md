@@ -1,5 +1,17 @@
 # Handoff następnej sesji
 
+## Site Studio — przestawianie sekcji, 2026-09-19
+
+Canvas używa współdzielonego ReorderList z packages/ui. Drag/drop i strzałki
+na uchwycie przenoszą sekcję przez RHF move (nie zamieniają dwóch pozycji).
+Focus i inspektor podążają za sekcją; komunikat aria-live ogłasza pozycję.
+Zewnętrzne dropy, anulowane gesty i drop podczas zapisu nie zmieniają treści.
+Dotyk ma alternatywę w przyciskach góra/dół inspektora.
+Dowody: UI 3/3, edytor 21/21, typecheck UI/frontend i lint zmian. Chromium
+na fixture: rzeczywisty dragTo z drugiej na pierwszą pozycję i undo, bez
+przepełnienia 1440/390. Nie jest to odbiór zalogowanego panelu.
+
+
 ## Site Studio — podgląd na żywo i lokalna historia, 2026-09-19
 
 Domyślny tryb edytora strony pokazuje kanoniczny renderer sekcji oraz jeden
