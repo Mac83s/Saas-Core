@@ -40,18 +40,18 @@ def with_types(settings: Any, **types: Any) -> None:
 
 
 def business() -> Any:
-    return settings.ORGANIZATION_TYPES["business"]
+    """The profile's default type, renamed `business` — tests below set types
+    themselves, so they hold in Saas-Core and in every product repository."""
+    return replace(settings.ORGANIZATION_TYPES[settings.DEFAULT_ORGANIZATION_TYPE], key="business")
 
 
-def test_a_profile_without_types_has_one_business_type_with_everything() -> None:
-    assert list(settings.ORGANIZATION_TYPES) == ["business"]
-    only = business()
-    assert only.modules == frozenset(
-        module for module in settings.ACTIVE_MODULES if not module.startswith("core.")
-    )
-    assert only.plan_keys == tuple(settings.BILLING_PLAN_KEYS)
-    assert only.self_signup is True
-    assert Organization().organization_type == "business"
+def test_the_profile_types_stay_inside_the_profile() -> None:
+    composed = {module for module in settings.ACTIVE_MODULES if not module.startswith("core.")}
+    assert next(iter(settings.ORGANIZATION_TYPES)) == settings.DEFAULT_ORGANIZATION_TYPE
+    for organization_type in settings.ORGANIZATION_TYPES.values():
+        assert organization_type.modules <= composed
+        assert set(organization_type.plan_keys) <= set(settings.BILLING_PLAN_KEYS)
+    assert Organization().organization_type == settings.DEFAULT_ORGANIZATION_TYPE
 
 
 def test_a_type_may_not_use_a_module_the_profile_does_not_compose() -> None:
@@ -75,6 +75,7 @@ def test_a_type_may_not_use_a_module_the_profile_does_not_compose() -> None:
 def test_a_new_organization_takes_the_only_offered_type_or_a_chosen_one(
     settings: Any,
 ) -> None:
+    with_types(settings, business=business())
     client = APIClient()
     user = active_user()
     login(client, user)
@@ -120,9 +121,13 @@ def test_a_new_organization_takes_the_only_offered_type_or_a_chosen_one(
 
 
 def test_an_organization_cannot_call_a_module_its_type_does_not_have(settings: Any) -> None:
+    with_types(settings, business=business())
     client = APIClient()
     user = active_user()
-    membership_for(user)
+    membership = membership_for(user)
+    Organization.objects.filter(pk=membership.organization_id).update(
+        organization_type="business"
+    )
     login(client, user)
 
     # Billing's overview asks for a permission, not a plan, so it answers any owner.

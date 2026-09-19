@@ -111,6 +111,8 @@ def test_create_organization_is_atomic_creates_owner_and_rotates_session() -> No
         {
             "name": "Nowa firma",
             "slug": "nowa-firma",
+            # Named, so the test holds in a product with several types (ADR-050).
+            "organization_type": settings.DEFAULT_ORGANIZATION_TYPE,
             "workspace_kind": "business",
             "default_locale": "pl",
             "timezone": "Europe/Warsaw",
@@ -138,7 +140,11 @@ def test_create_requires_csrf_and_duplicate_slug_returns_conflict() -> None:
     user = active_user()
     client = APIClient(enforce_csrf_checks=True)
     assert login(client, user).status_code == 200
-    payload = {"name": "ACME", "slug": "acme"}
+    payload = {
+        "name": "ACME",
+        "slug": "acme",
+        "organization_type": settings.DEFAULT_ORGANIZATION_TYPE,
+    }
 
     missing_csrf = client.post(ORGANIZATIONS_URL, payload, format="json")
     created = client.post(

@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from django.conf import settings
 from django.core.cache import cache
 from django.core.management import call_command
 from django.core.management.base import CommandError
@@ -120,7 +121,12 @@ def test_the_create_organization_api_does_not_offer_the_platform_kind() -> None:
 
     refused = client.post(
         "/api/v1/organizations/",
-        {"name": "Podszywacz", "slug": "podszywacz", "workspace_kind": "platform"},
+        {
+            "name": "Podszywacz",
+            "slug": "podszywacz",
+            "workspace_kind": "platform",
+            "organization_type": settings.DEFAULT_ORGANIZATION_TYPE,
+        },
         format="json",
         HTTP_X_CSRFTOKEN=client.cookies["csrftoken"].value,
     )
