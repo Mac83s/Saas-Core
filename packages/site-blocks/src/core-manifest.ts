@@ -49,9 +49,9 @@ export function publicMediaPath(assetId: string): string {
   return `/media/${assetId}`;
 }
 
-function HeroBlock({ data, editor }: BlockComponentProps) {
+function HeroBlock({ data, editor, imageRenderer }: BlockComponentProps) {
   const text = editor?.text ?? plainBlockText;
-  const variant = renderSectionLayout("core.hero", data, editor);
+  const variant = renderSectionLayout("core.hero", data, editor, imageRenderer);
   if (variant) return variant;
   const hero = data as HeroV3Data;
   const action = hero.action;
@@ -67,14 +67,16 @@ function HeroBlock({ data, editor }: BlockComponentProps) {
       text(["title"], hero.title),
     ),
     hero.image
-      ? createElement("img", {
-          alt: hero.image.alt,
-          decoding: "async",
-          // A hero is the first thing on the page, so it is the one image
-          // worth fetching eagerly; everything else can wait.
-          loading: "eager",
-          src: publicMediaPath(hero.image.asset_id),
-        })
+      ? imageRenderer
+        ? imageRenderer(hero.image)
+        : createElement("img", {
+            alt: hero.image.alt,
+            decoding: "async",
+            // A hero is the first thing on the page, so it is the one image
+            // worth fetching eagerly; everything else can wait.
+            loading: "eager",
+            src: publicMediaPath(hero.image.asset_id),
+          })
       : null,
     hero.text ? createElement("p", null, text(["text"], hero.text)) : null,
     action

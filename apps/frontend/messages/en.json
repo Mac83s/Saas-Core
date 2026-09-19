@@ -690,6 +690,9 @@
       "preservesContent": "Changing the layout preserves your content."
     },
     "studio": {
+      "imageLoading": "Loading image…",
+      "imageUnavailable": "Image unavailable. Check whether the file is ready.",
+      "imageRetry": "Try again",
       "visual": "Visual editor",
       "forms": "Forms",
       "undo": "Undo",

@@ -504,3 +504,49 @@ describe("preview landmarks", () => {
     expect(preview).toContain('data-block-type="core.rich_text"');
   });
 });
+
+it.each(["classic", "centered", "split"])(
+  "projects draft images without changing publication markup (%s)",
+  (layout) => {
+    const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
+    const block = {
+      block_type: "core.hero",
+      schema_version: 4,
+      data: {
+        title: "Clinic",
+        layout,
+        image: {
+          asset_id: "00000000-0000-4000-8000-000000000001",
+          alt: "Room",
+        },
+      },
+    };
+    const document = {
+      kind: "draft-preview" as const,
+      versionId: "draft",
+      blocks: [block],
+      designTokens: tokens,
+    };
+    const original = JSON.stringify(block);
+    const draft = renderToStaticMarkup(
+      renderDraftPreview(document, registry, (image) => `private:${image.alt}`),
+    );
+    expect(draft).toContain("private:Room");
+    expect(draft).toContain("<h1>Clinic</h1>");
+    expect(draft).not.toContain("/media/");
+    const publication = renderToStaticMarkup(
+      renderPublishedPage(
+        {
+          ...document,
+          kind: "publication",
+          publicationId: "published",
+          snapshotHash: "a".repeat(64),
+        },
+        registry,
+      ),
+    );
+    expect(publication).toContain(`/media/${block.data.image.asset_id}`);
+    expect(publication).not.toContain("private:");
+    expect(JSON.stringify(block)).toBe(original);
+  },
+);

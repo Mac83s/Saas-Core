@@ -6,6 +6,7 @@ import designTokensSchema from "@saas-core/contracts/site-blocks/design-tokens.v
 import { InvalidDesignTokensError } from "./errors";
 import type {
   BlockRegistry,
+  BlockImageRenderer,
   DesignTokensV1,
   DraftPreviewDocument,
   NavigationLink,
@@ -166,6 +167,7 @@ function renderDocument(
   contentElement: "main" | "div" = "main",
   pagination: IndexPagination | null = null,
   paginationLabels: PaginationLabels = DEFAULT_PAGINATION_LABELS,
+  imageRenderer?: BlockImageRenderer,
 ): ReactElement {
   return createElement(
     "div",
@@ -174,7 +176,9 @@ function renderDocument(
     createElement(
       contentElement,
       null,
-      ...blocks.map((block, index) => registry.render(block, String(index))),
+      ...blocks.map((block, index) =>
+        registry.render(block, String(index), undefined, imageRenderer),
+      ),
       renderPagination(pagination, paginationLabels),
     ),
   );
@@ -183,6 +187,7 @@ function renderDocument(
 export function renderDraftPreview(
   document: DraftPreviewDocument,
   registry: BlockRegistry,
+  imageRenderer?: BlockImageRenderer,
 ): ReactElement {
   if (document.kind !== "draft-preview" || document.versionId.length === 0) {
     throw new TypeError("Preview wymaga jawnej wersji draftu.");
@@ -198,6 +203,9 @@ export function renderDraftPreview(
     [],
     "Menu",
     "div",
+    null,
+    DEFAULT_PAGINATION_LABELS,
+    imageRenderer,
   );
 }
 

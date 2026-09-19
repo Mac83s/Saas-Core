@@ -146,9 +146,16 @@ export type BlockTextRenderer = (
 export interface BlockEditor {
   readonly text: BlockTextRenderer;
 }
+/** Code-only media projection. Publications always use canonical public URLs. */
+export type BlockImageRenderer = (image: {
+  asset_id: string;
+  alt: string;
+}) => ReactNode;
+
 export interface BlockComponentProps {
   data: JsonObject;
   editor?: BlockEditor;
+  imageRenderer?: BlockImageRenderer;
 }
 
 export interface BlockDefinition {
@@ -246,5 +253,10 @@ export interface BlockRegistry {
   readonly definitions: ReadonlyMap<string, BlockDefinition>;
   validate(block: SiteBlock): void;
   migrate(block: SiteBlock): SiteBlock;
-  render(block: SiteBlock, key: string, editor?: BlockEditor): ReactElement;
+  render(
+    block: SiteBlock,
+    key: string,
+    editor?: BlockEditor,
+    imageRenderer?: BlockImageRenderer,
+  ): ReactElement;
 }

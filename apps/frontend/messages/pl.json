@@ -690,6 +690,9 @@
       "preservesContent": "Zmiana układu zachowuje Twoją treść."
     },
     "studio": {
+      "imageLoading": "Ładowanie zdjęcia…",
+      "imageUnavailable": "Nie można wyświetlić zdjęcia. Sprawdź, czy plik jest już gotowy.",
+      "imageRetry": "Spróbuj ponownie",
       "visual": "Edytor wizualny",
       "forms": "Formularze",
       "undo": "Cofnij",

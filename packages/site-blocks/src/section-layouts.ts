@@ -4,6 +4,7 @@ import { plainBlockText } from "./block-text";
 
 import type {
   BlockEditor,
+  BlockImageRenderer,
   FaqV1Data,
   FeatureListV1Data,
   HeroV3Data,
@@ -15,6 +16,7 @@ export function renderSectionLayout(
   type: string,
   data: JsonObject,
   editor?: BlockEditor,
+  imageRenderer?: BlockImageRenderer,
 ): ReactElement | null {
   const text = editor?.text ?? plainBlockText;
   const layout = data.layout;
@@ -50,12 +52,14 @@ export function renderSectionLayout(
         : null,
     );
     const image = hero.image
-      ? h("img", {
-          src: `/media/${hero.image.asset_id}`,
-          alt: hero.image.alt,
-          loading: "eager",
-          decoding: "async",
-        })
+      ? imageRenderer
+        ? imageRenderer(hero.image)
+        : h("img", {
+            src: `/media/${hero.image.asset_id}`,
+            alt: hero.image.alt,
+            loading: "eager",
+            decoding: "async",
+          })
       : null;
     return h(
       "section",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { renderPrivateMedia } from "./private-media-preview";
 import { useTranslations } from "next-intl";
 import type { BlockFieldDefinition } from "@saas-core/site-blocks";
 import { InlineText } from "@saas-core/ui/components/inline-text";
@@ -129,6 +130,7 @@ export function SectionCanvas({
                           },
                         }
                       : undefined,
+                    renderPrivateMedia,
                   );
                 } catch {
                   rendered = (

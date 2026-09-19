@@ -98,6 +98,7 @@ import {
   type BlockOption,
 } from "./block-form";
 import { mutationKey, type MutationReceipt } from "./idempotency";
+import { renderPrivateMedia } from "./private-media-preview";
 import { SectionCanvas } from "./section-canvas";
 import { useDraftHistory } from "./draft-history";
 import { SectionLibrary } from "./section-library";
@@ -557,6 +558,7 @@ export function PageEditor({
         designTokens,
       },
       registry,
+      renderPrivateMedia,
     );
   }, [preview]);
 

@@ -24,7 +24,7 @@ wybrana sekcja otwiera się w inspektorze.
 
 ## Tekst w miejscu
 
-`registry.render(block, key, editor?)` przyjmuje opcjonalny adapter kodu panelu.
+`registry.render(block, key, editor?, imageRenderer?)` przyjmuje opcjonalny adapter kodu panelu.
 Adapter nie jest częścią JSON ani snapshotu. Komponent przekazuje dokładną
 ścieżkę danych i wartość do `editor.text(path, value)`. Panel dopuszcza wyłącznie
 pola text/textarea z manifestu; indeks listy jest częścią ścieżki. Identyczne
@@ -70,10 +70,33 @@ Obecny zakres to liniowa lista kontrolowanych sekcji, bez zagnieżdżonych
 slotów. Nie utrzymujemy dwóch stanów edytora tylko dla zmiany ich kolejności.
 Decyzję można wrócić do porównania, gdy zakres wyjdzie poza tę listę.
 
+## Prywatne obrazy
+
+Panel pobiera `GET /api/v1/media/{asset_id}/preview/` przez wygenerowany klient
+same-origin. Usługa sprawdza `media.read`, `storage.enabled` i aktywnego tenanta
+przed odczytem assetu. Udostępnia tylko gotowy, nieusunięty wariant preview WebP
+pod kanonicznym kluczem tego assetu, z limitem odczytu 10 MiB. Brak pliku,
+obca organizacja i niegotowy asset dają 404; awaria magazynu daje 503.
+Odpowiedzi widoku mają `Cache-Control: private, no-store` i `nosniff`.
+
+Adapter `imageRenderer` jest kodem panelu, niezależnym od edytowania tekstu.
+Canvas oraz zapisany podgląd używają tymczasowych blob URL; nie zapisują ich
+w danych strony ani historii. Zmiana assetu i odmontowanie anulują pobranie,
+usuwają URL i ignorują spóźnione odpowiedzi. Błąd pobrania/dekodowania ma
+lokalizowany stan i przycisk ponowienia. Panel jest kluczowany ID organizacji,
+więc refresh po jej przełączeniu usuwa poprzedni draft i podglądy.
+Publiczne publikacje nadal używają istniejącego renderera i `/media/{id}`.
+
+Dowody: media API 35/35 (w tym kolejność SET LOCAL przed SELECT assetu,
+zero odczytów domenowych dla odmów i macierz RLS na roli bez bypass),
+renderer 23/23, testy komponentu PL/EN z anulowaniem i cleanupem 4/4.
+Chromium dekoduje WebP w canvas i zapisanym podglądzie przy 1440/390 px;
+fixture ma syntetyczne API, więc nie dowodzi działania sesji na wdrożeniu.
+Artefakty lokalne: `.runtime/site-studio/private-media/`.
+
 ## Otwarty odbiór
 
-Nadal wymagane: prywatny podgląd mediów (API nie udostępnia jeszcze downloadu
-assetów dla panelu), docelowy układ biblioteka/canvas/inspektor, odbiór
+Nadal wymagane: docelowy układ biblioteka/canvas/inspektor, odbiór
 zalogowanego panelu i publikacji po hostname oraz synchronizacja produktów.
 Testy Chromium używają rzeczywistych komponentów i syntetycznego API;
 nie zastępują tych bramek.

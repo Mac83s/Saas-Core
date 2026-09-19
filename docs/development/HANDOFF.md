@@ -1,5 +1,30 @@
 # Handoff następnej sesji
 
+## Site Studio — prywatny podgląd mediów, 2026-09-19
+
+Canvas i zapisany podgląd pobierają przetworzony WebP przez nowy chroniony
+GET `/api/v1/media/{asset_id}/preview/`. Uprawnienie, entitlement i tenant
+są sprawdzane przed odczytem assetu; odpowiedź nie ujawnia storage URL ani
+oryginału. Blob URL jest usuwany po zmianie/odmontowaniu; błąd ma ponowienie
+PL/EN. Panel stron jest kluczowany organizacją, aby przełączenie resetowało
+poprzedni draft i podglądy. Publiczny markup pozostaje bez zmian.
+
+Dowody: media API 35/35, w tym macierz uprawnień, kolejność SET LOCAL i test
+RLS na roli bez bypass (bez kontekstu 0, obcy 0, własny 1); pełny frontend
+163/163, renderer 23/23; typecheck frontend/site-blocks oraz Python 378 plików,
+ESLint zmian, Ruff, kontrakt importów i OpenAPI bez driftu. Kontrola migracji
+nie wykryła zmian; sandbox zgłosił brak połączenia podczas kontroli historii.
+Chromium dekoduje WebP na canvas i w podglądzie przy 1440/390 px bez overflow,
+ale korzysta z fixture API. Artefakty: `.runtime/site-studio/private-media/`.
+Backend/kontrakt: commit `c64b4e9`. Nie wykonano deploymentu ani synchronizacji
+HoofCare/MedPlano; dowód zalogowanego runtime pozostaje osobną bramką.
+
+Następny krok fazy 3: docelowy układ biblioteka/canvas/inspektor oraz odbiór
+zalogowanego panelu. Następnie własne szablony i pełny katalog według planu
+Memex `saas-core-site-studio-templates`. AI pozostaje odroczoną fazą 8.
+Starsze wpisy poniżej opisują historyczny brak endpointu, który już dodano.
+
+
 ## Site Studio — kontekstowe dodawanie i odbiór przyrostu, 2026-09-19
 
 „Dodaj sekcję poniżej” otwiera tę samą bibliotekę co główny przycisk, lecz
