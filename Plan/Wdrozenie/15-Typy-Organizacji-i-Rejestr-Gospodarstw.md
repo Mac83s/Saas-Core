@@ -5,7 +5,17 @@ HC-ADR-001. Każdy etap kończy się czymś do przeklikania na dev VPS i testem,
 który dowodzi zakresu. Izolację między organizacjami dowodzimy na działającym
 stacku.
 
-## Etap 1A — typy organizacji (Saas-Core)
+## Etap 1A — typy organizacji (Saas-Core) — ZROBIONE 2026-09-19
+
+Stan: Saas-Core `a0a6078`, `0c1f504`; HoofCare `25e7ac4` (typy firma korekcyjna
+i gospodarstwo). Dowód na stosie hoofcare.goldenstar.cloud: konto bez
+organizacji trafia na ekran „kim jesteś” (dwa typy do wyboru); organizacja typu
+gospodarstwo dostaje 404 `module_not_available` z API stada, stron i SEO, a z
+rezerwacji 403 (plan); firma korekcyjna przechodzi bramkę modułów (403 za
+brak planu); przegląd abonamentu pokazuje gospodarstwu 1 plan, firmie 3; menu
+gospodarstwa bez „Stado” i „Witryna”. Deklaracja typów leży w sekcji
+`organizationTypes` profilu (nie w osobnym pliku), a organizację zakłada ekran
+pierwszego uruchomienia (formularz rejestracji zostaje bez zmian).
 
 Zakres:
 1. Kontrakt `packages/contracts/organization-types.schema.json`. Opcjonalny

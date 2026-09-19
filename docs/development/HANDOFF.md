@@ -1649,6 +1649,27 @@ Szablony i bloki stron oraz zależności npm/Python zostają w rdzeniu (produkt
 dodaje je w Saas-Core). Wyścig dwóch rezerwacji o jeden termin kończący się
 deadlockiem PostgreSQL daje teraz 409 zamiast 500.
 
+## Typy organizacji — etap 1A (2026-09-19, ADR-050, plan 15)
+
+- Profil deklaruje `organizationTypes`; artefakt niesie rozwiązaną listę (bez
+  sekcji: `business` ze wszystkim). Backend: `ORGANIZATION_TYPES`,
+  `Organization.organization_type` (migracja 0036 przez DEFAULT kolumny — pod
+  wymuszonym RLS UPDATE nie widzi wierszy), `ModuleGateMiddleware` (404
+  `module_not_available` dla modułu spoza typu), plany per typ
+  (`billing/plan_offer.py`), `organization_type` w API organizacji i
+  `?organization_type=` w publicznym cenniku.
+- Frontend: ekran `/onboarding` dla konta bez organizacji, `modulesFor()` zamiast
+  `deployment.modules` w panelu, typ w dialogu tworzenia, zakładki typów w
+  cenniku, `organizationTypes` w pozycjach menu produktu.
+- Skill `develop-organization-types` (+ scenariusz routingu).
+- Dowód na stosie HoofCare w planie 15. Konta testowe: `firma@hoofcare.test`
+  (firma korekcyjna), `rolnik@hoofcare.test` (gospodarstwo), `nowy@hoofcare.test`
+  (bez organizacji) — hasło przekazane Maciejowi w rozmowie.
+
+Następny: etap 1B (role systemowe per typ z katalogu, role własne, szablony
+usług). Znany flaky test: `page-editor.test.tsx` przekracza 5 s pod obciążeniem
+(zielony osobno).
+
 ## Niezmienne ograniczenia
 
 - tenantowe operacje wymagają jawnego `TenantContext`;
