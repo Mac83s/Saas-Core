@@ -81,6 +81,17 @@ def _clean_farm(data: dict[str, Any]) -> dict[str, Any]:
     return cleaned
 
 
+def _mirror(request: HttpRequest, animal: Animal) -> None:
+    """A shared card writes the cow into the farmer's register too (ADR-051 pt 7).
+
+    Imported here rather than at module level: the door lives one layer above
+    this one, in a module that reads these use cases.
+    """
+    from .herd_sync import mirror_animal  # noqa: PLC0415
+
+    mirror_animal(request, animal)
+
+
 def _clean_animal(data: dict[str, Any], *, species: str) -> dict[str, Any]:
     cleaned = dict(data)
     known = SPECIES.get(species)
@@ -193,6 +204,7 @@ def create_animal(*, request: HttpRequest, farm_id: UUID, data: dict[str, Any]) 
         )
     )
     audit_farm(request, context.organization_id, OrganizationAuditAction.ANIMAL_CREATED, animal)
+    _mirror(request, animal)
     return animal
 
 
@@ -211,4 +223,5 @@ def update_animal(*, request: HttpRequest, animal_id: UUID, data: dict[str, Any]
         setattr(animal, field, value)
     _unique(animal.save)
     audit_farm(request, context.organization_id, OrganizationAuditAction.ANIMAL_UPDATED, animal)
+    _mirror(request, animal)
     return animal

@@ -406,3 +406,57 @@ def test_the_code_carries_the_handover_so_the_farmer_reads_nothing_of_the_compan
         assert [animal.national_id for animal in list_animals(farm_id=taken["farm"].id)] == [
             "PL005432190001"
         ]
+
+
+def test_a_shared_card_writes_the_cow_into_the_farmers_register() -> None:
+    """ADR-051 pt 7: the register is the source of truth, so the company's
+    entries land there too — and only while the farmer allows it."""
+    from saas_core.modules.shared.farms.services import (  # noqa: PLC0415
+        create_animal,
+        create_farm,
+        list_animals,
+        update_animal,
+    )
+    from saas_core.modules.shared.farms.sharing import (  # noqa: PLC0415
+        issue_activation_code,
+        redeem_activation_code,
+        revoke_share,
+    )
+
+    company = membership("firma-sync")
+    farmer = membership("rolnik-sync")
+    with tenant(company) as request:
+        card = create_farm(
+            request=request, data={"name": "Gospodarstwo Sync", "herd_number": "PL088888888-001"}
+        )
+        code, _ = issue_activation_code(request=request, farm_id=card.id)
+    with tenant(farmer) as request:
+        taken = redeem_activation_code(request=request, code=code)
+        registry_farm = taken["farm"]
+        share = taken["share"]
+
+    with tenant(company) as request:
+        cow = create_animal(
+            request=request,
+            farm_id=card.id,
+            data={"national_id": "PL005432177001", "working_number": "12"},
+        )
+        # The rest of the company's work still runs as the company: the door
+        # restores the caller's organization, `SET LOCAL` outlives the block.
+        assert [animal.id for animal in list_animals(farm_id=card.id)] == [cow.id]
+        update_animal(request=request, animal_id=cow.id, data={"status": "sold"})
+
+    with tenant(farmer):
+        (mirrored,) = list_animals(farm_id=registry_farm.id)
+        assert (mirrored.national_id, mirrored.working_number) == ("PL005432177001", "12")
+        assert mirrored.status == "sold"
+
+    with tenant(farmer) as request:
+        revoke_share(request=request, share_id=share.id)
+    with tenant(company) as request:
+        create_animal(request=request, farm_id=card.id, data={"national_id": "PL005432177002"})
+    with tenant(farmer):
+        # Revoked means revoked: the second cow stays with the company.
+        assert [animal.national_id for animal in list_animals(farm_id=registry_farm.id)] == [
+            "PL005432177001"
+        ]
