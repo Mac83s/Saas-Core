@@ -3,10 +3,8 @@ import "server-only";
 import { cookies } from "next/headers";
 
 import type {
-  BookingCatalog,
   CustomerBillingOverview,
   OrganizationSummary,
-  SiteList,
   UserSummary,
 } from "@saas-core/api-client";
 
@@ -28,14 +26,6 @@ export async function getServerOrganizations(): Promise<OrganizationSummary[]> {
 
 export async function getServerCustomerBillingOverview(): Promise<CustomerBillingOverview | null> {
   return serverGet<CustomerBillingOverview>("/api/v1/billing/overview/");
-}
-
-export async function getServerSites(): Promise<SiteList | null> {
-  return serverGet<SiteList>("/api/v1/sites/");
-}
-
-export async function getServerBookingCatalog(): Promise<BookingCatalog | null> {
-  return serverGet<BookingCatalog>("/api/v1/booking/catalog/");
 }
 
 async function serverGet<T>(path: string): Promise<T | null> {

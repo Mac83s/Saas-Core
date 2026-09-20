@@ -266,7 +266,21 @@ export function RegistrationForm() {
       setProblem(identityErrorMessage(error, problemMessages(t)));
     }
   }
-  if (message) return <Notice>{message}</Notice>;
+  // Registration answers the same way whether or not the account is new, so
+  // the screen that follows says only "check your inbox" — and links to the
+  // place that can send the message again.
+  if (message)
+    return (
+      <div className="space-y-4">
+        <Notice>{message}</Notice>
+        <p className="text-sm text-muted-foreground">
+          {t("pendingHint")}{" "}
+          <Link className="text-primary hover:underline" href="/verify-email">
+            {t("pendingLink")}
+          </Link>
+        </p>
+      </div>
+    );
   return (
     <form className="space-y-5" onSubmit={form.handleSubmit(submit)}>
       <FieldGroup>
@@ -355,38 +369,58 @@ export function VerificationForm({ token }: { token?: string }) {
       setProblem(identityErrorMessage(error, problemMessages(t)));
     }
   }
+  const confirmForm = (
+    <form className="space-y-4" onSubmit={tokenForm.handleSubmit(confirm)}>
+      <TextField
+        error={tokenForm.formState.errors.token?.message}
+        label={t("verificationToken")}
+        registration={tokenForm.register("token", {
+          required: t("validationToken"),
+        })}
+      />
+      <Button
+        className="w-full"
+        disabled={tokenForm.formState.isSubmitting}
+        type="submit"
+      >
+        {t("confirmAddress")}
+      </Button>
+    </form>
+  );
+  const resendForm = (
+    <form className="space-y-4" onSubmit={emailForm.handleSubmit(resend)}>
+      <TextField
+        error={emailForm.formState.errors.email?.message}
+        label={t("resendToEmail")}
+        registration={emailForm.register("email")}
+        type="email"
+      />
+      <Button className="w-full" type="submit" variant="outline">
+        {t("resend")}
+      </Button>
+    </form>
+  );
+  // Arriving from the link in the message, confirming is the one thing to do.
+  // Arriving without it, the account is simply waiting: say so, offer another
+  // message, and keep pasting a code as the way out when none arrives.
   return (
     <div className="space-y-6">
       {message && <Notice>{message}</Notice>}
-      <form className="space-y-4" onSubmit={tokenForm.handleSubmit(confirm)}>
-        <TextField
-          error={tokenForm.formState.errors.token?.message}
-          label={t("verificationToken")}
-          registration={tokenForm.register("token", {
-            required: t("validationToken"),
-          })}
-        />
-        <Button
-          className="w-full"
-          disabled={tokenForm.formState.isSubmitting}
-          type="submit"
-        >
-          {t("confirmAddress")}
-        </Button>
-      </form>
-      <div className="border-t pt-5">
-        <form className="space-y-4" onSubmit={emailForm.handleSubmit(resend)}>
-          <TextField
-            error={emailForm.formState.errors.email?.message}
-            label={t("resendToEmail")}
-            registration={emailForm.register("email")}
-            type="email"
-          />
-          <Button className="w-full" type="submit" variant="outline">
-            {t("resend")}
-          </Button>
-        </form>
-      </div>
+      {token ? (
+        <>
+          {confirmForm}
+          <div className="border-t pt-5">{resendForm}</div>
+        </>
+      ) : (
+        <>
+          <p className="text-sm text-muted-foreground">{t("pendingBody")}</p>
+          {resendForm}
+          <div className="space-y-3 border-t pt-5">
+            <h2 className="text-sm font-medium">{t("haveCode")}</h2>
+            {confirmForm}
+          </div>
+        </>
+      )}
       {problem && <Problem message={problem} />}
     </div>
   );
