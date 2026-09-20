@@ -112,9 +112,13 @@ założeniu darmowy plan swojego typu — w HoofCare `farm_free`, obok płatnego
 `farm_plus` z kredytami na funkcje wspierane przez AI. Pakiet rolnika z 6
 miesiącami darmowymi zastąpiony modelem darmowy + płatny (decyzja z 20.09).
 
-Otwarte: powiadomienie o rozjeździe stada i ekran przeglądania spornych sztuk,
-akcja firmy „wyślij stado do rejestru" dla zwierząt dopisanych między wydaniem
-a realizacją kodu, akcja obsługi „połącz bez kodu".
+Zrobione (rozjazd stada): sztuka wpisana przez firmę czeka na przejrzenie —
+licznik i filtr przy liście zwierząt, znacznik przy sztuce, potwierdzenie w jej
+karcie. Nic nie jest kasowane, a zapis bez zmiany nie stawia znacznika.
+
+Otwarte: powiadomienie systemowe o rozjeździe (dzwonek albo e-mail — dziś jest
+licznik w panelu), akcja firmy „wyślij stado do rejestru" dla zwierząt
+dopisanych między wydaniem a realizacją kodu, akcja obsługi „połącz bez kodu".
 
 ## Etap 4 — korekcja i wpisy zdrowotne (HoofCare) — ZROBIONE 2026-09-19/20 (bez publikacji do rejestru)
 

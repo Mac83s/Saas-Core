@@ -27,10 +27,20 @@ Co warto wiedzieć, zanim się to ruszy:
   transakcją, więc `on_commit` pisałby bez tenanta — polityka by to odrzuciła, a
   baza testowa przyjęła.
 
+Rozjazd stada: zwierzę wpisane do rejestru przez firmę dostaje
+`Animal.review_requested_at`, a zapis bez zmiany go nie stawia — inaczej wizyta
+co miesiąc zgłaszałaby te same czterdzieści krów. Hodowca ma licznik i filtr
+`?review=true` przy liście zwierząt, znacznik przy sztuce i potwierdzenie
+`PATCH {"reviewed": true}`, które zdejmuje znacznik i **nie rusza wiersza**.
+Powiadomienia systemowego (dzwonek, e-mail) świadomie nie ma: licznik w panelu
+wystarcza, a sweep po wszystkich rejestrach to osobny mechanizm.
+
 Dowody ze stacku dev: rolnik pisze notatkę i prywatną uwagę, firma widzi
 notatkę i nie widzi prywatnej; ponowne zamknięcie wizyty zmienia wpis na rodzaj
 „zabieg" z nazwiskiem korektora; nowe konto hodowcy po rejestracji ma rejestr
-bez checkoutu, a snapshot wskazuje `farm_free:v1`.
+bez checkoutu, a snapshot wskazuje `farm_free:v1`; krowa dopisana przez firmę
+staje na liście „do przejrzenia", po potwierdzeniu znika z niej i zostaje w
+stadzie, a zmiana statusu przez firmę wraca na listę.
 
 ## Site Studio — fullscreen i wygląd witryny, 2026-09-20
 
