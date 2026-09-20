@@ -20,12 +20,24 @@ export async function SiteFooter() {
           className="flex flex-col gap-2 text-sm"
         >
           <p className="font-medium">{t("footer.product")}</p>
-          <Link
-            href="/#features"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            {t("nav.features")}
-          </Link>
+          {copy.pages?.length ? (
+            copy.pages.map((page) => (
+              <Link
+                key={page.slug}
+                href={`/${page.slug}`}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                {page.navLabel}
+              </Link>
+            ))
+          ) : (
+            <Link
+              href="/#features"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              {t("nav.features")}
+            </Link>
+          )}
           <Link
             href="/pricing"
             className="text-muted-foreground hover:text-foreground"

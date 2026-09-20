@@ -59,30 +59,64 @@ export default async function HomePage({ params }: Props) {
         }}
       />
 
-      <section className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-5 py-20 sm:py-28">
-        <Badge variant="secondary">{copy.hero.eyebrow}</Badge>
-        <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-          {copy.hero.headline}
-        </h1>
-        <p className="max-w-2xl text-lg text-muted-foreground">
-          {copy.hero.lead}
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <Button render={<Link href="/register" />} size="lg">
-            {t("home.start")}
-          </Button>
-          <Button render={<Link href="/pricing" />} size="lg" variant="outline">
-            {t("home.seePricing")}
-          </Button>
+      <section className="relative overflow-hidden border-b bg-gradient-to-br from-primary/10 via-background to-background">
+        <div className="mx-auto grid w-full max-w-6xl items-center gap-12 px-5 py-16 sm:py-24 lg:grid-cols-[1.15fr_0.85fr] lg:py-28">
+          <div className="flex flex-col items-start gap-6">
+            <Badge variant="secondary">{copy.hero.eyebrow}</Badge>
+            <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-balance sm:text-6xl">
+              {copy.hero.headline}
+            </h1>
+            <p className="max-w-2xl text-lg leading-relaxed text-muted-foreground">
+              {copy.hero.lead}
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Button render={<Link href="/register" />} size="lg">
+                {t("home.start")}
+              </Button>
+              <Button
+                render={<Link href="/pricing" />}
+                size="lg"
+                variant="outline"
+              >
+                {t("home.seePricing")}
+              </Button>
+            </div>
+            <ul className="flex flex-wrap gap-x-6 gap-y-2 pt-2 text-sm text-muted-foreground">
+              {copy.hero.highlights.map((item) => (
+                <li key={item} className="flex items-center gap-2">
+                  <CheckIcon
+                    aria-hidden="true"
+                    className="size-4 text-primary"
+                  />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="rounded-3xl border bg-background/90 p-6 shadow-xl shadow-primary/10 sm:p-8">
+            <p className="mb-6 text-sm font-medium text-primary">
+              {copy.features.title}
+            </p>
+            <ol className="space-y-5">
+              {copy.features.items.slice(0, 3).map((item, index) => (
+                <li
+                  key={item.title}
+                  className="flex gap-4 border-t pt-5 first:border-0 first:pt-0"
+                >
+                  <span className="text-sm font-semibold text-primary">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <div className="space-y-1">
+                    <p className="font-semibold">{item.title}</p>
+                    <p className="text-sm leading-relaxed text-muted-foreground">
+                      {item.body}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
         </div>
-        <ul className="flex flex-wrap gap-x-6 gap-y-2 pt-2 text-sm text-muted-foreground">
-          {copy.hero.highlights.map((item) => (
-            <li key={item} className="flex items-center gap-2">
-              <CheckIcon aria-hidden="true" className="size-4 text-primary" />
-              {item}
-            </li>
-          ))}
-        </ul>
       </section>
 
       <section id="features" className="scroll-mt-20 border-t bg-muted/30">
@@ -99,11 +133,25 @@ export default async function HomePage({ params }: Props) {
                 <Card className="h-full">
                   <CardHeader>
                     <CardTitle>
-                      <h3>{item.title}</h3>
+                      <h3>
+                        {item.href ? (
+                          <Link href={item.href}>{item.title}</Link>
+                        ) : (
+                          item.title
+                        )}
+                      </h3>
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="text-sm text-muted-foreground">
-                    {item.body}
+                  <CardContent className="space-y-4 text-sm text-muted-foreground">
+                    <p>{item.body}</p>
+                    {item.href && item.linkLabel ? (
+                      <Link
+                        href={item.href}
+                        className="font-medium text-primary hover:underline"
+                      >
+                        {item.linkLabel} →
+                      </Link>
+                    ) : null}
                   </CardContent>
                 </Card>
               </li>

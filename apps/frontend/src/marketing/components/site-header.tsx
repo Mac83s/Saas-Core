@@ -1,15 +1,21 @@
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 
 import { LocaleSwitcher } from "#components/locale-switcher";
 import { Link } from "#i18n/navigation";
 import { Button } from "@saas-core/ui/components/button";
 
-import { productName } from "../content";
+import { productCopy, productName } from "../content";
 
 export async function SiteHeader() {
   const t = await getTranslations("Marketing");
+  const copy = productCopy(await getLocale());
   const links = [
-    { href: "/#features", label: t("nav.features") },
+    ...(copy.pages?.length
+      ? copy.pages.map((page) => ({
+          href: `/${page.slug}`,
+          label: page.navLabel,
+        }))
+      : [{ href: "/#features", label: t("nav.features") }]),
     { href: "/pricing", label: t("nav.pricing") },
     { href: "/contact", label: t("nav.contact") },
   ];

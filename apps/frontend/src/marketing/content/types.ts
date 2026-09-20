@@ -8,6 +8,19 @@
  */
 export type MarketingLocale = "pl" | "en";
 
+export type MarketingDetailPage = {
+  /** Same stable URL segment in both locales, so the language switcher keeps its path. */
+  slug: string;
+  navLabel: string;
+  seo: { title: string; description: string };
+  eyebrow: string;
+  headline: string;
+  lead: string;
+  sections: { title: string; body: string; points?: string[] }[];
+  faq: { question: string; answer: string }[];
+  cta: { title: string; body: string };
+};
+
 export type ProductCopy = {
   seo: { title: string; description: string };
   hero: {
@@ -19,7 +32,7 @@ export type ProductCopy = {
   features: {
     title: string;
     lead: string;
-    items: { title: string; body: string }[];
+    items: { title: string; body: string; href?: string; linkLabel?: string }[];
   };
   /** Who the product is for; each gets its own column on the home page. */
   audiences: {
@@ -44,6 +57,8 @@ export type ProductCopy = {
     area: string;
   };
   footer: { tagline: string };
+  /** Optional product pages in the shared marketing layout. */
+  pages?: MarketingDetailPage[];
 };
 
 export type ProductContent = Record<MarketingLocale, ProductCopy>;
