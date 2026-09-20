@@ -495,9 +495,8 @@ def test_a_company_publishes_the_animals_history_into_the_farmers_register() -> 
         registry_animal = list(farm_animals(farmer.organization_id, taken["farm"].id))[0]
         share = taken["share"]
 
-    with tenant(company) as request:
+    with tenant(company):
         published = publish_health_entry(
-            request,
             animal=cow,
             occurred_on=date(2026, 9, 20),
             source="hoofcare.visit",
@@ -508,7 +507,6 @@ def test_a_company_publishes_the_animals_history_into_the_farmers_register() -> 
         assert published is not None
         # The same visit published again corrects the entry instead of adding one.
         publish_health_entry(
-            request,
             animal=cow,
             occurred_on=date(2026, 9, 20),
             source="hoofcare.visit",
@@ -524,10 +522,9 @@ def test_a_company_publishes_the_animals_history_into_the_farmers_register() -> 
 
     with tenant(farmer) as request:
         revoke_share(request=request, share_id=share.id)
-    with tenant(company) as request:
+    with tenant(company):
         assert (
             publish_health_entry(
-                request,
                 animal=cow,
                 occurred_on=date(2026, 9, 21),
                 source="hoofcare.visit",

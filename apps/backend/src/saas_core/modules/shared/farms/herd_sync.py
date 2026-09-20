@@ -111,7 +111,6 @@ def mirror_animal(request: HttpRequest, animal: Animal) -> Animal | None:
 
 
 def publish_health_entry(
-    request: HttpRequest,
     *,
     animal: Animal,
     occurred_on: date,
@@ -124,6 +123,7 @@ def publish_health_entry(
 
     Called by a vertical while the company's context is active; the animal is
     the company's own, and its counterpart in the register is found by tag.
+    The entry names its author and its day, so it is its own audit trail.
     Publishing the same source reference twice rewrites the one row, so a
     corrected visit corrects the history instead of doubling it.
     """
