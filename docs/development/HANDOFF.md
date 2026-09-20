@@ -1,5 +1,29 @@
 # Handoff następnej sesji
 
+## Aparat w terenie: kompresja bez kadrowania, 2026-09-20
+
+`modules/shared/media/capture.ts` to wspólne wejście dla zdjęć z telefonu:
+`compressImage` zmniejsza dłuższy bok do 1600 px i przekodowuje do JPEG,
+`uploadImage` robi trzy kroki API mediów (intencja, magazyn, domknięcie) i
+zwraca zasób w stanie `uploaded` — skan i miniatury idą w tle.
+
+Trzy rzeczy, które łatwo zepsuć przy następnej zmianie:
+
+- **kadru tu nie ma i być nie ma.** Zdjęcie z pracy ma pokazać to, co widział
+  korektor; przycięcie odbiera informację, a kadrowanie w rękawicy to praca,
+  której nikt nie wykona. Kadr należy do zdjęć wchodzących w układ strony
+  (bloki, logo) — tam jest do zrobienia, tu nie;
+- **EXIF znika przy okazji**: canvas zapisuje same piksele, więc ze zdjęciem nie
+  wyjeżdża lokalizacja gospodarstwa ani model telefonu;
+- **klucz idempotencji bierze się z treści pliku** (nazwa, rozmiar, data), więc
+  ponowne dotknięcie po zerwanym zasięgu dokłada ten sam plik, a nie drugie
+  zdjęcie tej samej racicy.
+
+W HoofCare przycisk stoi w siatce korekcji i otwiera aparat (`capture`), nie
+galerię; po zapisie wpisu kolejna krowa zaczyna bez zdjęcia poprzedniej.
+`.gitignore` ignoruje `media/` globalnie — nowy katalog modułu wymagał wyjątku,
+inaczej pliki są niewidoczne i dla gita, i dla prettiera.
+
 ## Zdjęcia: dostęp zamiast kopii, 2026-09-20
 
 Zdjęcie dołączone do wpisu zostaje w magazynie tej organizacji, która je
