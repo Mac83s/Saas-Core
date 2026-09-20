@@ -1,5 +1,28 @@
 # Handoff następnej sesji
 
+## 2026-09-20 — synchronizacja Site Studio, rebuild wstrzymany
+
+SaaS-Core: oba obrazy zbudowane z czystego worktree 4346e78. HoofCare: backend gotowy, frontend zatrzymany. MedPlano: build nie rozpoczęty.
+
+Wspólny katalog (72 sekcje, osiem stron, zdjęcia), fullscreen i wygląd witryny
+mają być dostępne w Saas-Core, HoofCare i MedPlano. Produkty otrzymały rdzeń
+przez core:update, bez lokalnego kopiowania plików shared. Oba core:check
+przeszły; generatory kontraktów nie zostawiły różnic.
+
+Na polecenie właściciela przerwano serię przy pierwszym błędzie buildu:
+Docker Hub docker/dockerfile:1.7 — połączenie IPv6 na 443 zwraca
+network is unreachable. To nastąpiło przed kompilacją frontendu HoofCare.
+Nie naprawiano sieci, nie ponawiano buildu, nie wdrażano częściowo.
+Nie wykonano migracji ani restartów. Plan migracji SaaS-Core: organizations
+0040/0041 oraz sites/0029. Prywatne backupy trzech baz i identyfikatory
+poprzednich obrazów zapisano w /root/Saas-Core/.runtime/site-studio/release-4346e78/.
+
+Punkt wznowienia po zgodzie na kontynuację: build frontendu HoofCare, potem
+oba obrazy MedPlano; migracje i przełączenie dopiero po udanej serii, następnie
+healthz i odbiór zalogowanego Site Studio we wszystkich trzech produktach.
+Nie budować SaaS-Core z brudnego checkoutu — są tam przerwane prace innej sesji.
+Gotowe obrazy mają tag studio-4346e78; działające tagi local nie zostały zmienione.
+
 ## Kartoteka zwierzęcia, odczyt przez firmę i plan darmowy, 2026-09-20
 
 Wpis w kartotece ma rodzaj (`HealthEntryKind`: notatka, uwaga, zabieg, lek lub
