@@ -276,7 +276,21 @@ def create_appointment(
     customer_data: dict[str, str],
     idempotency_key: str,
     principal_ref: str,
+    walk_in_minutes: int | None = None,
 ) -> CreatedAppointment:
+    """Books a free slot, or — with `walk_in_minutes` — records work already under way.
+
+    A walk-in is the same appointment, entered from the other end: somebody is
+    standing at the customer already, so the calendar's job is to record that
+    the time is gone, not to decide whether it may be given away. The schedule
+    is therefore not consulted and the caller states how long to block, because
+    the service's nominal duration says nothing about a visit nobody planned.
+
+    What a walk-in still does: takes the staff and resource allocations, so the
+    window shows busy and the next search cannot resell it. What it skips: the
+    reminder (the visit is happening now) and the confirmation mail (the
+    customer is watching the person who would send it).
+    """
     context = require_tenant_context()
     request_hash = _hash({
         "service_id": str(service_id),
@@ -285,6 +299,7 @@ def create_appointment(
         "resource_id": str(resource_id),
         "starts_at": starts_at.isoformat(),
         "customer": customer_data,
+        "walk_in_minutes": walk_in_minutes,
     })
     existing = (
         BookingMutation.all_objects.filter(
@@ -323,20 +338,23 @@ def create_appointment(
     if required and (resource is None or resource.id not in required):
         raise SlotUnavailable
     organization = Organization.objects.get(pk=context.organization_id)
-    local_date = starts_at.astimezone(ZoneInfo(organization.timezone)).date()
-    slots = available_slots(
-        service_id=service.id,
-        location_id=location.id,
-        from_date=local_date,
-        to_date=local_date,
-    )
-    if not any(
-        slot.starts_at == starts_at
-        and slot.staff_id == staff.id
-        and slot.resource_id == (resource.id if resource else None)
-        for slot in slots
-    ):
-        raise SlotUnavailable
+    if walk_in_minutes is None:
+        local_date = starts_at.astimezone(ZoneInfo(organization.timezone)).date()
+        slots = available_slots(
+            service_id=service.id,
+            location_id=location.id,
+            from_date=local_date,
+            to_date=local_date,
+        )
+        if not any(
+            slot.starts_at == starts_at
+            and slot.staff_id == staff.id
+            and slot.resource_id == (resource.id if resource else None)
+            for slot in slots
+        ):
+            raise SlotUnavailable
+    elif walk_in_minutes <= 0:
+        raise ValidationError({"walk_in_minutes": "Podaj, na jak długo zająć okno."})
     email = customer_data.get("email", "").strip().lower()
     phone = customer_data.get("phone", "").strip()
     if not email and not phone:
@@ -354,9 +372,12 @@ def create_appointment(
             contact_hash=contact_hash,
             locale=customer_data.get("locale", organization.default_locale),
         )
-    ends_at = starts_at + timedelta(minutes=service.duration_minutes)
-    occupied_from = starts_at - timedelta(minutes=service.buffer_before_minutes)
-    occupied_until = ends_at + timedelta(minutes=service.buffer_after_minutes)
+    ends_at = starts_at + timedelta(minutes=walk_in_minutes or service.duration_minutes)
+    # A walk-in takes no buffers: they exist to protect a plan, and there is none.
+    before = 0 if walk_in_minutes else service.buffer_before_minutes
+    after = 0 if walk_in_minutes else service.buffer_after_minutes
+    occupied_from = starts_at - timedelta(minutes=before)
+    occupied_until = ends_at + timedelta(minutes=after)
     token, digest = issue_self_service_token()
     expires = timezone.now() + timedelta(days=settings.BOOKING_SELF_SERVICE_TTL_DAYS)
     appointment = Appointment.all_objects.create(
@@ -374,7 +395,10 @@ def create_appointment(
         service_name=service.name,
         self_service_token_ciphertext=encrypt_secret(token),
         self_service_expires_at=expires,
-        reminder_due_at=max(
+        # Nothing to remind anybody about when the visit is already happening.
+        reminder_due_at=None
+        if walk_in_minutes
+        else max(
             timezone.now(), starts_at - timedelta(hours=settings.BOOKING_REMINDER_LEAD_HOURS)
         ),
     )
@@ -416,16 +440,17 @@ def create_appointment(
         appointment_id=appointment.id,
         expires_at=expires,
     )
-    signed = issue_tenant_task_contract(causation_id=f"booking:{appointment.id}")
-    reminder_due_at = appointment.reminder_due_at
-    assert reminder_due_at is not None
-    ReminderRoute.objects.create(
-        appointment_id=appointment.id,
-        organization_id=organization.id,
-        signed_tenant_context=encrypt_secret(signed),
-        due_at=reminder_due_at,
-    )
-    if email:
+    if walk_in_minutes is None:
+        signed = issue_tenant_task_contract(causation_id=f"booking:{appointment.id}")
+        reminder_due_at = appointment.reminder_due_at
+        assert reminder_due_at is not None
+        ReminderRoute.objects.create(
+            appointment_id=appointment.id,
+            organization_id=organization.id,
+            signed_tenant_context=encrypt_secret(signed),
+            due_at=reminder_due_at,
+        )
+    if email and walk_in_minutes is None:
         queue_email(
             recipient_email=email,
             template_key="booking.confirmation",

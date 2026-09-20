@@ -44,9 +44,11 @@ from saas_core.modules.shared.booking.models import (
     Appointment,
     AppointmentResourceAllocation,
     AppointmentStaffAllocation,
+    AppointmentStatus,
     AvailabilityRule,
     Customer,
     Location,
+    ReminderRoute,
     Resource,
     Service,
     ServiceLocation,
@@ -544,6 +546,87 @@ def test_a_moved_booking_mails_the_customer_both_times_with_both_dates(
         assert first_time.isoformat() not in sent[0].context["previous_starts_at"]
         assert f"{local.hour:02d}:{local.minute:02d}" in sent[0].context["previous_starts_at"]
         assert str(local.year) in sent[0].context["previous_starts_at"]
+
+
+def test_a_walk_in_takes_the_window_the_schedule_would_never_have_offered(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Work already under way is recorded, not requested.
+
+    The trimmer is standing at the farm; the calendar's job is to say the time
+    is gone. So the schedule is not consulted — the chosen instant is a Sunday
+    dawn no availability rule covers — and the window still has to come back
+    busy afterwards, or the office would sell it to somebody else.
+    """
+    _no_delivery(monkeypatch)
+    member = membership("booking-walk-in")
+    configured = catalog(member)
+    # Deliberately outside every rule: the rules cover one weekday, 9-12.
+    outside = timezone.now().replace(microsecond=0) + timedelta(days=3, hours=1)
+    with tenant(member):
+        free_before = available_slots(
+            service_id=configured["service"].id,
+            location_id=configured["location"].id,
+            from_date=configured["date"],
+            to_date=configured["date"],
+        )
+        result = create_appointment(
+            service_id=configured["service"].id,
+            staff_id=configured["staff"].id,
+            location_id=configured["location"].id,
+            resource_id=configured["resource"].id,
+            starts_at=outside,
+            customer_data={
+                "display_name": "Gospodarstwo Kaczmarek",
+                "email": "kaczmarek@example.test",
+                "phone": "",
+                "locale": "pl",
+            },
+            idempotency_key="walk-in-1",
+            principal_ref=str(member.user_id),
+            walk_in_minutes=240,
+        )
+        appointment = result.appointment
+        assert result.created
+        assert appointment.status == AppointmentStatus.CONFIRMED
+        # The caller's four hours, not the service's nominal half hour.
+        assert appointment.ends_at - appointment.starts_at == timedelta(minutes=240)
+        # No buffers: they protect a plan, and a walk-in has none.
+        assert appointment.occupied_from == appointment.starts_at
+        assert appointment.occupied_until == appointment.ends_at
+        # Nobody is reminded about a visit that is happening right now, and
+        # nobody is told "confirmed" while watching the person who would say it.
+        assert appointment.reminder_due_at is None
+        assert not ReminderRoute.objects.filter(appointment_id=appointment.id).exists()
+        assert mails(appointment.id, "booking.confirmation") == []
+        # The staff allocation is what availability subtracts, so a second
+        # walk-in over the same hours must now lose the window.
+        with pytest.raises(SlotUnavailable):
+            create_appointment(
+                service_id=configured["service"].id,
+                staff_id=configured["staff"].id,
+                location_id=configured["location"].id,
+                resource_id=configured["resource"].id,
+                starts_at=outside + timedelta(minutes=30),
+                customer_data={
+                    "display_name": "Gospodarstwo Nowak",
+                    "email": "nowak@example.test",
+                    "phone": "",
+                    "locale": "pl",
+                },
+                idempotency_key="walk-in-2",
+                principal_ref=str(member.user_id),
+                walk_in_minutes=60,
+            )
+        # A planned day untouched by the walk-in keeps every slot it had.
+        assert len(
+            available_slots(
+                service_id=configured["service"].id,
+                location_id=configured["location"].id,
+                from_date=configured["date"],
+                to_date=configured["date"],
+            )
+        ) == len(free_before)
 
 
 def test_the_confirmation_mail_reads_as_a_wall_clock_not_a_stored_instant(
