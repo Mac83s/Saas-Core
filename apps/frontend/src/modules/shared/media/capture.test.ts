@@ -12,7 +12,10 @@ describe("zdjęcie z telefonu", () => {
   test("zmniejsza dłuższy bok i wychodzi jako JPEG", async () => {
     // Zdjęcie 3000×2000 z aparatu; do dokumentacji wystarcza 1600 px.
     const bitmap = { width: 3000, height: 2000, close: vi.fn() };
-    vi.stubGlobal("createImageBitmap", vi.fn(async () => bitmap));
+    vi.stubGlobal(
+      "createImageBitmap",
+      vi.fn(async () => bitmap),
+    );
     const context = { drawImage: vi.fn() };
     const canvas = {
       width: 0,
@@ -73,7 +76,10 @@ describe("zdjęcie z telefonu", () => {
       upload_url: "https://magazyn.example/put",
       upload_headers: {},
     });
-    vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false, status: 507 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: false, status: 507 })),
+    );
 
     await expect(
       uploadImage(new File(["x"], "a.jpg", { type: "image/jpeg" }), "klucz-2"),

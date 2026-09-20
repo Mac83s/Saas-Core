@@ -21,9 +21,14 @@ import {
  */
 export async function compressImage(
   file: File,
-  { maxEdge = 1600, quality = 0.8 }: { maxEdge?: number; quality?: number } = {},
+  {
+    maxEdge = 1600,
+    quality = 0.8,
+  }: { maxEdge?: number; quality?: number } = {},
 ): Promise<File> {
-  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+  const bitmap = await createImageBitmap(file, {
+    imageOrientation: "from-image",
+  });
   const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
   const width = Math.round(bitmap.width * scale);
   const height = Math.round(bitmap.height * scale);
