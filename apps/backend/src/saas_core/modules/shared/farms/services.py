@@ -8,13 +8,16 @@ simply not found — the database guard is the second line, not the first.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import uuid
+from collections.abc import Callable, Sequence
+from datetime import date
 from typing import Any, cast
 from uuid import UUID
 
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.http import HttpRequest
+from django.utils import timezone
 from rest_framework.exceptions import NotFound, ValidationError
 
 from saas_core.modules.core.identity.models import User
@@ -22,7 +25,7 @@ from saas_core.modules.core.organizations.audit import record_audit
 from saas_core.modules.core.organizations.models import Organization, OrganizationAuditAction
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 
-from .models import Animal, AnimalHealthEntry, Farm
+from .models import Animal, AnimalHealthEntry, Farm, HealthEntryKind
 from .species import (
     HERD_NUMBER,
     SPECIES,
@@ -37,6 +40,9 @@ FARMS_ENABLED = "farms.enabled"
 
 #: A working list; nobody scrolls past a few hundred rows without searching.
 PAGE_LIMIT = 500
+
+#: Written here by a person, not published by a vertical.
+MANUAL_SOURCE = "farms.manual"
 
 #: The unique constraints a person can hit, and what to tell them. The database
 #: decides, so two people saving the same farm at once get the same answer as
@@ -190,13 +196,118 @@ def list_animals(*, farm_id: UUID | None = None, search: str = "") -> list[Anima
     return list(query.select_related("farm")[:PAGE_LIMIT])
 
 
-def list_health_entries(*, animal_id: UUID) -> list[AnimalHealthEntry]:
-    """An animal's history in this register, newest first (ADR-051 pt 8)."""
+def list_health_entries(
+    *,
+    animal_id: UUID,
+    kinds: Sequence[str] = (),
+    author: str = "",
+    since: date | None = None,
+    until: date | None = None,
+) -> list[AnimalHealthEntry]:
+    """An animal's history, newest first, filtered the way the panel asks.
+
+    The filters run in the database on purpose: the list is cut at `PAGE_LIMIT`,
+    so filtering after that would quietly hide the older entries the feed exists
+    to show.
+    """
     context = authorize_entitled(FARMS_READ, FARMS_ENABLED, operation=FeatureOperation.READ)
-    return list(
-        AnimalHealthEntry.all_objects.filter(
-            organization_id=context.organization_id, animal_id=animal_id
-        )[:PAGE_LIMIT]
+    query = AnimalHealthEntry.all_objects.filter(
+        organization_id=context.organization_id, animal_id=animal_id
+    )
+    if kinds:
+        query = query.filter(kind__in=kinds)
+    if author == "mine":
+        query = query.filter(author_organization_id=context.organization_id)
+    elif author == "others":
+        query = query.exclude(author_organization_id=context.organization_id)
+    if since is not None:
+        query = query.filter(occurred_on__gte=since)
+    if until is not None:
+        query = query.filter(occurred_on__lte=until)
+    entries = list(query[:PAGE_LIMIT])
+    for entry in entries:
+        entry.author_is_external = entry.author_organization_id not in (
+            None,
+            context.organization_id,
+        )
+    # A company working on a shared card reads the animal's file in the
+    # farmer's register too (ADR-051 pt 8). Imported here, like `_mirror`: the
+    # door lives one layer above these use cases.
+    from .herd_sync import registry_health_entries  # noqa: PLC0415
+
+    entries.extend(
+        entry
+        for entry in registry_health_entries(animal_id)
+        if _matches(entry, kinds=kinds, author=author, since=since, until=until, context=context)
+    )
+    entries.sort(key=lambda entry: (entry.occurred_on, entry.published_at), reverse=True)
+    return entries[:PAGE_LIMIT]
+
+
+def _matches(
+    entry: AnimalHealthEntry,
+    *,
+    kinds: Sequence[str],
+    author: str,
+    since: date | None,
+    until: date | None,
+    context: Any,
+) -> bool:
+    """The register's rows come back through the door, so the filters that ran
+    in the database have to run on them too."""
+    if kinds and entry.kind not in kinds:
+        return False
+    if author == "mine" and entry.author_organization_id != context.organization_id:
+        return False
+    if author == "others" and entry.author_organization_id == context.organization_id:
+        return False
+    if since is not None and entry.occurred_on < since:
+        return False
+    return not (until is not None and entry.occurred_on > until)
+
+
+@transaction.atomic
+def record_health_entry(
+    *, request: HttpRequest, animal_id: UUID, data: dict[str, Any]
+) -> AnimalHealthEntry:
+    """An entry written here, by hand: a note, a warning, a medicine given.
+
+    `source` is the server's, never the client's: it is half of the key a
+    vertical publishes by, and a client that could name it would overwrite
+    somebody else's entry through the same `update_or_create`.
+    """
+    context = authorize_entitled(FARMS_MANAGE, FARMS_ENABLED)
+    animal = Animal.all_objects.filter(
+        organization_id=context.organization_id, id=animal_id
+    ).first()
+    if animal is None:
+        raise NotFound("Nie ma takiego zwierzęcia.")
+    user = cast(User, request.user)
+    entry = AnimalHealthEntry.all_objects.create(
+        organization_id=context.organization_id,
+        animal=animal,
+        kind=data.get("kind") or HealthEntryKind.NOTE,
+        occurred_on=data.get("occurred_on") or timezone.localdate(),
+        source=MANUAL_SOURCE,
+        source_reference=str(uuid.uuid7()),
+        author_name=f"{user.first_name} {user.last_name}".strip() or user.email,
+        author_organization_id=context.organization_id,
+        author_organization_name=_organization_name(context.organization_id),
+        summary=data["summary"].strip(),
+        details=data.get("details") or {},
+        private=bool(data.get("private")),
+    )
+    entry.author_is_external = False
+    audit_farm(
+        request, context.organization_id, OrganizationAuditAction.ANIMAL_HEALTH_RECORDED, animal
+    )
+    return entry
+
+
+def _organization_name(organization_id: UUID) -> str:
+    """The caller's own organization — the only one its tenant may read."""
+    return (
+        Organization.objects.filter(id=organization_id).values_list("name", flat=True).first() or ""
     )
 
 

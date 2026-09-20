@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+from datetime import date
 from typing import cast
 from uuid import UUID
 
 from django.http import HttpRequest
+from django.utils.dateparse import parse_date
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
-from rest_framework.exceptions import ParseError
+from rest_framework.exceptions import ParseError, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -17,6 +20,7 @@ from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
 from .serializers import (
     AnimalHealthEntrySerializer,
+    AnimalHealthInputSerializer,
     AnimalInputSerializer,
     AnimalSerializer,
     AnimalUpdateSerializer,
@@ -36,6 +40,7 @@ from .services import (
     list_animals,
     list_farms,
     list_health_entries,
+    record_health_entry,
     update_animal,
     update_farm,
 )
@@ -167,20 +172,59 @@ class AnimalDetailView(APIView):
         return Response(AnimalSerializer(animal).data)
 
 
+@method_decorator(csrf_protect, name="dispatch")
 class AnimalHealthView(APIView):
-    """What happened to this animal, as the register knows it."""
+    """The animal's file: what happened to it, newest first."""
 
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
+        parameters=[
+            OpenApiParameter("kind", str, many=True, description="Rodzaje wpisów do pokazania."),
+            OpenApiParameter("author", str, description='"mine" albo "others".'),
+            OpenApiParameter("from", OpenApiTypes.DATE, description="Od tej daty zdarzenia."),
+            OpenApiParameter("to", OpenApiTypes.DATE, description="Do tej daty zdarzenia."),
+        ],
         responses={200: AnimalHealthEntrySerializer(many=True), **ERRORS},
         operation_id="farms_animal_health_list",
         tags=["farms"],
     )
     def get(self, request: Request, animal_id: UUID) -> Response:
-        return Response(
-            AnimalHealthEntrySerializer(list_health_entries(animal_id=animal_id), many=True).data
+        entries = list_health_entries(
+            animal_id=animal_id,
+            kinds=request.query_params.getlist("kind"),
+            author=request.query_params.get("author", ""),
+            since=_date_param(request, "from"),
+            until=_date_param(request, "to"),
         )
+        return Response(AnimalHealthEntrySerializer(entries, many=True).data)
+
+    @extend_schema(
+        request=AnimalHealthInputSerializer,
+        responses={201: AnimalHealthEntrySerializer, **ERRORS},
+        operation_id="farms_animal_health_create",
+        tags=["farms"],
+    )
+    def post(self, request: Request, animal_id: UUID) -> Response:
+        serializer = AnimalHealthInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        entry = record_health_entry(
+            request=cast(HttpRequest, request),
+            animal_id=animal_id,
+            data=dict(serializer.validated_data),
+        )
+        return Response(AnimalHealthEntrySerializer(entry).data, status=201)
+
+
+def _date_param(request: Request, name: str) -> date | None:
+    """A bad date is a bad request, not an empty list."""
+    raw = request.query_params.get(name)
+    if not raw:
+        return None
+    parsed = parse_date(raw)
+    if parsed is None:
+        raise ValidationError({name: "Data musi być w formacie RRRR-MM-DD."})
+    return parsed
 
 
 class SpeciesView(APIView):

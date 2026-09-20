@@ -23,6 +23,7 @@ import { AnimalsPanel } from "./animals-panel";
 
 const { api, sections } = vi.hoisted(() => ({
   api: {
+    createFarmAnimalHealth: vi.fn(),
     listFarmAnimalHealth: vi.fn(),
     listFarmAnimals: vi.fn(),
     listFarms: vi.fn(),
@@ -117,15 +118,34 @@ beforeEach(() => {
     {
       id: "h1",
       animal_id: "a3",
+      kind: "treatment",
       occurred_on: "2026-09-18",
       source: "hoofcare.visit",
       source_reference: "visit-1",
-      author_name: "Korekcja Testowa",
+      author_name: "Piotr Korektor",
+      author_organization_name: "Korekcja Testowa",
+      author_is_external: true,
+      private: false,
       summary: "Korekcja: DD M2 na LH, kontrola za 14 dni.",
       details: {},
       published_at: "2026-09-18T10:00:00Z",
     },
   ]);
+  api.createFarmAnimalHealth.mockResolvedValue({
+    id: "h2",
+    animal_id: "a3",
+    kind: "note",
+    occurred_on: "2026-09-20",
+    source: "farms.manual",
+    source_reference: "r2",
+    author_name: "Anna Rolnik",
+    author_organization_name: "Gospodarstwo",
+    author_is_external: false,
+    private: false,
+    summary: "Kuleje na prawą tylną.",
+    details: {},
+    published_at: "2026-09-20T10:00:00Z",
+  });
   sections.length = 0;
   api.listFarmAnimals.mockResolvedValue(HERD);
   api.listFarms.mockResolvedValue([
@@ -243,13 +263,40 @@ test("karta zwierzęcia pokazuje dane rejestru i zmienia status", async () => {
   expect(within(dialog).getByText("Sprzedana na targu.")).toBeInTheDocument();
   await checkAxe();
 
-  // Historia zdrowia rejestru: co zrobiono zwierzęciu i kto (ADR-051 pt 8).
+  // Kartoteka zwierzęcia: rodzaj, treść, autor i firma, z której przyszedł.
   expect(
     await within(dialog).findByText(
       "Korekcja: DD M2 na LH, kontrola za 14 dni.",
     ),
   ).toBeVisible();
+  expect(within(dialog).getByText(/Piotr Korektor/)).toBeVisible();
   expect(within(dialog).getByText(/Korekcja Testowa/)).toBeVisible();
+
+  // Filtr rodzaju pyta serwer, bo lista jest ucinana po stronie API.
+  fireEvent.click(within(dialog).getByRole("button", { name: "Notatka" }));
+  await waitFor(() =>
+    expect(api.listFarmAnimalHealth).toHaveBeenLastCalledWith(
+      "a3",
+      expect.objectContaining({ kinds: ["note"] }),
+    ),
+  );
+
+  // Wpis rolnika: rodzaj, treść i prywatność idą do API.
+  fireEvent.click(within(dialog).getByRole("button", { name: "Dodaj wpis" }));
+  fireEvent.change(within(dialog).getByLabelText("Treść wpisu"), {
+    target: { value: "Kuleje na prawą tylną." },
+  });
+  fireEvent.click(
+    within(dialog).getByLabelText(/Tylko dla mnie/, { selector: "input" }),
+  );
+  fireEvent.click(within(dialog).getByRole("button", { name: "Zapisz" }));
+  await waitFor(() =>
+    expect(api.createFarmAnimalHealth).toHaveBeenCalledWith("a3", {
+      kind: "note",
+      summary: "Kuleje na prawą tylną.",
+      private: true,
+    }),
+  );
 
   const status = within(dialog).getByLabelText("Status") as HTMLSelectElement;
   expect(status.value).toBe("sold");

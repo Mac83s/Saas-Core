@@ -22,12 +22,12 @@ What makes this a door rather than a hole:
 from __future__ import annotations
 
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from datetime import date
 from typing import Any
 from uuid import UUID
 
-from django.db import transaction
+from django.db import DatabaseError, transaction
 from django.http import HttpRequest
 
 from saas_core.modules.core.organizations.context import (
@@ -38,8 +38,8 @@ from saas_core.modules.core.organizations.context import (
 )
 from saas_core.modules.core.organizations.models import OrganizationAuditAction
 
-from .models import Animal, AnimalHealthEntry, Farm, FarmShare
-from .services import FARMS_MANAGE, audit_farm
+from .models import Animal, AnimalHealthEntry, Farm, FarmShare, HealthEntryKind
+from .services import FARMS_MANAGE, FARMS_READ, PAGE_LIMIT, audit_farm
 from .sharing import share_for_publishing, share_for_writing
 
 #: What the register receives about an animal. The company's private note about
@@ -54,15 +54,20 @@ SYNCED_FIELDS = (
 
 
 @contextmanager
-def registry_writer(share: FarmShare) -> Iterator[TenantContext]:
-    """The farmer's tenant, for the statements the share allows."""
+def registry_door(share: FarmShare, *, permission: str = FARMS_MANAGE) -> Iterator[TenantContext]:
+    """The farmer's tenant, for the statements the share allows.
+
+    Reading takes `farms.read`, writing `farms.manage`: nothing inside calls
+    `authorize*` today, but a context that carries more than it needs is a
+    permission waiting to be used by accident.
+    """
     caller = require_tenant_context()
     context = TenantContext(
         organization_id=share.registry_organization_id,
         membership_id=caller.membership_id,
         actor_id=caller.actor_id,
         role_key="farm_share",
-        permissions=frozenset({FARMS_MANAGE}),
+        permissions=frozenset({permission}),
         principal_kind="farm_share",
     )
     with activate_tenant_context(context):
@@ -70,7 +75,11 @@ def registry_writer(share: FarmShare) -> Iterator[TenantContext]:
         try:
             yield context
         finally:
-            set_local_organization_id(caller.organization_id)
+            # A failed statement leaves the transaction aborted and this would
+            # raise over the real error; the savepoint of the caller's
+            # `atomic()` restores the setting anyway.
+            with suppress(DatabaseError):
+                set_local_organization_id(caller.organization_id)
 
 
 def mirror_animal(request: HttpRequest, animal: Animal) -> Animal | None:
@@ -84,7 +93,7 @@ def mirror_animal(request: HttpRequest, animal: Animal) -> Animal | None:
     if share is None:
         return None
     values: dict[str, Any] = {field: getattr(animal, field) for field in SYNCED_FIELDS}
-    with transaction.atomic(), registry_writer(share) as context:
+    with transaction.atomic(), registry_door(share) as context:
         farm = Farm.all_objects.filter(
             organization_id=context.organization_id, id=share.registry_farm_id
         ).first()
@@ -117,6 +126,8 @@ def publish_health_entry(
     source: str,
     reference: str,
     summary: str,
+    kind: str = HealthEntryKind.TREATMENT,
+    author_name: str = "",
     details: dict[str, Any] | None = None,
 ) -> AnimalHealthEntry | None:
     """One entry in the farmer's register about an animal (ADR-051 pt 8).
@@ -130,13 +141,8 @@ def publish_health_entry(
     share = share_for_publishing(animal.organization_id, animal.farm_id)
     if share is None:
         return None
-    with transaction.atomic(), registry_writer(share) as context:
-        mirrored = Animal.all_objects.filter(
-            organization_id=context.organization_id,
-            farm_id=share.registry_farm_id,
-            species=animal.species,
-            national_id=animal.national_id,
-        ).first()
+    with transaction.atomic(), registry_door(share) as context:
+        mirrored = _registry_animal(context, share, animal)
         if mirrored is None:
             # The register does not know this cow; the herd write is what puts
             # it there, and without it there is nothing to hang a history on.
@@ -147,14 +153,63 @@ def publish_health_entry(
             source=source,
             source_reference=reference,
             defaults={
+                "kind": kind,
                 "occurred_on": occurred_on,
-                "author_name": share.company_name,
+                "author_name": author_name or share.company_name,
                 "author_organization_id": share.company_organization_id,
+                "author_organization_name": share.company_name,
                 "summary": summary,
                 "details": details or {},
             },
         )
         return entry
+
+
+def registry_health_entries(animal_id: UUID) -> list[AnimalHealthEntry]:
+    """The animal's file in the farmer's register, when the share is active.
+
+    This is the other direction of ADR-051 pt 8: the company that works on the
+    animal reads what everyone else recorded about it — the keeper's notes, the
+    other companies' entries, the vet's — except what the keeper marked private.
+    The gate is the share of *this* animal's farm, not of the company, so one
+    linked card never opens another farm's file.
+    """
+    caller = require_tenant_context()
+    animal = Animal.all_objects.filter(
+        organization_id=caller.organization_id, id=animal_id
+    ).first()
+    if animal is None:
+        return []
+    share = share_for_publishing(caller.organization_id, animal.farm_id)
+    if share is None:
+        return []
+    with transaction.atomic(), registry_door(share, permission=FARMS_READ) as context:
+        mirrored = _registry_animal(context, share, animal)
+        if mirrored is None:
+            return []
+        entries = list(
+            AnimalHealthEntry.all_objects.filter(
+                organization_id=context.organization_id, animal=mirrored, private=False
+            )[:PAGE_LIMIT]
+        )
+    for entry in entries:
+        # The company reads its own animal: the registry's id would be an
+        # identifier it cannot resolve.
+        entry.animal_id = animal.id
+        entry.author_is_external = entry.author_organization_id != caller.organization_id
+    return entries
+
+
+def _registry_animal(
+    context: TenantContext, share: FarmShare, animal: Animal
+) -> Animal | None:
+    """The same cow in the register: matched by species and tag, one rule."""
+    return Animal.all_objects.filter(
+        organization_id=context.organization_id,
+        farm_id=share.registry_farm_id,
+        species=animal.species,
+        national_id=animal.national_id,
+    ).first()
 
 
 def registry_farm_id(organization_id: UUID, farm_id: UUID) -> UUID | None:

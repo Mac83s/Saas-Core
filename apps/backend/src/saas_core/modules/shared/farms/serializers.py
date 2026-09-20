@@ -5,7 +5,7 @@ from typing import Any
 from drf_spectacular.utils import inline_serializer
 from rest_framework import serializers
 
-from .models import AnimalSex, AnimalStatus
+from .models import AnimalSex, AnimalStatus, HealthEntryKind
 from .species import SPECIES
 
 
@@ -101,13 +101,28 @@ class AnimalHealthEntrySerializer(serializers.Serializer[Any]):
 
     id = serializers.UUIDField()
     animal_id = serializers.UUIDField()
+    kind = serializers.CharField()
     occurred_on = serializers.DateField()
     source = serializers.CharField()  # type: ignore[assignment]
     source_reference = serializers.CharField()
     author_name = serializers.CharField()
+    author_organization_name = serializers.CharField()
+    #: Written by somebody else's organization; set by the use case.
+    author_is_external = serializers.BooleanField(default=False)
+    private = serializers.BooleanField()
     summary = serializers.CharField()
     details = serializers.DictField()
     published_at = serializers.DateTimeField()
+
+
+class AnimalHealthInputSerializer(serializers.Serializer[Any]):
+    """An entry written here by hand. `source` belongs to the server."""
+
+    kind = serializers.ChoiceField(choices=HealthEntryKind.choices, default=HealthEntryKind.NOTE)
+    occurred_on = serializers.DateField(required=False)
+    summary = serializers.CharField(max_length=240)
+    details = serializers.DictField(required=False)
+    private = serializers.BooleanField(required=False, default=False)
 
 
 class FarmActivationCodeSerializer(serializers.Serializer[Any]):

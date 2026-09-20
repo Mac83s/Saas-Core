@@ -1774,7 +1774,20 @@
     "updatedAt": "Entry last changed",
     "notes": "Notes",
     "unknown": "not given",
-    "history": "Health history"
+    "history": "Animal file",
+    "noHistory": "Nothing recorded yet.",
+    "addEntry": "Add an entry",
+    "historySince": "From",
+    "kind": "Kind",
+    "entrySummary": "What happened",
+    "entryPrivate": "Keep to myself (companies will not see it)",
+    "entryPrivateBadge": "Private",
+    "kind_note": "Note",
+    "kind_alert": "Warning",
+    "kind_treatment": "Treatment",
+    "kind_medication": "Medicine or vaccine",
+    "kind_visit": "Specialist visit",
+    "save": "Save"
   },
   "StaffAccounts": {
     "title": "Calendar staff accounts",

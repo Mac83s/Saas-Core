@@ -2435,17 +2435,53 @@ export async function listFarmAnimals(
 }
 
 export type FarmAnimalHealthEntry = components["schemas"]["AnimalHealthEntry"];
+export type FarmAnimalHealthInput = components["schemas"]["AnimalHealthInput"];
 
-/** What the register knows happened to this animal (ADR-051 pt 8). */
+/** The animal's file, newest first — filters run on the server (ADR-051 pt 8). */
 export async function listFarmAnimalHealth(
   animalId: string,
+  filters: {
+    kinds?: string[];
+    author?: "mine" | "others";
+    from?: string;
+    to?: string;
+  } = {},
 ): Promise<FarmAnimalHealthEntry[]> {
+  const query: {
+    kind?: string[];
+    author?: string;
+    from?: string;
+    to?: string;
+  } = {};
+  if (filters.kinds?.length) query.kind = filters.kinds;
+  if (filters.author) query.author = filters.author;
+  if (filters.from) query.from = filters.from;
+  if (filters.to) query.to = filters.to;
   const { data, error, response } = await client.GET(
     "/api/v1/farms/animals/{animal_id}/health/",
     {
-      params: { path: { animal_id: animalId } },
+      params: { path: { animal_id: animalId }, query },
       credentials: "same-origin",
       cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** An entry written by hand, in this register. */
+export async function createFarmAnimalHealth(
+  animalId: string,
+  input: FarmAnimalHealthInput,
+): Promise<FarmAnimalHealthEntry> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/farms/animals/{animal_id}/health/",
+    {
+      params: { path: { animal_id: animalId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
     },
   );
   if (error || !data) throwProblem(error, response);

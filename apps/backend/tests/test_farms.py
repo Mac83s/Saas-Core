@@ -535,3 +535,133 @@ def test_a_company_publishes_the_animals_history_into_the_farmers_register() -> 
         )
     with tenant(farmer):
         assert len(list_health_entries(animal_id=registry_animal.id)) == 1
+
+
+def test_the_animals_file_is_a_feed_of_kinds_with_its_own_notes() -> None:
+    """Kartoteka: wpisy różnych rodzajów, filtrowane w bazie, z autorem."""
+    from datetime import date  # noqa: PLC0415
+
+    from saas_core.modules.shared.farms.models import HealthEntryKind  # noqa: PLC0415
+    from saas_core.modules.shared.farms.services import (  # noqa: PLC0415
+        create_animal,
+        create_farm,
+        list_health_entries,
+        record_health_entry,
+    )
+
+    member = membership("kartoteka")
+    with tenant(member) as request:
+        farm = create_farm(request=request, data={"name": "Gospodarstwo Kartoteka"})
+        cow = create_animal(request=request, farm_id=farm.id, data={"national_id": "PL005432155001"})
+        note = record_health_entry(
+            request=request,
+            animal_id=cow.id,
+            data={
+                "kind": HealthEntryKind.NOTE,
+                "occurred_on": date(2026, 9, 10),
+                "summary": "Kuleje na prawą tylną.",
+            },
+        )
+        record_health_entry(
+            request=request,
+            animal_id=cow.id,
+            data={
+                "kind": HealthEntryKind.MEDICATION,
+                "occurred_on": date(2026, 9, 12),
+                "summary": "Podano antybiotyk, karencja 5 dni.",
+                "details": {"withdrawal_days": 5},
+                "private": True,
+            },
+        )
+        # Feed: newest first, and the writer is the person, not the company.
+        feed = list_health_entries(animal_id=cow.id)
+        assert [entry.occurred_on for entry in feed] == [date(2026, 9, 12), date(2026, 9, 10)]
+        assert feed[0].author_organization_name == "kartoteka"
+        assert all(not entry.author_is_external for entry in feed)
+        assert feed[0].source == "farms.manual"
+        # Two entries written in one breath keep their own rows.
+        assert feed[1].id == note.id
+        # Filters run in the database, not in the panel.
+        assert [entry.kind for entry in list_health_entries(
+            animal_id=cow.id, kinds=[HealthEntryKind.MEDICATION]
+        )] == [HealthEntryKind.MEDICATION]
+        assert list_health_entries(animal_id=cow.id, since=date(2026, 9, 11)) == [feed[0]]
+        assert list_health_entries(animal_id=cow.id, until=date(2026, 9, 11)) == [feed[1]]
+        assert list_health_entries(animal_id=cow.id, author="others") == []
+
+
+def test_a_company_reads_the_file_through_the_share_except_what_is_private() -> None:
+    """ADR-051 pt 8 w drugą stronę: korektor czyta kartotekę, gdy udział żyje."""
+    from datetime import date  # noqa: PLC0415
+
+    from saas_core.modules.shared.farms.api import farm_animals  # noqa: PLC0415
+    from saas_core.modules.shared.farms.herd_sync import publish_health_entry  # noqa: PLC0415
+    from saas_core.modules.shared.farms.models import HealthEntryKind  # noqa: PLC0415
+    from saas_core.modules.shared.farms.services import (  # noqa: PLC0415
+        create_animal,
+        create_farm,
+        list_health_entries,
+        record_health_entry,
+    )
+    from saas_core.modules.shared.farms.sharing import (  # noqa: PLC0415
+        issue_activation_code,
+        redeem_activation_code,
+        revoke_share,
+    )
+
+    company = membership("firma-czyta")
+    farmer = membership("rolnik-czyta")
+    with tenant(company) as request:
+        card = create_farm(
+            request=request, data={"name": "Gospodarstwo Czyta", "herd_number": "PL066666666-001"}
+        )
+        cow = create_animal(request=request, farm_id=card.id, data={"national_id": "PL005432144001"})
+        code, _ = issue_activation_code(request=request, farm_id=card.id)
+    with tenant(farmer) as request:
+        taken = redeem_activation_code(request=request, code=code)
+        (registry_cow,) = list(farm_animals(farmer.organization_id, taken["farm"].id))
+        record_health_entry(
+            request=request,
+            animal_id=registry_cow.id,
+            data={"kind": HealthEntryKind.NOTE, "summary": "Cielna, termin w maju."},
+        )
+        record_health_entry(
+            request=request,
+            animal_id=registry_cow.id,
+            data={"kind": HealthEntryKind.NOTE, "summary": "Sprawa z sąsiadem.", "private": True},
+        )
+        share = taken["share"]
+
+    with tenant(company):
+        publish_health_entry(
+            animal=cow,
+            occurred_on=date(2026, 9, 20),
+            source="hoofcare.visit",
+            reference="wizyta-1",
+            summary="Korekcja: DD M2.",
+            author_name="Piotr Korektor",
+        )
+        feed = list_health_entries(animal_id=cow.id)
+        summaries = [entry.summary for entry in feed]
+        # Notatka rolnika tak, prywatna nie; własny wpis firmy też w feedzie.
+        assert "Cielna, termin w maju." in summaries
+        assert "Sprawa z sąsiadem." not in summaries
+        assert "Korekcja: DD M2." in summaries
+        keeper = next(entry for entry in feed if entry.summary.startswith("Cielna"))
+        assert keeper.author_is_external is True
+        assert keeper.author_organization_name == "rolnik-czyta"
+        # Wpis z rejestru wraca pod identyfikatorem zwierzęcia firmy.
+        assert {entry.animal_id for entry in feed} == {cow.id}
+        # Autor publikacji to osoba, nie firma; nazwa firmy obok.
+        published = next(entry for entry in feed if entry.summary.startswith("Korekcja"))
+        assert (published.author_name, published.author_organization_name) == (
+            "Piotr Korektor",
+            "firma-czyta",
+        )
+        assert published.kind == HealthEntryKind.TREATMENT
+
+    with tenant(farmer) as request:
+        revoke_share(request=request, share_id=share.id)
+    with tenant(company):
+        # Cofnięty udział zamyka drzwi także dla odczytu.
+        assert [entry.summary for entry in list_health_entries(animal_id=cow.id)] == []

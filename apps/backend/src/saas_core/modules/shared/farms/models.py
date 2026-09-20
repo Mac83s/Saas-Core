@@ -88,6 +88,9 @@ class Animal(TenantScopedModel):
     status = models.CharField(
         max_length=16, choices=AnimalStatus.choices, default=AnimalStatus.ACTIVE
     )
+    #: A company wrote this animal into the register and the keeper has not
+    #: looked at it yet. Nothing is ever deleted here — the keeper decides.
+    review_requested_at = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -111,6 +114,18 @@ class Animal(TenantScopedModel):
         return f"{self.national_id} ({self.name})" if self.name else self.national_id
 
 
+class HealthEntryKind(models.TextChoices):
+    """What kind of thing happened. Deliberately about animals, not about a
+    trade: a vertical says what it did in `source` and `details`, and the
+    register renders the kind (ADR-049)."""
+
+    NOTE = "note", "Notatka"
+    ALERT = "alert", "Uwaga"
+    TREATMENT = "treatment", "Zabieg"
+    MEDICATION = "medication", "Lek lub szczepienie"
+    VISIT = "visit", "Wizyta specjalisty"
+
+
 class AnimalHealthEntry(TenantScopedModel):
     """What happened to one animal, in the register that keeps its history.
 
@@ -121,16 +136,27 @@ class AnimalHealthEntry(TenantScopedModel):
     detail that vertical needs.
     """
 
+    #: Whether the author is another organization, as the reader sees it.
+    #: Filled by the use case for the API; never stored.
+    author_is_external: bool = False
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     animal = models.ForeignKey(Animal, on_delete=models.PROTECT, related_name="health_entries")
+    kind = models.CharField(max_length=16, choices=HealthEntryKind, default=HealthEntryKind.NOTE)
     occurred_on = models.DateField()
     #: Which vertical wrote it, e.g. "hoofcare.visit".
     source = models.CharField(max_length=32)
     #: The entry's identity in that vertical, so publishing twice is one row.
     source_reference = models.CharField(max_length=64)
-    #: Who did the work, as the keeper would name them.
+    #: Who did the work, as the keeper would name them: the person when the
+    #: writer knows them, the company otherwise.
     author_name = models.CharField(max_length=160, blank=True)
     author_organization_id = models.UUIDField(null=True, blank=True)
+    #: Copied, not looked up: no tenant reads another tenant's organization row,
+    #: and a history wants the name from the day of the entry.
+    author_organization_name = models.CharField(max_length=160, blank=True)
+    #: The keeper's own entry, kept out of what a company reads through a share.
+    private = models.BooleanField(default=False)
     summary = models.CharField(max_length=240)
     #: Structured detail the panel renders; shape belongs to the source.
     details = models.JSONField(default=dict)

@@ -734,10 +734,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description What happened to this animal, as the register knows it. */
+        /** @description The animal's file: what happened to it, newest first. */
         get: operations["farms_animal_health_list"];
         put?: never;
-        post?: never;
+        /** @description The animal's file: what happened to it, newest first. */
+        post: operations["farms_animal_health_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2531,11 +2532,16 @@ export interface components {
             id: string;
             /** Format: uuid */
             animal_id: string;
+            kind: string;
             /** Format: date */
             occurred_on: string;
             source: string;
             source_reference: string;
             author_name: string;
+            author_organization_name: string;
+            /** @default false */
+            author_is_external: boolean;
+            private: boolean;
             summary: string;
             details: {
                 [key: string]: unknown;
@@ -2543,6 +2549,28 @@ export interface components {
             /** Format: date-time */
             published_at: string;
         };
+        /** @description An entry written here by hand. `source` belongs to the server. */
+        AnimalHealthInput: {
+            /** @default note */
+            kind: components["schemas"]["AnimalHealthInputKindEnum"];
+            /** Format: date */
+            occurred_on?: string;
+            summary: string;
+            details?: {
+                [key: string]: unknown;
+            };
+            /** @default false */
+            private: boolean;
+        };
+        /**
+         * @description * `note` - Notatka
+         *     * `alert` - Uwaga
+         *     * `treatment` - Zabieg
+         *     * `medication` - Lek lub szczepienie
+         *     * `visit` - Wizyta specjalisty
+         * @enum {string}
+         */
+        AnimalHealthInputKindEnum: "note" | "alert" | "treatment" | "medication" | "visit";
         AnimalInput: {
             /** Format: uuid */
             farm_id: string;
@@ -6681,7 +6709,16 @@ export interface operations {
     };
     farms_animal_health_list: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description "mine" albo "others". */
+                author?: string;
+                /** @description Od tej daty zdarzenia. */
+                from?: string;
+                /** @description Rodzaje wpisów do pokazania. */
+                kind?: string[];
+                /** @description Do tej daty zdarzenia. */
+                to?: string;
+            };
             header?: never;
             path: {
                 animal_id: string;
@@ -6696,6 +6733,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AnimalHealthEntry"][];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    farms_animal_health_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                animal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnimalHealthInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["AnimalHealthInput"];
+                "multipart/form-data": components["schemas"]["AnimalHealthInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnimalHealthEntry"];
                 };
             };
             400: {

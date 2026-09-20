@@ -13,7 +13,7 @@ from django.db.models import QuerySet
 from django.http import HttpRequest
 
 from .herd_sync import publish_health_entry
-from .models import Animal, AnimalHealthEntry, AnimalStatus, Farm
+from .models import Animal, AnimalHealthEntry, AnimalStatus, Farm, HealthEntryKind
 from .services import FARMS_ENABLED, FARMS_MANAGE, FARMS_READ, create_animal
 from .species import normalize_identifier
 
@@ -82,6 +82,7 @@ __all__ = [
     "Animal",
     "AnimalHealthEntry",
     "AnimalStatus",
+    "HealthEntryKind",
     "Farm",
     "animal_for_tenant",
     "farm_animals",

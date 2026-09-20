@@ -1875,7 +1875,7 @@ paths:
   /api/v1/farms/animals/{animal_id}/health/:
     get:
       operationId: farms_animal_health_list
-      description: What happened to this animal, as the register knows it.
+      description: 'The animal''s file: what happened to it, newest first.'
       parameters:
       - in: path
         name: animal_id
@@ -1883,6 +1883,30 @@ paths:
           type: string
           format: uuid
         required: true
+      - in: query
+        name: author
+        schema:
+          type: string
+        description: '"mine" albo "others".'
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+        description: Od tej daty zdarzenia.
+      - in: query
+        name: kind
+        schema:
+          type: array
+          items:
+            type: string
+        description: Rodzaje wpisów do pokazania.
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+        description: Do tej daty zdarzenia.
       tags:
       - farms
       security:
@@ -1895,6 +1919,57 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/AnimalHealthEntry'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: farms_animal_health_create
+      description: 'The animal''s file: what happened to it, newest first.'
+      parameters:
+      - in: path
+        name: animal_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - farms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnimalHealthInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AnimalHealthInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AnimalHealthInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnimalHealthEntry'
           description: ''
         '400':
           content:
@@ -7424,6 +7499,8 @@ components:
         animal_id:
           type: string
           format: uuid
+        kind:
+          type: string
         occurred_on:
           type: string
           format: date
@@ -7433,6 +7510,13 @@ components:
           type: string
         author_name:
           type: string
+        author_organization_name:
+          type: string
+        author_is_external:
+          type: boolean
+          default: false
+        private:
+          type: boolean
         summary:
           type: string
         details:
@@ -7444,13 +7528,52 @@ components:
       required:
       - animal_id
       - author_name
+      - author_organization_name
       - details
       - id
+      - kind
       - occurred_on
+      - private
       - published_at
       - source
       - source_reference
       - summary
+    AnimalHealthInput:
+      type: object
+      description: An entry written here by hand. `source` belongs to the server.
+      properties:
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/AnimalHealthInputKindEnum'
+          default: note
+        occurred_on:
+          type: string
+          format: date
+        summary:
+          type: string
+          maxLength: 240
+        details:
+          type: object
+          additionalProperties: {}
+        private:
+          type: boolean
+          default: false
+      required:
+      - summary
+    AnimalHealthInputKindEnum:
+      enum:
+      - note
+      - alert
+      - treatment
+      - medication
+      - visit
+      type: string
+      description: |-
+        * `note` - Notatka
+        * `alert` - Uwaga
+        * `treatment` - Zabieg
+        * `medication` - Lek lub szczepienie
+        * `visit` - Wizyta specjalisty
     AnimalInput:
       type: object
       properties:

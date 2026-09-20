@@ -1774,7 +1774,20 @@
     "updatedAt": "Ostatnia zmiana wpisu",
     "notes": "Notatki",
     "unknown": "nie podano",
-    "history": "Historia zdrowia"
+    "history": "Kartoteka",
+    "noHistory": "Brak wpisów w kartotece.",
+    "addEntry": "Dodaj wpis",
+    "historySince": "Od dnia",
+    "kind": "Rodzaj",
+    "entrySummary": "Treść wpisu",
+    "entryPrivate": "Tylko dla mnie (firmy tego nie zobaczą)",
+    "entryPrivateBadge": "Prywatny",
+    "kind_note": "Notatka",
+    "kind_alert": "Uwaga",
+    "kind_treatment": "Zabieg",
+    "kind_medication": "Lek lub szczepienie",
+    "kind_visit": "Wizyta specjalisty",
+    "save": "Zapisz"
   },
   "StaffAccounts": {
     "title": "Konta pracowników kalendarza",

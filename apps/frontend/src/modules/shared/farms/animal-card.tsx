@@ -3,14 +3,17 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useFormatter, useTranslations } from "next-intl";
+import { PlusIcon } from "lucide-react";
 
 import {
+  createFarmAnimalHealth,
   listFarmAnimalHealth,
   updateFarmAnimal,
   type FarmAnimal,
   type FarmAnimalHealthEntry,
 } from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
+import { Button } from "@saas-core/ui/components/button";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +22,7 @@ import {
   DialogTitle,
 } from "@saas-core/ui/components/dialog";
 import { Field, FieldLabel } from "@saas-core/ui/components/field";
+import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
 import { Link } from "#i18n/navigation";
@@ -31,6 +35,16 @@ export const ANIMAL_STATUSES = ["active", "sold", "culled", "dead"] as const;
 export type AnimalStatus = (typeof ANIMAL_STATUSES)[number];
 
 const SEXES = ["female", "male", "unknown"] as const;
+
+/** `HealthEntryKind` of the register (models.py). A vertical says what it did
+ * in `source` and `details`; the register only shows the kind. */
+export const ENTRY_KINDS = [
+  "note",
+  "alert",
+  "treatment",
+  "medication",
+  "visit",
+] as const;
 
 /**
  * One animal, as the register knows it, plus whatever the product adds about
@@ -60,12 +74,22 @@ export function AnimalCard({
   const [problem, setProblem] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [history, setHistory] = useState<FarmAnimalHealthEntry[]>();
+  const [kinds, setKinds] = useState<string[]>([]);
+  const [since, setSince] = useState("");
+  const [writing, setWriting] = useState(false);
+  const [draft, setDraft] = useState({
+    kind: "note",
+    summary: "",
+    private: false,
+  });
+  const [reloads, setReloads] = useState(0);
 
-  // The register keeps what was done to the animal, whoever did it (ADR-051
-  // pt 8). A failed read leaves the section out: it is history, not the card.
+  // The animal's file: what happened to it, whoever recorded it (ADR-051 pt 8).
+  // The server filters, because the list is capped — filtering here would hide
+  // the older entries the feed exists to show.
   useEffect(() => {
     let current = true;
-    listFarmAnimalHealth(animal.id)
+    listFarmAnimalHealth(animal.id, { kinds, from: since || undefined })
       .then((entries) => {
         if (current) setHistory(entries);
       })
@@ -75,7 +99,7 @@ export function AnimalCard({
     return () => {
       current = false;
     };
-  }, [animal.id]);
+  }, [animal.id, kinds, reloads, since]);
 
   const known = <T extends string>(values: readonly T[], value: string) =>
     values.find((entry) => entry === value);
@@ -180,23 +204,151 @@ export function AnimalCard({
           </p>
         ) : null}
 
-        {history && history.length > 0 ? (
-          <section className="space-y-3">
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-semibold">{t("history")}</h3>
+            {canManage ? (
+              <Button
+                onClick={() => setWriting((open) => !open)}
+                size="sm"
+                variant="outline"
+              >
+                <PlusIcon aria-hidden="true" />
+                {t("addEntry")}
+              </Button>
+            ) : null}
+          </div>
+
+          <div className="flex flex-wrap items-end gap-2">
+            {ENTRY_KINDS.map((value) => {
+              const on = kinds.includes(value);
+              return (
+                <Button
+                  aria-pressed={on}
+                  key={value}
+                  onClick={() =>
+                    setKinds((current) =>
+                      on
+                        ? current.filter((item) => item !== value)
+                        : [...current, value],
+                    )
+                  }
+                  size="sm"
+                  variant={on ? "default" : "outline"}
+                >
+                  {t(`kind_${value}`)}
+                </Button>
+              );
+            })}
+            <Field className="w-auto">
+              <FieldLabel htmlFor="animal-history-since">
+                {t("historySince")}
+              </FieldLabel>
+              <Input
+                className="w-44"
+                id="animal-history-since"
+                onChange={(event) => setSince(event.target.value)}
+                type="date"
+                value={since}
+              />
+            </Field>
+          </div>
+
+          {writing ? (
+            <form
+              className="space-y-3 rounded-xl border p-3"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                setProblem(undefined);
+                try {
+                  await createFarmAnimalHealth(animal.id, {
+                    kind: draft.kind as (typeof ENTRY_KINDS)[number],
+                    summary: draft.summary,
+                    private: draft.private,
+                  });
+                  setDraft({ kind: "note", summary: "", private: false });
+                  setWriting(false);
+                  setReloads((value) => value + 1);
+                } catch (error) {
+                  setProblem(farmProblem(error, t("saveFailed")));
+                }
+              }}
+            >
+              <Field>
+                <FieldLabel htmlFor="animal-entry-kind">{t("kind")}</FieldLabel>
+                <NativeSelect
+                  id="animal-entry-kind"
+                  onChange={(event) =>
+                    setDraft({ ...draft, kind: event.target.value })
+                  }
+                  value={draft.kind}
+                >
+                  {ENTRY_KINDS.map((value) => (
+                    <option key={value} value={value}>
+                      {t(`kind_${value}`)}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="animal-entry-summary">
+                  {t("entrySummary")}
+                </FieldLabel>
+                <Input
+                  id="animal-entry-summary"
+                  maxLength={240}
+                  onChange={(event) =>
+                    setDraft({ ...draft, summary: event.target.value })
+                  }
+                  required
+                  value={draft.summary}
+                />
+              </Field>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  checked={draft.private}
+                  onChange={(event) =>
+                    setDraft({ ...draft, private: event.target.checked })
+                  }
+                  type="checkbox"
+                />
+                {t("entryPrivate")}
+              </label>
+              <Button disabled={!draft.summary.trim()} size="sm" type="submit">
+                {t("save")}
+              </Button>
+            </form>
+          ) : null}
+
+          {history && history.length > 0 ? (
             <ol className="space-y-3">
-              {history.map((entry) => (
-                <li className="rounded-xl border p-3" key={entry.id}>
-                  <p className="text-sm">{entry.summary}</p>
+              {history.map((item) => (
+                <li className="rounded-xl border p-3" key={item.id}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="secondary">{t(`kind_${item.kind}`)}</Badge>
+                    {item.private ? (
+                      <Badge variant="outline">{t("entryPrivateBadge")}</Badge>
+                    ) : null}
+                  </div>
+                  <p className="mt-1 text-sm">{item.summary}</p>
                   <p className="text-xs text-muted-foreground">
-                    {[date(entry.occurred_on), entry.author_name]
+                    {[
+                      date(item.occurred_on),
+                      item.author_name,
+                      item.author_is_external
+                        ? item.author_organization_name
+                        : "",
+                    ]
                       .filter(Boolean)
                       .join(" · ")}
                   </p>
                 </li>
               ))}
             </ol>
-          </section>
-        ) : null}
+          ) : (
+            <p className="text-sm text-muted-foreground">{t("noHistory")}</p>
+          )}
+        </section>
 
         {/* What the trade records about this animal, from the product's own
             endpoints; core ships none (ADR-049). */}
