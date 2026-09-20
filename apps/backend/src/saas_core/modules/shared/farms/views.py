@@ -16,6 +16,7 @@ from rest_framework.views import APIView
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
 from .serializers import (
+    AnimalHealthEntrySerializer,
     AnimalInputSerializer,
     AnimalSerializer,
     AnimalUpdateSerializer,
@@ -34,6 +35,7 @@ from .services import (
     get_farm,
     list_animals,
     list_farms,
+    list_health_entries,
     update_animal,
     update_farm,
 )
@@ -163,6 +165,22 @@ class AnimalDetailView(APIView):
             data=dict(serializer.validated_data),
         )
         return Response(AnimalSerializer(animal).data)
+
+
+class AnimalHealthView(APIView):
+    """What happened to this animal, as the register knows it."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        responses={200: AnimalHealthEntrySerializer(many=True), **ERRORS},
+        operation_id="farms_animal_health_list",
+        tags=["farms"],
+    )
+    def get(self, request: Request, animal_id: UUID) -> Response:
+        return Response(
+            AnimalHealthEntrySerializer(list_health_entries(animal_id=animal_id), many=True).data
+        )
 
 
 class SpeciesView(APIView):

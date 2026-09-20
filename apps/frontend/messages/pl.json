@@ -1692,7 +1692,8 @@
     "cardTitle": "Karta zwierzęcia",
     "updatedAt": "Ostatnia zmiana wpisu",
     "notes": "Notatki",
-    "unknown": "nie podano"
+    "unknown": "nie podano",
+    "history": "Historia zdrowia"
   },
   "StaffAccounts": {
     "title": "Konta pracowników kalendarza",

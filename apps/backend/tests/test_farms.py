@@ -460,3 +460,81 @@ def test_a_shared_card_writes_the_cow_into_the_farmers_register() -> None:
         assert [animal.national_id for animal in list_animals(farm_id=registry_farm.id)] == [
             "PL005432177001"
         ]
+
+
+def test_a_company_publishes_the_animals_history_into_the_farmers_register() -> None:
+    """ADR-051 pt 8: the keeper reads what was done to the cow, whoever did it."""
+    from datetime import date  # noqa: PLC0415
+
+    from saas_core.modules.shared.farms.api import farm_animals  # noqa: PLC0415
+    from saas_core.modules.shared.farms.herd_sync import publish_health_entry  # noqa: PLC0415
+    from saas_core.modules.shared.farms.services import (  # noqa: PLC0415
+        create_animal,
+        create_farm,
+        list_health_entries,
+    )
+    from saas_core.modules.shared.farms.sharing import (  # noqa: PLC0415
+        issue_activation_code,
+        redeem_activation_code,
+        revoke_share,
+    )
+
+    company = membership("firma-historia")
+    farmer = membership("rolnik-historia")
+    with tenant(company) as request:
+        card = create_farm(
+            request=request,
+            data={"name": "Gospodarstwo Historia", "herd_number": "PL077777777-001"},
+        )
+        cow = create_animal(
+            request=request, farm_id=card.id, data={"national_id": "PL005432166001"}
+        )
+        code, _ = issue_activation_code(request=request, farm_id=card.id)
+    with tenant(farmer) as request:
+        taken = redeem_activation_code(request=request, code=code)
+        registry_animal = list(farm_animals(farmer.organization_id, taken["farm"].id))[0]
+        share = taken["share"]
+
+    with tenant(company) as request:
+        published = publish_health_entry(
+            request,
+            animal=cow,
+            occurred_on=date(2026, 9, 20),
+            source="hoofcare.visit",
+            reference="visit-1",
+            summary="Korekcja: DD M2 na LH, kontrola za 14 dni.",
+            details={"limbs": ["LH"], "lesions": ["DD"]},
+        )
+        assert published is not None
+        # The same visit published again corrects the entry instead of adding one.
+        publish_health_entry(
+            request,
+            animal=cow,
+            occurred_on=date(2026, 9, 20),
+            source="hoofcare.visit",
+            reference="visit-1",
+            summary="Korekcja: DD M2 na LH, kontrola za 21 dni.",
+        )
+
+    with tenant(farmer):
+        (entry,) = list_health_entries(animal_id=registry_animal.id)
+        assert entry.summary.endswith("kontrola za 21 dni.")
+        assert entry.author_name == "firma-historia"
+        assert entry.details == {}
+
+    with tenant(farmer) as request:
+        revoke_share(request=request, share_id=share.id)
+    with tenant(company) as request:
+        assert (
+            publish_health_entry(
+                request,
+                animal=cow,
+                occurred_on=date(2026, 9, 21),
+                source="hoofcare.visit",
+                reference="visit-2",
+                summary="Nie powinno trafić do rejestru.",
+            )
+            is None
+        )
+    with tenant(farmer):
+        assert len(list_health_entries(animal_id=registry_animal.id)) == 1

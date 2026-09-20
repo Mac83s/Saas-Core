@@ -211,6 +211,12 @@ def share_for_writing(company_organization_id: UUID, company_farm_id: UUID) -> F
     return share if share is not None and share.can_write_herd else None
 
 
+def share_for_publishing(company_organization_id: UUID, company_farm_id: UUID) -> FarmShare | None:
+    """The active share a company may publish health entries through."""
+    share = _share_of_card(company_organization_id, company_farm_id)
+    return share if share is not None and share.can_publish_health else None
+
+
 def _share_of_card(company_organization_id: UUID, company_farm_id: UUID) -> FarmShare | None:
     return FarmShare.objects.filter(
         company_organization_id=company_organization_id,

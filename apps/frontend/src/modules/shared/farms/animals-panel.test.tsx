@@ -23,6 +23,7 @@ import { AnimalsPanel } from "./animals-panel";
 
 const { api, sections } = vi.hoisted(() => ({
   api: {
+    listFarmAnimalHealth: vi.fn(),
     listFarmAnimals: vi.fn(),
     listFarms: vi.fn(),
     createFarmAnimal: vi.fn(),
@@ -112,6 +113,19 @@ const HERD = [
 
 beforeEach(() => {
   vi.clearAllMocks();
+  api.listFarmAnimalHealth.mockResolvedValue([
+    {
+      id: "h1",
+      animal_id: "a3",
+      occurred_on: "2026-09-18",
+      source: "hoofcare.visit",
+      source_reference: "visit-1",
+      author_name: "Korekcja Testowa",
+      summary: "Korekcja: DD M2 na LH, kontrola za 14 dni.",
+      details: {},
+      published_at: "2026-09-18T10:00:00Z",
+    },
+  ]);
   sections.length = 0;
   api.listFarmAnimals.mockResolvedValue(HERD);
   api.listFarms.mockResolvedValue([
@@ -228,6 +242,14 @@ test("karta zwierzęcia pokazuje dane rejestru i zmienia status", async () => {
   expect(within(dialog).getByText("1 kwi 2022")).toBeInTheDocument();
   expect(within(dialog).getByText("Sprzedana na targu.")).toBeInTheDocument();
   await checkAxe();
+
+  // Historia zdrowia rejestru: co zrobiono zwierzęciu i kto (ADR-051 pt 8).
+  expect(
+    await within(dialog).findByText(
+      "Korekcja: DD M2 na LH, kontrola za 14 dni.",
+    ),
+  ).toBeVisible();
+  expect(within(dialog).getByText(/Korekcja Testowa/)).toBeVisible();
 
   const status = within(dialog).getByLabelText("Status") as HTMLSelectElement;
   expect(status.value).toBe("sold");

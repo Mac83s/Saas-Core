@@ -1692,7 +1692,8 @@
     "cardTitle": "Animal card",
     "updatedAt": "Entry last changed",
     "notes": "Notes",
-    "unknown": "not given"
+    "unknown": "not given",
+    "history": "Health history"
   },
   "StaffAccounts": {
     "title": "Calendar staff accounts",

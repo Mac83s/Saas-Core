@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import date
 from typing import Any
 from uuid import UUID
 
@@ -37,9 +38,9 @@ from saas_core.modules.core.organizations.context import (
 )
 from saas_core.modules.core.organizations.models import OrganizationAuditAction
 
-from .models import Animal, Farm, FarmShare
+from .models import Animal, AnimalHealthEntry, Farm, FarmShare
 from .services import FARMS_MANAGE, audit_farm
-from .sharing import share_for_writing
+from .sharing import share_for_publishing, share_for_writing
 
 #: What the register receives about an animal. The company's private note about
 #: a cow stays with the company, like the private note on a card.
@@ -107,6 +108,53 @@ def mirror_animal(request: HttpRequest, animal: Animal) -> Animal | None:
             mirrored,
         )
         return mirrored
+
+
+def publish_health_entry(
+    request: HttpRequest,
+    *,
+    animal: Animal,
+    occurred_on: date,
+    source: str,
+    reference: str,
+    summary: str,
+    details: dict[str, Any] | None = None,
+) -> AnimalHealthEntry | None:
+    """One entry in the farmer's register about an animal (ADR-051 pt 8).
+
+    Called by a vertical while the company's context is active; the animal is
+    the company's own, and its counterpart in the register is found by tag.
+    Publishing the same source reference twice rewrites the one row, so a
+    corrected visit corrects the history instead of doubling it.
+    """
+    share = share_for_publishing(animal.organization_id, animal.farm_id)
+    if share is None:
+        return None
+    with transaction.atomic(), registry_writer(share) as context:
+        mirrored = Animal.all_objects.filter(
+            organization_id=context.organization_id,
+            farm_id=share.registry_farm_id,
+            species=animal.species,
+            national_id=animal.national_id,
+        ).first()
+        if mirrored is None:
+            # The register does not know this cow; the herd write is what puts
+            # it there, and without it there is nothing to hang a history on.
+            return None
+        entry, _ = AnimalHealthEntry.all_objects.update_or_create(
+            organization_id=context.organization_id,
+            animal=mirrored,
+            source=source,
+            source_reference=reference,
+            defaults={
+                "occurred_on": occurred_on,
+                "author_name": share.company_name,
+                "author_organization_id": share.company_organization_id,
+                "summary": summary,
+                "details": details or {},
+            },
+        )
+        return entry
 
 
 def registry_farm_id(organization_id: UUID, farm_id: UUID) -> UUID | None:

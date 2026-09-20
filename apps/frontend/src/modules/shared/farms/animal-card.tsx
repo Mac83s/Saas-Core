@@ -1,10 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 
-import { updateFarmAnimal, type FarmAnimal } from "@saas-core/api-client";
+import {
+  listFarmAnimalHealth,
+  updateFarmAnimal,
+  type FarmAnimal,
+  type FarmAnimalHealthEntry,
+} from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
 import {
   Dialog,
@@ -54,6 +59,23 @@ export function AnimalCard({
   const [status, setStatus] = useState(animal.status);
   const [problem, setProblem] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const [history, setHistory] = useState<FarmAnimalHealthEntry[]>();
+
+  // The register keeps what was done to the animal, whoever did it (ADR-051
+  // pt 8). A failed read leaves the section out: it is history, not the card.
+  useEffect(() => {
+    let current = true;
+    listFarmAnimalHealth(animal.id)
+      .then((entries) => {
+        if (current) setHistory(entries);
+      })
+      .catch(() => {
+        if (current) setHistory([]);
+      });
+    return () => {
+      current = false;
+    };
+  }, [animal.id]);
 
   const known = <T extends string>(values: readonly T[], value: string) =>
     values.find((entry) => entry === value);
@@ -156,6 +178,24 @@ export function AnimalCard({
           <p className="text-sm text-destructive" role="alert">
             {problem}
           </p>
+        ) : null}
+
+        {history && history.length > 0 ? (
+          <section className="space-y-3">
+            <h3 className="font-semibold">{t("history")}</h3>
+            <ol className="space-y-3">
+              {history.map((entry) => (
+                <li className="rounded-xl border p-3" key={entry.id}>
+                  <p className="text-sm">{entry.summary}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {[date(entry.occurred_on), entry.author_name]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                </li>
+              ))}
+            </ol>
+          </section>
         ) : null}
 
         {/* What the trade records about this animal, from the product's own

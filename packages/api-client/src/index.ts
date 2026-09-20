@@ -2434,6 +2434,24 @@ export async function listFarmAnimals(
   return data;
 }
 
+export type FarmAnimalHealthEntry = components["schemas"]["AnimalHealthEntry"];
+
+/** What the register knows happened to this animal (ADR-051 pt 8). */
+export async function listFarmAnimalHealth(
+  animalId: string,
+): Promise<FarmAnimalHealthEntry[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/farms/animals/{animal_id}/health/",
+    {
+      params: { path: { animal_id: animalId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export async function createFarmAnimal(
   input: FarmAnimalInput,
 ): Promise<FarmAnimal> {

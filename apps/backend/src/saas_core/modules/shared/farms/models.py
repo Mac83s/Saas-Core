@@ -111,6 +111,48 @@ class Animal(TenantScopedModel):
         return f"{self.national_id} ({self.name})" if self.name else self.national_id
 
 
+class AnimalHealthEntry(TenantScopedModel):
+    """What happened to one animal, in the register that keeps its history.
+
+    The register is the farmer's; a service company publishes into it through
+    the share the farmer granted (ADR-051 pt 8), so an animal keeps its history
+    across companies and, later, across farms. The entry is the summary a
+    keeper reads — the company's own record stays in its vertical, in the
+    detail that vertical needs.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    animal = models.ForeignKey(Animal, on_delete=models.PROTECT, related_name="health_entries")
+    occurred_on = models.DateField()
+    #: Which vertical wrote it, e.g. "hoofcare.visit".
+    source = models.CharField(max_length=32)
+    #: The entry's identity in that vertical, so publishing twice is one row.
+    source_reference = models.CharField(max_length=64)
+    #: Who did the work, as the keeper would name them.
+    author_name = models.CharField(max_length=160, blank=True)
+    author_organization_id = models.UUIDField(null=True, blank=True)
+    summary = models.CharField(max_length=240)
+    #: Structured detail the panel renders; shape belongs to the source.
+    details = models.JSONField(default=dict)
+    published_at = models.DateTimeField(auto_now=True)
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "-occurred_on", "-published_at")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "animal", "source", "source_reference"],
+                name="farms_health_source_uq",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["organization", "animal"], name="farms_health_animal_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.occurred_on}: {self.summary}"
+
+
 class ShareBasis(models.TextChoices):
     ACTIVATION_CODE = "activation_code", "Kod aktywacji od firmy"
     SUPPORT = "support", "Połączenie przez obsługę platformy"

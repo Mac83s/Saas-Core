@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     AnimalDetailView,
+    AnimalHealthView,
     AnimalListCreateView,
     FarmActivationCodeView,
     FarmActivationRedeemView,
@@ -17,6 +18,11 @@ urlpatterns = [
     path("species/", SpeciesView.as_view(), name="farms-species"),
     path("animals/", AnimalListCreateView.as_view(), name="farms-animals"),
     path("animals/<uuid:animal_id>/", AnimalDetailView.as_view(), name="farms-animal-detail"),
+    path(
+        "animals/<uuid:animal_id>/health/",
+        AnimalHealthView.as_view(),
+        name="farms-animal-health",
+    ),
     path("activation/redeem/", FarmActivationRedeemView.as_view(), name="farms-activation-redeem"),
     path(
         "shares/<uuid:share_id>/revoke/", FarmShareRevokeView.as_view(), name="farms-share-revoke"

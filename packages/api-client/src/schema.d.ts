@@ -727,6 +727,23 @@ export interface paths {
         patch: operations["farms_animal_update"];
         trace?: never;
     };
+    "/api/v1/farms/animals/{animal_id}/health/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What happened to this animal, as the register knows it. */
+        get: operations["farms_animal_health_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/farms/shares/{share_id}/revoke/": {
         parameters: {
             query?: never;
@@ -2491,6 +2508,24 @@ export interface components {
             readonly notes: string;
             /** Format: date-time */
             readonly updated_at: string;
+        };
+        /** @description One entry of an animal's history, as the keeper reads it. */
+        AnimalHealthEntry: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            animal_id: string;
+            /** Format: date */
+            occurred_on: string;
+            source: string;
+            source_reference: string;
+            author_name: string;
+            summary: string;
+            details: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            published_at: string;
         };
         AnimalInput: {
             /** Format: uuid */
@@ -6583,6 +6618,51 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Animal"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    farms_animal_health_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                animal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnimalHealthEntry"][];
                 };
             };
             400: {

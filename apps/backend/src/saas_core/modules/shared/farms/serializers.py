@@ -96,6 +96,20 @@ SpeciesListSerializer = inline_serializer(
 )
 
 
+class AnimalHealthEntrySerializer(serializers.Serializer[Any]):
+    """One entry of an animal's history, as the keeper reads it."""
+
+    id = serializers.UUIDField()
+    animal_id = serializers.UUIDField()
+    occurred_on = serializers.DateField()
+    source = serializers.CharField()  # type: ignore[assignment]
+    source_reference = serializers.CharField()
+    author_name = serializers.CharField()
+    summary = serializers.CharField()
+    details = serializers.DictField()
+    published_at = serializers.DateTimeField()
+
+
 class FarmActivationCodeSerializer(serializers.Serializer[Any]):
     """The code is returned once, when it is issued; only its digest is kept."""
 

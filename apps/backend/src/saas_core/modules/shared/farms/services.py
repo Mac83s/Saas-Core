@@ -22,7 +22,7 @@ from saas_core.modules.core.organizations.audit import record_audit
 from saas_core.modules.core.organizations.models import Organization, OrganizationAuditAction
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 
-from .models import Animal, Farm
+from .models import Animal, AnimalHealthEntry, Farm
 from .species import (
     HERD_NUMBER,
     SPECIES,
@@ -188,6 +188,16 @@ def list_animals(*, farm_id: UUID | None = None, search: str = "") -> list[Anima
             | Q(name__icontains=search.strip())
         )
     return list(query.select_related("farm")[:PAGE_LIMIT])
+
+
+def list_health_entries(*, animal_id: UUID) -> list[AnimalHealthEntry]:
+    """An animal's history in this register, newest first (ADR-051 pt 8)."""
+    context = authorize_entitled(FARMS_READ, FARMS_ENABLED, operation=FeatureOperation.READ)
+    return list(
+        AnimalHealthEntry.all_objects.filter(
+            organization_id=context.organization_id, animal_id=animal_id
+        )[:PAGE_LIMIT]
+    )
 
 
 @transaction.atomic
