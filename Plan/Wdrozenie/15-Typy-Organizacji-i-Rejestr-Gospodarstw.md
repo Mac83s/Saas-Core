@@ -96,7 +96,7 @@ gdzie RLS zasłania wiersze firmy — wyszło dopiero na żywym stacku.
 
 Zrobione (synchronizacja i historia): firma z aktywnym udziałem zapisuje stado
 do rejestru rolnika (`can_write_herd`) i publikuje tam historię zwierzęcia
-(`can_publish_health`). Oba zapisy idą przez drzwi `registry_writer` w
+(`can_publish_health`). Oba zapisy idą przez drzwi `registry_door` w
 `herd_sync.py`: kontekst rejestru aktywny dokładnie na czas tych instrukcji,
 jedno uprawnienie, aktor z firmy i przywrócenie organizacji wywołującego na
 wyjściu, bo `SET LOCAL` żyje do końca transakcji. HoofCare publikuje przy
@@ -104,8 +104,17 @@ zamknięciu wizyty, kluczem jest wizyta, więc ponowne zamknięcie poprawia
 historię zamiast ją dublować. Tabela historii ma wymuszone RLS i strażnika
 relacji; to domyka też ostatnią otwartą pozycję etapu 4.
 
-Otwarte: pakiet rolnika z 6 miesiącami darmowymi, akcja obsługi „połącz bez
-kodu", ekran scalania rozjechanych sztuk.
+Zrobione (kartoteka i plany): kartoteka zwierzęcia to feed z rodzajami wpisów
+(notatka, uwaga, zabieg, lek lub szczepienie, wizyta specjalisty), autorem i
+znacznikiem prywatności; filtry liczy baza. Firma z aktywnym udziałem czyta
+kartotekę w rejestrze rolnika poza wpisami prywatnymi. Organizacja dostaje przy
+założeniu darmowy plan swojego typu — w HoofCare `farm_free`, obok płatnego
+`farm_plus` z kredytami na funkcje wspierane przez AI. Pakiet rolnika z 6
+miesiącami darmowymi zastąpiony modelem darmowy + płatny (decyzja z 20.09).
+
+Otwarte: powiadomienie o rozjeździe stada i ekran przeglądania spornych sztuk,
+akcja firmy „wyślij stado do rejestru" dla zwierząt dopisanych między wydaniem
+a realizacją kodu, akcja obsługi „połącz bez kodu".
 
 ## Etap 4 — korekcja i wpisy zdrowotne (HoofCare) — ZROBIONE 2026-09-19/20 (bez publikacji do rejestru)
 

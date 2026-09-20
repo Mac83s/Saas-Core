@@ -1,5 +1,37 @@
 # Handoff następnej sesji
 
+## Kartoteka zwierzęcia, odczyt przez firmę i plan darmowy, 2026-09-20
+
+Wpis w kartotece ma rodzaj (`HealthEntryKind`: notatka, uwaga, zabieg, lek lub
+szczepienie, wizyta specjalisty), autora wraz z nazwą jego organizacji i
+znacznik `private`. Rdzeń nie zna produktu z nazwy: wertykał mówi, co zrobił, w
+`source` i `details`, a rejestr pokazuje rodzaj.
+
+Co warto wiedzieć, zanim się to ruszy:
+
+- **filtry liczy baza.** Lista jest ucinana na `PAGE_LIMIT`, więc filtr w panelu
+  po obcięciu pokazywałby „brak wpisów", mając je tuż za progiem;
+- **źródło wpisu ustala serwer** (`farms.manual`). Gdyby klient mógł je podać,
+  przez `update_or_create` na `(organizacja, zwierzę, źródło, referencja)`
+  nadpisałby cudzy wpis wertykału;
+- **drzwi `registry_door` czytają i piszą.** Odczyt dostaje tylko `farms.read`.
+  Firma z aktywnym udziałem widzi kartotekę zwierzęcia w rejestrze rolnika —
+  poza wpisami prywatnymi — a bramką jest udział tego gospodarstwa, nie
+  organizacji: jedna połączona karta nie otwiera kartotek pozostałych;
+- **stare wiersze mają `kind="note"` i firmę w polu autora.** Backfillu nie ma:
+  mapowanie „source = hoofcare.visit → zabieg" w migracji rdzenia to rdzeń
+  znający produkt z nazwy. Ponowne zamknięcie wizyty poprawia wiersz, bo klucz
+  się nie zmienia;
+- **plan darmowy poznajemy po cenie zero**, nie po fladze obok niej. Snapshot
+  zapisuje się w transakcji zakładającej organizację: `SET LOCAL` umiera z
+  transakcją, więc `on_commit` pisałby bez tenanta — polityka by to odrzuciła, a
+  baza testowa przyjęła.
+
+Dowody ze stacku dev: rolnik pisze notatkę i prywatną uwagę, firma widzi
+notatkę i nie widzi prywatnej; ponowne zamknięcie wizyty zmienia wpis na rodzaj
+„zabieg" z nazwiskiem korektora; nowe konto hodowcy po rejestracji ma rejestr
+bez checkoutu, a snapshot wskazuje `farm_free:v1`.
+
 ## Site Studio — fullscreen i wygląd witryny, 2026-09-20
 
 Po odbiorze UI dodano pełnoekranowy PageStudio (`26ccb48`), a następnie
