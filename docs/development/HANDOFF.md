@@ -1,5 +1,44 @@
 # Handoff następnej sesji
 
+## Site Studio — fullscreen i wygląd witryny, 2026-09-20
+
+Po odbiorze UI dodano pełnoekranowy PageStudio (`26ccb48`), a następnie
+wersjonowany wygląd witryny (`a4bc8f9`): font, paleta, szerokość, odstępy,
+zaokrąglenia, przyciski, trzy układy headera i trzy stopki oraz niezależny
+wybór menu telefonu/tabletu (dolny pasek lub rozwijane menu). Trzy presety
+stylu są edytowalne. To wspólne ustawienia witryny; zapis nie zmienia
+opublikowanej strony do czasu kolejnej publikacji. Header/footer mają stałą
+strukturę i edytowalne pola. Fonty to pięć lokalnych rodzin/fallbacków,
+bez pobierania zewnętrznych fontów.
+
+Nowy kontrakt `site-appearance.v1.schema.json`, GET/PUT
+`/api/v1/sites/{site_id}/appearance/`, migracja sites/0029. Rewizje są
+niemutowalne, chronione RLS oraz numerem wersji i idempotency key. Publiczny
+renderer czyta kopię wyglądu ze snapshotu, nie bieżącą wersję roboczą.
+Stare publikacje bez appearance zachowują dotychczasowy renderer.
+
+Fullscreen chroni niezapisany draft i wygląd. Podgląd edytora używa roboczego
+wyglądu, podgląd zapisanej wersji — zapisanego. Menu canvas pochodzi z
+konfiguracji nawigacji i lokalizacji w domyślnym języku witryny; brakujące
+ścieżki/tytuły nie tworzą fikcyjnych linków. Telefon/tablet mają też dolny
+pasek narzędzi edytora. Zachowane stare bloki `core.footer` nie są automatycznie
+usuwane po włączeniu globalnej stopki — przy migracji treści trzeba wybrać jedną.
+
+Dowody: backend sites API/collections/appearance/tenant regimes **102/102**;
+po rozszerzeniu macierzy odmów GET/PUT testy appearance **13/13**. Frontend
+studio/editor/panel **40/40**, renderer **31/31**; tsc, mypy, ESLint, Ruff,
+OpenAPI drift oraz model/migration dry-run. Chromium z rzeczywistymi komponentami
+i fixture API: fullscreen 3440/1440/768/390, zmiana fontu i radius, menu canvas,
+chronione wyjście; renderer publiczny: desktop menu, tablet drawer, mobile bottom,
+pełne sześć linków dostępne. Artefakty `.runtime/site-studio/fullscreen-appearance/`.
+
+**Nie wdrożono i nie restartowano wspólnych usług.** Najpierw skoordynować okno
+z równoległymi sesjami, zastosować migrację i zbudować rdzeń; potem odbiór
+zalogowanego `/panel/sites`, zapis/ponowne otwarcie/publikacja po hostname.
+HoofCare/MedPlano wymagają osobnego `core:update` i odbioru. Katalog 20 wariantów
+na kategorię i własne szablony pozostają w planie; sześciu układów chrome ani
+trzech presetów kolorystycznych nie liczyć jako domknięcia tego katalogu.
+
 ## Site Studio — weryfikacja niestabilnych testów, 2026-09-20
 
 Sprawdzono logi zgłoszonych awarii, nie zmieniano kodu aplikacji ani timeoutów.
@@ -70,7 +109,7 @@ wraca do tego samego udziału. Żadna ze stron nie odczyta gospodarstwa drugiej 
 ## Drzwi do rejestru i historia zwierzęcia, 2026-09-20
 
 `farms/herd_sync.py` to jedyne miejsce, w którym jedna organizacja pisze do
-drugiej: `registry_writer(share)` włącza kontekst rejestru na czas kilku
+drugiej: `registry_door(share)` włącza kontekst rejestru na czas kilku
 instrukcji. Czytając to, pamiętaj o trzech rzeczach:
 
 - `SET LOCAL` obowiązuje do końca **transakcji**, nie bloku — dlatego wyjście

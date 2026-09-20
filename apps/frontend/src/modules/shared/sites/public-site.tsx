@@ -7,6 +7,7 @@ import {
   coreSiteBlockManifest,
   createSiteBlockRegistry,
   renderPublishedPage,
+  parseSiteAppearance,
   type DesignTokensV1,
   type IndexPagination,
   type SiteBlock,
@@ -117,6 +118,9 @@ export function PublicSiteRenderer({ page }: { page: PublicSitePage }) {
       snapshotHash: page.snapshot_hash,
       blocks: page.blocks as unknown as SiteBlock[],
       designTokens: page.design_tokens as DesignTokensV1,
+      appearance: page.appearance
+        ? parseSiteAppearance(page.appearance)
+        : undefined,
       navigation: page.navigation,
       // The visitor is reading one language; the menu's accessible name has to
       // be in it too, not in the panel's language.

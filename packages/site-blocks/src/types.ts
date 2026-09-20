@@ -1,3 +1,4 @@
+import type { SiteAppearance } from "./appearance";
 import type { ComponentType, ReactElement, ReactNode } from "react";
 
 export type JsonPrimitive = boolean | number | string | null;
@@ -176,6 +177,7 @@ export interface SiteBlockManifest {
 }
 
 export interface DraftPreviewDocument {
+  readonly appearance?: SiteAppearance | null;
   readonly kind: "draft-preview";
   readonly versionId: string;
   readonly blocks: readonly SiteBlock[];
@@ -204,6 +206,7 @@ export interface PaginationLabels {
 }
 
 export interface PublishedPageDocument {
+  readonly appearance?: SiteAppearance | null;
   readonly kind: "publication";
   readonly publicationId: string;
   readonly snapshotHash: string;

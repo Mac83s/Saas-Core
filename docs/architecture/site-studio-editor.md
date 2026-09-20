@@ -115,3 +115,33 @@ Nadal wymagane: odbiór
 zalogowanego panelu i publikacji po hostname oraz synchronizacja produktów.
 Testy Chromium używają rzeczywistych komponentów i syntetycznego API;
 nie zastępują tych bramek.
+
+
+## Pełnoekranowy edytor i wspólny wygląd witryny
+
+`PageStudio` otwiera edytor w pełnoekranowym Dialog. Biblioteka, canvas i
+inspektor korzystają z dostępnej szerokości, a na telefonie/tablecie dolny
+pasek przenosi focus do narzędzi. Zamknięcie z niezapisanym draftem lub wyglądem
+wymaga świadomego odrzucenia; podczas zapisu wyjście jest zablokowane.
+
+Wygląd jest odrębny od listy bloków. `SiteAppearanceRevision` przechowuje
+niemutowalne rewizje zgodne z `site-appearance.v1.schema.json`: tokeny, font,
+szerokość, przyciski, header, footer i sposób nawigacji na mniejszych ekranach.
+PUT blokuje wiersz witryny, sprawdza expected_version i idempotency key.
+Uprawnienia/entitlement/kontekst tenanta są sprawdzane przed odczytem domeny;
+nowa tabela wymusza RLS i zakazuje UPDATE oraz DELETE poza erasure.
+
+Publikacja kopiuje wygląd do snapshotu razem z design_tokens. Publiczne strony
+nie odczytują roboczych rewizji. Brak appearance w starej publikacji zachowuje
+wcześniejsze zachowanie. Header i footer są stałymi układami renderera, bez
+swobodnych slotów, HTML, CSS ani zewnętrznych URL fontów. Fonty są kontrolowanymi
+stosami systemowymi, a trzy presety stylu tylko ustawiają edytowalne wartości.
+
+Podgląd menu canvas odczytuje konfigurację i raport lokalizacji, używa domyślnego
+języka witryny i pomija brakujące tytuły/ścieżki. Podgląd viewportu steruje
+menu niezależnie od szerokości okna panelu. Na publicznej stronie CSS wybiera
+telefon (<768 px), tablet (768–1023 px) lub desktop. Dolny pasek pokazuje do
+czterech głównych linków; natywne details udostępnia pełne menu z dziećmi.
+Wcześniejsze bloki stopki zachowujemy; wybór globalnej stopki nie usuwa treści
+użytkownika. Przy przenoszeniu starej strony trzeba usunąć jej blok stopki,
+jeżeli ma go zastąpić wariant wspólny.

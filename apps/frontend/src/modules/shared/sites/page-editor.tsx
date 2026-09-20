@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -43,6 +50,8 @@ import {
   pageTemplateBlocks,
   renderDraftPreview,
   type PageTemplate,
+  type SiteAppearance,
+  type NavigationLink,
 } from "@saas-core/site-blocks";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
@@ -230,11 +239,19 @@ function TemplateOption({
 export function PageEditor({
   onChanged,
   onExitStateChange,
+  appearance,
+  appearanceControls,
+  savedAppearance,
+  navigation,
   page,
 }: {
   onChanged: () => Promise<void>;
   onExitStateChange?: (state: { dirty: boolean; busy: boolean }) => void;
   page: PageSummary;
+  appearance?: SiteAppearance;
+  savedAppearance?: SiteAppearance;
+  navigation?: readonly NavigationLink[];
+  appearanceControls?: ReactNode;
 }) {
   const t = useTranslations("Sites");
   const common = useTranslations("Common");
@@ -575,13 +592,14 @@ export function PageEditor({
       {
         kind: "draft-preview",
         versionId: preview.draft_id,
+        appearance: savedAppearance,
         blocks: preview.blocks.map(toSiteBlock),
         designTokens,
       },
       registry,
       renderPrivateMedia,
     );
-  }, [preview]);
+  }, [preview, savedAppearance]);
 
   const blockPicker = (afterSelected: boolean) => (
     <div
@@ -726,6 +744,14 @@ export function PageEditor({
               </div>
               {(!visual || blocks.fields.length === 0) && (
                 <>
+                  {appearanceControls && (
+                    <details className="rounded-lg border p-3">
+                      <summary className="cursor-pointer font-semibold">
+                        {t("appearance.title")}
+                      </summary>
+                      {appearanceControls}
+                    </details>
+                  )}
                   <SectionLibrary
                     onAdd={(block) => {
                       blocks.append(block);
@@ -775,8 +801,18 @@ export function PageEditor({
                 )}
                 {visual && blocks.fields.length > 0 ? (
                   <SectionCanvas
+                    appearance={appearance}
+                    navigation={navigation}
                     library={
                       <>
+                        {appearanceControls && (
+                          <details className="rounded-lg border p-3">
+                            <summary className="cursor-pointer font-semibold">
+                              {t("appearance.title")}
+                            </summary>
+                            <div className="mt-4">{appearanceControls}</div>
+                          </details>
+                        )}
                         <p className="text-sm text-muted-foreground">
                           {t("studio.libraryPlacement")}
                         </p>

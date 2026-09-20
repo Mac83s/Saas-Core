@@ -1,9 +1,19 @@
 "use client";
 
-import { useId, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import { renderPrivateMedia } from "./private-media-preview";
 import { useTranslations } from "next-intl";
-import type { BlockFieldDefinition } from "@saas-core/site-blocks";
+import {
+  designTokenClassName,
+  siteAppearanceClassName,
+  renderSiteHeader,
+  renderNavigation,
+  renderResponsiveNavigation,
+  type NavigationLink,
+  renderSiteFooter,
+  type SiteAppearance,
+  type BlockFieldDefinition,
+} from "@saas-core/site-blocks";
 import { InlineText } from "@saas-core/ui/components/inline-text";
 import { ReorderList } from "@saas-core/ui/components/reorder-list";
 import { Button } from "@saas-core/ui/components/button";
@@ -20,6 +30,8 @@ export function SectionCanvas({
   onSelect,
   inspector,
   library,
+  appearance,
+  navigation = [],
   blockIds,
   onMove,
   onTextChange,
@@ -34,15 +46,30 @@ export function SectionCanvas({
   onSelect: (index: number) => void;
   inspector: ReactNode;
   library: ReactNode;
+  appearance?: SiteAppearance;
+  navigation?: readonly NavigationLink[];
 }) {
   const t = useTranslations("Sites");
   const libraryId = useId();
+  const libraryRef = useRef<HTMLElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const inspectorRef = useRef<HTMLDivElement>(null);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [viewport, setViewport] = useState<"desktop" | "tablet" | "mobile">(
     "desktop",
   );
+  const mobileNavigation =
+    appearance &&
+    renderResponsiveNavigation(
+      appearance,
+      navigation,
+      t("appearance.menu"),
+      renderNavigation(navigation, t("appearance.navigation")),
+    );
+  const menuMode =
+    viewport !== "desktop" ? appearance?.navigation[viewport] : undefined;
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 pb-20 lg:pb-0">
       <p className="text-sm text-muted-foreground">
         {t("studio.liveDescription")}
       </p>
@@ -69,6 +96,8 @@ export function SectionCanvas({
         className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_18rem] 2xl:grid-cols-[15rem_minmax(0,1fr)_18rem]"
       >
         <aside
+          ref={libraryRef}
+          tabIndex={-1}
           className="min-w-0 space-y-3 rounded-lg border p-3 xl:col-span-2 2xl:col-span-1 2xl:sticky 2xl:top-4"
           aria-label={t("sectionLibrary.title")}
         >
@@ -94,9 +123,13 @@ export function SectionCanvas({
         </aside>
         <div className="min-w-0 overflow-x-auto rounded-lg border bg-muted/30 p-3">
           <div
+            ref={canvasRef}
+            tabIndex={-1}
+            role="region"
+            aria-label={t("studio.canvas")}
             data-testid="live-canvas"
             data-viewport={viewport}
-            className="site-theme site-theme--neutral site-theme--sans site-theme--radius-medium site-theme--comfortable mx-auto space-y-3 bg-background"
+            className={`${appearance ? `${designTokenClassName(appearance.designTokens)} ${siteAppearanceClassName(appearance)}` : "site-theme site-theme--neutral site-theme--sans site-theme--radius-medium site-theme--comfortable"} mx-auto space-y-3 bg-background site-canvas--${viewport}`}
             style={{
               width:
                 viewport === "desktop"
@@ -107,6 +140,15 @@ export function SectionCanvas({
               minHeight: 200,
             }}
           >
+            {appearance && (
+              <div inert aria-hidden="true">
+                {menuMode === "drawer" && mobileNavigation}
+                {renderSiteHeader(
+                  appearance,
+                  renderNavigation(navigation, t("appearance.navigation")),
+                )}
+              </div>
+            )}
             <ReorderList
               items={blocks.map((block, index) => ({
                 id: blockIds[index],
@@ -215,10 +257,18 @@ export function SectionCanvas({
                 );
               }}
             </ReorderList>
+            {appearance && (
+              <div inert aria-hidden="true">
+                {renderSiteFooter(appearance)}
+                {menuMode === "bottom" && mobileNavigation}
+              </div>
+            )}
           </div>
         </div>
         <div
           className="min-w-0 space-y-3 xl:sticky xl:top-4 xl:max-h-[85vh] xl:overflow-y-auto"
+          ref={inspectorRef}
+          tabIndex={-1}
           aria-label={t("studio.inspector")}
           role="region"
         >
@@ -226,6 +276,44 @@ export function SectionCanvas({
           {inspector}
         </div>
       </div>
+      <nav
+        aria-label={t("studio.tools")}
+        className="fixed inset-x-0 bottom-0 z-40 flex justify-around gap-2 border-t bg-background p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-lg lg:hidden"
+      >
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            setLibraryOpen(true);
+            requestAnimationFrame(() => {
+              libraryRef.current?.focus();
+              libraryRef.current?.scrollIntoView({ block: "start" });
+            });
+          }}
+        >
+          {t("studio.libraryTool")}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            canvasRef.current?.focus();
+            canvasRef.current?.scrollIntoView({ block: "start" });
+          }}
+        >
+          {t("studio.canvas")}
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            inspectorRef.current?.focus();
+            inspectorRef.current?.scrollIntoView({ block: "start" });
+          }}
+        >
+          {t("studio.settingsTool")}
+        </Button>
+      </nav>
     </div>
   );
 }

@@ -1,16 +1,32 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { expect, test, vi } from "vitest";
-import type { PageSummary } from "@saas-core/api-client";
+import {
+  getSiteAppearance,
+  saveSiteAppearance,
+  type PageSummary,
+} from "@saas-core/api-client";
 import englishMessages from "../../../../messages/en.json";
 import polishMessages from "../../../../messages/pl.json";
 import { PageStudio } from "./page-studio";
 
+vi.mock("@saas-core/api-client", async (original) => ({
+  ...(await original<typeof import("@saas-core/api-client")>()),
+  getSiteAppearance: vi.fn(),
+  getSiteNavigation: vi.fn().mockResolvedValue({ items: [] }),
+  getSiteLocalizationReport: vi
+    .fn()
+    .mockResolvedValue({ pages: [], default_locale: "en" }),
+  saveSiteAppearance: vi.fn(),
+}));
+
 vi.mock("./page-editor", () => ({
   PageEditor: ({
     onExitStateChange,
+    appearanceControls,
   }: {
+    appearanceControls?: ReactNode;
     onExitStateChange: (state: { dirty: boolean; busy: boolean }) => void;
   }) => {
     const [dirty, setDirty] = useState(false);
@@ -21,6 +37,7 @@ vi.mock("./page-editor", () => ({
     );
     return (
       <>
+        {appearanceControls}
         <button onClick={() => setDirty(true)}>Change draft</button>
         <button onClick={() => setDirty(false)}>Save draft</button>
         <button onClick={() => setBusy(true)}>Start saving</button>
@@ -28,14 +45,14 @@ vi.mock("./page-editor", () => ({
     );
   },
 }));
-function setup(locale: "pl" | "en" = "en") {
+function setup(locale: "pl" | "en" = "en", siteId?: string) {
   return render(
     <NextIntlClientProvider
       locale={locale}
       messages={locale === "pl" ? polishMessages : englishMessages}
     >
       <PageStudio
-        page={{ id: "page", name: "Home" } as PageSummary}
+        page={{ id: "page", name: "Home", site_id: siteId } as PageSummary}
         onChanged={vi.fn()}
       />
     </NextIntlClientProvider>,
@@ -97,4 +114,52 @@ test("saved drafts close normally; active requests prevent closing", async () =>
   expect(screen.getByRole("button", { name: "Back to pages" })).toBeDisabled();
   fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
   expect(screen.getByRole("dialog")).toBeDefined();
+});
+
+test("appearance changes save separately and failed saves retain the working value", async () => {
+  const appearance = {
+    schemaVersion: 1,
+    designTokens: {
+      schemaVersion: 1,
+      palette: "blue",
+      typography: "sans",
+      radius: "medium",
+      spacing: "comfortable",
+    },
+    font: "system",
+    width: "standard",
+    buttons: "solid",
+    header: { layout: "none", brand: "Clinic", tagline: "" },
+    footer: { layout: "none", text: "", links: [] },
+    navigation: { mobile: "drawer", tablet: "drawer" },
+  };
+  vi.mocked(getSiteAppearance).mockResolvedValue({
+    site_id: "site",
+    version: 0,
+    appearance,
+  });
+  vi.mocked(saveSiteAppearance).mockRejectedValueOnce(new Error("Conflict"));
+  setup("en", "site");
+  fireEvent.change(await screen.findByLabelText("Font"), {
+    target: { value: "georgia" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save appearance" }));
+  expect(await screen.findByRole("alert")).toBeDefined();
+  expect(screen.getByLabelText("Font")).toHaveValue("georgia");
+  vi.mocked(saveSiteAppearance).mockResolvedValueOnce({
+    site_id: "site",
+    version: 1,
+    appearance: { ...appearance, font: "georgia" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save appearance" }));
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: "Save appearance" }),
+    ).toBeDisabled(),
+  );
+  expect(
+    vi.mocked(saveSiteAppearance).mock.calls.at(-1)?.[1].expected_version,
+  ).toBe(0);
+  fireEvent.click(screen.getByRole("button", { name: "Back to pages" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 });

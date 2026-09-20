@@ -11,6 +11,7 @@ export { createSiteBlockRegistry, defineSiteBlockManifest } from "./registry";
 export {
   designTokenClassName,
   renderDraftPreview,
+  renderNavigation,
   renderPublishedPage,
   validateDesignTokens,
 } from "./renderer";
@@ -23,3 +24,11 @@ export {
   replaceSectionLayout,
 } from "./section-templates";
 export type { SectionTemplate, CatalogLocale } from "./section-templates";
+
+export { parseSiteAppearance, siteAppearanceClassName } from "./appearance";
+export type { SiteAppearance } from "./appearance";
+export {
+  renderSiteHeader,
+  renderSiteFooter,
+  renderResponsiveNavigation,
+} from "./site-chrome";

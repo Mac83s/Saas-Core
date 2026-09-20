@@ -3,6 +3,12 @@ import { createElement, type ReactElement } from "react";
 import Ajv2020, { type ErrorObject } from "ajv/dist/2020.js";
 import designTokensSchema from "@saas-core/contracts/site-blocks/design-tokens.v1.schema.json";
 
+import { siteAppearanceClassName, type SiteAppearance } from "./appearance";
+import {
+  renderSiteHeader,
+  renderSiteFooter,
+  renderResponsiveNavigation,
+} from "./site-chrome";
 import { InvalidDesignTokensError } from "./errors";
 import type {
   BlockRegistry,
@@ -66,7 +72,7 @@ export function designTokenClassName(tokens: DesignTokensV1): string {
 /** Nested one level deep, which is as far as the editor lets a menu go. The
  *  links are plain paths from the publication snapshot — never data-supplied
  *  URLs — so the renderer's no-arbitrary-HTML rule still holds. */
-function renderNavigation(
+export function renderNavigation(
   links: readonly NavigationLink[],
   label: string,
 ): ReactElement | null {
@@ -168,11 +174,20 @@ function renderDocument(
   pagination: IndexPagination | null = null,
   paginationLabels: PaginationLabels = DEFAULT_PAGINATION_LABELS,
   imageRenderer?: BlockImageRenderer,
+  appearance?: SiteAppearance | null,
 ): ReactElement {
-  return createElement(
+  const menu = renderNavigation(navigation, navigationLabel);
+  const content = createElement(
     "div",
-    { className: designTokenClassName(tokens) },
-    renderNavigation(navigation, navigationLabel),
+    {
+      className: [
+        designTokenClassName(appearance?.designTokens ?? tokens),
+        appearance ? siteAppearanceClassName(appearance) : "",
+      ]
+        .filter(Boolean)
+        .join(" "),
+    },
+    appearance ? renderSiteHeader(appearance, menu) : menu,
     createElement(
       contentElement,
       null,
@@ -181,7 +196,23 @@ function renderDocument(
       ),
       renderPagination(pagination, paginationLabels),
     ),
+    appearance ? renderSiteFooter(appearance) : null,
   );
+  return appearance
+    ? createElement(
+        "div",
+        {
+          className: `site-frame${contentElement === "div" ? " site-frame--preview" : ""}`,
+        },
+        content,
+        renderResponsiveNavigation(
+          appearance,
+          navigation,
+          navigationLabel,
+          menu,
+        ),
+      )
+    : content;
 }
 
 export function renderDraftPreview(
@@ -206,6 +237,7 @@ export function renderDraftPreview(
     null,
     DEFAULT_PAGINATION_LABELS,
     imageRenderer,
+    document.appearance,
   );
 }
 
@@ -229,5 +261,7 @@ export function renderPublishedPage(
     "main",
     document.pagination ?? null,
     document.paginationLabels ?? DEFAULT_PAGINATION_LABELS,
+    undefined,
+    document.appearance,
   );
 }
