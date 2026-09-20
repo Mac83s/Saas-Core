@@ -54,15 +54,22 @@ from saas_core.modules.shared.booking.models import (
     ServiceStaff,
     StaffMember,
 )
+from saas_core.modules.shared.booking.observers import (
+    AppointmentChange,
+    _observers,
+    register_appointment_observer,
+)
 from saas_core.modules.shared.booking.security import public_booking_context
 from saas_core.modules.shared.booking.services import (
     SlotUnavailable,
     anonymize_customer,
     cancel_appointment,
+    complete_appointment,
     create_appointment,
     create_catalog_item,
     reschedule_appointment,
 )
+from saas_core.modules.shared.notifications.models import NotificationMessage
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -469,3 +476,240 @@ def test_a_service_sells_only_a_visit_kind_its_organization_type_has() -> None:
             kind="service",
             data={"name": "Cudza wizyta", "duration_minutes": 30, "appointment_kind": "x.visit"},
         )
+
+
+def _no_delivery(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "saas_core.modules.shared.notifications.tasks.deliver_email_task.delay",
+        lambda *_args: None,
+    )
+
+
+@contextmanager
+def watching():
+    """Registers an observer for the duration of one test and takes it back."""
+    seen: list[AppointmentChange] = []
+    name = f"test-{len(_observers)}"
+    register_appointment_observer(name, seen.append)
+    try:
+        yield seen
+    finally:
+        _observers.pop(name, None)
+
+
+def mails(appointment_id: Any, key: str) -> list[NotificationMessage]:
+    return list(
+        NotificationMessage.all_objects.filter(
+            causation_id=f"booking:{appointment_id}", template_key=key
+        ).order_by("created_at")
+    )
+
+
+def test_a_moved_booking_mails_the_customer_both_times_with_both_dates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _no_delivery(monkeypatch)
+    member = membership("booking-mail-move")
+    configured = catalog(member)
+    appointment = create(member, configured).appointment
+    first_time = appointment.starts_at
+    with tenant(member):
+        second_time = first_time + timedelta(minutes=60)
+        reschedule_appointment(
+            appointment_id=appointment.id,
+            starts_at=second_time,
+            idempotency_key="move-1",
+            principal_ref=str(member.user_id),
+        )
+        third_time = first_time + timedelta(minutes=120)
+        reschedule_appointment(
+            appointment_id=appointment.id,
+            starts_at=third_time,
+            idempotency_key="move-2",
+            principal_ref=str(member.user_id),
+        )
+        # A retry of the second move must not produce a third mail.
+        reschedule_appointment(
+            appointment_id=appointment.id,
+            starts_at=third_time,
+            idempotency_key="move-2",
+            principal_ref=str(member.user_id),
+        )
+        sent = mails(appointment.id, "booking.rescheduled")
+        assert len(sent) == 2
+        assert sent[0].context["previous_starts_at"] != sent[0].context["starts_at"]
+        assert sent[0].context["starts_at"] == sent[1].context["previous_starts_at"]
+        # The customer reads a local wall clock, never the stored instant.
+        local = first_time.astimezone(ZoneInfo(appointment.timezone))
+        assert first_time.isoformat() not in sent[0].context["previous_starts_at"]
+        assert f"{local.hour:02d}:{local.minute:02d}" in sent[0].context["previous_starts_at"]
+        assert str(local.year) in sent[0].context["previous_starts_at"]
+
+
+def test_a_canceled_booking_mails_once_even_when_canceled_again(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _no_delivery(monkeypatch)
+    member = membership("booking-mail-cancel")
+    configured = catalog(member)
+    appointment = create(member, configured).appointment
+    with tenant(member):
+        cancel_appointment(
+            appointment_id=appointment.id,
+            idempotency_key="cancel-1",
+            principal_ref=str(member.user_id),
+        )
+        cancel_appointment(
+            appointment_id=appointment.id,
+            idempotency_key="cancel-2",
+            principal_ref=str(member.user_id),
+        )
+        sent = mails(appointment.id, "booking.canceled")
+        assert len(sent) == 1
+        assert appointment.starts_at.isoformat() not in sent[0].context["starts_at"]
+
+
+def test_a_booking_without_an_email_address_changes_without_queueing_anything(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _no_delivery(monkeypatch)
+    member = membership("booking-mail-phone")
+    configured = catalog(member)
+    with tenant(member):
+        slots = available_slots(
+            service_id=configured["service"].id,
+            location_id=configured["location"].id,
+            from_date=configured["date"],
+            to_date=configured["date"],
+        )
+        appointment = create_appointment(
+            service_id=configured["service"].id,
+            staff_id=configured["staff"].id,
+            location_id=configured["location"].id,
+            resource_id=configured["resource"].id,
+            starts_at=slots[0].starts_at,
+            customer_data={
+                "display_name": "Bez maila",
+                "email": "",
+                "phone": "+48123123123",
+                "locale": "pl",
+            },
+            idempotency_key="phone-only",
+            principal_ref=str(member.user_id),
+        ).appointment
+        reschedule_appointment(
+            appointment_id=appointment.id,
+            starts_at=appointment.starts_at + timedelta(minutes=60),
+            idempotency_key="move-phone",
+            principal_ref=str(member.user_id),
+        )
+        cancel_appointment(
+            appointment_id=appointment.id,
+            idempotency_key="cancel-phone",
+            principal_ref=str(member.user_id),
+        )
+        assert NotificationMessage.all_objects.filter(
+            causation_id=f"booking:{appointment.id}"
+        ).count() == 0
+
+
+def test_every_appointment_transition_reaches_a_registered_observer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _no_delivery(monkeypatch)
+    member = membership("booking-observer")
+    configured = catalog(member)
+    with watching() as seen:
+        appointment = create(member, configured).appointment
+        assert [event.change for event in seen] == ["created"]
+        assert seen[0].previous_starts_at is None
+        assert seen[0].starts_at == appointment.starts_at
+        assert seen[0].status == "confirmed" and seen[0].organization_id == member.organization_id
+        moved = appointment.starts_at + timedelta(minutes=60)
+        with tenant(member):
+            reschedule_appointment(
+                appointment_id=appointment.id,
+                starts_at=moved,
+                idempotency_key="move-1",
+                principal_ref=str(member.user_id),
+            )
+        assert seen[1].change == "rescheduled"
+        assert seen[1].previous_starts_at == appointment.starts_at and seen[1].starts_at == moved
+        assert seen[1].previous_status == seen[1].status == "confirmed"
+        with tenant(member):
+            complete_appointment(
+                appointment_id=appointment.id, idempotency_key="done-1", principal_ref="t"
+            )
+        assert seen[2].change == "completed"
+        assert seen[2].previous_status == "confirmed" and seen[2].status == "completed"
+
+
+def test_a_canceled_appointment_reaches_a_registered_observer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Its own test: `create` books the same guest in every organization, and the
+    # test database bypasses RLS, so two tenants in one test share a customer.
+    _no_delivery(monkeypatch)
+    member = membership("booking-observer-cancel")
+    configured = catalog(member)
+    with watching() as seen:
+        appointment = create(member, configured).appointment
+        with tenant(member):
+            cancel_appointment(
+                appointment_id=appointment.id,
+                idempotency_key="cancel-1",
+                principal_ref=str(member.user_id),
+            )
+        assert [event.change for event in seen] == ["created", "canceled"]
+        assert seen[1].previous_status == "confirmed" and seen[1].status == "canceled"
+        assert seen[1].previous_starts_at == seen[1].starts_at == appointment.starts_at
+
+
+def test_an_observer_that_raises_does_not_break_the_reschedule(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _no_delivery(monkeypatch)
+    member = membership("booking-observer-broken")
+    configured = catalog(member)
+    appointment = create(member, configured).appointment
+    register_appointment_observer("broken", _explode)
+    try:
+        with watching() as seen, tenant(member):
+            moved = appointment.starts_at + timedelta(minutes=60)
+            value = reschedule_appointment(
+                appointment_id=appointment.id,
+                starts_at=moved,
+                idempotency_key="move-1",
+                principal_ref=str(member.user_id),
+            )
+            assert value.starts_at == moved
+    finally:
+        _observers.pop("broken", None)
+    appointment.refresh_from_db()
+    assert appointment.starts_at == moved
+    # The healthy observer still ran, after the broken one.
+    assert [event.change for event in seen] == ["rescheduled"]
+
+
+def _explode(change: AppointmentChange) -> None:
+    raise RuntimeError("obserwator padł")
+
+
+def test_the_customers_own_link_notifies_observers_too(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _no_delivery(monkeypatch)
+    member = membership("booking-observer-self-service")
+    configured = catalog(member)
+    created = create(member, configured)
+    moved = created.appointment.starts_at + timedelta(minutes=60)
+    with watching() as seen:
+        response = APIClient().post(
+            f"/api/v1/booking/self-service/{created.token}/reschedule/",
+            {"starts_at": moved.isoformat()},
+            format="json",
+            HTTP_IDEMPOTENCY_KEY="self-move-1",
+        )
+    assert response.status_code == 200
+    assert [event.change for event in seen] == ["rescheduled"]
+    assert seen[0].starts_at == moved

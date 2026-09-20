@@ -11,6 +11,7 @@ app registry without importing a private model.
 """
 
 from .models import AppointmentStatus
+from .observers import AppointmentChange, register_appointment_observer
 from .services import (
     BOOKING_ENABLED,
     BOOKING_MANAGE,
@@ -36,6 +37,7 @@ __all__ = [
     "BOOKING_ENABLED",
     "BOOKING_MANAGE",
     "BOOKING_READ",
+    "AppointmentChange",
     "AppointmentNotChangeable",
     "AppointmentStatus",
     "BookingIdempotencyConflict",
@@ -46,6 +48,7 @@ __all__ = [
     "complete_appointment",
     "create_appointment",
     "list_appointments",
+    "register_appointment_observer",
     "reschedule_appointment",
     "staff_for_membership",
 ]

@@ -33,6 +33,42 @@ TEMPLATES: dict[tuple[str, int], EmailTemplate] = {
         },
         allowed_context=frozenset({"organization_name", "starts_at"}),
     ),
+    ("booking.rescheduled", 1): EmailTemplate(
+        key="booking.rescheduled",
+        version=1,
+        category="required",
+        subjects={"pl": "Zmiana terminu rezerwacji", "en": "Your booking was moved"},
+        bodies={
+            "pl": (
+                "<p>Termin rezerwacji w {organization_name} został zmieniony.</p>"
+                "<p>Poprzedni termin: {previous_starts_at}</p>"
+                "<p>Nowy termin: {starts_at}</p>"
+            ),
+            "en": (
+                "<p>Your booking at {organization_name} has been moved.</p>"
+                "<p>Previous time: {previous_starts_at}</p>"
+                "<p>New time: {starts_at}</p>"
+            ),
+        },
+        allowed_context=frozenset({"organization_name", "previous_starts_at", "starts_at"}),
+    ),
+    ("booking.canceled", 1): EmailTemplate(
+        key="booking.canceled",
+        version=1,
+        category="required",
+        subjects={"pl": "Rezerwacja odwołana", "en": "Booking canceled"},
+        bodies={
+            "pl": (
+                "<p>Rezerwacja w {organization_name} została odwołana.</p>"
+                "<p>Odwołany termin: {starts_at}</p>"
+            ),
+            "en": (
+                "<p>Your booking at {organization_name} has been canceled.</p>"
+                "<p>Canceled time: {starts_at}</p>"
+            ),
+        },
+        allowed_context=frozenset({"organization_name", "starts_at"}),
+    ),
     ("booking.reminder", 1): EmailTemplate(
         key="booking.reminder",
         version=1,

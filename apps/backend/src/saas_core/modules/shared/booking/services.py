@@ -10,7 +10,8 @@ from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.db import DatabaseError, IntegrityError, OperationalError, transaction
-from django.utils import timezone
+from django.utils import timezone, translation
+from django.utils.formats import date_format
 from rest_framework.exceptions import APIException, NotFound, ValidationError
 
 from saas_core.modules.core.identity.models import User
@@ -48,6 +49,14 @@ from .models import (
     ServiceStaff,
     StaffMember,
     TimeOff,
+)
+from .observers import (
+    CANCELED,
+    COMPLETED,
+    CREATED,
+    RESCHEDULED,
+    AppointmentChange,
+    notify_appointment_change,
 )
 from .security import PUBLIC_BOOKING_ROLE, issue_self_service_token
 
@@ -437,6 +446,18 @@ def create_appointment(
         target_id=appointment.id,
         metadata={"starts_at": starts_at.isoformat()},
     )
+    _announce(
+        AppointmentChange(
+            change=CREATED,
+            organization_id=organization.id,
+            appointment_id=appointment.id,
+            previous_starts_at=None,
+            starts_at=starts_at,
+            previous_status="",
+            status=appointment.status,
+            timezone=appointment.timezone,
+        )
+    )
     return CreatedAppointment(appointment, token, True)
 
 
@@ -515,7 +536,7 @@ def reschedule_appointment(
         reason=f"rescheduled:{previous.isoformat()}",
         actor_kind=context.principal_kind,
     )
-    BookingMutation.all_objects.create(
+    mutation = BookingMutation.all_objects.create(
         organization_id=context.organization_id,
         appointment=appointment,
         action="reschedule",
@@ -523,13 +544,46 @@ def reschedule_appointment(
         idempotency_key=idempotency_key,
         request_hash=request_hash,
     )
+    organization = Organization.objects.get(pk=context.organization_id)
+    customer = appointment.customer
+    if customer.email:
+        queue_email(
+            recipient_email=customer.email,
+            template_key="booking.rescheduled",
+            template_version=1,
+            locale=customer.locale,
+            template_context={
+                "organization_name": organization.name,
+                "previous_starts_at": _local_time(previous, appointment.timezone, customer.locale),
+                "starts_at": _local_time(starts_at, appointment.timezone, customer.locale),
+            },
+            # The mutation row is this move's identity. A retry of the same
+            # request returned above, so a row here always means a move that
+            # really happened — while `appointment.id` alone would swallow every
+            # move after the first, and the old time repeats as soon as a visit
+            # is moved back to where it was.
+            idempotency_key=f"booking-reschedule:{mutation.id}",
+            causation_id=f"booking:{appointment.id}",
+        )
     record_audit(
-        organization=Organization.objects.get(pk=context.organization_id),
+        organization=organization,
         action="booking.appointment.rescheduled",
         actor=User.objects.filter(pk=context.actor_id).first(),
         target_type="appointment",
         target_id=appointment.id,
         metadata={"starts_at": starts_at.isoformat()},
+    )
+    _announce(
+        AppointmentChange(
+            change=RESCHEDULED,
+            organization_id=organization.id,
+            appointment_id=appointment.id,
+            previous_starts_at=previous,
+            starts_at=starts_at,
+            previous_status=appointment.status,
+            status=appointment.status,
+            timezone=appointment.timezone,
+        )
     )
     return appointment
 
@@ -571,6 +625,40 @@ def cancel_appointment(
             from_status=old,
             to_status=AppointmentStatus.CANCELED,
             actor_kind=context.principal_kind,
+        )
+        customer = appointment.customer
+        if customer.email:
+            queue_email(
+                recipient_email=customer.email,
+                template_key="booking.canceled",
+                template_version=1,
+                locale=customer.locale,
+                template_context={
+                    "organization_name": Organization.objects.get(
+                        pk=context.organization_id
+                    ).name,
+                    "starts_at": _local_time(
+                        appointment.starts_at, appointment.timezone, customer.locale
+                    ),
+                },
+                # A booking is called off once, so the appointment identifies the
+                # mail. This block runs on the real transition only; a second
+                # cancellation under another idempotency key finds the booking
+                # already canceled and never gets here.
+                idempotency_key=f"booking-cancel:{appointment.id}",
+                causation_id=f"booking:{appointment.id}",
+            )
+        _announce(
+            AppointmentChange(
+                change=CANCELED,
+                organization_id=context.organization_id,
+                appointment_id=appointment.id,
+                previous_starts_at=appointment.starts_at,
+                starts_at=appointment.starts_at,
+                previous_status=old,
+                status=AppointmentStatus.CANCELED,
+                timezone=appointment.timezone,
+            )
         )
     BookingMutation.all_objects.create(
         organization_id=context.organization_id,
@@ -653,6 +741,18 @@ def complete_appointment(
             target_type="appointment",
             target_id=appointment.id,
         )
+        _announce(
+            AppointmentChange(
+                change=COMPLETED,
+                organization_id=context.organization_id,
+                appointment_id=appointment.id,
+                previous_starts_at=appointment.starts_at,
+                starts_at=appointment.starts_at,
+                previous_status=AppointmentStatus.CONFIRMED,
+                status=AppointmentStatus.COMPLETED,
+                timezone=appointment.timezone,
+            )
+        )
     BookingMutation.all_objects.create(
         organization_id=context.organization_id,
         appointment=appointment,
@@ -684,6 +784,35 @@ def anonymize_customer(customer_id: UUID) -> Customer:
         target_id=customer.id,
     )
     return customer
+
+
+def _local_time(value: datetime, zone: str, locale: str) -> str:
+    """The wall clock a customer reads, not the instant a database stores.
+
+    An email template is `str.format_map` over strings — it cannot format a
+    datetime, so an ISO stamp handed to it reaches the customer as an ISO stamp.
+    The appointment carries its own `timezone` snapshot; Django's own
+    localisation turns it into a date the recipient's locale writes normally.
+
+    `Customer.locale` is pl or en by field choices, the same two the templates
+    carry; an unknown one would fail in `render_template` before reaching here.
+    """
+    with translation.override(locale):
+        return date_format(value.astimezone(ZoneInfo(zone)), "DATETIME_FORMAT")
+
+
+def _announce(change: AppointmentChange) -> None:
+    """Observers run after commit, never inside the mutation's transaction.
+
+    Two reasons, both hard. An observer writes into another tenant through the
+    registry door, which means another `SET LOCAL organization_id` — doing that
+    inside this transaction would leave the wrong tenant set for everything
+    after it. And a failure has to be swallowed, which is impossible inside an
+    atomic block: Django marks the block broken on the first database error, so
+    a swallowed one would turn the next query into a TransactionManagementError
+    and take the booking down with it.
+    """
+    transaction.on_commit(lambda: notify_appointment_change(change))
 
 
 def _hash(value: dict[str, Any]) -> str:
