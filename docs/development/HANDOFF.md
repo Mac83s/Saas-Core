@@ -67,10 +67,32 @@ połączonej karty 409 `farm_already_linked` → firma nie cofnie cudzego udzia�
 → rolnik cofa (powtórka idempotentna) → firma zachowuje kartę → ponowne połączenie
 wraca do tego samego udziału. Żadna ze stron nie odczyta gospodarstwa drugiej (404).
 
-Otwarte w tym etapie: drzwi synchronizacji (firma pisze do rejestru przez
-`share_for_writing`), publikacja wpisów korekcji jako wpisy zdrowotne, pakiet
-rolnika z 6 miesiącami próbnymi, „połącz bez kodu" po stronie obsługi, ekran
-scalania rozjechanych sztuk.
+## Drzwi do rejestru i historia zwierzęcia, 2026-09-20
+
+`farms/herd_sync.py` to jedyne miejsce, w którym jedna organizacja pisze do
+drugiej: `registry_writer(share)` włącza kontekst rejestru na czas kilku
+instrukcji. Czytając to, pamiętaj o trzech rzeczach:
+
+- `SET LOCAL` obowiązuje do końca **transakcji**, nie bloku — dlatego wyjście
+  przywraca organizację wywołującego. Bez tego reszta transakcji firmy
+  wykonałaby się jako rolnik. Test
+  `test_a_shared_card_writes_the_cow_into_the_farmers_register` celowo czyta
+  dane firmy po zapisie;
+- drzwi otwiera wyłącznie aktywny `FarmShare` z odpowiednią zgodą
+  (`can_write_herd` dla stada, `can_publish_health` dla historii). Cofnięcie
+  udziału zamyka je natychmiast;
+- wpis historii jest kluczowany `(źródło, referencja źródła)`, więc wertykał
+  publikuje idempotentnie. HoofCare robi to przy zamknięciu wizyty
+  (`vertical/hoofcare/publish.py`), więc poprawiona wizyta poprawia historię.
+
+Dowód z żywego stacku (20.09): firma dopisuje krowę na połączonej karcie →
+rolnik ma ją u siebie; zmiana statusu propaguje; po cofnięciu udziału już nie;
+wizyta z wpisem DD/M2 zamknięta → rolnik czyta „Korekcja: zapalenie skóry palca
+M2 (prawa tylna). Kontrola do 2026-10-04." z autorem „Korekcja Testowa";
+ponowne zamknięcie nie dubluje wpisu.
+
+Otwarte w tym etapie: pakiet rolnika z 6 miesiącami próbnymi, „połącz bez kodu"
+po stronie obsługi, ekran scalania rozjechanych sztuk.
 
 ## Przebudowa panelu z projektu Claude Design, 2026-09-19/20
 

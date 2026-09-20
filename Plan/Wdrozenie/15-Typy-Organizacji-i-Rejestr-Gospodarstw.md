@@ -94,10 +94,18 @@ które filtruje po organizacji wywołującego (test
 (`FarmActivationCode.handover`), bo rolnik realizuje kod we własnym tenantcie,
 gdzie RLS zasłania wiersze firmy — wyszło dopiero na żywym stacku.
 
-Otwarte: drzwi synchronizacji (firma pisze do rejestru przez `share_for_writing`),
-publikacja wpisów korekcji jako wpisy zdrowotne zwierzęcia (domyka resztę etapu
-4), pakiet rolnika z 6 miesiącami okresu próbnego, akcja obsługi „połącz bez
-kodu”, ekran scalania rozjechanych sztuk.
+Zrobione (synchronizacja i historia): firma z aktywnym udziałem zapisuje stado
+do rejestru rolnika (`can_write_herd`) i publikuje tam historię zwierzęcia
+(`can_publish_health`). Oba zapisy idą przez drzwi `registry_writer` w
+`herd_sync.py`: kontekst rejestru aktywny dokładnie na czas tych instrukcji,
+jedno uprawnienie, aktor z firmy i przywrócenie organizacji wywołującego na
+wyjściu, bo `SET LOCAL` żyje do końca transakcji. HoofCare publikuje przy
+zamknięciu wizyty, kluczem jest wizyta, więc ponowne zamknięcie poprawia
+historię zamiast ją dublować. Tabela historii ma wymuszone RLS i strażnika
+relacji; to domyka też ostatnią otwartą pozycję etapu 4.
+
+Otwarte: pakiet rolnika z 6 miesiącami darmowymi, akcja obsługi „połącz bez
+kodu", ekran scalania rozjechanych sztuk.
 
 ## Etap 4 — korekcja i wpisy zdrowotne (HoofCare) — ZROBIONE 2026-09-19/20 (bez publikacji do rejestru)
 
