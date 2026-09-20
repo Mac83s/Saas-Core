@@ -1647,6 +1647,46 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/farms/{farm_id}/send-herd/:
+    post:
+      operationId: farms_herd_push
+      description: Wyślij stado tej karty do rejestru rolnika (ADR-051 pt 7).
+      parameters:
+      - in: path
+        name: farm_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - farms
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmHerdPush'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/farms/{farm_id}/shares/:
     get:
       operationId: farms_share_list
@@ -9743,6 +9783,20 @@ components:
           maxLength: 40
       required:
       - code
+    FarmHerdPush:
+      type: object
+      description: Ile sztuk dopisano, ile poprawiono, ile było już zgodnych.
+      properties:
+        added:
+          type: integer
+        updated:
+          type: integer
+        unchanged:
+          type: integer
+      required:
+      - added
+      - unchanged
+      - updated
     FarmInput:
       type: object
       description: |-

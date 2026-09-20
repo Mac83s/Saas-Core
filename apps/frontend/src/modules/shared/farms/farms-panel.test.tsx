@@ -25,6 +25,7 @@ const api = vi.hoisted(() => ({
   listFarmShares: vi.fn(),
   redeemFarmActivationCode: vi.fn(),
   revokeFarmShare: vi.fn(),
+  sendFarmHerd: vi.fn(),
   listFarmAnimals: vi.fn(),
   listFarmSpecies: vi.fn(),
   listFarms: vi.fn(),
@@ -156,6 +157,7 @@ beforeEach(() => {
     animals_added: 2,
     share: share(),
   });
+  api.sendFarmHerd.mockResolvedValue({ added: 2, updated: 1, unchanged: 7 });
   api.revokeFarmShare.mockImplementation(async () =>
     share({ status: "revoked", revoked_at: "2026-09-20T09:00:00Z" }),
   );
@@ -459,4 +461,30 @@ test("hodowca przejmuje gospodarstwo kodem, zły kod tłumaczy się na miejscu",
       "Przejęto gospodarstwo Zielona Dolina. Dopisane zwierzęta: 2.",
     ),
   ).toBeInTheDocument();
+});
+
+test("firma dosyła stado do rejestru, a kod znika po połączeniu", async () => {
+  // Karta firmy: udział istnieje, więc partnerem jest hodowca, nie firma.
+  api.listFarmShares.mockResolvedValue([
+    share({ partner_name: "Gospodarstwo Nowak", partner_is_company: false }),
+  ]);
+  wrap(<FarmDetail canManage canRead farmId={FARM} />);
+  fireEvent.click(await screen.findByRole("tab", { name: "Dostęp" }));
+
+  // Kod przekazania zamraża kartę w chwili wydania, więc sztuki dopisane
+  // później dosyła osobna akcja.
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Wyślij stado do rejestru" }),
+  );
+  await waitFor(() => expect(api.sendFarmHerd).toHaveBeenCalledWith(FARM));
+  expect(
+    await screen.findByText(
+      "Wysłano do rejestru: dopisano 2, poprawiono 1, bez zmian 7.",
+    ),
+  ).toBeInTheDocument();
+
+  // Połączonej karcie nie wydaje się drugiego kodu — API i tak odpowiada 409.
+  expect(
+    screen.queryByRole("button", { name: "Wygeneruj kod aktywacji" }),
+  ).toBeNull();
 });

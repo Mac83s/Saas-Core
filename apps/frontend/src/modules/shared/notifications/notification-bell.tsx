@@ -138,12 +138,16 @@ function headline(
   const values = {
     plan: String(payload.plan_name ?? ""),
     date: String(payload.ends_at ?? ""),
+    farm: String(payload.farm_name ?? ""),
+    count: Number(payload.count ?? 0),
   };
   switch (item.kind) {
     case "billing.trial_ending":
       return t("billingTrialEnding", values);
     case "billing.grace_ending":
       return t("billingGraceEnding", values);
+    case "farms.herd_review":
+      return t("farmsHerdReview", values);
     default:
       return t("unknown");
   }

@@ -1733,7 +1733,9 @@
     "revokeShare": "Cofnij dostęp",
     "shareRevokedNotice": "Cofnięto dostęp: {name}.",
     "issueCode": "Wygeneruj kod aktywacji",
-    "codeHint": "Przekaż kod hodowcy — jest jednorazowy i ważny do {date}."
+    "codeHint": "Przekaż kod hodowcy — jest jednorazowy i ważny do {date}.",
+    "sendHerd": "Wyślij stado do rejestru",
+    "herdSent": "Wysłano do rejestru: dopisano {added}, poprawiono {updated}, bez zmian {unchanged}."
   },
   "Animals": {
     "title": "Zwierzęta",

@@ -7,6 +7,7 @@ from .views import (
     FarmActivationCodeView,
     FarmActivationRedeemView,
     FarmDetailView,
+    FarmHerdPushView,
     FarmListCreateView,
     FarmShareListView,
     FarmShareRevokeView,
@@ -34,4 +35,5 @@ urlpatterns = [
         name="farms-activation-code",
     ),
     path("<uuid:farm_id>/shares/", FarmShareListView.as_view(), name="farms-shares"),
+    path("<uuid:farm_id>/send-herd/", FarmHerdPushView.as_view(), name="farms-send-herd"),
 ]

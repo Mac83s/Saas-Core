@@ -56,5 +56,5 @@ export const deployment = {
       "serviceTemplates": []
     }
   ],
-  "profileHash": "sha256:51febbe0d0e8044341effa865c5ea94f896e582a953b7a6658102b8f94653f40"
+  "profileHash": "sha256:984d8298dbfa11356d4e9c52e4e36325bb9821e5aa9f48deeafff0afacea13af"
 } as const

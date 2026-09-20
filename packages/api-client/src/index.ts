@@ -2561,6 +2561,23 @@ export async function redeemFarmActivationCode(
   return data;
 }
 
+export type FarmHerdPush = components["schemas"]["FarmHerdPush"];
+
+/** Wyślij stado tej karty do rejestru rolnika (ADR-051 pt 7). */
+export async function sendFarmHerd(farmId: string): Promise<FarmHerdPush> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/farms/{farm_id}/send-herd/",
+    {
+      params: { path: { farm_id: farmId } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export async function listFarmShares(farmId: string): Promise<FarmShare[]> {
   const { data, error, response } = await client.GET(
     "/api/v1/farms/{farm_id}/shares/",

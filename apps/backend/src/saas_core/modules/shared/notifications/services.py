@@ -37,6 +37,7 @@ from .models import (
     ExportStatus,
     NotificationMessage,
     NotificationPreference,
+    NotificationSeverity,
     PendingTaskRoute,
     ProviderEventInbox,
     ProviderMessageRoute,
@@ -743,3 +744,27 @@ def _allowlisted_event_payload(event_type: str, payload: dict[str, Any]) -> dict
     if allowed is None:
         raise ValidationError("Typ zdarzenia nie jest publicznym kontraktem webhooka.")
     return {key: payload[key] for key in sorted(allowed) if key in payload}
+
+
+def notify_in_app(
+    *,
+    organization_id: UUID,
+    user_id: UUID,
+    kind: str,
+    payload: dict[str, Any],
+    idempotency_key: str,
+    severity: str = NotificationSeverity.INFO,
+) -> bool:
+    """Jedna wiadomość w produkcie dla jednej osoby; ten sam klucz to jeden wiersz.
+
+    Tekstu tu nie ma: wiersz niesie rodzaj i fakty, a zdanie składa panel w
+    języku czytającego. Kontekst tenanta otwiera wołający — to jego polityka
+    decyduje, czyja to skrzynka.
+    """
+    _, created = AppNotification.all_objects.get_or_create(
+        organization_id=organization_id,
+        user_id=user_id,
+        idempotency_key=idempotency_key,
+        defaults={"kind": kind, "payload": payload, "severity": severity},
+    )
+    return created

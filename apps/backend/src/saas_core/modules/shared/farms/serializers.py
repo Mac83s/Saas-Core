@@ -140,6 +140,14 @@ class FarmActivationRedeemSerializer(serializers.Serializer[Any]):
     code = serializers.CharField(max_length=40)
 
 
+class FarmHerdPushSerializer(serializers.Serializer[Any]):
+    """Ile sztuk dopisano, ile poprawiono, ile było już zgodnych."""
+
+    added = serializers.IntegerField()
+    updated = serializers.IntegerField()
+    unchanged = serializers.IntegerField()
+
+
 class FarmShareSerializer(serializers.Serializer[Any]):
     id = serializers.UUIDField()
     registry_farm_id = serializers.UUIDField()

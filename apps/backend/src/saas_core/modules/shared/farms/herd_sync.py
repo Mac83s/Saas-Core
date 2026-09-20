@@ -30,6 +30,7 @@ from uuid import UUID
 from django.db import DatabaseError, transaction
 from django.http import HttpRequest
 from django.utils import timezone
+from rest_framework.exceptions import NotFound
 
 from saas_core.modules.core.organizations.context import (
     TenantContext,
@@ -38,10 +39,11 @@ from saas_core.modules.core.organizations.context import (
     set_local_organization_id,
 )
 from saas_core.modules.core.organizations.models import OrganizationAuditAction
+from saas_core.modules.shared.billing.api import authorize_entitled
 
-from .models import Animal, AnimalHealthEntry, Farm, FarmShare, HealthEntryKind
-from .services import FARMS_MANAGE, FARMS_READ, PAGE_LIMIT, audit_farm
-from .sharing import share_for_publishing, share_for_writing
+from .models import Animal, AnimalHealthEntry, AnimalStatus, Farm, FarmShare, HealthEntryKind
+from .services import FARMS_ENABLED, FARMS_MANAGE, FARMS_READ, PAGE_LIMIT, audit_farm
+from .sharing import Conflict, share_for_publishing, share_for_writing
 
 #: What the register receives about an animal. The company's private note about
 #: a cow stays with the company, like the private note on a card.
@@ -93,7 +95,7 @@ def mirror_animal(request: HttpRequest, animal: Animal) -> Animal | None:
     share = share_for_writing(animal.organization_id, animal.farm_id)
     if share is None:
         return None
-    values: dict[str, Any] = {field: getattr(animal, field) for field in SYNCED_FIELDS}
+    values = _values(animal)
     with transaction.atomic(), registry_door(share) as context:
         farm = Farm.all_objects.filter(
             organization_id=context.organization_id, id=share.registry_farm_id
@@ -123,6 +125,106 @@ def mirror_animal(request: HttpRequest, animal: Animal) -> Animal | None:
             mirrored,
         )
         return mirrored
+
+
+@transaction.atomic
+def push_herd(request: HttpRequest, *, farm_id: UUID) -> dict[str, int]:
+    """The company's whole card, written into the farmer's register at once.
+
+    This is what closes the window the activation code leaves open: the card is
+    copied when the code is issued, so a cow recorded between issuing it and
+    redeeming it never reaches the register. One door for the whole herd rather
+    than one per animal — a herd of three hundred would otherwise be three
+    hundred context switches and three hundred audit entries.
+
+    Only animals still in the herd travel: the card also keeps the sold and the
+    dead, and a register that never knew them does not need their history.
+    """
+    context = authorize_entitled(FARMS_MANAGE, FARMS_ENABLED)
+    if not Farm.all_objects.filter(organization_id=context.organization_id, id=farm_id).exists():
+        raise NotFound("Nie ma takiego gospodarstwa.")
+    share = share_for_writing(context.organization_id, farm_id)
+    if share is None:
+        raise Conflict("To gospodarstwo nie jest połączone z kontem rolnika.")
+    # Locked for the duration: two clicks would otherwise insert the same
+    # missing animals twice and the second would hit the unique tag.
+    FarmShare.objects.select_for_update().filter(pk=share.pk).first()
+    # Read the company's herd before the door opens: inside it, these rows are
+    # invisible (the whole reason the handover travels in the code).
+    ours = {
+        _tag(animal): _values(animal)
+        for animal in Animal.all_objects.filter(
+            organization_id=context.organization_id,
+            farm_id=farm_id,
+            status=AnimalStatus.ACTIVE,
+        )
+    }
+    now = timezone.now()
+    with registry_door(share) as registry:
+        farm = Farm.all_objects.filter(
+            organization_id=registry.organization_id, id=share.registry_farm_id
+        ).first()
+        if farm is None:
+            raise Conflict("Gospodarstwo w rejestrze rolnika już nie istnieje.")
+        theirs = {
+            _tag(animal): animal
+            for animal in Animal.all_objects.filter(
+                organization_id=registry.organization_id, farm_id=farm.id
+            )
+        }
+        missing: list[Animal] = []
+        changed: list[Animal] = []
+        for tag, values in ours.items():
+            existing = theirs.get(tag)
+            if existing is None:
+                missing.append(
+                    Animal(
+                        organization_id=registry.organization_id,
+                        farm=farm,
+                        species=tag[0],
+                        national_id=tag[1],
+                        review_requested_at=now,
+                        **values,
+                    )
+                )
+            elif _diverges(existing, values):
+                for field, value in values.items():
+                    setattr(existing, field, value)
+                existing.review_requested_at = now
+                # `bulk_update` skips `save()`, so `auto_now` would not fire and
+                # the keeper's list would show a stale "last changed".
+                existing.updated_at = now
+                changed.append(existing)
+        Animal.all_objects.bulk_create(missing, batch_size=100)
+        if changed:
+            Animal.all_objects.bulk_update(
+                changed,
+                [*SYNCED_FIELDS, "review_requested_at", "updated_at"],
+                batch_size=100,
+            )
+        result = {
+            "added": len(missing),
+            "updated": len(changed),
+            "unchanged": len(ours) - len(missing) - len(changed),
+        }
+        # One entry for the whole herd: three hundred lines would say less.
+        audit_farm(
+            request,
+            registry.organization_id,
+            OrganizationAuditAction.HERD_PUSHED,
+            farm,
+            metadata=result,
+        )
+    return result
+
+
+def _tag(animal: Animal) -> tuple[str, str]:
+    """The one rule that matches an animal across two registers."""
+    return (animal.species, animal.national_id)
+
+
+def _values(animal: Animal) -> dict[str, Any]:
+    return {field: getattr(animal, field) for field in SYNCED_FIELDS}
 
 
 def _diverges(existing: Animal | None, values: dict[str, Any]) -> bool:

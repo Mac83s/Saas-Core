@@ -662,6 +662,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/farms/{farm_id}/send-herd/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Wyślij stado tej karty do rejestru rolnika (ADR-051 pt 7). */
+        post: operations["farms_herd_push"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/farms/{farm_id}/shares/": {
         parameters: {
             query?: never;
@@ -3401,6 +3418,12 @@ export interface components {
         };
         FarmActivationRedeem: {
             code: string;
+        };
+        /** @description Ile sztuk dopisano, ile poprawiono, ile było już zgodnych. */
+        FarmHerdPush: {
+            added: number;
+            updated: number;
+            unchanged: number;
         };
         /**
          * @description What a client may send; kept apart from the response so the generated
@@ -6461,6 +6484,51 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FarmActivationCode"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    farms_herd_push: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                farm_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FarmHerdPush"];
                 };
             };
             400: {

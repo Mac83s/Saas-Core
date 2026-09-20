@@ -1733,7 +1733,9 @@
     "revokeShare": "Revoke access",
     "shareRevokedNotice": "Access revoked: {name}.",
     "issueCode": "Issue an activation code",
-    "codeHint": "Hand the code to the keeper — it works once and expires on {date}."
+    "codeHint": "Hand the code to the keeper — it works once and expires on {date}.",
+    "sendHerd": "Send the herd to the register",
+    "herdSent": "Sent to the register: {added} added, {updated} updated, {unchanged} unchanged."
   },
   "Animals": {
     "title": "Animals",

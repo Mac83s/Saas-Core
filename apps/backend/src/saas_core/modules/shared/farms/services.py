@@ -113,7 +113,11 @@ def _clean_animal(data: dict[str, Any], *, species: str) -> dict[str, Any]:
 
 
 def audit_farm(
-    request: HttpRequest, organization_id: UUID, action: str, target: Farm | Animal
+    request: HttpRequest,
+    organization_id: UUID,
+    action: str,
+    target: Farm | Animal,
+    metadata: dict[str, Any] | None = None,
 ) -> None:
     record_audit(
         organization=Organization.objects.get(pk=organization_id),
@@ -121,6 +125,7 @@ def audit_farm(
         actor=cast(User, request.user),
         target_type=target._meta.model_name or "",
         target_id=target.id,
+        metadata=metadata,
     )
 
 

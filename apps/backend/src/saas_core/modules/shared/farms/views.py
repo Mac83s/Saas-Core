@@ -18,6 +18,7 @@ from rest_framework.views import APIView
 
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
+from .herd_sync import push_herd
 from .serializers import (
     AnimalHealthEntrySerializer,
     AnimalHealthInputSerializer,
@@ -26,6 +27,7 @@ from .serializers import (
     AnimalUpdateSerializer,
     FarmActivationCodeSerializer,
     FarmActivationRedeemSerializer,
+    FarmHerdPushSerializer,
     FarmInputSerializer,
     FarmSerializer,
     FarmShareSerializer,
@@ -290,6 +292,23 @@ class FarmActivationRedeemView(APIView):
             request=cast(HttpRequest, request), code=serializer.validated_data["code"]
         )
         return Response(FarmTakeoverSerializer(result).data, status=201)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class FarmHerdPushView(APIView):
+    """Wyślij stado tej karty do rejestru rolnika (ADR-051 pt 7)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=None,
+        responses={200: FarmHerdPushSerializer, **ERRORS},
+        operation_id="farms_herd_push",
+        tags=["farms"],
+    )
+    def post(self, request: Request, farm_id: UUID) -> Response:
+        result = push_herd(cast(HttpRequest, request), farm_id=farm_id)
+        return Response(FarmHerdPushSerializer(result).data)
 
 
 @method_decorator(csrf_protect, name="dispatch")
