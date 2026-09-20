@@ -181,7 +181,9 @@ test("wyszukiwarka pyta serwer i da się ją wyczyścić", async () => {
   expect(await screen.findByText("Nic nie pasuje do wyszukiwania."));
 
   fireEvent.click(screen.getByRole("button", { name: "Wyczyść wyszukiwanie" }));
-  await waitFor(() => expect(api.listFarms).toHaveBeenLastCalledWith(undefined));
+  await waitFor(() =>
+    expect(api.listFarms).toHaveBeenLastCalledWith(undefined),
+  );
 });
 
 test("pusty rejestr tłumaczy następny krok i dodaje gospodarstwo", async () => {
@@ -244,10 +246,9 @@ test("błąd wczytania da się ponowić, brak w planie prowadzi do abonamentu", 
       "Rejestr gospodarstw nie jest dostępny w planie tej organizacji.",
     ),
   ).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Zobacz abonament" })).toHaveAttribute(
-    "href",
-    "/panel/settings/billing",
-  );
+  expect(
+    screen.getByRole("link", { name: "Zobacz abonament" }),
+  ).toHaveAttribute("href", "/panel/settings/billing");
 });
 
 test("karta gospodarstwa: kontakt, mapa, stado i notatka (EN)", async () => {
@@ -269,10 +270,9 @@ test("karta gospodarstwa: kontakt, mapa, stado i notatka (EN)", async () => {
     "href",
     "tel:600700800",
   );
-  expect(screen.getByRole("link", { name: "anna@example.com" })).toHaveAttribute(
-    "href",
-    "mailto:anna@example.com",
-  );
+  expect(
+    screen.getByRole("link", { name: "anna@example.com" }),
+  ).toHaveAttribute("href", "mailto:anna@example.com");
   expect(screen.getByText("2 animals")).toBeInTheDocument();
   expect(screen.getByText("Herd number: PL012345678001")).toBeInTheDocument();
 
@@ -285,9 +285,7 @@ test("karta gospodarstwa: kontakt, mapa, stado i notatka (EN)", async () => {
   await expectAccessible(container);
 
   fireEvent.click(screen.getByRole("tab", { name: "Notes" }));
-  expect(
-    await screen.findByText("Wjazd od strony lasu."),
-  ).toBeInTheDocument();
+  expect(await screen.findByText("Wjazd od strony lasu.")).toBeInTheDocument();
 });
 
 test("zmiana statusu i dodanie zwierzęcia mówią, co się stało", async () => {
@@ -313,7 +311,10 @@ test("zmiana statusu i dodanie zwierzęcia mówią, co się stało", async () =>
   expect(
     within(species)
       .getAllByRole("option")
-      .map((option) => [option.textContent, (option as HTMLOptionElement).disabled]),
+      .map((option) => [
+        option.textContent,
+        (option as HTMLOptionElement).disabled,
+      ]),
   ).toEqual([
     ["Bydło", false],
     ["Owce (wkrótce)", true],
@@ -321,7 +322,9 @@ test("zmiana statusu i dodanie zwierzęcia mówią, co się stało", async () =>
   fireEvent.change(within(dialog).getByLabelText("Numer identyfikacyjny"), {
     target: { value: "PL 005432100002" },
   });
-  fireEvent.click(within(dialog).getByRole("button", { name: "Dodaj zwierzę" }));
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Dodaj zwierzę" }),
+  );
   await waitFor(() =>
     expect(api.createFarmAnimal).toHaveBeenCalledWith(
       expect.objectContaining({

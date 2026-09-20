@@ -279,7 +279,10 @@ export function FarmDetail({
                     </a>
                   </li>
                 ) : null}
-                {place || farm.keeper_name || farm.phone || farm.email ? null : (
+                {place ||
+                farm.keeper_name ||
+                farm.phone ||
+                farm.email ? null : (
                   <li className="text-muted-foreground">{t("noDetails")}</li>
                 )}
               </ul>
@@ -562,10 +565,7 @@ function AnimalDialog({
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>
                 <FieldLabel htmlFor="animal-species">{t("species")}</FieldLabel>
-                <NativeSelect
-                  id="animal-species"
-                  {...form.register("species")}
-                >
+                <NativeSelect id="animal-species" {...form.register("species")}>
                   {species.map((entry) => (
                     <option
                       disabled={!entry.active}
