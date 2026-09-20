@@ -788,6 +788,14 @@
       "preservesContent": "Zmiana układu zachowuje Twoją treść."
     },
     "studio": {
+      "openStudio": "Otwórz edytor strony",
+      "studioTitle": "Edytor strony: {page}",
+      "studioDescription": "Ułóż sekcje, dopracuj wygląd i zapisz wersję roboczą.",
+      "backToPages": "Wróć do podstron",
+      "unsavedTitle": "Masz niezapisane zmiany",
+      "unsavedDescription": "Wróć do edycji, aby je zapisać, albo zamknij edytor i odrzuć zmiany.",
+      "keepEditing": "Kontynuuj edycję",
+      "discardChanges": "Odrzuć i wyjdź",
       "libraryPlacement": "Wybierz wariant, aby wstawić go pod zaznaczoną sekcją.",
       "imageLoading": "Ładowanie zdjęcia…",
       "imageUnavailable": "Nie można wyświetlić zdjęcia. Sprawdź, czy plik jest już gotowy.",

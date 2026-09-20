@@ -87,7 +87,7 @@ import { AutomationConnectionsPanel } from "./connections-panel";
 import { BlogPanel } from "./blog-panel";
 import { DomainPanel } from "./domain-panel";
 import { NavigationEditor } from "./navigation-editor";
-import { PageEditor } from "./page-editor";
+import { PageStudio } from "./page-studio";
 import { ProposalsQueue } from "./proposals-queue";
 import { SiteRedirectsCard } from "./page-url";
 import { PublicationHistory } from "./publication-history";
@@ -752,7 +752,7 @@ export function SitesPanel({
 
         <TabsPanel value="content">
           {selectedPage ? (
-            <PageEditor
+            <PageStudio
               key={selectedPage.id}
               onChanged={() =>
                 selectedSiteId

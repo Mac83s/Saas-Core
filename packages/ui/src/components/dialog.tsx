@@ -16,19 +16,27 @@ function DialogContent({
   children,
   closeLabel = "Close",
   showCloseButton = true,
+  fullScreen = false,
   ...props
 }: DialogPrimitive.Popup.Props & {
   closeLabel?: string;
   showCloseButton?: boolean;
+  fullScreen?: boolean;
 }) {
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-black/50 duration-150 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
-      <DialogPrimitive.Viewport className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <DialogPrimitive.Viewport
+        className={cn(
+          "fixed inset-0 z-50 flex items-center justify-center",
+          fullScreen ? "p-0" : "p-4",
+        )}
+      >
         <DialogPrimitive.Popup
           data-slot="dialog-content"
           className={cn(
             "relative grid w-full max-w-lg gap-4 rounded-xl bg-background p-6 shadow-xl ring-1 ring-foreground/10 duration-150 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+            fullScreen && "h-dvh w-screen max-w-none rounded-none p-0",
             className,
           )}
           {...props}

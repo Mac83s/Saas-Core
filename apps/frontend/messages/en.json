@@ -788,6 +788,14 @@
       "preservesContent": "Changing the layout preserves your content."
     },
     "studio": {
+      "openStudio": "Open page editor",
+      "studioTitle": "Page editor: {page}",
+      "studioDescription": "Arrange sections, refine the design and save your draft.",
+      "backToPages": "Back to pages",
+      "unsavedTitle": "You have unsaved changes",
+      "unsavedDescription": "Return to editing to save them, or close the editor and discard your changes.",
+      "keepEditing": "Keep editing",
+      "discardChanges": "Discard and leave",
       "libraryPlacement": "Choose a layout to insert it after the selected section.",
       "imageLoading": "Loading image…",
       "imageUnavailable": "Image unavailable. Check whether the file is ready.",

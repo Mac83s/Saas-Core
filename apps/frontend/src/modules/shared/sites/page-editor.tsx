@@ -229,9 +229,11 @@ function TemplateOption({
 
 export function PageEditor({
   onChanged,
+  onExitStateChange,
   page,
 }: {
   onChanged: () => Promise<void>;
+  onExitStateChange?: (state: { dirty: boolean; busy: boolean }) => void;
   page: PageSummary;
 }) {
   const t = useTranslations("Sites");
@@ -267,6 +269,25 @@ export function PageEditor({
     resolver: zodResolver(translationSchema),
     defaultValues: emptyTranslation(),
   });
+  const dirty =
+    draftForm.formState.isDirty ||
+    translationForm.formState.isDirty ||
+    Boolean(file);
+  const busy =
+    loading ||
+    draftForm.formState.isSubmitting ||
+    translationForm.formState.isSubmitting;
+  useEffect(() => {
+    onExitStateChange?.({ dirty, busy });
+  }, [dirty, busy, onExitStateChange]);
+  useEffect(() => {
+    if (!dirty) return;
+    const preventLoss = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+    };
+    window.addEventListener("beforeunload", preventLoss);
+    return () => window.removeEventListener("beforeunload", preventLoss);
+  }, [dirty]);
   const blocks = useFieldArray({ control: draftForm.control, name: "blocks" });
   const liveBlocks = useWatch({ control: draftForm.control, name: "blocks" });
   const history = useDraftHistory(draftForm);
