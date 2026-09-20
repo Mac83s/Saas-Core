@@ -60,7 +60,20 @@ export default async function HomePage({ params }: Props) {
       />
 
       <section className="relative overflow-hidden border-b bg-gradient-to-br from-primary/10 via-background to-background">
-        <div className="mx-auto grid w-full max-w-6xl items-center gap-12 px-5 py-16 sm:py-24 lg:grid-cols-[1.15fr_0.85fr] lg:py-28">
+        {copy.hero.backgroundImage ? (
+          <>
+            <div
+              aria-hidden="true"
+              className="absolute inset-0 bg-cover bg-center"
+              style={{ backgroundImage: `url(${copy.hero.backgroundImage})` }}
+            />
+            <div
+              aria-hidden="true"
+              className="absolute inset-0 bg-gradient-to-r from-background via-background/90 to-background/55"
+            />
+          </>
+        ) : null}
+        <div className="relative mx-auto grid w-full max-w-6xl items-center gap-12 px-5 py-16 sm:py-24 lg:grid-cols-[1.15fr_0.85fr] lg:py-28">
           <div className="flex flex-col items-start gap-6">
             <Badge variant="secondary">{copy.hero.eyebrow}</Badge>
             <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-balance sm:text-6xl">

@@ -28,6 +28,8 @@ export type ProductCopy = {
     headline: string;
     lead: string;
     highlights: string[];
+    /** Optional product-owned image shown behind the home hero. */
+    backgroundImage?: string;
   };
   features: {
     title: string;
