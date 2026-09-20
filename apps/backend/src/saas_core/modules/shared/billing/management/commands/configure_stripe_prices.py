@@ -120,6 +120,10 @@ def configure_mapping(requested: RequestedMapping, *, livemode: bool) -> bool:
     )
     if plan is None or plan.current_version is None:
         raise CommandError(f"Plan {requested.plan_key!r} nie jest aktywnym planem publicznym.")
+    if plan.current_version.unit_amount_minor == 0:
+        # Plan darmowy nadaje się przy zakładaniu organizacji i nie ma ceny u
+        # dostawcy; mapowanie dla niego oznacza pomyłkę w wywołaniu.
+        raise CommandError(f"Plan {requested.plan_key!r} jest darmowy i nie ma ceny.")
     version: PlanVersion = plan.current_version
     conflicting = StripePriceMapping.objects.filter(stripe_price_id=requested.price_id).exclude(
         plan_version=version,

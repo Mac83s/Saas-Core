@@ -68,11 +68,13 @@ def catalog_provider(*, livemode: bool) -> FakePriceProvider:
 
 
 def public_plan_keys() -> list[str]:
+    """Plany, które da się kupić: darmowy nie ma ceny u dostawcy."""
     return list(
         Plan.objects.filter(
             is_active=True,
             is_public=True,
             current_version__isnull=False,
+            current_version__unit_amount_minor__gt=0,
         ).values_list("key", flat=True)
     )
 
