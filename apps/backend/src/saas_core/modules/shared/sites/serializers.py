@@ -146,6 +146,7 @@ class PublicSitePageSerializer(serializers.Serializer[dict[str, Any]]):
     social_title = serializers.CharField()
     social_description = serializers.CharField()
     design_tokens = serializers.DictField()
+    appearance = serializers.DictField(allow_null=True, required=False)
     blocks = serializers.ListField(child=serializers.DictField())
     navigation = PublicNavigationLinkSerializer(many=True)
     breadcrumbs = serializers.ListField(child=serializers.DictField())

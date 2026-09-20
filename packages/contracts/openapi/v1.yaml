@@ -4249,6 +4249,106 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/{site_id}/appearance/:
+    get:
+      operationId: sites_appearance_get
+      parameters:
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteAppearance'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    put:
+      operationId: sites_appearance_save
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SiteAppearanceSave'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SiteAppearanceSave'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SiteAppearanceSave'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteAppearance'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/{site_id}/blueprint-draft/:
     get:
       operationId: sites_blueprint_draft_receipt
@@ -11394,6 +11494,11 @@ components:
         design_tokens:
           type: object
           additionalProperties: {}
+        appearance:
+          type:
+          - object
+          - 'null'
+          additionalProperties: {}
         blocks:
           type: array
           items:
@@ -11712,6 +11817,33 @@ components:
         * `female` - Samica
         * `male` - Samiec
         * `unknown` - Nieznana
+    SiteAppearance:
+      type: object
+      properties:
+        site_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        appearance:
+          type: object
+          additionalProperties: {}
+      required:
+      - appearance
+      - site_id
+      - version
+    SiteAppearanceSave:
+      type: object
+      properties:
+        expected_version:
+          type: integer
+          minimum: 0
+        appearance:
+          type: object
+          additionalProperties: {}
+      required:
+      - appearance
+      - expected_version
     SiteCreate:
       type: object
       properties:

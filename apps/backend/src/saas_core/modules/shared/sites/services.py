@@ -2125,12 +2125,16 @@ def _publication_snapshot(
     page_media_ids: dict[UUID, tuple[UUID, ...]],
     navigation: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    from .appearance import appearance_snapshot
+
+    appearance = appearance_snapshot(site)
     localization_by_page = {page.page.id: page for page in localization.pages}
     return {
         "site_id": str(site.id),
         "site_slug": site.slug,
         "default_locale": site.default_locale,
-        "design_tokens": DEFAULT_DESIGN_TOKENS,
+        "design_tokens": appearance["designTokens"] if appearance else DEFAULT_DESIGN_TOKENS,
+        **({"appearance": appearance} if appearance else {}),
         "navigation": navigation,
         # Redirects travel with the publication for the same reason pages do:
         # what a visitor gets has to come from the snapshot, not from a working

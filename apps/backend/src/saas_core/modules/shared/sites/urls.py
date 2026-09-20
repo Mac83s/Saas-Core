@@ -1,5 +1,6 @@
 from django.urls import path
 
+from .appearance_views import SiteAppearanceView
 from .blueprint_views import BlueprintCatalogView, BlueprintDraftView
 from .collection_views import (
     ContentCollectionListCreateView,
@@ -57,6 +58,7 @@ from .views import (
 app_name = "sites"
 
 urlpatterns = [
+    path("<uuid:site_id>/appearance/", SiteAppearanceView.as_view(), name="site-appearance"),
     path("blueprint-catalog/", BlueprintCatalogView.as_view(), name="blueprint-catalog"),
     path("<uuid:site_id>/blueprint-draft/", BlueprintDraftView.as_view(), name="blueprint-draft"),
     path(

@@ -52,4 +52,6 @@ def check_content_contracts(**_kwargs: object) -> list[Error]:
                     id=code,
                 )
             )
+    if not (Path(settings.SITE_BLOCK_CONTRACTS_PATH) / "site-appearance.v1.schema.json").is_file():
+        errors.append(Error("Brak kontraktu wyglądu witryny.", id="sites.E004"))
     return errors

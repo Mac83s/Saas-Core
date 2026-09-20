@@ -2564,3 +2564,37 @@ export async function listFarmSpecies(): Promise<FarmSpecies[]> {
 // edit this one.
 export { client, getCsrfToken, throwProblem };
 export type { components, paths };
+
+export async function getSiteAppearance(siteId: string) {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/{site_id}/appearance/",
+    {
+      params: { path: { site_id: siteId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+export async function saveSiteAppearance(
+  siteId: string,
+  input: components["schemas"]["SiteAppearanceSave"],
+  idempotencyKey: string,
+) {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/sites/{site_id}/appearance/",
+    {
+      params: {
+        path: { site_id: siteId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}

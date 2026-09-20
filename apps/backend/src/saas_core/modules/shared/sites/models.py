@@ -1724,3 +1724,33 @@ class SiteOutboxEvent(TenantScopedModel):
             })
         if not isinstance(self.payload, dict):
             raise ValidationError({"payload": "Payload zdarzenia musi być obiektem JSON."})
+
+
+class SiteAppearanceRevision(TenantScopedModel):
+    """An immutable site-wide design; publications copy it, never resolve it live."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name="appearance_revisions")
+    number = models.PositiveBigIntegerField()
+    data = models.JSONField(default=dict)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    idempotency_key = models.CharField(max_length=120)
+    request_hash = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("-number",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "site", "number"], name="sites_appearance_version_uq"
+            ),
+            models.UniqueConstraint(
+                fields=["organization", "site", "created_by", "idempotency_key"],
+                name="sites_appearance_idem_uq",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(number__gte=1), name="sites_appearance_number_ck"
+            ),
+        ]
