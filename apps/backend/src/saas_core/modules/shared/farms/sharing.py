@@ -137,15 +137,23 @@ def redeem_activation_code(*, request: HttpRequest, code: str) -> dict[str, Any]
     card = entry.handover.get("farm") or {}
     farm, created = _farm_of_registry(context.organization_id, card, request)
     copied = _copy_animals(context.organization_id, entry.handover.get("animals", []), farm)
-    share = FarmShare.objects.create(
-        registry_organization_id=context.organization_id,
+    # A farmer who revoked and links again keeps the same row: the pair is
+    # unique, and the share is the relationship, not one episode of it.
+    share, _ = FarmShare.objects.update_or_create(
         registry_farm_id=farm.id,
-        company_organization_id=entry.company_organization_id,
         company_farm_id=entry.farm_id,
-        company_name=entry.company_name,
-        registry_name=_organization_name(context.organization_id),
-        basis=ShareBasis.ACTIVATION_CODE,
+        defaults={
+            "registry_organization_id": context.organization_id,
+            "company_organization_id": entry.company_organization_id,
+            "company_name": entry.company_name,
+            "registry_name": _organization_name(context.organization_id),
+            "basis": ShareBasis.ACTIVATION_CODE,
+            "status": ShareStatus.ACTIVE,
+            "granted_at": timezone.now(),
+            "revoked_at": None,
+        },
     )
+    _name_partner(share, context.organization_id)
     entry.used_at = timezone.now()
     entry.used_by_organization_id = context.organization_id
     entry.save(update_fields=["used_at", "used_by_organization_id"])
