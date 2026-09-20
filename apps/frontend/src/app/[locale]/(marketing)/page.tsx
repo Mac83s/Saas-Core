@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { CheckIcon } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
@@ -144,6 +145,14 @@ export default async function HomePage({ params }: Props) {
             {copy.features.items.map((item) => (
               <li key={item.title}>
                 <Card className="h-full">
+                  {item.image ? (
+                    <Image
+                      src={item.image}
+                      alt=""
+                      className="aspect-video w-full object-cover"
+                      unoptimized
+                    />
+                  ) : null}
                   <CardHeader>
                     <CardTitle>
                       <h3>

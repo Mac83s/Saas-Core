@@ -1,3 +1,5 @@
+import type { StaticImageData } from "next/image";
+
 /**
  * The copy of a product's marketing site (ADR-048).
  *
@@ -34,7 +36,13 @@ export type ProductCopy = {
   features: {
     title: string;
     lead: string;
-    items: { title: string; body: string; href?: string; linkLabel?: string }[];
+    items: {
+      title: string;
+      body: string;
+      href?: string;
+      linkLabel?: string;
+      image?: StaticImageData;
+    }[];
   };
   /** Who the product is for; each gets its own column on the home page. */
   audiences: {
