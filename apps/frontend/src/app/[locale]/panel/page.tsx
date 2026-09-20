@@ -1,7 +1,6 @@
 import {
   ArrowRightIcon,
   CalendarDaysIcon,
-  CheckCircle2Icon,
   CreditCardIcon,
   Globe2Icon,
   SparklesIcon,
@@ -11,25 +10,11 @@ import {
 import { getTranslations } from "next-intl/server";
 
 import { Link } from "#i18n/navigation";
-import {
-  getServerCurrentOrganization,
-  getServerBookingCatalog,
-  getServerCustomerBillingOverview,
-  getServerSites,
-  getServerUser,
-} from "#lib/server-auth";
+import { GettingStarted } from "#components/panel/getting-started";
+import { getServerCurrentOrganization, getServerUser } from "#lib/server-auth";
 import { allows, panelAccess } from "#lib/panel-navigation";
 import ProductDashboard from "../../../product/dashboard";
 import { Badge } from "@saas-core/ui/components/badge";
-import { buttonVariants } from "@saas-core/ui/components/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@saas-core/ui/components/card";
-import { cn } from "@saas-core/ui/lib/utils";
 
 export default async function PanelPage() {
   const [user, organization, t] = await Promise.all([
@@ -48,31 +33,8 @@ export default async function PanelPage() {
       />
     );
   const modules = new Set(access.modules);
-  const canManageBilling = access.isOwner;
   // The same gates as the menu, so the start page offers no tile the menu hides.
   const can = (permission: string) => allows(access, { permission });
-  const billing =
-    canManageBilling && modules.has("shared.billing")
-      ? await getServerCustomerBillingOverview()
-      : null;
-  const needsPlan =
-    canManageBilling && modules.has("shared.billing") && !billing?.subscription;
-  const hasPlanAccess = billing?.subscription?.access_mode === "full";
-  const sites =
-    canManageBilling && hasPlanAccess && modules.has("shared.sites")
-      ? await getServerSites()
-      : null;
-  const hasWebsite = Boolean(sites?.items.length);
-  const booking =
-    canManageBilling && hasWebsite && modules.has("shared.booking")
-      ? await getServerBookingCatalog()
-      : null;
-  const hasBooking = Boolean(booking?.services.length);
-  const showLaunchRoadmap =
-    canManageBilling &&
-    modules.has("shared.billing") &&
-    modules.has("shared.sites") &&
-    modules.has("shared.booking");
   const actions = [
     modules.has("shared.sites") && can("site.content.edit")
       ? {
@@ -98,7 +60,7 @@ export default async function PanelPage() {
           description: t("teamDescription"),
         }
       : null,
-    modules.has("shared.billing") && canManageBilling
+    modules.has("shared.billing") && access.isOwner
       ? {
           href: "/panel/settings/billing",
           icon: CreditCardIcon,
@@ -107,17 +69,6 @@ export default async function PanelPage() {
         }
       : null,
   ].filter((item): item is NonNullable<typeof item> => item !== null);
-  const primaryAction = needsPlan
-    ? { href: "/panel/settings/billing", label: t("primaryPlanAction") }
-    : modules.has("shared.sites") && can("site.content.edit") && !hasWebsite
-      ? { href: "/panel/sites", label: t("primaryAction") }
-      : modules.has("shared.booking") &&
-          can("booking.appointment.manage") &&
-          !hasBooking
-        ? { href: "/panel/calendar", label: t("calendarTitle") }
-        : modules.has("shared.sites") && can("site.content.edit")
-          ? { href: "/panel/sites", label: t("primaryAction") }
-          : null;
 
   return (
     <main className="mx-auto w-full max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:py-10">
@@ -141,24 +92,15 @@ export default async function PanelPage() {
               {t("description")}
             </p>
           </div>
-          {primaryAction ? (
-            <Link
-              className={buttonVariants({
-                className: "w-fit rounded-xl",
-                size: "lg",
-              })}
-              href={primaryAction.href}
-            >
-              {primaryAction.label}
-              <ArrowRightIcon aria-hidden="true" />
-            </Link>
-          ) : null}
         </div>
         <div
           aria-hidden="true"
           className="absolute -right-20 -top-24 size-72 rounded-full bg-primary/10 blur-3xl"
         />
       </section>
+
+      {/* The next step to take, ahead of the things one can always do. */}
+      {organization ? <GettingStarted access={access} /> : null}
 
       <section aria-labelledby="quick-actions-heading" className="space-y-4">
         <div>
@@ -175,37 +117,6 @@ export default async function PanelPage() {
           ))}
         </div>
       </section>
-
-      {showLaunchRoadmap ? (
-        <Card className="border-primary/20 bg-primary/[0.025]">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CheckCircle2Icon aria-hidden="true" className="text-primary" />
-              {t("roadmapTitle")}
-            </CardTitle>
-            <CardDescription>{t("roadmapDescription")}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ol className="grid gap-3 text-sm sm:grid-cols-3">
-              <RoadmapStep
-                complete={hasPlanAccess}
-                number="1"
-                text={t("roadmapPlan")}
-              />
-              <RoadmapStep
-                complete={hasWebsite}
-                number="2"
-                text={t("roadmapWebsite")}
-              />
-              <RoadmapStep
-                complete={hasBooking}
-                number="3"
-                text={t("roadmapBooking")}
-              />
-            </ol>
-          </CardContent>
-        </Card>
-      ) : null}
     </main>
   );
 }
@@ -238,38 +149,5 @@ function ActionCard({
         className="mt-4 size-4 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary"
       />
     </Link>
-  );
-}
-
-function RoadmapStep({
-  complete,
-  number,
-  text,
-}: {
-  complete: boolean;
-  number: string;
-  text: string;
-}) {
-  return (
-    <li
-      className={cn(
-        "flex items-center gap-3 rounded-xl border bg-background p-3",
-        complete && "border-success-foreground/20 bg-success",
-      )}
-    >
-      <span
-        className={cn(
-          "flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground",
-          complete && "bg-success-foreground text-success",
-        )}
-      >
-        {complete ? (
-          <CheckCircle2Icon aria-hidden="true" className="size-4" />
-        ) : (
-          number
-        )}
-      </span>
-      <span>{text}</span>
-    </li>
   );
 }
