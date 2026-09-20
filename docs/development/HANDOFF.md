@@ -42,6 +42,26 @@ bez checkoutu, a snapshot wskazuje `farm_free:v1`; krowa dopisana przez firmę
 staje na liście „do przejrzenia", po potwierdzeniu znika z niej i zostaje w
 stadzie, a zmiana statusu przez firmę wraca na listę.
 
+## Site Studio — katalog z fotografiami, 2026-09-20
+
+72 recepty sekcji (20 hero +20 feature_list +20 FAQ +12 branżowych), osiem
+bieżących recept stron PL/EN, cztery lokalne wygenerowane zdjęcia. Zdjęcia
+trafiają do biblioteki tenanta i do danych bloków, nie tylko do miniatur.
+Nowy endpoint materializacji korzysta ze zwykłego cyklu mediów; import strony
+wiąże media i kompensuje je po konflikcie wersji. Stare recepty są zachowane.
+
+Dowody: sites API + zdjęcia 40/40; rozszerzone zdjęcia z publikacją i RLS 8/8;
+frontend edytor/biblioteka 29/29, renderer 31/31, kontrakty stron/bloków,
+tsc/mypy/lint oraz OpenAPI drift. Chromium: 72 sekcje i osiem stron przy
+1440/390 px, obrazy dekodowane, brak poziomego overflow. Fixture API/renderer
+nie zastępują testu zalogowanego wdrożenia. Artefakty: .runtime/site-studio/catalog-photos/.
+
+Nie restartowano usług ani nie aktualizowano produktów: równoległa sesja
+pracuje nad farms. Wspólne pliki API wymagają etapowania wyłącznie własnych
+hunków. Dalej: pozostałe typy bloków do 20 układów, własne szablony i rekomendacje;
+odrębnie skoordynowane wdrożenie oraz odbiór importu/zapisu/publikacji z prawdziwym
+magazynem i skanerem. Opis kontraktu: docs/architecture/site-studio-editor.md.
+
 ## Site Studio — fullscreen i wygląd witryny, 2026-09-20
 
 Po odbiorze UI dodano pełnoekranowy PageStudio (`26ccb48`), a następnie

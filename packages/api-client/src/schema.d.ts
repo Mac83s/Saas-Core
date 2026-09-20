@@ -2488,6 +2488,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/template-media/{photo_id}/materialize/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sites_template_photo_materialize"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3863,6 +3879,7 @@ export interface components {
             updated_at: string;
         };
         PageTemplateImport: {
+            locale?: components["schemas"]["LocaleEnum"];
             expected_version: number;
             template_id: string;
             template_version: number;
@@ -4562,6 +4579,10 @@ export interface components {
             category: string;
             locales: string[];
             context_fields: string[];
+        };
+        TemplatePhoto: {
+            /** Format: uuid */
+            asset_id: string;
         };
         TemplatePreview: {
             key: string;
@@ -12518,6 +12539,61 @@ export interface operations {
                 };
             };
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_template_photo_materialize: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                photo_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplatePhoto"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

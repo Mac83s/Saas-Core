@@ -787,7 +787,11 @@
       "mobile": "Phone view",
       "mobileBehavior": "Columns stack on narrow screens. All content remains available.",
       "layout": "Section layout",
-      "preservesContent": "Changing the layout preserves your content."
+      "preservesContent": "Changing the layout preserves your content.",
+      "samplePhotos": "Photos and copy are demonstration content — replace them after inserting.",
+      "preparingPhoto": "Preparing the photo in your media library…",
+      "photoError": "Could not prepare the photo. The section was not added; please try again.",
+      "showMore": "Show more layouts ({remaining} remaining)"
     },
     "appearance": {
       "title": "Site-wide appearance",
@@ -1438,7 +1442,8 @@
     "markAllRead": "Mark all as read",
     "billingTrialEnding": "The trial of the {plan} plan ends {date}. We will take the first payment after that date.",
     "billingGraceEnding": "The payment for the {plan} plan failed. Nothing changes until {date}, after that the account becomes read-only.",
-    "unknown": "New notification"
+    "unknown": "New notification",
+    "farmsHerdReview": "{count, plural, one {# animal} other {# animals}} in {farm} are waiting for you to look at them."
   },
   "Credits": {
     "eyebrow": "Subscription",

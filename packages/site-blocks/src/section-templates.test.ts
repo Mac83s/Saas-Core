@@ -1,8 +1,8 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import Ajv2020 from "ajv/dist/2020.js";
-import catalog from "@saas-core/contracts/site-blocks/section-templates.v1.json";
-import schema from "@saas-core/contracts/site-blocks/section-templates.v1.schema.json";
+import catalog from "@saas-core/contracts/site-blocks/section-templates.v2.json";
+import schema from "@saas-core/contracts/site-blocks/section-templates.v2.schema.json";
 import {
   availableSectionTemplates,
   coreSectionTemplates,
@@ -47,17 +47,24 @@ describe("section template contract", () => {
 
   it("keeps universal layouts when filtering an industry, and checks capabilities first", () => {
     const all = availableSectionTemplates(registry, context);
+    for (const type of ["core.hero", "core.feature_list", "core.faq"]) {
+      const defaults = all.filter(
+        (item) => item.blockType === type && item.kind === "default",
+      );
+      expect(defaults).toHaveLength(20);
+      expect(new Set(defaults.map((item) => item.layout)).size).toBe(20);
+    }
     const medicine = availableSectionTemplates(registry, {
       ...context,
       industry: "medicine",
     });
-    expect(all.filter((item) => item.kind === "default")).toHaveLength(9);
-    expect(medicine.filter((item) => item.kind === "default")).toHaveLength(9);
-    expect(medicine.filter((item) => item.kind === "industry")).toHaveLength(2);
+    expect(all.filter((item) => item.kind === "default")).toHaveLength(60);
+    expect(medicine.filter((item) => item.kind === "default")).toHaveLength(60);
+    expect(medicine.filter((item) => item.kind === "industry")).toHaveLength(4);
     for (const industry of ["medicine", "agriculture", "electronics"]) {
       expect(
         all.filter((item) => item.industries.some((tag) => tag === industry)),
-      ).toHaveLength(2);
+      ).toHaveLength(4);
     }
     expect(
       availableSectionTemplates(registry, { ...context, entitlements: [] }),
@@ -84,7 +91,7 @@ describe("section template contract", () => {
     };
     const before = structuredClone(original);
     const changed = replaceSectionLayout(original, template, registry);
-    expect(changed.schema_version).toBe(2);
+    expect(changed.schema_version).toBe(3);
     expect(changed.data).toEqual({ ...before.data, layout: "cards" });
     expect(original).toEqual(before);
     expect(() =>

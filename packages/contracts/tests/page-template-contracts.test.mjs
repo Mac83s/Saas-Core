@@ -48,6 +48,10 @@ test("every template recipe matches the recipe schema and its manifest entry", a
       "core.specialist_landing",
       "core.company",
       "core.service_landing",
+      "core.medicine_clinic",
+      "core.agriculture_services",
+      "core.electronics_service",
+      "core.business_studio",
     ],
   );
 
@@ -88,7 +92,10 @@ test("template blocks validate against the canonical block contracts", async () 
   }
 
   for (const { recipe } of templates) {
-    for (const [index, block] of recipe.blocks.entries()) {
+    for (const [index, block] of [
+      ...recipe.blocks,
+      ...(recipe.localizedBlocks?.en ?? []),
+    ].entries()) {
       const known = validators.get(block.block_type);
       // A recipe naming a block the deployment does not have would produce a
       // draft the renderer cannot show and the backend refuses to save.
@@ -183,7 +190,12 @@ test("recipe schema accepts only explicit approved image metadata", async () => 
 
 test("composed page recipes pin section versions and materialize their exact seed data", async () => {
   const { templates } = await loadTemplates();
-  const catalog = await readJson("site-blocks", "section-templates.v1.json");
+  const historical = await readJson("site-blocks", "section-templates.v1.json");
+  const latest = await readJson("site-blocks", "section-templates.v2.json");
+  const catalog = {
+    ...latest,
+    templates: [...historical.templates, ...latest.templates],
+  };
   const industries = new Set(catalog.industries.map((item) => item.id));
   for (const { recipe } of templates) {
     for (const industry of recipe.industries ?? [])
@@ -205,5 +217,34 @@ test("composed page recipes pin section versions and materialize their exact see
         data: section.seed.pl,
       });
     }
+  }
+});
+
+test("latest complete pages contain localized seeds and bound example photographs", async () => {
+  const { templates } = await loadTemplates();
+  const photos = await readJson("page-templates", "sample-media.v1.json");
+  for (const { entry, version, recipe } of templates) {
+    if (version !== entry.latestVersion) continue;
+    assert.equal(recipe.localizedBlocks.en.length, recipe.blocks.length);
+    assert.ok(recipe.mediaBindings.length > 0, recipe.id);
+    for (const binding of recipe.mediaBindings) {
+      const medium = recipe.media.find((item) => item.id === binding.mediaId);
+      assert.ok(medium, recipe.id);
+      assert.ok(
+        photos.media.some(
+          (item) => item.id === medium.id && item.sha256 === medium.sha256,
+        ),
+      );
+      assert.ok(
+        ["core.hero", "core.feature_list"].includes(
+          recipe.blocks[binding.blockPosition].block_type,
+        ),
+      );
+      for (const locale of ["pl", "en"])
+        assert.ok(binding.alt[locale].length > 0);
+    }
+    // No demo UUID may leak into a recipe: media is assigned during import.
+    for (const block of [...recipe.blocks, ...recipe.localizedBlocks.en])
+      assert.equal(block.data.image, undefined);
   }
 });

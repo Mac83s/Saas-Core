@@ -1,13 +1,40 @@
-import catalog from "@saas-core/contracts/site-blocks/section-templates.v1.json";
+import catalog from "@saas-core/contracts/site-blocks/section-templates.v2.json";
 
 import type { BlockRegistry, JsonObject, SiteBlock } from "./types";
 
-export type SectionTemplate = (typeof catalog.templates)[number];
+export interface SectionTemplate {
+  id: string;
+  version: number;
+  blockType: string;
+  schemaVersion: number;
+  layout: string;
+  kind: "default" | "industry";
+  industries: readonly string[];
+  labels: Record<
+    "pl" | "en",
+    { name: string; description: string; usage: string }
+  >;
+  goals: readonly string[];
+  composition: {
+    role: string;
+    preferredPosition: string;
+    recommendedNext: readonly string[];
+    repeatable: boolean;
+  };
+  requirements: {
+    requiredEntitlements: readonly string[];
+    requiredModules: readonly string[];
+    media: string;
+  };
+  sampleMedia?: { id: string; alt: Record<"pl" | "en", string> };
+  seed: Record<"pl" | "en", JsonObject>;
+}
+const templates = catalog.templates as unknown as readonly SectionTemplate[];
 export type CatalogLocale = "pl" | "en";
 
 /** Versioned seed content only. Published blocks never consult this catalog. */
 export function coreSectionTemplates(): readonly SectionTemplate[] {
-  return catalog.templates;
+  return templates;
 }
 
 export function sectionIndustries() {
@@ -38,7 +65,7 @@ export function availableSectionTemplates(
     blockType?: string;
   },
 ): readonly SectionTemplate[] {
-  return catalog.templates.filter((template) => {
+  return templates.filter((template) => {
     if (context.blockType && template.blockType !== context.blockType)
       return false;
     if (

@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
-from rest_framework.exceptions import APIException, NotFound
+from rest_framework.exceptions import APIException, NotFound, ValidationError
 
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.api import (
@@ -1050,6 +1050,7 @@ def import_page_template(
     expected_version: int,
     idempotency_key: str,
     text_values: dict[str, str] | None = None,
+    locale: str = "pl",
 ) -> MutationResult[PageVersion]:
     from .page_templates import page_template_catalog
 
@@ -1060,12 +1061,16 @@ def import_page_template(
     )
     for entitlement in template.required_entitlements:
         authorize_entitled(SITE_CONTENT_EDIT, entitlement)
-    blocks = template.draft_blocks()
+    if locale not in ("pl", "en"):
+        raise ValidationError({"locale": "Unsupported template locale"})
+    blocks = template.draft_blocks(locale)
     request_context: dict[str, Any] = {
         "operation": "page_template_import",
         "template_id": template.id,
         "template_version": template.version,
     }
+    if locale != "pl":
+        request_context["locale"] = locale
     if text_values is not None:
         from .blueprints import render_slots
 
@@ -1090,6 +1095,12 @@ def import_page_template(
                     content=medium.read(),
                 )
             )
+        template.bind_media(
+            blocks,
+            {medium.id: str(item.asset.id)
+             for medium, item in zip(template.media, materializations, strict=True)},
+            locale,
+        )
         result = save_draft(
             page_id=page_id,
             expected_version=expected_version,

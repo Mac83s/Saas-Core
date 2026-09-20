@@ -787,7 +787,11 @@
       "mobile": "Widok telefonu",
       "mobileBehavior": "Na wąskich ekranach kolumny układają się pionowo. Wszystkie elementy pozostają dostępne.",
       "layout": "Układ sekcji",
-      "preservesContent": "Zmiana układu zachowuje Twoją treść."
+      "preservesContent": "Zmiana układu zachowuje Twoją treść.",
+      "samplePhotos": "Zdjęcia i treści są demonstracyjne — możesz je wymienić po wstawieniu.",
+      "preparingPhoto": "Przygotowuję zdjęcie w Twojej bibliotece…",
+      "photoError": "Nie udało się przygotować zdjęcia. Sekcja nie została dodana; spróbuj ponownie.",
+      "showMore": "Pokaż kolejne układy (pozostało: {remaining})"
     },
     "appearance": {
       "title": "Wygląd całej witryny",
@@ -1438,7 +1442,8 @@
     "markAllRead": "Oznacz wszystkie jako przeczytane",
     "billingTrialEnding": "Okres próbny planu {plan} kończy się {date}. Po tej dacie pobierzemy pierwszą opłatę.",
     "billingGraceEnding": "Płatność za plan {plan} nie przeszła. Do {date} nic się nie zmienia, potem konto przejdzie w tryb tylko do odczytu.",
-    "unknown": "Nowe powiadomienie"
+    "unknown": "Nowe powiadomienie",
+    "farmsHerdReview": "{count, plural, one {# sztuka} few {# sztuki} many {# sztuk} other {# sztuk}} w gospodarstwie {farm} czeka na Twoje przejrzenie."
   },
   "Credits": {
     "eyebrow": "Abonament",

@@ -24,6 +24,7 @@ from .onboarding_views import (
     SiteOnboardingView,
     SubdomainAvailabilityView,
 )
+from .template_media_views import TemplatePhotoView
 from .views import (
     AutomationConnectionListView,
     AutomationGrantRevokeView,
@@ -58,6 +59,11 @@ from .views import (
 app_name = "sites"
 
 urlpatterns = [
+    path(
+        "template-media/<slug:photo_id>/materialize/",
+        TemplatePhotoView.as_view(),
+        name="template-photo-materialize",
+    ),
     path("<uuid:site_id>/appearance/", SiteAppearanceView.as_view(), name="site-appearance"),
     path("blueprint-catalog/", BlueprintCatalogView.as_view(), name="blueprint-catalog"),
     path("<uuid:site_id>/blueprint-draft/", BlueprintDraftView.as_view(), name="blueprint-draft"),

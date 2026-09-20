@@ -1,34 +1,67 @@
 {
   "schemaVersion": 1,
-  "recipe": "page-template.v2.schema.json",
+  "recipe": "page-template.v3.schema.json",
   "templates": [
     {
       "id": "core.profile",
-      "latestVersion": 1,
+      "latestVersion": 2,
       "versions": {
-        "1": "core.profile.v1.json"
+        "1": "core.profile.v1.json",
+        "2": "core.profile.v2.json"
       }
     },
     {
       "id": "core.specialist_landing",
-      "latestVersion": 1,
+      "latestVersion": 2,
       "versions": {
-        "1": "core.specialist_landing.v1.json"
+        "1": "core.specialist_landing.v1.json",
+        "2": "core.specialist_landing.v2.json"
       }
     },
     {
       "id": "core.company",
-      "latestVersion": 1,
+      "latestVersion": 2,
       "versions": {
-        "1": "core.company.v1.json"
+        "1": "core.company.v1.json",
+        "2": "core.company.v2.json"
       }
     },
     {
       "id": "core.service_landing",
+      "latestVersion": 2,
+      "versions": {
+        "1": "core.service_landing.v1.json",
+        "2": "core.service_landing.v2.json"
+      }
+    },
+    {
+      "id": "core.medicine_clinic",
       "latestVersion": 1,
       "versions": {
-        "1": "core.service_landing.v1.json"
+        "1": "core.medicine_clinic.v1.json"
+      }
+    },
+    {
+      "id": "core.agriculture_services",
+      "latestVersion": 1,
+      "versions": {
+        "1": "core.agriculture_services.v1.json"
+      }
+    },
+    {
+      "id": "core.electronics_service",
+      "latestVersion": 1,
+      "versions": {
+        "1": "core.electronics_service.v1.json"
+      }
+    },
+    {
+      "id": "core.business_studio",
+      "latestVersion": 1,
+      "versions": {
+        "1": "core.business_studio.v1.json"
       }
     }
-  ]
+  ],
+  "sampleMedia": "sample-media.v1.json"
 }

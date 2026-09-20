@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/site-blocks/core.feature_list.v3.schema.json",
+  "title": "Core feature_list block v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["items"],
+  "properties": {
+    "title": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "items": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 600
+          }
+        }
+      }
+    },
+    "layout": {
+      "type": "string",
+      "enum": [
+        "classic",
+        "cards",
+        "columns",
+        "care_path",
+        "consultation",
+        "field_steps",
+        "coverage",
+        "specification",
+        "service_flow",
+        "image_left",
+        "image_right",
+        "image_top",
+        "numbered",
+        "timeline",
+        "alternating",
+        "bento",
+        "strip",
+        "checklist",
+        "compact",
+        "divided",
+        "spotlight",
+        "stacked",
+        "chips",
+        "magazine",
+        "tiles",
+        "editorial"
+      ],
+      "default": "classic"
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["asset_id", "alt"],
+      "properties": {
+        "asset_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "alt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      }
+    }
+  }
+}

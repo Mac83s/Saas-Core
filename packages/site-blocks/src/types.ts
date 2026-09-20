@@ -39,6 +39,7 @@ export type RichTextV1Data = JsonObject & {
 };
 
 export type FeatureListV1Data = JsonObject & {
+  image?: { asset_id: string; alt: string };
   title?: string;
   items: { title: string; text?: string }[];
 };
@@ -249,6 +250,12 @@ export interface PageTemplate {
   readonly labels: Readonly<Record<"pl" | "en", PageTemplateLabel>>;
   readonly requiredEntitlements?: readonly string[];
   readonly media?: readonly ApprovedTemplateMedia[];
+  readonly localizedBlocks?: { readonly en: readonly SiteBlock[] };
+  readonly mediaBindings?: readonly {
+    blockPosition: number;
+    mediaId: string;
+    alt: Readonly<Record<"pl" | "en", string>>;
+  }[];
   readonly blocks: readonly SiteBlock[];
 }
 

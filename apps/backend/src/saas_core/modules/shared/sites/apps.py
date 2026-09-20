@@ -54,4 +54,8 @@ def check_content_contracts(**_kwargs: object) -> list[Error]:
             )
     if not (Path(settings.SITE_BLOCK_CONTRACTS_PATH) / "site-appearance.v1.schema.json").is_file():
         errors.append(Error("Brak kontraktu wyglądu witryny.", id="sites.E004"))
+    if (Path(settings.PAGE_TEMPLATE_CONTRACTS_PATH) / "manifest.json").is_file() and not (
+        Path(settings.PAGE_TEMPLATE_CONTRACTS_PATH) / "sample-media.v1.json"
+    ).is_file():
+        errors.append(Error("Brak katalogu zdjęć szablonów.", id="sites.E005"))
     return errors

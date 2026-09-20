@@ -2636,3 +2636,24 @@ export async function saveSiteAppearance(
   if (error || !data) throwProblem(error, response);
   return data;
 }
+
+/** Copies one allowlisted demo photo through the tenant media lifecycle. */
+export async function materializeTemplatePhoto(
+  photoId: string,
+  idempotencyKey: string,
+): Promise<components["schemas"]["TemplatePhoto"]> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/template-media/{photo_id}/materialize/",
+    {
+      params: {
+        path: { photo_id: photoId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}

@@ -18,6 +18,7 @@ import { PublicationHistory } from "./publication-history";
 
 const {
   completeMediaUpload,
+  materializeTemplatePhoto,
   getPageDraft,
   getPageDraftPreview,
   importPageTemplate,
@@ -28,6 +29,7 @@ const {
   savePageTranslation,
 } = vi.hoisted(() => ({
   completeMediaUpload: vi.fn(),
+  materializeTemplatePhoto: vi.fn(),
   getPageDraft: vi.fn(),
   getPageDraftPreview: vi.fn(),
   importPageTemplate: vi.fn(),
@@ -41,6 +43,10 @@ const {
 vi.mock("@saas-core/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@saas-core/api-client")>()),
   completeMediaUpload,
+  materializeTemplatePhoto,
+  getMediaAssetPreview: vi
+    .fn()
+    .mockRejectedValue(new Error("Unavailable fixture preview")),
   getPageDraft,
   getPageDraftPreview,
   importPageTemplate,
@@ -104,6 +110,9 @@ const translation = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  materializeTemplatePhoto.mockResolvedValue({
+    asset_id: "019ff20d-a000-7000-8000-000000000099",
+  });
   getPageDraft.mockResolvedValue(draft);
   getPageDraftPreview.mockResolvedValue(draft);
   listPageTranslations.mockResolvedValue({
@@ -149,7 +158,7 @@ beforeEach(() => {
     blocks: [
       {
         ...draft.blocks[0],
-        schema_version: 4,
+        schema_version: 5,
         data: { title: "Nowy nagłówek", text: "Opis hero" },
       },
     ],
@@ -182,7 +191,7 @@ test("migruje hero v1 i zapisuje nową wersję draftu przez aktualny kontrakt", 
         block_type: "core.hero",
         // Saved at the current contract version: the editor migrates a v1
         // draft on load, so what leaves the panel is always the latest.
-        schema_version: 4,
+        schema_version: 5,
         data: { title: "Nowy nagłówek", text: "Opis hero" },
       },
     ],
@@ -241,7 +250,7 @@ test("dodaje sekcję z powtarzalną listą i zapisuje jej wpisy", async () => {
   await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
   expect(savePageDraft.mock.calls[0]?.[1].blocks[1]).toEqual({
     block_type: "core.faq",
-    schema_version: 2,
+    schema_version: 3,
     // `title` was left blank and is optional, so it is absent rather than "".
     data: {
       layout: "classic",
@@ -266,7 +275,8 @@ test("importuje szablon do wersjonowanego draftu przez API", async () => {
   expect(importPageTemplate.mock.calls[0]?.[1]).toEqual({
     expected_version: 1,
     template_id: "core.profile",
-    template_version: 1,
+    template_version: 2,
+    locale: "pl",
   });
   expect(savePageDraft).not.toHaveBeenCalled();
   expect(onChanged).toHaveBeenCalledOnce();
@@ -600,13 +610,18 @@ test("biblioteka filtruje branżę, zachowuje bazę i zapisuje wybraną sekcję"
   fireEvent.click(
     screen.getByRole("button", { name: "Dodaj: Ścieżka konsultacji" }),
   );
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
+    ).not.toBeDisabled(),
+  );
   fireEvent.click(
     screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
   );
   await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
   expect(savePageDraft.mock.calls[0]?.[1].blocks[1]).toMatchObject({
     block_type: "core.feature_list",
-    schema_version: 2,
+    schema_version: 3,
     data: {
       layout: "care_path",
       items: [
@@ -629,7 +644,7 @@ test("zmiana układu zachowuje tekst istniejącej sekcji", async () => {
   );
   await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
   expect(savePageDraft.mock.calls[0]?.[1].blocks[0]).toMatchObject({
-    schema_version: 4,
+    schema_version: 5,
     data: { title: "Stary nagłówek", text: "Opis hero", layout: "split" },
   });
 });
@@ -639,11 +654,11 @@ test("biblioteka EN pokazuje opis, dostępny podgląd i angielską treść", asy
   await screen.findByLabelText("Heading");
   fireEvent.click(screen.getByRole("button", { name: "Section library" }));
   fireEvent.click(
-    await screen.findByRole("button", { name: "Preview: Expandable answers" }),
+    await screen.findByRole("button", { name: "Preview: Expandable FAQ" }),
   );
   const preview = screen.getByRole("region", { name: "Section preview" });
   expect(document.activeElement).toBe(preview);
-  expect(preview.textContent).toContain("How do we get started?");
+  expect(preview.textContent).toContain("How do I start?");
   const result = await axe.run(screen.getByRole("dialog"), {
     rules: { "color-contrast": { enabled: false } },
   });
@@ -651,7 +666,7 @@ test("biblioteka EN pokazuje opis, dostępny podgląd i angielską treść", asy
   fireEvent.click(screen.getByRole("button", { name: "Add: Service cards" }));
   expect(
     (screen.getAllByLabelText("Heading")[1] as HTMLInputElement).value,
-  ).toBe("Service cards");
+  ).toBe("From idea to a working solution");
 });
 
 test("visual canvas follows edits, undo/redo and section duplication without saving", async () => {
@@ -937,9 +952,11 @@ test.each(["pl", "en"] as const)(
             : "Add: Consultation pathway",
       }),
     );
-    expect(
-      screen.getByTestId("live-canvas").querySelectorAll("[data-block-type]"),
-    ).toHaveLength(2);
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("live-canvas").querySelectorAll("[data-block-type]"),
+      ).toHaveLength(2),
+    );
     fireEvent.click(
       screen.getByRole("button", {
         name: locale === "pl" ? "Cofnij" : "Undo",

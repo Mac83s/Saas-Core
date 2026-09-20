@@ -7405,6 +7405,55 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/template-media/{photo_id}/materialize/:
+    post:
+      operationId: sites_template_photo_materialize
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: photo_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplatePhoto'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
 components:
   schemas:
     ActionEnum:
@@ -10882,6 +10931,8 @@ components:
     PageTemplateImport:
       type: object
       properties:
+        locale:
+          $ref: '#/components/schemas/LocaleEnum'
         expected_version:
           type: integer
           minimum: 0
@@ -12547,6 +12598,14 @@ components:
       - key
       - locales
       - version
+    TemplatePhoto:
+      type: object
+      properties:
+        asset_id:
+          type: string
+          format: uuid
+      required:
+      - asset_id
     TemplatePreview:
       type: object
       properties:

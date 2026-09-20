@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "media": [
+    {
+      "id": "business",
+      "source": "assets/business-studio.png",
+      "filename": "business-studio.png",
+      "contentType": "image/png",
+      "sha256": "d913927c10daac2e3ceb7a2fcb28c00634dfe01961825509da104640e7f0fe43",
+      "alt": {
+        "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+        "en": "Bright studio with an oak table and laptop"
+      },
+      "provenance": "AI-generated demonstration image; not a photograph of a customer business."
+    },
+    {
+      "id": "medicine",
+      "source": "assets/medicine-room.png",
+      "filename": "medicine-room.png",
+      "contentType": "image/png",
+      "sha256": "c66c34c8edd56d749d8cb0371212b6a6c989b0cd8126bd5f98728d55103a4c7c",
+      "alt": {
+        "pl": "Przykładowy gabinet konsultacyjny",
+        "en": "Example consultation room"
+      },
+      "provenance": "AI-generated demonstration image; not a photograph of a customer business."
+    },
+    {
+      "id": "agriculture",
+      "source": "assets/agriculture-farm.png",
+      "filename": "agriculture-farm.png",
+      "contentType": "image/png",
+      "sha256": "8f06eb2669e06dea7ac6092ed451b2c519d866c85134372af13c9911e023e9fb",
+      "alt": {
+        "pl": "Krowy na pastwisku przy gospodarstwie",
+        "en": "Cows grazing near a farm"
+      },
+      "provenance": "AI-generated demonstration image; not a photograph of a customer business."
+    },
+    {
+      "id": "electronics",
+      "source": "assets/electronics-workshop.png",
+      "filename": "electronics-workshop.png",
+      "contentType": "image/png",
+      "sha256": "4c2d226103ee37783e586345b7c3dac12088e47210c079b6be1b54666a1c6eb8",
+      "alt": {
+        "pl": "Stanowisko diagnostyki elektroniki",
+        "en": "Electronics diagnostic workbench"
+      },
+      "provenance": "AI-generated demonstration image; not a photograph of a customer business."
+    }
+  ]
+}

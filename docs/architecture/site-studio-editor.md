@@ -145,3 +145,31 @@ czterech głównych linków; natywne details udostępnia pełne menu z dziećmi.
 Wcześniejsze bloki stopki zachowujemy; wybór globalnej stopki nie usuwa treści
 użytkownika. Przy przenoszeniu starej strony trzeba usunąć jej blok stopki,
 jeżeli ma go zastąpić wariant wspólny.
+
+
+## Katalog i przykładowe zdjęcia — 2026-09-20
+
+Katalog v2 ma po 20 bazowych układów hero, oferty/listy cech i FAQ oraz
+12 dodatków branżowych: po dwa hero i dwie oferty dla medycyny, rolnictwa
+i elektroniki. Łącznie 72 recepty sekcji. To nie zamyka katalogu pozostałych
+typów bloków. Osiem bieżących recept całych stron ma treść PL/EN i przypięte
+wersje sekcji. Historyczne schematy oraz recepty pozostają dostępne.
+
+Cztery lokalne, wygenerowane zdjęcia demonstracyjne mają manifest SHA-256
+i opis pochodzenia w contracts/page-templates/assets. Miniatury używają
+statycznych plików; tymczasowe identyfikatory podglądu nie trafiają do draftu.
+POST /api/v1/sites/template-media/{photo_id}/materialize/ przyjmuje wyłącznie
+identyfikator z katalogu. CSRF, sites.enabled/site.content.edit oraz zwykłe
+media.manage/storage.enabled chronią import. Zdjęcie przechodzi normalne
+limity, skanowanie i tworzenie wariantów; idempotency key jest ograniczony
+do organizacji i aktora. Błąd nie wstawia sekcji, ponowienie zachowuje klucz.
+
+Import całej strony wiąże mediaBindings z rzeczywistymi MediaAsset po
+materializacji, a następnie zapisuje jedną wersję draftu. Konflikt wersji
+kompensuje nowo utworzone media. Zdjęcia można zmieniać zwykłym polem obrazu;
+publikacja udostępnia tylko media uwzględnione w jej snapshotcie. Locale importu
+jest opcjonalne (domyślnie PL), dzięki czemu stare żądania zachowują działanie.
+
+Biblioteka pokazuje początkowo 12 wariantów i przycisk kolejnych; filtr branży
+umieszcza dopasowane dodatki przed bazowymi. Opisy, reguły kompozycji i wskazówki
+objętości treści przygotowują późniejszy etap AI, który pozostaje odrębny.

@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cache
 from pathlib import Path
 from typing import Any
@@ -54,8 +54,18 @@ class PageTemplate:
     media: tuple[ApprovedTemplateMedia, ...]
     blocks: tuple[dict[str, Any], ...]
 
-    def draft_blocks(self) -> list[dict[str, Any]]:
-        return deepcopy(list(self.blocks))
+    localized_blocks: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    media_bindings: tuple[dict[str, Any], ...] = ()
+
+    def draft_blocks(self, locale: str = "pl") -> list[dict[str, Any]]:
+        return deepcopy(self.localized_blocks.get(locale, list(self.blocks)))
+
+    def bind_media(self, blocks: list[dict[str, Any]], assets: dict[str, str], locale: str) -> None:
+        for binding in self.media_bindings:
+            blocks[binding["blockPosition"]]["data"]["image"] = {
+                "asset_id": assets[binding["mediaId"]],
+                "alt": binding["alt"][locale],
+            }
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,7 +129,7 @@ def page_template_catalog() -> PageTemplateCatalog:
                         f"Recepta {template_id} v{version} nie zgadza się z manifestem"
                     )
                 blocks = tuple(recipe["blocks"])
-                for block in blocks:
+                for block in [*blocks, *recipe.get("localizedBlocks", {}).get("en", [])]:
                     validate_site_block(
                         block_type=block["block_type"],
                         schema_version=block["schema_version"],
@@ -129,6 +139,32 @@ def page_template_catalog() -> PageTemplateCatalog:
                     contract_directory=contract_directory,
                     recipe=recipe,
                 )
+                localized = recipe.get("localizedBlocks", {})
+                if any(len(translated) != len(blocks) for translated in localized.values()):
+                    raise ImproperlyConfigured("Localized template block counts differ")
+                bindings = tuple(recipe.get("mediaBindings", []))
+                positions: set[int] = set()
+                media_ids = {item.id for item in media}
+                for binding in bindings:
+                    position = binding["blockPosition"]
+                    if (
+                        position >= len(blocks)
+                        or position in positions
+                        or binding["mediaId"] not in media_ids
+                    ):
+                        raise ImproperlyConfigured("Invalid template media binding")
+                    positions.add(position)
+                    for variant in [list(blocks), *localized.values()]:
+                        candidate = deepcopy(variant[position])
+                        candidate["data"]["image"] = {
+                            "asset_id": "00000000-0000-4000-8000-000000000000",
+                            "alt": binding["alt"]["pl"],
+                        }
+                        validate_site_block(
+                            block_type=candidate["block_type"],
+                            schema_version=candidate["schema_version"],
+                            data=candidate["data"],
+                        )
                 templates[template_id][version] = PageTemplate(
                     id=template_id,
                     version=version,
@@ -137,6 +173,8 @@ def page_template_catalog() -> PageTemplateCatalog:
                     required_entitlements=tuple(recipe.get("requiredEntitlements", [])),
                     media=media,
                     blocks=blocks,
+                    localized_blocks=localized,
+                    media_bindings=bindings,
                 )
     except (APIException, KeyError, TypeError, ValueError) as error:
         raise ImproperlyConfigured("Manifest szablonów stron jest nieprawidłowy") from error
