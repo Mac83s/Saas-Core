@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import override_settings
@@ -68,9 +69,11 @@ def catalog_provider(*, livemode: bool) -> FakePriceProvider:
 
 
 def public_plan_keys() -> list[str]:
-    """Plany, które da się kupić: darmowy nie ma ceny u dostawcy."""
+    """Plany profilu, które da się kupić: darmowy nie ma ceny u dostawcy, a
+    plan spoza profilu nie należy do tego wdrożenia."""
     return list(
         Plan.objects.filter(
+            key__in=settings.BILLING_PLAN_KEYS,
             is_active=True,
             is_public=True,
             current_version__isnull=False,
