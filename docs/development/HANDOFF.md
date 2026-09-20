@@ -1,5 +1,35 @@
 # Handoff następnej sesji
 
+## Zdjęcia: dostęp zamiast kopii, 2026-09-20
+
+Zdjęcie dołączone do wpisu zostaje w magazynie tej organizacji, która je
+zrobiła; rejestr wchodzi do niego przez wpis (`GET /api/v1/farms/health/<wpis>/
+photos/<media>/`, `herd_sync.read_entry_photo`). Trzy rzeczy, które trzymają to
+w ryzach:
+
+- **bramką jest wpis, nie magazyn.** Identyfikator zdjęcia musi stać na wpisie,
+  który czytelnik ma u siebie, a udział z autorem musi żyć. Sięgnięcie do
+  `media/<id>/preview/` w cudzym tenancie dalej odpowiada 404 — izolacja
+  magazynu się nie zmieniła;
+- **odczyt to drugi kierunek tych samych drzwi**: kontekst autora na czas
+  jednego podglądu, z `media.read` i przywróceniem organizacji wywołującego;
+- **miniatura w panelu żyje tylko na ekranie**: adres blob jest zwalniany przy
+  odmontowaniu, więc bajty cudzego zdjęcia nie zostają w historii przeglądarki.
+  W testach jsdom nie zna `URL.createObjectURL` — trzeba go podstawić.
+
+Po stronie HoofCare zdjęcia są częścią treści wpisu korekcji, więc powtórka
+PUT z innym zestawem to konflikt, a nie cicha podmiana. **Pułapka, która już
+raz kosztowała przebieg:** `HoofcareShortcutSerializer` i
+`HoofcareEntryInputSerializer` mają identyczny fragment pól — pole dodane „po
+`control_days`" trafia w ten pierwszy, wpis przyjmuje zdjęcia i cicho je gubi.
+Test wołający use case wprost tego nie widzi; dlatego sprawdza teraz najpierw
+serializer wejścia.
+
+Dowody ze stacku dev: wgrane zdjęcie firmy → wpis korekcji z tym zdjęciem →
+zamknięcie wizyty → kartoteka rolnika pokazuje wpis z referencją → rolnik czyta
+podgląd (200, `image/webp`), zdjęcie spoza wpisu 404, magazyn firmy wprost 404,
+po cofnięciu udziału 404, po ponownym połączeniu znowu 200.
+
 ## Wysyłka stada, powiadomienie o rozjeździe i łączenie bez kodu, 2026-09-20
 
 Trzy rzeczy domykające etap 3:
