@@ -1,5 +1,103 @@
 # Handoff następnej sesji
 
+## Przebudowa panelu z projektu Claude Design, 2026-09-19/20
+
+Panel dostał wspólny styl bazowy, powłokę 1a (dwie grupy menu: Praca i Firma,
+zakładki sekcji zamiast jedenastu równorzędnych pozycji), jasny motyw jako
+domyślny z przełącznikiem obok języka, oraz przebudowane ekrany. Rdzeń stoi na
+`098ab06`; produkty wzięły go przez `core:update` (HoofCare `e577474`,
+MedPlano `eee2a7a`).
+
+Tura 1 (`23c0ee1`): Ustawienia (Firma / Konto / Usługi), Kalendarz, Abonament
+i Kredyty, Zespół razem z kartą łączenia pracowników kalendarza z kontami.
+Doszły wtedy: slot pulpitu produktu (`ProductDashboard`, żeby „Dziś" HoofCare
+nie przejmowało `/panel` każdej organizacji typu `farm`) i strefa czasowa
+aplikacji w `i18n/request.ts` — kontenery chodzą w UTC i panel pokazywał
+godziny UTC.
+
+Tura 2 (`098ab06`): Gospodarstwa (lista i karta), Zwierzęta (lista wszystkich
+gospodarstw i karta zwierzęcia jako dialog), Pierwsze uruchomienie jako lista
+„Na start" na ekranie Dziś. Doszły: slot `ProductAnimalSection`
+(`src/product/animal-sections.tsx`) na sekcje produktu w karcie zwierzęcia,
+slot `.agents/evals/routing.product.json` (patrz niżej) i reguła
+`prefers-reduced-motion` w `packages/ui/src/styles/globals.css` — w repozytorium
+nie było ani jednego takiego zapytania, a każdy stan ładowania pulsuje.
+
+Lista „Na start" **nie trzyma własnego stanu**: każdy punkt jest wyliczany z
+danych (subskrypcja, pierwsze gospodarstwo, pierwsza wizyta, drugi członek
+zespołu lub zaproszenie, pierwsza witryna), a widoczny jest tylko wtedy, gdy
+typ organizacji ma dany moduł. Kroku „Firma" tam nie ma świadomie: layout
+panelu i tak przekierowuje konto bez organizacji na `/onboarding`, więc byłby
+wiecznie odhaczony. Przy okazji usunięto martwy blok „roadmap" i dwa zapytania
+serwerowe z każdego wejścia do panelu.
+
+Dowody: frontend 241/241, lint, typecheck i format zielone w rdzeniu i w obu
+produktach; HoofCare dodatkowo backend 21/21 na bazie 55432, ruff, mypy (401
+plików) i `makemigrations --check` bez zmian. **Uwaga przy czytaniu czerwonych
+przebiegów:** testy `src/modules/shared/sites/*` (page-editor, navigation-editor)
+sypią się losowo, gdy maszyna jest obciążona — pojedyncze testy trwają tam 5–8 s
+przy limicie 15 s. Uruchomione osobno przechodzą. Nie „naprawiać" ich bez
+sprawdzenia loadu.
+
+### Czego nie da się zbudować bez backendu
+
+Połowa ekranu Gospodarstwa została świadomie pominięta, bo **nic nie łączy
+wizyty z gospodarstwem**: `Appointment` ma klucze do klienta, usługi,
+pracownika, lokalizacji i zasobu, a `Customer` nie ma farmy. Bez tej
+referencji nie ma „ostatniej wizyty", „następnej wizyty", zakładki Wizyty ani
+akcji „Zaplanuj wizytę" z karty gospodarstwa. To jedna decyzja projektowa
+(referencja na wizycie czy na kliencie rezerwacji), od której zależy sześć
+rzeczy naraz.
+
+Pozostały dług, uporządkowany:
+
+1. referencja gospodarstwa na wizycie → warunek dla punktów 2–4;
+2. `last_visit_at` / `next_visit_at` na serializerze farmy → `GET /farms/`;
+3. historia wizyt gospodarstwa → filtr `farm_id` w `GET /booking/appointments/`;
+4. „Zaplanuj wizytę" z karty gospodarstwa → tworzenie rezerwacji z `farm_id`;
+5. termin kontroli zwierzęcia (`check_due_at`) — **najpierw rozstrzygnąć w ADR**,
+   czy to pole wspólnego rejestru, czy wertykału, który je wypełnia; od tego
+   zależy licznik „krowy do kontroli" i filtr listy;
+6. odczyt jednego zwierzęcia `GET /farms/animals/{id}/` — dziś jest tylko lista,
+   dlatego karta zwierzęcia jest dialogiem, nie adresowalną trasą;
+7. filtr `status` w `GET /farms/animals/` — dziś filtruje klient w obrębie 500
+   wierszy;
+8. import CSV gospodarstw i zwierząt (oba przyciski z projektu wycięte);
+9. telefon, miejscowość i liczba pracowników na organizacji — krok 2 onboardingu
+   pyta dziś o pola, których nie ma gdzie zapisać;
+10. start okresu próbnego po `plan_key`, bez przejścia przez checkout;
+11. `GET /hoofcare/visits/` nadal bez okna czasowego, filtrów i stronicowania
+    (limit 500) — ta sama pułapka, której uniknął nowy `GET /hoofcare/reports/`;
+12. `ENUM_NAME_OVERRIDES` jest tylko w ustawieniach rdzenia, więc produkt nie
+    umie nazwać własnych enumów: kolejny `ChoiceField` na istniejącym zbiorze
+    po cichu przemianuje opublikowany typ w kliencie.
+
+### Slot pokrycia routingu
+
+`pnpm ai:eval`, a przez to `pnpm lint`, **był czerwony w każdym repozytorium
+produktu od jego założenia**: eval wymaga wpisu pokrycia dla każdego modułu
+katalogu, a `.agents/evals/routing.json` jest plikiem rdzenia, którego produkt
+nie może edytować. Rdzeń scala teraz opcjonalny
+`.agents/evals/routing.product.json` (slot produktu w `core-check`). Zakładając
+kolejny produkt, dodaj ten plik razem z pierwszym modułem wertykału.
+
+### HoofCare
+
+Doszły ekrany Raporty (`/panel/reports`) i Ustawienia › Korekcja
+(`/panel/settings/trimming`, zakładka przez slot `settingsSections`). Lista
+raportów ma własny endpoint `GET /api/v1/hoofcare/reports/`, ograniczony z
+założenia: brak dat to ostatnie 30 dni, okno ponad 366 dni to 400, `limit` ≤ 100,
+`has_more` liczone przez pobranie limit+1. Liczby krów i przypadków to agregaty
+SQL zgodne z definicją z samego raportu, nie z listy wizyt.
+
+Otwarte w HoofCare: `code_order`/`favorite_codes` mają `max_length=12`, a
+katalog v1 ma dokładnie 12 zmian — trzynasta w v2 sprawi, że własne domyślne
+preferencje nie przejdą walidacji PUT. Sekcja `frontend` deskryptora
+`vertical.hoofcare.json` jest nieaktualna od etapu 4 (nie ma tam `/field/*`,
+nowych tras ani przestrzeni tłumaczeń); nic tego nie waliduje. `one_tap`
+i `shortcuts` są zapisywane i czytane przez siatkę terenową, ale nie mają
+żadnego ekranu.
+
 ## Etap 4 planu 15: korekcja w terenie i raport HoofCare, 2026-09-19/20
 
 Rdzeń dołożył punkty rozszerzeń, produkt całą pracę w terenie. Saas-Core:
