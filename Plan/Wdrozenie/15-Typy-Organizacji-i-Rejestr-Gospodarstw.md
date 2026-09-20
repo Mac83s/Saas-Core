@@ -90,7 +90,9 @@ rolnik cofa jednym kliknięciem. Zakładka „Dostęp” w karcie gospodarstwa i
 przejmowanie kodem na liście gospodarstw. Cross-tenant bez RLS: kody i udziały
 nie mają klucza do `Organization`, więc każdy odczyt idzie przez `sharing.py`,
 które filtruje po organizacji wywołującego (test
-`test_a_share_belongs_to_the_two_it_names`).
+`test_a_share_belongs_to_the_two_it_names`). Samo przekazanie jedzie w kodzie
+(`FarmActivationCode.handover`), bo rolnik realizuje kod we własnym tenantcie,
+gdzie RLS zasłania wiersze firmy — wyszło dopiero na żywym stacku.
 
 Otwarte: drzwi synchronizacji (firma pisze do rejestru przez `share_for_writing`),
 publikacja wpisów korekcji jako wpisy zdrowotne zwierzęcia (domyka resztę etapu

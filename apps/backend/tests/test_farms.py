@@ -325,10 +325,20 @@ def test_a_farmer_takes_the_herd_over_with_the_companys_code_and_can_revoke_it()
         assert revoked.partner_name == "firma-korekcja"
         assert revoke_share(request=request, share_id=share.id).revoked_at == revoked.revoked_at
 
-    with tenant(company):
-        # The card stays, the writing door closes.
+    with tenant(company) as request:
+        # The card stays, the writing door closes — and the company may hand
+        # out a code again, because nothing links the farm any more.
         assert [item.id for item in list_farms()] == [card.id]
         assert share_for_writing(company.organization_id, card.id) is None
+        code, _ = issue_activation_code(request=request, farm_id=card.id)
+
+    with tenant(farmer) as request:
+        # Linking again revives the same share; the pair is unique.
+        again = redeem_activation_code(request=request, code=code)
+        assert (again["created"], again["animals_added"]) == (False, 0)
+        assert again["share"].id == share.id
+        assert (again["share"].status, again["share"].revoked_at) == (ShareStatus.ACTIVE, None)
+        assert again["share"].partner_name == "firma-korekcja"
     assert expires_at > timezone.now()
 
 
