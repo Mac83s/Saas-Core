@@ -95,7 +95,9 @@ def _clean_animal(data: dict[str, Any], *, species: str) -> dict[str, Any]:
     return cleaned
 
 
-def _audit(request: HttpRequest, organization_id: UUID, action: str, target: Farm | Animal) -> None:
+def audit_farm(
+    request: HttpRequest, organization_id: UUID, action: str, target: Farm | Animal
+) -> None:
     record_audit(
         organization=Organization.objects.get(pk=organization_id),
         action=action,
@@ -139,7 +141,7 @@ def create_farm(*, request: HttpRequest, data: dict[str, Any]) -> Farm:
     )
     # The reads annotate `animal_count`; a written farm answers with it too.
     setattr(farm, "animal_count", 0)  # noqa: B010
-    _audit(request, context.organization_id, OrganizationAuditAction.FARM_CREATED, farm)
+    audit_farm(request, context.organization_id, OrganizationAuditAction.FARM_CREATED, farm)
     return farm
 
 
@@ -158,7 +160,7 @@ def update_farm(*, request: HttpRequest, farm_id: UUID, data: dict[str, Any]) ->
         setattr(farm, field, value)
     _unique(farm.save)
     setattr(farm, "animal_count", Animal.all_objects.filter(farm=farm).count())  # noqa: B010
-    _audit(request, context.organization_id, OrganizationAuditAction.FARM_UPDATED, farm)
+    audit_farm(request, context.organization_id, OrganizationAuditAction.FARM_UPDATED, farm)
     return farm
 
 
@@ -190,7 +192,7 @@ def create_animal(*, request: HttpRequest, farm_id: UUID, data: dict[str, Any]) 
             organization_id=context.organization_id, farm=farm, species=species, **cleaned
         )
     )
-    _audit(request, context.organization_id, OrganizationAuditAction.ANIMAL_CREATED, animal)
+    audit_farm(request, context.organization_id, OrganizationAuditAction.ANIMAL_CREATED, animal)
     return animal
 
 
@@ -208,5 +210,5 @@ def update_animal(*, request: HttpRequest, animal_id: UUID, data: dict[str, Any]
     for field, value in cleaned.items():
         setattr(animal, field, value)
     _unique(animal.save)
-    _audit(request, context.organization_id, OrganizationAuditAction.ANIMAL_UPDATED, animal)
+    audit_farm(request, context.organization_id, OrganizationAuditAction.ANIMAL_UPDATED, animal)
     return animal

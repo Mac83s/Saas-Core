@@ -645,6 +645,56 @@ export interface paths {
         patch: operations["farms_update"];
         trace?: never;
     };
+    "/api/v1/farms/{farm_id}/activation-code/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The code a company hands the farmer for one of its cards (ADR-051). */
+        post: operations["farms_activation_code_issue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/farms/{farm_id}/shares/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["farms_share_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/farms/activation/redeem/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description The farmer takes the herd over with the code (ADR-051). */
+        post: operations["farms_activation_redeem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/farms/animals/": {
         parameters: {
             query?: never;
@@ -675,6 +725,22 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["farms_animal_update"];
+        trace?: never;
+    };
+    "/api/v1/farms/shares/{share_id}/revoke/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["farms_share_revoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/farms/species/": {
@@ -3230,6 +3296,15 @@ export interface components {
             /** Format: date-time */
             readonly updated_at: string;
         };
+        /** @description The code is returned once, when it is issued; only its digest is kept. */
+        FarmActivationCode: {
+            code: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        FarmActivationRedeem: {
+            code: string;
+        };
         /**
          * @description What a client may send; kept apart from the response so the generated
          *     client does not demand `id` for a row that does not exist yet.
@@ -3247,12 +3322,41 @@ export interface components {
             notes?: string;
             active?: boolean;
         };
+        FarmShare: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            registry_farm_id: string;
+            /** Format: uuid */
+            company_farm_id: string;
+            /** Format: uuid */
+            company_organization_id: string;
+            /** Format: uuid */
+            registry_organization_id: string;
+            can_write_herd: boolean;
+            can_publish_health: boolean;
+            basis: string;
+            status: string;
+            /** Format: date-time */
+            granted_at: string;
+            /** Format: date-time */
+            revoked_at: string | null;
+            partner_name: string;
+            partner_is_company: boolean;
+        };
         FarmSpecies: {
             key: string;
             label: {
                 [key: string]: string;
             };
             active: boolean;
+        };
+        /** @description What the farmer got: the farm, whether it is new, and its new animals. */
+        FarmTakeover: {
+            farm: components["schemas"]["Farm"];
+            created: boolean;
+            animals_added: number;
+            share: components["schemas"]["FarmShare"];
         };
         GenericMessage: {
             detail: string;
@@ -6220,6 +6324,145 @@ export interface operations {
             };
         };
     };
+    farms_activation_code_issue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                farm_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FarmActivationCode"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    farms_share_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                farm_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FarmShare"][];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    farms_activation_redeem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FarmActivationRedeem"];
+                "application/x-www-form-urlencoded": components["schemas"]["FarmActivationRedeem"];
+                "multipart/form-data": components["schemas"]["FarmActivationRedeem"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FarmTakeover"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     farms_animal_list: {
         parameters: {
             query?: {
@@ -6340,6 +6583,51 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Animal"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    farms_share_revoke: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                share_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FarmShare"];
                 };
             };
             400: {

@@ -2,9 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { PlusIcon, WarehouseIcon } from "lucide-react";
+import { KeyRoundIcon, PlusIcon, WarehouseIcon } from "lucide-react";
 
-import { createFarm, listFarms, type Farm } from "@saas-core/api-client";
+import {
+  createFarm,
+  listFarms,
+  redeemFarmActivationCode,
+  type Farm,
+} from "@saas-core/api-client";
 import { Button, buttonVariants } from "@saas-core/ui/components/button";
 import {
   Card,
@@ -105,6 +110,9 @@ export function FarmsPanel({
   const [problem, setProblem] = useState<FarmProblem>();
   const [notice, setNotice] = useState("");
   const [adding, setAdding] = useState(false);
+  const [claiming, setClaiming] = useState(false);
+  const [code, setCode] = useState("");
+  const [claimProblem, setClaimProblem] = useState<string>();
   const [reloads, setReloads] = useState(0);
   const refresh = () => setReloads((value) => value + 1);
 
@@ -281,6 +289,61 @@ export function FarmsPanel({
           </h1>
           <p className="max-w-2xl text-muted-foreground">{t("description")}</p>
         </div>
+        {canRead && canManage ? (
+          <Dialog onOpenChange={setClaiming} open={claiming}>
+            <DialogTrigger render={<Button variant="outline" />}>
+              <KeyRoundIcon aria-hidden="true" />
+              {t("claim")}
+            </DialogTrigger>
+            <DialogContent closeLabel={common("close")}>
+              <DialogHeader>
+                <DialogTitle>{t("claim")}</DialogTitle>
+                <DialogDescription>{t("claimDescription")}</DialogDescription>
+              </DialogHeader>
+              <form
+                className="space-y-4"
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  setClaimProblem(undefined);
+                  try {
+                    const taken = await redeemFarmActivationCode(code.trim());
+                    setClaiming(false);
+                    setCode("");
+                    setNotice(
+                      t("claimed", {
+                        name: taken.farm.name,
+                        count: taken.animals_added,
+                      }),
+                    );
+                    refresh();
+                  } catch (error) {
+                    setClaimProblem(farmProblem(error, t("claimFailed")));
+                  }
+                }}
+              >
+                <div className="space-y-2">
+                  <Label htmlFor="farm-claim-code">{t("claimCode")}</Label>
+                  <Input
+                    autoComplete="off"
+                    id="farm-claim-code"
+                    onChange={(event) => setCode(event.target.value)}
+                    placeholder="ABCD-EFGH-JKLM-NPQR"
+                    required
+                    value={code}
+                  />
+                </div>
+                {claimProblem ? (
+                  <p className="text-sm text-destructive" role="alert">
+                    {claimProblem}
+                  </p>
+                ) : null}
+                <Button disabled={code.trim().length < 8} type="submit">
+                  {t("claimSubmit")}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        ) : null}
         {canRead && canManage ? (
           <Dialog onOpenChange={setAdding} open={adding}>
             <DialogTrigger render={<Button />}>

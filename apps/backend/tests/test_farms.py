@@ -14,6 +14,7 @@ from typing import Any
 import pytest
 from django.conf import settings
 from django.db import IntegrityError, transaction
+from django.utils import timezone
 from rest_framework.exceptions import NotFound, ValidationError
 
 from saas_core.modules.core.identity.models import User, UserStatus
@@ -246,3 +247,113 @@ def test_a_cow_found_in_the_barn_is_resolved_or_recorded_once() -> None:
         assert [a.national_id for a in farm_animals(member.organization_id, farm.id)] == [
             "PL005432198999"
         ]
+
+
+def test_a_farmer_takes_the_herd_over_with_the_companys_code_and_can_revoke_it() -> None:
+    """ADR-051: the card becomes the farmer's farm, the company keeps its copy."""
+    from saas_core.modules.shared.farms.models import (  # noqa: PLC0415
+        FarmActivationCode,
+        ShareStatus,
+    )
+    from saas_core.modules.shared.farms.services import (  # noqa: PLC0415
+        create_animal,
+        create_farm,
+        list_animals,
+        list_farms,
+    )
+    from saas_core.modules.shared.farms.sharing import (  # noqa: PLC0415
+        Conflict,
+        issue_activation_code,
+        list_shares,
+        redeem_activation_code,
+        revoke_share,
+        share_for_writing,
+    )
+
+    company = membership("firma-korekcja")
+    farmer = membership("rolnik")
+    with tenant(company) as request:
+        card = create_farm(
+            request=request,
+            data={
+                "name": "Gospodarstwo Nowak",
+                "herd_number": "PL012345678-001",
+                "keeper_name": "Jan Nowak",
+                "notes": "brama od strony pola",
+            },
+        )
+        for tag in ("PL005432198765", "PL005432198766"):
+            create_animal(request=request, farm_id=card.id, data={"national_id": tag})
+        code, expires_at = issue_activation_code(request=request, farm_id=card.id)
+        first_digest = FarmActivationCode.objects.get(farm_id=card.id).token_digest
+        # A second code invalidates the first: a printed code is a way in.
+        code, _ = issue_activation_code(request=request, farm_id=card.id)
+        assert not FarmActivationCode.objects.filter(token_digest=first_digest).exists()
+        with pytest.raises(ValidationError, match="tej samej organizacji"):
+            redeem_activation_code(request=request, code=code)
+
+    with tenant(farmer) as request:
+        with pytest.raises(ValidationError, match="nieprawid"):
+            redeem_activation_code(request=request, code="AAAA-BBBB-CCCC-DDDD")
+        # Typed the way a farmer types it: lower case, no dashes.
+        taken = redeem_activation_code(request=request, code=code.replace("-", "").lower())
+        assert (taken["created"], taken["animals_added"]) == (True, 2)
+        farm = taken["farm"]
+        assert farm.herd_number == card.herd_number
+        assert farm.notes == ""  # the company's private note stays with the company
+        assert len(list_animals(farm_id=farm.id)) == 2
+        with pytest.raises(ValidationError, match="nieprawid"):
+            redeem_activation_code(request=request, code=code)
+        (share,) = list_shares(farm_id=farm.id)
+        assert (share.status, share.can_write_herd) == (ShareStatus.ACTIVE, True)
+        # Each side is told who the other one is, not just its id.
+        assert (share.partner_name, share.partner_is_company) == ("firma-korekcja", True)
+
+    with tenant(company) as request:
+        # Each side sees its own side of the sharing, and only its own farms.
+        assert [item.id for item in list_farms()] == [card.id]
+        (company_side,) = list_shares(farm_id=card.id)
+        assert company_side.id == share.id
+        assert (company_side.partner_name, company_side.partner_is_company) == ("rolnik", False)
+        assert share_for_writing(company.organization_id, card.id) is not None
+        with pytest.raises(Conflict, match="połączone"):
+            issue_activation_code(request=request, farm_id=card.id)
+
+    with tenant(farmer) as request:
+        revoked = revoke_share(request=request, share_id=share.id)
+        assert revoked.status == ShareStatus.REVOKED
+        assert revoked.partner_name == "firma-korekcja"
+        assert revoke_share(request=request, share_id=share.id).revoked_at == revoked.revoked_at
+
+    with tenant(company):
+        # The card stays, the writing door closes.
+        assert [item.id for item in list_farms()] == [card.id]
+        assert share_for_writing(company.organization_id, card.id) is None
+    assert expires_at > timezone.now()
+
+
+def test_a_share_belongs_to_the_two_it_names() -> None:
+    from saas_core.modules.shared.farms.services import create_farm  # noqa: PLC0415
+    from saas_core.modules.shared.farms.sharing import (  # noqa: PLC0415
+        issue_activation_code,
+        list_shares,
+        redeem_activation_code,
+        revoke_share,
+    )
+
+    company = membership("firma-obca")
+    farmer = membership("rolnik-obcy")
+    stranger = membership("ktos-inny")
+    with tenant(company) as request:
+        card = create_farm(request=request, data={"name": "Ferma", "herd_number": "PL999888777"})
+        code, _ = issue_activation_code(request=request, farm_id=card.id)
+    with tenant(farmer) as request:
+        taken = redeem_activation_code(request=request, code=code)
+    with tenant(stranger) as request:
+        assert list_shares(farm_id=taken["farm"].id) == []
+        assert list_shares(farm_id=card.id) == []
+        with pytest.raises(NotFound):
+            revoke_share(request=request, share_id=taken["share"].id)
+    # The company holds the card, not the register: it cannot revoke for the farmer.
+    with tenant(company) as request, pytest.raises(NotFound):
+        revoke_share(request=request, share_id=taken["share"].id)

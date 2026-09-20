@@ -80,11 +80,22 @@ Dowody w HANDOFF.
 3. Wizyta korekcyjna z wyborem karty gospodarstwa w kalendarzu. Rdzeń potrzebuje
    punktu rozszerzenia „szczegóły wizyty modułu” w formularzu rezerwacji.
 
-## Etap 3 — konto rolnika, połączenie i synchronizacja
+## Etap 3 — konto rolnika, połączenie i synchronizacja — W TOKU
 
-Rejestr rolnika, kod aktywacji, ekran łączenia sztuk i dołączania kart innych
-firm, udział z zakresem i cofaniem, synchronizacja z nazwanymi drzwiami, akcja
-obsługi „połącz bez kodu”, pakiet rolnika z 6 miesiącami okresu próbnego.
+Zrobione (kod aktywacji i udział): firma generuje jednorazowy kod do swojej
+karty (ważny 30 dni, w bazie tylko digest), rolnik przejmuje nim stado do
+własnego rejestru (karta bez prywatnej notatki firmy, zwierzęta dopisane),
+powstaje `FarmShare` z zakresem (`can_write_herd`, `can_publish_health`), który
+rolnik cofa jednym kliknięciem. Zakładka „Dostęp” w karcie gospodarstwa i
+przejmowanie kodem na liście gospodarstw. Cross-tenant bez RLS: kody i udziały
+nie mają klucza do `Organization`, więc każdy odczyt idzie przez `sharing.py`,
+które filtruje po organizacji wywołującego (test
+`test_a_share_belongs_to_the_two_it_names`).
+
+Otwarte: drzwi synchronizacji (firma pisze do rejestru przez `share_for_writing`),
+publikacja wpisów korekcji jako wpisy zdrowotne zwierzęcia (domyka resztę etapu
+4), pakiet rolnika z 6 miesiącami okresu próbnego, akcja obsługi „połącz bez
+kodu”, ekran scalania rozjechanych sztuk.
 
 ## Etap 4 — korekcja i wpisy zdrowotne (HoofCare) — ZROBIONE 2026-09-19/20 (bez publikacji do rejestru)
 

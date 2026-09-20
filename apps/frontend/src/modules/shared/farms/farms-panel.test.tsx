@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import axe from "axe-core";
 import {
+  cleanup,
   fireEvent,
   render,
   screen,
@@ -20,6 +21,10 @@ import { FarmsPanel } from "./farms-panel";
 const api = vi.hoisted(() => ({
   createFarm: vi.fn(),
   createFarmAnimal: vi.fn(),
+  issueFarmActivationCode: vi.fn(),
+  listFarmShares: vi.fn(),
+  redeemFarmActivationCode: vi.fn(),
+  revokeFarmShare: vi.fn(),
   listFarmAnimals: vi.fn(),
   listFarmSpecies: vi.fn(),
   listFarms: vi.fn(),
@@ -52,6 +57,25 @@ function farm(overrides: Partial<Farm> = {}): Farm {
     active: true,
     animal_count: 2,
     updated_at: "2026-09-18T09:00:00Z",
+    ...overrides,
+  };
+}
+
+function share(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "019c5f87-fce8-739b-b960-b7a195bfc2aa",
+    registry_farm_id: FARM,
+    company_farm_id: "019c5f87-fce8-739b-b960-b7a195bfc2ab",
+    company_organization_id: "019c5f87-fce8-739b-b960-b7a195bfc2ac",
+    registry_organization_id: "019c5f87-fce8-739b-b960-b7a195bfc2ad",
+    can_write_herd: true,
+    can_publish_health: true,
+    basis: "activation_code",
+    status: "active",
+    granted_at: "2026-09-18T09:00:00Z",
+    revoked_at: null,
+    partner_name: "Korekcja Kowalski",
+    partner_is_company: true,
     ...overrides,
   };
 }
@@ -121,6 +145,20 @@ beforeEach(() => {
   api.createFarmAnimal.mockResolvedValue(animals[0]);
   api.updateFarm.mockResolvedValue(farm({ notes: "Nowa notatka." }));
   api.updateFarmAnimal.mockResolvedValue({ ...animals[0], status: "sold" });
+  api.listFarmShares.mockResolvedValue([]);
+  api.issueFarmActivationCode.mockResolvedValue({
+    code: "ABCD-EFGH-JKLM-NPQR",
+    expires_at: "2026-10-20T09:00:00Z",
+  });
+  api.redeemFarmActivationCode.mockResolvedValue({
+    farm: farm({ name: "Zielona Dolina" }),
+    created: true,
+    animals_added: 2,
+    share: share(),
+  });
+  api.revokeFarmShare.mockImplementation(async () =>
+    share({ status: "revoked", revoked_at: "2026-09-20T09:00:00Z" }),
+  );
 });
 
 function wrap(children: ReactNode, locale: "pl" | "en" = "pl") {
@@ -364,4 +402,61 @@ test("gospodarstwo spoza organizacji nie kusi ponowieniem", async () => {
   expect(
     screen.getByRole("link", { name: "Wszystkie gospodarstwa" }),
   ).toHaveAttribute("href", "/panel/farms");
+});
+
+test("kod aktywacji dla karty firmy, a hodowca cofa dostęp", async () => {
+  wrap(<FarmDetail canManage canRead farmId={FARM} />);
+  fireEvent.click(await screen.findByRole("tab", { name: "Dostęp" }));
+
+  // Nikt jeszcze nie jest połączony: firma generuje kod dla hodowcy.
+  expect(await screen.findByText(/nie jest z nikim połączone/)).toBeVisible();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Wygeneruj kod aktywacji" }),
+  );
+  expect(await screen.findByText("ABCD-EFGH-JKLM-NPQR")).toBeVisible();
+
+  // Po przejęciu to hodowca decyduje, kiedy dostęp się kończy.
+  api.listFarmShares.mockResolvedValue([share()]);
+  cleanup();
+  wrap(<FarmDetail canManage canRead farmId={FARM} />);
+  fireEvent.click(await screen.findByRole("tab", { name: "Dostęp" }));
+  expect(await screen.findByText("Korekcja Kowalski")).toBeVisible();
+  expect(
+    screen.queryByRole("button", { name: "Wygeneruj kod aktywacji" }),
+  ).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Cofnij dostęp" }));
+  await waitFor(() =>
+    expect(api.revokeFarmShare).toHaveBeenCalledWith(share().id),
+  );
+  expect(await screen.findByText("Cofnięte")).toBeVisible();
+});
+
+test("hodowca przejmuje gospodarstwo kodem, zły kod tłumaczy się na miejscu", async () => {
+  api.redeemFarmActivationCode.mockRejectedValueOnce(
+    problem(400, "validation_error"),
+  );
+  wrap(<FarmsPanel canManage canRead />);
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Przejmij gospodarstwo kodem" }),
+  );
+  const dialog = await screen.findByRole("dialog", {
+    name: "Przejmij gospodarstwo kodem",
+  });
+  fireEvent.change(within(dialog).getByLabelText("Kod aktywacji"), {
+    target: { value: "abcdefghjklmnpqr" },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Przejmij" }));
+  expect(await within(dialog).findByRole("alert")).toBeVisible();
+
+  fireEvent.click(within(dialog).getByRole("button", { name: "Przejmij" }));
+  await waitFor(() =>
+    expect(api.redeemFarmActivationCode).toHaveBeenLastCalledWith(
+      "abcdefghjklmnpqr",
+    ),
+  );
+  expect(
+    await screen.findByText(
+      "Przejęto gospodarstwo Zielona Dolina. Dopisane zwierzęta: 2.",
+    ),
+  ).toBeInTheDocument();
 });

@@ -2468,6 +2468,70 @@ export async function updateFarmAnimal(
   return data;
 }
 
+export type FarmShare = components["schemas"]["FarmShare"];
+export type FarmTakeover = components["schemas"]["FarmTakeover"];
+
+/** The code a company hands the farmer for one of its cards (ADR-051). */
+export async function issueFarmActivationCode(
+  farmId: string,
+): Promise<components["schemas"]["FarmActivationCode"]> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/farms/{farm_id}/activation-code/",
+    {
+      params: { path: { farm_id: farmId } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** The farmer takes the herd over with the code. */
+export async function redeemFarmActivationCode(
+  code: string,
+): Promise<FarmTakeover> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/farms/activation/redeem/",
+    {
+      body: { code },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function listFarmShares(farmId: string): Promise<FarmShare[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/farms/{farm_id}/shares/",
+    {
+      params: { path: { farm_id: farmId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function revokeFarmShare(shareId: string): Promise<FarmShare> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/farms/shares/{share_id}/revoke/",
+    {
+      params: { path: { share_id: shareId } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export async function listFarmSpecies(): Promise<FarmSpecies[]> {
   const { data, error, response } = await client.GET("/api/v1/farms/species/", {
     credentials: "same-origin",

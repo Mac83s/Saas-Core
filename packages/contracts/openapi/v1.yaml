@@ -1607,6 +1607,132 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/farms/{farm_id}/activation-code/:
+    post:
+      operationId: farms_activation_code_issue
+      description: The code a company hands the farmer for one of its cards (ADR-051).
+      parameters:
+      - in: path
+        name: farm_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - farms
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmActivationCode'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/farms/{farm_id}/shares/:
+    get:
+      operationId: farms_share_list
+      parameters:
+      - in: path
+        name: farm_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - farms
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FarmShare'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/farms/activation/redeem/:
+    post:
+      operationId: farms_activation_redeem
+      description: The farmer takes the herd over with the code (ADR-051).
+      tags:
+      - farms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FarmActivationRedeem'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FarmActivationRedeem'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FarmActivationRedeem'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmTakeover'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/farms/animals/:
     get:
       operationId: farms_animal_list
@@ -1727,6 +1853,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Animal'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/farms/shares/{share_id}/revoke/:
+    post:
+      operationId: farms_share_revoke
+      parameters:
+      - in: path
+        name: share_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - farms
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmShare'
           description: ''
         '400':
           content:
@@ -9194,6 +9359,27 @@ components:
       - tax_id
       - updated_at
       - village
+    FarmActivationCode:
+      type: object
+      description: The code is returned once, when it is issued; only its digest is
+        kept.
+      properties:
+        code:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+      required:
+      - code
+      - expires_at
+    FarmActivationRedeem:
+      type: object
+      properties:
+        code:
+          type: string
+          maxLength: 40
+      required:
+      - code
     FarmInput:
       type: object
       description: |-
@@ -9236,6 +9422,58 @@ components:
           type: boolean
       required:
       - name
+    FarmShare:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        registry_farm_id:
+          type: string
+          format: uuid
+        company_farm_id:
+          type: string
+          format: uuid
+        company_organization_id:
+          type: string
+          format: uuid
+        registry_organization_id:
+          type: string
+          format: uuid
+        can_write_herd:
+          type: boolean
+        can_publish_health:
+          type: boolean
+        basis:
+          type: string
+        status:
+          type: string
+        granted_at:
+          type: string
+          format: date-time
+        revoked_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        partner_name:
+          type: string
+        partner_is_company:
+          type: boolean
+      required:
+      - basis
+      - can_publish_health
+      - can_write_herd
+      - company_farm_id
+      - company_organization_id
+      - granted_at
+      - id
+      - partner_is_company
+      - partner_name
+      - registry_farm_id
+      - registry_organization_id
+      - revoked_at
+      - status
     FarmSpecies:
       type: object
       properties:
@@ -9251,6 +9489,24 @@ components:
       - active
       - key
       - label
+    FarmTakeover:
+      type: object
+      description: 'What the farmer got: the farm, whether it is new, and its new
+        animals.'
+      properties:
+        farm:
+          $ref: '#/components/schemas/Farm'
+        created:
+          type: boolean
+        animals_added:
+          type: integer
+        share:
+          $ref: '#/components/schemas/FarmShare'
+      required:
+      - animals_added
+      - created
+      - farm
+      - share
     GenericMessage:
       type: object
       properties:

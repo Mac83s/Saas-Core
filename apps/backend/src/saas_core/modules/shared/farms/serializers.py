@@ -94,3 +94,40 @@ SpeciesListSerializer = inline_serializer(
         "active": serializers.BooleanField(),
     },
 )
+
+
+class FarmActivationCodeSerializer(serializers.Serializer[Any]):
+    """The code is returned once, when it is issued; only its digest is kept."""
+
+    code = serializers.CharField()
+    expires_at = serializers.DateTimeField()
+
+
+class FarmActivationRedeemSerializer(serializers.Serializer[Any]):
+    code = serializers.CharField(max_length=40)
+
+
+class FarmShareSerializer(serializers.Serializer[Any]):
+    id = serializers.UUIDField()
+    registry_farm_id = serializers.UUIDField()
+    company_farm_id = serializers.UUIDField()
+    company_organization_id = serializers.UUIDField()
+    registry_organization_id = serializers.UUIDField()
+    can_write_herd = serializers.BooleanField()
+    can_publish_health = serializers.BooleanField()
+    basis = serializers.CharField()
+    status = serializers.CharField()
+    granted_at = serializers.DateTimeField()
+    revoked_at = serializers.DateTimeField(allow_null=True)
+    #: The other side, as the caller sees it: set by `list_shares`.
+    partner_name = serializers.CharField()
+    partner_is_company = serializers.BooleanField()
+
+
+class FarmTakeoverSerializer(serializers.Serializer[Any]):
+    """What the farmer got: the farm, whether it is new, and its new animals."""
+
+    farm = FarmSerializer()
+    created = serializers.BooleanField()
+    animals_added = serializers.IntegerField()
+    share = FarmShareSerializer()

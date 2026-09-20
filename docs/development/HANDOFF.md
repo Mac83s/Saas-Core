@@ -1,5 +1,30 @@
 # Handoff następnej sesji
 
+## Etap 3: kod aktywacji i udział gospodarstwa, 2026-09-20
+
+Firma generuje jednorazowy kod do swojej karty gospodarstwa, rolnik przejmuje
+nim stado do własnego rejestru, powstaje `FarmShare` z zakresem, który rolnik
+cofa. Backend w `modules/shared/farms/sharing.py`, panel w zakładce „Dostęp"
+karty gospodarstwa i w przycisku „Przejmij gospodarstwo kodem" na liście.
+
+Co warto wiedzieć, zanim się to ruszy:
+
+- `FarmActivationCode` i `FarmShare` **nie są tabelami tenantowymi** — nazywają
+  organizacje po id i nie mają klucza do `Organization`, więc żadna polityka RLS
+  nie wyrazi „moje". Każdy odczyt i zapis idzie przez `sharing.py`, które filtruje
+  po organizacji wywołującego. Nowe zapytanie do tych tabel dopisuj tam, nie w
+  widoku;
+- kod jest trzymany jako digest, a nowy kod unieważnia poprzedni (wydrukowany kod
+  to droga do stada). Błędny, zużyty i przeterminowany dają **jeden** komunikat,
+  żeby nie dało się po odpowiedzi zgadywać kodów;
+- `list_shares` dokłada do wiersza `partner_name` i `partner_is_company`; bez nich
+  panel pokazywałby dwa UUID-y. To pola przejściowe, nie kolumny.
+
+Otwarte w tym etapie: drzwi synchronizacji (firma pisze do rejestru przez
+`share_for_writing`), publikacja wpisów korekcji jako wpisy zdrowotne, pakiet
+rolnika z 6 miesiącami próbnymi, „połącz bez kodu" po stronie obsługi, ekran
+scalania rozjechanych sztuk.
+
 ## Przebudowa panelu z projektu Claude Design, 2026-09-19/20
 
 Panel dostał wspólny styl bazowy, powłokę 1a (dwie grupy menu: Praca i Firma,

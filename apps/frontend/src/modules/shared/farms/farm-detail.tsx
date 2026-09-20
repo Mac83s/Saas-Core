@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import {
   ArrowLeftIcon,
+  KeyRoundIcon,
   MailIcon,
   MapPinIcon,
   PencilIcon,
@@ -16,13 +17,17 @@ import {
 
 import {
   createFarmAnimal,
+  issueFarmActivationCode,
   listFarmAnimals,
+  listFarmShares,
   listFarmSpecies,
   readFarm,
+  revokeFarmShare,
   updateFarm,
   updateFarmAnimal,
   type Farm,
   type FarmAnimal,
+  type FarmShare,
   type FarmSpecies,
 } from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
@@ -98,6 +103,8 @@ export function FarmDetail({
   const [farm, setFarm] = useState<Farm>();
   const [species, setSpecies] = useState<FarmSpecies[]>([]);
   const [animals, setAnimals] = useState<FarmAnimal[]>();
+  const [shares, setShares] = useState<FarmShare[]>([]);
+  const [code, setCode] = useState<{ code: string; expires_at: string }>();
   const [search, setSearch] = useState("");
   const [problem, setProblem] = useState<FarmProblem>();
   const [failed, setFailed] = useState("");
@@ -110,11 +117,12 @@ export function FarmDetail({
   useEffect(() => {
     if (!canRead) return;
     let current = true;
-    Promise.all([readFarm(farmId), listFarmSpecies()])
-      .then(([loadedFarm, loadedSpecies]) => {
+    Promise.all([readFarm(farmId), listFarmSpecies(), listFarmShares(farmId)])
+      .then(([loadedFarm, loadedSpecies, loadedShares]) => {
         if (!current) return;
         setFarm(loadedFarm);
         setSpecies(loadedSpecies);
+        setShares(loadedShares);
         setProblem(undefined);
       })
       .catch((error: unknown) => {
@@ -150,6 +158,28 @@ export function FarmDetail({
     if (!entry) return key;
     return (locale === "en" ? entry.label.en : entry.label.pl) ?? entry.key;
   };
+
+  async function issueCode() {
+    setFailed("");
+    try {
+      setCode(await issueFarmActivationCode(farmId));
+    } catch (error) {
+      setFailed(farmProblem(error, t("saveFailed")));
+    }
+  }
+
+  async function revoke(share: FarmShare) {
+    setFailed("");
+    try {
+      const revoked = await revokeFarmShare(share.id);
+      setShares((current) =>
+        current.map((item) => (item.id === share.id ? revoked : item)),
+      );
+      setNotice(t("shareRevokedNotice", { name: share.partner_name }));
+    } catch (error) {
+      setFailed(farmProblem(error, t("saveFailed")));
+    }
+  }
 
   async function changeStatus(animal: FarmAnimal, status: string) {
     setFailed("");
@@ -308,6 +338,7 @@ export function FarmDetail({
             <TabsList>
               <TabsTab value="animals">{t("animals")}</TabsTab>
               <TabsTab value="notes">{t("notes")}</TabsTab>
+              <TabsTab value="sharing">{t("sharing")}</TabsTab>
               <TabsIndicator />
             </TabsList>
 
@@ -444,6 +475,87 @@ export function FarmDetail({
                   <PencilIcon aria-hidden="true" />
                   {t("editNotes")}
                 </Button>
+              ) : null}
+            </TabsPanel>
+
+            <TabsPanel className="space-y-4" value="sharing">
+              <p className="text-sm text-muted-foreground">
+                {t("sharingDescription")}
+              </p>
+              {shares.length === 0 ? (
+                <p className="rounded-xl border border-dashed bg-muted/30 p-6 text-muted-foreground">
+                  {t("noShares")}
+                </p>
+              ) : (
+                <ul className="divide-y rounded-xl border">
+                  {shares.map((share) => (
+                    <li
+                      className="flex flex-wrap items-center justify-between gap-3 p-4"
+                      key={share.id}
+                    >
+                      <div>
+                        <p className="font-medium wrap-anywhere">
+                          {share.partner_name || t("unknown")}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {t(
+                            share.partner_is_company
+                              ? "shareFromCompany"
+                              : "shareToFarmer",
+                            {
+                              date: format.dateTime(
+                                new Date(share.granted_at),
+                                {
+                                  dateStyle: "medium",
+                                },
+                              ),
+                            },
+                          )}
+                        </p>
+                      </div>
+                      {share.status === "active" ? (
+                        share.partner_is_company && canManage ? (
+                          <Button
+                            onClick={() => revoke(share)}
+                            size="sm"
+                            variant="outline"
+                          >
+                            {t("revokeShare")}
+                          </Button>
+                        ) : (
+                          <Badge variant="outline">{t("shareActive")}</Badge>
+                        )
+                      ) : (
+                        <Badge variant="secondary">{t("shareRevoked")}</Badge>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {/* Only the company side hands out codes; on the farmer's own
+                  register the farm is already theirs. */}
+              {canManage &&
+              !shares.some((share) => share.partner_is_company) ? (
+                <div className="space-y-2">
+                  <Button onClick={issueCode} size="sm" variant="outline">
+                    <KeyRoundIcon aria-hidden="true" />
+                    {t("issueCode")}
+                  </Button>
+                  {code ? (
+                    <div aria-live="polite" className="space-y-1">
+                      <p className="font-mono text-lg tracking-widest select-all">
+                        {code.code}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {t("codeHint", {
+                          date: format.dateTime(new Date(code.expires_at), {
+                            dateStyle: "medium",
+                          }),
+                        })}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
               ) : null}
             </TabsPanel>
           </Tabs>

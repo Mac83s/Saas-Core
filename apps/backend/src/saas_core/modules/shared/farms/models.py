@@ -109,3 +109,72 @@ class Animal(TenantScopedModel):
 
     def __str__(self) -> str:
         return f"{self.national_id} ({self.name})" if self.name else self.national_id
+
+
+class ShareBasis(models.TextChoices):
+    ACTIVATION_CODE = "activation_code", "Kod aktywacji od firmy"
+    SUPPORT = "support", "Połączenie przez obsługę platformy"
+
+
+class ShareStatus(models.TextChoices):
+    ACTIVE = "active", "Aktywny"
+    REVOKED = "revoked", "Cofnięty"
+
+
+class FarmActivationCode(models.Model):
+    """A one-time code for one farm card; only its digest is stored."""
+
+    token_digest = models.CharField(max_length=64, primary_key=True)
+    company_organization_id = models.UUIDField()
+    farm_id = models.UUIDField()
+    created_by_id = models.UUIDField(null=True, blank=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+    used_by_organization_id = models.UUIDField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["farm_id", "used_at"], name="farms_code_farm_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return str(self.farm_id)
+
+
+class FarmShare(models.Model):
+    """What one company may do with one farm of the register, and since when."""
+
+    #: Who the other side is, as the caller sees it. Filled by `list_shares`
+    #: for the API; never stored.
+    partner_name: str = ""
+    partner_is_company: bool = False
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    registry_organization_id = models.UUIDField()
+    registry_farm_id = models.UUIDField()
+    company_organization_id = models.UUIDField()
+    company_farm_id = models.UUIDField()
+    #: The company writes herd changes straight into the register (ADR-051 pt 7).
+    can_write_herd = models.BooleanField(default=True)
+    #: Its health entries are copied to the animal's history (ADR-051 pt 8).
+    can_publish_health = models.BooleanField(default=True)
+    basis = models.CharField(max_length=20, choices=ShareBasis)
+    status = models.CharField(max_length=10, choices=ShareStatus, default=ShareStatus.ACTIVE)
+    granted_at = models.DateTimeField(auto_now_add=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("registry_organization_id", "-granted_at")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["registry_farm_id", "company_farm_id"], name="farms_share_pair_uq"
+            )
+        ]
+        indexes = [
+            models.Index(fields=["registry_organization_id"], name="farms_share_registry_idx"),
+            models.Index(fields=["company_organization_id"], name="farms_share_company_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.registry_farm_id} ↔ {self.company_farm_id}"

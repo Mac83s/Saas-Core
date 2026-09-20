@@ -19,8 +19,12 @@ from .serializers import (
     AnimalInputSerializer,
     AnimalSerializer,
     AnimalUpdateSerializer,
+    FarmActivationCodeSerializer,
+    FarmActivationRedeemSerializer,
     FarmInputSerializer,
     FarmSerializer,
+    FarmShareSerializer,
+    FarmTakeoverSerializer,
     FarmUpdateSerializer,
     SpeciesListSerializer,
 )
@@ -32,6 +36,12 @@ from .services import (
     list_farms,
     update_animal,
     update_farm,
+)
+from .sharing import (
+    issue_activation_code,
+    list_shares,
+    redeem_activation_code,
+    revoke_share,
 )
 from .species import SPECIES
 
@@ -168,3 +178,74 @@ class SpeciesView(APIView):
             {"key": species.key, "label": species.label, "active": species.active}
             for species in SPECIES.values()
         ])
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class FarmActivationCodeView(APIView):
+    """The code a company hands the farmer for one of its cards (ADR-051)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=None,
+        responses={201: FarmActivationCodeSerializer, **ERRORS},
+        operation_id="farms_activation_code_issue",
+        tags=["farms"],
+    )
+    def post(self, request: Request, farm_id: UUID) -> Response:
+        code, expires_at = issue_activation_code(
+            request=cast(HttpRequest, request), farm_id=farm_id
+        )
+        return Response(
+            FarmActivationCodeSerializer({"code": code, "expires_at": expires_at}).data,
+            status=201,
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class FarmActivationRedeemView(APIView):
+    """The farmer takes the herd over with the code (ADR-051)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=FarmActivationRedeemSerializer,
+        responses={201: FarmTakeoverSerializer, **ERRORS},
+        operation_id="farms_activation_redeem",
+        tags=["farms"],
+    )
+    def post(self, request: Request) -> Response:
+        serializer = FarmActivationRedeemSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = redeem_activation_code(
+            request=cast(HttpRequest, request), code=serializer.validated_data["code"]
+        )
+        return Response(FarmTakeoverSerializer(result).data, status=201)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class FarmShareListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        responses={200: FarmShareSerializer(many=True), **ERRORS},
+        operation_id="farms_share_list",
+        tags=["farms"],
+    )
+    def get(self, request: Request, farm_id: UUID) -> Response:
+        return Response(FarmShareSerializer(list_shares(farm_id=farm_id), many=True).data)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class FarmShareRevokeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=None,
+        responses={200: FarmShareSerializer, **ERRORS},
+        operation_id="farms_share_revoke",
+        tags=["farms"],
+    )
+    def post(self, request: Request, share_id: UUID) -> Response:
+        share = revoke_share(request=cast(HttpRequest, request), share_id=share_id)
+        return Response(FarmShareSerializer(share).data)
