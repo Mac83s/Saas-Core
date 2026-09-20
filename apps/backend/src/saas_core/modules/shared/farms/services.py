@@ -305,6 +305,7 @@ def record_health_entry(
         summary=data["summary"].strip(),
         details=data.get("details") or {},
         private=bool(data.get("private")),
+        photos=[str(photo) for photo in data.get("photos") or []],
     )
     entry.author_is_external = False
     audit_farm(

@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import cast
+from typing import Any, cast
 from uuid import UUID
 
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponse
 from django.utils.dateparse import parse_date
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
@@ -18,7 +18,7 @@ from rest_framework.views import APIView
 
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
-from .herd_sync import push_herd
+from .herd_sync import push_herd, read_entry_photo
 from .serializers import (
     AnimalHealthEntrySerializer,
     AnimalHealthInputSerializer,
@@ -223,6 +223,29 @@ class AnimalHealthView(APIView):
             data=dict(serializer.validated_data),
         )
         return Response(AnimalHealthEntrySerializer(entry).data, status=201)
+
+
+class AnimalHealthPhotoView(APIView):
+    """Zdjęcie z wpisu kartoteki, czytane z magazynu jego autora."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="farms_health_photo",
+        tags=["farms"],
+        responses={(200, "image/webp"): OpenApiTypes.BINARY, **ERRORS},
+    )
+    def get(self, request: Request, entry_id: UUID, media_id: UUID) -> HttpResponse:
+        return HttpResponse(
+            read_entry_photo(entry_id=entry_id, media_id=media_id), content_type="image/webp"
+        )
+
+    def finalize_response(self, request: Request, response: Any, *args: Any, **kwargs: Any) -> Any:
+        response = super().finalize_response(request, response, *args, **kwargs)
+        # Cudze zdjęcie: nie zostaje w pamięci przeglądarki ani pośredników.
+        response["Cache-Control"] = "private, no-store"
+        response["X-Content-Type-Options"] = "nosniff"
+        return response
 
 
 def _date_param(request: Request, name: str) -> date | None:

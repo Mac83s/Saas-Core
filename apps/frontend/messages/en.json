@@ -1801,7 +1801,10 @@
     "reviewFilterCount": "To review ({count})",
     "reviewBadge": "New from the company",
     "markReviewed": "Reviewed",
-    "reviewHint": "The trimming company added this animal. Check it and confirm."
+    "reviewHint": "The trimming company added this animal. Check it and confirm.",
+    "photoAlt": "Photo from the entry",
+    "photoLoading": "Loading the photo",
+    "photoUnavailable": "The photo is gone"
   },
   "StaffAccounts": {
     "title": "Calendar staff accounts",

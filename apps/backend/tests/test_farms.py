@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import uuid
 from contextlib import contextmanager
+from unittest import mock
 from types import SimpleNamespace
 from typing import Any
 
@@ -22,6 +23,7 @@ from saas_core.modules.core.identity.models import User, UserStatus
 from saas_core.modules.core.organizations.context import (
     activate_tenant_context,
     context_from_membership,
+    require_tenant_context,
     set_local_organization_id,
 )
 from saas_core.modules.core.organizations.models import (
@@ -870,3 +872,83 @@ def test_support_links_a_card_without_a_code_and_the_keeper_can_revoke_it() -> N
         assert mine.partner_name == "firma-wsparcie"
         # Połączenie bez kodu cofa się tak samo jak każde inne.
         assert revoke_share(request=request, share_id=share.id).status == ShareStatus.REVOKED
+
+
+def test_a_photo_stays_with_its_author_and_is_read_through_the_entry() -> None:
+    """Decyzja z 20.09: plik nie jest kopiowany, czytelnik wchodzi przez wpis."""
+    from datetime import date  # noqa: PLC0415
+
+    from saas_core.modules.shared.farms.api import farm_animals  # noqa: PLC0415
+    from saas_core.modules.shared.farms.herd_sync import (  # noqa: PLC0415
+        publish_health_entry,
+        read_entry_photo,
+    )
+    from saas_core.modules.shared.farms.services import (  # noqa: PLC0415
+        create_animal,
+        create_farm,
+        list_health_entries,
+    )
+    from saas_core.modules.shared.farms.sharing import (  # noqa: PLC0415
+        issue_activation_code,
+        redeem_activation_code,
+        revoke_share,
+    )
+
+    photo_id = uuid.uuid7()
+    read_by: list[tuple[UUID, UUID]] = []
+
+    def fake_preview(*, asset_id: UUID, **_: Any) -> bytes:
+        context = require_tenant_context()
+        read_by.append((context.organization_id, asset_id))
+        return b"webp"
+
+    company = membership("firma-zdjecia")
+    farmer = membership("rolnik-zdjecia")
+    with tenant(company) as request:
+        card = create_farm(
+            request=request, data={"name": "Gospodarstwo Zdjęcia", "herd_number": "PL033333333-001"}
+        )
+        cow = create_animal(
+            request=request, farm_id=card.id, data={"national_id": "PL005432199901"}
+        )
+        code, _ = issue_activation_code(request=request, farm_id=card.id)
+    with tenant(farmer) as request:
+        taken = redeem_activation_code(request=request, code=code)
+        (registry_cow,) = list(farm_animals(farmer.organization_id, taken["farm"].id))
+        share = taken["share"]
+    with tenant(company):
+        publish_health_entry(
+            animal=cow,
+            occurred_on=date(2026, 9, 20),
+            source="hoofcare.visit",
+            reference="wizyta-foto",
+            summary="Korekcja: DD M2, zdjęcie racicy.",
+            photos=[str(photo_id)],
+        )
+
+    with (
+        tenant(farmer),
+        mock.patch(
+            "saas_core.modules.shared.farms.herd_sync.read_media_preview", side_effect=fake_preview
+        ),
+    ):
+        (entry,) = list_health_entries(animal_id=registry_cow.id)
+        assert [str(item) for item in entry.photos] == [str(photo_id)]
+        assert read_entry_photo(entry_id=entry.id, media_id=photo_id) == b"webp"
+        # Plik czytany jest w magazynie autora, nie rolnika.
+        assert read_by == [(company.organization_id, photo_id)]
+        # Zdjęcie spoza wpisu nie otwiera cudzego magazynu.
+        with pytest.raises(NotFound):
+            read_entry_photo(entry_id=entry.id, media_id=uuid.uuid7())
+
+    with tenant(farmer) as request:
+        revoke_share(request=request, share_id=share.id)
+    with (
+        tenant(farmer),
+        mock.patch(
+            "saas_core.modules.shared.farms.herd_sync.read_media_preview", side_effect=fake_preview
+        ),
+        pytest.raises(NotFound),
+    ):
+        # Cofnięty udział zamyka też zdjęcia — bez sprzątania plików.
+        read_entry_photo(entry_id=entry.id, media_id=photo_id)

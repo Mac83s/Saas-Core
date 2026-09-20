@@ -157,6 +157,11 @@ class AnimalHealthEntry(TenantScopedModel):
     author_organization_name = models.CharField(max_length=160, blank=True)
     #: The keeper's own entry, kept out of what a company reads through a share.
     private = models.BooleanField(default=False)
+    #: Identifiers of the author's own media. The file stays in the author's
+    #: storage and the reader is let in through this entry — a copy per company
+    #: serving the same farm would multiply the same photo for nothing, and a
+    #: photo the author deletes has to disappear (decision of 20.09).
+    photos = models.JSONField(default=list)
     summary = models.CharField(max_length=240)
     #: Structured detail the panel renders; shape belongs to the source.
     details = models.JSONField(default=dict)

@@ -1801,7 +1801,10 @@
     "reviewFilterCount": "Do przejrzenia ({count})",
     "reviewBadge": "Nowe od firmy",
     "markReviewed": "Przejrzane",
-    "reviewHint": "Tę sztukę wpisała firma korekcyjna. Sprawdź dane i potwierdź."
+    "reviewHint": "Tę sztukę wpisała firma korekcyjna. Sprawdź dane i potwierdź.",
+    "photoAlt": "Zdjęcie z wpisu",
+    "photoLoading": "Wczytywanie zdjęcia",
+    "photoUnavailable": "Zdjęcia już nie ma"
   },
   "StaffAccounts": {
     "title": "Konta pracowników kalendarza",

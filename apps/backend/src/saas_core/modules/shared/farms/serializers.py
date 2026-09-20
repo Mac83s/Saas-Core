@@ -114,6 +114,8 @@ class AnimalHealthEntrySerializer(serializers.Serializer[Any]):
     #: Written by somebody else's organization; set by the use case.
     author_is_external = serializers.BooleanField(default=False)
     private = serializers.BooleanField()
+    #: Identyfikatory zdjęć autora; plik zostaje u niego, czytamy przez wpis.
+    photos = serializers.ListField(child=serializers.UUIDField())
     summary = serializers.CharField()
     details = serializers.DictField()
     published_at = serializers.DateTimeField()
@@ -127,6 +129,7 @@ class AnimalHealthInputSerializer(serializers.Serializer[Any]):
     summary = serializers.CharField(max_length=240)
     details = serializers.DictField(required=False)
     private = serializers.BooleanField(required=False, default=False)
+    photos = serializers.ListField(child=serializers.UUIDField(), required=False)
 
 
 class FarmActivationCodeSerializer(serializers.Serializer[Any]):

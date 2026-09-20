@@ -2471,6 +2471,26 @@ export async function listFarmAnimalHealth(
   return data;
 }
 
+/** Zdjęcie z wpisu kartoteki: plik zostaje u autora, wchodzimy przez wpis. */
+export async function getFarmHealthPhoto(
+  entryId: string,
+  mediaId: string,
+  signal?: AbortSignal,
+): Promise<Blob> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/farms/health/{entry_id}/photos/{media_id}/",
+    {
+      params: { path: { entry_id: entryId, media_id: mediaId } },
+      credentials: "same-origin",
+      cache: "no-store",
+      parseAs: "blob",
+      signal,
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 /** An entry written by hand, in this register. */
 export async function createFarmAnimalHealth(
   animalId: string,

@@ -762,6 +762,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/farms/health/{entry_id}/photos/{media_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Zdjęcie z wpisu kartoteki, czytane z magazynu jego autora. */
+        get: operations["farms_health_photo"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/farms/shares/{share_id}/revoke/": {
         parameters: {
             query?: never;
@@ -2577,6 +2594,7 @@ export interface components {
             /** @default false */
             author_is_external: boolean;
             private: boolean;
+            photos: string[];
             summary: string;
             details: {
                 [key: string]: unknown;
@@ -2596,6 +2614,7 @@ export interface components {
             };
             /** @default false */
             private: boolean;
+            photos?: string[];
         };
         /**
          * @description * `note` - Notatka
@@ -6878,6 +6897,52 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AnimalHealthEntry"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    farms_health_photo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+                media_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/webp": string;
                 };
             };
             400: {

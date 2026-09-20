@@ -28,6 +28,7 @@ import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { Link } from "#i18n/navigation";
 import { allows, type PanelAccess } from "#lib/panel-navigation";
 import productAnimalSections from "../../../product/animal-sections";
+import { EntryPhoto } from "./entry-photo";
 import { farmProblem } from "./problem";
 
 /** `AnimalStatus` of the register (models.py). Core knows no health status. */
@@ -351,6 +352,17 @@ export function AnimalCard({
                     ) : null}
                   </div>
                   <p className="mt-1 text-sm">{item.summary}</p>
+                  {item.photos.length > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {item.photos.map((photo) => (
+                        <EntryPhoto
+                          entryId={item.id}
+                          key={photo}
+                          mediaId={photo}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
                   <p className="text-xs text-muted-foreground">
                     {[
                       date(item.occurred_on),
