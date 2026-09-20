@@ -49,7 +49,23 @@ Co warto wiedzieć, zanim się to ruszy:
   to droga do stada). Błędny, zużyty i przeterminowany dają **jeden** komunikat,
   żeby nie dało się po odpowiedzi zgadywać kodów;
 - `list_shares` dokłada do wiersza `partner_name` i `partner_is_company`; bez nich
-  panel pokazywałby dwa UUID-y. To pola przejściowe, nie kolumny.
+  panel pokazywałby dwa UUID-y. To pola przejściowe, wyliczane z `company_name`
+  i `registry_name` zapisanych na udziale — żadna ze stron nie odczyta
+  organizacji drugiej;
+- **przekazanie jedzie w kodzie, nie w bazie firmy.** Rolnik realizuje kod we
+  własnym tenantcie, gdzie RLS zasłania wiersze firmy, więc kartę i jej
+  zwierzęta kopiujemy do `FarmActivationCode.handover` przy wydawaniu kodu.
+  Zielony test tego nie pokazał: baza testowa łączy się właścicielem tabel.
+  Wykryte dopiero na stacku dev 20.09 (400 „Gospodarstwo z tego kodu już nie
+  istnieje");
+- para (gospodarstwo rolnika, karta firmy) jest unikalna, więc ponowne
+  połączenie po cofnięciu ożywia ten sam wiersz udziału zamiast tworzyć drugi.
+
+Dowody z żywego stacku HoofCare (20.09): kod → przejęcie (2 sztuki, notatka firmy
+zostaje u firmy) → obie strony widzą udział z nazwą drugiej strony → drugi kod do
+połączonej karty 409 `farm_already_linked` → firma nie cofnie cudzego udziału 404
+→ rolnik cofa (powtórka idempotentna) → firma zachowuje kartę → ponowne połączenie
+wraca do tego samego udziału. Żadna ze stron nie odczyta gospodarstwa drugiej (404).
 
 Otwarte w tym etapie: drzwi synchronizacji (firma pisze do rejestru przez
 `share_for_writing`), publikacja wpisów korekcji jako wpisy zdrowotne, pakiet
