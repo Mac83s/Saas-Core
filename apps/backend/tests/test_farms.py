@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import uuid
 from contextlib import contextmanager
-from unittest import mock
 from types import SimpleNamespace
 from typing import Any
+from unittest import mock
+from uuid import UUID
 
 import pytest
 from django.conf import settings
