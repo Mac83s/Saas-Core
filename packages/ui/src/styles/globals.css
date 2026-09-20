@@ -308,6 +308,22 @@
   .lucide {
     stroke-width: 2.75;
   }
+
+  /* Every loading state in the panel pulses. Somebody who asked their system
+     for less motion — because it makes them ill, not because they dislike it —
+     must get a still page, so the rule reaches everything rather than each
+     skeleton remembering. Near-zero, not none: an animation that never runs
+     also never fires `animationend`, and code that waits for it would hang. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 /* Site Studio layouts share the public renderer and theme. Container queries
