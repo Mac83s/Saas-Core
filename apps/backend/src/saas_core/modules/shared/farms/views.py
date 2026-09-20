@@ -122,6 +122,9 @@ class AnimalListCreateView(APIView):
         parameters=[
             OpenApiParameter("farm_id", UUID, description="Ogranicz do gospodarstwa."),
             OpenApiParameter("q", str, description="Szukaj po numerze, numerze roboczym, imieniu."),
+            OpenApiParameter(
+                "review", bool, description="Tylko sztuki wpisane przez firmę do przejrzenia."
+            ),
         ],
         responses={200: AnimalSerializer(many=True), **ERRORS},
         operation_id="farms_animal_list",
@@ -133,7 +136,11 @@ class AnimalListCreateView(APIView):
             farm_id = UUID(raw) if raw else None
         except ValueError as error:
             raise ParseError("Nieprawidłowy identyfikator gospodarstwa.") from error
-        animals = list_animals(farm_id=farm_id, search=request.query_params.get("q", "").strip())
+        animals = list_animals(
+            farm_id=farm_id,
+            search=request.query_params.get("q", "").strip(),
+            review=request.query_params.get("review") == "true",
+        )
         return Response(AnimalSerializer(animals, many=True).data)
 
     @extend_schema(

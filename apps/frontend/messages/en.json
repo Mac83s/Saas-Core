@@ -1789,7 +1789,12 @@
     "kind_treatment": "Treatment",
     "kind_medication": "Medicine or vaccine",
     "kind_visit": "Specialist visit",
-    "save": "Save"
+    "save": "Save",
+    "reviewFilter": "To review",
+    "reviewFilterCount": "To review ({count})",
+    "reviewBadge": "New from the company",
+    "markReviewed": "Reviewed",
+    "reviewHint": "The trimming company added this animal. Check it and confirm."
   },
   "StaffAccounts": {
     "title": "Calendar staff accounts",

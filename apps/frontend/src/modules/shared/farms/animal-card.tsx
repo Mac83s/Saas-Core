@@ -198,6 +198,26 @@ export function AnimalCard({
             </Badge>
           </p>
         )}
+        {animal.review_requested_at && canManage ? (
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-dashed p-3">
+            <p className="text-sm text-muted-foreground">{t("reviewHint")}</p>
+            <Button
+              onClick={async () => {
+                setProblem(undefined);
+                try {
+                  await updateFarmAnimal(animal.id, { reviewed: true });
+                  onChanged();
+                } catch (error) {
+                  setProblem(farmProblem(error, t("saveFailed")));
+                }
+              }}
+              size="sm"
+              variant="outline"
+            >
+              {t("markReviewed")}
+            </Button>
+          </div>
+        ) : null}
         {problem ? (
           <p className="text-sm text-destructive" role="alert">
             {problem}

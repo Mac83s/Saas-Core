@@ -2524,6 +2524,8 @@ export interface components {
             readonly status: string;
             readonly notes: string;
             /** Format: date-time */
+            readonly review_requested_at: string | null;
+            /** Format: date-time */
             readonly updated_at: string;
         };
         /** @description One entry of an animal's history, as the keeper reads it. */
@@ -3961,6 +3963,7 @@ export interface components {
             birth_date?: string | null;
             status?: components["schemas"]["Status891Enum"];
             notes?: string;
+            reviewed?: boolean;
         };
         /**
          * @description What a client may send; kept apart from the response so the generated
@@ -6566,6 +6569,8 @@ export interface operations {
                 farm_id?: string;
                 /** @description Szukaj po numerze, numerze roboczym, imieniu. */
                 q?: string;
+                /** @description Tylko sztuki wpisane przez firmę do przejrzenia. */
+                review?: boolean;
             };
             header?: never;
             path?: never;

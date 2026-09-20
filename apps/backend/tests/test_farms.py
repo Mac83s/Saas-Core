@@ -552,7 +552,9 @@ def test_the_animals_file_is_a_feed_of_kinds_with_its_own_notes() -> None:
     member = membership("kartoteka")
     with tenant(member) as request:
         farm = create_farm(request=request, data={"name": "Gospodarstwo Kartoteka"})
-        cow = create_animal(request=request, farm_id=farm.id, data={"national_id": "PL005432155001"})
+        cow = create_animal(
+            request=request, farm_id=farm.id, data={"national_id": "PL005432155001"}
+        )
         note = record_health_entry(
             request=request,
             animal_id=cow.id,
@@ -615,7 +617,9 @@ def test_a_company_reads_the_file_through_the_share_except_what_is_private() -> 
         card = create_farm(
             request=request, data={"name": "Gospodarstwo Czyta", "herd_number": "PL066666666-001"}
         )
-        cow = create_animal(request=request, farm_id=card.id, data={"national_id": "PL005432144001"})
+        cow = create_animal(
+            request=request, farm_id=card.id, data={"national_id": "PL005432144001"}
+        )
         code, _ = issue_activation_code(request=request, farm_id=card.id)
     with tenant(farmer) as request:
         taken = redeem_activation_code(request=request, code=code)
@@ -665,3 +669,59 @@ def test_a_company_reads_the_file_through_the_share_except_what_is_private() -> 
     with tenant(company):
         # Cofnięty udział zamyka drzwi także dla odczytu.
         assert [entry.summary for entry in list_health_entries(animal_id=cow.id)] == []
+
+
+def test_what_a_company_writes_waits_for_the_keeper_to_look_at_it() -> None:
+    """Nic nie kasujemy: rozjazd to znacznik, a decyzja należy do hodowcy."""
+    from saas_core.modules.shared.farms.services import (  # noqa: PLC0415
+        create_animal,
+        create_farm,
+        list_animals,
+        update_animal,
+    )
+    from saas_core.modules.shared.farms.sharing import (  # noqa: PLC0415
+        issue_activation_code,
+        redeem_activation_code,
+    )
+
+    company = membership("firma-rozjazd")
+    farmer = membership("rolnik-rozjazd")
+    with tenant(company) as request:
+        card = create_farm(
+            request=request, data={"name": "Gospodarstwo Rozjazd", "herd_number": "PL055555555-001"}
+        )
+        create_animal(request=request, farm_id=card.id, data={"national_id": "PL005432133001"})
+        code, _ = issue_activation_code(request=request, farm_id=card.id)
+    with tenant(farmer) as request:
+        taken = redeem_activation_code(request=request, code=code)
+        registry_farm = taken["farm"]
+        # Stado przejęte kodem też czeka na przejrzenie: to cudzy obraz stada.
+        (first,) = list_animals(farm_id=registry_farm.id, review=True)
+        assert first.national_id == "PL005432133001"
+        update_animal(request=request, animal_id=first.id, data={"reviewed": True})
+        assert list_animals(farm_id=registry_farm.id, review=True) == []
+
+    with tenant(company) as request:
+        second = create_animal(
+            request=request, farm_id=card.id, data={"national_id": "PL005432133002"}
+        )
+    with tenant(farmer):
+        # Nowa sztuka od firmy wraca na listę do przejrzenia.
+        assert [animal.national_id for animal in list_animals(
+            farm_id=registry_farm.id, review=True
+        )] == ["PL005432133002"]
+
+    with tenant(company) as request:
+        # Zapis bez zmiany niczego nie zgłasza: wizyta co miesiąc nie może
+        # zasypać hodowcy tymi samymi czterdziestoma krowami.
+        update_animal(request=request, animal_id=second.id, data={"working_number": ""})
+    with tenant(farmer) as request:
+        (pending,) = list_animals(farm_id=registry_farm.id, review=True)
+        update_animal(request=request, animal_id=pending.id, data={"reviewed": True})
+        assert list_animals(farm_id=registry_farm.id, review=True) == []
+    with tenant(company) as request:
+        update_animal(request=request, animal_id=second.id, data={"status": "sold"})
+    with tenant(farmer):
+        assert [animal.status for animal in list_animals(
+            farm_id=registry_farm.id, review=True
+        )] == ["sold"]

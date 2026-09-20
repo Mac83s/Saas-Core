@@ -88,6 +88,7 @@ export function AnimalsPanel({ access }: { access: PanelAccess }) {
   const [search, setSearch] = useState("");
   const [farmId, setFarmId] = useState("");
   const [status, setStatus] = useState("");
+  const [review, setReview] = useState(false);
   const [version, setVersion] = useState(0);
   const [adding, setAdding] = useState(false);
   const [opened, setOpened] = useState<FarmAnimal>();
@@ -103,6 +104,7 @@ export function AnimalsPanel({ access }: { access: PanelAccess }) {
       const found = await listFarmAnimals({
         farmId: farmId || undefined,
         search: search.trim() || undefined,
+        review: review || undefined,
       });
       if (request !== latest.current) return;
       setAnimals(found);
@@ -110,7 +112,7 @@ export function AnimalsPanel({ access }: { access: PanelAccess }) {
     } catch {
       if (request === latest.current) setFailed(true);
     }
-  }, [farmId, search]);
+  }, [farmId, review, search]);
 
   useEffect(() => {
     if (!canRead) return;
@@ -197,11 +199,29 @@ export function AnimalsPanel({ access }: { access: PanelAccess }) {
   const rows = (animals ?? []).filter(
     (animal) => !status || animal.status === status,
   );
-  const filtered = Boolean(search.trim() || farmId || status);
+  const filtered = Boolean(search.trim() || farmId || status || review);
+  // Wpisane przez firmę, jeszcze nieprzejrzane (ADR-051 pt 7). Nic nie znika:
+  // hodowca decyduje, co z tym zrobić.
+  const toReview = (animals ?? []).filter(
+    (animal) => animal.review_requested_at,
+  ).length;
   const statusLabel = (value: string) => {
     const key = ANIMAL_STATUSES.find((entry) => entry === value);
     return key ? t(`status_${key}`) : value;
   };
+
+  const reviewToggle = (
+    <Button
+      aria-pressed={review}
+      onClick={() => setReview((on) => !on)}
+      type="button"
+      variant={review ? "default" : "outline"}
+    >
+      {toReview > 0 && !review
+        ? t("reviewFilterCount", { count: toReview })
+        : t("reviewFilter")}
+    </Button>
+  );
 
   const addButton = (
     <Button onClick={openAdd} type="button">
@@ -219,7 +239,10 @@ export function AnimalsPanel({ access }: { access: PanelAccess }) {
           </h1>
           <p className="text-muted-foreground">{t("description")}</p>
         </div>
-        {canRead && canManage ? addButton : null}
+        <div className="flex flex-wrap items-center gap-2">
+          {canRead ? reviewToggle : null}
+          {canRead && canManage ? addButton : null}
+        </div>
       </div>
 
       {!canRead ? (
@@ -350,6 +373,11 @@ export function AnimalsPanel({ access }: { access: PanelAccess }) {
                           >
                             {animal.national_id}
                           </Button>
+                          {animal.review_requested_at ? (
+                            <Badge className="ml-2" variant="outline">
+                              {t("reviewBadge")}
+                            </Badge>
+                          ) : null}
                         </td>
                         <td className="py-3 pr-3 align-top wrap-anywhere">
                           {animal.name || (animal.working_number ? "" : "—")}

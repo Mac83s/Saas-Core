@@ -2420,11 +2420,13 @@ export async function listFarmAnimals(
   filters: {
     farmId?: string;
     search?: string;
+    review?: boolean;
   } = {},
 ): Promise<FarmAnimal[]> {
-  const query: { farm_id?: string; q?: string } = {};
+  const query: { farm_id?: string; q?: string; review?: boolean } = {};
   if (filters.farmId) query.farm_id = filters.farmId;
   if (filters.search) query.q = filters.search;
+  if (filters.review) query.review = true;
   const { data, error, response } = await client.GET("/api/v1/farms/animals/", {
     params: { query },
     credentials: "same-origin",

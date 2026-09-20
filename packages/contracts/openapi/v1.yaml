@@ -1748,6 +1748,11 @@ paths:
         schema:
           type: string
         description: Szukaj po numerze, numerze roboczym, imieniu.
+      - in: query
+        name: review
+        schema:
+          type: boolean
+        description: Tylko sztuki wpisane przez firmę do przejrzenia.
       tags:
       - farms
       security:
@@ -7472,6 +7477,12 @@ components:
         notes:
           type: string
           readOnly: true
+        review_requested_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          readOnly: true
         updated_at:
           type: string
           format: date-time
@@ -7484,6 +7495,7 @@ components:
       - name
       - national_id
       - notes
+      - review_requested_at
       - sex
       - species
       - status
@@ -11109,6 +11121,8 @@ components:
           $ref: '#/components/schemas/Status891Enum'
         notes:
           type: string
+        reviewed:
+          type: boolean
     PatchedFarmUpdate:
       type: object
       description: |-

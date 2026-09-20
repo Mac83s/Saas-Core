@@ -181,11 +181,15 @@ def update_farm(*, request: HttpRequest, farm_id: UUID, data: dict[str, Any]) ->
     return farm
 
 
-def list_animals(*, farm_id: UUID | None = None, search: str = "") -> list[Animal]:
+def list_animals(
+    *, farm_id: UUID | None = None, search: str = "", review: bool = False
+) -> list[Animal]:
     context = authorize_entitled(FARMS_READ, FARMS_ENABLED, operation=FeatureOperation.READ)
     query = Animal.all_objects.filter(organization_id=context.organization_id)
     if farm_id is not None:
         query = query.filter(farm_id=farm_id)
+    if review:
+        query = query.filter(review_requested_at__isnull=False)
     if search:
         needle = normalize_identifier(search)
         query = query.filter(
@@ -339,9 +343,13 @@ def update_animal(*, request: HttpRequest, animal_id: UUID, data: dict[str, Any]
     )
     if animal is None:
         raise NotFound("Nie ma takiego zwierzęcia.")
+    reviewed = data.pop("reviewed", None)
     cleaned = _clean_animal(data, species=animal.species)
     for field, value in cleaned.items():
         setattr(animal, field, value)
+    if reviewed:
+        # Przejrzane przez hodowcę: znacznik znika, wiersz zostaje.
+        animal.review_requested_at = None
     _unique(animal.save)
     audit_farm(request, context.organization_id, OrganizationAuditAction.ANIMAL_UPDATED, animal)
     _mirror(request, animal)

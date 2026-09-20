@@ -311,8 +311,11 @@ def _copy_animals(organization_id: UUID, animals: list[dict[str, Any]], farm: Fa
             "species", "national_id"
         )
     )
+    # Marked for a look: the farmer just received somebody else's picture of
+    # their herd and gets to check it before trusting it (ADR-051 pt 5).
+    now = timezone.now()
     missing = [
-        Animal(organization_id=organization_id, farm=farm, **animal)
+        Animal(organization_id=organization_id, farm=farm, review_requested_at=now, **animal)
         for animal in animals
         if (animal.get("species"), animal.get("national_id")) not in known
     ]

@@ -95,6 +95,7 @@ function animal(
     birth_date: null,
     status: "active",
     notes: "",
+    review_requested_at: null,
     updated_at: "2026-09-18T09:00:00Z",
     ...over,
   };
@@ -461,4 +462,42 @@ test("bez organizacji prosi o jej wybór", () => {
 
   expect(screen.getByText("Wybierz organizację")).toBeInTheDocument();
   expect(api.listFarmAnimals).not.toHaveBeenCalled();
+});
+
+test("sztuki wpisane przez firmę czekają na przejrzenie", async () => {
+  api.listFarmAnimals.mockResolvedValue([
+    {
+      ...HERD[0],
+      review_requested_at: "2026-09-20T08:00:00Z",
+    },
+  ]);
+  renderPanel();
+
+  // Licznik mówi, ile sztuk czeka; znacznik stoi przy samym zwierzęciu.
+  expect(
+    await screen.findByRole("button", { name: "Do przejrzenia (1)" }),
+  ).toBeVisible();
+  expect(screen.getByText("Nowe od firmy")).toBeVisible();
+
+  // Filtr pyta serwer, a nie chowa wierszy w panelu.
+  fireEvent.click(screen.getByRole("button", { name: "Do przejrzenia (1)" }));
+  await waitFor(() =>
+    expect(api.listFarmAnimals).toHaveBeenLastCalledWith(
+      expect.objectContaining({ review: true }),
+    ),
+  );
+
+  // Hodowca potwierdza w karcie zwierzęcia; nic nie znika z rejestru.
+  fireEvent.click(
+    await screen.findByRole("button", { name: HERD[0].national_id }),
+  );
+  const dialog = await screen.findByRole("dialog", {
+    name: HERD[0].national_id,
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Przejrzane" }));
+  await waitFor(() =>
+    expect(api.updateFarmAnimal).toHaveBeenCalledWith(HERD[0].id, {
+      reviewed: true,
+    }),
+  );
 });

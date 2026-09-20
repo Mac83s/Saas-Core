@@ -59,6 +59,8 @@ class AnimalSerializer(serializers.Serializer[Any]):
     birth_date = serializers.DateField(read_only=True, allow_null=True)
     status = serializers.CharField(read_only=True)
     notes = serializers.CharField(read_only=True)
+    #: Wpisane przez firmę, jeszcze nieprzejrzane przez hodowcę.
+    review_requested_at = serializers.DateTimeField(read_only=True, allow_null=True)
     updated_at = serializers.DateTimeField(read_only=True)
 
 
@@ -82,6 +84,8 @@ class AnimalUpdateSerializer(serializers.Serializer[Any]):
     birth_date = serializers.DateField(required=False, allow_null=True)
     status = serializers.ChoiceField(choices=AnimalStatus.choices, required=False)
     notes = serializers.CharField(required=False, allow_blank=True)
+    #: `true` zdejmuje znacznik „do przejrzenia"; niczego nie kasuje.
+    reviewed = serializers.BooleanField(required=False)
 
 
 #: `label` would shadow `Field.label` on a declared serializer class.

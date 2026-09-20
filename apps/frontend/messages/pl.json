@@ -1789,7 +1789,12 @@
     "kind_treatment": "Zabieg",
     "kind_medication": "Lek lub szczepienie",
     "kind_visit": "Wizyta specjalisty",
-    "save": "Zapisz"
+    "save": "Zapisz",
+    "reviewFilter": "Do przejrzenia",
+    "reviewFilterCount": "Do przejrzenia ({count})",
+    "reviewBadge": "Nowe od firmy",
+    "markReviewed": "Przejrzane",
+    "reviewHint": "Tę sztukę wpisała firma korekcyjna. Sprawdź dane i potwierdź."
   },
   "StaffAccounts": {
     "title": "Konta pracowników kalendarza",

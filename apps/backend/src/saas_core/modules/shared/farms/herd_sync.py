@@ -29,6 +29,7 @@ from uuid import UUID
 
 from django.db import DatabaseError, transaction
 from django.http import HttpRequest
+from django.utils import timezone
 
 from saas_core.modules.core.organizations.context import (
     TenantContext,
@@ -101,6 +102,11 @@ def mirror_animal(request: HttpRequest, animal: Animal) -> Animal | None:
             # The farmer deleted the farm the share points at; the share is
             # stale and the company's own record already stands.
             return None
+        existing = _registry_animal(context, share, animal)
+        if _diverges(existing, values):
+            # The keeper decides what to do with it; nothing here is deleted or
+            # asked about, it is only marked as worth a look (ADR-051 pt 7).
+            values["review_requested_at"] = timezone.now()
         mirrored, created = Animal.all_objects.update_or_create(
             organization_id=context.organization_id,
             farm=farm,
@@ -117,6 +123,17 @@ def mirror_animal(request: HttpRequest, animal: Animal) -> Animal | None:
             mirrored,
         )
         return mirrored
+
+
+def _diverges(existing: Animal | None, values: dict[str, Any]) -> bool:
+    """Whether this write tells the keeper something they do not have.
+
+    A new animal does; an unchanged one does not — a visit writing the same
+    forty cows every month would otherwise be forty things to review.
+    """
+    if existing is None:
+        return True
+    return any(getattr(existing, field) != value for field, value in values.items())
 
 
 def publish_health_entry(
