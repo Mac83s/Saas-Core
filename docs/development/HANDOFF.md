@@ -1,5 +1,36 @@
 # Handoff następnej sesji
 
+## Site Studio — weryfikacja niestabilnych testów, 2026-09-20
+
+Sprawdzono logi zgłoszonych awarii, nie zmieniano kodu aplikacji ani timeoutów.
+`team-full-test.log` ma dwa timeouty page-editor: 16,36 i 19,94 s; `hc-tests.log`
+ma kolejny przy 18,03 s. Limit Vitest wynosi 15 s. Podczas audytu host miał
+load 20–25 przy 10 dostępnych CPU i presję CPU; konfiguracja frontendu nie
+ogranicza workerów (lokalny Vitest domyślnie wybiera available CPUs minus 1).
+Równoległe pełne zestawy z kilku repozytoriów konkurują o te same zasoby.
+
+Kontrola na bieżącym rdzeniu `f146e5d`: **30/30**, najwolniejszy test 3,98 s,
+bez zmiany limitu, oba pliki kolejno i jeden worker. Polecenie z apps/frontend:
+
+```sh
+node ../../scripts/run-vitest.mjs src/modules/shared/sites/page-editor.test.tsx src/modules/shared/sites/navigation-editor.test.tsx --maxWorkers=1 --no-file-parallelism
+```
+
+Nie każdy błąd jest timeoutem całego testu: `mp-tests.log` ma niespełnione
+`toHaveFocus`, a `hc2-tests.log` brak przycisku zmiany kolejności. Testing
+Library ma osobny domyślny limit oczekiwania 1000 ms. Test nawigacji czeka
+na tekst „Start”, który istnieje także jako przycisk dodawania przed odpowiedzią
+API, więc ten warunek nie dowodzi załadowania menu. Ewentualna stabilizacja
+powinna czekać na konkretną gotową kontrolkę; nie zmieniać logiki produktu
+ani uznawać dowolnego czerwonego przebiegu za fałszywy alarm. Jedna zielona
+powtórka nie wyklucza problemu synchronizacji.
+
+Dowody lokalne: `.runtime/site-studio/test-timeout-audit/` (raport JSON i źródła
+historycznych logów). Zalecenie operacyjne: pełne zestawy rdzenia/produktów
+kolejno; po awarii zachować błąd i load, a potem uruchomić wskazany plik
+z jednym workerem. Nie dodano retry ani globalnego zwiększenia timeoutów.
+
+
 ## Etap 3: kod aktywacji i udział gospodarstwa, 2026-09-20
 
 Firma generuje jednorazowy kod do swojej karty gospodarstwa, rolnik przejmuje
