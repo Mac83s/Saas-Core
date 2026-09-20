@@ -27,6 +27,7 @@ from saas_core.modules.core.organizations.context import (
 from saas_core.modules.core.organizations.models import (
     Membership,
     Organization,
+    OrganizationAuditAction,
     OrganizationAuditEntry,
     OrganizationStatus,
     Role,
@@ -812,3 +813,60 @@ def test_a_company_sends_the_whole_herd_and_the_keeper_hears_about_it() -> None:
     assert message.payload["farm_name"] == registry_farm.name
     # Przebieg bez nowych sztuk nie mówi nic.
     assert notify_pending_reviews() == 0
+
+
+def test_support_links_a_card_without_a_code_and_the_keeper_can_revoke_it() -> None:
+    """ADR-051 pkt 5: kod nie dotarł, obsługa łączy ręcznie — z audytem po obu
+    stronach i bez kopiowania stada."""
+    from saas_core.modules.shared.farms.models import ShareBasis, ShareStatus  # noqa: PLC0415
+    from saas_core.modules.shared.farms.services import (  # noqa: PLC0415
+        create_animal,
+        create_farm,
+        list_animals,
+    )
+    from saas_core.modules.shared.farms.sharing import (  # noqa: PLC0415
+        Conflict,
+        link_without_code,
+        list_shares,
+        revoke_share,
+    )
+
+    company = membership("firma-wsparcie")
+    farmer = membership("rolnik-wsparcie")
+    operator = User.objects.create_user(email="obsluga@example.test")
+    with tenant(company) as request:
+        card = create_farm(request=request, data={"name": "Gospodarstwo Wsparcie"})
+        create_animal(request=request, farm_id=card.id, data={"national_id": "PL005432111001"})
+    with tenant(farmer) as request:
+        own = create_farm(request=request, data={"name": "Moje Gospodarstwo"})
+
+    link = dict(
+        operator_id=operator.id,
+        company_organization_id=company.organization_id,
+        company_farm_id=card.id,
+        registry_organization_id=farmer.organization_id,
+        registry_farm_id=own.id,
+    )
+    share = link_without_code(**link)
+    assert (share.basis, share.status) == (ShareBasis.SUPPORT, ShareStatus.ACTIVE)
+    assert (share.company_name, share.registry_name) == ("firma-wsparcie", "rolnik-wsparcie")
+    # Druga próba mówi wprost, zamiast łączyć po raz drugi.
+    with pytest.raises(Conflict, match="już połączone"):
+        link_without_code(**link)
+
+    # Ślad zostaje po obu stronach, z operatorem jako sprawcą.
+    granted = OrganizationAuditEntry.objects.filter(
+        action=OrganizationAuditAction.FARM_SHARE_GRANTED, actor_user=operator
+    )
+    assert {entry.organization_id for entry in granted} == {
+        company.organization_id,
+        farmer.organization_id,
+    }
+
+    with tenant(farmer) as request:
+        # Stado nie pojechało: to zadanie akcji „wyślij stado".
+        assert list_animals(farm_id=own.id) == []
+        (mine,) = list_shares(farm_id=own.id)
+        assert mine.partner_name == "firma-wsparcie"
+        # Połączenie bez kodu cofa się tak samo jak każde inne.
+        assert revoke_share(request=request, share_id=share.id).status == ShareStatus.REVOKED
