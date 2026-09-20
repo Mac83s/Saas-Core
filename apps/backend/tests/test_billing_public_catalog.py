@@ -10,12 +10,22 @@ pytestmark = pytest.mark.django_db
 
 
 def test_a_visitor_sees_the_profiles_public_plans_without_a_session() -> None:
+    from saas_core.modules.shared.billing.plan_offer import (  # noqa: PLC0415
+        plan_keys_for_type,
+    )
+
     response = APIClient().get("/api/v1/billing/plans/")
 
     assert response.status_code == 200
-    assert [plan["key"] for plan in response.data] == list(settings.BILLING_PLAN_KEYS)
+    # Gość widzi plany typu domyślnego, a nie wszystkie plany profilu: produkt
+    # z kilkoma typami organizacji sprzedaje każdemu z nich co innego.
+    assert [plan["key"] for plan in response.data] == list(
+        plan_keys_for_type(settings.DEFAULT_ORGANIZATION_TYPE)
+    )
     for plan in response.data:
-        assert plan["unit_amount_minor"] > 0
+        # Zero jest poprawną ceną: plan darmowy nadaje się przy zakładaniu
+        # organizacji i nie ma czego w nim kupować.
+        assert plan["unit_amount_minor"] >= 0
         assert plan["currency"]
 
 
