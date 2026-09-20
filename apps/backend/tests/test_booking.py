@@ -546,6 +546,28 @@ def test_a_moved_booking_mails_the_customer_both_times_with_both_dates(
         assert str(local.year) in sent[0].context["previous_starts_at"]
 
 
+def test_the_confirmation_mail_reads_as_a_wall_clock_not_a_stored_instant(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The oldest booking mail had the same defect the new ones were written to avoid.
+
+    Confirmation goes to the person the visit is for — in HoofCare that is the
+    farm's keeper — and it used to hand them the raw ISO instant the database
+    keeps. Containers run in UTC, so that is the wrong hour as well as an
+    unreadable one.
+    """
+    _no_delivery(monkeypatch)
+    member = membership("booking-mail-confirm")
+    configured = catalog(member)
+    appointment = create(member, configured).appointment
+    sent = mails(appointment.id, "booking.confirmation")
+    assert len(sent) == 1
+    local = appointment.starts_at.astimezone(ZoneInfo(appointment.timezone))
+    assert appointment.starts_at.isoformat() not in sent[0].context["starts_at"]
+    assert f"{local.hour:02d}:{local.minute:02d}" in sent[0].context["starts_at"]
+    assert str(local.year) in sent[0].context["starts_at"]
+
+
 def test_a_canceled_booking_mails_once_even_when_canceled_again(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

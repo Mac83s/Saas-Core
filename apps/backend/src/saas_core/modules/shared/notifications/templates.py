@@ -61,10 +61,12 @@ TEMPLATES: dict[tuple[str, int], EmailTemplate] = {
             "pl": (
                 "<p>Rezerwacja w {organization_name} została odwołana.</p>"
                 "<p>Odwołany termin: {starts_at}</p>"
+                "<p>Aby umówić się ponownie, skontaktuj się z {organization_name}.</p>"
             ),
             "en": (
                 "<p>Your booking at {organization_name} has been canceled.</p>"
                 "<p>Canceled time: {starts_at}</p>"
+                "<p>To book again, get in touch with {organization_name}.</p>"
             ),
         },
         allowed_context=frozenset({"organization_name", "starts_at"}),

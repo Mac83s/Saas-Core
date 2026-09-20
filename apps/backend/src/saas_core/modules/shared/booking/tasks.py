@@ -9,6 +9,7 @@ from saas_core.modules.shared.notifications.security import decrypt_secret
 from saas_core.modules.shared.notifications.services import queue_email
 
 from .models import Appointment, AppointmentStatus, ReminderRoute
+from .services import local_time
 
 
 @shared_task  # type: ignore[untyped-decorator]
@@ -42,7 +43,11 @@ def dispatch_booking_reminders() -> int:
                         locale=appointment.customer.locale,
                         template_context={
                             "organization_name": appointment.organization.name,
-                            "starts_at": appointment.starts_at.isoformat(),
+                            "starts_at": local_time(
+                                appointment.starts_at,
+                                appointment.timezone,
+                                appointment.customer.locale,
+                            ),
                         },
                         idempotency_key=f"booking-reminder:{appointment.id}",
                         causation_id=f"booking:{appointment.id}",

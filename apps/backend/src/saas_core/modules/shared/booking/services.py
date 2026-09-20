@@ -433,7 +433,7 @@ def create_appointment(
             locale=customer.locale,
             template_context={
                 "organization_name": organization.name,
-                "starts_at": starts_at.isoformat(),
+                "starts_at": local_time(starts_at, appointment.timezone, customer.locale),
             },
             idempotency_key=f"booking-confirm:{appointment.id}",
             causation_id=f"booking:{appointment.id}",
@@ -554,8 +554,8 @@ def reschedule_appointment(
             locale=customer.locale,
             template_context={
                 "organization_name": organization.name,
-                "previous_starts_at": _local_time(previous, appointment.timezone, customer.locale),
-                "starts_at": _local_time(starts_at, appointment.timezone, customer.locale),
+                "previous_starts_at": local_time(previous, appointment.timezone, customer.locale),
+                "starts_at": local_time(starts_at, appointment.timezone, customer.locale),
             },
             # The mutation row is this move's identity. A retry of the same
             # request returned above, so a row here always means a move that
@@ -637,7 +637,7 @@ def cancel_appointment(
                     "organization_name": Organization.objects.get(
                         pk=context.organization_id
                     ).name,
-                    "starts_at": _local_time(
+                    "starts_at": local_time(
                         appointment.starts_at, appointment.timezone, customer.locale
                     ),
                 },
@@ -786,7 +786,7 @@ def anonymize_customer(customer_id: UUID) -> Customer:
     return customer
 
 
-def _local_time(value: datetime, zone: str, locale: str) -> str:
+def local_time(value: datetime, zone: str, locale: str) -> str:
     """The wall clock a customer reads, not the instant a database stores.
 
     An email template is `str.format_map` over strings — it cannot format a
