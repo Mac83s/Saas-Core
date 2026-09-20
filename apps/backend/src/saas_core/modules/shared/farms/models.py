@@ -122,10 +122,18 @@ class ShareStatus(models.TextChoices):
 
 
 class FarmActivationCode(models.Model):
-    """A one-time code for one farm card; only its digest is stored."""
+    """A one-time code for one farm card; only its digest is stored.
+
+    The code carries the handover itself — the card's public fields, its animals
+    and the company's name — because the farmer redeems it inside their own
+    tenant, where row-level security hides the company's rows. Copying at issue
+    time also makes the handover what the company agreed to give, frozen.
+    """
 
     token_digest = models.CharField(max_length=64, primary_key=True)
     company_organization_id = models.UUIDField()
+    company_name = models.CharField(max_length=160, blank=True)
+    handover = models.JSONField(default=dict)
     farm_id = models.UUIDField()
     created_by_id = models.UUIDField(null=True, blank=True)
     expires_at = models.DateTimeField()
@@ -145,8 +153,8 @@ class FarmActivationCode(models.Model):
 class FarmShare(models.Model):
     """What one company may do with one farm of the register, and since when."""
 
-    #: Who the other side is, as the caller sees it. Filled by `list_shares`
-    #: for the API; never stored.
+    #: Who the other side is, as the caller sees it. Derived by `list_shares`
+    #: from the names below; never stored.
     partner_name: str = ""
     partner_is_company: bool = False
 
@@ -155,6 +163,10 @@ class FarmShare(models.Model):
     registry_farm_id = models.UUIDField()
     company_organization_id = models.UUIDField()
     company_farm_id = models.UUIDField()
+    #: Both names are copied here: neither side may read the other's
+    #: organization row, and a handover is a record of who it was with.
+    company_name = models.CharField(max_length=160, blank=True)
+    registry_name = models.CharField(max_length=160, blank=True)
     #: The company writes herd changes straight into the register (ADR-051 pt 7).
     can_write_herd = models.BooleanField(default=True)
     #: Its health entries are copied to the animal's history (ADR-051 pt 8).

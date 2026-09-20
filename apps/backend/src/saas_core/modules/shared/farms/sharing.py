@@ -5,6 +5,13 @@ has an account, and the farmer later takes the herd over with an activation code
 the company hands them. From then on the register is the source of truth and the
 company keeps its card, with the scope the farmer sees and can revoke.
 
+Neither side may read the other's rows: row-level security is per tenant, and
+the door from ADR-041 opens no table of this module. So the handover travels in
+the code itself — `issue_activation_code` copies the card and its animals while
+the company's own context is active, and `redeem_activation_code` reads only
+that copy. A green test would not have caught this: the test database connects
+as the table owner and sees every tenant.
+
 `FarmActivationCode` and `FarmShare` (models.py) are cross-tenant by nature,
 like booking's self-service route: they name organizations by id and carry no
 foreign key to `Organization`, so no row-level policy can express "mine". Every
@@ -16,7 +23,7 @@ from __future__ import annotations
 
 import hashlib
 import secrets
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -102,6 +109,8 @@ def issue_activation_code(*, request: HttpRequest, farm_id: UUID) -> tuple[str, 
     FarmActivationCode.objects.create(
         token_digest=digest,
         company_organization_id=context.organization_id,
+        company_name=_organization_name(context.organization_id),
+        handover=_handover(farm),
         farm_id=farm.id,
         created_by_id=context.actor_id,
         expires_at=expires_at,
@@ -125,18 +134,16 @@ def redeem_activation_code(*, request: HttpRequest, code: str) -> dict[str, Any]
         raise ValidationError({"code": "Kod jest nieprawidłowy albo stracił ważność."})
     if entry.company_organization_id == context.organization_id:
         raise ValidationError({"code": "To kod tej samej organizacji."})
-    card = Farm.all_objects.filter(
-        organization_id=entry.company_organization_id, id=entry.farm_id
-    ).first()
-    if card is None:
-        raise ValidationError({"code": "Gospodarstwo z tego kodu już nie istnieje."})
+    card = entry.handover.get("farm") or {}
     farm, created = _farm_of_registry(context.organization_id, card, request)
-    copied = _copy_animals(context.organization_id, card, farm)
+    copied = _copy_animals(context.organization_id, entry.handover.get("animals", []), farm)
     share = FarmShare.objects.create(
         registry_organization_id=context.organization_id,
         registry_farm_id=farm.id,
         company_organization_id=entry.company_organization_id,
-        company_farm_id=card.id,
+        company_farm_id=entry.farm_id,
+        company_name=entry.company_name,
+        registry_name=_organization_name(context.organization_id),
         basis=ShareBasis.ACTIVATION_CODE,
     )
     entry.used_at = timezone.now()
@@ -160,23 +167,8 @@ def list_shares(*, farm_id: UUID) -> list[FarmShare]:
             | Q(company_organization_id=context.organization_id, company_farm_id=farm_id)
         )
     )
-    partner_ids = {
-        share.company_organization_id
-        if share.registry_organization_id == context.organization_id
-        else share.registry_organization_id
-        for share in shares
-    }
-    names = dict(
-        Organization.objects.filter(id__in=partner_ids).values_list("id", "name")
-    )
     for share in shares:
-        share.partner_is_company = share.registry_organization_id == context.organization_id
-        partner = (
-            share.company_organization_id
-            if share.partner_is_company
-            else share.registry_organization_id
-        )
-        share.partner_name = names.get(partner, "")
+        _name_partner(share, context.organization_id)
     return shares
 
 
@@ -201,14 +193,7 @@ def revoke_share(*, request: HttpRequest, share_id: UUID) -> FarmShare:
         audit_farm(
             request, context.organization_id, OrganizationAuditAction.FARM_SHARE_REVOKED, farm
         )
-    # The caller is the registry side here, so the partner is the company.
-    share.partner_is_company = True
-    share.partner_name = (
-        Organization.objects.filter(id=share.company_organization_id)
-        .values_list("name", flat=True)
-        .first()
-        or ""
-    )
+    _name_partner(share, context.organization_id)
     return share
 
 
@@ -226,39 +211,86 @@ def _share_of_card(company_organization_id: UUID, company_farm_id: UUID) -> Farm
     ).first()
 
 
-def _farm_of_registry(organization_id: UUID, card: Farm, request: HttpRequest) -> tuple[Farm, bool]:
-    """The farmer's own farm: the one with this herd number, or a copy of the card.
+#: What a card hands over. The company's private note is not here: it stays
+#: with the company (ADR-051 pt 2).
+HANDOVER_FARM_FIELDS = (
+    "name",
+    "herd_number",
+    "tax_id",
+    "village",
+    "address",
+    "keeper_name",
+    "email",
+    "phone",
+    "housing",
+)
+HANDOVER_ANIMAL_FIELDS = (
+    "species",
+    "national_id",
+    "working_number",
+    "name",
+    "sex",
+    "birth_date",
+    "status",
+)
 
-    Private notes of the company stay with the company (ADR-051 pt 2).
-    """
-    if card.herd_number:
+
+def _handover(farm: Farm) -> dict[str, Any]:
+    """The card as the farmer will receive it, read while the company's own
+    tenant context is active."""
+    return {
+        "farm": {field: getattr(farm, field) for field in HANDOVER_FARM_FIELDS},
+        "animals": [
+            {
+                field: value.isoformat() if isinstance(value, date) else value
+                for field, value in animal.items()
+            }
+            for animal in Animal.all_objects.filter(
+                organization_id=farm.organization_id, farm=farm
+            ).values(*HANDOVER_ANIMAL_FIELDS)
+        ],
+    }
+
+
+def _organization_name(organization_id: UUID) -> str:
+    """The caller's own organization — the only one its tenant may read."""
+    return (
+        Organization.objects.filter(id=organization_id).values_list("name", flat=True).first() or ""
+    )
+
+
+def _name_partner(share: FarmShare, organization_id: UUID) -> None:
+    share.partner_is_company = share.registry_organization_id == organization_id
+    share.partner_name = share.company_name if share.partner_is_company else share.registry_name
+
+
+def _farm_of_registry(
+    organization_id: UUID, card: dict[str, Any], request: HttpRequest
+) -> tuple[Farm, bool]:
+    """The farmer's own farm: the one with this herd number, or a copy of the card."""
+    herd_number = card.get("herd_number", "")
+    if herd_number:
         existing = Farm.all_objects.filter(
-            organization_id=organization_id, herd_number=card.herd_number
+            organization_id=organization_id, herd_number=herd_number
         ).first()
         if existing is not None:
             return existing, False
-    name = card.name
+    given = card.get("name") or "Gospodarstwo"
+    name = given
     for suffix in range(2, 50):
         if not Farm.all_objects.filter(organization_id=organization_id, name=name).exists():
             break
-        name = f"{card.name} ({suffix})"
+        name = f"{given} ({suffix})"
     farm = Farm.all_objects.create(
         organization_id=organization_id,
+        **{field: card.get(field, "") for field in HANDOVER_FARM_FIELDS if field != "name"},
         name=name,
-        herd_number=card.herd_number,
-        tax_id=card.tax_id,
-        village=card.village,
-        address=card.address,
-        keeper_name=card.keeper_name,
-        email=card.email,
-        phone=card.phone,
-        housing=card.housing,
     )
     audit_farm(request, organization_id, OrganizationAuditAction.FARM_CREATED, farm)
     return farm, True
 
 
-def _copy_animals(organization_id: UUID, card: Farm, farm: Farm) -> int:
+def _copy_animals(organization_id: UUID, animals: list[dict[str, Any]], farm: Farm) -> int:
     """Animals of the card the register does not have yet, matched by tag."""
     known = set(
         Animal.all_objects.filter(organization_id=organization_id, farm=farm).values_list(
@@ -266,19 +298,9 @@ def _copy_animals(organization_id: UUID, card: Farm, farm: Farm) -> int:
         )
     )
     missing = [
-        Animal(
-            organization_id=organization_id,
-            farm=farm,
-            species=animal.species,
-            national_id=animal.national_id,
-            working_number=animal.working_number,
-            name=animal.name,
-            sex=animal.sex,
-            birth_date=animal.birth_date,
-            status=animal.status,
-        )
-        for animal in Animal.all_objects.filter(organization_id=card.organization_id, farm=card)
-        if (animal.species, animal.national_id) not in known
+        Animal(organization_id=organization_id, farm=farm, **animal)
+        for animal in animals
+        if (animal.get("species"), animal.get("national_id")) not in known
     ]
     Animal.all_objects.bulk_create(missing)
     return len(missing)

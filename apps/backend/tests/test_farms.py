@@ -357,3 +357,42 @@ def test_a_share_belongs_to_the_two_it_names() -> None:
     # The company holds the card, not the register: it cannot revoke for the farmer.
     with tenant(company) as request, pytest.raises(NotFound):
         revoke_share(request=request, share_id=taken["share"].id)
+
+
+def test_the_code_carries_the_handover_so_the_farmer_reads_nothing_of_the_company() -> None:
+    """The farmer redeems inside their own tenant, where row-level security
+    hides the company's rows — so the card travels in the code itself."""
+    from saas_core.modules.shared.farms.models import Animal, Farm  # noqa: PLC0415
+    from saas_core.modules.shared.farms.services import (  # noqa: PLC0415
+        create_animal,
+        create_farm,
+        list_animals,
+    )
+    from saas_core.modules.shared.farms.sharing import (  # noqa: PLC0415
+        issue_activation_code,
+        redeem_activation_code,
+    )
+
+    company = membership("firma-znika")
+    farmer = membership("rolnik-po-firmie")
+    with tenant(company) as request:
+        card = create_farm(
+            request=request,
+            data={"name": "Gospodarstwo Znikające", "herd_number": "PL099999999-001"},
+        )
+        create_animal(request=request, farm_id=card.id, data={"national_id": "PL005432190001"})
+        code, _ = issue_activation_code(request=request, farm_id=card.id)
+        # Whatever happens to the card afterwards, the code still hands over
+        # what the company agreed to give.
+        Animal.all_objects.filter(farm=card).delete()
+        Farm.all_objects.filter(pk=card.id).delete()
+
+    with tenant(farmer) as request:
+        taken = redeem_activation_code(request=request, code=code)
+        assert (taken["created"], taken["animals_added"]) == (True, 1)
+        assert taken["farm"].herd_number == "PL099999999001"  # canonical form
+        assert taken["share"].company_name == "firma-znika"
+        assert taken["share"].registry_name == "rolnik-po-firmie"
+        assert [animal.national_id for animal in list_animals(farm_id=taken["farm"].id)] == [
+            "PL005432190001"
+        ]
