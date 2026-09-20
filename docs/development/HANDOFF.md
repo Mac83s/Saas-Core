@@ -1,5 +1,55 @@
 # Handoff następnej sesji
 
+## Wizyta bez rezerwacji i fundament rejestru wizyt, 2026-09-21
+
+Rdzeń `e0d847c`, HoofCare `49ed983`. Wdrożone na hoofcare.goldenstar.cloud
+(migracja `hoofcare.0015_walk_in_key` zaaplikowana, `/healthz` 200).
+
+**Wymóg właściciela:** rolnik ma wiedzieć o terminach przyszłych i przeszłych
+wizyt oraz mieć wgląd w raporty. Decyzja i odrzucone alternatywy: `ADR-052`.
+Kluczowe ustalenie: typ organizacji `farm` **nie dostaje** `vertical.hoofcare`,
+więc rolnik nigdy nie zobaczy `HerdVisit` — wszystko musi iść przez rejestr.
+
+Zrobione w tej turze (fundament, nie sam rejestr):
+
+- **Obserwatorzy rezerwacji** (`shared/booking/observers.py`, wzór
+  `erasure_checks.py`). Rdzeń nie zna konsumenta; rejestr pusty, dopóki moduł
+  się nie zapisze. Wołane z create/reschedule/cancel/complete przez
+  `transaction.on_commit` — obserwator pisze do *innego* tenanta, więc jego
+  `SET LOCAL` nie może zostać w środku cudzej transakcji, a błąd pochłonięty
+  wewnątrz `atomic` zepsułby blok i zabrał ze sobą rezerwację.
+- **Maile o przełożeniu i odwołaniu.** Wcześniej nie istniały — rolnik nie
+  dowiadywał się o zmianie terminu żadnym kanałem. Przy okazji: `confirmation`
+  i `reminder` wysyłały surowy ISO w UTC, czyli złą godzinę. Helper
+  `local_time` obsługuje teraz wszystkie cztery.
+- **Wizyta z marszu** (`create_appointment(walk_in_minutes=...)`): pomija
+  grafik, bierze czas trwania od wołającego, zajmuje okno blokadami pracownika
+  i zasobu. Bez buforów, bez przypomnienia, bez maila „potwierdzamy".
+  Przy jednym wymaganym zasobie bierze go sam — inaczej usługa z poskromem
+  odrzucałaby każdy start z terenu.
+- **HoofCare:** `start_walk_in`, `farms_in_progress`, `join_visit` plus ekran
+  terenowy. Dwa ostatnie istnieją dlatego, że korektor widzi wyłącznie swoje
+  wizyty i te ze swoich załóg — drugi przyjeżdżający nie zobaczyłby wizyty
+  pierwszego i założyłby drugą na to samo stado.
+
+Dowody: backend rdzenia lint/typecheck/imports/migrations czyste, testy
+rezerwacji i powiadomień 40/40; HoofCare `core:check` czysty, 42 testy backendu,
+349 testów frontu, `api:check` bez dryfu.
+
+### Następny krok
+
+`FarmVisitEntry` według ADR-052: model w `shared.farms`, publikacja przez
+`registry_door` przy planowaniu i przy wysyłce raportu, zgoda
+`can_publish_schedule`, ukrywanie `planned` po cofnięciu udziału, test liczący
+użycia drzwi (wzór `test_pre_tenant_door.py`). Potem ekrany rolnika.
+
+### Otwarte po tej turze
+
+- Usługa z **kilkoma** wymaganymi zasobami nadal nie wystartuje z terenu;
+  komunikat „skróć okno" byłby wtedy złą radą.
+- `docs/adr/README.md` kończy się na ADR-042 — brakuje wpisów 043-052.
+- Ekran startu nie zbiera notatki do wizyty (jest na ekranie wizyty).
+
 ## Aparat w terenie: kompresja bez kadrowania, 2026-09-20
 
 `modules/shared/media/capture.ts` to wspólne wejście dla zdjęć z telefonu:
