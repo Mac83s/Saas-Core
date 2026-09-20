@@ -3,12 +3,13 @@
   "blocks": [
     {
       "type": "core.hero",
-      "latestVersion": 4,
+      "latestVersion": 5,
       "schemas": {
         "1": "core.hero.v1.schema.json",
         "2": "core.hero.v2.schema.json",
         "3": "core.hero.v3.schema.json",
-        "4": "core.hero.v4.schema.json"
+        "4": "core.hero.v4.schema.json",
+        "5": "core.hero.v5.schema.json"
       }
     },
     {
@@ -20,18 +21,20 @@
     },
     {
       "type": "core.feature_list",
-      "latestVersion": 2,
+      "latestVersion": 3,
       "schemas": {
         "1": "core.feature_list.v1.schema.json",
-        "2": "core.feature_list.v2.schema.json"
+        "2": "core.feature_list.v2.schema.json",
+        "3": "core.feature_list.v3.schema.json"
       }
     },
     {
       "type": "core.faq",
-      "latestVersion": 2,
+      "latestVersion": 3,
       "schemas": {
         "1": "core.faq.v1.schema.json",
-        "2": "core.faq.v2.schema.json"
+        "2": "core.faq.v2.schema.json",
+        "3": "core.faq.v3.schema.json"
       }
     },
     {

@@ -47,7 +47,6 @@ import {
 } from "@saas-core/api-client";
 import {
   availablePageTemplates,
-  pageTemplateBlocks,
   renderDraftPreview,
   type PageTemplate,
   type SiteAppearance,
@@ -110,6 +109,7 @@ import { mutationKey, type MutationReceipt } from "./idempotency";
 import { renderPrivateMedia } from "./private-media-preview";
 import { SectionCanvas } from "./section-canvas";
 import { useDraftHistory } from "./draft-history";
+import { pageTemplatePreview } from "./template-media-preview";
 import { SectionLibrary, SectionLibraryContent } from "./section-library";
 import { PageUrlDialog } from "./page-url";
 import { sitesErrorMessage } from "./problem";
@@ -159,14 +159,16 @@ function TemplateOption({
   useLabel: string;
 }) {
   const label = template.labels[locale];
+  const preview = pageTemplatePreview(template, locale);
   const rendered = renderDraftPreview(
     {
       kind: "draft-preview",
       versionId: `template:${template.id}:v${template.version}`,
-      blocks: pageTemplateBlocks(template, registry),
+      blocks: preview.blocks,
       designTokens,
     },
     registry,
+    preview.imageRenderer,
   );
 
   return (
@@ -178,7 +180,7 @@ function TemplateOption({
       >
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 overflow-hidden p-4 text-[7px] opacity-55 [&_a]:underline [&_address]:not-italic [&_h1]:text-base [&_h1]:font-semibold [&_h2]:mt-3 [&_h2]:text-xs [&_h2]:font-semibold [&_h3]:font-medium [&_li]:mt-1 [&_main]:space-y-3 [&_p]:mt-1 [&_section]:rounded-md [&_section]:border [&_section]:bg-background [&_section]:p-3"
+          className="pointer-events-none absolute inset-0 w-[960px] origin-top-left scale-[0.32]"
           inert
         >
           {rendered}
@@ -338,7 +340,8 @@ export function PageEditor({
         expected_version: draft.version,
         template_id: template.id,
         template_version: template.version,
-      };
+        locale: templateLocale,
+      } as const;
       setLoading(true);
       setProblem(undefined);
       setDraftConflict(false);
@@ -352,6 +355,7 @@ export function PageEditor({
         setDraft(imported);
         draftForm.reset(draftValues(imported));
         setPreview(undefined);
+        setAssets((await listMediaAssets()).items);
         await onChanged();
       } catch (error) {
         if (
@@ -366,7 +370,7 @@ export function PageEditor({
         setLoading(false);
       }
     },
-    [draft, draftForm, onChanged, page.id, t],
+    [draft, draftForm, onChanged, page.id, t, templateLocale],
   );
 
   const applyLoadedData = useCallback(
@@ -753,7 +757,12 @@ export function PageEditor({
                     </details>
                   )}
                   <SectionLibrary
+                    onBusyChange={setLoading}
                     onAdd={(block) => {
+                      if (block.data.image)
+                        void listMediaAssets()
+                          .then((result) => setAssets(result.items))
+                          .catch(() => {});
                       blocks.append(block);
                       setSelectedSection(blocks.fields.length);
                     }}
@@ -818,8 +827,13 @@ export function PageEditor({
                         </p>
                         {blockPicker(true)}
                         <SectionLibraryContent
+                          onBusyChange={setLoading}
                           compact
                           onAdd={(block) => {
+                            if (block.data.image)
+                              void listMediaAssets()
+                                .then((result) => setAssets(result.items))
+                                .catch(() => {});
                             blocks.insert(activeSection + 1, block);
                             setSelectedSection(activeSection + 1);
                           }}
@@ -872,8 +886,13 @@ export function PageEditor({
                           {t("studio.duplicate")}
                         </Button>
                         <SectionLibrary
+                          onBusyChange={setLoading}
                           triggerLabel={t("studio.insertAfter")}
                           onAdd={(block) => {
+                            if (block.data.image)
+                              void listMediaAssets()
+                                .then((result) => setAssets(result.items))
+                                .catch(() => {});
                             blocks.insert(activeSection + 1, block);
                             setSelectedSection(activeSection + 1);
                           }}

@@ -1,5 +1,93 @@
 # Handoff następnej sesji
 
+## Zdjęcia: dostęp zamiast kopii, 2026-09-20
+
+Zdjęcie dołączone do wpisu zostaje w magazynie tej organizacji, która je
+zrobiła; rejestr wchodzi do niego przez wpis (`GET /api/v1/farms/health/<wpis>/
+photos/<media>/`, `herd_sync.read_entry_photo`). Trzy rzeczy, które trzymają to
+w ryzach:
+
+- **bramką jest wpis, nie magazyn.** Identyfikator zdjęcia musi stać na wpisie,
+  który czytelnik ma u siebie, a udział z autorem musi żyć. Sięgnięcie do
+  `media/<id>/preview/` w cudzym tenancie dalej odpowiada 404 — izolacja
+  magazynu się nie zmieniła;
+- **odczyt to drugi kierunek tych samych drzwi**: kontekst autora na czas
+  jednego podglądu, z `media.read` i przywróceniem organizacji wywołującego;
+- **miniatura w panelu żyje tylko na ekranie**: adres blob jest zwalniany przy
+  odmontowaniu, więc bajty cudzego zdjęcia nie zostają w historii przeglądarki.
+  W testach jsdom nie zna `URL.createObjectURL` — trzeba go podstawić.
+
+Po stronie HoofCare zdjęcia są częścią treści wpisu korekcji, więc powtórka
+PUT z innym zestawem to konflikt, a nie cicha podmiana. **Pułapka, która już
+raz kosztowała przebieg:** `HoofcareShortcutSerializer` i
+`HoofcareEntryInputSerializer` mają identyczny fragment pól — pole dodane „po
+`control_days`" trafia w ten pierwszy, wpis przyjmuje zdjęcia i cicho je gubi.
+Test wołający use case wprost tego nie widzi; dlatego sprawdza teraz najpierw
+serializer wejścia.
+
+Dowody ze stacku dev: wgrane zdjęcie firmy → wpis korekcji z tym zdjęciem →
+zamknięcie wizyty → kartoteka rolnika pokazuje wpis z referencją → rolnik czyta
+podgląd (200, `image/webp`), zdjęcie spoza wpisu 404, magazyn firmy wprost 404,
+po cofnięciu udziału 404, po ponownym połączeniu znowu 200.
+
+## Wysyłka stada, powiadomienie o rozjeździe i łączenie bez kodu, 2026-09-20
+
+Trzy rzeczy domykające etap 3:
+
+- **`POST /api/v1/farms/<id>/send-herd/`** (`herd_sync.push_herd`) — całe stado
+  karty przez **jedne** drzwi: migawka zwierząt firmy powstaje *przed*
+  otwarciem kontekstu rejestru (w środku te wiersze są niewidoczne), potem
+  jeden `bulk_create` i jeden `bulk_update`. `bulk_update` omija `save()`, więc
+  `updated_at` ustawiamy ręcznie. Jadą tylko sztuki `active` — kartę firmy
+  zamieszkują też sprzedane i padłe. Udział jest blokowany `select_for_update`,
+  bo dwa kliknięcia naraz wstawiłyby te same braki dwa razy i drugie trafiłoby
+  w unikalny kolczyk;
+- **`farms/tasks.py::notify_pending_reviews`** — dobowy przebieg (harmonogram w
+  `settings/base.py::_MODULE_BEAT_SCHEDULE`, nie w deskryptorze: wpis tam nie
+  zmienia `profileHash`). Lista rejestrów bierze się z `FarmShare`, bo ta tabela
+  nie ma klucza do organizacji i nie podlega RLS — to jedyne źródło, jakie
+  zadanie ma bez kontekstu tenanta. Klucz idempotencji to
+  `farms-review:<farma>:<max(review_requested_at)>`, więc import czterystu krów
+  to jedna wiadomość, a przebieg bez nowych sztuk nie mówi nic;
+- **`manage.py link_farm`** (`sharing.link_without_code`) — połączenie bez kodu
+  po stronie obsługi. Komenda, nie endpoint: akcja omija jedyną zgodę hodowcy
+  na wydanie stada, więc wymaga `is_staff`, MFA i powodu, i zostawia ślad w
+  audycie **obu** organizacji. `registry_door` tu nie zadziała (zaczyna od
+  kontekstu wywołującego, a operator żadnego nie ma) — każda strona czytana
+  jest w swoim kontekście przez `_as_tenant`. Stada nie kopiuje: od tego jest
+  „wyślij stado".
+
+Dowody ze stacku dev (20.09): karta z dwiema krowami → kod → trzecia krowa
+dopisana po wydaniu kodu → przejęcie daje 2 → `send-herd` daje
+`{added: 1, unchanged: 2}`, powtórka same `unchanged`; przebieg powiadomień
+tworzy 2 wiadomości (po jednej na gospodarstwo), drugi przebieg zero, a skrzynka
+rolnika pokazuje `farms.herd_review` z liczbą sztuk; `link_farm` łączy kartę bez
+kodu — udział `support`, stado nie pojechało, `farms.share.granted` z operatorem
+w audycie obu organizacji.
+
+## 2026-09-20 — synchronizacja Site Studio, rebuild wstrzymany
+
+SaaS-Core: oba obrazy zbudowane z czystego worktree 4346e78. HoofCare: backend gotowy, frontend zatrzymany. MedPlano: build nie rozpoczęty.
+
+Wspólny katalog (72 sekcje, osiem stron, zdjęcia), fullscreen i wygląd witryny
+mają być dostępne w Saas-Core, HoofCare i MedPlano. Produkty otrzymały rdzeń
+przez core:update, bez lokalnego kopiowania plików shared. Oba core:check
+przeszły; generatory kontraktów nie zostawiły różnic.
+
+Na polecenie właściciela przerwano serię przy pierwszym błędzie buildu:
+Docker Hub docker/dockerfile:1.7 — połączenie IPv6 na 443 zwraca
+network is unreachable. To nastąpiło przed kompilacją frontendu HoofCare.
+Nie naprawiano sieci, nie ponawiano buildu, nie wdrażano częściowo.
+Nie wykonano migracji ani restartów. Plan migracji SaaS-Core: organizations
+0040/0041 oraz sites/0029. Prywatne backupy trzech baz i identyfikatory
+poprzednich obrazów zapisano w /root/Saas-Core/.runtime/site-studio/release-4346e78/.
+
+Punkt wznowienia po zgodzie na kontynuację: build frontendu HoofCare, potem
+oba obrazy MedPlano; migracje i przełączenie dopiero po udanej serii, następnie
+healthz i odbiór zalogowanego Site Studio we wszystkich trzech produktach.
+Nie budować SaaS-Core z brudnego checkoutu — są tam przerwane prace innej sesji.
+Gotowe obrazy mają tag studio-4346e78; działające tagi local nie zostały zmienione.
+
 ## Kartoteka zwierzęcia, odczyt przez firmę i plan darmowy, 2026-09-20
 
 Wpis w kartotece ma rodzaj (`HealthEntryKind`: notatka, uwaga, zabieg, lek lub
@@ -41,6 +129,26 @@ notatkę i nie widzi prywatnej; ponowne zamknięcie wizyty zmienia wpis na rodza
 bez checkoutu, a snapshot wskazuje `farm_free:v1`; krowa dopisana przez firmę
 staje na liście „do przejrzenia", po potwierdzeniu znika z niej i zostaje w
 stadzie, a zmiana statusu przez firmę wraca na listę.
+
+## Site Studio — katalog z fotografiami, 2026-09-20
+
+72 recepty sekcji (20 hero +20 feature_list +20 FAQ +12 branżowych), osiem
+bieżących recept stron PL/EN, cztery lokalne wygenerowane zdjęcia. Zdjęcia
+trafiają do biblioteki tenanta i do danych bloków, nie tylko do miniatur.
+Nowy endpoint materializacji korzysta ze zwykłego cyklu mediów; import strony
+wiąże media i kompensuje je po konflikcie wersji. Stare recepty są zachowane.
+
+Dowody: sites API + zdjęcia 40/40; rozszerzone zdjęcia z publikacją i RLS 8/8;
+frontend edytor/biblioteka 29/29, renderer 31/31, kontrakty stron/bloków,
+tsc/mypy/lint oraz OpenAPI drift. Chromium: 72 sekcje i osiem stron przy
+1440/390 px, obrazy dekodowane, brak poziomego overflow. Fixture API/renderer
+nie zastępują testu zalogowanego wdrożenia. Artefakty: .runtime/site-studio/catalog-photos/.
+
+Nie restartowano usług ani nie aktualizowano produktów: równoległa sesja
+pracuje nad farms. Wspólne pliki API wymagają etapowania wyłącznie własnych
+hunków. Dalej: pozostałe typy bloków do 20 układów, własne szablony i rekomendacje;
+odrębnie skoordynowane wdrożenie oraz odbiór importu/zapisu/publikacji z prawdziwym
+magazynem i skanerem. Opis kontraktu: docs/architecture/site-studio-editor.md.
 
 ## Site Studio — fullscreen i wygląd witryny, 2026-09-20
 

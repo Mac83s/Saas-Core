@@ -560,6 +560,7 @@ class DraftSaveSerializer(serializers.Serializer[dict[str, Any]]):
 
 
 class PageTemplateImportSerializer(serializers.Serializer[dict[str, Any]]):
+    locale = serializers.ChoiceField(choices=("pl", "en"), required=False)
     expected_version = serializers.IntegerField(min_value=0)
     template_id = serializers.RegexField(
         r"^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$",

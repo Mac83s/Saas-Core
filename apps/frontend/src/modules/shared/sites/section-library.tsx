@@ -20,6 +20,8 @@ import {
 } from "@saas-core/ui/components/dialog";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { Field, FieldLabel } from "@saas-core/ui/components/field";
+import { materializeTemplatePhoto } from "@saas-core/api-client";
+import { sectionPreview } from "./template-media-preview";
 import { registry, editableBlocks, type BlockFormValues } from "./block-form";
 
 const tokens = {
@@ -33,15 +35,23 @@ const tokens = {
 export function SectionLibrary({
   onAdd,
   triggerLabel,
+  onBusyChange,
 }: {
   onAdd: (block: BlockFormValues) => void;
   triggerLabel?: string;
+  onBusyChange?: (busy: boolean) => void;
 }) {
   const t = useTranslations("Sites.sectionLibrary");
   const common = useTranslations("Common");
   const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!busy) setOpen(next);
+      }}
+    >
       <DialogTrigger render={<Button type="button" variant="outline" />}>
         {triggerLabel ?? t("open")}
       </DialogTrigger>
@@ -54,6 +64,10 @@ export function SectionLibrary({
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
         <SectionLibraryContent
+          onBusyChange={(next) => {
+            setBusy(next);
+            onBusyChange?.(next);
+          }}
           onAdd={(block) => {
             onAdd(block);
             setOpen(false);
@@ -68,13 +82,27 @@ export function SectionLibrary({
 export function SectionLibraryContent({
   onAdd,
   compact = false,
+  onBusyChange,
 }: {
   onAdd: (block: BlockFormValues) => void;
   compact?: boolean;
+  onBusyChange?: (busy: boolean) => void;
 }) {
   const t = useTranslations("Sites.sectionLibrary");
   const id = useId();
   const locale = useLocale() === "en" ? "en" : "pl";
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(false);
+  const [limit, setLimit] = useState(12);
+  const pending = useRef(false);
+  const receipts = useRef(new Map<string, string>());
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const [industry, setIndustry] = useState("");
   const [blockType, setBlockType] = useState("");
   const [selected, setSelected] = useState<SectionTemplate | null>(null);
@@ -93,11 +121,70 @@ export function SectionLibraryContent({
       }),
     [industry, blockType],
   );
-  const choose = (template: SectionTemplate) => {
-    const [block] = editableBlocks([
-      sectionTemplateBlock(template, locale, registry),
-    ]);
-    onAdd(block);
+  const ordered = useMemo(() => {
+    const groups = ["core.hero", "core.feature_list", "core.faq"].map((type) =>
+      templates.filter((item) => item.blockType === type),
+    );
+    const mixed = Array.from(
+      { length: Math.max(...groups.map((group) => group.length), 0) },
+      (_, index) =>
+        groups.flatMap((group) => (group[index] ? [group[index]] : [])),
+    ).flat();
+    return industry
+      ? [
+          ...mixed.filter((item) => item.kind === "industry"),
+          ...mixed.filter((item) => item.kind === "default"),
+        ]
+      : mixed;
+  }, [templates, industry]);
+  const choose = async (template: SectionTemplate) => {
+    if (pending.current) return;
+    const seeded = sectionTemplateBlock(template, locale, registry);
+    if (!template.sampleMedia) {
+      onAdd(editableBlocks([seeded])[0]);
+      return;
+    }
+    pending.current = true;
+    setBusy(true);
+    setError(false);
+    onBusyChange?.(true);
+    try {
+      const photo = template.sampleMedia;
+      if (!receipts.current.has(photo.id))
+        receipts.current.set(
+          photo.id,
+          `template-photo-${globalThis.crypto.randomUUID()}`,
+        );
+      const result = await materializeTemplatePhoto(
+        photo.id,
+        receipts.current.get(photo.id)!,
+      );
+      if (!mounted.current) return;
+      seeded.data.image = { asset_id: result.asset_id, alt: photo.alt[locale] };
+      registry.validate(seeded);
+      onAdd(editableBlocks([seeded])[0]);
+    } catch {
+      if (mounted.current) setError(true);
+    } finally {
+      pending.current = false;
+      if (mounted.current) {
+        setBusy(false);
+        onBusyChange?.(false);
+      }
+    }
+  };
+  const renderPreview = (template: SectionTemplate) => {
+    const preview = sectionPreview(template, locale);
+    return renderDraftPreview(
+      {
+        kind: "draft-preview",
+        versionId: template.id,
+        blocks: preview.blocks,
+        designTokens: tokens,
+      },
+      registry,
+      preview.imageRenderer,
+    );
   };
   return (
     <div className="space-y-4">
@@ -109,6 +196,7 @@ export function SectionLibraryContent({
             value={industry}
             onChange={(event) => {
               setIndustry(event.target.value);
+              setLimit(12);
               setSelected(null);
             }}
           >
@@ -127,6 +215,7 @@ export function SectionLibraryContent({
             value={blockType}
             onChange={(event) => {
               setBlockType(event.target.value);
+              setLimit(12);
               setSelected(null);
             }}
           >
@@ -140,12 +229,15 @@ export function SectionLibraryContent({
         </Field>
       </div>
       <p className="text-sm text-muted-foreground">{t("universalIncluded")}</p>
+      <p className="text-xs text-muted-foreground">{t("samplePhotos")}</p>
+      {busy && <p role="status">{t("preparingPhoto")}</p>}
+      {error && <p role="alert">{t("photoError")}</p>}
       <div
         className={
           compact ? "grid gap-3" : "grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
         }
       >
-        {templates.map((template) => (
+        {ordered.slice(0, limit).map((template) => (
           <article
             key={template.id}
             className="flex min-w-0 flex-col gap-3 rounded-xl border p-4"
@@ -156,15 +248,7 @@ export function SectionLibraryContent({
               inert
             >
               <div className="pointer-events-none w-[720px] origin-top-left scale-[0.35]">
-                {renderDraftPreview(
-                  {
-                    kind: "draft-preview",
-                    versionId: template.id,
-                    blocks: [sectionTemplateBlock(template, locale, registry)],
-                    designTokens: tokens,
-                  },
-                  registry,
-                )}
+                {renderPreview(template)}
               </div>
             </div>
             <h3 className="break-words font-semibold">
@@ -204,7 +288,8 @@ export function SectionLibraryContent({
                 aria-label={t("addNamed", {
                   name: template.labels[locale].name,
                 })}
-                onClick={() => choose(template)}
+                disabled={busy}
+                onClick={() => void choose(template)}
               >
                 {t("add")}
               </Button>
@@ -212,6 +297,15 @@ export function SectionLibraryContent({
           </article>
         ))}
       </div>
+      {ordered.length > limit && (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => setLimit((value) => value + 12)}
+        >
+          {t("showMore", { remaining: ordered.length - limit })}
+        </Button>
+      )}
       {templates.length === 0 && <p role="status">{t("empty")}</p>}
       {selected && (
         <section
@@ -237,17 +331,13 @@ export function SectionLibraryContent({
             className="mx-auto max-w-full overflow-hidden border bg-background"
             style={{ width: mobile ? 390 : "100%" }}
           >
-            {renderDraftPreview(
-              {
-                kind: "draft-preview",
-                versionId: selected.id,
-                blocks: [sectionTemplateBlock(selected, locale, registry)],
-                designTokens: tokens,
-              },
-              registry,
-            )}
+            {renderPreview(selected)}
           </div>
-          <Button type="button" onClick={() => choose(selected)}>
+          <Button
+            type="button"
+            disabled={busy}
+            onClick={() => void choose(selected)}
+          >
             {t("addNamed", { name: selected.labels[locale].name })}
           </Button>
         </section>

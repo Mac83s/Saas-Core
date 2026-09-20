@@ -633,6 +633,12 @@ CELERY_WORKER_HIJACK_ROOT_LOGGER = False
 #: without Sites must not run Sites' sweeps: the scheduler would enqueue jobs
 #: against tables that are not there, once a minute, forever.
 _MODULE_BEAT_SCHEDULE: dict[str, dict[str, Any]] = {
+    "shared.farms": {
+        "farms-notify-pending-reviews": {
+            "task": "saas_core.modules.shared.farms.tasks.notify_pending_reviews",
+            "schedule": 86400.0,
+        }
+    },
     "shared.seo": {
         "seo-reconcile-audits": {
             "task": "saas_core.modules.shared.seo.tasks.reconcile_audits",

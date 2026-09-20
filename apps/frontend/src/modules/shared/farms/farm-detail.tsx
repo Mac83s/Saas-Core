@@ -13,6 +13,7 @@ import {
   PencilIcon,
   PhoneIcon,
   PlusIcon,
+  SendIcon,
 } from "lucide-react";
 
 import {
@@ -23,6 +24,7 @@ import {
   listFarmSpecies,
   readFarm,
   revokeFarmShare,
+  sendFarmHerd,
   updateFarm,
   updateFarmAnimal,
   type Farm,
@@ -158,6 +160,17 @@ export function FarmDetail({
     if (!entry) return key;
     return (locale === "en" ? entry.label.en : entry.label.pl) ?? entry.key;
   };
+
+  async function sendHerd() {
+    setFailed("");
+    try {
+      const result = await sendFarmHerd(farmId);
+      setNotice(t("herdSent", result));
+      refresh();
+    } catch (error) {
+      setFailed(farmProblem(error, t("saveFailed")));
+    }
+  }
 
   async function issueCode() {
     setFailed("");
@@ -522,6 +535,18 @@ export function FarmDetail({
                           >
                             {t("revokeShare")}
                           </Button>
+                        ) : canManage ? (
+                          /* Strona firmy: dosyła stado do rejestru hodowcy —
+                             kod przekazania zamraża kartę w chwili wydania,
+                             więc sztuki dopisane później same tam nie trafią. */
+                          <Button
+                            onClick={sendHerd}
+                            size="sm"
+                            variant="outline"
+                          >
+                            <SendIcon aria-hidden="true" />
+                            {t("sendHerd")}
+                          </Button>
                         ) : (
                           <Badge variant="outline">{t("shareActive")}</Badge>
                         )
@@ -532,9 +557,15 @@ export function FarmDetail({
                   ))}
                 </ul>
               )}
-              {/* Only the company side hands out codes; on the farmer's own
-                  register the farm is already theirs. */}
+              {/* Kod wydaje firma, i tylko dopóki karta nie jest połączona:
+                  po połączeniu API odpowiada 409, a przycisk obiecywałby coś,
+                  czego nie da się zrobić. Na własnym rejestrze rolnika
+                  gospodarstwo i tak jest już jego. */}
               {canManage &&
+              !shares.some(
+                (share) =>
+                  share.status === "active" && !share.partner_is_company,
+              ) &&
               !shares.some((share) => share.partner_is_company) ? (
                 <div className="space-y-2">
                   <Button onClick={issueCode} size="sm" variant="outline">

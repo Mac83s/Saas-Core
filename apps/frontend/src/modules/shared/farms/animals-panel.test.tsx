@@ -24,6 +24,7 @@ import { AnimalsPanel } from "./animals-panel";
 const { api, sections } = vi.hoisted(() => ({
   api: {
     createFarmAnimalHealth: vi.fn(),
+    getFarmHealthPhoto: vi.fn(),
     listFarmAnimalHealth: vi.fn(),
     listFarmAnimals: vi.fn(),
     listFarms: vi.fn(),
@@ -115,6 +116,15 @@ const HERD = [
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // jsdom nie zna adresów blob; miniatura kartoteki ich używa, żeby bajty
+  // cudzego zdjęcia nie trafiły do historii przeglądarki.
+  vi.stubGlobal(
+    "URL",
+    class extends URL {
+      static createObjectURL = () => "blob:entry-photo";
+      static revokeObjectURL = () => undefined;
+    },
+  );
   api.listFarmAnimalHealth.mockResolvedValue([
     {
       id: "h1",
@@ -127,11 +137,13 @@ beforeEach(() => {
       author_organization_name: "Korekcja Testowa",
       author_is_external: true,
       private: false,
+      photos: ["019c5f87-fce8-739b-b960-b7a195bfc2f0"],
       summary: "Korekcja: DD M2 na LH, kontrola za 14 dni.",
       details: {},
       published_at: "2026-09-18T10:00:00Z",
     },
   ]);
+  api.getFarmHealthPhoto.mockResolvedValue(new Blob(["webp"]));
   api.createFarmAnimalHealth.mockResolvedValue({
     id: "h2",
     animal_id: "a3",
@@ -143,6 +155,7 @@ beforeEach(() => {
     author_organization_name: "Gospodarstwo",
     author_is_external: false,
     private: false,
+    photos: [],
     summary: "Kuleje na prawą tylną.",
     details: {},
     published_at: "2026-09-20T10:00:00Z",
@@ -272,6 +285,19 @@ test("karta zwierzęcia pokazuje dane rejestru i zmienia status", async () => {
   ).toBeVisible();
   expect(within(dialog).getByText(/Piotr Korektor/)).toBeVisible();
   expect(within(dialog).getByText(/Korekcja Testowa/)).toBeVisible();
+
+  // Zdjęcie czytane jest przez wpis, nie przez magazyn rolnika: plik zostaje
+  // u autora (decyzja z 20.09).
+  await waitFor(() =>
+    expect(api.getFarmHealthPhoto).toHaveBeenCalledWith(
+      "h1",
+      "019c5f87-fce8-739b-b960-b7a195bfc2f0",
+      expect.anything(),
+    ),
+  );
+  expect(
+    await within(dialog).findByRole("img", { name: "Zdjęcie z wpisu" }),
+  ).toBeVisible();
 
   // Filtr rodzaju pyta serwer, bo lista jest ucinana po stronie API.
   fireEvent.click(within(dialog).getByRole("button", { name: "Notatka" }));

@@ -1,0 +1,197 @@
+{
+  "id": "core.electronics_service",
+  "version": 1,
+  "category": "landing",
+  "industries": ["electronics"],
+  "labels": {
+    "pl": {
+      "name": "Serwis elektroniki",
+      "description": "Kompletna kompozycja z przykładowymi zdjęciami: wprowadzenie, oferta, FAQ i kontakt. Wymień treści demonstracyjne przed publikacją."
+    },
+    "en": {
+      "name": "Electronics service",
+      "description": "A complete composition with example photographs: introduction, services, FAQ and contact. Replace demonstration content before publishing."
+    }
+  },
+  "requiredEntitlements": ["sites.enabled"],
+  "sectionRefs": [
+    {
+      "position": 0,
+      "id": "core.hero_electronics_split",
+      "version": 1
+    },
+    {
+      "position": 1,
+      "id": "core.feature_list_service_flow",
+      "version": 2
+    },
+    {
+      "position": 2,
+      "id": "core.faq_split",
+      "version": 2
+    }
+  ],
+  "blocks": [
+    {
+      "block_type": "core.hero",
+      "schema_version": 5,
+      "data": {
+        "title": "Diagnoza i serwis Twoich urządzeń",
+        "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+        "action": {
+          "label": "Porozmawiajmy",
+          "href": "mailto:kontakt@example.com"
+        },
+        "layout": "split"
+      }
+    },
+    {
+      "block_type": "core.feature_list",
+      "schema_version": 3,
+      "data": {
+        "title": "Etapy serwisu",
+        "items": [
+          {
+            "title": "Przyjęcie urządzenia",
+            "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+          },
+          {
+            "title": "Diagnostyka",
+            "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+          },
+          {
+            "title": "Odbiór",
+            "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+          }
+        ],
+        "layout": "service_flow"
+      }
+    },
+    {
+      "block_type": "core.faq",
+      "schema_version": 3,
+      "data": {
+        "title": "Warto wiedzieć przed pierwszym kontaktem",
+        "items": [
+          {
+            "question": "Od czego zacząć?",
+            "answer": "Napisz, czego potrzebujesz. Ustalimy zakres i następny krok."
+          },
+          {
+            "question": "Jak ustalamy termin?",
+            "answer": "Termin potwierdzamy po omówieniu dostępności i zakresu pracy."
+          },
+          {
+            "question": "Co przygotować?",
+            "answer": "Zbierz podstawowe informacje oraz pytania, które chcesz omówić."
+          }
+        ],
+        "layout": "split"
+      }
+    },
+    {
+      "block_type": "core.contact",
+      "schema_version": 1,
+      "data": {
+        "title": "Porozmawiajmy o Twoich potrzebach",
+        "email": "kontakt@example.com"
+      }
+    }
+  ],
+  "localizedBlocks": {
+    "en": [
+      {
+        "block_type": "core.hero",
+        "schema_version": 5,
+        "data": {
+          "title": "Diagnostics and service for your devices",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "split"
+        }
+      },
+      {
+        "block_type": "core.feature_list",
+        "schema_version": 3,
+        "data": {
+          "title": "Repair stages",
+          "items": [
+            {
+              "title": "Device intake",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Diagnostics",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Collection",
+              "text": "Describe what you actually offer."
+            }
+          ],
+          "layout": "service_flow"
+        }
+      },
+      {
+        "block_type": "core.faq",
+        "schema_version": 3,
+        "data": {
+          "title": "Before you get in touch",
+          "items": [
+            {
+              "question": "How do I start?",
+              "answer": "Tell us what you need. We will agree on the scope and next step."
+            },
+            {
+              "question": "How is a date agreed?",
+              "answer": "We confirm a date after discussing availability and the scope of work."
+            },
+            {
+              "question": "What should I prepare?",
+              "answer": "Gather the basic information and questions you would like to discuss."
+            }
+          ],
+          "layout": "split"
+        }
+      },
+      {
+        "block_type": "core.contact",
+        "schema_version": 1,
+        "data": {
+          "title": "Let us discuss your needs",
+          "email": "kontakt@example.com"
+        }
+      }
+    ]
+  },
+  "media": [
+    {
+      "id": "electronics",
+      "source": "assets/electronics-workshop.png",
+      "filename": "electronics-workshop.png",
+      "contentType": "image/png",
+      "sha256": "4c2d226103ee37783e586345b7c3dac12088e47210c079b6be1b54666a1c6eb8"
+    }
+  ],
+  "mediaBindings": [
+    {
+      "blockPosition": 0,
+      "mediaId": "electronics",
+      "alt": {
+        "pl": "Stanowisko diagnostyki elektroniki",
+        "en": "Electronics diagnostic workbench"
+      }
+    },
+    {
+      "blockPosition": 1,
+      "mediaId": "electronics",
+      "alt": {
+        "pl": "Stanowisko diagnostyki elektroniki",
+        "en": "Electronics diagnostic workbench"
+      }
+    }
+  ]
+}

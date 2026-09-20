@@ -1,3 +1,6 @@
+import heroV5Schema from "@saas-core/contracts/site-blocks/core.hero.v5.schema.json";
+import featureListV3Schema from "@saas-core/contracts/site-blocks/core.feature_list.v3.schema.json";
+import faqV3Schema from "@saas-core/contracts/site-blocks/core.faq.v3.schema.json";
 import heroV4Schema from "@saas-core/contracts/site-blocks/core.hero.v4.schema.json";
 import featureListV2Schema from "@saas-core/contracts/site-blocks/core.feature_list.v2.schema.json";
 import faqV2Schema from "@saas-core/contracts/site-blocks/core.faq.v2.schema.json";
@@ -105,9 +108,18 @@ function RichTextBlock({ data, editor }: BlockComponentProps) {
   );
 }
 
-function FeatureListBlock({ data, editor }: BlockComponentProps) {
+function FeatureListBlock({
+  data,
+  editor,
+  imageRenderer,
+}: BlockComponentProps) {
   const text = editor?.text ?? plainBlockText;
-  const variant = renderSectionLayout("core.feature_list", data, editor);
+  const variant = renderSectionLayout(
+    "core.feature_list",
+    data,
+    editor,
+    imageRenderer,
+  );
   if (variant) return variant;
   const featureList = data as FeatureListV1Data;
   return createElement(
@@ -478,17 +490,19 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
   blocks: [
     {
       type: "core.hero",
-      latestVersion: 4,
+      latestVersion: 5,
       schemas: [
         { version: 1, schema: heroV1Schema },
         { version: 2, schema: heroV2Schema },
         { version: 3, schema: heroV3Schema },
         { version: 4, schema: heroV4Schema },
+        { version: 5, schema: heroV5Schema },
       ],
       migrators: {
         1: migrateHeroV1ToV2,
         2: migrateHeroV2ToV3,
         3: (data) => ({ ...data }),
+        4: (data) => ({ ...data }),
       },
       component: HeroBlock,
       catalog: {
@@ -522,18 +536,25 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
     },
     {
       type: "core.feature_list",
-      latestVersion: 2,
+      latestVersion: 3,
       schemas: [
         { version: 1, schema: featureListV1Schema },
         { version: 2, schema: featureListV2Schema },
+        { version: 3, schema: featureListV3Schema },
       ],
-      migrators: { 1: (data) => ({ ...data }) },
+      migrators: { 1: (data) => ({ ...data }), 2: (data) => ({ ...data }) },
       component: FeatureListBlock,
       catalog: {
         category: "offer",
         labelKey: "featureListBlock",
         fields: [
           { path: ["title"], kind: "text", labelKey: "heading" },
+          {
+            path: ["image", "asset_id"],
+            kind: "media",
+            labelKey: "imageAsset",
+          },
+          { path: ["image", "alt"], kind: "text", labelKey: "imageAlt" },
           {
             path: ["items"],
             kind: "list",
@@ -548,12 +569,13 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
     },
     {
       type: "core.faq",
-      latestVersion: 2,
+      latestVersion: 3,
       schemas: [
         { version: 1, schema: faqV1Schema },
         { version: 2, schema: faqV2Schema },
+        { version: 3, schema: faqV3Schema },
       ],
-      migrators: { 1: (data) => ({ ...data }) },
+      migrators: { 1: (data) => ({ ...data }), 2: (data) => ({ ...data }) },
       component: FaqBlock,
       catalog: {
         category: "faq",

@@ -20,7 +20,11 @@ export function renderSectionLayout(
 ): ReactElement | null {
   const text = editor?.text ?? plainBlockText;
   const layout = data.layout;
-  if (typeof layout !== "string" || layout === "classic") return null;
+  if (
+    typeof layout !== "string" ||
+    (layout === "classic" && !(type === "core.feature_list" && data.image))
+  )
+    return null;
   const props = {
     className: `site-block site-section site-section--${type.replace("core.", "")} site-section--${layout}`,
     "data-block-type": type,
@@ -61,14 +65,17 @@ export function renderSectionLayout(
             decoding: "async",
           })
       : null;
+    const grouped =
+      (layout === "split" && image) ||
+      !["classic", "centered", "split"].includes(layout);
     return h(
       "section",
       props,
-      layout === "split" && image
+      grouped
         ? h("div", { className: "site-section__intro" }, title, body)
         : title,
-      layout === "split" && image ? image : body,
-      layout === "split" ? null : image,
+      grouped ? image : body,
+      grouped || layout === "split" ? null : image,
     );
   }
   if (type === "core.faq") {
@@ -83,7 +90,7 @@ export function renderSectionLayout(
             text(["title"], faq.title),
           )
         : null,
-      layout === "accordion"
+      ["accordion", "stacked", "panels"].includes(layout)
         ? h(
             "div",
             null,
@@ -124,6 +131,20 @@ export function renderSectionLayout(
   }
   if (type === "core.feature_list") {
     const offer = data as FeatureListV1Data;
+    const photo = offer.image
+      ? h(
+          "div",
+          { className: "site-section__photo" },
+          imageRenderer
+            ? imageRenderer(offer.image)
+            : h("img", {
+                src: `/media/${offer.image.asset_id}`,
+                alt: offer.image.alt,
+                loading: "lazy",
+                decoding: "async",
+              }),
+        )
+      : null;
     const heading = offer.title
       ? h(
           "h2",
@@ -136,6 +157,7 @@ export function renderSectionLayout(
         "section",
         props,
         heading,
+        photo,
         h(
           "dl",
           null,
@@ -152,13 +174,18 @@ export function renderSectionLayout(
         ),
       );
     }
-    const ordered = ["care_path", "field_steps", "service_flow"].includes(
-      layout,
-    );
+    const ordered = [
+      "care_path",
+      "field_steps",
+      "service_flow",
+      "numbered",
+      "timeline",
+    ].includes(layout);
     return h(
       "section",
       props,
       heading,
+      photo,
       h(
         ordered ? "ol" : "ul",
         null,

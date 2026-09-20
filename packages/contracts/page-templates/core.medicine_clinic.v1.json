@@ -1,0 +1,197 @@
+{
+  "id": "core.medicine_clinic",
+  "version": 1,
+  "category": "company",
+  "industries": ["medicine"],
+  "labels": {
+    "pl": {
+      "name": "Gabinet i opieka",
+      "description": "Kompletna kompozycja z przykładowymi zdjęciami: wprowadzenie, oferta, FAQ i kontakt. Wymień treści demonstracyjne przed publikacją."
+    },
+    "en": {
+      "name": "Clinic and care",
+      "description": "A complete composition with example photographs: introduction, services, FAQ and contact. Replace demonstration content before publishing."
+    }
+  },
+  "requiredEntitlements": ["sites.enabled"],
+  "sectionRefs": [
+    {
+      "position": 0,
+      "id": "core.hero_medicine_split",
+      "version": 1
+    },
+    {
+      "position": 1,
+      "id": "core.feature_list_care_path",
+      "version": 2
+    },
+    {
+      "position": 2,
+      "id": "core.faq_cards",
+      "version": 1
+    }
+  ],
+  "blocks": [
+    {
+      "block_type": "core.hero",
+      "schema_version": 5,
+      "data": {
+        "title": "Opieka dopasowana do Twoich potrzeb",
+        "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+        "action": {
+          "label": "Porozmawiajmy",
+          "href": "mailto:kontakt@example.com"
+        },
+        "layout": "split"
+      }
+    },
+    {
+      "block_type": "core.feature_list",
+      "schema_version": 3,
+      "data": {
+        "title": "Ścieżka konsultacji",
+        "items": [
+          {
+            "title": "Przygotowanie",
+            "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+          },
+          {
+            "title": "Konsultacja",
+            "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+          },
+          {
+            "title": "Dalsze kroki",
+            "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+          }
+        ],
+        "layout": "care_path"
+      }
+    },
+    {
+      "block_type": "core.faq",
+      "schema_version": 3,
+      "data": {
+        "title": "Warto wiedzieć przed pierwszym kontaktem",
+        "items": [
+          {
+            "question": "Od czego zacząć?",
+            "answer": "Napisz, czego potrzebujesz. Ustalimy zakres i następny krok."
+          },
+          {
+            "question": "Jak ustalamy termin?",
+            "answer": "Termin potwierdzamy po omówieniu dostępności i zakresu pracy."
+          },
+          {
+            "question": "Co przygotować?",
+            "answer": "Zbierz podstawowe informacje oraz pytania, które chcesz omówić."
+          }
+        ],
+        "layout": "cards"
+      }
+    },
+    {
+      "block_type": "core.contact",
+      "schema_version": 1,
+      "data": {
+        "title": "Porozmawiajmy o Twoich potrzebach",
+        "email": "kontakt@example.com"
+      }
+    }
+  ],
+  "localizedBlocks": {
+    "en": [
+      {
+        "block_type": "core.hero",
+        "schema_version": 5,
+        "data": {
+          "title": "Care tailored to your needs",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "split"
+        }
+      },
+      {
+        "block_type": "core.feature_list",
+        "schema_version": 3,
+        "data": {
+          "title": "Consultation pathway",
+          "items": [
+            {
+              "title": "Preparation",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Consultation",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Next steps",
+              "text": "Describe what you actually offer."
+            }
+          ],
+          "layout": "care_path"
+        }
+      },
+      {
+        "block_type": "core.faq",
+        "schema_version": 3,
+        "data": {
+          "title": "Before you get in touch",
+          "items": [
+            {
+              "question": "How do I start?",
+              "answer": "Tell us what you need. We will agree on the scope and next step."
+            },
+            {
+              "question": "How is a date agreed?",
+              "answer": "We confirm a date after discussing availability and the scope of work."
+            },
+            {
+              "question": "What should I prepare?",
+              "answer": "Gather the basic information and questions you would like to discuss."
+            }
+          ],
+          "layout": "cards"
+        }
+      },
+      {
+        "block_type": "core.contact",
+        "schema_version": 1,
+        "data": {
+          "title": "Let us discuss your needs",
+          "email": "kontakt@example.com"
+        }
+      }
+    ]
+  },
+  "media": [
+    {
+      "id": "medicine",
+      "source": "assets/medicine-room.png",
+      "filename": "medicine-room.png",
+      "contentType": "image/png",
+      "sha256": "c66c34c8edd56d749d8cb0371212b6a6c989b0cd8126bd5f98728d55103a4c7c"
+    }
+  ],
+  "mediaBindings": [
+    {
+      "blockPosition": 0,
+      "mediaId": "medicine",
+      "alt": {
+        "pl": "Przykładowy gabinet konsultacyjny",
+        "en": "Example consultation room"
+      }
+    },
+    {
+      "blockPosition": 1,
+      "mediaId": "medicine",
+      "alt": {
+        "pl": "Przykładowy gabinet konsultacyjny",
+        "en": "Example consultation room"
+      }
+    }
+  ]
+}

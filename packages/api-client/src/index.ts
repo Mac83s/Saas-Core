@@ -2471,6 +2471,26 @@ export async function listFarmAnimalHealth(
   return data;
 }
 
+/** Zdjęcie z wpisu kartoteki: plik zostaje u autora, wchodzimy przez wpis. */
+export async function getFarmHealthPhoto(
+  entryId: string,
+  mediaId: string,
+  signal?: AbortSignal,
+): Promise<Blob> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/farms/health/{entry_id}/photos/{media_id}/",
+    {
+      params: { path: { entry_id: entryId, media_id: mediaId } },
+      credentials: "same-origin",
+      cache: "no-store",
+      parseAs: "blob",
+      signal,
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 /** An entry written by hand, in this register. */
 export async function createFarmAnimalHealth(
   animalId: string,
@@ -2561,6 +2581,23 @@ export async function redeemFarmActivationCode(
   return data;
 }
 
+export type FarmHerdPush = components["schemas"]["FarmHerdPush"];
+
+/** Wyślij stado tej karty do rejestru rolnika (ADR-051 pt 7). */
+export async function sendFarmHerd(farmId: string): Promise<FarmHerdPush> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/farms/{farm_id}/send-herd/",
+    {
+      params: { path: { farm_id: farmId } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export async function listFarmShares(farmId: string): Promise<FarmShare[]> {
   const { data, error, response } = await client.GET(
     "/api/v1/farms/{farm_id}/shares/",
@@ -2629,6 +2666,27 @@ export async function saveSiteAppearance(
         header: { "Idempotency-Key": idempotencyKey },
       },
       body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Copies one allowlisted demo photo through the tenant media lifecycle. */
+export async function materializeTemplatePhoto(
+  photoId: string,
+  idempotencyKey: string,
+): Promise<components["schemas"]["TemplatePhoto"]> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/template-media/{photo_id}/materialize/",
+    {
+      params: {
+        path: { photo_id: photoId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
     },

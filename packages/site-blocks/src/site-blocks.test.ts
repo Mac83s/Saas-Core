@@ -38,11 +38,11 @@ describe("site block registry", () => {
     const migrated = registry.migrate(legacyHero);
 
     expect(legacyHero).toEqual(original);
-    // v1 -> v2 -> v3 -> v4 in one pass. The picture v3 added is optional, so a hero
+    // v1 -> v2 -> v3 -> v4 -> v5 in one pass. The picture v3 added is optional, so a hero
     // published before images existed arrives with its fields untouched.
     expect(migrated).toEqual({
       block_type: "core.hero",
-      schema_version: 4,
+      schema_version: 5,
       data: {
         title: "Bezpieczna strona organizacji",
         text: "Treść zachowana ze starszej publikacji.",
@@ -273,6 +273,10 @@ describe("page templates", () => {
       "core.specialist_landing",
       "core.company",
       "core.service_landing",
+      "core.medicine_clinic",
+      "core.agriculture_services",
+      "core.electronics_service",
+      "core.business_studio",
     ]);
 
     // Without the entitlement the recipe declares, nothing is offered.

@@ -1,0 +1,5962 @@
+{
+  "schemaVersion": 2,
+  "industries": [
+    {
+      "id": "medicine",
+      "labels": {
+        "pl": "Medycyna",
+        "en": "Medicine"
+      }
+    },
+    {
+      "id": "agriculture",
+      "labels": {
+        "pl": "Rolnictwo",
+        "en": "Agriculture"
+      }
+    },
+    {
+      "id": "electronics",
+      "labels": {
+        "pl": "Elektronika",
+        "en": "Electronics"
+      }
+    }
+  ],
+  "templates": [
+    {
+      "id": "core.hero_classic",
+      "version": 2,
+      "blockType": "core.hero",
+      "schemaVersion": 5,
+      "layout": "classic",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Klasyczne wprowadzenie",
+          "description": "Nagłówek, opis, przycisk i przykładowe zdjęcie. Zmień treść i fotografię przed publikacją.",
+          "usage": "Układ: klasyczne wprowadzenie. Początek strony; jeden główny nagłówek H1."
+        },
+        "en": {
+          "name": "Classic introduction",
+          "description": "Heading, description, action and example photograph. Replace the copy and photo before publishing.",
+          "usage": "Layout: classic introduction. Page opening; one primary H1."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Dobre rozwiązania zaczynają się od rozmowy",
+          "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+          "action": {
+            "label": "Porozmawiajmy",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "classic"
+        },
+        "en": {
+          "title": "Good solutions start with a conversation",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "classic"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "business",
+        "alt": {
+          "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+          "en": "Bright studio with an oak table and laptop"
+        }
+      }
+    },
+    {
+      "id": "core.hero_centered",
+      "version": 2,
+      "blockType": "core.hero",
+      "schemaVersion": 5,
+      "layout": "centered",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Wyśrodkowane wprowadzenie",
+          "description": "Nagłówek, opis, przycisk i przykładowe zdjęcie. Zmień treść i fotografię przed publikacją.",
+          "usage": "Układ: wyśrodkowane wprowadzenie. Początek strony; jeden główny nagłówek H1."
+        },
+        "en": {
+          "name": "Centered introduction",
+          "description": "Heading, description, action and example photograph. Replace the copy and photo before publishing.",
+          "usage": "Layout: centered introduction. Page opening; one primary H1."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Dobre rozwiązania zaczynają się od rozmowy",
+          "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+          "action": {
+            "label": "Porozmawiajmy",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "centered"
+        },
+        "en": {
+          "title": "Good solutions start with a conversation",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "centered"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "business",
+        "alt": {
+          "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+          "en": "Bright studio with an oak table and laptop"
+        }
+      }
+    },
+    {
+      "id": "core.hero_split",
+      "version": 2,
+      "blockType": "core.hero",
+      "schemaVersion": 5,
+      "layout": "split",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Wprowadzenie w dwóch kolumnach",
+          "description": "Nagłówek, opis, przycisk i przykładowe zdjęcie. Zmień treść i fotografię przed publikacją.",
+          "usage": "Układ: wprowadzenie w dwóch kolumnach. Początek strony; jeden główny nagłówek H1."
+        },
+        "en": {
+          "name": "Split introduction",
+          "description": "Heading, description, action and example photograph. Replace the copy and photo before publishing.",
+          "usage": "Layout: split introduction. Page opening; one primary H1."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Dobre rozwiązania zaczynają się od rozmowy",
+          "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+          "action": {
+            "label": "Porozmawiajmy",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "split"
+        },
+        "en": {
+          "title": "Good solutions start with a conversation",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "split"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "business",
+        "alt": {
+          "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+          "en": "Bright studio with an oak table and laptop"
+        }
+      }
+    },
+    {
+      "id": "core.hero_split_reverse",
+      "version": 1,
+      "blockType": "core.hero",
+      "schemaVersion": 5,
+      "layout": "split_reverse",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Zdjęcie po lewej",
+          "description": "Nagłówek, opis, przycisk i przykładowe zdjęcie. Zmień treść i fotografię przed publikacją.",
+          "usage": "Układ: zdjęcie po lewej. Początek strony; jeden główny nagłówek H1."
+        },
+        "en": {
+          "name": "Image on the left",
+          "description": "Heading, description, action and example photograph. Replace the copy and photo before publishing.",
+          "usage": "Layout: image on the left. Page opening; one primary H1."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Dobre rozwiązania zaczynają się od rozmowy",
+          "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+          "action": {
+            "label": "Porozmawiajmy",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "split_reverse"
+        },
+        "en": {
+          "title": "Good solutions start with a conversation",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "split_reverse"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "business",
+        "alt": {
+          "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+          "en": "Bright studio with an oak table and laptop"
+        }
+      }
+    },
+    {
+      "id": "core.hero_image_above",
+      "version": 1,
+      "blockType": "core.hero",
+      "schemaVersion": 5,
+      "layout": "image_above",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Zdjęcie nad nagłówkiem",
+          "description": "Nagłówek, opis, przycisk i przykładowe zdjęcie. Zmień treść i fotografię przed publikacją.",
+          "usage": "Układ: zdjęcie nad nagłówkiem. Początek strony; jeden główny nagłówek H1."
+        },
+        "en": {
+          "name": "Image above heading",
+          "description": "Heading, description, action and example photograph. Replace the copy and photo before publishing.",
+          "usage": "Layout: image above heading. Page opening; one primary H1."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Dobre rozwiązania zaczynają się od rozmowy",
+          "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+          "action": {
+            "label": "Porozmawiajmy",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "image_above"
+        },
+        "en": {
+          "title": "Good solutions start with a conversation",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "image_above"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "business",
+        "alt": {
+          "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+          "en": "Bright studio with an oak table and laptop"
+        }
+      }
+    },
+    {
+      "id": "core.hero_banner",
+      "version": 1,
+      "blockType": "core.hero",
+      "schemaVersion": 5,
+      "layout": "banner",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Panoramiczny baner",
+          "description": "Nagłówek, opis, przycisk i przykładowe zdjęcie. Zmień treść i fotografię przed publikacją.",
+          "usage": "Układ: panoramiczny baner. Początek strony; jeden główny nagłówek H1."
+        },
+        "en": {
+          "name": "Panoramic banner",
+          "description": "Heading, description, action and example photograph. Replace the copy and photo before publishing.",
+          "usage": "Layout: panoramic banner. Page opening; one primary H1."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Dobre rozwiązania zaczynają się od rozmowy",
+          "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+          "action": {
+            "label": "Porozmawiajmy",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "banner"
+        },
+        "en": {
+          "title": "Good solutions start with a conversation",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "banner"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "business",
+        "alt": {
+          "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+          "en": "Bright studio with an oak table and laptop"
+        }
+      }
+    },
+    {
+      "id": "core.hero_overlay_left",
+      "version": 1,
+      "blockType": "core.hero",
+      "schemaVersion": 5,
+      "layout": "overlay_left",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Tekst na zdjęciu",
+          "description": "Nagłówek, opis, przycisk i przykładowe zdjęcie. Zmień treść i fotografię przed publikacją.",
+          "usage": "Układ: tekst na zdjęciu. Początek strony; jeden główny nagłówek H1."
+        },
+        "en": {
+          "name": "Text over image",
+          "description": "Heading, description, action and example photograph. Replace the copy and photo before publishing.",
+          "usage": "Layout: text over image. Page opening; one primary H1."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Dobre rozwiązania zaczynają się od rozmowy",
+          "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+          "action": {
+            "label": "Porozmawiajmy",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "overlay_left"
+        },
+        "en": {
+          "title": "Good solutions start with a conversation",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "overlay_left"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "business",
+        "alt": {
+          "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+          "en": "Bright studio with an oak table and laptop"
+        }
+      }
+    },
+    {
+      "id": "core.hero_overlay_center",
+      "version": 1,
+      "blockType": "core.hero",
+      "schemaVersion": 5,
+      "layout": "overlay_center",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Centralny tekst na zdjęciu",
+          "description": "Nagłówek, opis, przycisk i przykładowe zdjęcie. Zmień treść i fotografię przed publikacją.",
+          "usage": "Układ: centralny tekst na zdjęciu. Początek strony; jeden główny nagłówek H1."
+        },
+        "en": {
+          "name": "Centered image overlay",
+          "description": "Heading, description, action and example photograph. Replace the copy and photo before publishing.",
+          "usage": "Layout: centered image overlay. Page opening; one primary H1."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Dobre rozwiązania zaczynają się od rozmowy",
+          "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+          "action": {
+            "label": "Porozmawiajmy",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "overlay_center"
+        },
+        "en": {
+          "title": "Good solutions start with a conversation",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "overlay_center"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "business",
+        "alt": {
+          "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+          "en": "Bright studio with an oak table and laptop"
+        }
+      }
+    },
+    {
+      "id": "core.hero_editorial",
+      "version": 1,
+      "blockType": "core.hero",
+      "schemaVersion": 5,
+      "layout": "editorial",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Układ redakcyjny",
+          "description": "Nagłówek, opis, przycisk i przykładowe zdjęcie. Zmień treść i fotografię przed publikacją.",
+          "usage": "Układ: układ redakcyjny. Początek strony; jeden główny nagłówek H1."
+        },
+        "en": {
+          "name": "Editorial introduction",
+          "description": "Heading, description, action and example photograph. Replace the copy and photo before publishing.",
+          "usage": "Layout: editorial introduction. Page opening; one primary H1."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Dobre rozwiązania zaczynają się od rozmowy",
+          "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+          "action": {
+            "label": "Porozmawiajmy",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "editorial"
+        },
+        "en": {
+          "title": "Good solutions start with a conversation",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "editorial"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "business",
+        "alt": {
+          "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+          "en": "Bright studio with an oak table and laptop"
+        }
+      }
+    },
+    {
+      "id": "core.hero_inset",
+      "version": 1,
+      "blockType": "core.hero",
+      "schemaVersion": 5,
+      "layout": "inset",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Zdjęcie z marginesem",
+          "description": "Nagłówek, opis, przycisk i przykładowe zdjęcie. Zmień treść i fotografię przed publikacją.",
+          "usage": "Układ: zdjęcie z marginesem. Początek strony; jeden główny nagłówek H1."
+        },
+        "en": {
+          "name": "Inset photograph",
+          "description": "Heading, description, action and example photograph. Replace the copy and photo before publishing.",
+          "usage": "Layout: inset photograph. Page opening; one primary H1."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Dobre rozwiązania zaczynają się od rozmowy",
+          "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+          "action": {
+            "label": "Porozmawiajmy",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "inset"
+        },
+        "en": {
+          "title": "Good solutions start with a conversation",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "inset"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "business",
+        "alt": {
+          "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+          "en": "Bright studio with an oak table and laptop"
+        }
+      }
+    },
+    {
+      "id": "core.hero_framed",
+      "version": 1,
+      "blockType": "core.hero",
+      "schemaVersion": 5,
+      "layout": "framed",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Obramowane otwarcie",
+          "description": "Nagłówek, opis, przycisk i przykładowe zdjęcie. Zmień treść i fotografię przed publikacją.",
+          "usage": "Układ: obramowane otwarcie. Początek strony; jeden główny nagłówek H1."
+        },
+        "en": {
+          "name": "Framed introduction",
+          "description": "Heading, description, action and example photograph. Replace the copy and photo before publishing.",
+          "usage": "Layout: framed introduction. Page opening; one primary H1."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Dobre rozwiązania zaczynają się od rozmowy",
+          "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+          "action": {
+            "label": "Porozmawiajmy",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "framed"
+        },
+        "en": {
+          "title": "Good solutions start with a conversation",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "framed"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "business",
+        "alt": {
+          "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+          "en": "Bright studio with an oak table and laptop"
+        }
+      }
+    },
+    {
+      "id": "core.hero_portrait",
+      "version": 1,
+      "blockType": "core.hero",
+      "schemaVersion": 5,
+      "layout": "portrait",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Portretowy kadr",
+          "description": "Nagłówek, opis, przycisk i przykładowe zdjęcie. Zmień treść i fotografię przed publikacją.",
+          "usage": "Układ: portretowy kadr. Początek strony; jeden główny nagłówek H1."
+        },
+        "en": {
+          "name": "Portrait crop",
+          "description": "Heading, description, action and example photograph. Replace the copy and photo before publishing.",
+          "usage": "Layout: portrait crop. Page opening; one primary H1."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Dobre rozwiązania zaczynają się od rozmowy",
+          "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+          "action": {
+            "label": "Porozmawiajmy",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "portrait"
+        },
+        "en": {
+          "title": "Good solutions start with a conversation",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "portrait"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "business",
+        "alt": {
+          "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+          "en": "Bright studio with an oak table and laptop"
+        }
+      }
+    },
+    {
+      "id": "core.hero_spotlight",
+      "version": 1,
+      "blockType": "core.hero",
+      "schemaVersion": 5,
+      "layout": "spotlight",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Wyeksponowane zdjęcie",
+          "description": "Nagłówek, opis, przycisk i przykładowe zdjęcie. Zmień treść i fotografię przed publikacją.",
+          "usage": "Układ: wyeksponowane zdjęcie. Początek strony; jeden główny nagłówek H1."
+        },
+        "en": {
+          "name": "Image spotlight",
+          "description": "Heading, description, action and example photograph. Replace the copy and photo before publishing.",
+          "usage": "Layout: image spotlight. Page opening; one primary H1."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Dobre rozwiązania zaczynają się od rozmowy",
+          "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+          "action": {
+            "label": "Porozmawiajmy",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "spotlight"
+        },
+        "en": {
+          "title": "Good solutions start with a conversation",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "spotlight"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "business",
+        "alt": {
+          "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+          "en": "Bright studio with an oak table and laptop"
+        }
+      }
+    },
+    {
+      "id": "core.hero_sidebar",
+      "version": 1,
+      "blockType": "core.hero",
+      "schemaVersion": 5,
+      "layout": "sidebar",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Wąska kolumna tekstu",
+          "description": "Nagłówek, opis, przycisk i przykładowe zdjęcie. Zmień treść i fotografię przed publikacją.",
+          "usage": "Układ: wąska kolumna tekstu. Początek strony; jeden główny nagłówek H1."
+        },
+        "en": {
+          "name": "Narrow text column",
+          "description": "Heading, description, action and example photograph. Replace the copy and photo before publishing.",
+          "usage": "Layout: narrow text column. Page opening; one primary H1."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Dobre rozwiązania zaczynają się od rozmowy",
+          "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+          "action": {
+            "label": "Porozmawiajmy",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "sidebar"
+        },
+        "en": {
+          "title": "Good solutions start with a conversation",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "sidebar"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "business",
+        "alt": {
+          "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+          "en": "Bright studio with an oak table and laptop"
+        }
+      }
+    },
+    {
+      "id": "core.hero_poster",
+      "version": 1,
+      "blockType": "core.hero",
+      "schemaVersion": 5,
+      "layout": "poster",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Plakat z dużym tytułem",
+          "description": "Nagłówek, opis, przycisk i przykładowe zdjęcie. Zmień treść i fotografię przed publikacją.",
+          "usage": "Układ: plakat z dużym tytułem. Początek strony; jeden główny nagłówek H1."
+        },
+        "en": {
+          "name": "Poster heading",
+          "description": "Heading, description, action and example photograph. Replace the copy and photo before publishing.",
+          "usage": "Layout: poster heading. Page opening; one primary H1."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Dobre rozwiązania zaczynają się od rozmowy",
+          "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+          "action": {
+            "label": "Porozmawiajmy",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "poster"
+        },
+        "en": {
+          "title": "Good solutions start with a conversation",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "poster"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "business",
+        "alt": {
+          "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+          "en": "Bright studio with an oak table and laptop"
+        }
+      }
+    },
+    {
+      "id": "core.hero_diagonal",
+      "version": 1,
+      "blockType": "core.hero",
+      "schemaVersion": 5,
+      "layout": "diagonal",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Ukośny kadr zdjęcia",
+          "description": "Nagłówek, opis, przycisk i przykładowe zdjęcie. Zmień treść i fotografię przed publikacją.",
+          "usage": "Układ: ukośny kadr zdjęcia. Początek strony; jeden główny nagłówek H1."
+        },
+        "en": {
+          "name": "Diagonal image crop",
+          "description": "Heading, description, action and example photograph. Replace the copy and photo before publishing.",
+          "usage": "Layout: diagonal image crop. Page opening; one primary H1."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Dobre rozwiązania zaczynają się od rozmowy",
+          "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+          "action": {
+            "label": "Porozmawiajmy",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "diagonal"
+        },
+        "en": {
+          "title": "Good solutions start with a conversation",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "diagonal"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "business",
+        "alt": {
+          "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+          "en": "Bright studio with an oak table and laptop"
+        }
+      }
+    },
+    {
+      "id": "core.hero_card",
+      "version": 1,
+      "blockType": "core.hero",
+      "schemaVersion": 5,
+      "layout": "card",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Karta na tle",
+          "description": "Nagłówek, opis, przycisk i przykładowe zdjęcie. Zmień treść i fotografię przed publikacją.",
+          "usage": "Układ: karta na tle. Początek strony; jeden główny nagłówek H1."
+        },
+        "en": {
+          "name": "Introduction card",
+          "description": "Heading, description, action and example photograph. Replace the copy and photo before publishing.",
+          "usage": "Layout: introduction card. Page opening; one primary H1."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Dobre rozwiązania zaczynają się od rozmowy",
+          "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+          "action": {
+            "label": "Porozmawiajmy",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "card"
+        },
+        "en": {
+          "title": "Good solutions start with a conversation",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "card"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "business",
+        "alt": {
+          "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+          "en": "Bright studio with an oak table and laptop"
+        }
+      }
+    },
+    {
+      "id": "core.hero_floating",
+      "version": 1,
+      "blockType": "core.hero",
+      "schemaVersion": 5,
+      "layout": "floating",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Karta nachodząca na zdjęcie",
+          "description": "Nagłówek, opis, przycisk i przykładowe zdjęcie. Zmień treść i fotografię przed publikacją.",
+          "usage": "Układ: karta nachodząca na zdjęcie. Początek strony; jeden główny nagłówek H1."
+        },
+        "en": {
+          "name": "Overlapping image card",
+          "description": "Heading, description, action and example photograph. Replace the copy and photo before publishing.",
+          "usage": "Layout: overlapping image card. Page opening; one primary H1."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Dobre rozwiązania zaczynają się od rozmowy",
+          "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+          "action": {
+            "label": "Porozmawiajmy",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "floating"
+        },
+        "en": {
+          "title": "Good solutions start with a conversation",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "floating"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "business",
+        "alt": {
+          "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+          "en": "Bright studio with an oak table and laptop"
+        }
+      }
+    },
+    {
+      "id": "core.hero_compact",
+      "version": 1,
+      "blockType": "core.hero",
+      "schemaVersion": 5,
+      "layout": "compact",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Kompaktowe otwarcie",
+          "description": "Nagłówek, opis, przycisk i przykładowe zdjęcie. Zmień treść i fotografię przed publikacją.",
+          "usage": "Układ: kompaktowe otwarcie. Początek strony; jeden główny nagłówek H1."
+        },
+        "en": {
+          "name": "Compact introduction",
+          "description": "Heading, description, action and example photograph. Replace the copy and photo before publishing.",
+          "usage": "Layout: compact introduction. Page opening; one primary H1."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Dobre rozwiązania zaczynają się od rozmowy",
+          "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+          "action": {
+            "label": "Porozmawiajmy",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "compact"
+        },
+        "en": {
+          "title": "Good solutions start with a conversation",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "compact"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "business",
+        "alt": {
+          "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+          "en": "Bright studio with an oak table and laptop"
+        }
+      }
+    },
+    {
+      "id": "core.hero_magazine",
+      "version": 1,
+      "blockType": "core.hero",
+      "schemaVersion": 5,
+      "layout": "magazine",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Magazynowy podział",
+          "description": "Nagłówek, opis, przycisk i przykładowe zdjęcie. Zmień treść i fotografię przed publikacją.",
+          "usage": "Układ: magazynowy podział. Początek strony; jeden główny nagłówek H1."
+        },
+        "en": {
+          "name": "Magazine introduction",
+          "description": "Heading, description, action and example photograph. Replace the copy and photo before publishing.",
+          "usage": "Layout: magazine introduction. Page opening; one primary H1."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Dobre rozwiązania zaczynają się od rozmowy",
+          "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+          "action": {
+            "label": "Porozmawiajmy",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "magazine"
+        },
+        "en": {
+          "title": "Good solutions start with a conversation",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "magazine"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "business",
+        "alt": {
+          "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+          "en": "Bright studio with an oak table and laptop"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_classic",
+      "version": 2,
+      "blockType": "core.feature_list",
+      "schemaVersion": 3,
+      "layout": "classic",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Klasyczna lista",
+          "description": "Lista usług lub korzyści. Najlepiej 3–6 pozycji o podobnej długości; połącz z wprowadzeniem i kontaktem.",
+          "usage": "Układ: klasyczna lista. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Classic list",
+          "description": "Services or benefits. Works best with 3–6 similarly sized items; pair with an introduction and contact section.",
+          "usage": "Layout: classic list. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Od pomysłu do gotowego rozwiązania",
+          "items": [
+            {
+              "title": "Poznajemy potrzeby",
+              "text": "Wspólnie ustalamy zakres i priorytety."
+            },
+            {
+              "title": "Przygotowujemy propozycję",
+              "text": "Dobieramy rozwiązanie do Twojego celu."
+            },
+            {
+              "title": "Dbamy o realizację",
+              "text": "Ustalamy kolejne kroki i sposób kontaktu."
+            }
+          ],
+          "layout": "classic"
+        },
+        "en": {
+          "title": "From idea to a working solution",
+          "items": [
+            {
+              "title": "Understand your needs",
+              "text": "We define the scope and priorities together."
+            },
+            {
+              "title": "Plan the approach",
+              "text": "We match the solution to your goal."
+            },
+            {
+              "title": "Deliver the work",
+              "text": "We agree on the next steps and how to stay in touch."
+            }
+          ],
+          "layout": "classic"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 6,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": "3:2"
+      }
+    },
+    {
+      "id": "core.feature_list_cards",
+      "version": 2,
+      "blockType": "core.feature_list",
+      "schemaVersion": 3,
+      "layout": "cards",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Karty usług",
+          "description": "Lista usług lub korzyści. Najlepiej 3–6 pozycji o podobnej długości; połącz z wprowadzeniem i kontaktem.",
+          "usage": "Układ: karty usług. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Service cards",
+          "description": "Services or benefits. Works best with 3–6 similarly sized items; pair with an introduction and contact section.",
+          "usage": "Layout: service cards. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Od pomysłu do gotowego rozwiązania",
+          "items": [
+            {
+              "title": "Poznajemy potrzeby",
+              "text": "Wspólnie ustalamy zakres i priorytety."
+            },
+            {
+              "title": "Przygotowujemy propozycję",
+              "text": "Dobieramy rozwiązanie do Twojego celu."
+            },
+            {
+              "title": "Dbamy o realizację",
+              "text": "Ustalamy kolejne kroki i sposób kontaktu."
+            }
+          ],
+          "layout": "cards"
+        },
+        "en": {
+          "title": "From idea to a working solution",
+          "items": [
+            {
+              "title": "Understand your needs",
+              "text": "We define the scope and priorities together."
+            },
+            {
+              "title": "Plan the approach",
+              "text": "We match the solution to your goal."
+            },
+            {
+              "title": "Deliver the work",
+              "text": "We agree on the next steps and how to stay in touch."
+            }
+          ],
+          "layout": "cards"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 6,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": "3:2"
+      }
+    },
+    {
+      "id": "core.feature_list_columns",
+      "version": 2,
+      "blockType": "core.feature_list",
+      "schemaVersion": 3,
+      "layout": "columns",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Kolumny oferty",
+          "description": "Lista usług lub korzyści. Najlepiej 3–6 pozycji o podobnej długości; połącz z wprowadzeniem i kontaktem.",
+          "usage": "Układ: kolumny oferty. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Offer columns",
+          "description": "Services or benefits. Works best with 3–6 similarly sized items; pair with an introduction and contact section.",
+          "usage": "Layout: offer columns. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Od pomysłu do gotowego rozwiązania",
+          "items": [
+            {
+              "title": "Poznajemy potrzeby",
+              "text": "Wspólnie ustalamy zakres i priorytety."
+            },
+            {
+              "title": "Przygotowujemy propozycję",
+              "text": "Dobieramy rozwiązanie do Twojego celu."
+            },
+            {
+              "title": "Dbamy o realizację",
+              "text": "Ustalamy kolejne kroki i sposób kontaktu."
+            }
+          ],
+          "layout": "columns"
+        },
+        "en": {
+          "title": "From idea to a working solution",
+          "items": [
+            {
+              "title": "Understand your needs",
+              "text": "We define the scope and priorities together."
+            },
+            {
+              "title": "Plan the approach",
+              "text": "We match the solution to your goal."
+            },
+            {
+              "title": "Deliver the work",
+              "text": "We agree on the next steps and how to stay in touch."
+            }
+          ],
+          "layout": "columns"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 6,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": "3:2"
+      }
+    },
+    {
+      "id": "core.feature_list_image_left",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 3,
+      "layout": "image_left",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Oferta ze zdjęciem po lewej",
+          "description": "Lista usług lub korzyści. Najlepiej 3–6 pozycji o podobnej długości; połącz z wprowadzeniem i kontaktem.",
+          "usage": "Układ: oferta ze zdjęciem po lewej. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Offer with left image",
+          "description": "Services or benefits. Works best with 3–6 similarly sized items; pair with an introduction and contact section.",
+          "usage": "Layout: offer with left image. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Od pomysłu do gotowego rozwiązania",
+          "items": [
+            {
+              "title": "Poznajemy potrzeby",
+              "text": "Wspólnie ustalamy zakres i priorytety."
+            },
+            {
+              "title": "Przygotowujemy propozycję",
+              "text": "Dobieramy rozwiązanie do Twojego celu."
+            },
+            {
+              "title": "Dbamy o realizację",
+              "text": "Ustalamy kolejne kroki i sposób kontaktu."
+            }
+          ],
+          "layout": "image_left"
+        },
+        "en": {
+          "title": "From idea to a working solution",
+          "items": [
+            {
+              "title": "Understand your needs",
+              "text": "We define the scope and priorities together."
+            },
+            {
+              "title": "Plan the approach",
+              "text": "We match the solution to your goal."
+            },
+            {
+              "title": "Deliver the work",
+              "text": "We agree on the next steps and how to stay in touch."
+            }
+          ],
+          "layout": "image_left"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 6,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "business",
+        "alt": {
+          "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+          "en": "Bright studio with an oak table and laptop"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_image_right",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 3,
+      "layout": "image_right",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Oferta ze zdjęciem po prawej",
+          "description": "Lista usług lub korzyści. Najlepiej 3–6 pozycji o podobnej długości; połącz z wprowadzeniem i kontaktem.",
+          "usage": "Układ: oferta ze zdjęciem po prawej. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Offer with right image",
+          "description": "Services or benefits. Works best with 3–6 similarly sized items; pair with an introduction and contact section.",
+          "usage": "Layout: offer with right image. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Od pomysłu do gotowego rozwiązania",
+          "items": [
+            {
+              "title": "Poznajemy potrzeby",
+              "text": "Wspólnie ustalamy zakres i priorytety."
+            },
+            {
+              "title": "Przygotowujemy propozycję",
+              "text": "Dobieramy rozwiązanie do Twojego celu."
+            },
+            {
+              "title": "Dbamy o realizację",
+              "text": "Ustalamy kolejne kroki i sposób kontaktu."
+            }
+          ],
+          "layout": "image_right"
+        },
+        "en": {
+          "title": "From idea to a working solution",
+          "items": [
+            {
+              "title": "Understand your needs",
+              "text": "We define the scope and priorities together."
+            },
+            {
+              "title": "Plan the approach",
+              "text": "We match the solution to your goal."
+            },
+            {
+              "title": "Deliver the work",
+              "text": "We agree on the next steps and how to stay in touch."
+            }
+          ],
+          "layout": "image_right"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 6,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "business",
+        "alt": {
+          "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+          "en": "Bright studio with an oak table and laptop"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_image_top",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 3,
+      "layout": "image_top",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Oferta pod zdjęciem",
+          "description": "Lista usług lub korzyści. Najlepiej 3–6 pozycji o podobnej długości; połącz z wprowadzeniem i kontaktem.",
+          "usage": "Układ: oferta pod zdjęciem. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Offer below an image",
+          "description": "Services or benefits. Works best with 3–6 similarly sized items; pair with an introduction and contact section.",
+          "usage": "Layout: offer below an image. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Od pomysłu do gotowego rozwiązania",
+          "items": [
+            {
+              "title": "Poznajemy potrzeby",
+              "text": "Wspólnie ustalamy zakres i priorytety."
+            },
+            {
+              "title": "Przygotowujemy propozycję",
+              "text": "Dobieramy rozwiązanie do Twojego celu."
+            },
+            {
+              "title": "Dbamy o realizację",
+              "text": "Ustalamy kolejne kroki i sposób kontaktu."
+            }
+          ],
+          "layout": "image_top"
+        },
+        "en": {
+          "title": "From idea to a working solution",
+          "items": [
+            {
+              "title": "Understand your needs",
+              "text": "We define the scope and priorities together."
+            },
+            {
+              "title": "Plan the approach",
+              "text": "We match the solution to your goal."
+            },
+            {
+              "title": "Deliver the work",
+              "text": "We agree on the next steps and how to stay in touch."
+            }
+          ],
+          "layout": "image_top"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 6,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "business",
+        "alt": {
+          "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+          "en": "Bright studio with an oak table and laptop"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_numbered",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 3,
+      "layout": "numbered",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Numerowane korzyści",
+          "description": "Lista usług lub korzyści. Najlepiej 3–6 pozycji o podobnej długości; połącz z wprowadzeniem i kontaktem.",
+          "usage": "Układ: numerowane korzyści. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Numbered benefits",
+          "description": "Services or benefits. Works best with 3–6 similarly sized items; pair with an introduction and contact section.",
+          "usage": "Layout: numbered benefits. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Od pomysłu do gotowego rozwiązania",
+          "items": [
+            {
+              "title": "Poznajemy potrzeby",
+              "text": "Wspólnie ustalamy zakres i priorytety."
+            },
+            {
+              "title": "Przygotowujemy propozycję",
+              "text": "Dobieramy rozwiązanie do Twojego celu."
+            },
+            {
+              "title": "Dbamy o realizację",
+              "text": "Ustalamy kolejne kroki i sposób kontaktu."
+            }
+          ],
+          "layout": "numbered"
+        },
+        "en": {
+          "title": "From idea to a working solution",
+          "items": [
+            {
+              "title": "Understand your needs",
+              "text": "We define the scope and priorities together."
+            },
+            {
+              "title": "Plan the approach",
+              "text": "We match the solution to your goal."
+            },
+            {
+              "title": "Deliver the work",
+              "text": "We agree on the next steps and how to stay in touch."
+            }
+          ],
+          "layout": "numbered"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 6,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": "3:2"
+      }
+    },
+    {
+      "id": "core.feature_list_timeline",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 3,
+      "layout": "timeline",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Oś współpracy",
+          "description": "Lista usług lub korzyści. Najlepiej 3–6 pozycji o podobnej długości; połącz z wprowadzeniem i kontaktem.",
+          "usage": "Układ: oś współpracy. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Collaboration timeline",
+          "description": "Services or benefits. Works best with 3–6 similarly sized items; pair with an introduction and contact section.",
+          "usage": "Layout: collaboration timeline. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Od pomysłu do gotowego rozwiązania",
+          "items": [
+            {
+              "title": "Poznajemy potrzeby",
+              "text": "Wspólnie ustalamy zakres i priorytety."
+            },
+            {
+              "title": "Przygotowujemy propozycję",
+              "text": "Dobieramy rozwiązanie do Twojego celu."
+            },
+            {
+              "title": "Dbamy o realizację",
+              "text": "Ustalamy kolejne kroki i sposób kontaktu."
+            }
+          ],
+          "layout": "timeline"
+        },
+        "en": {
+          "title": "From idea to a working solution",
+          "items": [
+            {
+              "title": "Understand your needs",
+              "text": "We define the scope and priorities together."
+            },
+            {
+              "title": "Plan the approach",
+              "text": "We match the solution to your goal."
+            },
+            {
+              "title": "Deliver the work",
+              "text": "We agree on the next steps and how to stay in touch."
+            }
+          ],
+          "layout": "timeline"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 6,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": "3:2"
+      }
+    },
+    {
+      "id": "core.feature_list_alternating",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 3,
+      "layout": "alternating",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Naprzemienne wiersze",
+          "description": "Lista usług lub korzyści. Najlepiej 3–6 pozycji o podobnej długości; połącz z wprowadzeniem i kontaktem.",
+          "usage": "Układ: naprzemienne wiersze. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Alternating rows",
+          "description": "Services or benefits. Works best with 3–6 similarly sized items; pair with an introduction and contact section.",
+          "usage": "Layout: alternating rows. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Od pomysłu do gotowego rozwiązania",
+          "items": [
+            {
+              "title": "Poznajemy potrzeby",
+              "text": "Wspólnie ustalamy zakres i priorytety."
+            },
+            {
+              "title": "Przygotowujemy propozycję",
+              "text": "Dobieramy rozwiązanie do Twojego celu."
+            },
+            {
+              "title": "Dbamy o realizację",
+              "text": "Ustalamy kolejne kroki i sposób kontaktu."
+            }
+          ],
+          "layout": "alternating"
+        },
+        "en": {
+          "title": "From idea to a working solution",
+          "items": [
+            {
+              "title": "Understand your needs",
+              "text": "We define the scope and priorities together."
+            },
+            {
+              "title": "Plan the approach",
+              "text": "We match the solution to your goal."
+            },
+            {
+              "title": "Deliver the work",
+              "text": "We agree on the next steps and how to stay in touch."
+            }
+          ],
+          "layout": "alternating"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 6,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": "3:2"
+      }
+    },
+    {
+      "id": "core.feature_list_bento",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 3,
+      "layout": "bento",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Asymetryczne karty",
+          "description": "Lista usług lub korzyści. Najlepiej 3–6 pozycji o podobnej długości; połącz z wprowadzeniem i kontaktem.",
+          "usage": "Układ: asymetryczne karty. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Asymmetric cards",
+          "description": "Services or benefits. Works best with 3–6 similarly sized items; pair with an introduction and contact section.",
+          "usage": "Layout: asymmetric cards. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Od pomysłu do gotowego rozwiązania",
+          "items": [
+            {
+              "title": "Poznajemy potrzeby",
+              "text": "Wspólnie ustalamy zakres i priorytety."
+            },
+            {
+              "title": "Przygotowujemy propozycję",
+              "text": "Dobieramy rozwiązanie do Twojego celu."
+            },
+            {
+              "title": "Dbamy o realizację",
+              "text": "Ustalamy kolejne kroki i sposób kontaktu."
+            }
+          ],
+          "layout": "bento"
+        },
+        "en": {
+          "title": "From idea to a working solution",
+          "items": [
+            {
+              "title": "Understand your needs",
+              "text": "We define the scope and priorities together."
+            },
+            {
+              "title": "Plan the approach",
+              "text": "We match the solution to your goal."
+            },
+            {
+              "title": "Deliver the work",
+              "text": "We agree on the next steps and how to stay in touch."
+            }
+          ],
+          "layout": "bento"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 6,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": "3:2"
+      }
+    },
+    {
+      "id": "core.feature_list_strip",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 3,
+      "layout": "strip",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Poziomy pas oferty",
+          "description": "Lista usług lub korzyści. Najlepiej 3–6 pozycji o podobnej długości; połącz z wprowadzeniem i kontaktem.",
+          "usage": "Układ: poziomy pas oferty. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Offer strip",
+          "description": "Services or benefits. Works best with 3–6 similarly sized items; pair with an introduction and contact section.",
+          "usage": "Layout: offer strip. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Od pomysłu do gotowego rozwiązania",
+          "items": [
+            {
+              "title": "Poznajemy potrzeby",
+              "text": "Wspólnie ustalamy zakres i priorytety."
+            },
+            {
+              "title": "Przygotowujemy propozycję",
+              "text": "Dobieramy rozwiązanie do Twojego celu."
+            },
+            {
+              "title": "Dbamy o realizację",
+              "text": "Ustalamy kolejne kroki i sposób kontaktu."
+            }
+          ],
+          "layout": "strip"
+        },
+        "en": {
+          "title": "From idea to a working solution",
+          "items": [
+            {
+              "title": "Understand your needs",
+              "text": "We define the scope and priorities together."
+            },
+            {
+              "title": "Plan the approach",
+              "text": "We match the solution to your goal."
+            },
+            {
+              "title": "Deliver the work",
+              "text": "We agree on the next steps and how to stay in touch."
+            }
+          ],
+          "layout": "strip"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 6,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": "3:2"
+      }
+    },
+    {
+      "id": "core.feature_list_checklist",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 3,
+      "layout": "checklist",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Lista zakresu usługi",
+          "description": "Lista usług lub korzyści. Najlepiej 3–6 pozycji o podobnej długości; połącz z wprowadzeniem i kontaktem.",
+          "usage": "Układ: lista zakresu usługi. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Service checklist",
+          "description": "Services or benefits. Works best with 3–6 similarly sized items; pair with an introduction and contact section.",
+          "usage": "Layout: service checklist. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Od pomysłu do gotowego rozwiązania",
+          "items": [
+            {
+              "title": "Poznajemy potrzeby",
+              "text": "Wspólnie ustalamy zakres i priorytety."
+            },
+            {
+              "title": "Przygotowujemy propozycję",
+              "text": "Dobieramy rozwiązanie do Twojego celu."
+            },
+            {
+              "title": "Dbamy o realizację",
+              "text": "Ustalamy kolejne kroki i sposób kontaktu."
+            }
+          ],
+          "layout": "checklist"
+        },
+        "en": {
+          "title": "From idea to a working solution",
+          "items": [
+            {
+              "title": "Understand your needs",
+              "text": "We define the scope and priorities together."
+            },
+            {
+              "title": "Plan the approach",
+              "text": "We match the solution to your goal."
+            },
+            {
+              "title": "Deliver the work",
+              "text": "We agree on the next steps and how to stay in touch."
+            }
+          ],
+          "layout": "checklist"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 6,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": "3:2"
+      }
+    },
+    {
+      "id": "core.feature_list_compact",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 3,
+      "layout": "compact",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Zwięzła oferta",
+          "description": "Lista usług lub korzyści. Najlepiej 3–6 pozycji o podobnej długości; połącz z wprowadzeniem i kontaktem.",
+          "usage": "Układ: zwięzła oferta. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Compact offer",
+          "description": "Services or benefits. Works best with 3–6 similarly sized items; pair with an introduction and contact section.",
+          "usage": "Layout: compact offer. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Od pomysłu do gotowego rozwiązania",
+          "items": [
+            {
+              "title": "Poznajemy potrzeby",
+              "text": "Wspólnie ustalamy zakres i priorytety."
+            },
+            {
+              "title": "Przygotowujemy propozycję",
+              "text": "Dobieramy rozwiązanie do Twojego celu."
+            },
+            {
+              "title": "Dbamy o realizację",
+              "text": "Ustalamy kolejne kroki i sposób kontaktu."
+            }
+          ],
+          "layout": "compact"
+        },
+        "en": {
+          "title": "From idea to a working solution",
+          "items": [
+            {
+              "title": "Understand your needs",
+              "text": "We define the scope and priorities together."
+            },
+            {
+              "title": "Plan the approach",
+              "text": "We match the solution to your goal."
+            },
+            {
+              "title": "Deliver the work",
+              "text": "We agree on the next steps and how to stay in touch."
+            }
+          ],
+          "layout": "compact"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 6,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": "3:2"
+      }
+    },
+    {
+      "id": "core.feature_list_divided",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 3,
+      "layout": "divided",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Dzielone wiersze",
+          "description": "Lista usług lub korzyści. Najlepiej 3–6 pozycji o podobnej długości; połącz z wprowadzeniem i kontaktem.",
+          "usage": "Układ: dzielone wiersze. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Divided rows",
+          "description": "Services or benefits. Works best with 3–6 similarly sized items; pair with an introduction and contact section.",
+          "usage": "Layout: divided rows. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Od pomysłu do gotowego rozwiązania",
+          "items": [
+            {
+              "title": "Poznajemy potrzeby",
+              "text": "Wspólnie ustalamy zakres i priorytety."
+            },
+            {
+              "title": "Przygotowujemy propozycję",
+              "text": "Dobieramy rozwiązanie do Twojego celu."
+            },
+            {
+              "title": "Dbamy o realizację",
+              "text": "Ustalamy kolejne kroki i sposób kontaktu."
+            }
+          ],
+          "layout": "divided"
+        },
+        "en": {
+          "title": "From idea to a working solution",
+          "items": [
+            {
+              "title": "Understand your needs",
+              "text": "We define the scope and priorities together."
+            },
+            {
+              "title": "Plan the approach",
+              "text": "We match the solution to your goal."
+            },
+            {
+              "title": "Deliver the work",
+              "text": "We agree on the next steps and how to stay in touch."
+            }
+          ],
+          "layout": "divided"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 6,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": "3:2"
+      }
+    },
+    {
+      "id": "core.feature_list_spotlight",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 3,
+      "layout": "spotlight",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Wyróżniona usługa",
+          "description": "Lista usług lub korzyści. Najlepiej 3–6 pozycji o podobnej długości; połącz z wprowadzeniem i kontaktem.",
+          "usage": "Układ: wyróżniona usługa. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Featured service",
+          "description": "Services or benefits. Works best with 3–6 similarly sized items; pair with an introduction and contact section.",
+          "usage": "Layout: featured service. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Od pomysłu do gotowego rozwiązania",
+          "items": [
+            {
+              "title": "Poznajemy potrzeby",
+              "text": "Wspólnie ustalamy zakres i priorytety."
+            },
+            {
+              "title": "Przygotowujemy propozycję",
+              "text": "Dobieramy rozwiązanie do Twojego celu."
+            },
+            {
+              "title": "Dbamy o realizację",
+              "text": "Ustalamy kolejne kroki i sposób kontaktu."
+            }
+          ],
+          "layout": "spotlight"
+        },
+        "en": {
+          "title": "From idea to a working solution",
+          "items": [
+            {
+              "title": "Understand your needs",
+              "text": "We define the scope and priorities together."
+            },
+            {
+              "title": "Plan the approach",
+              "text": "We match the solution to your goal."
+            },
+            {
+              "title": "Deliver the work",
+              "text": "We agree on the next steps and how to stay in touch."
+            }
+          ],
+          "layout": "spotlight"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 6,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": "3:2"
+      }
+    },
+    {
+      "id": "core.feature_list_stacked",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 3,
+      "layout": "stacked",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Karty w pionie",
+          "description": "Lista usług lub korzyści. Najlepiej 3–6 pozycji o podobnej długości; połącz z wprowadzeniem i kontaktem.",
+          "usage": "Układ: karty w pionie. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Stacked cards",
+          "description": "Services or benefits. Works best with 3–6 similarly sized items; pair with an introduction and contact section.",
+          "usage": "Layout: stacked cards. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Od pomysłu do gotowego rozwiązania",
+          "items": [
+            {
+              "title": "Poznajemy potrzeby",
+              "text": "Wspólnie ustalamy zakres i priorytety."
+            },
+            {
+              "title": "Przygotowujemy propozycję",
+              "text": "Dobieramy rozwiązanie do Twojego celu."
+            },
+            {
+              "title": "Dbamy o realizację",
+              "text": "Ustalamy kolejne kroki i sposób kontaktu."
+            }
+          ],
+          "layout": "stacked"
+        },
+        "en": {
+          "title": "From idea to a working solution",
+          "items": [
+            {
+              "title": "Understand your needs",
+              "text": "We define the scope and priorities together."
+            },
+            {
+              "title": "Plan the approach",
+              "text": "We match the solution to your goal."
+            },
+            {
+              "title": "Deliver the work",
+              "text": "We agree on the next steps and how to stay in touch."
+            }
+          ],
+          "layout": "stacked"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 6,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": "3:2"
+      }
+    },
+    {
+      "id": "core.feature_list_chips",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 3,
+      "layout": "chips",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Kompaktowe kafle",
+          "description": "Lista usług lub korzyści. Najlepiej 3–6 pozycji o podobnej długości; połącz z wprowadzeniem i kontaktem.",
+          "usage": "Układ: kompaktowe kafle. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Compact tiles",
+          "description": "Services or benefits. Works best with 3–6 similarly sized items; pair with an introduction and contact section.",
+          "usage": "Layout: compact tiles. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Od pomysłu do gotowego rozwiązania",
+          "items": [
+            {
+              "title": "Poznajemy potrzeby",
+              "text": "Wspólnie ustalamy zakres i priorytety."
+            },
+            {
+              "title": "Przygotowujemy propozycję",
+              "text": "Dobieramy rozwiązanie do Twojego celu."
+            },
+            {
+              "title": "Dbamy o realizację",
+              "text": "Ustalamy kolejne kroki i sposób kontaktu."
+            }
+          ],
+          "layout": "chips"
+        },
+        "en": {
+          "title": "From idea to a working solution",
+          "items": [
+            {
+              "title": "Understand your needs",
+              "text": "We define the scope and priorities together."
+            },
+            {
+              "title": "Plan the approach",
+              "text": "We match the solution to your goal."
+            },
+            {
+              "title": "Deliver the work",
+              "text": "We agree on the next steps and how to stay in touch."
+            }
+          ],
+          "layout": "chips"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 6,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": "3:2"
+      }
+    },
+    {
+      "id": "core.feature_list_magazine",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 3,
+      "layout": "magazine",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Oferta redakcyjna",
+          "description": "Lista usług lub korzyści. Najlepiej 3–6 pozycji o podobnej długości; połącz z wprowadzeniem i kontaktem.",
+          "usage": "Układ: oferta redakcyjna. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Editorial offer",
+          "description": "Services or benefits. Works best with 3–6 similarly sized items; pair with an introduction and contact section.",
+          "usage": "Layout: editorial offer. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Od pomysłu do gotowego rozwiązania",
+          "items": [
+            {
+              "title": "Poznajemy potrzeby",
+              "text": "Wspólnie ustalamy zakres i priorytety."
+            },
+            {
+              "title": "Przygotowujemy propozycję",
+              "text": "Dobieramy rozwiązanie do Twojego celu."
+            },
+            {
+              "title": "Dbamy o realizację",
+              "text": "Ustalamy kolejne kroki i sposób kontaktu."
+            }
+          ],
+          "layout": "magazine"
+        },
+        "en": {
+          "title": "From idea to a working solution",
+          "items": [
+            {
+              "title": "Understand your needs",
+              "text": "We define the scope and priorities together."
+            },
+            {
+              "title": "Plan the approach",
+              "text": "We match the solution to your goal."
+            },
+            {
+              "title": "Deliver the work",
+              "text": "We agree on the next steps and how to stay in touch."
+            }
+          ],
+          "layout": "magazine"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 6,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "business",
+        "alt": {
+          "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+          "en": "Bright studio with an oak table and laptop"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_tiles",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 3,
+      "layout": "tiles",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Siatka kafli",
+          "description": "Lista usług lub korzyści. Najlepiej 3–6 pozycji o podobnej długości; połącz z wprowadzeniem i kontaktem.",
+          "usage": "Układ: siatka kafli. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Tile grid",
+          "description": "Services or benefits. Works best with 3–6 similarly sized items; pair with an introduction and contact section.",
+          "usage": "Layout: tile grid. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Od pomysłu do gotowego rozwiązania",
+          "items": [
+            {
+              "title": "Poznajemy potrzeby",
+              "text": "Wspólnie ustalamy zakres i priorytety."
+            },
+            {
+              "title": "Przygotowujemy propozycję",
+              "text": "Dobieramy rozwiązanie do Twojego celu."
+            },
+            {
+              "title": "Dbamy o realizację",
+              "text": "Ustalamy kolejne kroki i sposób kontaktu."
+            }
+          ],
+          "layout": "tiles"
+        },
+        "en": {
+          "title": "From idea to a working solution",
+          "items": [
+            {
+              "title": "Understand your needs",
+              "text": "We define the scope and priorities together."
+            },
+            {
+              "title": "Plan the approach",
+              "text": "We match the solution to your goal."
+            },
+            {
+              "title": "Deliver the work",
+              "text": "We agree on the next steps and how to stay in touch."
+            }
+          ],
+          "layout": "tiles"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 6,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": "3:2"
+      }
+    },
+    {
+      "id": "core.feature_list_editorial",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 3,
+      "layout": "editorial",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Nagłówek obok listy",
+          "description": "Lista usług lub korzyści. Najlepiej 3–6 pozycji o podobnej długości; połącz z wprowadzeniem i kontaktem.",
+          "usage": "Układ: nagłówek obok listy. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Heading beside list",
+          "description": "Services or benefits. Works best with 3–6 similarly sized items; pair with an introduction and contact section.",
+          "usage": "Layout: heading beside list. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Od pomysłu do gotowego rozwiązania",
+          "items": [
+            {
+              "title": "Poznajemy potrzeby",
+              "text": "Wspólnie ustalamy zakres i priorytety."
+            },
+            {
+              "title": "Przygotowujemy propozycję",
+              "text": "Dobieramy rozwiązanie do Twojego celu."
+            },
+            {
+              "title": "Dbamy o realizację",
+              "text": "Ustalamy kolejne kroki i sposób kontaktu."
+            }
+          ],
+          "layout": "editorial"
+        },
+        "en": {
+          "title": "From idea to a working solution",
+          "items": [
+            {
+              "title": "Understand your needs",
+              "text": "We define the scope and priorities together."
+            },
+            {
+              "title": "Plan the approach",
+              "text": "We match the solution to your goal."
+            },
+            {
+              "title": "Deliver the work",
+              "text": "We agree on the next steps and how to stay in touch."
+            }
+          ],
+          "layout": "editorial"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 6,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": "3:2"
+      }
+    },
+    {
+      "id": "core.faq_classic",
+      "version": 2,
+      "blockType": "core.faq",
+      "schemaVersion": 3,
+      "layout": "classic",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Klasyczne FAQ",
+          "description": "Odpowiedzi przed kontaktem lub rezerwacją. Użyj 3–8 konkretnych pytań; długie treści lepiej pasują do układów jednokolumnowych.",
+          "usage": "Układ: klasyczne faq. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Classic FAQ",
+          "description": "Answers before contact or booking. Use 3–8 specific questions; long answers work best in single-column layouts.",
+          "usage": "Layout: classic faq. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["answer_questions"],
+      "composition": {
+        "role": "reassurance",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Warto wiedzieć przed pierwszym kontaktem",
+          "items": [
+            {
+              "question": "Od czego zacząć?",
+              "answer": "Napisz, czego potrzebujesz. Ustalimy zakres i następny krok."
+            },
+            {
+              "question": "Jak ustalamy termin?",
+              "answer": "Termin potwierdzamy po omówieniu dostępności i zakresu pracy."
+            },
+            {
+              "question": "Co przygotować?",
+              "answer": "Zbierz podstawowe informacje oraz pytania, które chcesz omówić."
+            }
+          ],
+          "layout": "classic"
+        },
+        "en": {
+          "title": "Before you get in touch",
+          "items": [
+            {
+              "question": "How do I start?",
+              "answer": "Tell us what you need. We will agree on the scope and next step."
+            },
+            {
+              "question": "How is a date agreed?",
+              "answer": "We confirm a date after discussing availability and the scope of work."
+            },
+            {
+              "question": "What should I prepare?",
+              "answer": "Gather the basic information and questions you would like to discuss."
+            }
+          ],
+          "layout": "classic"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": null
+      }
+    },
+    {
+      "id": "core.faq_accordion",
+      "version": 2,
+      "blockType": "core.faq",
+      "schemaVersion": 3,
+      "layout": "accordion",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Rozwijane FAQ",
+          "description": "Odpowiedzi przed kontaktem lub rezerwacją. Użyj 3–8 konkretnych pytań; długie treści lepiej pasują do układów jednokolumnowych.",
+          "usage": "Układ: rozwijane faq. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Expandable FAQ",
+          "description": "Answers before contact or booking. Use 3–8 specific questions; long answers work best in single-column layouts.",
+          "usage": "Layout: expandable faq. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["answer_questions"],
+      "composition": {
+        "role": "reassurance",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Warto wiedzieć przed pierwszym kontaktem",
+          "items": [
+            {
+              "question": "Od czego zacząć?",
+              "answer": "Napisz, czego potrzebujesz. Ustalimy zakres i następny krok."
+            },
+            {
+              "question": "Jak ustalamy termin?",
+              "answer": "Termin potwierdzamy po omówieniu dostępności i zakresu pracy."
+            },
+            {
+              "question": "Co przygotować?",
+              "answer": "Zbierz podstawowe informacje oraz pytania, które chcesz omówić."
+            }
+          ],
+          "layout": "accordion"
+        },
+        "en": {
+          "title": "Before you get in touch",
+          "items": [
+            {
+              "question": "How do I start?",
+              "answer": "Tell us what you need. We will agree on the scope and next step."
+            },
+            {
+              "question": "How is a date agreed?",
+              "answer": "We confirm a date after discussing availability and the scope of work."
+            },
+            {
+              "question": "What should I prepare?",
+              "answer": "Gather the basic information and questions you would like to discuss."
+            }
+          ],
+          "layout": "accordion"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": null
+      }
+    },
+    {
+      "id": "core.faq_split",
+      "version": 2,
+      "blockType": "core.faq",
+      "schemaVersion": 3,
+      "layout": "split",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "FAQ w dwóch kolumnach",
+          "description": "Odpowiedzi przed kontaktem lub rezerwacją. Użyj 3–8 konkretnych pytań; długie treści lepiej pasują do układów jednokolumnowych.",
+          "usage": "Układ: faq w dwóch kolumnach. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Two-column FAQ",
+          "description": "Answers before contact or booking. Use 3–8 specific questions; long answers work best in single-column layouts.",
+          "usage": "Layout: two-column faq. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["answer_questions"],
+      "composition": {
+        "role": "reassurance",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Warto wiedzieć przed pierwszym kontaktem",
+          "items": [
+            {
+              "question": "Od czego zacząć?",
+              "answer": "Napisz, czego potrzebujesz. Ustalimy zakres i następny krok."
+            },
+            {
+              "question": "Jak ustalamy termin?",
+              "answer": "Termin potwierdzamy po omówieniu dostępności i zakresu pracy."
+            },
+            {
+              "question": "Co przygotować?",
+              "answer": "Zbierz podstawowe informacje oraz pytania, które chcesz omówić."
+            }
+          ],
+          "layout": "split"
+        },
+        "en": {
+          "title": "Before you get in touch",
+          "items": [
+            {
+              "question": "How do I start?",
+              "answer": "Tell us what you need. We will agree on the scope and next step."
+            },
+            {
+              "question": "How is a date agreed?",
+              "answer": "We confirm a date after discussing availability and the scope of work."
+            },
+            {
+              "question": "What should I prepare?",
+              "answer": "Gather the basic information and questions you would like to discuss."
+            }
+          ],
+          "layout": "split"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": null
+      }
+    },
+    {
+      "id": "core.faq_cards",
+      "version": 1,
+      "blockType": "core.faq",
+      "schemaVersion": 3,
+      "layout": "cards",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Pytania w kartach",
+          "description": "Odpowiedzi przed kontaktem lub rezerwacją. Użyj 3–8 konkretnych pytań; długie treści lepiej pasują do układów jednokolumnowych.",
+          "usage": "Układ: pytania w kartach. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Question cards",
+          "description": "Answers before contact or booking. Use 3–8 specific questions; long answers work best in single-column layouts.",
+          "usage": "Layout: question cards. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["answer_questions"],
+      "composition": {
+        "role": "reassurance",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Warto wiedzieć przed pierwszym kontaktem",
+          "items": [
+            {
+              "question": "Od czego zacząć?",
+              "answer": "Napisz, czego potrzebujesz. Ustalimy zakres i następny krok."
+            },
+            {
+              "question": "Jak ustalamy termin?",
+              "answer": "Termin potwierdzamy po omówieniu dostępności i zakresu pracy."
+            },
+            {
+              "question": "Co przygotować?",
+              "answer": "Zbierz podstawowe informacje oraz pytania, które chcesz omówić."
+            }
+          ],
+          "layout": "cards"
+        },
+        "en": {
+          "title": "Before you get in touch",
+          "items": [
+            {
+              "question": "How do I start?",
+              "answer": "Tell us what you need. We will agree on the scope and next step."
+            },
+            {
+              "question": "How is a date agreed?",
+              "answer": "We confirm a date after discussing availability and the scope of work."
+            },
+            {
+              "question": "What should I prepare?",
+              "answer": "Gather the basic information and questions you would like to discuss."
+            }
+          ],
+          "layout": "cards"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": null
+      }
+    },
+    {
+      "id": "core.faq_numbered",
+      "version": 1,
+      "blockType": "core.faq",
+      "schemaVersion": 3,
+      "layout": "numbered",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Numerowane pytania",
+          "description": "Odpowiedzi przed kontaktem lub rezerwacją. Użyj 3–8 konkretnych pytań; długie treści lepiej pasują do układów jednokolumnowych.",
+          "usage": "Układ: numerowane pytania. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Numbered questions",
+          "description": "Answers before contact or booking. Use 3–8 specific questions; long answers work best in single-column layouts.",
+          "usage": "Layout: numbered questions. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["answer_questions"],
+      "composition": {
+        "role": "reassurance",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Warto wiedzieć przed pierwszym kontaktem",
+          "items": [
+            {
+              "question": "Od czego zacząć?",
+              "answer": "Napisz, czego potrzebujesz. Ustalimy zakres i następny krok."
+            },
+            {
+              "question": "Jak ustalamy termin?",
+              "answer": "Termin potwierdzamy po omówieniu dostępności i zakresu pracy."
+            },
+            {
+              "question": "Co przygotować?",
+              "answer": "Zbierz podstawowe informacje oraz pytania, które chcesz omówić."
+            }
+          ],
+          "layout": "numbered"
+        },
+        "en": {
+          "title": "Before you get in touch",
+          "items": [
+            {
+              "question": "How do I start?",
+              "answer": "Tell us what you need. We will agree on the scope and next step."
+            },
+            {
+              "question": "How is a date agreed?",
+              "answer": "We confirm a date after discussing availability and the scope of work."
+            },
+            {
+              "question": "What should I prepare?",
+              "answer": "Gather the basic information and questions you would like to discuss."
+            }
+          ],
+          "layout": "numbered"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": null
+      }
+    },
+    {
+      "id": "core.faq_compact",
+      "version": 1,
+      "blockType": "core.faq",
+      "schemaVersion": 3,
+      "layout": "compact",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Zwięzłe odpowiedzi",
+          "description": "Odpowiedzi przed kontaktem lub rezerwacją. Użyj 3–8 konkretnych pytań; długie treści lepiej pasują do układów jednokolumnowych.",
+          "usage": "Układ: zwięzłe odpowiedzi. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Compact answers",
+          "description": "Answers before contact or booking. Use 3–8 specific questions; long answers work best in single-column layouts.",
+          "usage": "Layout: compact answers. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["answer_questions"],
+      "composition": {
+        "role": "reassurance",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Warto wiedzieć przed pierwszym kontaktem",
+          "items": [
+            {
+              "question": "Od czego zacząć?",
+              "answer": "Napisz, czego potrzebujesz. Ustalimy zakres i następny krok."
+            },
+            {
+              "question": "Jak ustalamy termin?",
+              "answer": "Termin potwierdzamy po omówieniu dostępności i zakresu pracy."
+            },
+            {
+              "question": "Co przygotować?",
+              "answer": "Zbierz podstawowe informacje oraz pytania, które chcesz omówić."
+            }
+          ],
+          "layout": "compact"
+        },
+        "en": {
+          "title": "Before you get in touch",
+          "items": [
+            {
+              "question": "How do I start?",
+              "answer": "Tell us what you need. We will agree on the scope and next step."
+            },
+            {
+              "question": "How is a date agreed?",
+              "answer": "We confirm a date after discussing availability and the scope of work."
+            },
+            {
+              "question": "What should I prepare?",
+              "answer": "Gather the basic information and questions you would like to discuss."
+            }
+          ],
+          "layout": "compact"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": null
+      }
+    },
+    {
+      "id": "core.faq_sidebar",
+      "version": 1,
+      "blockType": "core.faq",
+      "schemaVersion": 3,
+      "layout": "sidebar",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Tytuł obok pytań",
+          "description": "Odpowiedzi przed kontaktem lub rezerwacją. Użyj 3–8 konkretnych pytań; długie treści lepiej pasują do układów jednokolumnowych.",
+          "usage": "Układ: tytuł obok pytań. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Heading beside questions",
+          "description": "Answers before contact or booking. Use 3–8 specific questions; long answers work best in single-column layouts.",
+          "usage": "Layout: heading beside questions. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["answer_questions"],
+      "composition": {
+        "role": "reassurance",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Warto wiedzieć przed pierwszym kontaktem",
+          "items": [
+            {
+              "question": "Od czego zacząć?",
+              "answer": "Napisz, czego potrzebujesz. Ustalimy zakres i następny krok."
+            },
+            {
+              "question": "Jak ustalamy termin?",
+              "answer": "Termin potwierdzamy po omówieniu dostępności i zakresu pracy."
+            },
+            {
+              "question": "Co przygotować?",
+              "answer": "Zbierz podstawowe informacje oraz pytania, które chcesz omówić."
+            }
+          ],
+          "layout": "sidebar"
+        },
+        "en": {
+          "title": "Before you get in touch",
+          "items": [
+            {
+              "question": "How do I start?",
+              "answer": "Tell us what you need. We will agree on the scope and next step."
+            },
+            {
+              "question": "How is a date agreed?",
+              "answer": "We confirm a date after discussing availability and the scope of work."
+            },
+            {
+              "question": "What should I prepare?",
+              "answer": "Gather the basic information and questions you would like to discuss."
+            }
+          ],
+          "layout": "sidebar"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": null
+      }
+    },
+    {
+      "id": "core.faq_columns_three",
+      "version": 1,
+      "blockType": "core.faq",
+      "schemaVersion": 3,
+      "layout": "columns_three",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Trzy kolumny pytań",
+          "description": "Odpowiedzi przed kontaktem lub rezerwacją. Użyj 3–8 konkretnych pytań; długie treści lepiej pasują do układów jednokolumnowych.",
+          "usage": "Układ: trzy kolumny pytań. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Three question columns",
+          "description": "Answers before contact or booking. Use 3–8 specific questions; long answers work best in single-column layouts.",
+          "usage": "Layout: three question columns. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["answer_questions"],
+      "composition": {
+        "role": "reassurance",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Warto wiedzieć przed pierwszym kontaktem",
+          "items": [
+            {
+              "question": "Od czego zacząć?",
+              "answer": "Napisz, czego potrzebujesz. Ustalimy zakres i następny krok."
+            },
+            {
+              "question": "Jak ustalamy termin?",
+              "answer": "Termin potwierdzamy po omówieniu dostępności i zakresu pracy."
+            },
+            {
+              "question": "Co przygotować?",
+              "answer": "Zbierz podstawowe informacje oraz pytania, które chcesz omówić."
+            }
+          ],
+          "layout": "columns_three"
+        },
+        "en": {
+          "title": "Before you get in touch",
+          "items": [
+            {
+              "question": "How do I start?",
+              "answer": "Tell us what you need. We will agree on the scope and next step."
+            },
+            {
+              "question": "How is a date agreed?",
+              "answer": "We confirm a date after discussing availability and the scope of work."
+            },
+            {
+              "question": "What should I prepare?",
+              "answer": "Gather the basic information and questions you would like to discuss."
+            }
+          ],
+          "layout": "columns_three"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": null
+      }
+    },
+    {
+      "id": "core.faq_boxed",
+      "version": 1,
+      "blockType": "core.faq",
+      "schemaVersion": 3,
+      "layout": "boxed",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "FAQ w ramce",
+          "description": "Odpowiedzi przed kontaktem lub rezerwacją. Użyj 3–8 konkretnych pytań; długie treści lepiej pasują do układów jednokolumnowych.",
+          "usage": "Układ: faq w ramce. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Framed FAQ",
+          "description": "Answers before contact or booking. Use 3–8 specific questions; long answers work best in single-column layouts.",
+          "usage": "Layout: framed faq. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["answer_questions"],
+      "composition": {
+        "role": "reassurance",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Warto wiedzieć przed pierwszym kontaktem",
+          "items": [
+            {
+              "question": "Od czego zacząć?",
+              "answer": "Napisz, czego potrzebujesz. Ustalimy zakres i następny krok."
+            },
+            {
+              "question": "Jak ustalamy termin?",
+              "answer": "Termin potwierdzamy po omówieniu dostępności i zakresu pracy."
+            },
+            {
+              "question": "Co przygotować?",
+              "answer": "Zbierz podstawowe informacje oraz pytania, które chcesz omówić."
+            }
+          ],
+          "layout": "boxed"
+        },
+        "en": {
+          "title": "Before you get in touch",
+          "items": [
+            {
+              "question": "How do I start?",
+              "answer": "Tell us what you need. We will agree on the scope and next step."
+            },
+            {
+              "question": "How is a date agreed?",
+              "answer": "We confirm a date after discussing availability and the scope of work."
+            },
+            {
+              "question": "What should I prepare?",
+              "answer": "Gather the basic information and questions you would like to discuss."
+            }
+          ],
+          "layout": "boxed"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": null
+      }
+    },
+    {
+      "id": "core.faq_strip",
+      "version": 1,
+      "blockType": "core.faq",
+      "schemaVersion": 3,
+      "layout": "strip",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Poziomy przegląd pytań",
+          "description": "Odpowiedzi przed kontaktem lub rezerwacją. Użyj 3–8 konkretnych pytań; długie treści lepiej pasują do układów jednokolumnowych.",
+          "usage": "Układ: poziomy przegląd pytań. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Question overview strip",
+          "description": "Answers before contact or booking. Use 3–8 specific questions; long answers work best in single-column layouts.",
+          "usage": "Layout: question overview strip. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["answer_questions"],
+      "composition": {
+        "role": "reassurance",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Warto wiedzieć przed pierwszym kontaktem",
+          "items": [
+            {
+              "question": "Od czego zacząć?",
+              "answer": "Napisz, czego potrzebujesz. Ustalimy zakres i następny krok."
+            },
+            {
+              "question": "Jak ustalamy termin?",
+              "answer": "Termin potwierdzamy po omówieniu dostępności i zakresu pracy."
+            },
+            {
+              "question": "Co przygotować?",
+              "answer": "Zbierz podstawowe informacje oraz pytania, które chcesz omówić."
+            }
+          ],
+          "layout": "strip"
+        },
+        "en": {
+          "title": "Before you get in touch",
+          "items": [
+            {
+              "question": "How do I start?",
+              "answer": "Tell us what you need. We will agree on the scope and next step."
+            },
+            {
+              "question": "How is a date agreed?",
+              "answer": "We confirm a date after discussing availability and the scope of work."
+            },
+            {
+              "question": "What should I prepare?",
+              "answer": "Gather the basic information and questions you would like to discuss."
+            }
+          ],
+          "layout": "strip"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": null
+      }
+    },
+    {
+      "id": "core.faq_alternating",
+      "version": 1,
+      "blockType": "core.faq",
+      "schemaVersion": 3,
+      "layout": "alternating",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Naprzemienne odpowiedzi",
+          "description": "Odpowiedzi przed kontaktem lub rezerwacją. Użyj 3–8 konkretnych pytań; długie treści lepiej pasują do układów jednokolumnowych.",
+          "usage": "Układ: naprzemienne odpowiedzi. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Alternating answers",
+          "description": "Answers before contact or booking. Use 3–8 specific questions; long answers work best in single-column layouts.",
+          "usage": "Layout: alternating answers. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["answer_questions"],
+      "composition": {
+        "role": "reassurance",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Warto wiedzieć przed pierwszym kontaktem",
+          "items": [
+            {
+              "question": "Od czego zacząć?",
+              "answer": "Napisz, czego potrzebujesz. Ustalimy zakres i następny krok."
+            },
+            {
+              "question": "Jak ustalamy termin?",
+              "answer": "Termin potwierdzamy po omówieniu dostępności i zakresu pracy."
+            },
+            {
+              "question": "Co przygotować?",
+              "answer": "Zbierz podstawowe informacje oraz pytania, które chcesz omówić."
+            }
+          ],
+          "layout": "alternating"
+        },
+        "en": {
+          "title": "Before you get in touch",
+          "items": [
+            {
+              "question": "How do I start?",
+              "answer": "Tell us what you need. We will agree on the scope and next step."
+            },
+            {
+              "question": "How is a date agreed?",
+              "answer": "We confirm a date after discussing availability and the scope of work."
+            },
+            {
+              "question": "What should I prepare?",
+              "answer": "Gather the basic information and questions you would like to discuss."
+            }
+          ],
+          "layout": "alternating"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": null
+      }
+    },
+    {
+      "id": "core.faq_featured",
+      "version": 1,
+      "blockType": "core.faq",
+      "schemaVersion": 3,
+      "layout": "featured",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Pierwsza odpowiedź wyróżniona",
+          "description": "Odpowiedzi przed kontaktem lub rezerwacją. Użyj 3–8 konkretnych pytań; długie treści lepiej pasują do układów jednokolumnowych.",
+          "usage": "Układ: pierwsza odpowiedź wyróżniona. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Featured first answer",
+          "description": "Answers before contact or booking. Use 3–8 specific questions; long answers work best in single-column layouts.",
+          "usage": "Layout: featured first answer. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["answer_questions"],
+      "composition": {
+        "role": "reassurance",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Warto wiedzieć przed pierwszym kontaktem",
+          "items": [
+            {
+              "question": "Od czego zacząć?",
+              "answer": "Napisz, czego potrzebujesz. Ustalimy zakres i następny krok."
+            },
+            {
+              "question": "Jak ustalamy termin?",
+              "answer": "Termin potwierdzamy po omówieniu dostępności i zakresu pracy."
+            },
+            {
+              "question": "Co przygotować?",
+              "answer": "Zbierz podstawowe informacje oraz pytania, które chcesz omówić."
+            }
+          ],
+          "layout": "featured"
+        },
+        "en": {
+          "title": "Before you get in touch",
+          "items": [
+            {
+              "question": "How do I start?",
+              "answer": "Tell us what you need. We will agree on the scope and next step."
+            },
+            {
+              "question": "How is a date agreed?",
+              "answer": "We confirm a date after discussing availability and the scope of work."
+            },
+            {
+              "question": "What should I prepare?",
+              "answer": "Gather the basic information and questions you would like to discuss."
+            }
+          ],
+          "layout": "featured"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": null
+      }
+    },
+    {
+      "id": "core.faq_timeline",
+      "version": 1,
+      "blockType": "core.faq",
+      "schemaVersion": 3,
+      "layout": "timeline",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Pytania krok po kroku",
+          "description": "Odpowiedzi przed kontaktem lub rezerwacją. Użyj 3–8 konkretnych pytań; długie treści lepiej pasują do układów jednokolumnowych.",
+          "usage": "Układ: pytania krok po kroku. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Step-by-step questions",
+          "description": "Answers before contact or booking. Use 3–8 specific questions; long answers work best in single-column layouts.",
+          "usage": "Layout: step-by-step questions. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["answer_questions"],
+      "composition": {
+        "role": "reassurance",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Warto wiedzieć przed pierwszym kontaktem",
+          "items": [
+            {
+              "question": "Od czego zacząć?",
+              "answer": "Napisz, czego potrzebujesz. Ustalimy zakres i następny krok."
+            },
+            {
+              "question": "Jak ustalamy termin?",
+              "answer": "Termin potwierdzamy po omówieniu dostępności i zakresu pracy."
+            },
+            {
+              "question": "Co przygotować?",
+              "answer": "Zbierz podstawowe informacje oraz pytania, które chcesz omówić."
+            }
+          ],
+          "layout": "timeline"
+        },
+        "en": {
+          "title": "Before you get in touch",
+          "items": [
+            {
+              "question": "How do I start?",
+              "answer": "Tell us what you need. We will agree on the scope and next step."
+            },
+            {
+              "question": "How is a date agreed?",
+              "answer": "We confirm a date after discussing availability and the scope of work."
+            },
+            {
+              "question": "What should I prepare?",
+              "answer": "Gather the basic information and questions you would like to discuss."
+            }
+          ],
+          "layout": "timeline"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": null
+      }
+    },
+    {
+      "id": "core.faq_minimal",
+      "version": 1,
+      "blockType": "core.faq",
+      "schemaVersion": 3,
+      "layout": "minimal",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Minimalistyczne FAQ",
+          "description": "Odpowiedzi przed kontaktem lub rezerwacją. Użyj 3–8 konkretnych pytań; długie treści lepiej pasują do układów jednokolumnowych.",
+          "usage": "Układ: minimalistyczne faq. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Minimal FAQ",
+          "description": "Answers before contact or booking. Use 3–8 specific questions; long answers work best in single-column layouts.",
+          "usage": "Layout: minimal faq. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["answer_questions"],
+      "composition": {
+        "role": "reassurance",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Warto wiedzieć przed pierwszym kontaktem",
+          "items": [
+            {
+              "question": "Od czego zacząć?",
+              "answer": "Napisz, czego potrzebujesz. Ustalimy zakres i następny krok."
+            },
+            {
+              "question": "Jak ustalamy termin?",
+              "answer": "Termin potwierdzamy po omówieniu dostępności i zakresu pracy."
+            },
+            {
+              "question": "Co przygotować?",
+              "answer": "Zbierz podstawowe informacje oraz pytania, które chcesz omówić."
+            }
+          ],
+          "layout": "minimal"
+        },
+        "en": {
+          "title": "Before you get in touch",
+          "items": [
+            {
+              "question": "How do I start?",
+              "answer": "Tell us what you need. We will agree on the scope and next step."
+            },
+            {
+              "question": "How is a date agreed?",
+              "answer": "We confirm a date after discussing availability and the scope of work."
+            },
+            {
+              "question": "What should I prepare?",
+              "answer": "Gather the basic information and questions you would like to discuss."
+            }
+          ],
+          "layout": "minimal"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": null
+      }
+    },
+    {
+      "id": "core.faq_grid",
+      "version": 1,
+      "blockType": "core.faq",
+      "schemaVersion": 3,
+      "layout": "grid",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Siatka odpowiedzi",
+          "description": "Odpowiedzi przed kontaktem lub rezerwacją. Użyj 3–8 konkretnych pytań; długie treści lepiej pasują do układów jednokolumnowych.",
+          "usage": "Układ: siatka odpowiedzi. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Answer grid",
+          "description": "Answers before contact or booking. Use 3–8 specific questions; long answers work best in single-column layouts.",
+          "usage": "Layout: answer grid. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["answer_questions"],
+      "composition": {
+        "role": "reassurance",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Warto wiedzieć przed pierwszym kontaktem",
+          "items": [
+            {
+              "question": "Od czego zacząć?",
+              "answer": "Napisz, czego potrzebujesz. Ustalimy zakres i następny krok."
+            },
+            {
+              "question": "Jak ustalamy termin?",
+              "answer": "Termin potwierdzamy po omówieniu dostępności i zakresu pracy."
+            },
+            {
+              "question": "Co przygotować?",
+              "answer": "Zbierz podstawowe informacje oraz pytania, które chcesz omówić."
+            }
+          ],
+          "layout": "grid"
+        },
+        "en": {
+          "title": "Before you get in touch",
+          "items": [
+            {
+              "question": "How do I start?",
+              "answer": "Tell us what you need. We will agree on the scope and next step."
+            },
+            {
+              "question": "How is a date agreed?",
+              "answer": "We confirm a date after discussing availability and the scope of work."
+            },
+            {
+              "question": "What should I prepare?",
+              "answer": "Gather the basic information and questions you would like to discuss."
+            }
+          ],
+          "layout": "grid"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": null
+      }
+    },
+    {
+      "id": "core.faq_stacked",
+      "version": 1,
+      "blockType": "core.faq",
+      "schemaVersion": 3,
+      "layout": "stacked",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Rozwijane karty",
+          "description": "Odpowiedzi przed kontaktem lub rezerwacją. Użyj 3–8 konkretnych pytań; długie treści lepiej pasują do układów jednokolumnowych.",
+          "usage": "Układ: rozwijane karty. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Expandable cards",
+          "description": "Answers before contact or booking. Use 3–8 specific questions; long answers work best in single-column layouts.",
+          "usage": "Layout: expandable cards. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["answer_questions"],
+      "composition": {
+        "role": "reassurance",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Warto wiedzieć przed pierwszym kontaktem",
+          "items": [
+            {
+              "question": "Od czego zacząć?",
+              "answer": "Napisz, czego potrzebujesz. Ustalimy zakres i następny krok."
+            },
+            {
+              "question": "Jak ustalamy termin?",
+              "answer": "Termin potwierdzamy po omówieniu dostępności i zakresu pracy."
+            },
+            {
+              "question": "Co przygotować?",
+              "answer": "Zbierz podstawowe informacje oraz pytania, które chcesz omówić."
+            }
+          ],
+          "layout": "stacked"
+        },
+        "en": {
+          "title": "Before you get in touch",
+          "items": [
+            {
+              "question": "How do I start?",
+              "answer": "Tell us what you need. We will agree on the scope and next step."
+            },
+            {
+              "question": "How is a date agreed?",
+              "answer": "We confirm a date after discussing availability and the scope of work."
+            },
+            {
+              "question": "What should I prepare?",
+              "answer": "Gather the basic information and questions you would like to discuss."
+            }
+          ],
+          "layout": "stacked"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": null
+      }
+    },
+    {
+      "id": "core.faq_ruled",
+      "version": 1,
+      "blockType": "core.faq",
+      "schemaVersion": 3,
+      "layout": "ruled",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Pytanie obok odpowiedzi",
+          "description": "Odpowiedzi przed kontaktem lub rezerwacją. Użyj 3–8 konkretnych pytań; długie treści lepiej pasują do układów jednokolumnowych.",
+          "usage": "Układ: pytanie obok odpowiedzi. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Question beside answer",
+          "description": "Answers before contact or booking. Use 3–8 specific questions; long answers work best in single-column layouts.",
+          "usage": "Layout: question beside answer. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["answer_questions"],
+      "composition": {
+        "role": "reassurance",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Warto wiedzieć przed pierwszym kontaktem",
+          "items": [
+            {
+              "question": "Od czego zacząć?",
+              "answer": "Napisz, czego potrzebujesz. Ustalimy zakres i następny krok."
+            },
+            {
+              "question": "Jak ustalamy termin?",
+              "answer": "Termin potwierdzamy po omówieniu dostępności i zakresu pracy."
+            },
+            {
+              "question": "Co przygotować?",
+              "answer": "Zbierz podstawowe informacje oraz pytania, które chcesz omówić."
+            }
+          ],
+          "layout": "ruled"
+        },
+        "en": {
+          "title": "Before you get in touch",
+          "items": [
+            {
+              "question": "How do I start?",
+              "answer": "Tell us what you need. We will agree on the scope and next step."
+            },
+            {
+              "question": "How is a date agreed?",
+              "answer": "We confirm a date after discussing availability and the scope of work."
+            },
+            {
+              "question": "What should I prepare?",
+              "answer": "Gather the basic information and questions you would like to discuss."
+            }
+          ],
+          "layout": "ruled"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": null
+      }
+    },
+    {
+      "id": "core.faq_offset",
+      "version": 1,
+      "blockType": "core.faq",
+      "schemaVersion": 3,
+      "layout": "offset",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Przesunięte karty",
+          "description": "Odpowiedzi przed kontaktem lub rezerwacją. Użyj 3–8 konkretnych pytań; długie treści lepiej pasują do układów jednokolumnowych.",
+          "usage": "Układ: przesunięte karty. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Offset cards",
+          "description": "Answers before contact or booking. Use 3–8 specific questions; long answers work best in single-column layouts.",
+          "usage": "Layout: offset cards. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["answer_questions"],
+      "composition": {
+        "role": "reassurance",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Warto wiedzieć przed pierwszym kontaktem",
+          "items": [
+            {
+              "question": "Od czego zacząć?",
+              "answer": "Napisz, czego potrzebujesz. Ustalimy zakres i następny krok."
+            },
+            {
+              "question": "Jak ustalamy termin?",
+              "answer": "Termin potwierdzamy po omówieniu dostępności i zakresu pracy."
+            },
+            {
+              "question": "Co przygotować?",
+              "answer": "Zbierz podstawowe informacje oraz pytania, które chcesz omówić."
+            }
+          ],
+          "layout": "offset"
+        },
+        "en": {
+          "title": "Before you get in touch",
+          "items": [
+            {
+              "question": "How do I start?",
+              "answer": "Tell us what you need. We will agree on the scope and next step."
+            },
+            {
+              "question": "How is a date agreed?",
+              "answer": "We confirm a date after discussing availability and the scope of work."
+            },
+            {
+              "question": "What should I prepare?",
+              "answer": "Gather the basic information and questions you would like to discuss."
+            }
+          ],
+          "layout": "offset"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": null
+      }
+    },
+    {
+      "id": "core.faq_summary",
+      "version": 1,
+      "blockType": "core.faq",
+      "schemaVersion": 3,
+      "layout": "summary",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Skrócony przegląd",
+          "description": "Odpowiedzi przed kontaktem lub rezerwacją. Użyj 3–8 konkretnych pytań; długie treści lepiej pasują do układów jednokolumnowych.",
+          "usage": "Układ: skrócony przegląd. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Condensed overview",
+          "description": "Answers before contact or booking. Use 3–8 specific questions; long answers work best in single-column layouts.",
+          "usage": "Layout: condensed overview. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["answer_questions"],
+      "composition": {
+        "role": "reassurance",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Warto wiedzieć przed pierwszym kontaktem",
+          "items": [
+            {
+              "question": "Od czego zacząć?",
+              "answer": "Napisz, czego potrzebujesz. Ustalimy zakres i następny krok."
+            },
+            {
+              "question": "Jak ustalamy termin?",
+              "answer": "Termin potwierdzamy po omówieniu dostępności i zakresu pracy."
+            },
+            {
+              "question": "Co przygotować?",
+              "answer": "Zbierz podstawowe informacje oraz pytania, które chcesz omówić."
+            }
+          ],
+          "layout": "summary"
+        },
+        "en": {
+          "title": "Before you get in touch",
+          "items": [
+            {
+              "question": "How do I start?",
+              "answer": "Tell us what you need. We will agree on the scope and next step."
+            },
+            {
+              "question": "How is a date agreed?",
+              "answer": "We confirm a date after discussing availability and the scope of work."
+            },
+            {
+              "question": "What should I prepare?",
+              "answer": "Gather the basic information and questions you would like to discuss."
+            }
+          ],
+          "layout": "summary"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": null
+      }
+    },
+    {
+      "id": "core.faq_panels",
+      "version": 1,
+      "blockType": "core.faq",
+      "schemaVersion": 3,
+      "layout": "panels",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Rozwijane panele w dwóch kolumnach",
+          "description": "Odpowiedzi przed kontaktem lub rezerwacją. Użyj 3–8 konkretnych pytań; długie treści lepiej pasują do układów jednokolumnowych.",
+          "usage": "Układ: rozwijane panele w dwóch kolumnach. Środek strony; można zmienić układ bez utraty treści."
+        },
+        "en": {
+          "name": "Two-column expandable panels",
+          "description": "Answers before contact or booking. Use 3–8 specific questions; long answers work best in single-column layouts.",
+          "usage": "Layout: two-column expandable panels. Page body; switching layout preserves content."
+        }
+      },
+      "goals": ["answer_questions"],
+      "composition": {
+        "role": "reassurance",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Warto wiedzieć przed pierwszym kontaktem",
+          "items": [
+            {
+              "question": "Od czego zacząć?",
+              "answer": "Napisz, czego potrzebujesz. Ustalimy zakres i następny krok."
+            },
+            {
+              "question": "Jak ustalamy termin?",
+              "answer": "Termin potwierdzamy po omówieniu dostępności i zakresu pracy."
+            },
+            {
+              "question": "Co przygotować?",
+              "answer": "Zbierz podstawowe informacje oraz pytania, które chcesz omówić."
+            }
+          ],
+          "layout": "panels"
+        },
+        "en": {
+          "title": "Before you get in touch",
+          "items": [
+            {
+              "question": "How do I start?",
+              "answer": "Tell us what you need. We will agree on the scope and next step."
+            },
+            {
+              "question": "How is a date agreed?",
+              "answer": "We confirm a date after discussing availability and the scope of work."
+            },
+            {
+              "question": "What should I prepare?",
+              "answer": "Gather the basic information and questions you would like to discuss."
+            }
+          ],
+          "layout": "panels"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 180,
+        "mediaAspectRatio": null
+      }
+    },
+    {
+      "id": "core.feature_list_care_path",
+      "version": 2,
+      "blockType": "core.feature_list",
+      "schemaVersion": 3,
+      "layout": "care_path",
+      "kind": "industry",
+      "industries": ["medicine"],
+      "labels": {
+        "pl": {
+          "name": "Ścieżka konsultacji",
+          "description": "Ponumerowana oś: przygotowanie, konsultacja, dalsze kroki.",
+          "usage": "Łącz z wprowadzeniem i sekcją kontaktu."
+        },
+        "en": {
+          "name": "Consultation pathway",
+          "description": "A numbered timeline: preparation, consultation, next steps.",
+          "usage": "Combine with an introduction and contact section."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Ścieżka konsultacji",
+          "items": [
+            {
+              "title": "Przygotowanie",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Konsultacja",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Dalsze kroki",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            }
+          ],
+          "layout": "care_path"
+        },
+        "en": {
+          "title": "Consultation pathway",
+          "items": [
+            {
+              "title": "Preparation",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Consultation",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Next steps",
+              "text": "Describe what you actually offer."
+            }
+          ],
+          "layout": "care_path"
+        }
+      },
+      "sampleMedia": {
+        "id": "medicine",
+        "alt": {
+          "pl": "Przykładowy gabinet konsultacyjny",
+          "en": "Example consultation room"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_consultation",
+      "version": 2,
+      "blockType": "core.feature_list",
+      "schemaVersion": 3,
+      "layout": "consultation",
+      "kind": "industry",
+      "industries": ["medicine"],
+      "labels": {
+        "pl": {
+          "name": "Zakres konsultacji",
+          "description": "Lista tematów w dwóch kolumnach; każdy temat ma własny opis.",
+          "usage": "Łącz z wprowadzeniem i sekcją kontaktu."
+        },
+        "en": {
+          "name": "Consultation scope",
+          "description": "Topics in two columns, each with its own description.",
+          "usage": "Combine with an introduction and contact section."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Zakres konsultacji",
+          "items": [
+            {
+              "title": "Temat konsultacji",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Drugi temat",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Przygotowanie",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            }
+          ],
+          "layout": "consultation"
+        },
+        "en": {
+          "title": "Consultation scope",
+          "items": [
+            {
+              "title": "Consultation topic",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Another topic",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Preparation",
+              "text": "Describe what you actually offer."
+            }
+          ],
+          "layout": "consultation"
+        }
+      },
+      "sampleMedia": {
+        "id": "medicine",
+        "alt": {
+          "pl": "Przykładowy gabinet konsultacyjny",
+          "en": "Example consultation room"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_field_steps",
+      "version": 2,
+      "blockType": "core.feature_list",
+      "schemaVersion": 3,
+      "layout": "field_steps",
+      "kind": "industry",
+      "industries": ["agriculture"],
+      "labels": {
+        "pl": {
+          "name": "Przebieg usługi terenowej",
+          "description": "Kolejne etapy pracy pokazane jako pozioma sekwencja.",
+          "usage": "Łącz z wprowadzeniem i sekcją kontaktu."
+        },
+        "en": {
+          "name": "Field service steps",
+          "description": "Stages of field work presented as a horizontal sequence.",
+          "usage": "Combine with an introduction and contact section."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Przebieg usługi terenowej",
+          "items": [
+            {
+              "title": "Zgłoszenie",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Przyjazd",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Wykonanie usługi",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            }
+          ],
+          "layout": "field_steps"
+        },
+        "en": {
+          "title": "Field service steps",
+          "items": [
+            {
+              "title": "Request",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Arrival",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Service delivery",
+              "text": "Describe what you actually offer."
+            }
+          ],
+          "layout": "field_steps"
+        }
+      },
+      "sampleMedia": {
+        "id": "agriculture",
+        "alt": {
+          "pl": "Krowy na pastwisku przy gospodarstwie",
+          "en": "Cows grazing near a farm"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_coverage",
+      "version": 2,
+      "blockType": "core.feature_list",
+      "schemaVersion": 3,
+      "layout": "coverage",
+      "kind": "industry",
+      "industries": ["agriculture"],
+      "labels": {
+        "pl": {
+          "name": "Obszary obsługi",
+          "description": "Lista regionów z opisem zakresu lub warunków dojazdu.",
+          "usage": "Łącz z wprowadzeniem i sekcją kontaktu."
+        },
+        "en": {
+          "name": "Service areas",
+          "description": "Regions with service scope or travel conditions.",
+          "usage": "Combine with an introduction and contact section."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Obszary obsługi",
+          "items": [
+            {
+              "title": "Pierwszy obszar",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Drugi obszar",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Warunki dojazdu",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            }
+          ],
+          "layout": "coverage"
+        },
+        "en": {
+          "title": "Service areas",
+          "items": [
+            {
+              "title": "First area",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Second area",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Travel conditions",
+              "text": "Describe what you actually offer."
+            }
+          ],
+          "layout": "coverage"
+        }
+      },
+      "sampleMedia": {
+        "id": "agriculture",
+        "alt": {
+          "pl": "Krowy na pastwisku przy gospodarstwie",
+          "en": "Cows grazing near a farm"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_specification",
+      "version": 2,
+      "blockType": "core.feature_list",
+      "schemaVersion": 3,
+      "layout": "specification",
+      "kind": "industry",
+      "industries": ["electronics"],
+      "labels": {
+        "pl": {
+          "name": "Parametry i możliwości",
+          "description": "Nazwy parametrów i objaśnienia w wyrównanych wierszach.",
+          "usage": "Łącz z wprowadzeniem i sekcją kontaktu."
+        },
+        "en": {
+          "name": "Specifications and capabilities",
+          "description": "Parameter names and explanations in aligned rows.",
+          "usage": "Combine with an introduction and contact section."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Parametry i możliwości",
+          "items": [
+            {
+              "title": "Rodzaj urządzenia",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Zakres diagnostyki",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Możliwości naprawy",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            }
+          ],
+          "layout": "specification"
+        },
+        "en": {
+          "title": "Specifications and capabilities",
+          "items": [
+            {
+              "title": "Device type",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Diagnostic scope",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Repair capabilities",
+              "text": "Describe what you actually offer."
+            }
+          ],
+          "layout": "specification"
+        }
+      },
+      "sampleMedia": {
+        "id": "electronics",
+        "alt": {
+          "pl": "Stanowisko diagnostyki elektroniki",
+          "en": "Electronics diagnostic workbench"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_service_flow",
+      "version": 2,
+      "blockType": "core.feature_list",
+      "schemaVersion": 3,
+      "layout": "service_flow",
+      "kind": "industry",
+      "industries": ["electronics"],
+      "labels": {
+        "pl": {
+          "name": "Etapy serwisu",
+          "description": "Pierwszy etap wyróżniony, pozostałe jako numerowana lista.",
+          "usage": "Łącz z wprowadzeniem i sekcją kontaktu."
+        },
+        "en": {
+          "name": "Repair stages",
+          "description": "The first stage is highlighted, followed by a numbered list.",
+          "usage": "Combine with an introduction and contact section."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Etapy serwisu",
+          "items": [
+            {
+              "title": "Przyjęcie urządzenia",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Diagnostyka",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            },
+            {
+              "title": "Odbiór",
+              "text": "Uzupełnij opis zgodnie z rzeczywistą ofertą."
+            }
+          ],
+          "layout": "service_flow"
+        },
+        "en": {
+          "title": "Repair stages",
+          "items": [
+            {
+              "title": "Device intake",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Diagnostics",
+              "text": "Describe what you actually offer."
+            },
+            {
+              "title": "Collection",
+              "text": "Describe what you actually offer."
+            }
+          ],
+          "layout": "service_flow"
+        }
+      },
+      "sampleMedia": {
+        "id": "electronics",
+        "alt": {
+          "pl": "Stanowisko diagnostyki elektroniki",
+          "en": "Electronics diagnostic workbench"
+        }
+      }
+    },
+    {
+      "id": "core.hero_medicine_split",
+      "version": 1,
+      "blockType": "core.hero",
+      "schemaVersion": 5,
+      "layout": "split",
+      "kind": "industry",
+      "industries": ["medicine"],
+      "labels": {
+        "pl": {
+          "name": "Opieka dopasowana do Twoich potrzeb — split",
+          "description": "Nagłówek, opis, przycisk i przykładowe zdjęcie. Zmień treść i fotografię przed publikacją.",
+          "usage": "Układ: wprowadzenie w dwóch kolumnach. Początek strony; jeden główny nagłówek H1."
+        },
+        "en": {
+          "name": "Care tailored to your needs — split",
+          "description": "Heading, description, action and example photograph. Replace the copy and photo before publishing.",
+          "usage": "Layout: split introduction. Page opening; one primary H1."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Opieka dopasowana do Twoich potrzeb",
+          "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+          "action": {
+            "label": "Porozmawiajmy",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "split"
+        },
+        "en": {
+          "title": "Care tailored to your needs",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "split"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "medicine",
+        "alt": {
+          "pl": "Przykładowy gabinet konsultacyjny",
+          "en": "Example consultation room"
+        }
+      }
+    },
+    {
+      "id": "core.hero_medicine_image_above",
+      "version": 1,
+      "blockType": "core.hero",
+      "schemaVersion": 5,
+      "layout": "image_above",
+      "kind": "industry",
+      "industries": ["medicine"],
+      "labels": {
+        "pl": {
+          "name": "Opieka dopasowana do Twoich potrzeb — foto",
+          "description": "Nagłówek, opis, przycisk i przykładowe zdjęcie. Zmień treść i fotografię przed publikacją.",
+          "usage": "Układ: zdjęcie nad nagłówkiem. Początek strony; jeden główny nagłówek H1."
+        },
+        "en": {
+          "name": "Care tailored to your needs — foto",
+          "description": "Heading, description, action and example photograph. Replace the copy and photo before publishing.",
+          "usage": "Layout: image above heading. Page opening; one primary H1."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Opieka dopasowana do Twoich potrzeb",
+          "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+          "action": {
+            "label": "Porozmawiajmy",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "image_above"
+        },
+        "en": {
+          "title": "Care tailored to your needs",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "image_above"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "medicine",
+        "alt": {
+          "pl": "Przykładowy gabinet konsultacyjny",
+          "en": "Example consultation room"
+        }
+      }
+    },
+    {
+      "id": "core.hero_agriculture_split",
+      "version": 1,
+      "blockType": "core.hero",
+      "schemaVersion": 5,
+      "layout": "split",
+      "kind": "industry",
+      "industries": ["agriculture"],
+      "labels": {
+        "pl": {
+          "name": "Praktyczne wsparcie Twojego gospodarstwa — split",
+          "description": "Nagłówek, opis, przycisk i przykładowe zdjęcie. Zmień treść i fotografię przed publikacją.",
+          "usage": "Układ: wprowadzenie w dwóch kolumnach. Początek strony; jeden główny nagłówek H1."
+        },
+        "en": {
+          "name": "Practical support for your farm — split",
+          "description": "Heading, description, action and example photograph. Replace the copy and photo before publishing.",
+          "usage": "Layout: split introduction. Page opening; one primary H1."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Praktyczne wsparcie Twojego gospodarstwa",
+          "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+          "action": {
+            "label": "Porozmawiajmy",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "split"
+        },
+        "en": {
+          "title": "Practical support for your farm",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "split"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "agriculture",
+        "alt": {
+          "pl": "Krowy na pastwisku przy gospodarstwie",
+          "en": "Cows grazing near a farm"
+        }
+      }
+    },
+    {
+      "id": "core.hero_agriculture_image_above",
+      "version": 1,
+      "blockType": "core.hero",
+      "schemaVersion": 5,
+      "layout": "image_above",
+      "kind": "industry",
+      "industries": ["agriculture"],
+      "labels": {
+        "pl": {
+          "name": "Praktyczne wsparcie Twojego gospodarstwa — foto",
+          "description": "Nagłówek, opis, przycisk i przykładowe zdjęcie. Zmień treść i fotografię przed publikacją.",
+          "usage": "Układ: zdjęcie nad nagłówkiem. Początek strony; jeden główny nagłówek H1."
+        },
+        "en": {
+          "name": "Practical support for your farm — foto",
+          "description": "Heading, description, action and example photograph. Replace the copy and photo before publishing.",
+          "usage": "Layout: image above heading. Page opening; one primary H1."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Praktyczne wsparcie Twojego gospodarstwa",
+          "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+          "action": {
+            "label": "Porozmawiajmy",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "image_above"
+        },
+        "en": {
+          "title": "Practical support for your farm",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "image_above"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "agriculture",
+        "alt": {
+          "pl": "Krowy na pastwisku przy gospodarstwie",
+          "en": "Cows grazing near a farm"
+        }
+      }
+    },
+    {
+      "id": "core.hero_electronics_split",
+      "version": 1,
+      "blockType": "core.hero",
+      "schemaVersion": 5,
+      "layout": "split",
+      "kind": "industry",
+      "industries": ["electronics"],
+      "labels": {
+        "pl": {
+          "name": "Diagnoza i serwis Twoich urządzeń — split",
+          "description": "Nagłówek, opis, przycisk i przykładowe zdjęcie. Zmień treść i fotografię przed publikacją.",
+          "usage": "Układ: wprowadzenie w dwóch kolumnach. Początek strony; jeden główny nagłówek H1."
+        },
+        "en": {
+          "name": "Diagnostics and service for your devices — split",
+          "description": "Heading, description, action and example photograph. Replace the copy and photo before publishing.",
+          "usage": "Layout: split introduction. Page opening; one primary H1."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Diagnoza i serwis Twoich urządzeń",
+          "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+          "action": {
+            "label": "Porozmawiajmy",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "split"
+        },
+        "en": {
+          "title": "Diagnostics and service for your devices",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "split"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "electronics",
+        "alt": {
+          "pl": "Stanowisko diagnostyki elektroniki",
+          "en": "Electronics diagnostic workbench"
+        }
+      }
+    },
+    {
+      "id": "core.hero_electronics_image_above",
+      "version": 1,
+      "blockType": "core.hero",
+      "schemaVersion": 5,
+      "layout": "image_above",
+      "kind": "industry",
+      "industries": ["electronics"],
+      "labels": {
+        "pl": {
+          "name": "Diagnoza i serwis Twoich urządzeń — foto",
+          "description": "Nagłówek, opis, przycisk i przykładowe zdjęcie. Zmień treść i fotografię przed publikacją.",
+          "usage": "Układ: zdjęcie nad nagłówkiem. Początek strony; jeden główny nagłówek H1."
+        },
+        "en": {
+          "name": "Diagnostics and service for your devices — foto",
+          "description": "Heading, description, action and example photograph. Replace the copy and photo before publishing.",
+          "usage": "Layout: image above heading. Page opening; one primary H1."
+        }
+      },
+      "goals": ["introduce"],
+      "composition": {
+        "role": "introduction",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Diagnoza i serwis Twoich urządzeń",
+          "text": "Poznaj naszą ofertę i wybierz wsparcie dopasowane do Twoich potrzeb.",
+          "action": {
+            "label": "Porozmawiajmy",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "image_above"
+        },
+        "en": {
+          "title": "Diagnostics and service for your devices",
+          "text": "Explore our services and choose the support that fits your needs.",
+          "action": {
+            "label": "Get in touch",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "image_above"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "electronics",
+        "alt": {
+          "pl": "Stanowisko diagnostyki elektroniki",
+          "en": "Electronics diagnostic workbench"
+        }
+      }
+    }
+  ]
+}

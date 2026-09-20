@@ -787,7 +787,11 @@
       "mobile": "Phone view",
       "mobileBehavior": "Columns stack on narrow screens. All content remains available.",
       "layout": "Section layout",
-      "preservesContent": "Changing the layout preserves your content."
+      "preservesContent": "Changing the layout preserves your content.",
+      "samplePhotos": "Photos and copy are demonstration content — replace them after inserting.",
+      "preparingPhoto": "Preparing the photo in your media library…",
+      "photoError": "Could not prepare the photo. The section was not added; please try again.",
+      "showMore": "Show more layouts ({remaining} remaining)"
     },
     "appearance": {
       "title": "Site-wide appearance",
@@ -1438,7 +1442,8 @@
     "markAllRead": "Mark all as read",
     "billingTrialEnding": "The trial of the {plan} plan ends {date}. We will take the first payment after that date.",
     "billingGraceEnding": "The payment for the {plan} plan failed. Nothing changes until {date}, after that the account becomes read-only.",
-    "unknown": "New notification"
+    "unknown": "New notification",
+    "farmsHerdReview": "{count, plural, one {# animal} other {# animals}} in {farm} are waiting for you to look at them."
   },
   "Credits": {
     "eyebrow": "Subscription",
@@ -1728,7 +1733,9 @@
     "revokeShare": "Revoke access",
     "shareRevokedNotice": "Access revoked: {name}.",
     "issueCode": "Issue an activation code",
-    "codeHint": "Hand the code to the keeper — it works once and expires on {date}."
+    "codeHint": "Hand the code to the keeper — it works once and expires on {date}.",
+    "sendHerd": "Send the herd to the register",
+    "herdSent": "Sent to the register: {added} added, {updated} updated, {unchanged} unchanged."
   },
   "Animals": {
     "title": "Animals",
@@ -1794,7 +1801,10 @@
     "reviewFilterCount": "To review ({count})",
     "reviewBadge": "New from the company",
     "markReviewed": "Reviewed",
-    "reviewHint": "The trimming company added this animal. Check it and confirm."
+    "reviewHint": "The trimming company added this animal. Check it and confirm.",
+    "photoAlt": "Photo from the entry",
+    "photoLoading": "Loading the photo",
+    "photoUnavailable": "The photo is gone"
   },
   "StaffAccounts": {
     "title": "Calendar staff accounts",

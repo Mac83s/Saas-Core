@@ -28,6 +28,8 @@ media/
 !apps/frontend/src/app/site-renderer/media/**
 !apps/backend/src/saas_core/modules/shared/media/
 !apps/backend/src/saas_core/modules/shared/media/*.py
+!apps/frontend/src/modules/shared/media/
+!apps/frontend/src/modules/shared/media/*
 !apps/backend/src/saas_core/modules/shared/media/migrations/
 !apps/backend/src/saas_core/modules/shared/media/migrations/*.py
 staticfiles/

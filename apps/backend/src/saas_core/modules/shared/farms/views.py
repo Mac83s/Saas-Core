@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import cast
+from typing import Any, cast
 from uuid import UUID
 
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponse
 from django.utils.dateparse import parse_date
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
@@ -18,6 +18,7 @@ from rest_framework.views import APIView
 
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
+from .herd_sync import push_herd, read_entry_photo
 from .serializers import (
     AnimalHealthEntrySerializer,
     AnimalHealthInputSerializer,
@@ -26,6 +27,7 @@ from .serializers import (
     AnimalUpdateSerializer,
     FarmActivationCodeSerializer,
     FarmActivationRedeemSerializer,
+    FarmHerdPushSerializer,
     FarmInputSerializer,
     FarmSerializer,
     FarmShareSerializer,
@@ -223,6 +225,29 @@ class AnimalHealthView(APIView):
         return Response(AnimalHealthEntrySerializer(entry).data, status=201)
 
 
+class AnimalHealthPhotoView(APIView):
+    """Zdjęcie z wpisu kartoteki, czytane z magazynu jego autora."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="farms_health_photo",
+        tags=["farms"],
+        responses={(200, "image/webp"): OpenApiTypes.BINARY, **ERRORS},
+    )
+    def get(self, request: Request, entry_id: UUID, media_id: UUID) -> HttpResponse:
+        return HttpResponse(
+            read_entry_photo(entry_id=entry_id, media_id=media_id), content_type="image/webp"
+        )
+
+    def finalize_response(self, request: Request, response: Any, *args: Any, **kwargs: Any) -> Any:
+        response = super().finalize_response(request, response, *args, **kwargs)
+        # Cudze zdjęcie: nie zostaje w pamięci przeglądarki ani pośredników.
+        response["Cache-Control"] = "private, no-store"
+        response["X-Content-Type-Options"] = "nosniff"
+        return response
+
+
 def _date_param(request: Request, name: str) -> date | None:
     """A bad date is a bad request, not an empty list."""
     raw = request.query_params.get(name)
@@ -290,6 +315,23 @@ class FarmActivationRedeemView(APIView):
             request=cast(HttpRequest, request), code=serializer.validated_data["code"]
         )
         return Response(FarmTakeoverSerializer(result).data, status=201)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class FarmHerdPushView(APIView):
+    """Wyślij stado tej karty do rejestru rolnika (ADR-051 pt 7)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=None,
+        responses={200: FarmHerdPushSerializer, **ERRORS},
+        operation_id="farms_herd_push",
+        tags=["farms"],
+    )
+    def post(self, request: Request, farm_id: UUID) -> Response:
+        result = push_herd(cast(HttpRequest, request), farm_id=farm_id)
+        return Response(FarmHerdPushSerializer(result).data)
 
 
 @method_decorator(csrf_protect, name="dispatch")

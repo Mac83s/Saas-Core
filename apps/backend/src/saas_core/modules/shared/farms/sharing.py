@@ -23,6 +23,9 @@ from __future__ import annotations
 
 import hashlib
 import secrets
+import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from typing import Any
 from uuid import UUID
@@ -33,6 +36,13 @@ from django.http import HttpRequest
 from django.utils import timezone
 from rest_framework.exceptions import APIException, NotFound, ValidationError
 
+from saas_core.modules.core.identity.models import User
+from saas_core.modules.core.organizations.audit import record_audit
+from saas_core.modules.core.organizations.context import (
+    TenantContext,
+    activate_tenant_context,
+    set_local_organization_id,
+)
 from saas_core.modules.core.organizations.models import Organization, OrganizationAuditAction
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 
@@ -203,6 +213,98 @@ def revoke_share(*, request: HttpRequest, share_id: UUID) -> FarmShare:
         )
     _name_partner(share, context.organization_id)
     return share
+
+
+@transaction.atomic
+def link_without_code(
+    *,
+    operator_id: UUID,
+    company_organization_id: UUID,
+    company_farm_id: UUID,
+    registry_organization_id: UUID,
+    registry_farm_id: UUID,
+) -> FarmShare:
+    """Obsługa platformy łączy kartę firmy z gospodarstwem rolnika (ADR-051 pkt 5).
+
+    Droga na skróty, gdy kod nie dotarł: telefon do wsparcia zamiast wydruku.
+    Akcja omija jedyną zgodę hodowcy, jaką zna system, więc ma postać komendy
+    operatorskiej — bez przycisku, za to z nazwiskiem operatora i śladem w
+    audycie obu organizacji. Stada nie kopiuje: od tego jest „wyślij stado",
+    którym firma świadomie decyduje, co przekazuje.
+    """
+    if company_organization_id == registry_organization_id:
+        raise ValidationError({"organization": "To ta sama organizacja."})
+    # Każda strona czytana w swoim kontekście: polityka na tabelach wpuszcza
+    # tylko po ustawieniu tenanta, a odczyt pod cudzym jest cichy — zwróciłby
+    # pustkę i komenda powiedziałaby „nie ma takiego gospodarstwa".
+    with _as_tenant(company_organization_id):
+        card = Farm.all_objects.filter(
+            organization_id=company_organization_id, id=company_farm_id
+        ).first()
+        if card is None:
+            raise NotFound("Nie ma takiej karty gospodarstwa w organizacji firmy.")
+        company_name = _organization_name(company_organization_id)
+    if _share_of_card(company_organization_id, company_farm_id) is not None:
+        raise Conflict("To gospodarstwo jest już połączone z kontem rolnika.")
+    with _as_tenant(registry_organization_id):
+        farm = Farm.all_objects.filter(
+            organization_id=registry_organization_id, id=registry_farm_id
+        ).first()
+        if farm is None:
+            raise NotFound("Nie ma takiego gospodarstwa w rejestrze rolnika.")
+        registry_name = _organization_name(registry_organization_id)
+        share, _ = FarmShare.objects.update_or_create(
+            registry_farm_id=farm.id,
+            company_farm_id=card.id,
+            defaults={
+                "registry_organization_id": registry_organization_id,
+                "company_organization_id": company_organization_id,
+                "company_name": company_name,
+                "registry_name": registry_name,
+                "basis": ShareBasis.SUPPORT,
+                "status": ShareStatus.ACTIVE,
+                "granted_at": timezone.now(),
+                "revoked_at": None,
+            },
+        )
+        _audit_support(operator_id, registry_organization_id, farm)
+    with _as_tenant(company_organization_id):
+        _audit_support(operator_id, company_organization_id, card)
+    _name_partner(share, registry_organization_id)
+    return share
+
+
+@contextmanager
+def _as_tenant(organization_id: UUID) -> Iterator[None]:
+    """Kontekst organizacji dla operatora, który nie należy do żadnej z nich.
+
+    `registry_door` tu nie zadziała: zaczyna od kontekstu wywołującego, a w
+    komendzie żadnego nie ma. `SET LOCAL` żyje do końca transakcji, więc
+    wejście w drugą organizację po prostu nadpisuje ustawienie, a całość i tak
+    kończy się razem z transakcją komendy.
+    """
+    context = TenantContext(
+        organization_id=organization_id,
+        membership_id=uuid.uuid7(),
+        actor_id=uuid.uuid7(),
+        role_key="platform_support",
+        permissions=frozenset({FARMS_MANAGE}),
+        principal_kind="platform_support",
+    )
+    with activate_tenant_context(context):
+        set_local_organization_id(organization_id)
+        yield
+
+
+def _audit_support(operator_id: UUID, organization_id: UUID, farm: Farm) -> None:
+    record_audit(
+        organization=Organization.objects.get(pk=organization_id),
+        action=OrganizationAuditAction.FARM_SHARE_GRANTED,
+        actor=User.objects.filter(pk=operator_id).first(),
+        target_type="farm",
+        target_id=farm.id,
+        metadata={"basis": ShareBasis.SUPPORT},
+    )
 
 
 def share_for_writing(company_organization_id: UUID, company_farm_id: UUID) -> FarmShare | None:

@@ -1647,6 +1647,46 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/farms/{farm_id}/send-herd/:
+    post:
+      operationId: farms_herd_push
+      description: Wyślij stado tej karty do rejestru rolnika (ADR-051 pt 7).
+      parameters:
+      - in: path
+        name: farm_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - farms
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmHerdPush'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/farms/{farm_id}/shares/:
     get:
       operationId: farms_share_list
@@ -1975,6 +2015,53 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AnimalHealthEntry'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/farms/health/{entry_id}/photos/{media_id}/:
+    get:
+      operationId: farms_health_photo
+      description: Zdjęcie z wpisu kartoteki, czytane z magazynu jego autora.
+      parameters:
+      - in: path
+        name: entry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: media_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - farms
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            image/webp:
+              schema:
+                type: string
+                format: binary
           description: ''
         '400':
           content:
@@ -7405,6 +7492,55 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/template-media/{photo_id}/materialize/:
+    post:
+      operationId: sites_template_photo_materialize
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: photo_id
+        schema:
+          type: string
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplatePhoto'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
 components:
   schemas:
     ActionEnum:
@@ -7529,6 +7665,11 @@ components:
           default: false
         private:
           type: boolean
+        photos:
+          type: array
+          items:
+            type: string
+            format: uuid
         summary:
           type: string
         details:
@@ -7545,6 +7686,7 @@ components:
       - id
       - kind
       - occurred_on
+      - photos
       - private
       - published_at
       - source
@@ -7570,6 +7712,11 @@ components:
         private:
           type: boolean
           default: false
+        photos:
+          type: array
+          items:
+            type: string
+            format: uuid
       required:
       - summary
     AnimalHealthInputKindEnum:
@@ -9694,6 +9841,20 @@ components:
           maxLength: 40
       required:
       - code
+    FarmHerdPush:
+      type: object
+      description: Ile sztuk dopisano, ile poprawiono, ile było już zgodnych.
+      properties:
+        added:
+          type: integer
+        updated:
+          type: integer
+        unchanged:
+          type: integer
+      required:
+      - added
+      - unchanged
+      - updated
     FarmInput:
       type: object
       description: |-
@@ -10882,6 +11043,8 @@ components:
     PageTemplateImport:
       type: object
       properties:
+        locale:
+          $ref: '#/components/schemas/LocaleEnum'
         expected_version:
           type: integer
           minimum: 0
@@ -12547,6 +12710,14 @@ components:
       - key
       - locales
       - version
+    TemplatePhoto:
+      type: object
+      properties:
+        asset_id:
+          type: string
+          format: uuid
+      required:
+      - asset_id
     TemplatePreview:
       type: object
       properties:

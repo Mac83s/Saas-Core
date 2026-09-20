@@ -7,9 +7,12 @@ they run under any profile that composes the register.
 
 from __future__ import annotations
 
+import uuid
 from contextlib import contextmanager
 from types import SimpleNamespace
 from typing import Any
+from unittest import mock
+from uuid import UUID
 
 import pytest
 from django.conf import settings
@@ -21,11 +24,13 @@ from saas_core.modules.core.identity.models import User, UserStatus
 from saas_core.modules.core.organizations.context import (
     activate_tenant_context,
     context_from_membership,
+    require_tenant_context,
     set_local_organization_id,
 )
 from saas_core.modules.core.organizations.models import (
     Membership,
     Organization,
+    OrganizationAuditAction,
     OrganizationAuditEntry,
     OrganizationStatus,
     Role,
@@ -725,3 +730,226 @@ def test_what_a_company_writes_waits_for_the_keeper_to_look_at_it() -> None:
         assert [animal.status for animal in list_animals(
             farm_id=registry_farm.id, review=True
         )] == ["sold"]
+
+
+def test_a_company_sends_the_whole_herd_and_the_keeper_hears_about_it() -> None:
+    """Domyka okno kodu: sztuki dopisane po jego wydaniu docierają do rejestru,
+    a hodowca dostaje o nich jedną wiadomość, nie czterdzieści."""
+    from saas_core.modules.shared.farms.herd_sync import push_herd  # noqa: PLC0415
+    from saas_core.modules.shared.farms.services import (  # noqa: PLC0415
+        create_animal,
+        create_farm,
+        list_animals,
+        update_animal,
+    )
+    from saas_core.modules.shared.farms.sharing import (  # noqa: PLC0415
+        Conflict,
+        issue_activation_code,
+        redeem_activation_code,
+    )
+    from saas_core.modules.shared.farms.tasks import (  # noqa: PLC0415
+        notify_pending_reviews,
+    )
+    from saas_core.modules.shared.notifications.models import (  # noqa: PLC0415
+        AppNotification,
+    )
+
+    company = membership("firma-wysylka")
+    farmer = membership("rolnik-wysylka")
+    with tenant(company) as request:
+        card = create_farm(
+            request=request, data={"name": "Gospodarstwo Wysyłka", "herd_number": "PL044444444-001"}
+        )
+        create_animal(request=request, farm_id=card.id, data={"national_id": "PL005432122001"})
+        code, _ = issue_activation_code(request=request, farm_id=card.id)
+        # Krowa dopisana po wydaniu kodu: przekazanie jest już zamrożone.
+        late = create_animal(
+            request=request, farm_id=card.id, data={"national_id": "PL005432122002"}
+        )
+        # I sztuka, która wyszła ze stada — ta do rejestru nie pojedzie.
+        gone = create_animal(
+            request=request, farm_id=card.id, data={"national_id": "PL005432122003"}
+        )
+        update_animal(request=request, animal_id=gone.id, data={"status": "sold"})
+        with pytest.raises(Conflict, match="nie jest połączone"):
+            push_herd(request, farm_id=card.id)
+        with pytest.raises(NotFound):
+            push_herd(request, farm_id=uuid.uuid7())
+
+    with tenant(farmer) as request:
+        taken = redeem_activation_code(request=request, code=code)
+        registry_farm = taken["farm"]
+        assert [animal.national_id for animal in list_animals(farm_id=registry_farm.id)] == [
+            "PL005432122001"
+        ]
+
+    with tenant(company) as request:
+        assert push_herd(request, farm_id=card.id) == {
+            "added": 1,
+            "updated": 0,
+            "unchanged": 1,
+        }
+        # Druga wysyłka niczego nie zmienia i nie stawia znaczników.
+        assert push_herd(request, farm_id=card.id) == {
+            "added": 0,
+            "updated": 0,
+            "unchanged": 2,
+        }
+        update_animal(request=request, animal_id=late.id, data={"working_number": "17"})
+
+    with tenant(farmer):
+        herd = list_animals(farm_id=registry_farm.id)
+        assert sorted(animal.national_id for animal in herd) == [
+            "PL005432122001",
+            "PL005432122002",
+        ]
+        assert [animal.national_id for animal in list_animals(review=True)] == [
+            "PL005432122001",
+            "PL005432122002",
+        ]
+
+    # Jedna wiadomość na gospodarstwo, dla osoby, która może się tym zająć.
+    assert notify_pending_reviews() == 1
+    message = AppNotification.all_objects.get(organization_id=farmer.organization_id)
+    assert message.kind == "farms.herd_review"
+    assert message.payload["count"] == 2
+    assert message.payload["farm_name"] == registry_farm.name
+    # Przebieg bez nowych sztuk nie mówi nic.
+    assert notify_pending_reviews() == 0
+
+
+def test_support_links_a_card_without_a_code_and_the_keeper_can_revoke_it() -> None:
+    """ADR-051 pkt 5: kod nie dotarł, obsługa łączy ręcznie — z audytem po obu
+    stronach i bez kopiowania stada."""
+    from saas_core.modules.shared.farms.models import ShareBasis, ShareStatus  # noqa: PLC0415
+    from saas_core.modules.shared.farms.services import (  # noqa: PLC0415
+        create_animal,
+        create_farm,
+        list_animals,
+    )
+    from saas_core.modules.shared.farms.sharing import (  # noqa: PLC0415
+        Conflict,
+        link_without_code,
+        list_shares,
+        revoke_share,
+    )
+
+    company = membership("firma-wsparcie")
+    farmer = membership("rolnik-wsparcie")
+    operator = User.objects.create_user(email="obsluga@example.test")
+    with tenant(company) as request:
+        card = create_farm(request=request, data={"name": "Gospodarstwo Wsparcie"})
+        create_animal(request=request, farm_id=card.id, data={"national_id": "PL005432111001"})
+    with tenant(farmer) as request:
+        own = create_farm(request=request, data={"name": "Moje Gospodarstwo"})
+
+    link = dict(
+        operator_id=operator.id,
+        company_organization_id=company.organization_id,
+        company_farm_id=card.id,
+        registry_organization_id=farmer.organization_id,
+        registry_farm_id=own.id,
+    )
+    share = link_without_code(**link)
+    assert (share.basis, share.status) == (ShareBasis.SUPPORT, ShareStatus.ACTIVE)
+    assert (share.company_name, share.registry_name) == ("firma-wsparcie", "rolnik-wsparcie")
+    # Druga próba mówi wprost, zamiast łączyć po raz drugi.
+    with pytest.raises(Conflict, match="już połączone"):
+        link_without_code(**link)
+
+    # Ślad zostaje po obu stronach, z operatorem jako sprawcą.
+    granted = OrganizationAuditEntry.objects.filter(
+        action=OrganizationAuditAction.FARM_SHARE_GRANTED, actor_user=operator
+    )
+    assert {entry.organization_id for entry in granted} == {
+        company.organization_id,
+        farmer.organization_id,
+    }
+
+    with tenant(farmer) as request:
+        # Stado nie pojechało: to zadanie akcji „wyślij stado".
+        assert list_animals(farm_id=own.id) == []
+        (mine,) = list_shares(farm_id=own.id)
+        assert mine.partner_name == "firma-wsparcie"
+        # Połączenie bez kodu cofa się tak samo jak każde inne.
+        assert revoke_share(request=request, share_id=share.id).status == ShareStatus.REVOKED
+
+
+def test_a_photo_stays_with_its_author_and_is_read_through_the_entry() -> None:
+    """Decyzja z 20.09: plik nie jest kopiowany, czytelnik wchodzi przez wpis."""
+    from datetime import date  # noqa: PLC0415
+
+    from saas_core.modules.shared.farms.api import farm_animals  # noqa: PLC0415
+    from saas_core.modules.shared.farms.herd_sync import (  # noqa: PLC0415
+        publish_health_entry,
+        read_entry_photo,
+    )
+    from saas_core.modules.shared.farms.services import (  # noqa: PLC0415
+        create_animal,
+        create_farm,
+        list_health_entries,
+    )
+    from saas_core.modules.shared.farms.sharing import (  # noqa: PLC0415
+        issue_activation_code,
+        redeem_activation_code,
+        revoke_share,
+    )
+
+    photo_id = uuid.uuid7()
+    read_by: list[tuple[UUID, UUID]] = []
+
+    def fake_preview(*, asset_id: UUID, **_: Any) -> bytes:
+        context = require_tenant_context()
+        read_by.append((context.organization_id, asset_id))
+        return b"webp"
+
+    company = membership("firma-zdjecia")
+    farmer = membership("rolnik-zdjecia")
+    with tenant(company) as request:
+        card = create_farm(
+            request=request, data={"name": "Gospodarstwo Zdjęcia", "herd_number": "PL033333333-001"}
+        )
+        cow = create_animal(
+            request=request, farm_id=card.id, data={"national_id": "PL005432199901"}
+        )
+        code, _ = issue_activation_code(request=request, farm_id=card.id)
+    with tenant(farmer) as request:
+        taken = redeem_activation_code(request=request, code=code)
+        (registry_cow,) = list(farm_animals(farmer.organization_id, taken["farm"].id))
+        share = taken["share"]
+    with tenant(company):
+        publish_health_entry(
+            animal=cow,
+            occurred_on=date(2026, 9, 20),
+            source="hoofcare.visit",
+            reference="wizyta-foto",
+            summary="Korekcja: DD M2, zdjęcie racicy.",
+            photos=[str(photo_id)],
+        )
+
+    with (
+        tenant(farmer),
+        mock.patch(
+            "saas_core.modules.shared.farms.herd_sync.read_media_preview", side_effect=fake_preview
+        ),
+    ):
+        (entry,) = list_health_entries(animal_id=registry_cow.id)
+        assert [str(item) for item in entry.photos] == [str(photo_id)]
+        assert read_entry_photo(entry_id=entry.id, media_id=photo_id) == b"webp"
+        # Plik czytany jest w magazynie autora, nie rolnika.
+        assert read_by == [(company.organization_id, photo_id)]
+        # Zdjęcie spoza wpisu nie otwiera cudzego magazynu.
+        with pytest.raises(NotFound):
+            read_entry_photo(entry_id=entry.id, media_id=uuid.uuid7())
+
+    with tenant(farmer) as request:
+        revoke_share(request=request, share_id=share.id)
+    with (
+        tenant(farmer),
+        mock.patch(
+            "saas_core.modules.shared.farms.herd_sync.read_media_preview", side_effect=fake_preview
+        ),
+        pytest.raises(NotFound),
+    ):
+        # Cofnięty udział zamyka też zdjęcia — bez sprzątania plików.
+        read_entry_photo(entry_id=entry.id, media_id=photo_id)

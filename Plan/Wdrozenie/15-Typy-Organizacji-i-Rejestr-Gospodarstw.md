@@ -116,9 +116,13 @@ Zrobione (rozjazd stada): sztuka wpisana przez firmę czeka na przejrzenie —
 licznik i filtr przy liście zwierząt, znacznik przy sztuce, potwierdzenie w jej
 karcie. Nic nie jest kasowane, a zapis bez zmiany nie stawia znacznika.
 
-Otwarte: powiadomienie systemowe o rozjeździe (dzwonek albo e-mail — dziś jest
-licznik w panelu), akcja firmy „wyślij stado do rejestru" dla zwierząt
-dopisanych między wydaniem a realizacją kodu, akcja obsługi „połącz bez kodu".
+Zrobione (domknięcie etapu): akcja firmy „wyślij stado do rejestru" (domyka
+okno między wydaniem a realizacją kodu), dobowe powiadomienie w panelu dla osób
+z prawem do stada (jedna wiadomość na gospodarstwo, bez e-maila) oraz komenda
+operatorska `link_farm` łącząca gospodarstwo bez kodu — z MFA, powodem i
+audytem po obu stronach.
+
+**Etap 3 zamknięty.**
 
 ## Etap 4 — korekcja i wpisy zdrowotne (HoofCare) — ZROBIONE 2026-09-19/20 (bez publikacji do rejestru)
 
@@ -135,9 +139,13 @@ wizyty), kolejka i przebieg wizyty, kontrole wyliczane z wpisów, panel „Dziś
 zakończenie wizyty zamykające rezerwację, raport z PDF, archiwum i wysyłką
 e-mailem z załącznikiem, zamrożenie wizyty po wysyłce.
 
-Otwarte: publikacja wpisów do rejestru rolnika (czeka na etap 3), zamrożenie
-katalogu v1 (pole SH do potwierdzenia), zdjęcia, materiały i leki (RACICE 13.5,
-13.6, 16), tryb offline.
+Domknięte 20.09: publikacja wpisów do kartoteki zwierzęcia w rejestrze rolnika,
+zamrożenie katalogu ICAR v1 („nadmierny róg” to korekcja funkcjonalna, SH
+zostaje krwawieniem podeszwy) oraz zdjęcia przy wpisie — przekazywane rolnikowi
+jako dostęp do pliku firmy, nie kopia.
+
+Otwarte: zdjęcia w panelu terenowym (wgrywanie przy wpisie), materiały i leki
+(RACICE 13.6, 16), tryb offline.
 
 ## Etap 5 — sprzedaż zwierząt
 

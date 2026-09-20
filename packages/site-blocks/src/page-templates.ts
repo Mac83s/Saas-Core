@@ -1,7 +1,11 @@
-import serviceLandingV1 from "@saas-core/contracts/page-templates/core.service_landing.v1.json";
-import companyV1 from "@saas-core/contracts/page-templates/core.company.v1.json";
-import profileV1 from "@saas-core/contracts/page-templates/core.profile.v1.json";
-import specialistLandingV1 from "@saas-core/contracts/page-templates/core.specialist_landing.v1.json";
+import businessStudio from "@saas-core/contracts/page-templates/core.business_studio.v1.json";
+import electronicsService from "@saas-core/contracts/page-templates/core.electronics_service.v1.json";
+import agricultureServices from "@saas-core/contracts/page-templates/core.agriculture_services.v1.json";
+import medicineClinic from "@saas-core/contracts/page-templates/core.medicine_clinic.v1.json";
+import serviceLandingV1 from "@saas-core/contracts/page-templates/core.service_landing.v2.json";
+import companyV1 from "@saas-core/contracts/page-templates/core.company.v2.json";
+import profileV1 from "@saas-core/contracts/page-templates/core.profile.v2.json";
+import specialistLandingV1 from "@saas-core/contracts/page-templates/core.specialist_landing.v2.json";
 
 import { InvalidPageTemplateError } from "./errors";
 import type { BlockRegistry, PageTemplate, SiteBlock } from "./types";
@@ -16,6 +20,10 @@ const recipes: readonly PageTemplate[] = [
   specialistLandingV1 as unknown as PageTemplate,
   companyV1 as unknown as PageTemplate,
   serviceLandingV1 as unknown as PageTemplate,
+  medicineClinic as unknown as PageTemplate,
+  agricultureServices as unknown as PageTemplate,
+  electronicsService as unknown as PageTemplate,
+  businessStudio as unknown as PageTemplate,
 ];
 
 /** Recipes are seed content, not a second content model: applying one produces
@@ -32,8 +40,13 @@ export function corePageTemplates(): readonly PageTemplate[] {
 export function pageTemplateBlocks(
   template: PageTemplate,
   registry: BlockRegistry,
+  locale: "pl" | "en" = "pl",
 ): SiteBlock[] {
-  return template.blocks.map((block, index) => {
+  return (
+    locale === "en"
+      ? (template.localizedBlocks?.en ?? template.blocks)
+      : template.blocks
+  ).map((block, index) => {
     const seeded: SiteBlock = {
       block_type: block.block_type,
       schema_version: block.schema_version,
