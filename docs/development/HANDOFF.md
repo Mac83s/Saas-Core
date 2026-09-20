@@ -1,5 +1,40 @@
 # Handoff następnej sesji
 
+## Wysyłka stada, powiadomienie o rozjeździe i łączenie bez kodu, 2026-09-20
+
+Trzy rzeczy domykające etap 3:
+
+- **`POST /api/v1/farms/<id>/send-herd/`** (`herd_sync.push_herd`) — całe stado
+  karty przez **jedne** drzwi: migawka zwierząt firmy powstaje *przed*
+  otwarciem kontekstu rejestru (w środku te wiersze są niewidoczne), potem
+  jeden `bulk_create` i jeden `bulk_update`. `bulk_update` omija `save()`, więc
+  `updated_at` ustawiamy ręcznie. Jadą tylko sztuki `active` — kartę firmy
+  zamieszkują też sprzedane i padłe. Udział jest blokowany `select_for_update`,
+  bo dwa kliknięcia naraz wstawiłyby te same braki dwa razy i drugie trafiłoby
+  w unikalny kolczyk;
+- **`farms/tasks.py::notify_pending_reviews`** — dobowy przebieg (harmonogram w
+  `settings/base.py::_MODULE_BEAT_SCHEDULE`, nie w deskryptorze: wpis tam nie
+  zmienia `profileHash`). Lista rejestrów bierze się z `FarmShare`, bo ta tabela
+  nie ma klucza do organizacji i nie podlega RLS — to jedyne źródło, jakie
+  zadanie ma bez kontekstu tenanta. Klucz idempotencji to
+  `farms-review:<farma>:<max(review_requested_at)>`, więc import czterystu krów
+  to jedna wiadomość, a przebieg bez nowych sztuk nie mówi nic;
+- **`manage.py link_farm`** (`sharing.link_without_code`) — połączenie bez kodu
+  po stronie obsługi. Komenda, nie endpoint: akcja omija jedyną zgodę hodowcy
+  na wydanie stada, więc wymaga `is_staff`, MFA i powodu, i zostawia ślad w
+  audycie **obu** organizacji. `registry_door` tu nie zadziała (zaczyna od
+  kontekstu wywołującego, a operator żadnego nie ma) — każda strona czytana
+  jest w swoim kontekście przez `_as_tenant`. Stada nie kopiuje: od tego jest
+  „wyślij stado".
+
+Dowody ze stacku dev (20.09): karta z dwiema krowami → kod → trzecia krowa
+dopisana po wydaniu kodu → przejęcie daje 2 → `send-herd` daje
+`{added: 1, unchanged: 2}`, powtórka same `unchanged`; przebieg powiadomień
+tworzy 2 wiadomości (po jednej na gospodarstwo), drugi przebieg zero, a skrzynka
+rolnika pokazuje `farms.herd_review` z liczbą sztuk; `link_farm` łączy kartę bez
+kodu — udział `support`, stado nie pojechało, `farms.share.granted` z operatorem
+w audycie obu organizacji.
+
 ## 2026-09-20 — synchronizacja Site Studio, rebuild wstrzymany
 
 SaaS-Core: oba obrazy zbudowane z czystego worktree 4346e78. HoofCare: backend gotowy, frontend zatrzymany. MedPlano: build nie rozpoczęty.
