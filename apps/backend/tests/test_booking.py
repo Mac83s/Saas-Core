@@ -629,6 +629,45 @@ def test_a_walk_in_takes_the_window_the_schedule_would_never_have_offered(
         ) == len(free_before)
 
 
+def test_a_walk_in_takes_the_only_resource_the_service_demands(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Nobody in a barn is asked which crush they are standing at.
+
+    A trimming service names the crush as a required resource, and the slot
+    search that would normally pick it never ran. With exactly one answer the
+    question is not worth asking — but the resource still has to be taken, or
+    the calendar hands the only one to somebody else.
+    """
+    _no_delivery(monkeypatch)
+    member = membership("booking-walk-in-resource")
+    configured = catalog(member)
+    with tenant(member):
+        ServiceResource.all_objects.filter(
+            service=configured["service"], resource=configured["resource"]
+        ).update(required=True)
+        result = create_appointment(
+            service_id=configured["service"].id,
+            staff_id=configured["staff"].id,
+            location_id=configured["location"].id,
+            resource_id=None,
+            starts_at=timezone.now().replace(microsecond=0) + timedelta(days=2),
+            customer_data={
+                "display_name": "Gospodarstwo Kaczmarek",
+                "email": "kaczmarek@example.test",
+                "phone": "",
+                "locale": "pl",
+            },
+            idempotency_key="walk-in-resource-1",
+            principal_ref=str(member.user_id),
+            walk_in_minutes=120,
+        )
+        assert result.appointment.resource_id == configured["resource"].id
+        assert AppointmentResourceAllocation.all_objects.filter(
+            appointment=result.appointment, active=True
+        ).exists()
+
+
 def test_the_confirmation_mail_reads_as_a_wall_clock_not_a_stored_instant(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

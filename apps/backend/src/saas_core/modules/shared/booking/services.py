@@ -332,9 +332,17 @@ def create_appointment(
         or not ServiceLocation.all_objects.filter(service=service, location=location).exists()
     ):
         raise SlotUnavailable
-    required = ServiceResource.all_objects.filter(service=service, required=True).values_list(
-        "resource_id", flat=True
+    required = list(
+        ServiceResource.all_objects.filter(service=service, required=True).values_list(
+            "resource_id", flat=True
+        )
     )
+    if walk_in_minutes and resource is None and len(required) == 1:
+        # A walk-in is entered by whoever is doing the work, and the slot search
+        # that normally names the resource was never run. With one possible
+        # answer there is nothing to ask about — and the resource still has to
+        # be taken, or the calendar would offer the only crush to somebody else.
+        resource = Resource.all_objects.filter(pk=required[0], active=True).first()
     if required and (resource is None or resource.id not in required):
         raise SlotUnavailable
     organization = Organization.objects.get(pk=context.organization_id)
