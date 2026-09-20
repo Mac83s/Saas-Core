@@ -97,34 +97,52 @@ sprawdzenia loadu.
 
 ### Czego nie da się zbudować bez backendu
 
-Połowa ekranu Gospodarstwa została świadomie pominięta, bo **nic nie łączy
-wizyty z gospodarstwem**: `Appointment` ma klucze do klienta, usługi,
-pracownika, lokalizacji i zasobu, a `Customer` nie ma farmy. Bez tej
-referencji nie ma „ostatniej wizyty", „następnej wizyty", zakładki Wizyty ani
-akcji „Zaplanuj wizytę" z karty gospodarstwa. To jedna decyzja projektowa
-(referencja na wizycie czy na kliencie rezerwacji), od której zależy sześć
-rzeczy naraz.
+Połowa ekranu Gospodarstwa została świadomie pominięta, bo **rdzeń nie wie, w
+którym gospodarstwie odbywa się wizyta**: `Appointment` ma klucze do klienta,
+usługi, pracownika, lokalizacji i zasobu, a `Customer` nie ma farmy. Stąd brak
+„ostatniej wizyty", „następnej wizyty", zakładki Wizyty i akcji „Zaplanuj
+wizytę" na karcie gospodarstwa.
+
+**To nie jest brak w całym systemie, tylko w rdzeniu, i tak było zamierzone.**
+Połączenie istnieje w wertykale: `HerdVisit` jest jeden-do-jednego z
+`Appointment` i trzyma `farm` (plus `plan_visit` z idempotencją tworzy jedno i
+drugie). Tak ma być — profil może złożyć `shared.booking` bez `shared.farms`
+(Business, MedPlano), więc klucz obcy na `Appointment` nie skomponowałby się.
+Tabela łącząca należy do warstwy, która zależy od obu modułów, i tam leży.
+
+Brakuje więc **nie modelu, lecz slotu we froncie rdzenia**: karta gospodarstwa
+nie ma odpowiednika `ProductAnimalSection`. Dodanie `ProductFarmSection` daje
+HoofCare miejsce na zakładkę Wizyty, daty i „Zaplanuj wizytę" (jego własnym
+`POST /hoofcare/visits/`). Slot nie wystarczy tylko na **kolumny listy**
+gospodarstw — wołanie produktu per wiersz to N+1; albo te kolumny zostają
+skreślone, albo produkt dokłada zbiorczy endpoint po `farm_id`.
 
 Pozostały dług, uporządkowany:
 
-1. referencja gospodarstwa na wizycie → warunek dla punktów 2–4;
-2. `last_visit_at` / `next_visit_at` na serializerze farmy → `GET /farms/`;
-3. historia wizyt gospodarstwa → filtr `farm_id` w `GET /booking/appointments/`;
-4. „Zaplanuj wizytę" z karty gospodarstwa → tworzenie rezerwacji z `farm_id`;
-5. termin kontroli zwierzęcia (`check_due_at`) — **najpierw rozstrzygnąć w ADR**,
-   czy to pole wspólnego rejestru, czy wertykału, który je wypełnia; od tego
-   zależy licznik „krowy do kontroli" i filtr listy;
-6. odczyt jednego zwierzęcia `GET /farms/animals/{id}/` — dziś jest tylko lista,
+1. slot `ProductFarmSection` w karcie gospodarstwa (wzór: `ProductAnimalSection`)
+   → odblokowuje zakładkę Wizyty, daty i „Zaplanuj wizytę" po stronie HoofCare
+   bez żadnej zmiany w `shared.booking`;
+2. decyzja, czy kolumny „ostatnia / następna wizyta" i „krowy do kontroli"
+   zostają na liście gospodarstw; jeśli tak, produkt dokłada zbiorczy endpoint
+   po `farm_id` (per wiersz byłoby N+1);
+3. termin kontroli zwierzęcia — **najpierw rozstrzygnąć w ADR**, czy to pole
+   wspólnego rejestru, czy wertykału; ADR-051 §8 mówi, że wpis zdrowotny
+   należy do autora, więc kandydatem jest cienka tabela terminów w
+   `shared.farms` z `source_module`, a nie `check_due_at` na `Animal`;
+4. odczyt jednego zwierzęcia `GET /farms/animals/{id}/` — dziś jest tylko lista,
    dlatego karta zwierzęcia jest dialogiem, nie adresowalną trasą;
-7. filtr `status` w `GET /farms/animals/` — dziś filtruje klient w obrębie 500
+5. filtr `status` w `GET /farms/animals/` — dziś filtruje klient w obrębie 500
    wierszy;
-8. import CSV gospodarstw i zwierząt (oba przyciski z projektu wycięte);
-9. telefon, miejscowość i liczba pracowników na organizacji — krok 2 onboardingu
+6. import CSV gospodarstw i zwierząt (oba przyciski z projektu wycięte);
+7. telefon, miejscowość i liczba pracowników na organizacji — krok 2 onboardingu
    pyta dziś o pola, których nie ma gdzie zapisać;
-10. start okresu próbnego po `plan_key`, bez przejścia przez checkout;
-11. `GET /hoofcare/visits/` nadal bez okna czasowego, filtrów i stronicowania
+8. start okresu próbnego po `plan_key`, bez przejścia przez checkout;
+9. `GET /hoofcare/visits/` nadal bez okna czasowego, filtrów i stronicowania
     (limit 500) — ta sama pułapka, której uniknął nowy `GET /hoofcare/reports/`;
-12. `ENUM_NAME_OVERRIDES` jest tylko w ustawieniach rdzenia, więc produkt nie
+10. pozycja menu „Wiadomości" jest za uprawnieniem `notifications.manage`, a
+    sama strona nie — osoba bez tego uprawnienia ma tam własne preferencje
+    powiadomień, ale nie ma jak do nich trafić;
+11. `ENUM_NAME_OVERRIDES` jest tylko w ustawieniach rdzenia, więc produkt nie
     umie nazwać własnych enumów: kolejny `ChoiceField` na istniejącym zbiorze
     po cichu przemianuje opublikowany typ w kliencie.
 
