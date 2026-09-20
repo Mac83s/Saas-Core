@@ -42,6 +42,11 @@ class Command(BaseCommand):
                 version = plan.current_version
                 if version is None:  # Query and missing check enforce this contract.
                     raise CommandError(f"Plan {plan_key!r} nie ma bieżącej wersji.")
+                if version.unit_amount_minor == 0:
+                    # A free plan has nothing to buy: a price for it would put
+                    # a checkout button under a plan the organization already
+                    # has, and a second subscription behind it.
+                    continue
                 product_id = f"sim_prod_{plan.key}"
                 price_id = f"sim_price_{plan.key}_v{version.version}"
                 active = (

@@ -53,15 +53,22 @@ def test_deployment_billing_plan_keys_follow_enabled_module() -> None:
         {"billing": {"planKeys": ["profile", "starter", "pro"]}},
         ["core.identity", "shared.billing"],
     ) == ("profile", "starter", "pro")
+    # Produkt z dwoma typami organizacji sprzedaje więcej niż trzy plany.
+    assert len(
+        _deployment_billing_plan_keys(
+            {"billing": {"planKeys": ["profile", "starter", "pro", "farm_free", "farm_plus"]}},
+            ["shared.billing"],
+        )
+    ) == 5
 
 
 @pytest.mark.parametrize(
     "billing",
     [
         None,
-        {"planKeys": ["profile", "starter"]},
+        {"planKeys": []},
         {"planKeys": ["profile", "starter", "profile"]},
-        {"planKeys": ["profile", "starter", "pro", "enterprise"]},
+        {"planKeys": ["a", "b", "c", "d", "e", "f", "g"]},
     ],
 )
 def test_deployment_billing_plan_keys_reject_invalid_catalog(billing: object) -> None:

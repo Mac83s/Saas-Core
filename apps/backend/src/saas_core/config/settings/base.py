@@ -32,9 +32,11 @@ def _deployment_billing_plan_keys(profile: dict[str, Any], modules: list[str]) -
     ):
         raise ImproperlyConfigured("Profil z shared.billing wymaga listy billing.planKeys")
     plan_keys = tuple(value.strip() for value in raw_plan_keys)
-    if len(plan_keys) != 3 or len(plan_keys) != len(set(plan_keys)):
+    # Od 1 do 6: produkt sprzedaje tyle planów, ile ma typów organizacji razy
+    # ich warianty — gospodarstwo dostaje darmowy i płatny obok planów firmy.
+    if not 1 <= len(plan_keys) <= 6 or len(plan_keys) != len(set(plan_keys)):
         raise ImproperlyConfigured(
-            "Profil z shared.billing wymaga dokładnie 3 unikalnych billing.planKeys"
+            "Profil z shared.billing wymaga od 1 do 6 unikalnych billing.planKeys"
         )
     return plan_keys
 

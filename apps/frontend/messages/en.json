@@ -354,7 +354,9 @@
     "editDetails": "Edit details",
     "buyer": "Buyer",
     "address": "Address",
-    "detailsOwnerOnly": "Only the business owner can change invoice details."
+    "detailsOwnerOnly": "Only the business owner can change invoice details.",
+    "free": "Free",
+    "freeIncluded": "Included from the start"
   },
   "Sites": {
     "navigation": "Sites",

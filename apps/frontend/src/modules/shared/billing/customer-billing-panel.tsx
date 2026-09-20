@@ -689,15 +689,24 @@ function PlanCard({
             </Badge>
           ) : null}
         </div>
-        <p>
-          <span className="text-3xl font-semibold tracking-tight">
-            {formatMoney(plan.unit_amount_minor, plan.currency, locale)}
-          </span>
-          <span className="text-sm text-muted-foreground">
-            {" "}
-            {t(plan.billing_interval === "year" ? "perYearNet" : "perMonthNet")}
-          </span>
-        </p>
+        {/* A free plan has no price and nothing to buy: it is granted when
+            the organization is created, so a checkout button under it would
+            promise a purchase that cannot happen. */}
+        {plan.unit_amount_minor === 0 ? (
+          <p className="text-3xl font-semibold tracking-tight">{t("free")}</p>
+        ) : (
+          <p>
+            <span className="text-3xl font-semibold tracking-tight">
+              {formatMoney(plan.unit_amount_minor, plan.currency, locale)}
+            </span>
+            <span className="text-sm text-muted-foreground">
+              {" "}
+              {t(
+                plan.billing_interval === "year" ? "perYearNet" : "perMonthNet",
+              )}
+            </span>
+          </p>
+        )}
         {showTrial && plan.trial_days > 0 ? (
           <p className="text-sm font-medium text-primary">
             {t("trialDays", { count: plan.trial_days })}
@@ -770,49 +779,55 @@ function PlanCard({
         ) : null}
       </CardContent>
       <CardFooter>
-        <Button
-          className="w-full"
-          disabled={
-            current ||
-            simulatedPlanLocked ||
-            !detailsComplete ||
-            (!hasSubscription && !plan.checkout_available) ||
-            !canManage ||
-            busy
-          }
-          onClick={onChoose}
-          size="lg"
-          variant={highlighted ? "default" : "outline"}
-        >
-          {pending ? (
-            <LoaderCircleIcon aria-hidden="true" className="animate-spin" />
-          ) : null}
-          {current
-            ? t("current")
-            : !canManage
-              ? t(
-                  paymentMode === "simulated"
-                    ? "simulatedOwnerOnly"
-                    : "ownerOnly",
-                )
-              : !detailsComplete
-                ? t("completeDetailsFirst")
-                : simulatedPlanLocked
-                  ? t("simulatedPlanLocked")
-                  : hasSubscription
-                    ? t("managePlan")
-                    : plan.checkout_available
-                      ? t(
-                          paymentMode === "simulated"
-                            ? "simulatePlan"
-                            : "choosePlan",
-                        )
-                      : t(
-                          paymentMode === "simulated"
-                            ? "simulationUnavailable"
-                            : "checkoutUnavailable",
-                        )}
-        </Button>
+        {plan.unit_amount_minor === 0 ? (
+          <p className="w-full text-center text-sm text-muted-foreground">
+            {current ? t("current") : t("freeIncluded")}
+          </p>
+        ) : (
+          <Button
+            className="w-full"
+            disabled={
+              current ||
+              simulatedPlanLocked ||
+              !detailsComplete ||
+              (!hasSubscription && !plan.checkout_available) ||
+              !canManage ||
+              busy
+            }
+            onClick={onChoose}
+            size="lg"
+            variant={highlighted ? "default" : "outline"}
+          >
+            {pending ? (
+              <LoaderCircleIcon aria-hidden="true" className="animate-spin" />
+            ) : null}
+            {current
+              ? t("current")
+              : !canManage
+                ? t(
+                    paymentMode === "simulated"
+                      ? "simulatedOwnerOnly"
+                      : "ownerOnly",
+                  )
+                : !detailsComplete
+                  ? t("completeDetailsFirst")
+                  : simulatedPlanLocked
+                    ? t("simulatedPlanLocked")
+                    : hasSubscription
+                      ? t("managePlan")
+                      : plan.checkout_available
+                        ? t(
+                            paymentMode === "simulated"
+                              ? "simulatePlan"
+                              : "choosePlan",
+                          )
+                        : t(
+                            paymentMode === "simulated"
+                              ? "simulationUnavailable"
+                              : "checkoutUnavailable",
+                          )}
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );

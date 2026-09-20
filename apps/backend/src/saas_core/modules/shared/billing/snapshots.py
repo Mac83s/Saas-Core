@@ -23,6 +23,7 @@ from .models import (
     StripePriceMapping,
     SubscriptionState,
 )
+from .plan_offer import plan_keys_for_type
 
 
 @transaction.atomic
@@ -42,6 +43,35 @@ def update_entitlement_snapshot(
         state=state,
         access_mode=access_mode,
         effective_until=effective_until,
+    )
+
+
+@transaction.atomic
+def grant_free_plan(organization: Organization) -> EntitlementSnapshot | None:
+    """The plan a new organization of this type gets without buying anything.
+
+    "Free" is the plan of its type whose current version costs nothing — one
+    truth, the price, rather than a second flag next to it. A type without such
+    a plan gets nothing, which is how every product behaved until now.
+    """
+    free = (
+        PlanVersion.objects.filter(
+            current_for_plan__key__in=plan_keys_for_type(organization.organization_type),
+            unit_amount_minor=0,
+        )
+        .select_related("plan")
+        .order_by("plan__key")
+        .first()
+    )
+    if free is None:
+        return None
+    return _write_entitlement_snapshot(
+        organization,
+        plan_version=free,
+        stripe_price_id=None,
+        state=SubscriptionState.ACTIVE,
+        access_mode=AccessMode.FULL,
+        effective_until=None,
     )
 
 

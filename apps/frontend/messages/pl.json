@@ -354,7 +354,9 @@
     "editDetails": "Zmień dane",
     "buyer": "Nabywca",
     "address": "Adres",
-    "detailsOwnerOnly": "Dane do faktury zmienia właściciel firmy."
+    "detailsOwnerOnly": "Dane do faktury zmienia właściciel firmy.",
+    "free": "Darmowy",
+    "freeIncluded": "W koncie od początku"
   },
   "Sites": {
     "navigation": "Strony",

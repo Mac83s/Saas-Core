@@ -155,3 +155,77 @@ def test_plans_are_offered_per_type(settings: Any) -> None:
     assert plan_keys_for_type("unknown") == ()
     assert [plan["key"] for plan in public_plan_catalog("farm")] == [first]
     assert [plan["key"] for plan in public_plan_catalog()] == list(rest)
+
+
+def test_a_new_organization_gets_the_free_plan_of_its_type(settings: Any) -> None:
+    """Rolnik nie kupuje własnego rejestru: darmowy plan typu nadaje się sam."""
+    from saas_core.modules.shared.billing.models import (  # noqa: PLC0415
+        EntitlementSnapshot,
+        Plan,
+        PlanVersion,
+    )
+    from saas_core.modules.shared.billing.plan_offer import (  # noqa: PLC0415
+        plan_keys_for_type,
+    )
+
+    paid_key, *_ = settings.BILLING_PLAN_KEYS
+    paid = Plan.objects.get(key=paid_key)
+    assert paid.current_version is not None
+    free_plan = Plan.objects.create(key="free_test", name="Darmowy", is_public=True)
+    free_version = PlanVersion.objects.create(
+        plan=free_plan,
+        version=1,
+        currency=paid.current_version.currency,
+        billing_interval=paid.current_version.billing_interval,
+        unit_amount_minor=0,
+        feature_keys=list(paid.current_version.feature_keys),
+        quotas=dict(paid.current_version.quotas),
+        trial_days=0,
+        grace_period_days=0,
+    )
+    free_plan.current_version = free_version
+    free_plan.save(update_fields=["current_version"])
+    settings.BILLING_PLAN_KEYS = (*settings.BILLING_PLAN_KEYS, "free_test")
+    with_types(
+        settings,
+        business=replace(business(), plan_keys=(paid_key,)),
+        farm=replace(business(), key="farm", plan_keys=("free_test",)),
+    )
+    assert plan_keys_for_type("farm") == ("free_test",)
+
+    client = APIClient()
+    user = active_user(email="rolnik-darmowy@example.test")
+    login(client, user)
+    response = client.post(
+        ORGANIZATIONS_URL,
+        {
+            "name": "Gospodarstwo Darmowe",
+            "slug": "gospodarstwo-darmowe",
+            "organization_type": "farm",
+        },
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    assert response.status_code == 201
+
+    organization = Organization.objects.get(slug="gospodarstwo-darmowe")
+    snapshot = EntitlementSnapshot.all_objects.get(organization=organization)
+    assert snapshot.features == {key: True for key in free_version.feature_keys}
+    assert all(entry["ref"] == "free_test:v1" for entry in snapshot.sources.values())
+
+    # Firma nie ma darmowego planu swojego typu, więc nic nie dostaje.
+    company_user = active_user(email="firma-platna@example.test")
+    login(client, company_user)
+    response = client.post(
+        ORGANIZATIONS_URL,
+        {
+            "name": "Firma Płatna",
+            "slug": "firma-platna",
+            "organization_type": "business",
+        },
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    assert response.status_code == 201
+    company = Organization.objects.get(slug="firma-platna")
+    assert not EntitlementSnapshot.all_objects.filter(organization=company).exists()

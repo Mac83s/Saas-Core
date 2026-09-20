@@ -224,7 +224,7 @@ test("profil business deklaruje tabele publiczne tylko w shared.sites", async ()
   assert.ok(result.modules.includes("shared.sites"));
 });
 
-test("shared.billing wymaga dokładnie trzech unikalnych kluczy planu", () => {
+test("shared.billing wymaga od jednego do sześciu unikalnych kluczy planu", () => {
   assert.throws(
     () =>
       assertBillingConfiguration(
@@ -235,23 +235,38 @@ test("shared.billing wymaga dokładnie trzech unikalnych kluczy planu", () => {
         },
         "invalid-billing",
       ),
-    /dokładnie 3 unikalnych billing\.planKeys/,
+    /od 1 do 6 unikalnych billing\.planKeys/,
   );
+  // Produkt z dwoma typami organizacji sprzedaje więcej niż trzy plany:
+  // gospodarstwo ma darmowy i płatny obok planów firmy.
   assert.doesNotThrow(() =>
     assertBillingConfiguration({
       id: "valid-billing",
       modules: ["shared.billing"],
-      billing: { planKeys: ["profile", "starter", "pro"] },
+      billing: {
+        planKeys: ["profile", "starter", "pro", "farm_free", "farm_plus"],
+      },
     }),
+  );
+  assert.throws(
+    () =>
+      assertBillingConfiguration({
+        id: "no-plans",
+        modules: ["shared.billing"],
+        billing: { planKeys: [] },
+      }),
+    /od 1 do 6 unikalnych billing\.planKeys/,
   );
   assert.throws(
     () =>
       assertBillingConfiguration({
         id: "too-many-plans",
         modules: ["shared.billing"],
-        billing: { planKeys: ["profile", "starter", "pro", "enterprise"] },
+        billing: {
+          planKeys: ["a", "b", "c", "d", "e", "f", "g"],
+        },
       }),
-    /dokładnie 3 unikalnych billing\.planKeys/,
+    /od 1 do 6 unikalnych billing\.planKeys/,
   );
 });
 

@@ -53,11 +53,12 @@ export const assertBillingConfiguration = (
   const planKeys = profile.billing?.planKeys;
   if (
     !Array.isArray(planKeys) ||
-    planKeys.length !== 3 ||
+    planKeys.length < 1 ||
+    planKeys.length > 6 ||
     new Set(planKeys).size !== planKeys.length
   ) {
     throw new Error(
-      `Profil ${profileName}: shared.billing wymaga dokładnie 3 unikalnych billing.planKeys`,
+      `Profil ${profileName}: shared.billing wymaga od 1 do 6 unikalnych billing.planKeys`,
     );
   }
 };

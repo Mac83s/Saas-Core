@@ -69,6 +69,9 @@ class Command(BaseCommand):
             )
             if plan is None or plan.current_version is None:
                 raise CommandError(f"Plan {plan_key!r} nie ma aktywnej bieżącej wersji.")
+            if plan.current_version.unit_amount_minor == 0:
+                # Nothing to sell: Stripe has no product for a free plan.
+                continue
             pair = self._provision_plan(client, plan.current_version, dry_run=dry_run)
             if pair is not None:
                 offered.append(pair)
