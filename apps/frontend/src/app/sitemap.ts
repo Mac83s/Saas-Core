@@ -11,10 +11,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
     ...PATHS,
     ...(productCopy("pl").pages ?? []).map((page) => `/${page.slug}`),
   ];
-  return paths.map((path) => ({
-    url: localizedUrl("pl", path),
-    alternates: {
-      languages: { pl: localizedUrl("pl", path), en: localizedUrl("en", path) },
-    },
-  }));
+  return paths.flatMap((path) =>
+    (["pl", "en"] as const).map((locale) => ({
+      url: localizedUrl(locale, path),
+      alternates: {
+        languages: {
+          pl: localizedUrl("pl", path),
+          en: localizedUrl("en", path),
+          "x-default": localizedUrl("pl", path),
+        },
+      },
+    })),
+  );
 }

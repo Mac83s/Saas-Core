@@ -28,7 +28,7 @@ export async function SiteHeader() {
         </Link>
         <nav
           aria-label={t("nav.label")}
-          className="hidden items-center gap-6 md:flex"
+          className="hidden items-center gap-6 lg:flex"
         >
           {links.map((link) => (
             <Link
@@ -53,7 +53,7 @@ export async function SiteHeader() {
         </div>
       </div>
       {/* Native disclosure: a menu that works before any script has loaded. */}
-      <details className="border-t md:hidden">
+      <details className="border-t lg:hidden">
         <summary className="cursor-pointer px-5 py-3 text-sm font-medium">
           {t("nav.menu")}
         </summary>
