@@ -139,9 +139,13 @@ wizyty), kolejka i przebieg wizyty, kontrole wyliczane z wpisów, panel „Dziś
 zakończenie wizyty zamykające rezerwację, raport z PDF, archiwum i wysyłką
 e-mailem z załącznikiem, zamrożenie wizyty po wysyłce.
 
-Otwarte: publikacja wpisów do rejestru rolnika (czeka na etap 3), zamrożenie
-katalogu v1 (pole SH do potwierdzenia), zdjęcia, materiały i leki (RACICE 13.5,
-13.6, 16), tryb offline.
+Domknięte 20.09: publikacja wpisów do kartoteki zwierzęcia w rejestrze rolnika,
+zamrożenie katalogu ICAR v1 („nadmierny róg” to korekcja funkcjonalna, SH
+zostaje krwawieniem podeszwy) oraz zdjęcia przy wpisie — przekazywane rolnikowi
+jako dostęp do pliku firmy, nie kopia.
+
+Otwarte: zdjęcia w panelu terenowym (wgrywanie przy wpisie), materiały i leki
+(RACICE 13.6, 16), tryb offline.
 
 ## Etap 5 — sprzedaż zwierząt
 
