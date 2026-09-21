@@ -183,6 +183,7 @@ function renderDocument(
       className: [
         designTokenClassName(appearance?.designTokens ?? tokens),
         appearance ? siteAppearanceClassName(appearance) : "",
+        contentElement === "div" ? "site-theme--preview" : "",
       ]
         .filter(Boolean)
         .join(" "),

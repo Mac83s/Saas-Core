@@ -1,0 +1,98 @@
+/* Scale against the page canvas, including phone previews on wide monitors. */
+.site-theme {
+  --site-heading-size: clamp(2rem, 1.1rem + 4cqw, 4.5rem);
+  --site-section-size: clamp(1.5rem, 1.15rem + 1.8cqw, 2.75rem);
+}
+.site-theme.site-theme--preview {
+  min-height: 0;
+}
+.site-theme .site-block {
+  min-width: 0;
+  padding-inline: clamp(1.25rem, 4cqw, 3.5rem);
+  overflow-wrap: anywhere;
+}
+.site-theme .site-block :is(h1, h2, h3, p, li, dd, dt, summary) {
+  min-width: 0;
+}
+.site-theme .site-block h1 {
+  font-size: var(--site-heading-size);
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+.site-theme .site-block h2 {
+  font-size: var(--site-section-size);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+.site-theme .site-block :is(h3, dt, summary) {
+  font-size: clamp(1.0625rem, 0.98rem + 0.5cqw, 1.375rem);
+  line-height: 1.4;
+}
+.site-theme .site-block :is(p, dd, li) {
+  font-size: clamp(1rem, 0.96rem + 0.22cqw, 1.125rem);
+  line-height: 1.75;
+}
+.site-theme .site-block :is(p, dd) {
+  text-wrap: pretty;
+}
+.site-theme .site-block :is(a, summary) {
+  overflow-wrap: anywhere;
+}
+.site-theme .site-block--hero {
+  min-height: clamp(18rem, 45cqw, 32rem);
+  gap: clamp(1.25rem, 3cqw, 2.5rem);
+}
+.site-theme .site-section--poster {
+  --site-heading-size: clamp(2.25rem, 1.2rem + 5cqw, 5.5rem);
+}
+.site-theme .site-section--compact {
+  --site-heading-size: clamp(1.875rem, 1.2rem + 2.4cqw, 3rem);
+}
+.site-theme .site-section--feature_list :is(ul, ol, dl),
+.site-theme .site-block--feature-list ul {
+  min-width: 0;
+}
+.site-theme .site-block--feature-list ul {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+}
+.site-theme .site-section--faq :is(summary, dt) {
+  font-weight: 600;
+}
+.site-theme .site-section--faq details {
+  padding-block: 1rem;
+}
+.site-theme .site-section--faq summary {
+  cursor: pointer;
+  padding-block: 0.5rem;
+}
+.site-theme .site-section--faq details[open] summary {
+  margin-bottom: 0.75rem;
+}
+.site-theme .site-section--faq details > p {
+  max-width: 70ch;
+}
+.site-theme .site-block--hero > img,
+.site-theme .site-section__photo img {
+  width: 100%;
+  object-fit: cover;
+  border-radius: var(--site-radius, 0.75rem);
+}
+@container (max-width: 639px) {
+  .site-theme .site-block {
+    padding-block: 2rem;
+  }
+  .site-theme.site-theme--compact .site-block {
+    padding-block: 1.5rem;
+  }
+  .site-theme.site-theme--spacious .site-block {
+    padding-block: 2.75rem;
+  }
+  .site-theme .site-section--hero.site-section--floating .site-section__intro {
+    margin: 0;
+    padding: 0;
+  }
+}

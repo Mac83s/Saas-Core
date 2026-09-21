@@ -2,7 +2,7 @@
 
 import { useId } from "react";
 import { useTranslations } from "next-intl";
-import type { SiteAppearance } from "@saas-core/site-blocks";
+import { siteGoogleFonts, type SiteAppearance } from "@saas-core/site-blocks";
 import { Button } from "@saas-core/ui/components/button";
 import { Field, FieldLabel } from "@saas-core/ui/components/field";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
@@ -43,7 +43,9 @@ export function AppearanceEditor({
       >
         {options.map((option) => (
           <option key={option} value={option}>
-            {t(`options.${option}`)}
+            {name === "font" && option in siteGoogleFonts
+              ? siteGoogleFonts[option as keyof typeof siteGoogleFonts]
+              : t(`options.${option}`)}
           </option>
         ))}
       </NativeSelect>
@@ -77,7 +79,13 @@ export function AppearanceEditor({
                 onClick={() =>
                   onChange({
                     ...value,
-                    font: preset === "editorial" ? "georgia" : "system",
+                    schemaVersion: 2,
+                    font:
+                      preset === "editorial"
+                        ? "lora"
+                        : preset === "modern"
+                          ? "manrope"
+                          : "inter",
                     width: preset === "editorial" ? "narrow" : "wide",
                     buttons: preset === "modern" ? "pill" : "outline",
                     designTokens: {
@@ -97,9 +105,20 @@ export function AppearanceEditor({
             {select(
               "font",
               value.font,
-              ["system", "arial", "georgia", "trebuchet", "verdana"],
+              [
+                ...Object.keys(siteGoogleFonts),
+                "system",
+                "arial",
+                "georgia",
+                "trebuchet",
+                "verdana",
+              ],
               (font) =>
-                onChange({ ...value, font: font as SiteAppearance["font"] }),
+                onChange({
+                  ...value,
+                  schemaVersion: 2,
+                  font: font as SiteAppearance["font"],
+                }),
             )}
             {select(
               "palette",

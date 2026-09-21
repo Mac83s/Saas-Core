@@ -52,6 +52,16 @@ describe("site appearance contract and chrome", () => {
     ])
       expect(() => parseSiteAppearance(invalid)).toThrow();
   });
+  it("supports Google Fonts only in the new contract and retains v1", () => {
+    expect(
+      parseSiteAppearance({ ...appearance, schemaVersion: 2, font: "inter" })
+        .font,
+    ).toBe("inter");
+    expect(() =>
+      parseSiteAppearance({ ...appearance, font: "inter" }),
+    ).toThrow();
+    expect(parseSiteAppearance(appearance).schemaVersion).toBe(1);
+  });
   it.each(["classic", "centered", "stacked"] as const)(
     "renders fixed %s headers with escaped content",
     (layout) => {

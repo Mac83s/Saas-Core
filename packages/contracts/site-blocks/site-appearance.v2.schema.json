@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/site-blocks/site-appearance.v2.schema.json",
+  "title": "Site appearance v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "designTokens",
+    "font",
+    "width",
+    "buttons",
+    "header",
+    "footer",
+    "navigation"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 2
+    },
+    "designTokens": {
+      "$ref": "https://schemas.saas-core.local/site-blocks/design-tokens.v1.schema.json"
+    },
+    "font": {
+      "enum": [
+        "system",
+        "arial",
+        "georgia",
+        "trebuchet",
+        "verdana",
+        "inter",
+        "manrope",
+        "dm-sans",
+        "nunito",
+        "lora",
+        "playfair-display"
+      ]
+    },
+    "width": {
+      "enum": ["narrow", "standard", "wide"]
+    },
+    "buttons": {
+      "enum": ["solid", "outline", "pill"]
+    },
+    "header": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layout", "brand", "tagline"],
+      "properties": {
+        "layout": {
+          "enum": ["none", "classic", "centered", "stacked"]
+        },
+        "brand": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "tagline": {
+          "type": "string",
+          "maxLength": 180
+        }
+      }
+    },
+    "footer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layout", "text", "links"],
+      "properties": {
+        "layout": {
+          "enum": ["none", "simple", "centered", "columns"]
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "links": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["label", "href"],
+            "properties": {
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "href": {
+                "type": "string",
+                "maxLength": 500,
+                "pattern": "^(?:/|https://|mailto:|tel:)"
+              }
+            }
+          }
+        }
+      }
+    },
+    "navigation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mobile", "tablet"],
+      "properties": {
+        "mobile": {
+          "enum": ["drawer", "bottom"]
+        },
+        "tablet": {
+          "enum": ["drawer", "bottom"]
+        }
+      }
+    }
+  }
+}

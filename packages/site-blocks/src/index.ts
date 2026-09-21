@@ -25,7 +25,11 @@ export {
 } from "./section-templates";
 export type { SectionTemplate, CatalogLocale } from "./section-templates";
 
-export { parseSiteAppearance, siteAppearanceClassName } from "./appearance";
+export {
+  parseSiteAppearance,
+  siteAppearanceClassName,
+  siteGoogleFonts,
+} from "./appearance";
 export type { SiteAppearance } from "./appearance";
 export {
   renderSiteHeader,

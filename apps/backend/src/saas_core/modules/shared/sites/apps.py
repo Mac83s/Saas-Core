@@ -52,7 +52,12 @@ def check_content_contracts(**_kwargs: object) -> list[Error]:
                     id=code,
                 )
             )
-    if not (Path(settings.SITE_BLOCK_CONTRACTS_PATH) / "site-appearance.v1.schema.json").is_file():
+    if any(
+        not (
+            Path(settings.SITE_BLOCK_CONTRACTS_PATH) / f"site-appearance.v{version}.schema.json"
+        ).is_file()
+        for version in (1, 2)
+    ):
         errors.append(Error("Brak kontraktu wyglądu witryny.", id="sites.E004"))
     if (Path(settings.PAGE_TEMPLATE_CONTRACTS_PATH) / "manifest.json").is_file() and not (
         Path(settings.PAGE_TEMPLATE_CONTRACTS_PATH) / "sample-media.v1.json"

@@ -173,3 +173,31 @@ jest opcjonalne (domyślnie PL), dzięki czemu stare żądania zachowują dział
 Biblioteka pokazuje początkowo 12 wariantów i przycisk kolejnych; filtr branży
 umieszcza dopasowane dodatki przed bazowymi. Opisy, reguły kompozycji i wskazówki
 objętości treści przygotowują późniejszy etap AI, który pozostaje odrębny.
+
+
+## Typografia i Google Fonts — 2026-09-21
+
+Kontrakt appearance v2 rozszerza wybór o Inter, Manrope, DM Sans, Nunito,
+Lora i Playfair Display. Wersja v1 jest niezmieniona i nadal walidowana;
+zmiana fontu w panelu zapisuje v2. Presety modern/editorial/compact wybierają
+odpowiednio Manrope/Lora/Inter. Pozostałe ustawienia zachowują dotychczasowe
+znaczenie; nie ma migracji danych ani automatycznej podmiany zapisanych fontów.
+
+WOFF2 (Latin i Latin Extended, wagi 400–700) oraz oryginalne licencje OFL
+są w packages/ui/src/styles/fonts. Źródła i SHA-256 zawiera sources.json.
+CSS jest wspólny dla edytora i publicznego renderera; fonty są serwowane lokalnie,
+bez zależności od sieci Google przy buildzie czy wyświetleniu strony.
+
+Skala nagłówków i tekstu używa szerokości kontenera strony, nie viewportu
+panelu. Telefon na dużym monitorze ma więc te same rozmiary tekstu co wąskie
+okno. Ujednolicono interlinię, łamanie nagłówków, odstępy FAQ i zabezpieczenie
+szerokości list. Podgląd krótkiej sekcji nie wymusza pełnej wysokości okna.
+
+Przegląd katalogu: osiem recept pełnych podstron (Wizytówka, Strona specjalisty,
+Strona firmy, Oferta usługowa, Gabinet i opieka, Usługi dla gospodarstwa,
+Serwis elektroniki, Pracownia i realizacje). Każda ma cztery sekcje: hero,
+feature_list, FAQ i kontakt, z PL/EN oraz zdjęciami. Wybór jest obecnie dostępny
+tylko dla pustego draftu pod hasłem „Zacznij od szablonu”. To nie są zestawy
+wielostronicowych witryn ani ukończona biblioteka wszystkich kategorii.
+Otwarte: bogatsze kompozycje i bezpieczny wybór dla istniejącej podstrony.
+Osobno pozostaje zdiagnozowany 403 automatyzacji blueprintów ze zdjęciami.

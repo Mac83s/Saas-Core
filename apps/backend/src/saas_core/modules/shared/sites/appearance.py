@@ -51,7 +51,12 @@ def default_appearance(site: Site) -> dict[str, Any]:
 def appearance_validator() -> Draft202012Validator:
     directory = settings.SITE_BLOCK_CONTRACTS_PATH
     tokens = json.loads((directory / "design-tokens.v1.schema.json").read_text())
-    schema = json.loads((directory / "site-appearance.v1.schema.json").read_text())
+    schema = {
+        "anyOf": [
+            json.loads((directory / f"site-appearance.v{version}.schema.json").read_text())
+            for version in (1, 2)
+        ]
+    }
     registry = Registry().with_resource(tokens["$id"], Resource.from_contents(tokens))
     return Draft202012Validator(schema, registry=registry)
 

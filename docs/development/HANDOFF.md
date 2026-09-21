@@ -1,5 +1,25 @@
 # Handoff następnej sesji
 
+## Site Studio — responsywna typografia i fonty, 2026-09-21
+
+Usunięto zależność wielkości tekstu od szerokości całego panelu. Appearance v2
+dodaje sześć lokalnych rodzin Google Fonts (Inter, Manrope, DM Sans, Nunito,
+Lora, Playfair Display) z polskimi znakami i OFL. V1 pozostaje niezmieniona;
+nowe fonty wymagają backendu rozumiejącego v2. Bez migracji tabel.
+
+Dowody: appearance API 14/14, frontend PageStudio 5/5, renderer 32/32; tsc,
+ESLint i Ruff. Chromium: 72 sekcje i osiem stron bez overflow przy 360/768/1440;
+hero 32/46.96/72 px. Podgląd 390 px przy oknach 1440 i 422 ma 33.12 px w obu.
+Sześć fontów z polskimi znakami załadowanych lokalnie. Artefakty:
+.runtime/site-studio/font-review/. To fixture renderera, nie zalogowany stack.
+
+Pełne strony: osiem czterosekcyjnych kompozycji, dostępnych tylko na pustej
+podstronie. Rozbudowa ich układów i wybór dla istniejącej treści pozostają
+otwarte. Znana regresja blueprint/media 403 nie jest naprawiona w tym przyroście.
+Nie wdrażano ani nie restartowano aplikacji. Zmiany trafić mają przez core:update
+do HoofCare i MedPlano, a następnie do wszystkich trzech par backend/frontend.
+
+
 ## Wizyta bez rezerwacji i fundament rejestru wizyt, 2026-09-21
 
 Rdzeń `e0d847c`, HoofCare `49ed983`. Wdrożone na hoofcare.goldenstar.cloud
