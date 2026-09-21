@@ -64,7 +64,11 @@ export function InventoryPanel({
   const [receiving, setReceiving] = useState(false);
   const [issuing, setIssuing] = useState(false);
   const [crew, setCrew] = useState<MembershipSummary[]>([]);
-  const [issue, setIssue] = useState({ item_id: "", holder_id: "", quantity: "" });
+  const [issue, setIssue] = useState({
+    item_id: "",
+    holder_id: "",
+    quantity: "",
+  });
   const [held, setHeld] = useState<InventoryBalance[]>([]);
   const [draft, setDraft] = useState({ name: "", category: "block" });
   const [receipt, setReceipt] = useState({
@@ -279,7 +283,9 @@ export function InventoryPanel({
                   }}
                 >
                   <Field>
-                    <FieldLabel htmlFor="issue-holder">{t("holder")}</FieldLabel>
+                    <FieldLabel htmlFor="issue-holder">
+                      {t("holder")}
+                    </FieldLabel>
                     <NativeSelect
                       id="issue-holder"
                       onChange={(event) => {

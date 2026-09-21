@@ -140,7 +140,9 @@ test("bez prawa do prowadzenia magazynu nie ma czym wydawać", async () => {
   );
 
   expect(await screen.findByText("Mój zapas")).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Wydaj korektorowi" })).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: "Wydaj korektorowi" }),
+  ).toBeNull();
   // Lista ludzi to nie jest widok magazynu: korektor jej nie pobiera.
   expect(api.listMemberships).not.toHaveBeenCalled();
 });

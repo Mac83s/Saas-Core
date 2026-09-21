@@ -288,9 +288,7 @@ export function EntryEditor({
 
 /** The draft endpoint types blocks as free-form objects, because the contract
  *  that constrains them is the block schema rather than the envelope. */
-function asBlocks(
-  blocks: readonly Record<string, unknown>[],
-): {
+function asBlocks(blocks: readonly Record<string, unknown>[]): {
   block_type: string;
   schema_version: number;
   data: unknown;
