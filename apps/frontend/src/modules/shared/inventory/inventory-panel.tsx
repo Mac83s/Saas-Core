@@ -2,15 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { PackagePlusIcon, PlusIcon } from "lucide-react";
+import { PackageCheckIcon, PackagePlusIcon, PlusIcon } from "lucide-react";
 
 import {
   createInventoryItem,
+  issueInventory,
   listInventoryBalances,
   listInventoryItems,
+  listMemberships,
   receiveInventory,
   type InventoryBalance,
   type InventoryItem,
+  type MembershipSummary,
 } from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
@@ -59,6 +62,10 @@ export function InventoryPanel({
   const [notice, setNotice] = useState("");
   const [adding, setAdding] = useState(false);
   const [receiving, setReceiving] = useState(false);
+  const [issuing, setIssuing] = useState(false);
+  const [crew, setCrew] = useState<MembershipSummary[]>([]);
+  const [issue, setIssue] = useState({ item_id: "", holder_id: "", quantity: "" });
+  const [held, setHeld] = useState<InventoryBalance[]>([]);
   const [draft, setDraft] = useState({ name: "", category: "block" });
   const [receipt, setReceipt] = useState({
     item_id: "",
@@ -89,6 +96,37 @@ export function InventoryPanel({
       current = false;
     };
   }, [canManage, canRead, reloads]);
+
+  // Skład ekipy tylko dla tego, kto wydaje: lista ludzi to nie jest widok magazynu.
+  useEffect(() => {
+    if (!canManage) return;
+    let current = true;
+    listMemberships()
+      .then((people) => {
+        if (current) setCrew(people.filter((one) => one.status === "active"));
+      })
+      .catch(() => undefined);
+    return () => {
+      current = false;
+    };
+  }, [canManage]);
+
+  // Co ten człowiek ma już przy sobie — pytanie zadawane dokładnie w chwili
+  // wydawania, więc i odpowiedź przychodzi dopiero tutaj.
+  useEffect(() => {
+    if (!issue.holder_id) return;
+    let current = true;
+    listInventoryBalances({ holderId: issue.holder_id })
+      .then((rows) => {
+        if (current) setHeld(rows);
+      })
+      .catch(() => {
+        if (current) setHeld([]);
+      });
+    return () => {
+      current = false;
+    };
+  }, [issue.holder_id, reloads]);
 
   const refresh = () => setReloads((value) => value + 1);
   const name = (balance: InventoryBalance) => balance.item_name;
@@ -206,6 +244,114 @@ export function InventoryPanel({
                   </Field>
                   <Button
                     disabled={!receipt.item_id || !receipt.quantity}
+                    type="submit"
+                  >
+                    {t("save")}
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+
+            <Dialog onOpenChange={setIssuing} open={issuing}>
+              <DialogTrigger render={<Button variant="outline" />}>
+                <PackageCheckIcon aria-hidden="true" />
+                {t("issue")}
+              </DialogTrigger>
+              <DialogContent closeLabel={common("close")}>
+                <DialogHeader>
+                  <DialogTitle>{t("issue")}</DialogTitle>
+                  <DialogDescription>{t("issueDescription")}</DialogDescription>
+                </DialogHeader>
+                <form
+                  className="space-y-4"
+                  onSubmit={async (event) => {
+                    event.preventDefault();
+                    try {
+                      await issueInventory(issue);
+                      setIssuing(false);
+                      setIssue({ item_id: "", holder_id: "", quantity: "" });
+                      setHeld([]);
+                      setNotice(t("issued"));
+                      refresh();
+                    } catch {
+                      setFailed(true);
+                    }
+                  }}
+                >
+                  <Field>
+                    <FieldLabel htmlFor="issue-holder">{t("holder")}</FieldLabel>
+                    <NativeSelect
+                      id="issue-holder"
+                      onChange={(event) => {
+                        // Czyścimy tu, a nie w efekcie: przy zmianie osoby
+                        // stary stan nie ma prawa mignąć pod nowym nazwiskiem.
+                        setHeld([]);
+                        setIssue({ ...issue, holder_id: event.target.value });
+                      }}
+                      required
+                      value={issue.holder_id}
+                    >
+                      <option value="">{t("pickHolder")}</option>
+                      {crew.map((one) => (
+                        <option key={one.user_id} value={one.user_id}>
+                          {`${one.first_name} ${one.last_name}`.trim() ||
+                            one.email}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                  </Field>
+                  {issue.holder_id ? (
+                    <p className="text-sm text-muted-foreground">
+                      {held.length
+                        ? t("holderHas", {
+                            stock: held
+                              .map(
+                                (balance) =>
+                                  `${name(balance)} ${balance.quantity}`,
+                              )
+                              .join(", "),
+                          })
+                        : t("holderHasNothing")}
+                    </p>
+                  ) : null}
+                  <Field>
+                    <FieldLabel htmlFor="issue-item">{t("item")}</FieldLabel>
+                    <NativeSelect
+                      id="issue-item"
+                      onChange={(event) =>
+                        setIssue({ ...issue, item_id: event.target.value })
+                      }
+                      required
+                      value={issue.item_id}
+                    >
+                      <option value="">{t("pickItem")}</option>
+                      {items.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </NativeSelect>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="issue-quantity">
+                      {t("quantity")}
+                    </FieldLabel>
+                    <Input
+                      id="issue-quantity"
+                      min="0"
+                      onChange={(event) =>
+                        setIssue({ ...issue, quantity: event.target.value })
+                      }
+                      required
+                      step="0.01"
+                      type="number"
+                      value={issue.quantity}
+                    />
+                  </Field>
+                  <Button
+                    disabled={
+                      !issue.item_id || !issue.holder_id || !issue.quantity
+                    }
                     type="submit"
                   >
                     {t("save")}
