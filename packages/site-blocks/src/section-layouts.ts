@@ -46,9 +46,10 @@ export function renderSectionLayout(
             editor ? "span" : "a",
             {
               href: editor ? undefined : hero.action.href,
-              rel: hero.action.href.startsWith("https://")
-                ? "noreferrer"
-                : undefined,
+              rel:
+                !editor && hero.action.href.startsWith("https://")
+                  ? "noreferrer"
+                  : undefined,
               className: "site-section__action",
             },
             text(["action", "label"], hero.action.label),
