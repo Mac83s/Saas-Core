@@ -1,5 +1,46 @@
 # Handoff następnej sesji
 
+## Kartoteka wizyt rolnika — domknięta (ADR-052), 2026-09-21
+
+Rolnik widzi terminy przyszłych i przeszłych wizyt oraz raporty. Cały łańcuch
+stoi: model w rejestrze, publikacja z wertykału, API i ekrany.
+
+**Rdzeń.** `FarmVisitEntry` w `shared.farms` z RLS i strażnikiem relacji
+(tabelę zapisuje gość — firma przez `registry_door`). Klucz unikalności zawiera
+firmę, inaczej dwie firmy w jednym gospodarstwie nadpisują się nawzajem. Zgoda
+`can_publish_schedule` osobna od `can_publish_health` i domyślnie wyłączona:
+rolnik zgadzał się na wpisy o krowach, nie na grafik firmy. Odczyt ukrywa
+`planned` firm bez aktywnego udziału (po cofnięciu nikt nie przestawi statusu),
+ale `done` i `canceled` zostają — historia nie zależy od dzisiejszej zgody.
+`tests/test_registry_door.py` liczy użycia drzwi per funkcja, nie per plik.
+
+**HoofCare.** Obserwator rezerwacji publikuje przy utworzeniu, przełożeniu i
+odwołaniu; raport przy wysyłce (`_freeze`), nie przy zakończeniu wizyty —
+zamrożenie następuje dopiero przy wysyłce, więc wcześniejszy wiersz nigdy by
+się o raporcie nie dowiedział. `details` publikowane w kształcie już
+rozwiązanym (`sections/rows/label/value`): rdzeń nie może sięgnąć po katalog
+ICAR, bo kontrakt warstw stawia wertykał nad `shared`.
+
+**Pułapka warta zapamiętania.** Obserwatorzy lecą z `transaction.on_commit`.
+Nie przeżywa tego ani `SET LOCAL`, ani **kontekst tenanta** — middleware
+zwalnia `ContextVar` przed zatwierdzeniem obejmującej transakcji. Obserwator
+budujący się na zastanym kontekście wniósłby przy linku samoobsługowym
+uprawnienia publicznej rezerwacji do tenanta rolnika. Buduje więc własny
+kontekst, a test sprawdza **kolejność zapytań** — zwykły test zachowania jest
+tu zielony zawsze, bo baza testowa łączy się właścicielem tabel.
+
+Dowody: rdzeń 321 testów frontu, 29 rejestru i drzwi, lint, typecheck, kontrakt
+bez dryfu; HoofCare 27 testów wertykału.
+
+### Otwarte
+
+- Wizyta zarezerwowana publiczną stroną i dopiero potem powiązana z
+  gospodarstwem nie trafia od razu do kartoteki — zdarzenie poleciało, zanim
+  powiązanie powstało. Cztery linijki w `confirm_appointment`, ale to nowy
+  moment publikacji: decyzja właściciela.
+- Usługa z **kilkoma** wymaganymi zasobami nadal nie wystartuje z terenu.
+- `docs/adr/README.md` kończy się na ADR-042 — brak wpisów 043-053.
+
 ## Magazyn materiałów: wydanie, zużycie przy krowie, zwrot — 2026-09-21
 
 Commity `6a7ab42`, `9cf7895`, `af389a8` (Saas-Core) oraz `9d24fbe`, `7435aad`
