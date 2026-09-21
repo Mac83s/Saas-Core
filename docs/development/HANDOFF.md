@@ -1,5 +1,43 @@
 # Handoff następnej sesji
 
+## Site Studio: dekoracje i separatory — 2026-09-21
+
+Commit `fdaff72`. Gotowy w kodzie rdzenia wspólny zestaw dekoracji dla wszystkich typów bloków:
+tła, ramki, pięć ornamentów, rozmieszczenie, intensywność, osiem presetów oraz
+dwa spokojne ruchy. Edytor i preview pozostają statyczne; publikacja ma natywną
+pauzę bez JavaScript i respektuje reduced motion. Osiem separatorów z regulacją
+wysokości, szerokości i koloru zwiększa katalog v4 do **96 sekcji**; wszystkie
+88 recept v3 są zachowane. Presety dekoracji nie liczą się jako nowe układy.
+
+Kontrakt: [site-section-decoration.md](../architecture/site-section-decoration.md).
+Opcjonalne `decoration` znajduje się w envelope bloku, niezależnie od `data`.
+Zapis, migracja, undo/redo, reset, publikacje, wpisy i blueprinty zachowują
+ustawienia. Null i brak nie zmieniają legacy hash. Content Operations v1
+zachowuje wygląd przy edycji treści; jawna zmiana dekoracji przez AI wymaga
+przyszłego v2. Historycznych kontraktów nie rozszerzano w miejscu.
+
+Dowody: **23/23** nowych testów backendu; razem regresja **71 PASS + 3 znane
+FAIL** blueprint/media 403 (klucz content:draft nie posiada media.manage).
+Renderer i katalog **104/104**, frontend **76/76** w osobnych przebiegach
+pojedynczego workera: edytor 36, dekoracje 9, blog 14, biblioteka 12, studio 5.
+TypeScript obu pakietów, mypy Sites: 82 pliki, Ruff, ESLint i API drift poprawne.
+Migracja 0031 zastosowana tylko w izolowanej bazie testowej; brak driftu modelu.
+
+Chromium: 24 scenariusze × PL/EN × 360/768/1440 px; dekoracje/separatory, overlay hero ze zdjęciem,
+pauza klawiaturą bez JS, reduced motion, CTA, kontrast i brak overflow.
+Inspektor: 12 widoków PL/EN, jasny/ciemny motyw przy 344/768/1440 px, ramka 300 px.
+Artefakty `.runtime/site-studio/section-decorations/` i
+`.runtime/site-studio/decoration-fields-browser/`; to izolowane fixture.
+
+**Następny krok:** po uzgodnionym oknie synchronizacji wykonać `core:update`
+produktów i wdrożyć także migrację `sites/0031_pageblock_decoration` po 0030,
+wraz z backendem i frontendem; sprawdzić zapis/dekoracje/publikację przez
+rzeczywisty hostname w trzech aplikacjach. Nie restartowano wspólnych usług
+ani nie synchronizowano tego przyrostu. Nadal osiem recept całych stron;
+gotowe recepty z dekoracjami wymagają nowej wersji recipe schema i loadera.
+20 wariantów pozostałych kategorii, rozwój całych stron i późniejsze AI są
+nadal otwarte. Nie ruszać cudzych historycznych migracji organizacji.
+
 ## Magazyn materiałów: wydanie, zużycie przy krowie, zwrot — 2026-09-21
 
 Commity `6a7ab42`, `9cf7895`, `af389a8` (Saas-Core) oraz `9d24fbe`, `7435aad`
