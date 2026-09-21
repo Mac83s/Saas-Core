@@ -1,5 +1,24 @@
 # Handoff następnej sesji
 
+## 2026-09-21 — aktualizacja wdrożona na VPS
+
+Na zgodę właściciela wdrożono backend, frontend, worker i scheduler wszystkich
+trzech aplikacji oraz migracje do Sites `0031`. Każdy profil ma zero zaległych
+migracji. `2e8f177` dodaje backend do prywatnej sieci skanera: bez tego import
+zdjęć wykonywany synchronicznie przez API kończył się niedostępnością skanera.
+
+Pełny [raport wydania](../operations/releases/2026-09-21-site-studio-update.md)
+zapisuje obrazy, kopie baz, odtworzenie i próbę migracji, realne konta testowe,
+RLS, import zdjęć przez klucz `content:draft`, zapis dekoracji, publikację i
+odbiór edytora na komputerze oraz telefonie. Wszystkie te kontrole przeszły.
+Publiczne strony PL/EN i kontrole zdrowia odpowiadają 200 po HTTPS.
+
+Pozostaje decyzja właściciela o przeniesieniu starszych abonamentów na nową
+wersję planu z wizytówką przy tych samych cenach i limitach. Nie zmieniano
+uprawnień rzeczywistych organizacji. Cztery wcześniejsze zadania infrastruktury
+oraz szerszy plan Site Studio pozostają otwarte; opis niżej „bez wdrożenia”
+jest historycznym stanem sprzed tego wydania.
+
 ## 2026-09-21 — naprawa bramek aktualizacji po przejęciu sesji Claude
 
 Kod `4c202be` usuwa przyczyny zaległych błędów aktualizacji:
