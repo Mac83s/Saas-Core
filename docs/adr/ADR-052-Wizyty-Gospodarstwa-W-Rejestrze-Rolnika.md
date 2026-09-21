@@ -110,8 +110,9 @@ Rozważaliśmy trzy tańsze drogi i każda odpada na tym samym pytaniu:
 - **Backfillu historii sprzed połączenia.** Rolnik po przejęciu gospodarstwa
   kodem zobaczy historię dopiero od momentu połączenia.
 - **Wizyt rozpoczętych z terenu bez rezerwacji w kalendarzu.** Powstają tą samą
-  drogą (rezerwacja plus `HerdVisit`), więc publikują się bez wyjątku — ale
-  wpadają do rejestru od razu jako `done`, bez wcześniejszego `planned`.
+  drogą (rezerwacja plus `HerdVisit`), więc publikują się bez wyjątku. Ich
+  rezerwacja też emituje utworzenie, więc przechodzą przez krótkotrwały
+  `planned`, zanim raport przestawi je na `done` — jeden wiersz, dwa stany.
 
 ## Konsekwencje
 

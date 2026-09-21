@@ -12,8 +12,16 @@ from uuid import UUID
 from django.db.models import QuerySet
 from django.http import HttpRequest
 
-from .herd_sync import publish_health_entry
-from .models import Animal, AnimalHealthEntry, AnimalStatus, Farm, HealthEntryKind
+from .herd_sync import list_farm_visits, publish_farm_visit, publish_health_entry
+from .models import (
+    Animal,
+    AnimalHealthEntry,
+    AnimalStatus,
+    Farm,
+    FarmVisitEntry,
+    HealthEntryKind,
+    VisitStatus,
+)
 from .services import FARMS_ENABLED, FARMS_MANAGE, FARMS_READ, create_animal
 from .species import normalize_identifier
 
@@ -88,6 +96,10 @@ __all__ = [
     "farm_animals",
     "farm_for_tenant",
     "normalize_identifier",
+    "FarmVisitEntry",
+    "VisitStatus",
+    "list_farm_visits",
+    "publish_farm_visit",
     "publish_health_entry",
     "resolve_animal",
 ]
