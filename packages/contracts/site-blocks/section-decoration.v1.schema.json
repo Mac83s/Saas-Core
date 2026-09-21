@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/site-blocks/section-decoration.v1.schema.json",
+  "title": "Shared section decoration v1",
+  "description": "Optional block envelope decoration. Code-owned decorative artwork only. Motion affects background ornaments, never content, respects reduced motion and has a native pause control. Omit or clear the envelope property to preserve the undecorated rendering.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion"],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "background": {
+      "type": "string",
+      "enum": ["none", "tint", "gradient", "grid", "dots"]
+    },
+    "frame": {
+      "type": "string",
+      "enum": ["none", "outline", "accent", "double"]
+    },
+    "ornament": {
+      "type": "string",
+      "enum": ["none", "orbs", "rings", "wave", "botanical", "sparkles"]
+    },
+    "placement": {
+      "type": "string",
+      "enum": ["top_right", "bottom_left", "both"]
+    },
+    "intensity": {
+      "type": "string",
+      "enum": ["subtle", "soft"]
+    },
+    "motion": {
+      "type": "string",
+      "enum": ["none", "drift", "breathe"]
+    }
+  }
+}

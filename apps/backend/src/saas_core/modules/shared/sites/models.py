@@ -791,6 +791,7 @@ class PageBlock(TenantScopedModel):
     block_type = models.CharField(max_length=120)
     schema_version = models.PositiveIntegerField()
     data = models.JSONField(default=dict)
+    decoration = models.JSONField(null=True, blank=True, default=None)
     created_at = models.DateTimeField(auto_now_add=True)
 
     all_objects = models.Manager()

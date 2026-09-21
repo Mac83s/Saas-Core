@@ -9,6 +9,7 @@
 
 import { useLocale, useTranslations } from "next-intl";
 
+import { SectionDecorationFields } from "./section-decoration-fields";
 import { ImageCropUpload } from "../media/crop";
 import {
   useFieldArray,
@@ -29,6 +30,7 @@ import {
   type JsonObject,
   type JsonValue,
   type SiteBlock,
+  type SectionDecorationV1,
 } from "@saas-core/site-blocks";
 import { Button } from "@saas-core/ui/components/button";
 import {
@@ -48,6 +50,7 @@ export const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
 export type BlockFormValues = {
   block_type: string;
   data: JsonObject;
+  decoration?: SectionDecorationV1;
 };
 
 /** Every block the library offers, in manifest order. A block without a
@@ -133,7 +136,10 @@ function refineAgainstBlockContract(
     for (const issue of error.issues) {
       context.addIssue({
         code: "custom",
-        path: ["data", ...issue.path],
+        path: [
+          issue.scope === "decoration" ? "decoration" : "data",
+          ...issue.path,
+        ],
         message: MESSAGE_BY_KEYWORD[issue.keyword] ?? "invalid",
       });
     }
@@ -174,6 +180,8 @@ export const blockFormSchema = z
     // asserts "an object" here; `refineAgainstBlockContract` is what actually
     // validates it, against the canonical contract.
     data: z.custom<JsonObject>((value) => isObject(value as JsonValue)),
+    // The shared JSON Schema is checked by the same registry as the public renderer.
+    decoration: z.custom<SectionDecorationV1>().optional(),
   })
   .superRefine((block, context) => {
     refineAgainstBlockContract(block, context);
@@ -205,6 +213,10 @@ export function BlockFields<TValues extends FieldValues>({
   const t = useTranslations("Sites");
   const prefix = `blocks.${index}` as const;
   const option = blockOption(type);
+  const decoration = useWatch({
+    control: form.control,
+    name: `${prefix}.decoration` as Path<TValues>,
+  }) as SectionDecorationV1 | undefined;
   const locale = useLocale() === "en" ? "en" : "pl";
   const layouts = coreSectionTemplates().filter(
     (template) => template.blockType === type,
@@ -277,6 +289,51 @@ export function BlockFields<TValues extends FieldValues>({
           )}
         </Field>
       )}
+      {type === "core.separator" && (
+        <FieldGroup>
+          {(
+            [
+              ["size", ["small", "medium", "large"], "medium"],
+              ["width", ["full", "content", "short"], "content"],
+              ["tone", ["muted", "accent"], "muted"],
+            ] as const
+          ).map(([field, choices, fallback]) => (
+            <Field key={field}>
+              <FieldLabel htmlFor={`separator-${field}-${index}`}>
+                {t(`separatorSettings.${field}`)}
+              </FieldLabel>
+              <NativeSelect
+                id={`separator-${field}-${index}`}
+                defaultValue={fallback}
+                {...form.register(`${prefix}.data.${field}` as Path<TValues>)}
+              >
+                {choices.map((choice) => (
+                  <option key={choice} value={choice}>
+                    {t(`separatorSettings.${choice}`)}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+          ))}
+        </FieldGroup>
+      )}
+      <details className="border-t pt-3">
+        <summary className="cursor-pointer py-1 text-sm font-medium">
+          {t("decorations.title")}
+        </summary>
+        <div className="pt-4">
+          <SectionDecorationFields
+            value={decoration}
+            onChange={(value) =>
+              form.setValue(
+                `${prefix}.decoration` as Path<TValues>,
+                value as never,
+                { shouldDirty: true, shouldValidate: true },
+              )
+            }
+          />
+        </div>
+      </details>
       <input
         type="hidden"
         {...form.register(`${prefix}.block_type` as Path<TValues>)}
@@ -538,6 +595,7 @@ export function editableBlocks(
     block_type: string;
     schema_version: number;
     data: unknown;
+    decoration?: unknown;
   }[],
 ): BlockFormValues[] {
   return blocks.map((block) => {
@@ -545,6 +603,9 @@ export function editableBlocks(
     const option = blockOption(migrated.block_type);
     return {
       block_type: migrated.block_type,
+      ...(migrated.decoration
+        ? { decoration: structuredClone(migrated.decoration) }
+        : {}),
       data:
         option === undefined
           ? migrated.data
@@ -593,6 +654,9 @@ export function blockPayload(block: BlockFormValues) {
     block_type: block.block_type,
     schema_version: blockOption(block.block_type)?.latestVersion ?? 1,
     data: isObject(pruned) ? pruned : {},
+    ...(block.decoration !== undefined
+      ? { decoration: structuredClone(block.decoration) }
+      : {}),
   };
 }
 
@@ -600,6 +664,7 @@ export function toSiteBlock(block: {
   block_type: string;
   schema_version: number;
   data: unknown;
+  decoration?: unknown;
 }): SiteBlock {
   if (!isObject(block.data))
     throw new TypeError("Block data must be an object");
@@ -607,6 +672,9 @@ export function toSiteBlock(block: {
     block_type: block.block_type,
     schema_version: block.schema_version,
     data: block.data,
+    ...(block.decoration != null
+      ? { decoration: structuredClone(block.decoration) as SectionDecorationV1 }
+      : {}),
   };
 }
 

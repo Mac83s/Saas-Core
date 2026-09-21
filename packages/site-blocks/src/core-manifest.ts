@@ -1,3 +1,5 @@
+import separatorV1Schema from "@saas-core/contracts/site-blocks/core.separator.v1.schema.json";
+import { SeparatorBlock } from "./separator-block";
 import contactFormV1Schema from "@saas-core/contracts/site-blocks/core.contact_form.v1.schema.json";
 import { ContactFormSection } from "./contact-form-block";
 import heroV5Schema from "@saas-core/contracts/site-blocks/core.hero.v5.schema.json";
@@ -499,6 +501,18 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
   moduleId: "shared.sites",
   namespace: "core",
   blocks: [
+    {
+      type: "core.separator",
+      latestVersion: 1,
+      schemas: [{ version: 1, schema: separatorV1Schema }],
+      migrators: {},
+      component: SeparatorBlock,
+      catalog: {
+        category: "decorative",
+        labelKey: "separatorBlock",
+        fields: [],
+      },
+    },
     {
       type: "core.hero",
       latestVersion: 5,

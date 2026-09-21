@@ -1,0 +1,247 @@
+/* Layers paint over section backgrounds but underneath their content. */
+.site-decoration {
+  --site-decoration-ink: var(--site-accent, #0f766e);
+  --site-decoration-opacity: 0.07;
+  position: relative;
+  isolation: isolate;
+  min-inline-size: 0;
+  overflow: clip;
+}
+.site-decoration--soft {
+  --site-decoration-opacity: 0.12;
+}
+.site-decoration__content {
+  display: contents;
+}
+.site-decoration__content > .site-block {
+  position: relative;
+}
+.site-decoration__content > .site-block > * {
+  position: relative;
+  z-index: 2;
+}
+/* The wrapper supplies isolation for photo-overlay heroes. Keeping their own
+   stacking context would trap the heading below the sibling ornament layer.
+   Their absolute photo (-2) and dark photo scrim (-1) retain their ordering. */
+.site-decoration__content
+  > .site-section--hero:is(
+    .site-section--overlay_left,
+    .site-section--overlay_center
+  ) {
+  isolation: auto;
+}
+.site-decoration__background,
+.site-decoration__ornament {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+}
+.site-decoration__background {
+  inset: 0;
+  opacity: 0.7;
+}
+.site-decoration--bg-tint > .site-decoration__background {
+  background: color-mix(in srgb, var(--site-decoration-ink) 6%, transparent);
+}
+.site-decoration--bg-gradient > .site-decoration__background {
+  background: linear-gradient(
+    125deg,
+    color-mix(in srgb, var(--site-decoration-ink) 9%, transparent),
+    transparent 72%
+  );
+}
+.site-decoration--bg-grid > .site-decoration__background {
+  background-image:
+    linear-gradient(
+      color-mix(in srgb, var(--site-decoration-ink) 7%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--site-decoration-ink) 7%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: clamp(1.5rem, 3cqw, 2.5rem) clamp(1.5rem, 3cqw, 2.5rem);
+}
+.site-decoration--bg-dots > .site-decoration__background {
+  background-image: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--site-decoration-ink) 16%, transparent) 1px,
+    transparent 1.5px
+  );
+  background-size: clamp(1.125rem, 2cqw, 1.75rem) clamp(1.125rem, 2cqw, 1.75rem);
+}
+.site-decoration::after {
+  content: "";
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  pointer-events: none;
+}
+.site-decoration--frame-outline::after {
+  border: 1px solid
+    color-mix(in srgb, var(--site-decoration-ink) 22%, transparent);
+}
+.site-decoration--frame-accent::after {
+  border-inline-start: 4px solid
+    color-mix(in srgb, var(--site-decoration-ink) 50%, transparent);
+}
+.site-decoration--frame-double::after {
+  border: 3px double
+    color-mix(in srgb, var(--site-decoration-ink) 28%, transparent);
+}
+.site-decoration__ornament {
+  inline-size: clamp(9rem, 26cqw, 22rem);
+  max-inline-size: 60%;
+  aspect-ratio: 1;
+  color: var(--site-decoration-ink);
+  opacity: var(--site-decoration-opacity);
+}
+.site-decoration__ornament--top_right {
+  inset-block-start: 0;
+  inset-inline-end: 0;
+}
+.site-decoration__ornament--bottom_left {
+  inset-block-end: 0;
+  inset-inline-start: 0;
+  transform: rotate(180deg);
+}
+.site-decoration__art {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  transform-origin: center;
+}
+.site-decoration--motion-drift
+  > .site-decoration__ornament
+  > .site-decoration__art {
+  animation: site-decoration-drift 18s ease-in-out infinite alternate;
+}
+.site-decoration--motion-breathe
+  > .site-decoration__ornament
+  > .site-decoration__art {
+  animation: site-decoration-breathe 14s ease-in-out infinite alternate;
+}
+.site-decoration__ornament--bottom_left > .site-decoration__art {
+  animation-delay: -5s;
+}
+.site-decoration:has(> .site-decoration__pause > input:checked)
+  > .site-decoration__ornament
+  > .site-decoration__art {
+  animation-play-state: paused;
+}
+/* Reserve the control within the painted block, so photo and band backgrounds
+   reach its lower edge. Static and reduced-motion sections keep their spacing. */
+@media (prefers-reduced-motion: no-preference) and (forced-colors: none) {
+  .site-theme--spacious .site-decoration--has-control {
+    --site-decoration-bottom-space: 4rem;
+  }
+  .site-decoration--has-control > .site-decoration__content > .site-block {
+    padding-block-end: max(
+      3.25rem,
+      var(--site-decoration-bottom-space, 2.5rem)
+    );
+  }
+  .site-decoration--has-control
+    > .site-decoration__content
+    > .site-section--hero.site-section--inset {
+    padding-block-end: max(3.25rem, clamp(1.5rem, 5cqw, 5rem));
+  }
+  .site-decoration--has-control
+    > .site-decoration__content
+    > .site-block.site-separator {
+    block-size: calc(var(--site-separator-size) + 3.25rem);
+    padding-block-end: 3.25rem;
+  }
+  .site-decoration--has-control:has(
+      > .site-decoration__content
+        > :is(.site-section--card, .site-section--framed, .site-section--boxed)
+    )
+    > .site-decoration__pause {
+    inset-inline-end: 2rem;
+    inset-block-end: 1.75rem;
+  }
+  @container (max-width: 639px) {
+    .site-theme--spacious .site-decoration--has-control {
+      --site-decoration-bottom-space: 2.75rem;
+    }
+  }
+}
+.site-decoration__pause {
+  position: absolute;
+  z-index: 4;
+  inset-inline-end: 0.5rem;
+  inset-block-end: 0.25rem;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  inline-size: 44px;
+  block-size: 44px;
+  border: 1px solid
+    color-mix(in srgb, var(--foreground, #17212b) 22%, transparent);
+  border-radius: 50%;
+  background: var(--background, #fff);
+  color: var(--foreground, #17212b);
+  cursor: pointer;
+}
+.site-decoration__pause-input {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.site-decoration__pause:focus-within {
+  outline: 2px solid var(--site-accent, #0f766e);
+  outline-offset: 2px;
+}
+.site-decoration__pause:hover {
+  background: color-mix(
+    in srgb,
+    var(--site-accent, #0f766e) 8%,
+    var(--background, #fff)
+  );
+}
+.site-decoration__pause svg {
+  pointer-events: none;
+}
+.site-decoration__play-icon,
+.site-decoration__pause:has(input:checked) .site-decoration__pause-icon {
+  display: none;
+}
+.site-decoration__pause:has(input:checked) .site-decoration__play-icon {
+  display: initial;
+}
+@keyframes site-decoration-drift {
+  from {
+    transform: translate(-2%, 1%) rotate(-3deg);
+  }
+  to {
+    transform: translate(2%, -2%) rotate(3deg);
+  }
+}
+@keyframes site-decoration-breathe {
+  from {
+    transform: scale(0.94);
+  }
+  to {
+    transform: scale(1.04);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .site-decoration__art {
+    animation: none !important;
+  }
+  .site-decoration__pause {
+    display: none;
+  }
+}
+@media (forced-colors: active) {
+  .site-decoration__background,
+  .site-decoration__ornament,
+  .site-decoration__pause {
+    display: none;
+  }
+}

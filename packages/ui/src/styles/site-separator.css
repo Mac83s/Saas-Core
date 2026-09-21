@@ -1,0 +1,89 @@
+/* Decorative blocks have their own spacing, independent of the text-section rhythm. */
+.site-separator,
+.site-theme .site-block.site-separator,
+.site-theme.site-theme--compact .site-block.site-separator,
+.site-theme.site-theme--spacious .site-block.site-separator {
+  box-sizing: border-box;
+  display: grid;
+  place-items: center;
+  block-size: var(--site-separator-size, clamp(3rem, 6cqw, 6rem));
+  min-inline-size: 0;
+  padding-block: 0;
+  padding-inline: clamp(1.25rem, 4cqw, 3.5rem);
+  color: var(
+    --site-separator-color,
+    color-mix(in srgb, var(--foreground, #17212b) 28%, transparent)
+  );
+  pointer-events: none;
+}
+.site-separator--small {
+  --site-separator-size: clamp(2rem, 3cqw, 3rem);
+}
+.site-separator--medium {
+  --site-separator-size: clamp(3rem, 6cqw, 6rem);
+}
+.site-separator--large {
+  --site-separator-size: clamp(4.5rem, 9cqw, 9rem);
+}
+.site-separator--tone-accent {
+  --site-separator-color: var(--site-accent, #0f766e);
+}
+.site-separator__artwork {
+  display: grid;
+  place-items: center;
+  inline-size: min(100%, 60rem);
+  min-inline-size: 0;
+}
+.site-separator--full .site-separator__artwork {
+  inline-size: 100%;
+}
+.site-separator--short .site-separator__artwork {
+  inline-size: min(100%, 16rem);
+}
+.site-separator__rule {
+  display: block;
+  inline-size: 100%;
+  border-block-start: 1px solid currentColor;
+}
+.site-separator--double .site-separator__rule {
+  block-size: clamp(0.375rem, 0.6cqw, 0.625rem);
+  border-block-end: 1px solid currentColor;
+}
+.site-separator__dots {
+  display: flex;
+  justify-content: center;
+  gap: clamp(0.5rem, 1cqw, 1rem);
+  max-inline-size: 100%;
+}
+.site-separator__dot {
+  inline-size: clamp(0.25rem, 0.5cqw, 0.375rem);
+  block-size: clamp(0.25rem, 0.5cqw, 0.375rem);
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: currentColor;
+}
+.site-separator__shape {
+  display: block;
+  inline-size: 100%;
+  block-size: min(calc(var(--site-separator-size) * 0.6), 4rem);
+  overflow: visible;
+}
+.site-separator--zigzag .site-separator__shape {
+  block-size: min(calc(var(--site-separator-size) * 0.4), 2.5rem);
+}
+.site-separator--accent .site-separator__rule {
+  inline-size: min(100%, clamp(4rem, 12cqw, 10rem));
+  block-size: clamp(0.25rem, 0.5cqw, 0.5rem);
+  border: 0;
+  border-radius: 999px;
+  background: currentColor;
+}
+@media (forced-colors: active) {
+  .site-separator {
+    --site-separator-color: CanvasText;
+  }
+  .site-separator__dot,
+  .site-separator--accent .site-separator__rule {
+    background: CanvasText;
+  }
+}

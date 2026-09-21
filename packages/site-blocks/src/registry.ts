@@ -1,4 +1,6 @@
 import { createElement } from "react";
+import decorationSchema from "@saas-core/contracts/site-blocks/section-decoration.v1.schema.json";
+import { decorateSection } from "./section-decoration-renderer";
 
 import Ajv2020, {
   type ErrorObject,
@@ -165,6 +167,7 @@ export function createSiteBlockRegistry(
   manifests: readonly SiteBlockManifest[],
 ): BlockRegistry {
   const ajv = new Ajv2020({ allErrors: true, strict: true });
+  const validateDecoration = ajv.compile(decorationSchema);
   const definitions = new Map<string, BlockDefinition>();
   const validators = new Map<string, Map<number, ValidateFunction>>();
 
@@ -199,6 +202,20 @@ export function createSiteBlockRegistry(
 
   function validate(block: SiteBlock): void {
     definitionFor(block.block_type);
+    if (
+      block.decoration !== undefined &&
+      !validateDecoration(block.decoration)
+    ) {
+      throw new InvalidBlockDataError(
+        block.block_type,
+        block.schema_version,
+        validationDetails(validateDecoration.errors),
+        validationIssues(validateDecoration.errors).map((issue) => ({
+          ...issue,
+          scope: "decoration" as const,
+        })),
+      );
+    }
     const validator = validators
       .get(block.block_type)
       ?.get(block.schema_version);
@@ -232,23 +249,36 @@ export function createSiteBlockRegistry(
       version += 1;
       validate({ block_type: block.block_type, schema_version: version, data });
     }
-    return { block_type: block.block_type, schema_version: version, data };
+    return {
+      block_type: block.block_type,
+      schema_version: version,
+      data,
+      ...(block.decoration
+        ? { decoration: structuredClone(block.decoration) }
+        : {}),
+    };
   }
 
   return {
     definitions,
     validate,
     migrate,
-    render(block, key, editor, imageRenderer, formRenderer) {
+    render(block, key, editor, imageRenderer, formRenderer, options) {
       const migrated = migrate(block);
       const definition = definitionFor(migrated.block_type);
-      return createElement(definition.component, {
+      const content = createElement(definition.component, {
         data: migrated.data,
         key,
         ...(editor ? { editor } : {}),
         ...(imageRenderer ? { imageRenderer } : {}),
         ...(formRenderer ? { formRenderer } : {}),
       });
+      return decorateSection(
+        content,
+        migrated.decoration,
+        { ...options, preview: editor ? true : (options?.preview ?? true) },
+        key,
+      );
     },
   };
 }

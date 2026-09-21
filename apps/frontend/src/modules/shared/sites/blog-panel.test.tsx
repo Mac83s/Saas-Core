@@ -12,6 +12,7 @@ const {
   createContentCollection,
   createContentEntry,
   getContentEntryDraft,
+  listMediaAssets,
   listContentCollections,
   listContentEntries,
   publishContentEntry,
@@ -28,6 +29,7 @@ const {
   createContentCollection: vi.fn(),
   createContentEntry: vi.fn(),
   getContentEntryDraft: vi.fn(),
+  listMediaAssets: vi.fn(),
   listContentCollections: vi.fn(),
   listContentEntries: vi.fn(),
   publishContentEntry: vi.fn(),
@@ -47,6 +49,7 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   createContentCollection,
   createContentEntry,
   getContentEntryDraft,
+  listMediaAssets,
   listContentCollections,
   listContentEntries,
   publishContentEntry,
@@ -107,6 +110,7 @@ function renderPanel() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  listMediaAssets.mockResolvedValue({ items: [], next_cursor: null });
   listContentCollections.mockResolvedValue([collection]);
   listContentEntries.mockResolvedValue({ items: [entry], next_cursor: null });
   listEntryTranslations.mockResolvedValue([entry]);
@@ -291,6 +295,51 @@ test("saves the entry draft and confirms it", async () => {
   expect((await screen.findByRole("status")).textContent).toContain(
     "Szkic został zapisany.",
   );
+});
+
+test("entry editing preserves decoration through migration and clears it only on explicit reset", async () => {
+  const decoration = { schemaVersion: 1, background: "dots", frame: "outline" };
+  getContentEntryDraft.mockResolvedValue({
+    entry_id: entryId,
+    version: 2,
+    blocks: [
+      {
+        block_type: "core.hero",
+        schema_version: 1,
+        data: { heading: "Nagłówek wpisu", body: "Przykładowy opis" },
+        decoration,
+      },
+    ],
+  });
+  renderPanel();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Edytuj wpis Pierwszy wpis" }),
+  );
+  fireEvent.change(await screen.findByLabelText("Nagłówek"), {
+    target: { value: "Nowy nagłówek wpisu" },
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
+  );
+  await waitFor(() => expect(saveContentEntryDraft).toHaveBeenCalledOnce());
+  expect(saveContentEntryDraft.mock.calls[0]?.[1].blocks[0]).toMatchObject({
+    block_type: "core.hero",
+    schema_version: 5,
+    data: { title: "Nowy nagłówek wpisu", text: "Przykładowy opis" },
+    decoration,
+  });
+  fireEvent.click(
+    screen.getByText("Dekoracje sekcji", { selector: "summary" }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Usuń dekoracje" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
+  );
+  await waitFor(() => expect(saveContentEntryDraft).toHaveBeenCalledTimes(2));
+  expect(saveContentEntryDraft.mock.calls[1]?.[1].blocks[0]).not.toHaveProperty(
+    "decoration",
+  );
+  expect(saveContentEntryDraft.mock.calls[1]?.[1].expected_version).toBe(3);
 });
 
 test("offers the middle setting and marks what the automation proposed", async () => {

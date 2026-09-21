@@ -4354,11 +4354,13 @@ export interface components {
             block_type: string;
             schema_version: number;
             data: unknown;
+            decoration?: unknown | null;
         };
         PageBlockInput: {
             block_type: string;
             schema_version: number;
             data: unknown;
+            decoration?: unknown | null;
         };
         PageCreate: {
             name: string;

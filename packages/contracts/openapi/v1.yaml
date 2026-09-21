@@ -12089,6 +12089,10 @@ components:
         schema_version:
           type: integer
         data: {}
+        decoration:
+          oneOf:
+          - {}
+          - type: 'null'
       required:
       - block_type
       - data
@@ -12106,6 +12110,10 @@ components:
           type: integer
           minimum: 1
         data: {}
+        decoration:
+          oneOf:
+          - {}
+          - type: 'null'
       required:
       - block_type
       - data

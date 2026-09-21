@@ -26,6 +26,7 @@ from saas_core.modules.core.organizations.audit import record_audit
 from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 
+from .block_decoration import stored_block_payload
 from .models import (
     ContentAutomationGrant,
     ContentEntry,
@@ -188,11 +189,7 @@ def _blocks(context: Any, proposal: ContentProposal, version: Any) -> list[dict[
     if proposal.resource_type != "site_page":
         return list(version.blocks)
     return [
-        {
-            "block_type": block.block_type,
-            "schema_version": block.schema_version,
-            "data": block.data,
-        }
+        stored_block_payload(block)
         for block in PageBlock.all_objects.filter(
             organization_id=context.organization_id, page_version_id=version.id
         ).order_by("position")

@@ -805,7 +805,8 @@
       "desktop": "Desktop",
       "contact": "Contact",
       "contact_form": "Contact form",
-      "link_list": "Social media and links"
+      "link_list": "Social media and links",
+      "separator": "Separators and spacing"
     },
     "appearance": {
       "title": "Site-wide appearance",
@@ -937,7 +938,83 @@
     "privacyHref": "Privacy information URL",
     "formDeliveryHint": "Inquiries are saved in Messages in your panel. The organization owner receives an email notification; the editor preview does not send messages.",
     "contactFormBlock": "Contact form",
-    "linkListBlock": "Social media and links"
+    "linkListBlock": "Social media and links",
+    "decorations": {
+      "title": "Section decorations",
+      "description": "Adjust this section’s background, border and ornaments. Colors follow your website palette.",
+      "custom": "This section has custom decoration settings.",
+      "default": "This section uses the template’s default appearance.",
+      "reset": "Remove decorations",
+      "motionHint": "The editor preview stays still. Motion can be paused on the published page. Your device’s reduced motion preference turns animation off.",
+      "groups": {
+        "background": "Background",
+        "frame": "Border",
+        "ornament": "Ornaments",
+        "motion": "Motion"
+      },
+      "fields": {
+        "background": "Background style",
+        "frame": "Border style",
+        "ornament": "Ornament style",
+        "placement": "Ornament placement",
+        "intensity": "Decoration visibility",
+        "motion": "Ornament animation"
+      },
+      "options": {
+        "background": {
+          "none": "No additional background",
+          "tint": "Soft color",
+          "gradient": "Color gradient",
+          "grid": "Grid",
+          "dots": "Dots"
+        },
+        "frame": {
+          "none": "No border",
+          "outline": "Thin border",
+          "accent": "Accent border",
+          "double": "Double border"
+        },
+        "ornament": {
+          "none": "No ornaments",
+          "orbs": "Soft shapes",
+          "rings": "Rings",
+          "wave": "Wave",
+          "botanical": "Botanical motif",
+          "sparkles": "Sparkles"
+        },
+        "placement": {
+          "top_right": "Top right corner",
+          "bottom_left": "Bottom left corner",
+          "both": "Both corners"
+        },
+        "intensity": {
+          "subtle": "Very subtle",
+          "soft": "Subtle"
+        },
+        "motion": {
+          "none": "No motion",
+          "drift": "Slow drift",
+          "breathe": "Gentle pulse"
+        }
+      },
+      "preset": "Ready-made style",
+      "presetPlaceholder": "Customize or choose a style",
+      "motionUnavailable": "Choose an ornament to add motion."
+    },
+    "separatorBlock": "Separator",
+    "separatorSettings": {
+      "size": "Height",
+      "width": "Width",
+      "tone": "Color",
+      "small": "Small",
+      "medium": "Medium",
+      "large": "Large",
+      "full": "Full section",
+      "content": "Content width",
+      "short": "Short accent",
+      "muted": "Muted",
+      "accent": "Site accent"
+    }
   },
   "BillingSupport": {
     "navigation": "Billing & access",

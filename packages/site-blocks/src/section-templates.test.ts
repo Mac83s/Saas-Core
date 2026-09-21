@@ -1,9 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import Ajv2020 from "ajv/dist/2020.js";
-import catalog from "@saas-core/contracts/site-blocks/section-templates.v3.json";
-import previousCatalog from "@saas-core/contracts/site-blocks/section-templates.v2.json";
-import schema from "@saas-core/contracts/site-blocks/section-templates.v3.schema.json";
+import catalog from "@saas-core/contracts/site-blocks/section-templates.v4.json";
+import previousCatalog from "@saas-core/contracts/site-blocks/section-templates.v3.json";
+import schema from "@saas-core/contracts/site-blocks/section-templates.v4.schema.json";
 import {
   availableSectionTemplates,
   coreSectionTemplates,
@@ -193,7 +193,11 @@ describe("editor adapter", () => {
             },
           }),
         );
-        expect(paths.length).toBeGreaterThan(1);
+        if (template.blockType === "core.separator") {
+          expect(paths).toEqual([]);
+        } else {
+          expect(paths.length).toBeGreaterThan(1);
+        }
         expect(new Set(paths).size).toBe(paths.length);
         expect(block).toEqual(before);
         const html = renderToStaticMarkup(registry.render(block, "public"));

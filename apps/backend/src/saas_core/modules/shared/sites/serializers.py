@@ -531,6 +531,7 @@ class PageBlockInputSerializer(serializers.Serializer[dict[str, Any]]):
     )
     schema_version = serializers.IntegerField(min_value=1)
     data = serializers.JSONField()  # type: ignore[assignment]
+    decoration = serializers.JSONField(required=False, allow_null=True)
 
     def validate_data(self, value: Any) -> dict[str, Any]:
         if not isinstance(value, dict):
@@ -575,6 +576,7 @@ class PageBlockSerializer(serializers.Serializer[dict[str, Any]]):
     block_type = serializers.CharField()
     schema_version = serializers.IntegerField()
     data = serializers.JSONField()  # type: ignore[assignment]
+    decoration = serializers.JSONField(required=False, allow_null=True)
 
 
 class PageDraftSerializer(serializers.Serializer[dict[str, Any]]):

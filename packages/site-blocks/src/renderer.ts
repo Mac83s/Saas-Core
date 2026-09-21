@@ -14,6 +14,7 @@ import type {
   BlockRegistry,
   BlockImageRenderer,
   PublishedFormRenderer,
+  BlockRenderOptions,
   DesignTokensV1,
   DraftPreviewDocument,
   NavigationLink,
@@ -177,6 +178,7 @@ function renderDocument(
   imageRenderer?: BlockImageRenderer,
   appearance?: SiteAppearance | null,
   formRenderer?: PublishedFormRenderer,
+  options?: BlockRenderOptions,
 ): ReactElement {
   const menu = renderNavigation(navigation, navigationLabel);
   const content = createElement(
@@ -201,6 +203,7 @@ function renderDocument(
           undefined,
           imageRenderer,
           formRenderer ? (data) => formRenderer(data, index) : undefined,
+          options,
         ),
       ),
       renderPagination(pagination, paginationLabels),
@@ -274,5 +277,6 @@ export function renderPublishedPage(
     undefined,
     document.appearance,
     formRenderer,
+    { preview: false, locale: document.locale ?? "pl" },
   );
 }

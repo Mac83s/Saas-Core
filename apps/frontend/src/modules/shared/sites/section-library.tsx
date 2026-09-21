@@ -143,6 +143,7 @@ export function SectionLibraryContent({
       "core.contact",
       "core.contact_form",
       "core.link_list",
+      "core.separator",
     ].map((type) => templates.filter((item) => item.blockType === type));
     const mixed = Array.from(
       { length: Math.max(...groups.map((group) => group.length), 0) },
@@ -269,6 +270,7 @@ export function SectionLibraryContent({
                 "contact",
                 "contact_form",
                 "link_list",
+                "separator",
               ].map((name) => (
                 <option key={name} value={`core.${name}`}>
                   {t(name)}

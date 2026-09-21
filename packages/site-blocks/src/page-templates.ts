@@ -51,6 +51,9 @@ export function pageTemplateBlocks(
       block_type: block.block_type,
       schema_version: block.schema_version,
       data: structuredClone(block.data),
+      ...(block.decoration
+        ? { decoration: structuredClone(block.decoration) }
+        : {}),
     };
     try {
       registry.validate(seeded);
