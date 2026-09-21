@@ -105,6 +105,40 @@ aktualizuj checklistę, `docs/development/HANDOFF.md` oraz Memex. Nie oznaczaj
 bramki jako ukończonej bez testu lub jednoznacznego artefaktu będącego dowodem;
 jeśli część zakresu zostaje otwarta, napisz wprost która i dlaczego.
 
+## Praca równoległa: własny worktree, zawsze
+
+Kilka sesji pracuje nad tym repozytorium jednocześnie. **Każda pracuje we
+własnym worktree** (`git worktree add -b <gałąź> <ścieżka> main`), nigdy
+bezpośrednio w katalogu głównym repozytorium.
+
+Powód nie jest higieniczny, tylko praktyczny — jedno wspólne drzewo psuje się
+na trzy sposoby naraz:
+
+- `git add` obejmujący więcej niż własne pliki **zabiera cudzą pracę do swojego
+  commita**. Zdarzyło się to 2026-09-21: cztery pliki jednej sesji weszły do
+  commita drugiej, z cudzym tytułem i bez śladu, czego dotyczyły;
+- niezacommitowana praca w plikach współdzielonych (`apps/frontend/messages/*`,
+  `packages/api-client/*`, `packages/contracts/openapi/v1.yaml`) **blokuje
+  scalanie wszystkim pozostałym**, bo git słusznie odmawia nadpisania. Tego
+  samego dnia drzewo było scalalne przez około minutę na godzinę;
+- `main` bywa w stanie, w którym się nie uruchamia — migracja wskazująca
+  nieistniejącą migrację, brakujący moduł — i wtedy **żadna sesja nie ma
+  wiarygodnego pomiaru własnej pracy**.
+
+Zasady, które z tego wynikają:
+
+- commituj **wyłącznie jawnymi ścieżkami** plików, które sam zmieniłeś. Nigdy
+  `git add -A`, `git add .` ani `git commit -a`;
+- **nie commituj i nie wycofuj cudzej niezacommitowanej pracy**, nawet gdy Cię
+  blokuje. Poproś tamtą sesję o commit i czekaj;
+- `git stash` jest **wspólny dla wszystkich worktree** tego repozytorium.
+  Odłożenie czegoś na bok zabiera to wszystkim naraz — nie używaj go do
+  odblokowania sobie drogi;
+- zablokowany scalaniem: scal `main` do siebie, sprawdź bramki u siebie i
+  spróbuj ponownie, gdy drzewo się zwolni. Praca nie stoi, stoi tylko scalenie.
+
+To samo obowiązuje w repozytoriach produktów.
+
 <!-- memex:begin -->
 ## memex — project memory
 
