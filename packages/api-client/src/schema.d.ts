@@ -613,6 +613,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/catalog/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["catalog_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/catalog/{city_slug}/{slug}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["catalog_profile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/catalog/dictionary/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The dictionary the catalogue filters by, for the search form to render. */
+        get: operations["catalog_dictionary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/farms/": {
         parameters: {
             query?: never;
@@ -838,6 +887,141 @@ export interface paths {
         get: operations["api_v1_health_live_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/adjustments/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Korekta stanu: jedyna droga do poprawki, zawsze z powodem. */
+        post: operations["inventory_adjustment_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/balances/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Stany: magazynu firmy, wskazanej osoby albo własne (`mine=true`). */
+        get: operations["inventory_balance_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/issues/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Wydanie pracownikowi — pakiet, z którym wyjeżdża w teren. */
+        post: operations["inventory_issue_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/items/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Katalog materiałów firmy; leki są w nim kategorią. */
+        get: operations["inventory_item_list"];
+        put?: never;
+        /** @description Katalog materiałów firmy; leki są w nim kategorią. */
+        post: operations["inventory_item_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/items/{item_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["inventory_item_update"];
+        trace?: never;
+    };
+    "/api/v1/inventory/movements/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["inventory_movement_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/receipts/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Przyjęcie do magazynu firmy, z ceną z faktury. */
+        post: operations["inventory_receipt_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/returns/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Zwrot niewykorzystanego materiału do magazynu firmy. */
+        post: operations["inventory_return_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1401,6 +1585,45 @@ export interface paths {
         put: operations["api_v1_profiles_translations_update"];
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profiles/organization/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The company's own business card, plus whether it is in the catalogue.
+         *
+         *     GET creates the profile when it does not exist yet (ADR-053 §2), which is
+         *     why it is a separate endpoint from the generic list: the list must not have
+         *     a side effect.
+         */
+        get: operations["api_v1_profiles_organization_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/profiles/organization/catalog/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["api_v1_profiles_organization_catalog_create"];
+        delete: operations["api_v1_profiles_organization_catalog_destroy"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2906,6 +3129,17 @@ export interface components {
             services: components["schemas"]["Service"][];
             resources: components["schemas"]["Resource"][];
         };
+        CatalogCategory: {
+            key: string;
+            label: {
+                [key: string]: string;
+            };
+        };
+        CatalogCity: {
+            slug: string;
+            name: string;
+            voivodeship: string;
+        };
         CatalogCreate: {
             kind: components["schemas"]["CatalogCreateKindEnum"];
             name: string;
@@ -2928,6 +3162,83 @@ export interface components {
          * @enum {string}
          */
         CatalogCreateKindEnum: "location" | "staff" | "service" | "resource";
+        CatalogDictionary: {
+            cities: components["schemas"]["CatalogCity"][];
+            categories: components["schemas"]["CatalogCategory"][];
+        };
+        /**
+         * @description One row of the public listing (ADR-053 §5).
+         *
+         *     `url` is always usable: the catalogue page when the company has no reachable
+         *     site, that site's address when it has one. `is_external` says which, so the
+         *     client can mark a link that leaves the platform without parsing the address.
+         */
+        CatalogItem: {
+            slug: string;
+            city_slug: string;
+            city: string;
+            category: string;
+            display_name: string;
+            headline: string;
+            photo_id: string | null;
+            url: string;
+            is_external: boolean;
+        };
+        CatalogPage: {
+            total: number;
+            page: number;
+            page_size: number;
+            items: components["schemas"]["CatalogItem"][];
+        };
+        /**
+         * @description One row of the public listing (ADR-053 §5).
+         *
+         *     `url` is always usable: the catalogue page when the company has no reachable
+         *     site, that site's address when it has one. `is_external` says which, so the
+         *     client can mark a link that leaves the platform without parsing the address.
+         */
+        CatalogProfile: {
+            slug: string;
+            city_slug: string;
+            city: string;
+            category: string;
+            display_name: string;
+            headline: string;
+            photo_id: string | null;
+            url: string;
+            is_external: boolean;
+            layout: string;
+            voivodeship: string;
+            bio: string;
+            contact_email: string;
+            contact_phone: string;
+            contact_address: string;
+            links: {
+                [key: string]: unknown;
+            }[];
+            languages: string[];
+            specializations: string[];
+            locale: string;
+        };
+        /** @description Whether this company is in the public catalogue, and under which address. */
+        CatalogState: {
+            published: boolean;
+            city_slug: string;
+            slug: string;
+            path: string;
+            site_url: string | null;
+            /** Format: date-time */
+            published_at: string | null;
+        };
+        /**
+         * @description * `block` - Klocek
+         *     * `dressing` - Opatrunek
+         *     * `medicine` - Lek
+         *     * `tool` - Narzędzie
+         *     * `other` - Inne
+         * @enum {string}
+         */
+        CategoryEnum: "block" | "dressing" | "medicine" | "tool" | "other";
         ChangeSetApply: {
             change_set: {
                 [key: string]: unknown;
@@ -3657,6 +3968,98 @@ export interface components {
          * @enum {string}
          */
         HealthStatusEnum: "ok" | "degraded";
+        InventoryAdjustInput: {
+            /** Format: uuid */
+            item_id: string;
+            /** Format: uuid */
+            holder_id?: string | null;
+            /** Format: decimal */
+            quantity: string;
+            note: string;
+        };
+        /** @description Ile czego leży w jednym miejscu; `holder_id` puste to magazyn firmy. */
+        InventoryBalance: {
+            /** Format: uuid */
+            item_id: string;
+            item_name: string;
+            category: string;
+            unit: string;
+            /** Format: uuid */
+            holder_id: string | null;
+            /** Format: decimal */
+            quantity: string;
+            /** Format: decimal */
+            minimum_quantity: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        InventoryIssueInput: {
+            /** Format: uuid */
+            item_id: string;
+            /** Format: uuid */
+            holder_id: string;
+            /** Format: decimal */
+            quantity: string;
+            note?: string;
+        };
+        InventoryItem: {
+            /** Format: uuid */
+            readonly id: string;
+            name: string;
+            category: components["schemas"]["CategoryEnum"];
+            unit: components["schemas"]["UnitEnum"];
+            /** Format: decimal */
+            minimum_quantity: string;
+            readonly average_cost_minor: number;
+            readonly currency: string;
+            active?: boolean;
+            notes?: string;
+        };
+        InventoryItemInput: {
+            name: string;
+            category?: components["schemas"]["CategoryEnum"];
+            unit?: components["schemas"]["UnitEnum"];
+            /** Format: decimal */
+            minimum_quantity?: string;
+            active?: boolean;
+            notes?: string;
+        };
+        InventoryMovement: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            item_id: string;
+            item_name: string;
+            kind: components["schemas"]["InventoryMovementKindEnum"];
+            /** Format: decimal */
+            quantity: string;
+            /** Format: uuid */
+            holder_id: string | null;
+            unit_cost_minor: number;
+            source: string;
+            source_reference: string;
+            note: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        /**
+         * @description * `receipt` - Przyjęcie
+         *     * `issue` - Wydanie pracownikowi
+         *     * `return` - Zwrot do magazynu
+         *     * `consumption` - Zużycie przy pracy
+         *     * `adjustment` - Korekta stanu
+         * @enum {string}
+         */
+        InventoryMovementKindEnum: "receipt" | "issue" | "return" | "consumption" | "adjustment";
+        InventoryReceiptInput: {
+            /** Format: uuid */
+            item_id: string;
+            /** Format: decimal */
+            quantity: string;
+            /** @default 0 */
+            unit_cost_minor: number;
+            note?: string;
+        };
         InvitationAccept: {
             token: string;
         };
@@ -3677,6 +4080,13 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
+        /**
+         * @description * `card` - Wizytówka
+         *     * `cover` - Ze zdjęciem na całą szerokość
+         *     * `compact` - Zwięzła
+         * @enum {string}
+         */
+        LayoutEnum: "card" | "cover" | "compact";
         LifecycleResult: {
             status: string;
         };
@@ -3834,6 +4244,10 @@ export interface components {
             /** @default PLN */
             currency: string;
             organization_type?: string;
+        };
+        OrganizationProfile: {
+            profile: components["schemas"]["ProfileSummary"];
+            catalog: components["schemas"]["CatalogState"];
         };
         OrganizationSummary: {
             /** Format: uuid */
@@ -4041,6 +4455,15 @@ export interface components {
             notes?: string;
             active?: boolean;
         };
+        PatchedInventoryItemInput: {
+            name?: string;
+            category?: components["schemas"]["CategoryEnum"];
+            unit?: components["schemas"]["UnitEnum"];
+            /** Format: decimal */
+            minimum_quantity?: string;
+            active?: boolean;
+            notes?: string;
+        };
         PatchedMembershipUpdate: {
             role?: string;
             status?: components["schemas"]["MembershipUpdateStatusEnum"];
@@ -4106,6 +4529,9 @@ export interface components {
             languages?: string[];
             specializations?: string[];
             locale?: components["schemas"]["LocaleE35Enum"];
+            city_slug?: string;
+            category?: string;
+            layout?: components["schemas"]["LayoutEnum"];
             subject_kind: components["schemas"]["SubjectKindEnum"];
         };
         ProfileSummary: {
@@ -4128,6 +4554,9 @@ export interface components {
             languages: string[];
             specializations: string[];
             locale: string;
+            city_slug: string;
+            category: string;
+            layout: string;
             version: number;
         };
         ProfileTranslation: {
@@ -4161,6 +4590,9 @@ export interface components {
             languages?: string[];
             specializations?: string[];
             locale?: components["schemas"]["LocaleE35Enum"];
+            city_slug?: string;
+            category?: string;
+            layout?: components["schemas"]["LayoutEnum"];
             expected_version: number;
         };
         ProposalAccept: {
@@ -4665,6 +5097,15 @@ export interface components {
          * @enum {string}
          */
         TypeEnum: "module_run.finished";
+        /**
+         * @description * `piece` - Sztuka
+         *     * `pack` - Opakowanie
+         *     * `ml` - Mililitr
+         *     * `g` - Gram
+         *     * `m` - Metr
+         * @enum {string}
+         */
+        UnitEnum: "piece" | "pack" | "ml" | "g" | "m";
         UserSummary: {
             /** Format: uuid */
             id: string;
@@ -6295,6 +6736,74 @@ export interface operations {
             };
         };
     };
+    catalog_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogPage"];
+                };
+            };
+        };
+    };
+    catalog_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                city_slug: string;
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogProfile"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    catalog_dictionary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogDictionary"];
+                };
+            };
+        };
+    };
     farms_list: {
         parameters: {
             query?: {
@@ -7077,6 +7586,444 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
+    };
+    inventory_adjustment_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InventoryAdjustInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["InventoryAdjustInput"];
+                "multipart/form-data": components["schemas"]["InventoryAdjustInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryMovement"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_balance_list: {
+        parameters: {
+            query?: {
+                /** @description Zapas jednej osoby. */
+                holder_id?: string;
+                /** @description Mój zapas na dziś. */
+                mine?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryBalance"][];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_issue_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InventoryIssueInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["InventoryIssueInput"];
+                "multipart/form-data": components["schemas"]["InventoryIssueInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryMovement"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_item_list: {
+        parameters: {
+            query?: {
+                /** @description Zawęź do kategorii. */
+                category?: string;
+                /** @description Szukaj po nazwie. */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryItem"][];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_item_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InventoryItemInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["InventoryItemInput"];
+                "multipart/form-data": components["schemas"]["InventoryItemInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryItem"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_item_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedInventoryItemInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedInventoryItemInput"];
+                "multipart/form-data": components["schemas"]["PatchedInventoryItemInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryItem"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_movement_list: {
+        parameters: {
+            query?: {
+                /** @description Historia jednej pozycji. */
+                item_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryMovement"][];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_receipt_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InventoryReceiptInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["InventoryReceiptInput"];
+                "multipart/form-data": components["schemas"]["InventoryReceiptInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryMovement"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_return_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InventoryIssueInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["InventoryIssueInput"];
+                "multipart/form-data": components["schemas"]["InventoryIssueInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryMovement"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };
@@ -8853,6 +9800,94 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_profiles_organization_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationProfile"];
+                };
+            };
+        };
+    };
+    api_v1_profiles_organization_catalog_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationProfile"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_profiles_organization_catalog_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             403: {
                 headers: {

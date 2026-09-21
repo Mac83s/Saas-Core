@@ -19,7 +19,8 @@
     "shared.notifications",
     "shared.booking",
     "shared.seo",
-    "shared.farms"
+    "shared.farms",
+    "shared.inventory"
   ],
   "billing": {
     "planKeys": ["profile", "starter", "pro"]

@@ -4,6 +4,7 @@ import {
   Globe2Icon,
   HomeIcon,
   MessageSquareTextIcon,
+  PackageIcon,
   PawPrintIcon,
   SettingsIcon,
   UsersIcon,
@@ -136,6 +137,15 @@ const WORK: PanelNavItem[] = [
     group: "work",
     module: "shared.farms",
     permission: "farms.read",
+  },
+  {
+    // Magazyn prowadzi firma, ale własny zapas widzi każdy, kto nim pracuje.
+    href: "/panel/inventory",
+    icon: PackageIcon,
+    labelKey: "inventory",
+    group: "work",
+    module: "shared.inventory",
+    permission: "inventory.read",
   },
   {
     // Every farm's animals at once: how a trimmer looks for one ear tag.

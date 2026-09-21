@@ -66,7 +66,12 @@ def _notification_routes() -> list[Route]:
 
 
 def _profile_routes() -> list[Route]:
-    return [path("api/v1/profiles/", include("saas_core.modules.shared.profiles.urls"))]
+    return [
+        path("api/v1/profiles/", include("saas_core.modules.shared.profiles.urls")),
+        # The public catalogue (ADR-053). Unauthenticated and tenant-free: the
+        # slug names the tenant, the way a hostname does for the site renderer.
+        path("api/v1/catalog/", include("saas_core.modules.shared.profiles.public_urls")),
+    ]
 
 
 def _booking_routes() -> list[Route]:
@@ -136,6 +141,9 @@ MODULE_ROUTES: dict[str, Callable[[], list[Route]]] = {
     "shared.profiles": _profile_routes,
     "shared.booking": _booking_routes,
     "shared.farms": lambda: [path("api/v1/farms/", include("saas_core.modules.shared.farms.urls"))],
+    "shared.inventory": lambda: [
+        path("api/v1/inventory/", include("saas_core.modules.shared.inventory.urls"))
+    ],
 }
 
 
