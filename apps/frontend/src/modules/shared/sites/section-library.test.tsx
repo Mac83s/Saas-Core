@@ -67,7 +67,7 @@ test("limits initial thumbnail rendering and exposes the remaining catalogue", (
   );
   expect(screen.getAllByRole("article")).toHaveLength(12);
   fireEvent.click(
-    screen.getByRole("button", { name: "Show more layouts (60 remaining)" }),
+    screen.getByRole("button", { name: "Show more layouts (76 remaining)" }),
   );
   expect(screen.getAllByRole("article")).toHaveLength(24);
   fireEvent.change(screen.getByLabelText("Category"), {
@@ -219,3 +219,37 @@ test("keeps photo preparation and a retry error visible in the preview", async (
   expect(add).not.toBeDisabled();
   expect(onAdd).not.toHaveBeenCalled();
 });
+
+test.each([
+  ["core.contact", 6, "Contact details", "Kontakt"],
+  [
+    "core.contact_form",
+    4,
+    "Form beside introduction",
+    "Formularz obok wprowadzenia",
+  ],
+  ["core.link_list", 6, "", ""],
+] as const)(
+  "offers all %s layouts and copies editable data",
+  async (type, count) => {
+    const onAdd = vi.fn();
+    render(
+      <NextIntlClientProvider locale="en" messages={en}>
+        <SectionLibraryContent onAdd={onAdd} />
+      </NextIntlClientProvider>,
+    );
+    fireEvent.change(screen.getByLabelText("Category"), {
+      target: { value: type },
+    });
+    expect(screen.getAllByRole("article")).toHaveLength(count);
+    const first = screen.getAllByRole("article")[0];
+    fireEvent.click(within(first).getByRole("button", { name: /^Add: / }));
+    await waitFor(() => expect(onAdd).toHaveBeenCalledOnce());
+    expect(onAdd.mock.calls[0][0].block_type).toBe(type);
+    if (type === "core.contact_form") {
+      expect(onAdd.mock.calls[0][0].data.locale).toBe("en");
+      expect(onAdd.mock.calls[0][0].data.submit_label).toBe("Send message");
+      expect(document.querySelectorAll("form")).toHaveLength(0);
+    }
+  },
+);

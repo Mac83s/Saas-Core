@@ -1,3 +1,5 @@
+import contactFormV1Schema from "@saas-core/contracts/site-blocks/core.contact_form.v1.schema.json";
+import { ContactFormSection } from "./contact-form-block";
 import heroV5Schema from "@saas-core/contracts/site-blocks/core.hero.v5.schema.json";
 import featureListV3Schema from "@saas-core/contracts/site-blocks/core.feature_list.v3.schema.json";
 import faqV3Schema from "@saas-core/contracts/site-blocks/core.faq.v3.schema.json";
@@ -6,9 +8,12 @@ import featureListV2Schema from "@saas-core/contracts/site-blocks/core.feature_l
 import faqV2Schema from "@saas-core/contracts/site-blocks/core.faq.v2.schema.json";
 import { plainBlockText } from "./block-text";
 import { renderSectionLayout } from "./section-layouts";
+import { ContactSection, LinkListSection } from "./contact-link-sections";
 import { createElement } from "react";
 
 import contactV1Schema from "@saas-core/contracts/site-blocks/core.contact.v1.schema.json";
+import contactV2Schema from "@saas-core/contracts/site-blocks/core.contact.v2.schema.json";
+import linkListV1Schema from "@saas-core/contracts/site-blocks/core.link_list.v1.schema.json";
 import entryListV1Schema from "@saas-core/contracts/site-blocks/core.entry_list.v1.schema.json";
 import bookingV1Schema from "@saas-core/contracts/site-blocks/core.booking.v1.schema.json";
 import faqV1Schema from "@saas-core/contracts/site-blocks/core.faq.v1.schema.json";
@@ -198,7 +203,11 @@ function FaqBlock({ data, editor }: BlockComponentProps) {
   );
 }
 
-function ContactBlock({ data, editor }: BlockComponentProps) {
+function ContactBlock({ data, editor, imageRenderer }: BlockComponentProps) {
+  // Old publications retain their original markup until a new layout or field
+  // is chosen. The v1 -> v2 migration itself does not redesign a saved page.
+  if (data.layout || data.text || data.hours || data.image || data.action)
+    return createElement(ContactSection, { data, editor, imageRenderer });
   const text = editor?.text ?? plainBlockText;
   const contact = data as ContactV1Data;
   return createElement(
@@ -602,18 +611,91 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
     },
     {
       type: "core.contact",
-      latestVersion: 1,
-      schemas: [{ version: 1, schema: contactV1Schema }],
-      migrators: {},
+      latestVersion: 2,
+      schemas: [
+        { version: 1, schema: contactV1Schema },
+        { version: 2, schema: contactV2Schema },
+      ],
+      migrators: { 1: (data) => ({ ...data }) },
       component: ContactBlock,
       catalog: {
         category: "contact",
         labelKey: "contactBlock",
         fields: [
           { path: ["title"], kind: "text", labelKey: "heading" },
+          { path: ["text"], kind: "textarea", labelKey: "text" },
           { path: ["email"], kind: "text", labelKey: "contactEmail" },
           { path: ["phone"], kind: "text", labelKey: "contactPhone" },
           { path: ["address"], kind: "textarea", labelKey: "contactAddress" },
+          { path: ["hours"], kind: "textarea", labelKey: "contactHours" },
+          {
+            path: ["image", "asset_id"],
+            kind: "media",
+            labelKey: "imageAsset",
+            aspect: [4, 3],
+          },
+          { path: ["image", "alt"], kind: "text", labelKey: "imageAlt" },
+          { path: ["action", "label"], kind: "text", labelKey: "actionLabel" },
+          { path: ["action", "href"], kind: "url", labelKey: "actionHref" },
+        ],
+      },
+    },
+    {
+      type: "core.contact_form",
+      latestVersion: 1,
+      schemas: [{ version: 1, schema: contactFormV1Schema }],
+      migrators: {},
+      component: ContactFormSection,
+      catalog: {
+        category: "contact",
+        labelKey: "contactFormBlock",
+        fields: [
+          { path: ["title"], kind: "text", labelKey: "heading" },
+          { path: ["text"], kind: "textarea", labelKey: "text" },
+          { path: ["submit_label"], kind: "text", labelKey: "submitLabel" },
+          {
+            path: ["success_message"],
+            kind: "textarea",
+            labelKey: "successMessage",
+          },
+          { path: ["privacy_label"], kind: "text", labelKey: "privacyLabel" },
+          { path: ["privacy_href"], kind: "url", labelKey: "privacyHref" },
+          {
+            path: ["image", "asset_id"],
+            kind: "media",
+            labelKey: "imageAsset",
+            aspect: [4, 3],
+          },
+          { path: ["image", "alt"], kind: "text", labelKey: "imageAlt" },
+        ],
+      },
+    },
+    {
+      type: "core.link_list",
+      latestVersion: 1,
+      schemas: [{ version: 1, schema: linkListV1Schema }],
+      migrators: {},
+      component: LinkListSection,
+      catalog: {
+        category: "contact",
+        labelKey: "linkListBlock",
+        fields: [
+          { path: ["title"], kind: "text", labelKey: "heading" },
+          { path: ["text"], kind: "textarea", labelKey: "text" },
+          {
+            path: ["links"],
+            kind: "list",
+            labelKey: "linkItems",
+            item: [
+              { path: ["label"], kind: "text", labelKey: "linkLabel" },
+              { path: ["href"], kind: "url", labelKey: "linkHref" },
+              {
+                path: ["description"],
+                kind: "textarea",
+                labelKey: "linkDescription",
+              },
+            ],
+          },
         ],
       },
     },

@@ -13,6 +13,7 @@ import { InvalidDesignTokensError } from "./errors";
 import type {
   BlockRegistry,
   BlockImageRenderer,
+  PublishedFormRenderer,
   DesignTokensV1,
   DraftPreviewDocument,
   NavigationLink,
@@ -175,6 +176,7 @@ function renderDocument(
   paginationLabels: PaginationLabels = DEFAULT_PAGINATION_LABELS,
   imageRenderer?: BlockImageRenderer,
   appearance?: SiteAppearance | null,
+  formRenderer?: PublishedFormRenderer,
 ): ReactElement {
   const menu = renderNavigation(navigation, navigationLabel);
   const content = createElement(
@@ -193,7 +195,13 @@ function renderDocument(
       contentElement,
       null,
       ...blocks.map((block, index) =>
-        registry.render(block, String(index), undefined, imageRenderer),
+        registry.render(
+          block,
+          String(index),
+          undefined,
+          imageRenderer,
+          formRenderer ? (data) => formRenderer(data, index) : undefined,
+        ),
       ),
       renderPagination(pagination, paginationLabels),
     ),
@@ -245,6 +253,7 @@ export function renderDraftPreview(
 export function renderPublishedPage(
   document: PublishedPageDocument,
   registry: BlockRegistry,
+  formRenderer?: PublishedFormRenderer,
 ): ReactElement {
   if (
     document.kind !== "publication" ||
@@ -264,5 +273,6 @@ export function renderPublishedPage(
     document.paginationLabels ?? DEFAULT_PAGINATION_LABELS,
     undefined,
     document.appearance,
+    formRenderer,
   );
 }

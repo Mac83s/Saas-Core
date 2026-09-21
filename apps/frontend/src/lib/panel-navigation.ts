@@ -1,5 +1,6 @@
 import {
   CalendarDaysIcon,
+  ContactIcon,
   CreditCardIcon,
   Globe2Icon,
   HomeIcon,
@@ -34,6 +35,8 @@ export type PanelNavItem = ProductNavigationItem & {
    * and lights up on all of them.
    */
   section?: keyof typeof PANEL_SECTIONS;
+  /** Access to at least one independent feature on a combined screen. */
+  anyAccess?: readonly { module: string; permission: string }[];
 };
 
 export type PanelSectionTab = Pick<
@@ -167,6 +170,16 @@ const COMPANY: PanelNavItem[] = [
     permission: "organization.members.read",
   },
   {
+    // Above the website on purpose: the business card is the floor of the
+    // offer and the website the option above it (ADR-053).
+    href: "/panel/profile",
+    icon: ContactIcon,
+    labelKey: "profile",
+    group: "company",
+    module: "shared.profiles",
+    permission: "profiles.manage",
+  },
+  {
     href: "/panel/sites",
     icon: Globe2Icon,
     labelKey: "website",
@@ -181,7 +194,10 @@ const COMPANY: PanelNavItem[] = [
     labelKey: "messages",
     group: "company",
     module: "shared.notifications",
-    permission: "notifications.manage",
+    anyAccess: [
+      { module: "shared.notifications", permission: "notifications.manage" },
+      { module: "shared.sites", permission: "site.content.edit" },
+    ],
   },
   {
     // The owner lands on the plan, everyone else on the credits they spend.
@@ -211,10 +227,16 @@ export function allows(
     | "permission"
     | "ownerOnly"
     | "notForLimited"
+    | "anyAccess"
     | "organizationTypes"
   >,
 ): boolean {
   if (item.module && !access.modules.includes(item.module)) return false;
+  if (
+    item.anyAccess &&
+    !item.anyAccess.some((feature) => allows(access, feature))
+  )
+    return false;
   if (item.ownerOnly && !access.isOwner) return false;
   if (item.notForLimited && access.limited) return false;
   if (

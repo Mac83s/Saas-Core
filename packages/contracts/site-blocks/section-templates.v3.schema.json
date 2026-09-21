@@ -1,0 +1,309 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/site-blocks/section-templates.v3.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "industries", "templates"],
+  "properties": {
+    "schemaVersion": {
+      "const": 3
+    },
+    "industries": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "labels"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "labels": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["pl", "en"],
+            "properties": {
+              "pl": {
+                "type": "string",
+                "minLength": 1
+              },
+              "en": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "templates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "version",
+          "blockType",
+          "schemaVersion",
+          "layout",
+          "kind",
+          "industries",
+          "labels",
+          "goals",
+          "composition",
+          "requirements",
+          "compatibility",
+          "automation",
+          "seed"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^core\\.[a-z][a-z0-9_]*$"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "blockType": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^core\\.[a-z][a-z0-9_]*$"
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "layout": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "enum": ["default", "industry"]
+          },
+          "industries": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "labels": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["pl", "en"],
+            "properties": {
+              "pl": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "description", "usage"],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "usage": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "en": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "description", "usage"],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "description": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "usage": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          },
+          "goals": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "composition": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "role",
+              "preferredPosition",
+              "recommendedNext",
+              "repeatable"
+            ],
+            "properties": {
+              "role": {
+                "type": "string",
+                "minLength": 1
+              },
+              "preferredPosition": {
+                "enum": ["start", "body", "end"]
+              },
+              "recommendedNext": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "repeatable": {
+                "type": "boolean"
+              }
+            }
+          },
+          "requirements": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["requiredEntitlements", "requiredModules", "media"],
+            "properties": {
+              "requiredEntitlements": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "requiredModules": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "media": {
+                "enum": ["none", "optional", "required"]
+              }
+            }
+          },
+          "compatibility": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["replaceWithinType", "preservesFields"],
+            "properties": {
+              "replaceWithinType": {
+                "const": true
+              },
+              "preservesFields": {
+                "const": true
+              }
+            }
+          },
+          "automation": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["mode", "facts"],
+            "properties": {
+              "mode": {
+                "const": "draft_only"
+              },
+              "facts": {
+                "const": "user_supplied"
+              }
+            }
+          },
+          "seed": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["pl", "en"],
+            "properties": {
+              "pl": {
+                "type": "object"
+              },
+              "en": {
+                "type": "object"
+              }
+            }
+          },
+          "sampleMedia": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "alt"],
+            "properties": {
+              "id": {
+                "enum": ["business", "medicine", "agriculture", "electronics"]
+              },
+              "alt": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["pl", "en"],
+                "properties": {
+                  "pl": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "en": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  }
+                }
+              }
+            }
+          },
+          "contentGuidance": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "minItems",
+              "maxItems",
+              "titleMaxCharacters",
+              "bodyMaxCharacters",
+              "mediaAspectRatio"
+            ],
+            "properties": {
+              "minItems": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "maxItems": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "titleMaxCharacters": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "bodyMaxCharacters": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "mediaAspectRatio": {
+                "enum": ["3:2", "4:3", null]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

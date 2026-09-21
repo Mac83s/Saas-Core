@@ -39,9 +39,17 @@
     },
     {
       "type": "core.contact",
+      "latestVersion": 2,
+      "schemas": {
+        "1": "core.contact.v1.schema.json",
+        "2": "core.contact.v2.schema.json"
+      }
+    },
+    {
+      "type": "core.link_list",
       "latestVersion": 1,
       "schemas": {
-        "1": "core.contact.v1.schema.json"
+        "1": "core.link_list.v1.schema.json"
       }
     },
     {
@@ -77,6 +85,13 @@
       "latestVersion": 1,
       "schemas": {
         "1": "core.entry_list.v1.schema.json"
+      }
+    },
+    {
+      "type": "core.contact_form",
+      "latestVersion": 1,
+      "schemas": {
+        "1": "core.contact_form.v1.schema.json"
       }
     }
   ],

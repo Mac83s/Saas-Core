@@ -17,7 +17,7 @@ from typing import Any
 
 from django.conf import settings
 from django.db import transaction
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
@@ -173,7 +173,16 @@ class PublicCatalogListView(APIView):
     authentication_classes: list[Any] = []
     permission_classes = [AllowAny]
 
-    @extend_schema(operation_id="catalog_list", responses={200: CatalogPageSerializer})
+    @extend_schema(
+        operation_id="catalog_list",
+        parameters=[
+            OpenApiParameter("city", str, description="Slug miasta ze słownika katalogu."),
+            OpenApiParameter("category", str, description="Klucz kategorii ze słownika."),
+            OpenApiParameter("q", str, description="Szukaj po nazwie, nagłówku, kategorii."),
+            OpenApiParameter("page", int, description="Strona wyników, od 1."),
+        ],
+        responses={200: CatalogPageSerializer},
+    )
     def get(self, request: Request) -> Response:
         # Only dictionary values are accepted as filters (ADR-053 §7): the
         # catalogue is a public surface, and a filter that takes arbitrary text

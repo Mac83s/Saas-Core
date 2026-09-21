@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/site-blocks/core.contact.v2.schema.json",
+  "title": "Core contact block v2",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "title": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "email": {
+      "type": "string",
+      "maxLength": 254,
+      "pattern": "^[^@\\s]+@[^@\\s.]+\\.[^@\\s]+$"
+    },
+    "phone": {
+      "type": "string",
+      "maxLength": 32,
+      "pattern": "^[0-9+ ()-]+$"
+    },
+    "address": {
+      "type": "string",
+      "maxLength": 300
+    },
+    "layout": {
+      "type": "string",
+      "enum": ["classic", "split", "cards", "band", "photo", "details"],
+      "default": "classic"
+    },
+    "text": {
+      "type": "string",
+      "maxLength": 600
+    },
+    "hours": {
+      "type": "string",
+      "maxLength": 300
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "href"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "href": {
+          "type": "string",
+          "maxLength": 500,
+          "pattern": "^(?:/(?!/)|https://|mailto:|tel:)"
+        }
+      }
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["asset_id", "alt"],
+      "properties": {
+        "asset_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "alt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      }
+    }
+  }
+}

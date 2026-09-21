@@ -1,4 +1,4 @@
-import catalog from "@saas-core/contracts/site-blocks/section-templates.v2.json";
+import catalog from "@saas-core/contracts/site-blocks/section-templates.v3.json";
 
 import type { BlockRegistry, JsonObject, SiteBlock } from "./types";
 

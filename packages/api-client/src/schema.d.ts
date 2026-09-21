@@ -9988,7 +9988,16 @@ export interface operations {
     };
     catalog_list: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Klucz kategorii ze słownika. */
+                category?: string;
+                /** @description Slug miasta ze słownika katalogu. */
+                city?: string;
+                /** @description Strona wyników, od 1. */
+                page?: number;
+                /** @description Szukaj po nazwie, nagłówku, kategorii. */
+                q?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;

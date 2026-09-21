@@ -189,6 +189,52 @@ def test_work_never_stops_for_a_stock_level() -> None:
         assert movements(item_id=item.id).count() == 1
 
 
+def test_a_voided_entry_gives_the_material_back() -> None:
+    """Cofnięty wpis oddaje klocek temu, komu go zdjął — inaczej pomyłka w
+    poskromie na stałe zjadałaby zapas korektora."""
+    from saas_core.modules.shared.inventory.services import (  # noqa: PLC0415
+        balances,
+        consume,
+        create_item,
+        movements,
+        release,
+    )
+
+    owner = membership("magazyn-cofniecie")
+    trimmer = User.objects.create_user(email="korektor-cofniecie@example.test")
+    with tenant(owner) as request:
+        item = create_item(request=request, data={"name": "Klocek", "category": "block"})
+        for reference in ("wpis-1", "wpis-2"):
+            consume(
+                request=request,
+                organization_id=owner.organization_id,
+                holder_id=trimmer.id,
+                item_id=item.id,
+                quantity=Decimal(1),
+                source="hoofcare.entry",
+                source_reference=reference,
+            )
+        release(
+            request=request,
+            organization_id=owner.organization_id,
+            source="hoofcare.entry",
+            source_reference="wpis-1",
+        )
+        (personal,) = balances(holder_id=trimmer.id)
+        assert personal.quantity == Decimal(-1)
+
+        # Powtórka cofnięcia nie oddaje drugi raz, a cudzego wpisu nie rusza.
+        release(
+            request=request,
+            organization_id=owner.organization_id,
+            source="hoofcare.entry",
+            source_reference="wpis-1",
+        )
+        (personal,) = balances(holder_id=trimmer.id)
+        assert personal.quantity == Decimal(-1)
+        assert movements(item_id=item.id).count() == 3
+
+
 def test_a_correction_needs_a_reason_and_leaves_the_history_alone() -> None:
     from saas_core.modules.shared.inventory.services import (  # noqa: PLC0415
         adjust,

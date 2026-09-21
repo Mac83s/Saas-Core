@@ -1,0 +1,98 @@
+.site-block--contact-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: clamp(1.5rem, 4cqw, 4rem);
+}
+.site-contact-form__intro,
+.site-contact-form__body {
+  min-width: 0;
+}
+.site-contact-form__intro > p {
+  margin-block: 1.25rem;
+}
+.site-contact-form__intro img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--site-radius, 0.75rem);
+}
+.site-contact-form-layout--centered {
+  grid-template-columns: minmax(0, 1fr);
+}
+.site-contact-form-layout--centered > * {
+  width: min(100%, 42rem);
+  margin-inline: auto;
+}
+.site-contact-form-layout--centered .site-contact-form__intro {
+  text-align: center;
+}
+.site-contact-form-layout--card .site-contact-form__body {
+  padding: clamp(1rem, 3cqw, 2.5rem);
+  border: 1px solid var(--border);
+  background: var(--muted);
+  border-radius: var(--site-radius, 0.75rem);
+}
+.site-contact-form-layout--photo {
+  align-items: center;
+}
+.site-contact-form,
+.site-contact-form__fields {
+  display: grid;
+  gap: 1.25rem;
+  min-width: 0;
+}
+.site-contact-form__field {
+  display: grid;
+  gap: 0.5rem;
+  min-width: 0;
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+.site-contact-form :is(input, textarea) {
+  display: block;
+  width: 100%;
+  min-height: 2.875rem;
+  min-width: 0;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid #8b9ba4;
+  border-radius: var(--site-radius, 0.5rem);
+  background: #fff;
+  color: #17232b;
+  font: inherit;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.site-contact-form textarea {
+  min-height: 8rem;
+  resize: vertical;
+}
+.site-contact-form :is(input, textarea):focus-visible {
+  outline: 2px solid var(--site-accent);
+  outline-offset: 2px;
+}
+.site-contact-form :is(input, textarea)[aria-invalid="true"] {
+  border-color: #b42318;
+}
+.site-contact-form__error {
+  color: #b42318;
+  font-size: 0.875rem;
+}
+.site-theme .site-block .site-contact-form__preview-note,
+.site-theme .site-block .site-contact-form__privacy {
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--muted-foreground);
+}
+.site-contact-form__privacy {
+  margin-top: 1.25rem;
+}
+.site-contact-form__privacy a {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+@container (max-width: 720px) {
+  .site-block--contact-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

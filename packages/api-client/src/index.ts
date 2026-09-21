@@ -2820,3 +2820,105 @@ export async function materializeTemplatePhoto(
   if (error || !data) throwProblem(error, response);
   return data;
 }
+export type OrganizationProfile = components["schemas"]["OrganizationProfile"];
+export type PublicProfileSummary = components["schemas"]["ProfileSummary"];
+export type CatalogState = components["schemas"]["CatalogState"];
+export type CatalogItem = components["schemas"]["CatalogItem"];
+export type CatalogPage = components["schemas"]["CatalogPage"];
+export type CatalogProfile = components["schemas"]["CatalogProfile"];
+export type CatalogDictionary = components["schemas"]["CatalogDictionary"];
+export type CatalogSearch = {
+  city?: string;
+  category?: string;
+  q?: string;
+  page?: number;
+};
+
+/**
+ * The company's own business card, created on first read (ADR-053 §2).
+ *
+ * Reading it has a side effect by design: core cannot create the profile, so
+ * this is where it comes into being. Safe to call again — the second call
+ * returns the same row.
+ */
+export async function readOrganizationProfile(): Promise<OrganizationProfile> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/profiles/organization/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function publishOrganizationProfile(): Promise<OrganizationProfile> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/profiles/organization/catalog/",
+    { credentials: "same-origin", headers: { "X-CSRFToken": csrfToken } },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function withdrawOrganizationProfile(): Promise<void> {
+  const csrfToken = await getCsrfToken();
+  const { error, response } = await client.DELETE(
+    "/api/v1/profiles/organization/catalog/",
+    { credentials: "same-origin", headers: { "X-CSRFToken": csrfToken } },
+  );
+  if (error) throwProblem(error, response);
+}
+
+export async function updateProfile(
+  profileId: string,
+  body: components["schemas"]["ProfileUpdate"],
+): Promise<PublicProfileSummary> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/profiles/{profile_id}/",
+    {
+      params: { path: { profile_id: profileId } },
+      body,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Public, unauthenticated: no session and no tenant header (ADR-053 §4). */
+export async function searchCatalog(
+  search: CatalogSearch = {},
+): Promise<CatalogPage> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/public/catalog/",
+    { params: { query: search }, cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function readCatalogProfile(
+  citySlug: string,
+  slug: string,
+): Promise<CatalogProfile> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/public/catalog/{city_slug}/{slug}/",
+    {
+      params: { path: { city_slug: citySlug, slug } },
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function readCatalogDictionary(): Promise<CatalogDictionary> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/public/catalog/dictionary/",
+    { cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}

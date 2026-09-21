@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/site-blocks/core.contact_form.v1.schema.json",
+  "title": "Core contact form block v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["title"],
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "text": {
+      "type": "string",
+      "maxLength": 1000
+    },
+    "layout": {
+      "enum": ["split", "centered", "card", "photo"]
+    },
+    "locale": {
+      "enum": ["pl", "en"]
+    },
+    "submit_label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "success_message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    },
+    "privacy_label": {
+      "type": "string",
+      "maxLength": 120
+    },
+    "privacy_href": {
+      "type": "string",
+      "maxLength": 2048,
+      "pattern": "^(https://[^\\s]+|/(?!/)[^\\s]*)$"
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["asset_id", "alt"],
+      "properties": {
+        "asset_id": {
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        },
+        "alt": {
+          "type": "string",
+          "maxLength": 300
+        }
+      }
+    }
+  }
+}

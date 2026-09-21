@@ -11,6 +11,7 @@ import {
   listInvitations,
   listMemberships,
   listSites,
+  readOrganizationProfile,
 } from "@saas-core/api-client";
 import { Link } from "#i18n/navigation";
 import { allows, type PanelAccess } from "#lib/panel-navigation";
@@ -37,7 +38,7 @@ import { cn } from "@saas-core/ui/lib/utils";
  * Creating the organization is not an item: the panel does not open without
  * one — the layout sends an account without any to the first-run screen.
  */
-type StepKey = "plan" | "farm" | "appointment" | "team" | "website";
+type StepKey = "plan" | "farm" | "appointment" | "team" | "profile" | "website";
 
 type Step = {
   key: StepKey;
@@ -98,6 +99,18 @@ const STEPS: readonly Step[] = [
         invitations.some((invitation) => invitation.status === "pending")
       );
     },
+  },
+  {
+    // Before the website on purpose (ADR-053): the business card is what puts
+    // the company in the directory, and it is the step everybody has.
+    key: "profile",
+    href: "/panel/profile",
+    visible: (access) =>
+      allows(access, {
+        module: "shared.profiles",
+        permission: "profiles.manage",
+      }),
+    load: async () => (await readOrganizationProfile()).catalog.published,
   },
   {
     key: "website",

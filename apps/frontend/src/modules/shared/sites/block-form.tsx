@@ -211,7 +211,9 @@ export function BlockFields<TValues extends FieldValues>({
   );
   const layoutPath = `${prefix}.data.layout` as Path<TValues>;
   const selectedLayout =
-    useWatch({ control: form.control, name: layoutPath }) ?? "classic";
+    useWatch({ control: form.control, name: layoutPath }) ??
+    layouts[0]?.layout ??
+    "classic";
   const selectedTemplate = layouts.find(
     (template) => template.layout === selectedLayout,
   );
@@ -279,6 +281,9 @@ export function BlockFields<TValues extends FieldValues>({
         type="hidden"
         {...form.register(`${prefix}.block_type` as Path<TValues>)}
       />
+      {type === "core.contact_form" && (
+        <p className="text-sm text-muted-foreground">{t("formDeliveryHint")}</p>
+      )}
       <FieldGroup>
         {(option?.fields ?? []).map((field) => (
           <BlockField

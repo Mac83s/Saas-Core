@@ -1,8 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import Ajv2020 from "ajv/dist/2020.js";
-import catalog from "@saas-core/contracts/site-blocks/section-templates.v2.json";
-import schema from "@saas-core/contracts/site-blocks/section-templates.v2.schema.json";
+import catalog from "@saas-core/contracts/site-blocks/section-templates.v3.json";
+import previousCatalog from "@saas-core/contracts/site-blocks/section-templates.v2.json";
+import schema from "@saas-core/contracts/site-blocks/section-templates.v3.schema.json";
 import {
   availableSectionTemplates,
   coreSectionTemplates,
@@ -17,6 +18,15 @@ const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
 const context = { entitlements: ["sites.enabled"], modules: ["shared.sites"] };
 
 describe("section template contract", () => {
+  it("keeps all historical recipes unchanged when extending the catalogue", () => {
+    for (const previous of previousCatalog.templates)
+      expect(
+        coreSectionTemplates().find(
+          (item) =>
+            item.id === previous.id && item.version === previous.version,
+        ),
+      ).toEqual(previous);
+  });
   it("validates the manifest and every localized seed against the canonical schemas", () => {
     const validate = new Ajv2020({ allErrors: true, strict: true }).compile(
       schema,
@@ -58,8 +68,9 @@ describe("section template contract", () => {
       ...context,
       industry: "medicine",
     });
-    expect(all.filter((item) => item.kind === "default")).toHaveLength(60);
-    expect(medicine.filter((item) => item.kind === "default")).toHaveLength(60);
+    expect(medicine.filter((item) => item.kind === "default")).toEqual(
+      all.filter((item) => item.kind === "default"),
+    );
     expect(medicine.filter((item) => item.kind === "industry")).toHaveLength(4);
     for (const industry of ["medicine", "agriculture", "electronics"]) {
       expect(

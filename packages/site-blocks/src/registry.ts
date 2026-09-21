@@ -239,7 +239,7 @@ export function createSiteBlockRegistry(
     definitions,
     validate,
     migrate,
-    render(block, key, editor, imageRenderer) {
+    render(block, key, editor, imageRenderer, formRenderer) {
       const migrated = migrate(block);
       const definition = definitionFor(migrated.block_type);
       return createElement(definition.component, {
@@ -247,6 +247,7 @@ export function createSiteBlockRegistry(
         key,
         ...(editor ? { editor } : {}),
         ...(imageRenderer ? { imageRenderer } : {}),
+        ...(formRenderer ? { formRenderer } : {}),
       });
     },
   };
