@@ -896,7 +896,8 @@
       "inlineHint": "Enter zatwierdza, Escape anuluje. Kliknięcie poza polem zatwierdza zmianę.",
       "inlineMultilineHint": "Enter dodaje wiersz. Ctrl+Enter zatwierdza, Escape anuluje. Kliknięcie poza polem zatwierdza zmianę.",
       "insertAfter": "Dodaj sekcję poniżej"
-    }
+    },
+    "uploadAndCrop": "Wgraj i skadruj"
   },
   "BillingSupport": {
     "navigation": "Billing i dostęp",
@@ -1816,5 +1817,16 @@
     "loadError": "Nie udało się wczytać kalendarza i zespołu.",
     "retry": "Spróbuj ponownie",
     "empty": "W kalendarzu nie ma jeszcze pracowników."
+  },
+  "MediaCrop": {
+    "title": "Kadr zdjęcia",
+    "description": "To miejsce pokazuje obraz w proporcji {width}:{height}. Przesuń zdjęcie i ustaw przybliżenie.",
+    "preview": "Podgląd kadru",
+    "zoom": "Przybliżenie",
+    "send": "Wytnij i wyślij",
+    "sending": "Wysyłanie…",
+    "cancel": "Anuluj",
+    "close": "Zamknij",
+    "failed": "Nie udało się wysłać zdjęcia."
   }
 }
