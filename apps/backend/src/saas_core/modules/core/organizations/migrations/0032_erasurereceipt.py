@@ -8,28 +8,41 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('organizations', '0031_audit_allows_erasure'),
+        ("organizations", "0031_audit_allows_erasure"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='ErasureReceipt',
+            name="ErasureReceipt",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid7, editable=False, primary_key=True, serialize=False)),
-                ('organization_id', models.UUIDField(db_index=True)),
-                ('reason', models.TextField()),
-                ('started_at', models.DateTimeField(auto_now_add=True)),
-                ('row_counts', models.JSONField(default=dict)),
-                ('pending_object_keys', models.JSONField(default=list)),
-                ('deleted_object_count', models.PositiveIntegerField(default=0)),
-                ('objects_completed_at', models.DateTimeField(blank=True, null=True)),
-                ('requested_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid7, editable=False, primary_key=True, serialize=False
+                    ),
+                ),
+                ("organization_id", models.UUIDField(db_index=True)),
+                ("reason", models.TextField()),
+                ("started_at", models.DateTimeField(auto_now_add=True)),
+                ("row_counts", models.JSONField(default=dict)),
+                ("pending_object_keys", models.JSONField(default=list)),
+                ("deleted_object_count", models.PositiveIntegerField(default=0)),
+                ("objects_completed_at", models.DateTimeField(blank=True, null=True)),
+                (
+                    "requested_by",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="+",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'ordering': ('-started_at',),
+                "ordering": ("-started_at",),
             },
         ),
     ]

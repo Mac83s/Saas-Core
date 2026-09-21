@@ -20,8 +20,12 @@ ROLE_PERMISSIONS = {
     ),
 }
 
-DISABLE_ROLE_GUARD = "ALTER TABLE organizations_role DISABLE TRIGGER organizations_system_role_immutable;"
-ENABLE_ROLE_GUARD = "ALTER TABLE organizations_role ENABLE TRIGGER organizations_system_role_immutable;"
+DISABLE_ROLE_GUARD = (
+    "ALTER TABLE organizations_role DISABLE TRIGGER organizations_system_role_immutable;"
+)
+ENABLE_ROLE_GUARD = (
+    "ALTER TABLE organizations_role ENABLE TRIGGER organizations_system_role_immutable;"
+)
 
 
 def add_permissions(apps: Apps, _schema_editor: BaseDatabaseSchemaEditor) -> None:

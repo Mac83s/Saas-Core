@@ -4,15 +4,59 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('organizations', '0037_role_organization_type'),
+        ("organizations", "0037_role_organization_type"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='organizationauditentry',
-            name='action',
-            field=models.CharField(choices=[('organization.created', 'Utworzono organizację'), ('organization.updated', 'Zmieniono organizację'), ('organization.archived', 'Zarchiwizowano organizację'), ('invitation.created', 'Utworzono zaproszenie'), ('invitation.revoked', 'Wycofano zaproszenie'), ('invitation.accepted', 'Przyjęto zaproszenie'), ('membership.role_changed', 'Zmieniono rolę członka'), ('membership.suspended', 'Zawieszono członka'), ('membership.resumed', 'Wznowiono członka'), ('membership.revoked', 'Odebrano dostęp członkowi'), ('membership.left', 'Członek opuścił organizację'), ('ownership.transferred', 'Przeniesiono własność'), ('role.created', 'Utworzono rolę'), ('role.updated', 'Zmieniono rolę'), ('role.deleted', 'Usunięto rolę'), ('billing.profile.updated', 'Zmieniono dane do faktury'), ('billing.checkout.created', 'Utworzono Checkout'), ('billing.portal.created', 'Utworzono sesję portalu'), ('billing.trial.started', 'Rozpoczęto trial'), ('billing.access.read_only', 'Włączono tryb tylko do odczytu'), ('billing.reconciled', 'Naprawiono stan billingowy'), ('billing.override.created', 'Utworzono override dostępu'), ('billing.override.revoked', 'Wycofano override dostępu'), ('billing.override.expired', 'Wygasł override dostępu'), ('billing.credits.purchased', 'Kupiono kredyty'), ('billing.credits.adjusted', 'Skorygowano kredyty'), ('support.notification.retried', 'Ponowiono wiadomość'), ('support.webhook.retried', 'Ponowiono webhook'), ('integration.api_key.created', 'Utworzono klucz API'), ('integration.api_key.rotated', 'Obrócono klucz API'), ('integration.api_key.revoked', 'Wycofano klucz API'), ('integration.webhook.created', 'Utworzono webhook'), ('booking.catalog.changed', 'Zmieniono katalog rezerwacji'), ('profile.created', 'Utworzono profil publiczny'), ('profile.updated', 'Zmieniono profil publiczny'), ('profile.deleted', 'Usunięto profil publiczny'), ('booking.schedule.changed', 'Zmieniono grafik rezerwacji'), ('booking.appointment.created', 'Utworzono rezerwację'), ('booking.appointment.rescheduled', 'Zmieniono termin rezerwacji'), ('booking.appointment.canceled', 'Anulowano rezerwację'), ('booking.customer.anonymized', 'Zanonimizowano klienta')], max_length=64),
+            model_name="organizationauditentry",
+            name="action",
+            field=models.CharField(
+                choices=[
+                    ("organization.created", "Utworzono organizację"),
+                    ("organization.updated", "Zmieniono organizację"),
+                    ("organization.archived", "Zarchiwizowano organizację"),
+                    ("invitation.created", "Utworzono zaproszenie"),
+                    ("invitation.revoked", "Wycofano zaproszenie"),
+                    ("invitation.accepted", "Przyjęto zaproszenie"),
+                    ("membership.role_changed", "Zmieniono rolę członka"),
+                    ("membership.suspended", "Zawieszono członka"),
+                    ("membership.resumed", "Wznowiono członka"),
+                    ("membership.revoked", "Odebrano dostęp członkowi"),
+                    ("membership.left", "Członek opuścił organizację"),
+                    ("ownership.transferred", "Przeniesiono własność"),
+                    ("role.created", "Utworzono rolę"),
+                    ("role.updated", "Zmieniono rolę"),
+                    ("role.deleted", "Usunięto rolę"),
+                    ("billing.profile.updated", "Zmieniono dane do faktury"),
+                    ("billing.checkout.created", "Utworzono Checkout"),
+                    ("billing.portal.created", "Utworzono sesję portalu"),
+                    ("billing.trial.started", "Rozpoczęto trial"),
+                    ("billing.access.read_only", "Włączono tryb tylko do odczytu"),
+                    ("billing.reconciled", "Naprawiono stan billingowy"),
+                    ("billing.override.created", "Utworzono override dostępu"),
+                    ("billing.override.revoked", "Wycofano override dostępu"),
+                    ("billing.override.expired", "Wygasł override dostępu"),
+                    ("billing.credits.purchased", "Kupiono kredyty"),
+                    ("billing.credits.adjusted", "Skorygowano kredyty"),
+                    ("support.notification.retried", "Ponowiono wiadomość"),
+                    ("support.webhook.retried", "Ponowiono webhook"),
+                    ("integration.api_key.created", "Utworzono klucz API"),
+                    ("integration.api_key.rotated", "Obrócono klucz API"),
+                    ("integration.api_key.revoked", "Wycofano klucz API"),
+                    ("integration.webhook.created", "Utworzono webhook"),
+                    ("booking.catalog.changed", "Zmieniono katalog rezerwacji"),
+                    ("profile.created", "Utworzono profil publiczny"),
+                    ("profile.updated", "Zmieniono profil publiczny"),
+                    ("profile.deleted", "Usunięto profil publiczny"),
+                    ("booking.schedule.changed", "Zmieniono grafik rezerwacji"),
+                    ("booking.appointment.created", "Utworzono rezerwację"),
+                    ("booking.appointment.rescheduled", "Zmieniono termin rezerwacji"),
+                    ("booking.appointment.canceled", "Anulowano rezerwację"),
+                    ("booking.customer.anonymized", "Zanonimizowano klienta"),
+                ],
+                max_length=64,
+            ),
         ),
     ]
