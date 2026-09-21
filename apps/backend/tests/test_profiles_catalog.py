@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from django.conf import settings
 from django.core.cache import cache
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
@@ -35,6 +36,7 @@ from saas_core.modules.shared.billing.models import (
     EntitlementSnapshot,
     SubscriptionState,
 )
+from saas_core.modules.shared.profiles.catalog_contract import categories
 from saas_core.modules.shared.profiles.models import (
     CatalogEntry,
     ProfileSubjectKind,
@@ -98,7 +100,7 @@ def _fill(client: APIClient, profile: dict[str, Any], **values: Any) -> Any:
     payload = {
         "display_name": profile["display_name"],
         "city_slug": "mragowo",
-        "category": "uroda-i-zdrowie",
+        "category": next(iter(categories(settings.DEFAULT_ORGANIZATION_TYPE))),
         "expected_version": profile["version"],
         **values,
     }
@@ -280,8 +282,11 @@ def test_the_dictionary_is_served_for_the_search_form() -> None:
     assert {"slug": "mragowo", "name": "Mrągowo", "voivodeship": "warmińsko-mazurskie"} in body[
         "cities"
     ]
-    uroda = next(c for c in body["categories"] if c["key"] == "uroda-i-zdrowie")
-    assert uroda["labels"]["pl"] == "Uroda i zdrowie"
+    expected = categories(settings.DEFAULT_ORGANIZATION_TYPE)
+    assert expected, "The default organization type needs public catalogue categories"
+    assert {c["key"]: c["labels"] for c in body["categories"]} == {
+        key: category.label for key, category in expected.items()
+    }
 
 
 def test_publication_is_refused_without_the_feature() -> None:

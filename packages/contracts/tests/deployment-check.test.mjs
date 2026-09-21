@@ -540,3 +540,58 @@ test("role typu: owner i admin, uprawnienia modułów typu, owner z całym rdzen
     /company\.owner musi mieć organization\.members\.manage/,
   );
 });
+
+test("kategorie katalogu należą do typu i wymagają modułu profili", async () => {
+  const category = {
+    key: "specialists",
+    label: { pl: "Specjaliści", en: "Specialists" },
+  };
+  const company = {
+    key: "company",
+    label: { pl: "Firma", en: "Company" },
+    modules: ["shared.profiles"],
+    planKeys: ["profile"],
+    selfSignup: true,
+    catalogCategories: [category],
+  };
+  const result = await validateDeployment(
+    "typed",
+    await typedProfileRoot([company]),
+  );
+  assert.deepEqual(
+    effectiveOrganizationTypes(result.profile, result.modules)[0]
+      .catalogCategories,
+    [category],
+  );
+  assert.deepEqual(
+    toPublicDeployment(result.profile, result.modules, "a".repeat(64))
+      .organizationTypes[0].catalogCategories,
+    [category],
+  );
+  const empty = { ...company, catalogCategories: [] };
+  assert.deepEqual(
+    effectiveOrganizationTypes({ organizationTypes: [empty] }, [])[0]
+      .catalogCategories,
+    [],
+  );
+  for (const [patch, pattern] of [
+    [{ catalogCategories: [category, category] }, /powtarza klucz kategorii/],
+    [{ modules: [] }, /kategorie bez shared.profiles/],
+    [
+      { catalogCategories: [{ ...category, key: "../escape" }] },
+      /catalogCategories/,
+    ],
+    [
+      { catalogCategories: [{ ...category, label: { pl: "Specjaliści" } }] },
+      /catalogCategories/,
+    ],
+  ]) {
+    await assert.rejects(
+      validateDeployment(
+        "typed",
+        await typedProfileRoot([{ ...company, ...patch }]),
+      ),
+      pattern,
+    );
+  }
+});

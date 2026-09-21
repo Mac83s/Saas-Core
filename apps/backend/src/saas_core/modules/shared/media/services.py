@@ -18,7 +18,11 @@ from rest_framework.exceptions import APIException, NotFound
 
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import record_audit
-from saas_core.modules.core.organizations.context import require_tenant_context
+from saas_core.modules.core.organizations.context import (
+    TenantContext,
+    current_tenant_context,
+    require_tenant_context,
+)
 from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.core.organizations.tasks import issue_tenant_task_contract
 from saas_core.modules.shared.billing.api import (
@@ -35,7 +39,13 @@ from saas_core.modules.shared.billing.api import (
 
 from .images import UnsafeImageError, process_image
 from .models import MediaAsset, MediaAssetState, MediaReference, MediaReferenceOwner
-from .permissions import MEDIA_MANAGE, MEDIA_READ, STORAGE_BYTES, STORAGE_ENABLED
+from .permissions import (
+    MEDIA_MANAGE,
+    MEDIA_READ,
+    MEDIA_TEMPLATE_IMPORT,
+    STORAGE_BYTES,
+    STORAGE_ENABLED,
+)
 from .scanner import MalwareScanner, MalwareVerdict, get_malware_scanner
 from .storage import (
     ObjectNotFoundError,
@@ -276,7 +286,18 @@ def materialize_approved_media_asset(
     storage: ObjectStorage | None = None,
     scanner: MalwareScanner | None = None,
 ) -> ApprovedMediaMaterialization:
-    context = authorize_entitled(MEDIA_MANAGE, STORAGE_ENABLED)
+    """Import server-approved template bytes, never a client-supplied upload.
+
+    Callers must resolve the bytes from a checksum-verified template catalogue.
+    The narrow template permission grants no upload, completion or deletion API.
+    """
+    active = current_tenant_context()
+    permission = (
+        MEDIA_MANAGE
+        if active is not None and active.has_permission(MEDIA_MANAGE)
+        else MEDIA_TEMPLATE_IMPORT
+    )
+    context = authorize_entitled(permission, STORAGE_ENABLED)
     normalized_source_key = _idempotency_key(source_key)
     normalized_name = _safe_filename(filename)
     normalized_type = content_type.strip().lower()
@@ -359,7 +380,7 @@ def materialize_approved_media_asset(
             content=content,
             content_type=normalized_type,
         )
-        complete_media_upload(asset_id=asset.id, storage=object_storage)
+        _complete_media_upload(context=context, asset_id=asset.id, storage=object_storage)
         processed = process_media_asset(
             asset_id=asset.id,
             storage=object_storage,
@@ -395,6 +416,15 @@ def complete_media_upload(
     storage: ObjectStorage | None = None,
 ) -> MediaAsset:
     context = authorize_entitled(MEDIA_MANAGE, STORAGE_ENABLED)
+    return _complete_media_upload(context=context, asset_id=asset_id, storage=storage)
+
+
+def _complete_media_upload(
+    *,
+    context: TenantContext,
+    asset_id: UUID,
+    storage: ObjectStorage | None,
+) -> MediaAsset:
     asset = MediaAsset.all_objects.filter(
         pk=asset_id,
         organization_id=context.organization_id,

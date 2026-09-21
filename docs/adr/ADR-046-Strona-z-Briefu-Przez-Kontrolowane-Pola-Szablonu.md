@@ -41,3 +41,15 @@ edytorze. Ten przyrost dostarcza mechanizm przygotowania i przeglądu strony,
 nie pełnego asystenta z dowolnymi narzędziami. Przyszły asystent może używać
 wyłącznie wersjonowanej komendy tej aplikacji z TenantContext i zgodą,
 bez dostępu modelu do repozytorium, ORM lub powłoki.
+
+## Weryfikacja importu zdjęć szablonu — 2026-09-21
+
+Zakresy `content:draft` i `content:publish` otrzymują wąskie uprawnienie
+`media.template.import` używane wyłącznie przy materializacji zatwierdzonych
+mediów. Serwer wybiera plik z recepty i weryfikuje jego SHA-256; integracja
+nadal dostarcza tylko pola tekstowe. Pozostają entitlement `storage.enabled`,
+limit `storage.bytes`, skanowanie, izolacja tenanta, idempotencja i kompensacja
+obiektów przy błędzie. Zwykły upload, potwierdzenie uploadu i usuwanie nadal
+wymagają `media.manage`; `content:read` nie otrzymuje nowego uprawnienia.
+Testy blueprintów obejmują zdjęcia najnowszej recepty, ponowienie, odmowę przy
+braku miejsca lub entitlementu i wycofanie po odrzuceniu pliku przez skaner.

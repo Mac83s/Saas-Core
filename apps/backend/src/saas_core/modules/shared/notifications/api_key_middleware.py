@@ -36,8 +36,8 @@ API_KEY_SCHEME = "Bearer "
 # parallel authorization path.
 SCOPE_PERMISSIONS: dict[str, frozenset[str]] = {
     "content:read": frozenset({"site.content.edit"}),
-    "content:draft": frozenset({"site.content.edit"}),
-    "content:publish": frozenset({"site.content.edit", "site.publish"}),
+    "content:draft": frozenset({"site.content.edit", "media.template.import"}),
+    "content:publish": frozenset({"site.content.edit", "site.publish", "media.template.import"}),
 }
 
 
@@ -68,9 +68,7 @@ class ApiKeyTenantContextMiddleware:
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
         header = request.headers.get("Authorization", "")
-        if not request.path.startswith("/api/v1/") or not header.startswith(
-            API_KEY_SCHEME
-        ):
+        if not request.path.startswith("/api/v1/") or not header.startswith(API_KEY_SCHEME):
             return self.get_response(request)
 
         raw = header[len(API_KEY_SCHEME) :].strip()

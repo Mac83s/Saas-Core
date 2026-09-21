@@ -51,7 +51,6 @@ def cities() -> dict[str, City]:
     }
 
 
-@cache
 def categories(organization_type: str) -> dict[str, Category]:
     """Categories for one organization type (ADR-050).
 
@@ -59,6 +58,12 @@ def categories(organization_type: str) -> dict[str, Category]:
     type's list: a product that adds a type and forgets its categories should
     see "no categories", not somebody else's.
     """
+    for configured in settings.ORGANIZATION_TYPES.values():
+        if configured.key == organization_type and configured.catalog_categories is not None:
+            return {
+                category.key: Category(category.key, category.label)
+                for category in configured.catalog_categories
+            }
     raw = _manifest().get("categories")
     if not isinstance(raw, dict):
         raise ImproperlyConfigured("Kontrakt katalogu nie zawiera kategorii.")

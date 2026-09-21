@@ -101,6 +101,14 @@ class ServiceTemplate:
 
 
 @dataclass(frozen=True, slots=True)
+class CatalogCategory:
+    """A product-owned public catalogue category for one organization type."""
+
+    key: str
+    label: dict[str, str]
+
+
+@dataclass(frozen=True, slots=True)
 class OrganizationType:
     """A kind of organization the product composes (ADR-050).
 
@@ -116,6 +124,8 @@ class OrganizationType:
     #: Empty: the organization uses core's global system roles.
     roles: tuple[RoleTemplate, ...] = ()
     service_templates: tuple[ServiceTemplate, ...] = ()
+    #: None uses the core dictionary; an explicit empty tuple disables categories.
+    catalog_categories: tuple[CatalogCategory, ...] | None = None
 
 
 def organization_types_from(
@@ -167,6 +177,17 @@ def organization_types_from(
                     )
                     for template in raw.get("serviceTemplates") or ()
                 ),
+                catalog_categories=(
+                    tuple(
+                        CatalogCategory(
+                            key=str(category["key"]),
+                            label={str(k): str(v) for k, v in category["label"].items()},
+                        )
+                        for category in raw["catalogCategories"]
+                    )
+                    if "catalogCategories" in raw
+                    else None
+                ),
             )
         )
     return tuple(types)
@@ -179,9 +200,7 @@ def product_profile(repository_root: Path) -> str:
     so tests, static checks and the OpenAPI contract describe the product the
     repository ships without anybody editing a settings file to say which.
     """
-    raw: dict[str, Any] = json.loads(
-        (repository_root / "product.json").read_text(encoding="utf-8")
-    )
+    raw: dict[str, Any] = json.loads((repository_root / "product.json").read_text(encoding="utf-8"))
     return str(raw["profiles"][0])
 
 

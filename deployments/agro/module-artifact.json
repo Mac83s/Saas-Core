@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:554b76d7db5f586b03d7891ca8867d535983c0c49ee593f62ddb917d13400242",
+  "profileHash": "sha256:b6b1a224f3d94aaa816df116401379468b9e381c6099aede5a4975690177a914",
   "schemaVersion": 1,
   "deployment": "agro",
   "product": {
@@ -265,7 +265,8 @@
         "urlPrefix": "/api/v1/media",
         "permissions": [
           "media.read",
-          "media.manage"
+          "media.manage",
+          "media.template.import"
         ],
         "entitlements": [
           "storage.enabled"

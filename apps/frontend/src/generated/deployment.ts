@@ -16,13 +16,14 @@ export const deployment = {
     "core.identity",
     "core.organizations",
     "shared.billing",
+    "shared.notifications",
     "shared.sites",
     "shared.media",
     "shared.profiles",
-    "shared.notifications",
     "shared.booking",
     "shared.seo",
-    "shared.farms"
+    "shared.farms",
+    "shared.inventory"
   ],
   "features": {
     "customDomains": true,
@@ -38,13 +39,14 @@ export const deployment = {
       "description": null,
       "modules": [
         "shared.billing",
+        "shared.notifications",
         "shared.sites",
         "shared.media",
         "shared.profiles",
-        "shared.notifications",
         "shared.booking",
         "shared.seo",
-        "shared.farms"
+        "shared.farms",
+        "shared.inventory"
       ],
       "planKeys": [
         "profile",
@@ -56,5 +58,5 @@ export const deployment = {
       "serviceTemplates": []
     }
   ],
-  "profileHash": "sha256:984d8298dbfa11356d4e9c52e4e36325bb9821e5aa9f48deeafff0afacea13af"
+  "profileHash": "sha256:b6b1a224f3d94aaa816df116401379468b9e381c6099aede5a4975690177a914"
 } as const

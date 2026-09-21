@@ -79,6 +79,9 @@ export const effectiveOrganizationTypes = (profile, modules) => {
       modules: [...type.modules],
       planKeys: [...(type.planKeys ?? profile.billing?.planKeys ?? [])],
       selfSignup: type.selfSignup,
+      ...(type.catalogCategories !== undefined
+        ? { catalogCategories: type.catalogCategories }
+        : {}),
       roles: (type.roles ?? []).map((role) => ({
         key: role.key,
         label: role.label,
@@ -169,6 +172,20 @@ const assertOrganizationTypes = (profile, profileName) => {
       );
     }
     keys.add(type.key);
+    const categories = type.catalogCategories ?? [];
+    if (
+      new Set(categories.map((category) => category.key)).size !==
+      categories.length
+    ) {
+      throw new Error(
+        `Profil ${profileName}: typ ${type.key} powtarza klucz kategorii katalogu`,
+      );
+    }
+    if (categories.length && !type.modules.includes("shared.profiles")) {
+      throw new Error(
+        `Profil ${profileName}: typ ${type.key} deklaruje kategorie bez shared.profiles`,
+      );
+    }
     for (const moduleId of type.modules) {
       if (!composed.has(moduleId)) {
         throw new Error(

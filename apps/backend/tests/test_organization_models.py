@@ -38,7 +38,10 @@ def test_system_roles_are_seeded_with_stable_permissions() -> None:
     for key, permissions in SYSTEM_ROLE_PERMISSIONS.items():
         assert roles[key].organization_id is None
         assert roles[key].is_immutable
-        assert roles[key].permissions == list(permissions)
+        # Module migrations and the deployment catalog may append grants in
+        # different orders. Authorization uses a set, but duplicates or a
+        # missing/extra permission must still fail this comparison.
+        assert sorted(roles[key].permissions) == sorted(permissions)
 
 
 def test_system_roles_are_immutable_at_database_boundary() -> None:

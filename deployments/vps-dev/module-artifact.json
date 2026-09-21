@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:c455f90d1f3a8ed5797560d90db0829c1a5f6525cceceead8b2e9cf0516ed9c1",
+  "profileHash": "sha256:e9208b703cce1fd27bc77d160199e94c3bcb0fee66369127125e49f5eef76014",
   "schemaVersion": 1,
   "deployment": "vps-dev",
   "product": {
@@ -263,7 +263,8 @@
         "urlPrefix": "/api/v1/media",
         "permissions": [
           "media.read",
-          "media.manage"
+          "media.manage",
+          "media.template.import"
         ],
         "entitlements": [
           "storage.enabled"

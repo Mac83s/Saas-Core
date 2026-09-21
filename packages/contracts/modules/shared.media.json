@@ -6,7 +6,7 @@
   "backend": {
     "djangoApp": "saas_core.modules.shared.media",
     "urlPrefix": "/api/v1/media",
-    "permissions": ["media.read", "media.manage"],
+    "permissions": ["media.read", "media.manage", "media.template.import"],
     "entitlements": ["storage.enabled"],
     "eventSchemas": [],
     "publicTables": [],

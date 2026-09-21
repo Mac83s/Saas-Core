@@ -11,6 +11,7 @@ from django.utils import timezone
 from psycopg import sql
 
 import test_content_base_integrity as base_tests
+import test_template_photos as photo_tests
 from saas_core.modules.shared.sites.blueprints import canonical_hash
 from saas_core.modules.shared.sites.models import (
     BlueprintImportReceipt,
@@ -23,7 +24,9 @@ from saas_core.modules.shared.sites.models import (
 from test_content_preview_authorization import connector, grant_for
 from test_content_proposal_review import accept, detail, reject
 from test_sites_api import create_site, csrf_value, save_draft, sites_client
+from test_template_photos import enable_storage
 
+media_runtime = photo_tests.media_runtime
 surface = base_tests.surface
 clear_cache = base_tests.clear_cache
 pytestmark = pytest.mark.django_db
@@ -63,7 +66,8 @@ def test_blueprint_authorization_matrix(surface: Any, blueprint: Any, boundary: 
 
 
 @pytest.fixture
-def blueprint(surface: Any) -> tuple[Any, Any, str, dict[str, Any]]:
+def blueprint(surface: Any, media_runtime: Any) -> tuple[Any, Any, str, dict[str, Any]]:
+    enable_storage(surface[1])
     automation, key = connector(surface, scope="content:draft")
     grant = grant_for(surface, key)
     grant.mode = "draft_write"
@@ -297,3 +301,106 @@ def test_blueprint_receipt_rls_relations_erasure_and_rollback(surface: Any, blue
     assert list(BlueprintImportReceipt.all_objects.values_list("organization_id", flat=True)) == [
         organization.id
     ]
+
+
+def test_blueprint_scans_approved_photos_once_without_granting_arbitrary_media_access(
+    surface: Any, blueprint: Any, media_runtime: Any
+) -> None:
+    from saas_core.modules.shared.media.models import MediaAsset, MediaAssetState
+
+    storage, scanner = media_runtime
+    client = blueprint[0]
+    first = send(blueprint)
+    assert first.status_code == 201, first.content
+    assets = list(MediaAsset.all_objects.all())
+    assert assets, "The latest approved template must exercise the photo path"
+    assert all(
+        a.organization_id == surface[1].id and a.state == MediaAssetState.READY for a in assets
+    )
+    assert scanner.calls == len(assets)
+    original_objects = dict(storage.objects)
+    assert send(blueprint).json() == first.json()
+    assert scanner.calls == len(assets)
+    assert storage.objects == original_objects
+    for method, url in [
+        ("post", "/api/v1/media/uploads/"),
+        ("post", f"/api/v1/media/uploads/{assets[0].id}/complete/"),
+        ("delete", f"/api/v1/media/{assets[0].id}/"),
+    ]:
+        assert getattr(client, method)(url, {}, content_type="application/json").status_code in {
+            401,
+            403,
+        }
+    assert storage.objects == original_objects
+    assert not MediaAsset.all_objects.filter(deleted_at__isnull=False).exists()
+
+
+@pytest.mark.parametrize("boundary", ["read_scope", "storage", "quota", "scanner"])
+def test_blueprint_media_failure_leaves_no_partial_page_or_objects(
+    surface: Any, blueprint: Any, media_runtime: Any, boundary: str, monkeypatch: Any
+) -> None:
+    from saas_core.modules.shared.billing.models import EntitlementSnapshot
+    from saas_core.modules.shared.media.models import MediaAsset
+    from saas_core.modules.shared.media.scanner import MalwareVerdict
+
+    storage, scanner = media_runtime
+    client, grant, url, document = blueprint
+    if boundary == "read_scope":
+        from saas_core.modules.shared.notifications.models import ApiKey, ApiKeyCredentialRoute
+
+        ApiKey.all_objects.filter(pk=grant.credential_id).update(scopes=["content:read"])
+        ApiKeyCredentialRoute.objects.filter(api_key_id=grant.credential_id).update(
+            scopes=["content:read"]
+        )
+    elif boundary in {"storage", "quota"}:
+        snapshot = EntitlementSnapshot.all_objects.get(organization=surface[1])
+        if boundary == "storage":
+            snapshot.features["storage.enabled"] = False
+        else:
+            snapshot.quotas["storage.bytes"] = 0
+        snapshot.save()
+    else:
+        monkeypatch.setattr(scanner, "scan", lambda content: MalwareVerdict.INFECTED)
+    before = (Page.all_objects.count(), PageVersion.all_objects.count())
+    result = client.post(url, document, content_type="application/json")
+    assert result.status_code in {401, 403, 409, 422}, result.content
+    assert (Page.all_objects.count(), PageVersion.all_objects.count()) == before
+    assert not BlueprintImportReceipt.all_objects.exists()
+    assert not MediaAsset.all_objects.exists()
+    assert storage.objects == {}
+
+
+def test_template_permission_cannot_upload_complete_or_delete_arbitrary_media(
+    surface: Any, blueprint: Any
+) -> None:
+    from saas_core.modules.core.organizations.authorization import OrganizationPermissionDenied
+    from saas_core.modules.core.organizations.context import TenantContext, activate_tenant_context
+    from saas_core.modules.shared.media.services import (
+        complete_media_upload,
+        initiate_media_upload,
+        tombstone_media_asset,
+    )
+    from saas_core.modules.shared.notifications.api_key_middleware import SCOPE_PERMISSIONS
+
+    context = TenantContext(
+        organization_id=surface[1].id,
+        membership_id=uuid4(),
+        actor_id=surface[2].id,
+        role_key="api_key",
+        principal_kind="api_key",
+        credential_id=blueprint[1].credential_id,
+        permissions=SCOPE_PERMISSIONS["content:draft"],
+    )
+    with activate_tenant_context(context):
+        for operation in (
+            lambda: initiate_media_upload(
+                filename="arbitrary.png",
+                content_type="image/png",
+                size=32,
+                idempotency_key="forbidden",
+            ),
+            lambda: complete_media_upload(asset_id=uuid4()),
+            lambda: tombstone_media_asset(asset_id=uuid4(), idempotency_key="forbidden"),
+        ):
+            with pytest.raises(OrganizationPermissionDenied):
+                operation()

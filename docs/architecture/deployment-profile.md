@@ -7,6 +7,15 @@ walidowany przed uruchomieniem i stanowi jedyne źródło aktywacji modułów. S
 i dane zależne od środowiska nie trafiają do profilu ani do wygenerowanego
 katalogu frontendowego.
 
+Typ organizacji może zadeklarować `catalogCategories`: listę stabilnych kluczy
+kategorii katalogu publicznego i ich etykiet `pl`/`en` (ADR-050, ADR-053 §7).
+Niepusta lista wymaga `shared.profiles` w modułach typu. Klucze muszą być
+unikalne. Pole trafia przez generator do artefaktu backendu i profilu
+frontendu, więc nie wymaga osobnego pliku runtime. Brak pola zachowuje
+słownik rdzenia dla danego typu; `[]` jawnie wyłącza jego kategorie. Typ nie
+dziedziczy kategorii innego typu. Produkty deklarują własne kategorie w
+swoich profilach, bez edycji wspólnego `catalog/manifest.json`.
+
 ## 2. Profil generyczny `business`
 
 Plik `deployments/business/deployment.json`:
