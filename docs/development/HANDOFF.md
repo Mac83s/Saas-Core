@@ -1,5 +1,20 @@
 # Handoff następnej sesji
 
+## 2026-09-21 — czytelne listy wyboru w ciemnym motywie, wdrożone
+
+`ddfb091` nadaje opcjom i grupom `NativeSelect` nieprzezroczyste tło i kolor
+tekstu z lokalnych tokenów. Usuwa biały popup z jasnym tekstem ze zrzutu
+właściciela, zachowując natywne formularze, klawiaturę i jasny podgląd dokumentu.
+Zmiana działa we wszystkich trzech frontendach; backend i profile bez zmian.
+
+[Raport i checklista](../operations/releases/2026-09-21-dark-select.md): UI
+**53/53**, typy i lint, dwa motywy, komputer/telefon, klawiatura, rzeczywisty
+zalogowany edytor każdego produktu oraz **18** publicznych kontroli HTTPS.
+Usunięto własne trzy konta i trzy zdjęcia testowe. Zapisano poprzednie obrazy
+frontendu do rollbacku; 25 pozostałych usług produktów zachowało tożsamość.
+Dowody: `.runtime/releases/20260921-dark-select/`. Cztery wcześniejsze bramki
+infrastruktury pozostają osobnym zakresem.
+
 ## 2026-09-21 — istniejące plany zaktualizowane za zgodą właściciela
 
 Domknięto aktywację nowych uprawnień: jeden plan w Saas-Core oraz trzy
