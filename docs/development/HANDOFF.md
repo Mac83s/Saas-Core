@@ -1,5 +1,88 @@
 # Handoff następnej sesji
 
+## Wizytówka zawsze i katalog publiczny — backend, 2026-09-21
+
+ADR-053. Decyzja właściciela: **wizytówka powstaje zawsze**, żeby każda firma
+była na listingu; strona www przestaje być jej alternatywą i staje się opcją nad
+nią. To zastępuje ADR-036 §4 tiret trzecie („profil prosty bez strony" jako
+jednostronicowa witryna) — przy „wizytówka zawsze" firma ze stroną miałaby dwie
+witryny i rozbity limit `sites.max: 1`. Reszta ADR-036 obowiązuje.
+
+Co powstało w `shared.profiles` (modul mial dotad backend bez zadnego odbiorcy —
+zero frontendu, zero powiazania z `sites`):
+
+- `PublicProfile` dostaje `city_slug`, `category` i `layout`; profil firmy
+  zakłada się **leniwie przy pierwszym odczycie** `GET /api/v1/profiles/organization/`,
+  bo `core.organizations` nie może go utworzyć (Core nie importuje Shared);
+- `CatalogEntry` (`profiles_catalogentry`) — **tabela publiczna bez RLS**,
+  zadeklarowana w `publicTables`. Jeden wiersz na opublikowaną wizytówkę firmy.
+  `PublicProfile` i tłumaczenia zachowują wymuszone RLS bez zmian;
+- publiczne `GET /api/v1/public/catalog/`, `/dictionary/` i `/<miasto>/<firma>/`
+  — pod tym samym prefiksem `public`, co renderer witryn;
+- słownik miast i kategorii jako kontrakt `packages/contracts/catalog/manifest.json`
+  + `CATALOG_CONTRACTS_PATH` + system check `profiles.E001`;
+- entitlement `profiles.enabled` publikowany do wszystkich planów.
+
+Co warto wiedzieć:
+
+- **slug katalogu jest deklaracją tenanta**, dokładnie jak host w `sites_domain`.
+  Publiczna strona rozwiązuje slug w tabeli katalogu, ustawia tenanta i dopiero
+  wtedy czyta profil pod polityką. Dowód to asercja kolejności zapytań
+  (`catalogue_read < set_local < profile_read`), nie zielony odczyt — baza
+  testowa omija RLS;
+- **dlaczego osobna tabela, a nie otwarte `profiles_publicprofile`**: ta tabela
+  trzyma też profile osób (pracownicy z nazwiskiem, zdjęciem, telefonem).
+  Otwarcie jej zostawiłoby przed wyciekiem sam warunek `WHERE`. Katalog nie
+  filtruje osób — on ich nie zawiera;
+- wycofanie publikacji **kasuje wiersz**, nie ustawia flagi;
+- adres docelowy wpisu nie jest kolumną: `sites_site`, `sites_publication` i
+  `sites_domain` są już publiczne, więc to złączenie. Kolumna zestarzałaby się
+  przy zmianie domeny.
+
+Dowody: `test_profiles_catalog.py` 11/11 i `test_profiles.py` 9/9 na bazie 55432,
+ruff, mypy 423 pliki, `makemigrations --check`, import-linter, `deployment:check --all`,
+`api:check`. Migracja 0003 ma odwrotność (trigger i funkcja wracają do wersji
+bez `site`).
+
+Otwarte:
+- **frontendu nie ma**: ekran „Wizytówka" w panelu i strony `/katalog/...`
+  (trzy układy z `CatalogLayout`) to następny etap;
+- plan `profile` nadal ma `sites.enabled`. ADR-053 §9 mówi, że ma je stracić —
+  to decyzja cenowa i osobna `PlanVersion`, świadomie nie w tym przyroście;
+- publikacja i wycofanie używają akcji audytu `profile.updated` z metadanymi,
+  bo własne akcje wymagają zmiany enuma w `core.organizations`; do zrobienia przy
+  następnym dotknięciu tego enuma;
+- wyszukiwarka to `tsvector` w konfiguracji `simple` — bez stemmingu i bez
+  tolerancji literówek. `unaccent` i `pg_trgm`, gdy katalog będzie na tyle pełny,
+  żeby to bolało;
+- `pages.max` z ADR-032 nadal nie jest egzekwowane nigdzie w repo.
+
+## Site Studio — nowa nawigacja i przyciski, 2026-09-21
+
+Przebudowano edytor: lewy panel (struktura, biblioteka, całe strony, wygląd),
+środkowy canvas i prawy inspektor mają własne przewijanie. Paski zapisu i
+widoku są stale dostępne. Poniżej 1200 px dolna nawigacja przełącza panele.
+Metadane i media są w modalach, z własnymi alertami i blokadą pól w trakcie
+zapisu. Błąd walidacji otwiera inspektor i fokusuje wymagane pole.
+
+CTA w hero/rezerwacji wyglądają jednakowo w podglądzie i publikacji, także
+podczas inline edit. Ciemny motyw panelu nie zmienia kolorów strony.
+Biblioteka: wyszukiwarka, filtry, większe miniatury, podgląd w dialogu.
+Osiem obecnych recept całych stron można zastosować także na istniejącej
+podstronie po potwierdzeniu zastąpienia sekcji. Anulowanie zachowuje dirty draft.
+
+Dowody lokalne: PageEditor 33/33, PageStudio 5/5, biblioteka 8/8 z axe PL/EN,
+renderer/katalog 24/24, tsc/lint/format. Chromium: układ i paski bez overflow
+przy 3440/1440/1280/768/390 px, oba motywy, mobilny focus i modale;
+162 porównania CTA przy 360/1440 px. Artefakty `.runtime/site-studio/redesign-browser/`
+i `.runtime/site-studio/cta-browser/`. API w fixture jest syntetyczne.
+
+Nie wdrażano, nie restartowano i nie synchronizowano produktów; równoległe
+sesje nadal modyfikują wspólne repo. Następny krok: core:update do HoofCare
+i MedPlano oraz uzgodnione wdrożenie i zalogowany odbiór na trzech aplikacjach.
+Dalszy katalog, większe zróżnicowanie recept i znany blueprint/media 403
+pozostają otwarte. Szczegóły: `docs/architecture/site-studio-editor.md`.
+
 ## Kadr tam, gdzie zdjęcie wchodzi w układ, 2026-09-20
 
 Pole obrazu w manifeście bloku niesie proporcję (`BlockFieldDefinition.aspect`:
@@ -35,9 +118,9 @@ hero 32/46.96/72 px. Podgląd 390 px przy oknach 1440 i 422 ma 33.12 px w obu.
 Sześć fontów z polskimi znakami załadowanych lokalnie. Artefakty:
 .runtime/site-studio/font-review/. To fixture renderera, nie zalogowany stack.
 
-Pełne strony: osiem czterosekcyjnych kompozycji, dostępnych tylko na pustej
-podstronie. Rozbudowa ich układów i wybór dla istniejącej treści pozostają
-otwarte. Znana regresja blueprint/media 403 nie jest naprawiona w tym przyroście.
+Pełne strony: osiem czterosekcyjnych kompozycji. W tym przyroście były
+dostępne tylko na pustej podstronie; kolejny przyrost opisany wyżej dodał
+potwierdzony wybór dla istniejącej treści. Rozbudowa ich układów jest otwarta. Znana regresja blueprint/media 403 nie jest naprawiona w tym przyroście.
 Nie wdrażano ani nie restartowano aplikacji. Zmiany trafić mają przez core:update
 do HoofCare i MedPlano, a następnie do wszystkich trzech par backend/frontend.
 

@@ -2544,6 +2544,97 @@ export async function updateFarmAnimal(
   return data;
 }
 
+export type InventoryItem = components["schemas"]["InventoryItem"];
+export type InventoryBalance = components["schemas"]["InventoryBalance"];
+export type InventoryMovement = components["schemas"]["InventoryMovement"];
+
+/** Katalog materiałów firmy; leki są w nim kategorią. */
+export async function listInventoryItems(
+  filters: { category?: string; search?: string } = {},
+): Promise<InventoryItem[]> {
+  const query: { category?: string; q?: string } = {};
+  if (filters.category) query.category = filters.category;
+  if (filters.search) query.q = filters.search;
+  const { data, error, response } = await client.GET(
+    "/api/v1/inventory/items/",
+    {
+      params: { query },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createInventoryItem(
+  input: components["schemas"]["InventoryItemInput"],
+): Promise<InventoryItem> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/inventory/items/",
+    {
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Stany: magazynu firmy, wskazanej osoby albo własne. */
+export async function listInventoryBalances(
+  filters: { holderId?: string; mine?: boolean } = {},
+): Promise<InventoryBalance[]> {
+  const query: { holder_id?: string; mine?: boolean } = {};
+  if (filters.holderId) query.holder_id = filters.holderId;
+  if (filters.mine) query.mine = true;
+  const { data, error, response } = await client.GET(
+    "/api/v1/inventory/balances/",
+    {
+      params: { query },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function receiveInventory(
+  input: components["schemas"]["InventoryReceiptInput"],
+): Promise<InventoryMovement> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/inventory/receipts/",
+    {
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Wydanie pracownikowi: pakiet, z którym wyjeżdża w teren. */
+export async function issueInventory(
+  input: components["schemas"]["InventoryIssueInput"],
+): Promise<InventoryMovement> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/inventory/issues/",
+    {
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export type FarmShare = components["schemas"]["FarmShare"];
 export type FarmTakeover = components["schemas"]["FarmTakeover"];
 

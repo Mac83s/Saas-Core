@@ -4,6 +4,7 @@
 @import "./section-catalog.css";
 @import "./site-fonts.css";
 @import "./site-typography.css";
+@import "./site-studio.css";
 @source "../../../apps/**/*.{ts,tsx}";
 @source "../**/*.{ts,tsx}";
 

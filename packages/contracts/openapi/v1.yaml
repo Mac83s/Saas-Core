@@ -2266,6 +2266,412 @@ paths:
               schema:
                 $ref: '#/components/schemas/Health'
           description: ''
+  /api/v1/inventory/adjustments/:
+    post:
+      operationId: inventory_adjustment_create
+      description: 'Korekta stanu: jedyna droga do poprawki, zawsze z powodem.'
+      tags:
+      - inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryAdjustInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InventoryAdjustInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InventoryAdjustInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryMovement'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/inventory/balances/:
+    get:
+      operationId: inventory_balance_list
+      description: 'Stany: magazynu firmy, wskazanej osoby albo własne (`mine=true`).'
+      parameters:
+      - in: query
+        name: holder_id
+        schema:
+          type: string
+        description: Zapas jednej osoby.
+      - in: query
+        name: mine
+        schema:
+          type: boolean
+        description: Mój zapas na dziś.
+      tags:
+      - inventory
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InventoryBalance'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/inventory/issues/:
+    post:
+      operationId: inventory_issue_create
+      description: Wydanie pracownikowi — pakiet, z którym wyjeżdża w teren.
+      tags:
+      - inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryIssueInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InventoryIssueInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InventoryIssueInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryMovement'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/inventory/items/:
+    get:
+      operationId: inventory_item_list
+      description: Katalog materiałów firmy; leki są w nim kategorią.
+      parameters:
+      - in: query
+        name: category
+        schema:
+          type: string
+        description: Zawęź do kategorii.
+      - in: query
+        name: q
+        schema:
+          type: string
+        description: Szukaj po nazwie.
+      tags:
+      - inventory
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InventoryItem'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: inventory_item_create
+      description: Katalog materiałów firmy; leki są w nim kategorią.
+      tags:
+      - inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryItemInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InventoryItemInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InventoryItemInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryItem'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/inventory/items/{item_id}/:
+    patch:
+      operationId: inventory_item_update
+      parameters:
+      - in: path
+        name: item_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedInventoryItemInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedInventoryItemInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedInventoryItemInput'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryItem'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/inventory/movements/:
+    get:
+      operationId: inventory_movement_list
+      parameters:
+      - in: query
+        name: item_id
+        schema:
+          type: string
+        description: Historia jednej pozycji.
+      tags:
+      - inventory
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InventoryMovement'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/inventory/receipts/:
+    post:
+      operationId: inventory_receipt_create
+      description: Przyjęcie do magazynu firmy, z ceną z faktury.
+      tags:
+      - inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryReceiptInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InventoryReceiptInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InventoryReceiptInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryMovement'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/inventory/returns/:
+    post:
+      operationId: inventory_return_create
+      description: Zwrot niewykorzystanego materiału do magazynu firmy.
+      tags:
+      - inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryIssueInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InventoryIssueInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InventoryIssueInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryMovement'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/invitations/accept/:
     post:
       operationId: api_v1_invitations_accept_create
@@ -3852,6 +4258,134 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/profiles/organization/:
+    get:
+      operationId: api_v1_profiles_organization_retrieve
+      description: |-
+        The company's own business card, plus whether it is in the catalogue.
+
+        GET creates the profile when it does not exist yet (ADR-053 §2), which is
+        why it is a separate endpoint from the generic list: the list must not have
+        a side effect.
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationProfile'
+          description: ''
+  /api/v1/profiles/organization/catalog/:
+    post:
+      operationId: api_v1_profiles_organization_catalog_create
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationProfile'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    delete:
+      operationId: api_v1_profiles_organization_catalog_destroy
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/public/catalog/:
+    get:
+      operationId: catalog_list
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogPage'
+          description: ''
+  /api/v1/public/catalog/{city_slug}/{slug}/:
+    get:
+      operationId: catalog_profile
+      parameters:
+      - in: path
+        name: city_slug
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogProfile'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/public/catalog/dictionary/:
+    get:
+      operationId: catalog_dictionary
+      description: The dictionary the catalogue filters by, for the search form to
+        render.
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogDictionary'
           description: ''
   /api/v1/public/site/:
     get:
@@ -8595,6 +9129,31 @@ components:
       - resources
       - services
       - staff
+    CatalogCategory:
+      type: object
+      properties:
+        key:
+          type: string
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+      - key
+      - labels
+    CatalogCity:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        voivodeship:
+          type: string
+      required:
+      - name
+      - slug
+      - voivodeship
     CatalogCreate:
       type: object
       properties:
@@ -8651,6 +9210,196 @@ components:
         * `staff` - staff
         * `service` - service
         * `resource` - resource
+    CatalogDictionary:
+      type: object
+      properties:
+        cities:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogCity'
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogCategory'
+      required:
+      - categories
+      - cities
+    CatalogItem:
+      type: object
+      description: |-
+        One row of the public listing (ADR-053 §5).
+
+        `url` is always usable: the catalogue page when the company has no reachable
+        site, that site's address when it has one. `is_external` says which, so the
+        client can mark a link that leaves the platform without parsing the address.
+      properties:
+        slug:
+          type: string
+        city_slug:
+          type: string
+        city:
+          type: string
+        category:
+          type: string
+        display_name:
+          type: string
+        headline:
+          type: string
+        photo_id:
+          type:
+          - string
+          - 'null'
+        url:
+          type: string
+        is_external:
+          type: boolean
+      required:
+      - category
+      - city
+      - city_slug
+      - display_name
+      - headline
+      - is_external
+      - photo_id
+      - slug
+      - url
+    CatalogPage:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogItem'
+      required:
+      - items
+      - page
+      - page_size
+      - total
+    CatalogProfile:
+      type: object
+      description: |-
+        One row of the public listing (ADR-053 §5).
+
+        `url` is always usable: the catalogue page when the company has no reachable
+        site, that site's address when it has one. `is_external` says which, so the
+        client can mark a link that leaves the platform without parsing the address.
+      properties:
+        slug:
+          type: string
+        city_slug:
+          type: string
+        city:
+          type: string
+        category:
+          type: string
+        display_name:
+          type: string
+        headline:
+          type: string
+        photo_id:
+          type:
+          - string
+          - 'null'
+        url:
+          type: string
+        is_external:
+          type: boolean
+        layout:
+          type: string
+        voivodeship:
+          type: string
+        bio:
+          type: string
+        contact_email:
+          type: string
+        contact_phone:
+          type: string
+        contact_address:
+          type: string
+        links:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        languages:
+          type: array
+          items:
+            type: string
+        specializations:
+          type: array
+          items:
+            type: string
+        locale:
+          type: string
+      required:
+      - bio
+      - category
+      - city
+      - city_slug
+      - contact_address
+      - contact_email
+      - contact_phone
+      - display_name
+      - headline
+      - is_external
+      - languages
+      - layout
+      - links
+      - locale
+      - photo_id
+      - slug
+      - specializations
+      - url
+      - voivodeship
+    CatalogState:
+      type: object
+      description: Whether this company is in the public catalogue, and under which
+        address.
+      properties:
+        published:
+          type: boolean
+        city_slug:
+          type: string
+        slug:
+          type: string
+        path:
+          type: string
+        site_url:
+          type:
+          - string
+          - 'null'
+        published_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+      required:
+      - city_slug
+      - path
+      - published
+      - published_at
+      - site_url
+      - slug
+    CategoryEnum:
+      enum:
+      - block
+      - dressing
+      - medicine
+      - tool
+      - other
+      type: string
+      description: |-
+        * `block` - Klocek
+        * `dressing` - Opatrunek
+        * `medicine` - Lek
+        * `tool` - Narzędzie
+        * `other` - Inne
     ChangeSetApply:
       type: object
       properties:
@@ -10513,6 +11262,221 @@ components:
       description: |-
         * `ok` - ok
         * `degraded` - degraded
+    InventoryAdjustInput:
+      type: object
+      properties:
+        item_id:
+          type: string
+          format: uuid
+        holder_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        note:
+          type: string
+          maxLength: 240
+      required:
+      - item_id
+      - note
+      - quantity
+    InventoryBalance:
+      type: object
+      description: Ile czego leży w jednym miejscu; `holder_id` puste to magazyn firmy.
+      properties:
+        item_id:
+          type: string
+          format: uuid
+        item_name:
+          type: string
+        category:
+          type: string
+        unit:
+          type: string
+        holder_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        minimum_quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - category
+      - holder_id
+      - item_id
+      - item_name
+      - minimum_quantity
+      - quantity
+      - unit
+      - updated_at
+    InventoryIssueInput:
+      type: object
+      properties:
+        item_id:
+          type: string
+          format: uuid
+        holder_id:
+          type: string
+          format: uuid
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        note:
+          type: string
+          maxLength: 240
+      required:
+      - holder_id
+      - item_id
+      - quantity
+    InventoryItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 120
+        category:
+          $ref: '#/components/schemas/CategoryEnum'
+        unit:
+          $ref: '#/components/schemas/UnitEnum'
+        minimum_quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        average_cost_minor:
+          type: integer
+          readOnly: true
+        currency:
+          type: string
+          readOnly: true
+        active:
+          type: boolean
+        notes:
+          type: string
+      required:
+      - average_cost_minor
+      - category
+      - currency
+      - id
+      - minimum_quantity
+      - name
+      - unit
+    InventoryItemInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        category:
+          $ref: '#/components/schemas/CategoryEnum'
+        unit:
+          $ref: '#/components/schemas/UnitEnum'
+        minimum_quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        active:
+          type: boolean
+        notes:
+          type: string
+      required:
+      - name
+    InventoryMovement:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        item_id:
+          type: string
+          format: uuid
+        item_name:
+          type: string
+        kind:
+          $ref: '#/components/schemas/InventoryMovementKindEnum'
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        holder_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        unit_cost_minor:
+          type: integer
+        source:
+          type: string
+        source_reference:
+          type: string
+        note:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - created_at
+      - holder_id
+      - id
+      - item_id
+      - item_name
+      - kind
+      - note
+      - quantity
+      - source
+      - source_reference
+      - unit_cost_minor
+    InventoryMovementKindEnum:
+      enum:
+      - receipt
+      - issue
+      - return
+      - consumption
+      - adjustment
+      type: string
+      description: |-
+        * `receipt` - Przyjęcie
+        * `issue` - Wydanie pracownikowi
+        * `return` - Zwrot do magazynu
+        * `consumption` - Zużycie przy pracy
+        * `adjustment` - Korekta stanu
+    InventoryReceiptInput:
+      type: object
+      properties:
+        item_id:
+          type: string
+          format: uuid
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        unit_cost_minor:
+          type: integer
+          minimum: 0
+          default: 0
+        note:
+          type: string
+          maxLength: 240
+      required:
+      - item_id
+      - quantity
     InvitationAccept:
       type: object
       properties:
@@ -10563,6 +11527,16 @@ components:
       - id
       - role
       - status
+    LayoutEnum:
+      enum:
+      - card
+      - cover
+      - compact
+      type: string
+      description: |-
+        * `card` - Wizytówka
+        * `cover` - Ze zdjęciem na całą szerokość
+        * `compact` - Zwięzła
     LifecycleResult:
       type: object
       properties:
@@ -10946,6 +11920,16 @@ components:
       required:
       - name
       - slug
+    OrganizationProfile:
+      type: object
+      properties:
+        profile:
+          $ref: '#/components/schemas/ProfileSummary'
+        catalog:
+          $ref: '#/components/schemas/CatalogState'
+      required:
+      - catalog
+      - profile
     OrganizationSummary:
       type: object
       properties:
@@ -11470,6 +12454,24 @@ components:
           type: string
         active:
           type: boolean
+    PatchedInventoryItemInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        category:
+          $ref: '#/components/schemas/CategoryEnum'
+        unit:
+          $ref: '#/components/schemas/UnitEnum'
+        minimum_quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+        active:
+          type: boolean
+        notes:
+          type: string
     PatchedMembershipUpdate:
       type: object
       properties:
@@ -11631,6 +12633,14 @@ components:
             type: string
         locale:
           $ref: '#/components/schemas/LocaleE35Enum'
+        city_slug:
+          type: string
+          maxLength: 80
+        category:
+          type: string
+          maxLength: 64
+        layout:
+          $ref: '#/components/schemas/LayoutEnum'
         subject_kind:
           $ref: '#/components/schemas/SubjectKindEnum'
       required:
@@ -11681,10 +12691,18 @@ components:
             type: string
         locale:
           type: string
+        city_slug:
+          type: string
+        category:
+          type: string
+        layout:
+          type: string
         version:
           type: integer
       required:
       - bio
+      - category
+      - city_slug
       - contact_address
       - contact_email
       - contact_phone
@@ -11692,6 +12710,7 @@ components:
       - headline
       - id
       - languages
+      - layout
       - links
       - locale
       - membership_id
@@ -11783,6 +12802,14 @@ components:
             type: string
         locale:
           $ref: '#/components/schemas/LocaleE35Enum'
+        city_slug:
+          type: string
+          maxLength: 80
+        category:
+          type: string
+          maxLength: 64
+        layout:
+          $ref: '#/components/schemas/LayoutEnum'
         expected_version:
           type: integer
           minimum: 1
@@ -12946,6 +13973,20 @@ components:
       - module_run.finished
       type: string
       description: '* `module_run.finished` - module_run.finished'
+    UnitEnum:
+      enum:
+      - piece
+      - pack
+      - ml
+      - g
+      - m
+      type: string
+      description: |-
+        * `piece` - Sztuka
+        * `pack` - Opakowanie
+        * `ml` - Mililitr
+        * `g` - Gram
+        * `m` - Metr
     UserSummary:
       type: object
       properties:

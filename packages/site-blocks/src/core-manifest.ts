@@ -86,8 +86,9 @@ function HeroBlock({ data, editor, imageRenderer }: BlockComponentProps) {
       ? createElement(
           editor ? "span" : "a",
           {
+            className: "site-section__action",
             href: editor ? undefined : action.href,
-            rel: externalRel(action.href),
+            rel: editor ? undefined : externalRel(action.href),
           },
           text(["action", "label"], action.label),
         )
@@ -368,8 +369,9 @@ function BookingBlock({ data, editor }: BlockComponentProps) {
     createElement(
       editor ? "span" : "a",
       {
+        className: "site-section__action",
         href: editor ? undefined : booking.action.href,
-        rel: externalRel(booking.action.href),
+        rel: editor ? undefined : externalRel(booking.action.href),
       },
       text(["action", "label"], booking.action.label),
     ),

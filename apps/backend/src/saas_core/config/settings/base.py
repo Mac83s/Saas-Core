@@ -241,6 +241,15 @@ CONTENT_OPERATIONS_CONTRACTS_PATH = Path(
         BASE_DIR.parent.parent / "packages" / "contracts" / "content-operations",
     )
 )
+#: ADR-053 §7: the closed city and category dictionary the public catalogue
+#: filters and addresses by. Read from disk at first use, so it needs the same
+#: image-plus-system-check treatment as the other contracts.
+CATALOG_CONTRACTS_PATH = Path(
+    os.environ.get(
+        "CATALOG_CONTRACTS_PATH",
+        BASE_DIR.parent.parent / "packages" / "contracts" / "catalog",
+    )
+)
 #: How long an approval digest stands. Long enough for a person to look at the
 #: diff and decide, short enough that an approval cannot be banked and spent
 #: against a site that has moved on since.

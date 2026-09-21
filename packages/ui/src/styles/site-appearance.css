@@ -26,6 +26,33 @@
 .site-theme.site-font--verdana {
   font-family: Verdana, Geneva, sans-serif;
 }
+/* An editor action wraps inline text in a span to prevent navigation. Its
+   appearance must match the publication's link, independent of that tag. */
+.site-theme .site-section__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: start;
+  width: fit-content;
+  min-height: 2.75rem;
+  max-width: 100%;
+  border: 2px solid transparent;
+  border-radius: var(--site-radius, 0.5rem);
+  background: var(--site-accent);
+  padding: 0.75rem 1.25rem;
+  color: white;
+  font-size: clamp(0.9375rem, 0.9rem + 0.2cqw, 1.0625rem);
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.site-theme a.site-section__action:focus-visible {
+  outline: 3px solid currentColor;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 6px var(--site-accent);
+}
 .site-appearance.site-theme--radius-none {
   --site-radius: 0;
 }

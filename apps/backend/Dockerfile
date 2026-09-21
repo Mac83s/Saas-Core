@@ -31,6 +31,7 @@ COPY apps/backend/src ./src
 COPY packages/contracts/site-blocks ./contracts/site-blocks
 COPY packages/contracts/page-templates ./contracts/page-templates
 COPY packages/contracts/content-operations ./contracts/content-operations
+COPY packages/contracts/catalog ./contracts/catalog
 # The catalog the profile composes from: without it the process cannot say
 # which modules it is made of, so it refuses to start rather than guess.
 COPY packages/contracts/modules ./contracts/modules
@@ -56,6 +57,7 @@ ENV DJANGO_SETTINGS_MODULE=saas_core.config.settings.container \
     SITE_BLOCK_CONTRACTS_PATH=/app/contracts/site-blocks \
     PAGE_TEMPLATE_CONTRACTS_PATH=/app/contracts/page-templates \
     CONTENT_OPERATIONS_CONTRACTS_PATH=/app/contracts/content-operations \
+    CATALOG_CONTRACTS_PATH=/app/contracts/catalog \
     MODULE_CATALOG_PATH=/app/contracts/modules \
     MODULE_ARTIFACT_PATH=/app/module-artifact.json \
     PATH=/opt/venv/bin:$PATH \

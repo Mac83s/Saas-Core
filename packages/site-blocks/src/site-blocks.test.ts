@@ -1,3 +1,4 @@
+import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
@@ -7,6 +8,7 @@ import {
   availablePageTemplates,
   coreSiteBlockManifest,
   corePageTemplates,
+  coreSectionTemplates,
   createSiteBlockRegistry,
   defineSiteBlockManifest,
   InvalidBlockDataError,
@@ -15,11 +17,13 @@ import {
   pageTemplateBlocks,
   renderDraftPreview,
   renderPublishedPage,
+  sectionTemplateBlock,
   UnknownBlockTypeError,
   UnknownBlockVersionError,
   type DesignTokensV1,
   type JsonObject,
   type PublishedPageDocument,
+  type SiteBlock,
 } from "./index";
 
 const tokens: DesignTokensV1 = {
@@ -318,6 +322,69 @@ describe("page templates", () => {
 });
 
 describe("allowlisted renderer", () => {
+  it("uses the same CTA styling in publications and editable hero/booking previews", () => {
+    const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
+    const cta =
+      /<(a|span)\b(?=[^>]*\bclass="site-section__action")([^>]*)>([\s\S]*?)<\/\1>/;
+    for (const locale of ["pl", "en"] as const) {
+      const blocks: SiteBlock[] = [
+        ...coreSectionTemplates()
+          .filter((template) => template.blockType === "core.hero")
+          .map((template) => sectionTemplateBlock(template, locale, registry)),
+        {
+          block_type: "core.hero",
+          schema_version: 2,
+          data: {
+            title: "Legacy hero",
+            action: { label: "Book & visit", href: "/booking/" },
+          },
+        },
+        {
+          block_type: "core.booking",
+          schema_version: 1,
+          data: {
+            title: locale === "pl" ? "Zarezerwuj termin" : "Book a visit",
+            action: {
+              label: locale === "pl" ? "Umów wizytę" : "Book a visit",
+              href: "https://example.com/booking/",
+            },
+          },
+        },
+      ];
+      for (const block of blocks) {
+        const original = structuredClone(block);
+        const published = renderToStaticMarkup(
+          registry.render(block, "public"),
+        );
+        const editable = renderToStaticMarkup(
+          registry.render(block, "editor", {
+            text: (path, value) =>
+              createElement(
+                "button",
+                { type: "button", "data-edit-path": path.join(".") },
+                value,
+              ),
+          }),
+        );
+        const publicAction = published.match(cta);
+        const editorAction = editable.match(cta);
+        expect(
+          publicAction,
+          `${block.block_type} ${block.data.layout}`,
+        ).not.toBeNull();
+        expect(editorAction).not.toBeNull();
+        expect(publicAction?.[1]).toBe("a");
+        expect(publicAction?.[2]).toContain("href=");
+        expect(editorAction?.[1]).toBe("span");
+        expect(editorAction?.[2]).not.toMatch(/\b(?:href|rel|role|tabindex)=/);
+        expect(editorAction?.[3]).toBe(
+          `<button type="button" data-edit-path="action.label">${publicAction?.[3]}</button>`,
+        );
+        expect(block).toEqual(original);
+      }
+    }
+  });
+
   it("escapes hostile text and never interprets data as HTML, JS or CSS", () => {
     const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
     const markup = renderToStaticMarkup(

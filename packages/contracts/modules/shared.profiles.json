@@ -2,18 +2,18 @@
   "id": "shared.profiles",
   "layer": "shared",
   "version": 1,
-  "dependsOn": ["core.organizations", "shared.media"],
+  "dependsOn": ["core.organizations", "shared.media", "shared.sites"],
   "backend": {
     "djangoApp": "saas_core.modules.shared.profiles",
     "urlPrefix": "/api/v1/profiles",
     "permissions": ["profiles.manage"],
-    "entitlements": [],
+    "entitlements": ["profiles.enabled"],
     "eventSchemas": [],
-    "publicTables": [],
+    "publicTables": ["profiles_catalogentry"],
     "platformTables": []
   },
   "frontend": {
-    "routes": ["/profiles"],
+    "routes": ["/profiles", "/katalog"],
     "navigation": ["profiles"],
     "translationNamespaces": ["profiles"]
   }

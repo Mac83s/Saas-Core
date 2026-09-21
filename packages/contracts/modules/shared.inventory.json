@@ -1,0 +1,27 @@
+{
+  "id": "shared.inventory",
+  "layer": "shared",
+  "version": 1,
+  "dependsOn": ["core.identity", "core.organizations", "shared.billing"],
+  "backend": {
+    "djangoApp": "saas_core.modules.shared.inventory",
+    "urlPrefix": "/api/v1/inventory",
+    "permissions": ["inventory.read", "inventory.manage"],
+    "roleGrants": {
+      "viewer": ["inventory.read"],
+      "staff": ["inventory.read"],
+      "manager": ["inventory.read", "inventory.manage"],
+      "admin": ["inventory.read", "inventory.manage"],
+      "owner": ["inventory.read", "inventory.manage"]
+    },
+    "entitlements": ["inventory.enabled"],
+    "eventSchemas": [],
+    "publicTables": [],
+    "platformTables": []
+  },
+  "frontend": {
+    "routes": ["/panel/inventory"],
+    "navigation": ["inventory"],
+    "translationNamespaces": ["Inventory"]
+  }
+}

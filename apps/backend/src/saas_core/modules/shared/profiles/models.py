@@ -12,6 +12,8 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
+from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.search import SearchVectorField
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -26,6 +28,15 @@ LOCALE_CHOICES = [("pl", "Polski"), ("en", "English")]
 class ProfileSubjectKind(models.TextChoices):
     ORGANIZATION = "organization", "Organizacja"
     PERSON = "person", "Osoba"
+
+
+#: How the public catalogue page lays the record out (ADR-053 §6). A closed
+#: list, not a recipe: the catalogue renders a record, so the choice is a
+#: layout and never a set of blocks.
+class CatalogLayout(models.TextChoices):
+    CARD = "card", "Wizytówka"
+    COVER = "cover", "Ze zdjęciem na całą szerokość"
+    COMPACT = "compact", "Zwięzła"
 
 
 def _validate_links(value: Any) -> list[dict[str, str]]:
@@ -90,6 +101,15 @@ class PublicProfile(TenantScopedModel):
     languages = models.JSONField(default=list, blank=True)
     specializations = models.JSONField(default=list, blank=True)
     locale = models.CharField(max_length=10, choices=LOCALE_CHOICES, default="pl")
+    # Where the catalogue files this company and how its page looks. Kept on
+    # the editable record rather than only on the catalogue row, because they
+    # are edited long before anybody publishes, and a draft has to remember
+    # them. Both are validated against the contract in the service.
+    city_slug = models.SlugField(max_length=80, blank=True)
+    category = models.SlugField(max_length=64, blank=True)
+    layout = models.CharField(
+        max_length=16, choices=CatalogLayout.choices, default=CatalogLayout.CARD
+    )
     version = models.PositiveBigIntegerField(default=1)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -173,3 +193,81 @@ class PublicProfileTranslation(TenantScopedModel):
         super().clean()
         if "<" in self.bio or "<" in self.headline:
             raise ValidationError({"bio": "Opis nie może zawierać znaczników HTML."})
+
+
+class CatalogEntry(TenantScopedModel):
+    """One published company profile, as the public catalogue sees it.
+
+    ADR-053 §4. This table is declared in `publicTables` and carries **no RLS
+    policy**, exactly like `sites_domain`: a catalogue slug is a declaration of
+    which tenant is being asked for, the same way a hostname is for the site
+    renderer. The public path resolves the slug here, then sets that tenant and
+    reads the profile itself under policy.
+
+    Which is why the row is a copy and not a view. `profiles_publicprofile` also
+    holds **people** — employees with a name, a photo and a phone number — so
+    opening it would leave a `WHERE` clause as the only thing between every
+    tenant's staff and the internet. This table does not filter people out; it
+    never contains them.
+
+    The row exists if and only if the profile is published. Withdrawing deletes
+    it, because an absent row is cheaper to prove than a satisfied condition.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    profile = models.OneToOneField(
+        "PublicProfile",
+        on_delete=models.CASCADE,
+        related_name="catalog_entry",
+    )
+    slug = models.SlugField(max_length=120)
+    city_slug = models.SlugField(max_length=80)
+    city = models.CharField(max_length=120)
+    category = models.SlugField(max_length=64)
+    # Denormalised on purpose: the listing renders without touching a single
+    # tenant table, so one page of results is one query against one table.
+    display_name = models.CharField(max_length=160)
+    headline = models.CharField(max_length=200, blank=True)
+    photo = models.ForeignKey(
+        "media.MediaAsset",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="catalog_entries",
+    )
+    # Where the entry leads. Empty means the platform's own catalogue page; set
+    # means that site's address, resolved by joining the site tables — which are
+    # already public — rather than copied here, because a copied address goes
+    # stale on the next domain change and a join cannot.
+    site = models.ForeignKey(
+        "sites.Site",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="catalog_entries",
+    )
+    published_at = models.DateTimeField()
+    search = SearchVectorField(null=True, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("city_slug", "display_name", "id")
+        constraints = [
+            # Cross-tenant by definition, and that is the point: the pair is a
+            # public URL. A table under RLS could not hold this constraint
+            # meaningfully, which is a second reason the catalogue is its own.
+            models.UniqueConstraint(
+                fields=["city_slug", "slug"],
+                name="profiles_catalog_city_slug_uq",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["city_slug", "category"], name="profiles_catalog_filter_idx"),
+            GinIndex(fields=["search"], name="profiles_catalog_search_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.city_slug}/{self.slug}"

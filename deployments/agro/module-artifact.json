@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:984d8298dbfa11356d4e9c52e4e36325bb9821e5aa9f48deeafff0afacea13af",
+  "profileHash": "sha256:8528e52fbbde569f71af4237c44127243e0fa7213ca83f86e57ffa61ad9d161a",
   "schemaVersion": 1,
   "deployment": "agro",
   "product": {
@@ -31,7 +31,8 @@
         "shared.notifications",
         "shared.booking",
         "shared.seo",
-        "shared.farms"
+        "shared.farms",
+        "shared.inventory"
       ],
       "planKeys": [
         "profile",
@@ -246,7 +247,8 @@
       "layer": "shared",
       "dependsOn": [
         "core.organizations",
-        "shared.media"
+        "shared.media",
+        "shared.sites"
       ],
       "backend": {
         "djangoApp": "saas_core.modules.shared.profiles",
@@ -254,14 +256,19 @@
         "permissions": [
           "profiles.manage"
         ],
-        "entitlements": [],
+        "entitlements": [
+          "profiles.enabled"
+        ],
         "eventSchemas": [],
-        "publicTables": [],
+        "publicTables": [
+          "profiles_catalogentry"
+        ],
         "platformTables": []
       },
       "frontend": {
         "routes": [
-          "/profiles"
+          "/profiles",
+          "/katalog"
         ],
         "navigation": [
           "profiles"
@@ -444,6 +451,61 @@
         ],
         "translationNamespaces": [
           "Farms"
+        ]
+      }
+    },
+    {
+      "id": "shared.inventory",
+      "version": 1,
+      "layer": "shared",
+      "dependsOn": [
+        "core.identity",
+        "core.organizations",
+        "shared.billing"
+      ],
+      "backend": {
+        "djangoApp": "saas_core.modules.shared.inventory",
+        "urlPrefix": "/api/v1/inventory",
+        "permissions": [
+          "inventory.read",
+          "inventory.manage"
+        ],
+        "roleGrants": {
+          "viewer": [
+            "inventory.read"
+          ],
+          "staff": [
+            "inventory.read"
+          ],
+          "manager": [
+            "inventory.read",
+            "inventory.manage"
+          ],
+          "admin": [
+            "inventory.read",
+            "inventory.manage"
+          ],
+          "owner": [
+            "inventory.read",
+            "inventory.manage"
+          ]
+        },
+        "entitlements": [
+          "inventory.enabled"
+        ],
+        "eventSchemas": [],
+        "publicTables": [],
+        "platformTables": []
+      },
+      "frontend": {
+        "routes": [
+          "/panel/inventory"
+        ],
+        "navigation": [
+          "inventory"
+        ],
+        "translationNamespaces": [
+          "Inventory"
         ]
       }
     }

@@ -2,7 +2,7 @@ from typing import Any
 
 from rest_framework import serializers
 
-from .models import LOCALE_CHOICES, ProfileSubjectKind
+from .models import LOCALE_CHOICES, CatalogLayout, ProfileSubjectKind
 
 
 class ProfileWriteSerializer(serializers.Serializer[dict[str, Any]]):
@@ -18,6 +18,9 @@ class ProfileWriteSerializer(serializers.Serializer[dict[str, Any]]):
     languages = serializers.ListField(child=serializers.CharField(), required=False)
     specializations = serializers.ListField(child=serializers.CharField(), required=False)
     locale = serializers.ChoiceField(choices=LOCALE_CHOICES, required=False)
+    city_slug = serializers.CharField(max_length=80, allow_blank=True, required=False)
+    category = serializers.CharField(max_length=64, allow_blank=True, required=False)
+    layout = serializers.ChoiceField(choices=CatalogLayout.choices, required=False)
 
 
 class ProfileCreateSerializer(ProfileWriteSerializer):
@@ -62,4 +65,80 @@ class ProfileSummarySerializer(serializers.Serializer[dict[str, Any]]):
     languages = serializers.ListField(child=serializers.CharField())
     specializations = serializers.ListField(child=serializers.CharField())
     locale = serializers.CharField()
+    city_slug = serializers.CharField()
+    category = serializers.CharField()
+    layout = serializers.CharField()
     version = serializers.IntegerField()
+
+
+class CatalogStateSerializer(serializers.Serializer[dict[str, Any]]):
+    """Whether this company is in the public catalogue, and under which address."""
+
+    published = serializers.BooleanField()
+    city_slug = serializers.CharField(allow_blank=True)
+    slug = serializers.CharField(allow_blank=True)
+    path = serializers.CharField(allow_blank=True)
+    site_url = serializers.CharField(allow_blank=True, allow_null=True)
+    published_at = serializers.DateTimeField(allow_null=True)
+
+
+class OrganizationProfileSerializer(serializers.Serializer[dict[str, Any]]):
+    profile = ProfileSummarySerializer()
+    catalog = CatalogStateSerializer()
+
+
+class CatalogItemSerializer(serializers.Serializer[dict[str, Any]]):
+    """One row of the public listing (ADR-053 §5).
+
+    `url` is always usable: the catalogue page when the company has no reachable
+    site, that site's address when it has one. `is_external` says which, so the
+    client can mark a link that leaves the platform without parsing the address.
+    """
+
+    slug = serializers.CharField()
+    city_slug = serializers.CharField()
+    city = serializers.CharField()
+    category = serializers.CharField()
+    display_name = serializers.CharField()
+    headline = serializers.CharField(allow_blank=True)
+    photo_id = serializers.CharField(allow_null=True)
+    url = serializers.CharField()
+    is_external = serializers.BooleanField()
+
+
+class CatalogPageSerializer(serializers.Serializer[dict[str, Any]]):
+    total = serializers.IntegerField()
+    page = serializers.IntegerField()
+    page_size = serializers.IntegerField()
+    items = CatalogItemSerializer(many=True)
+
+
+class CatalogProfileSerializer(CatalogItemSerializer):
+    layout = serializers.CharField()
+    voivodeship = serializers.CharField(allow_blank=True)
+    bio = serializers.CharField(allow_blank=True)
+    contact_email = serializers.CharField(allow_blank=True)
+    contact_phone = serializers.CharField(allow_blank=True)
+    contact_address = serializers.CharField(allow_blank=True)
+    links = serializers.ListField(child=serializers.DictField())
+    languages = serializers.ListField(child=serializers.CharField())
+    specializations = serializers.ListField(child=serializers.CharField())
+    locale = serializers.CharField()
+
+
+class CatalogCitySerializer(serializers.Serializer[dict[str, Any]]):
+    slug = serializers.CharField()
+    name = serializers.CharField()
+    voivodeship = serializers.CharField()
+
+
+class CatalogCategorySerializer(serializers.Serializer[dict[str, Any]]):
+    key = serializers.CharField()
+    # `labels`, not `label`: DRF's Field already owns `label` as the human name
+    # of a field, so a serializer attribute of that name collides with it.
+    labels = serializers.DictField(child=serializers.CharField())
+
+
+class CatalogDictionarySerializer(serializers.Serializer[dict[str, Any]]):
+    cities = CatalogCitySerializer(many=True)
+    categories = CatalogCategorySerializer(many=True)

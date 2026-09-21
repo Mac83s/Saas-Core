@@ -28,6 +28,7 @@ from saas_core.modules.core.organizations.models import (
 from saas_core.modules.core.organizations.permissions import ORGANIZATION_READ
 from saas_core.modules.shared.media.models import MediaAsset
 
+from .catalog import validate_placement
 from .models import ProfileSubjectKind, PublicProfile, PublicProfileTranslation
 from .permissions import PROFILES_MANAGE
 
@@ -42,6 +43,9 @@ EDITABLE_FIELDS = (
     "languages",
     "specializations",
     "locale",
+    "city_slug",
+    "category",
+    "layout",
 )
 
 
@@ -62,6 +66,67 @@ def _validated(profile: PublicProfile | PublicProfileTranslation) -> None:
         profile.full_clean(exclude=["organization"], validate_unique=False)
     except DjangoValidationError as error:
         raise ValidationError(error.message_dict) from error
+
+
+def _validated_placement(profile: PublicProfile, organization_id: Any) -> None:
+    """City and category must be dictionary values (ADR-053 §7).
+
+    Checked on every write rather than only on publication: a draft carrying a
+    city that no longer exists in the contract would fail at the one moment the
+    owner least expects it.
+    """
+    organization = Organization.objects.filter(pk=organization_id).first()
+    validate_placement(
+        city_slug=profile.city_slug,
+        category=profile.category,
+        organization_type=organization.organization_type if organization else "",
+    )
+
+
+def organization_profile() -> PublicProfile:
+    """The company's own profile, created on first read.
+
+    ADR-053 §2: the business card always exists from the point of view of
+    anybody who reads it, but `core.organizations` cannot create it — Core does
+    not import Shared. So the panel's first read is what brings it into being,
+    named after the organization and otherwise empty. Empty is not published;
+    publication is a separate, deliberate act (§3).
+    """
+    context = authorize(PROFILES_MANAGE)
+    profile = (
+        _for_tenant(context.organization_id)
+        .select_related("photo")
+        .filter(subject_kind=ProfileSubjectKind.ORGANIZATION)
+        .first()
+    )
+    if profile is not None:
+        return profile
+
+    organization = Organization.objects.get(pk=context.organization_id)
+    with transaction.atomic():
+        profile = PublicProfile(
+            organization_id=context.organization_id,
+            subject_kind=ProfileSubjectKind.ORGANIZATION,
+            display_name=organization.name[:160],
+            locale=organization.default_locale,
+        )
+        try:
+            profile.save()
+        except IntegrityError:
+            # Two tabs opened the screen at once; the partial unique index made
+            # one of them lose, and the winner's row is the answer.
+            return _for_tenant(context.organization_id).get(
+                subject_kind=ProfileSubjectKind.ORGANIZATION
+            )
+    record_audit(
+        organization=organization,
+        action=OrganizationAuditAction.PROFILE_CREATED,
+        actor=User.objects.filter(pk=context.actor_id).first(),
+        target_type="public_profile",
+        target_id=profile.id,
+        metadata={"subject_kind": ProfileSubjectKind.ORGANIZATION.value, "origin": "lazy"},
+    )
+    return profile
 
 
 def _resolve_photo(photo_id: UUID | None) -> MediaAsset | None:
@@ -112,10 +177,7 @@ def list_profiles() -> list[PublicProfile]:
 def get_profile(profile_id: UUID) -> PublicProfile:
     context = authorize(ORGANIZATION_READ)
     profile = (
-        _for_tenant(context.organization_id)
-        .select_related("photo")
-        .filter(pk=profile_id)
-        .first()
+        _for_tenant(context.organization_id).select_related("photo").filter(pk=profile_id).first()
     )
     if profile is None:
         raise NotFound
@@ -138,6 +200,7 @@ def create_profile(*, subject_kind: str, **values: Any) -> PublicProfile:
         **{field: values[field] for field in EDITABLE_FIELDS if field in values},
     )
     _validated(profile)
+    _validated_placement(profile, context.organization_id)
     try:
         profile.save()
     except IntegrityError as error:
@@ -158,9 +221,7 @@ def create_profile(*, subject_kind: str, **values: Any) -> PublicProfile:
 @transaction.atomic
 def update_profile(profile_id: UUID, *, expected_version: int, **values: Any) -> PublicProfile:
     context = authorize(PROFILES_MANAGE)
-    profile = (
-        _for_tenant(context.organization_id).select_for_update().filter(pk=profile_id).first()
-    )
+    profile = _for_tenant(context.organization_id).select_for_update().filter(pk=profile_id).first()
     if profile is None:
         raise NotFound
     if profile.version != expected_version:
@@ -178,6 +239,7 @@ def update_profile(profile_id: UUID, *, expected_version: int, **values: Any) ->
             setattr(profile, field, values[field])
     profile.version += 1
     _validated(profile)
+    _validated_placement(profile, context.organization_id)
     profile.save()
 
     record_audit(
