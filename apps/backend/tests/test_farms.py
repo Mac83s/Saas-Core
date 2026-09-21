@@ -16,8 +16,9 @@ from uuid import UUID
 
 import pytest
 from django.conf import settings
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 from django.utils import timezone
+from psycopg import sql
 from rest_framework.exceptions import NotFound, ValidationError
 
 from saas_core.modules.core.identity.models import User, UserStatus
@@ -95,6 +96,33 @@ def tenant(member: Membership) -> Any:
     with transaction.atomic(), activate_tenant_context(context):
         set_local_organization_id(context.organization_id)
         yield SimpleNamespace(user=member.user)
+
+
+def link_for_schedule(
+    company: Membership, farmer: Membership, registry_farm_id: UUID, *, schedule: bool = True
+) -> Any:
+    """Karta firmy połączona z gospodarstwem rolnika, ze zgodą na grafik lub bez.
+
+    Łączy obsługa, nie kod aktywacyjny: kod zakłada rolnikowi nowe gospodarstwo,
+    a tutaj dwie firmy mają trafić do tego samego. Zgodę ustawia wprost na
+    wierszu, bo żaden przypadek użycia jej dziś nie przełącza.
+    """
+    from saas_core.modules.shared.farms.models import FarmShare  # noqa: PLC0415
+    from saas_core.modules.shared.farms.services import create_farm  # noqa: PLC0415
+    from saas_core.modules.shared.farms.sharing import link_without_code  # noqa: PLC0415
+
+    with tenant(company) as request:
+        card = create_farm(request=request, data={"name": "Karta gospodarstwa"})
+    share = link_without_code(
+        operator_id=company.user_id,
+        company_organization_id=company.organization_id,
+        company_farm_id=card.id,
+        registry_organization_id=farmer.organization_id,
+        registry_farm_id=registry_farm_id,
+    )
+    FarmShare.objects.filter(pk=share.pk).update(can_publish_schedule=schedule)
+    share.can_publish_schedule = schedule
+    return card, share
 
 
 def test_the_register_is_granted_to_core_roles() -> None:
@@ -953,3 +981,315 @@ def test_a_photo_stays_with_its_author_and_is_read_through_the_entry() -> None:
     ):
         # Cofnięty udział zamyka też zdjęcia — bez sprzątania plików.
         read_entry_photo(entry_id=entry.id, media_id=photo_id)
+
+
+def test_a_visit_reaches_the_register_only_after_the_second_consent() -> None:
+    """ADR-052 pkt 4: rolnik zgadzał się na wpisy zdrowotne, nie na grafik firmy."""
+    from saas_core.modules.shared.farms.herd_sync import (  # noqa: PLC0415
+        list_farm_visits,
+        publish_farm_visit,
+    )
+    from saas_core.modules.shared.farms.models import FarmShare, VisitStatus  # noqa: PLC0415
+    from saas_core.modules.shared.farms.services import create_farm  # noqa: PLC0415
+
+    company = membership("firma-wizyty")
+    farmer = membership("rolnik-wizyty")
+    with tenant(farmer) as request:
+        farm = create_farm(request=request, data={"name": "Gospodarstwo Wizyty"})
+    with tenant(company) as request:
+        lonely = create_farm(request=request, data={"name": "Karta bez rolnika"})
+
+    visit: dict[str, Any] = {
+        "source": "hoofcare.visit",
+        "reference": "wizyta-1",
+        "status": VisitStatus.PLANNED,
+        "scheduled_for": timezone.now(),
+        "summary": "Korekcja, wtorek rano.",
+    }
+    with tenant(company):
+        # Karta, której nikt nie przejął, to zwykły przypadek, nie błąd.
+        assert (
+            publish_farm_visit(
+                company_organization_id=company.organization_id,
+                company_farm_id=lonely.id,
+                **visit,
+            )
+            is None
+        )
+
+    card, share = link_for_schedule(company, farmer, farm.id, schedule=False)
+    assert share.can_publish_health is True
+    with tenant(company):
+        # Zgoda na kartotekę zwierząt nie otwiera grafiku: to osobna decyzja.
+        assert (
+            publish_farm_visit(
+                company_organization_id=company.organization_id,
+                company_farm_id=card.id,
+                **visit,
+            )
+            is None
+        )
+
+    FarmShare.objects.filter(pk=share.pk).update(can_publish_schedule=True)
+    with tenant(company):
+        entry = publish_farm_visit(
+            company_organization_id=company.organization_id,
+            company_farm_id=card.id,
+            **visit,
+        )
+    assert entry is not None
+    # Wiersz istnieje wyłącznie u rolnika i wskazuje jego gospodarstwo, nie kartę
+    # firmy — kopia po stronie firmy byłaby drugim źródłem prawdy (ADR-052 pkt 2).
+    assert entry.organization_id == farmer.organization_id
+    assert entry.farm_id == share.registry_farm_id == farm.id
+    assert entry.farm_id != card.id
+    assert (entry.company_organization_id, entry.company_name) == (
+        company.organization_id,
+        "firma-wizyty",
+    )
+    with tenant(farmer):
+        assert [item.id for item in list_farm_visits(farm.id)] == [entry.id]
+
+
+def test_the_same_visit_is_one_row_from_planned_through_done_to_canceled() -> None:
+    """ADR-052 pkt 8: odwołanie jest faktem, który hodowca ma prawo pamiętać,
+    a nie zdarzeniem do wymazania — kartoteka wizyt jest księgą, nie listą."""
+    from datetime import date, timedelta  # noqa: PLC0415
+
+    from saas_core.modules.shared.farms.herd_sync import (  # noqa: PLC0415
+        list_farm_visits,
+        publish_farm_visit,
+    )
+    from saas_core.modules.shared.farms.models import VisitStatus  # noqa: PLC0415
+    from saas_core.modules.shared.farms.services import create_farm  # noqa: PLC0415
+
+    company = membership("firma-jeden-wiersz")
+    farmer = membership("rolnik-jeden-wiersz")
+    with tenant(farmer) as request:
+        farm = create_farm(request=request, data={"name": "Gospodarstwo Jeden Wiersz"})
+    card, _ = link_for_schedule(company, farmer, farm.id)
+
+    same = {
+        "company_organization_id": company.organization_id,
+        "company_farm_id": card.id,
+        "source": "hoofcare.visit",
+        "reference": "wizyta-7",
+    }
+    with tenant(company):
+        planned = publish_farm_visit(
+            **same,
+            status=VisitStatus.PLANNED,
+            scheduled_for=timezone.now() + timedelta(days=3),
+            summary="Umówiona na wtorek.",
+        )
+        done = publish_farm_visit(
+            **same,
+            status=VisitStatus.DONE,
+            occurred_on=date(2026, 9, 21),
+            summary="Skorygowano 12 sztuk.",
+        )
+        canceled = publish_farm_visit(
+            **same, status=VisitStatus.CANCELED, summary="Odwołana, choroba."
+        )
+    assert planned is not None and done is not None and canceled is not None
+    # Ten sam numer wizyty poprawia wiersz, zamiast dokładać drugi.
+    assert planned.id == done.id == canceled.id
+    assert (done.status, done.occurred_on) == (VisitStatus.DONE, date(2026, 9, 21))
+
+    with tenant(farmer):
+        (only,) = list_farm_visits(farm.id)
+    assert (only.id, only.status, only.summary) == (
+        planned.id,
+        VisitStatus.CANCELED,
+        "Odwołana, choroba.",
+    )
+
+
+def test_two_companies_in_one_farm_do_not_overwrite_each_other() -> None:
+    """ADR-052 pkt 3: numery wizyt są lokalne dla firmy, więc bez firmy w kluczu
+    unikalności druga z nich nadpisałaby wizytę pierwszej przez update_or_create."""
+    from saas_core.modules.shared.farms.herd_sync import (  # noqa: PLC0415
+        list_farm_visits,
+        publish_farm_visit,
+    )
+    from saas_core.modules.shared.farms.models import VisitStatus  # noqa: PLC0415
+    from saas_core.modules.shared.farms.services import create_farm  # noqa: PLC0415
+
+    first = membership("firma-pierwsza")
+    second = membership("firma-druga")
+    farmer = membership("rolnik-dwie-firmy")
+    with tenant(farmer) as request:
+        farm = create_farm(request=request, data={"name": "Gospodarstwo Dwie Firmy"})
+    first_card, _ = link_for_schedule(first, farmer, farm.id)
+    second_card, _ = link_for_schedule(second, farmer, farm.id)
+
+    visit: dict[str, Any] = {
+        "source": "hoofcare.visit",
+        "reference": "wizyta-1",
+        "status": VisitStatus.PLANNED,
+        "scheduled_for": timezone.now(),
+    }
+    with tenant(first):
+        publish_farm_visit(
+            company_organization_id=first.organization_id,
+            company_farm_id=first_card.id,
+            summary="Korekcja u pierwszej.",
+            **visit,
+        )
+    with tenant(second):
+        publish_farm_visit(
+            company_organization_id=second.organization_id,
+            company_farm_id=second_card.id,
+            summary="Badanie u drugiej.",
+            **visit,
+        )
+
+    with tenant(farmer):
+        visits = list_farm_visits(farm.id)
+    assert sorted(item.summary for item in visits) == [
+        "Badanie u drugiej.",
+        "Korekcja u pierwszej.",
+    ]
+    assert {item.company_organization_id for item in visits} == {
+        first.organization_id,
+        second.organization_id,
+    }
+
+
+def test_a_revoked_share_hides_the_planned_visit_but_keeps_the_history() -> None:
+    """ADR-052 pkt 9: po cofnięciu drzwi są zamknięte i nikt już nie przestawi
+    statusu, więc wizyta, która się nie odbędzie, wisiałaby w przyszłości bez
+    końca. Historia zostaje — ona nie zależy od dzisiejszej zgody."""
+    from saas_core.modules.shared.farms.herd_sync import (  # noqa: PLC0415
+        list_farm_visits,
+        publish_farm_visit,
+    )
+    from saas_core.modules.shared.farms.models import (  # noqa: PLC0415
+        FarmVisitEntry,
+        VisitStatus,
+    )
+    from saas_core.modules.shared.farms.services import create_farm  # noqa: PLC0415
+    from saas_core.modules.shared.farms.sharing import revoke_share  # noqa: PLC0415
+
+    company = membership("firma-cofnieta")
+    farmer = membership("rolnik-cofniety")
+    with tenant(farmer) as request:
+        farm = create_farm(request=request, data={"name": "Gospodarstwo Cofnięte"})
+    card, share = link_for_schedule(company, farmer, farm.id)
+
+    with tenant(company):
+        for reference, status, summary in (
+            ("wizyta-przyszla", VisitStatus.PLANNED, "Umówiona na przyszły tydzień."),
+            ("wizyta-odbyta", VisitStatus.DONE, "Skorygowano 12 sztuk."),
+            ("wizyta-odwolana", VisitStatus.CANCELED, "Odwołana, choroba."),
+        ):
+            publish_farm_visit(
+                company_organization_id=company.organization_id,
+                company_farm_id=card.id,
+                source="hoofcare.visit",
+                reference=reference,
+                status=status,
+                summary=summary,
+            )
+
+    with tenant(farmer) as request:
+        assert len(list_farm_visits(farm.id)) == 3
+        revoke_share(request=request, share_id=share.id)
+        assert sorted(item.status for item in list_farm_visits(farm.id)) == [
+            VisitStatus.CANCELED,
+            VisitStatus.DONE,
+        ]
+    # Ukrycie przy odczycie, nie zapis korygujący: wiersz stoi tam, gdzie stał.
+    assert (
+        FarmVisitEntry.all_objects.filter(
+            organization_id=farmer.organization_id, status=VisitStatus.PLANNED
+        ).count()
+        == 1
+    )
+
+
+def test_a_visit_pointing_at_another_organizations_farm_is_refused() -> None:
+    """Klucz obcy mówi, że gospodarstwo istnieje, nie czyje jest — a wiersz
+    wizyty pisze gość wpuszczony drzwiami rejestru."""
+    from saas_core.modules.shared.farms.models import (  # noqa: PLC0415
+        FarmVisitEntry,
+        VisitStatus,
+    )
+    from saas_core.modules.shared.farms.services import create_farm  # noqa: PLC0415
+
+    first = membership("rejestr-wizyt-a")
+    second = membership("rejestr-wizyt-b")
+    with tenant(first) as request:
+        farm = create_farm(request=request, data={"name": "Cudze Gospodarstwo"})
+
+    with pytest.raises(IntegrityError), transaction.atomic():
+        FarmVisitEntry.all_objects.create(
+            organization_id=second.organization_id,
+            farm_id=farm.id,
+            source="hoofcare.visit",
+            source_reference="wizyta-obca",
+            company_organization_id=uuid.uuid7(),
+            status=VisitStatus.PLANNED,
+        )
+
+
+def test_the_visit_register_is_isolated_under_a_role_without_bypass() -> None:
+    """Baza testowa łączy się właścicielem tabel, a właściciela polityki nie
+    dotyczą — więc zielony test wyżej nie dowodzi izolacji. Tu polityka jest
+    wykonana na prawdziwej roli bez BYPASSRLS."""
+    from saas_core.modules.shared.farms.models import (  # noqa: PLC0415
+        FarmVisitEntry,
+        VisitStatus,
+    )
+    from saas_core.modules.shared.farms.services import create_farm  # noqa: PLC0415
+
+    members = [membership(f"wizyty-rls-{index}") for index in range(2)]
+    for member in members:
+        with tenant(member) as request:
+            farm = create_farm(request=request, data={"name": "Gospodarstwo RLS"})
+            FarmVisitEntry.all_objects.create(
+                organization_id=member.organization_id,
+                farm=farm,
+                source="hoofcare.visit",
+                source_reference="wizyta-rls",
+                company_organization_id=uuid.uuid7(),
+                status=VisitStatus.PLANNED,
+            )
+
+    table = "farms_farmvisitentry"
+    role = sql.Identifier(f"saas_core_visit_probe_{uuid.uuid4().hex}")
+    with connection.cursor() as cursor:
+        cursor.execute(sql.SQL("CREATE ROLE {} NOLOGIN NOSUPERUSER NOBYPASSRLS").format(role))
+        try:
+            cursor.execute(sql.SQL("GRANT USAGE ON SCHEMA public TO {}").format(role))
+            cursor.execute(sql.SQL("GRANT SELECT ON {} TO {}").format(sql.Identifier(table), role))
+            with transaction.atomic():
+                cursor.execute(sql.SQL("SET LOCAL ROLE {}").format(role))
+                cursor.execute(
+                    "SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname=current_user"
+                )
+                assert cursor.fetchone() == (False, False)
+                cursor.execute("SELECT set_config('app.organization_id', '', true)")
+                cursor.execute(sql.SQL("SELECT count(*) FROM {}").format(sql.Identifier(table)))
+                assert cursor.fetchone() == (0,)
+                counts = []
+                for member in members:
+                    cursor.execute(
+                        "SELECT set_config('app.organization_id', %s, true)",
+                        [str(member.organization_id)],
+                    )
+                    cursor.execute(
+                        sql.SQL("SELECT organization_id FROM {}").format(sql.Identifier(table))
+                    )
+                    rows = cursor.fetchall()
+                    assert rows == [(member.organization_id,)]
+                    counts.append(len(rows))
+                cursor.execute("RESET ROLE")
+                print(f"FarmVisitEntry nonowner NOSUPERUSER NOBYPASSRLS: brak/A/B = {[0, *counts]}")
+        finally:
+            cursor.execute("RESET ROLE")
+            cursor.execute(
+                sql.SQL("REVOKE SELECT ON {} FROM {}").format(sql.Identifier(table), role)
+            )
+            cursor.execute(sql.SQL("REVOKE USAGE ON SCHEMA public FROM {}").format(role))
+            cursor.execute(sql.SQL("DROP ROLE {}").format(role))
