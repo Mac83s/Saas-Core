@@ -319,6 +319,16 @@ def share_for_publishing(company_organization_id: UUID, company_farm_id: UUID) -
     return share if share is not None and share.can_publish_health else None
 
 
+def share_for_schedule(company_organization_id: UUID, company_farm_id: UUID) -> FarmShare | None:
+    """The active share a company may publish visits and their reports through.
+
+    A separate consent from `can_publish_health`, and off until the keeper turns
+    it on: a planned date is something no share sent before (ADR-052 pt 4).
+    """
+    share = _share_of_card(company_organization_id, company_farm_id)
+    return share if share is not None and share.can_publish_schedule else None
+
+
 def _share_of_card(company_organization_id: UUID, company_farm_id: UUID) -> FarmShare | None:
     return FarmShare.objects.filter(
         company_organization_id=company_organization_id,

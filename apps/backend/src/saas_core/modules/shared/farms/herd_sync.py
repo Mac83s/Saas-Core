@@ -23,11 +23,12 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
 from django.db import DatabaseError, transaction
+from django.db.models import Q
 from django.http import HttpRequest
 from django.utils import timezone
 from rest_framework.exceptions import NotFound
@@ -48,11 +49,18 @@ from .models import (
     AnimalStatus,
     Farm,
     FarmShare,
+    FarmVisitEntry,
     HealthEntryKind,
     ShareStatus,
+    VisitStatus,
 )
 from .services import FARMS_ENABLED, FARMS_MANAGE, FARMS_READ, PAGE_LIMIT, audit_farm
-from .sharing import Conflict, share_for_publishing, share_for_writing
+from .sharing import (
+    Conflict,
+    share_for_publishing,
+    share_for_schedule,
+    share_for_writing,
+)
 
 #: What the register receives about an animal. The company's private note about
 #: a cow stays with the company, like the private note on a card.
@@ -409,3 +417,85 @@ def registry_farm_id(organization_id: UUID, farm_id: UUID) -> UUID | None:
     """The farm in the register this card writes into, if it writes anywhere."""
     share = share_for_writing(organization_id, farm_id)
     return share.registry_farm_id if share is not None else None
+
+
+def publish_farm_visit(
+    *,
+    company_organization_id: UUID,
+    company_farm_id: UUID,
+    source: str,
+    reference: str,
+    status: str,
+    scheduled_for: datetime | None = None,
+    occurred_on: date | None = None,
+    summary: str = "",
+    details: dict[str, Any] | None = None,
+) -> FarmVisitEntry | None:
+    """One visit of a company in the farmer's register (ADR-052).
+
+    Called while the company's context is active, with its own farm; the share
+    points at the counterpart in the register. Publishing the same reference
+    again rewrites the one row, so a visit moves from planned to done — and to
+    cancelled, which stays: a visit called off is a fact the keeper may keep.
+
+    Returns None when nobody shares this card, which is the ordinary case.
+
+    `details` must already be readable: the register renders labels and values
+    and may not import a vertical to resolve its codes, because the layer
+    contract puts verticals above shared.
+    """
+    share = share_for_schedule(company_organization_id, company_farm_id)
+    if share is None:
+        return None
+    with transaction.atomic(), registry_door(share) as context:
+        farm = Farm.all_objects.filter(
+            organization_id=context.organization_id, id=share.registry_farm_id
+        ).first()
+        if farm is None:
+            # The keeper deleted the farm the share points at; the share is
+            # stale and the company's own record already stands.
+            return None
+        entry, _ = FarmVisitEntry.all_objects.update_or_create(
+            organization_id=context.organization_id,
+            farm=farm,
+            company_organization_id=share.company_organization_id,
+            source=source,
+            source_reference=reference,
+            defaults={
+                "company_name": share.company_name,
+                "status": status,
+                "scheduled_for": scheduled_for,
+                "occurred_on": occurred_on,
+                "summary": summary,
+                "details": details or {},
+            },
+        )
+        return entry
+
+
+def list_farm_visits(farm_id: UUID, *, limit: int = PAGE_LIMIT) -> list[FarmVisitEntry]:
+    """What the keeper sees about one farm of their own register.
+
+    A visit still marked planned by a company whose share is gone is hidden, not
+    deleted: after a revocation the door is shut, so that company can never move
+    the row off `planned`, and a visit that will never happen would otherwise
+    sit in the future for ever. What already happened — done, cancelled — stays,
+    because that is history and history does not depend on today's consent
+    (ADR-052 pt 8 and 9).
+    """
+    context = authorize_entitled(FARMS_READ, FARMS_ENABLED, operation=FeatureOperation.READ)
+    # Which companies may still show a future date here. Asked before the page
+    # is cut, not after: filtering a page already sliced to `limit` hands back
+    # fewer rows than asked for while more were waiting behind them.
+    allowed = FarmShare.objects.filter(
+        registry_organization_id=context.organization_id,
+        registry_farm_id=farm_id,
+        status=ShareStatus.ACTIVE,
+    ).values_list("company_organization_id", flat=True)
+    return list(
+        FarmVisitEntry.all_objects.filter(
+            organization_id=context.organization_id, farm_id=farm_id
+        ).filter(
+            ~Q(status=VisitStatus.PLANNED) | Q(company_organization_id__in=allowed)
+        )[:limit]
+    )

@@ -117,9 +117,12 @@ Rozważaliśmy trzy tańsze drogi i każda odpada na tym samym pytaniu:
 
 - Rolnik dostaje wizyty i raporty bez dostępu do tenanta firmy i bez wiedzy
   rdzenia o korekcji racic.
-- Rośnie liczba użyć `registry_door` z czterech do sześciu. Drzwi bez świadka to
-  ta sama klasa ryzyka co `PRE_TENANT_DB`, więc powstaje test liczący użycia,
-  wzorowany na `test_pre_tenant_door.py`.
+- Rośnie liczba użyć `registry_door` z czterech do pięciu: publikacja wizyty
+  przechodzi przez drzwi, odczyt nie — rolnik czyta we własnym tenancie. Drzwi
+  bez świadka to ta sama klasa ryzyka co `PRE_TENANT_DB`, więc powstaje
+  `tests/test_registry_door.py` liczący użycia per funkcja, nie per plik:
+  wszystkie siedzą w jednym module, więc świadek liczący pliki nic by nie
+  pilnował.
 - Wiersz w rejestrze przeżywa firmę, bo `company_organization_id` nie jest
   kluczem obcym. Przy erasure firmy zostaje jako księga; jeśli ma znikać albo
   być anonimizowany, wymaga to osobnej decyzji — ADR-042 o kopiach

@@ -184,6 +184,70 @@ class AnimalHealthEntry(TenantScopedModel):
         return f"{self.occurred_on}: {self.summary}"
 
 
+class VisitStatus(models.TextChoices):
+    PLANNED = "planned", "Zaplanowana"
+    DONE = "done", "Odbyta"
+    CANCELED = "canceled", "Odwołana"
+
+
+class FarmVisitEntry(TenantScopedModel):
+    """A company's visit to this farm, in the register the keeper reads.
+
+    The company's own record of the visit stays in its vertical, with the detail
+    that vertical needs (ADR-052). This is the part the keeper is entitled to:
+    when somebody is coming, when they came, and what the report said.
+
+    It carries a *planned* date, which no other published row can: a health
+    entry needs an animal and a day in the past, and at planning time a visit
+    knows neither. Cancelling does not delete the row — a visit that was called
+    off is a fact the keeper may remember.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    farm = models.ForeignKey(Farm, on_delete=models.PROTECT, related_name="visit_entries")
+    #: Which vertical wrote it, e.g. "hoofcare.visit".
+    source = models.CharField(max_length=32)
+    #: The visit's identity in that vertical, so publishing twice is one row.
+    source_reference = models.CharField(max_length=64)
+    #: Not a foreign key, for the same reason `AnimalHealthEntry` keeps its
+    #: author that way: a key to Organization would put rows in somebody else's
+    #: tenant inside the company's erasure.
+    company_organization_id = models.UUIDField()
+    company_name = models.CharField(max_length=160, blank=True)
+    status = models.CharField(max_length=10, choices=VisitStatus.choices)
+    #: When somebody is coming. Set while the visit is still ahead.
+    scheduled_for = models.DateTimeField(null=True, blank=True)
+    #: The day it happened. Set when the report is sent.
+    occurred_on = models.DateField(null=True, blank=True)
+    summary = models.CharField(max_length=240, blank=True)
+    #: The report as the keeper reads it: the vertical resolves its own codes
+    #: first, because the register may not import a vertical to do it here.
+    details = models.JSONField(default=dict)
+    published_at = models.DateTimeField(auto_now=True)
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "-scheduled_for", "-occurred_on")
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "organization",
+                    "farm",
+                    "company_organization_id",
+                    "source",
+                    "source_reference",
+                ],
+                name="farms_visit_source_uq",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["organization", "farm"], name="farms_visit_farm_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.scheduled_for or self.occurred_on}: {self.summary}"
+
+
 class ShareBasis(models.TextChoices):
     ACTIVATION_CODE = "activation_code", "Kod aktywacji od firmy"
     SUPPORT = "support", "Połączenie przez obsługę platformy"
@@ -242,6 +306,10 @@ class FarmShare(models.Model):
     registry_name = models.CharField(max_length=160, blank=True)
     #: The company writes herd changes straight into the register (ADR-051 pt 7).
     can_write_herd = models.BooleanField(default=True)
+    #: Its visits and their reports reach the farm's register (ADR-052). Off by
+    #: default: a future date is something no share sent before, so consenting
+    #: to health entries is not consenting to the company's schedule.
+    can_publish_schedule = models.BooleanField(default=False)
     #: Its health entries are copied to the animal's history (ADR-051 pt 8).
     can_publish_health = models.BooleanField(default=True)
     basis = models.CharField(max_length=20, choices=ShareBasis)
