@@ -290,10 +290,16 @@ export function EntryEditor({
  *  that constrains them is the block schema rather than the envelope. */
 function asBlocks(
   blocks: readonly Record<string, unknown>[],
-): { block_type: string; schema_version: number; data: unknown }[] {
+): {
+  block_type: string;
+  schema_version: number;
+  data: unknown;
+  decoration?: unknown;
+}[] {
   return blocks.map((block) => ({
     block_type: String(block.block_type ?? ""),
     schema_version: Number(block.schema_version ?? 1),
     data: block.data,
+    ...(block.decoration != null ? { decoration: block.decoration } : {}),
   }));
 }

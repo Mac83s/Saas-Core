@@ -805,7 +805,8 @@
       "desktop": "Komputer",
       "contact": "Kontakt",
       "contact_form": "Formularz kontaktowy",
-      "link_list": "Social media i linki"
+      "link_list": "Social media i linki",
+      "separator": "Separatory i odstępy"
     },
     "appearance": {
       "title": "Wygląd całej witryny",
@@ -937,7 +938,83 @@
     "privacyHref": "Adres informacji o prywatności",
     "formDeliveryHint": "Zapytania trafiają do Wiadomości w panelu. Powiadomienie e-mail otrzymuje właściciel organizacji; podgląd edytora nie wysyła wiadomości.",
     "contactFormBlock": "Formularz kontaktowy",
-    "linkListBlock": "Social media i linki"
+    "linkListBlock": "Social media i linki",
+    "decorations": {
+      "title": "Dekoracje sekcji",
+      "description": "Dopasuj tło, ramkę i ozdobniki tej sekcji. Kolory korzystają z palety Twojej witryny.",
+      "custom": "Ta sekcja ma własne ustawienia dekoracji.",
+      "default": "Ta sekcja korzysta z domyślnego wyglądu szablonu.",
+      "reset": "Usuń dekoracje",
+      "motionHint": "Podgląd w edytorze pozostaje nieruchomy. Na opublikowanej stronie ruch można wstrzymać. Preferencja ograniczenia animacji w urządzeniu wyłącza ruch.",
+      "groups": {
+        "background": "Tło",
+        "frame": "Ramka",
+        "ornament": "Ozdobniki",
+        "motion": "Ruch"
+      },
+      "fields": {
+        "background": "Styl tła",
+        "frame": "Styl ramki",
+        "ornament": "Rodzaj ozdobników",
+        "placement": "Rozmieszczenie ozdobników",
+        "intensity": "Widoczność dekoracji",
+        "motion": "Animacja ozdobników"
+      },
+      "options": {
+        "background": {
+          "none": "Bez dodatkowego tła",
+          "tint": "Delikatny kolor",
+          "gradient": "Przejście kolorów",
+          "grid": "Siatka",
+          "dots": "Kropki"
+        },
+        "frame": {
+          "none": "Bez ramki",
+          "outline": "Cienka ramka",
+          "accent": "Ramka z akcentem",
+          "double": "Podwójna ramka"
+        },
+        "ornament": {
+          "none": "Bez ozdobników",
+          "orbs": "Miękkie plamy",
+          "rings": "Okręgi",
+          "wave": "Fala",
+          "botanical": "Motyw roślinny",
+          "sparkles": "Gwiazdki"
+        },
+        "placement": {
+          "top_right": "Prawy górny róg",
+          "bottom_left": "Lewy dolny róg",
+          "both": "Oba narożniki"
+        },
+        "intensity": {
+          "subtle": "Bardzo delikatne",
+          "soft": "Delikatne"
+        },
+        "motion": {
+          "none": "Bez ruchu",
+          "drift": "Powolne przesuwanie",
+          "breathe": "Łagodne pulsowanie"
+        }
+      },
+      "preset": "Gotowy styl",
+      "presetPlaceholder": "Ustaw ręcznie lub wybierz styl",
+      "motionUnavailable": "Wybierz ozdobnik, aby dodać ruch."
+    },
+    "separatorBlock": "Separator",
+    "separatorSettings": {
+      "size": "Wysokość",
+      "width": "Szerokość",
+      "tone": "Kolor",
+      "small": "Mała",
+      "medium": "Średnia",
+      "large": "Duża",
+      "full": "Cała sekcja",
+      "content": "Szerokość treści",
+      "short": "Krótki akcent",
+      "muted": "Stonowany",
+      "accent": "Akcent witryny"
+    }
   },
   "BillingSupport": {
     "navigation": "Billing i dostęp",

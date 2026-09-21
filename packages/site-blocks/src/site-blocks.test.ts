@@ -229,7 +229,7 @@ describe("site block registry", () => {
 
     expect(
       categories.filter((category) => category !== "contact"),
-    ).toHaveLength(8);
+    ).toHaveLength(9);
     expect(
       coreSiteBlockManifest.blocks.find(
         (block) => block.type === "core.link_list",
@@ -246,6 +246,7 @@ describe("site block registry", () => {
         "contact",
         "booking",
         "footer",
+        "decorative",
       ]),
     );
   });

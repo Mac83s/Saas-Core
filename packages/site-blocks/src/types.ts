@@ -9,6 +9,24 @@ export interface SiteBlock<TData extends JsonObject = JsonObject> {
   readonly block_type: string;
   readonly schema_version: number;
   readonly data: TData;
+  readonly decoration?: SectionDecorationV1;
+}
+
+/** Shared allowlisted presentation, separate from the versioned content data. */
+export type SectionDecorationV1 = {
+  schemaVersion: 1;
+  background?: "none" | "tint" | "gradient" | "grid" | "dots";
+  frame?: "none" | "outline" | "accent" | "double";
+  ornament?: "none" | "orbs" | "rings" | "wave" | "botanical" | "sparkles";
+  placement?: "top_right" | "bottom_left" | "both";
+  intensity?: "subtle" | "soft";
+  motion?: "none" | "drift" | "breathe";
+};
+
+export interface BlockRenderOptions {
+  /** A draft never animates or exposes public controls. */
+  preview?: boolean;
+  locale?: "pl" | "en";
 }
 
 export type HeroV1Data = JsonObject & {
@@ -148,7 +166,8 @@ export type BlockCategory =
   | "faq"
   | "contact"
   | "booking"
-  | "footer";
+  | "footer"
+  | "decorative";
 
 export type BlockFieldKind = "text" | "textarea" | "url" | "list" | "media";
 
@@ -247,6 +266,7 @@ export interface PaginationLabels {
 }
 
 export interface PublishedPageDocument {
+  readonly locale?: "pl" | "en";
   readonly appearance?: SiteAppearance | null;
   readonly kind: "publication";
   readonly publicationId: string;
@@ -309,5 +329,6 @@ export interface BlockRegistry {
     editor?: BlockEditor,
     imageRenderer?: BlockImageRenderer,
     formRenderer?: BlockFormRenderer,
+    options?: BlockRenderOptions,
   ): ReactElement;
 }

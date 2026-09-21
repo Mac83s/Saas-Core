@@ -67,7 +67,7 @@ test("limits initial thumbnail rendering and exposes the remaining catalogue", (
   );
   expect(screen.getAllByRole("article")).toHaveLength(12);
   fireEvent.click(
-    screen.getByRole("button", { name: "Show more layouts (76 remaining)" }),
+    screen.getByRole("button", { name: "Show more layouts (84 remaining)" }),
   );
   expect(screen.getAllByRole("article")).toHaveLength(24);
   fireEvent.change(screen.getByLabelText("Category"), {
@@ -224,6 +224,7 @@ test.each([
   ["core.contact", 6],
   ["core.contact_form", 4],
   ["core.link_list", 6],
+  ["core.separator", 8],
 ] as const)(
   "offers all %s layouts and copies editable data",
   async (type, count) => {

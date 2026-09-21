@@ -249,3 +249,11 @@ Dowody tego przyrostu: 63 testy renderera, 96 komponentów/nawigacji/edytora,
 50 nowych testów API i 49 testów zgodności. Chromium obejmuje 16 nowych układów
 oraz aktywny formularz/skrzynkę przy 360/768/1440 px w PL/EN. Weryfikacja była
 izolowana; synchronizacja produktów i odbiór runtime pozostają otwarte.
+
+## Dekoracje wspólne i separatory — 2026-09-21
+
+Każdy blok ma „Dekoracje sekcji” w inspektorze: osiem presetów i ręczne
+ustawienia tła, ramki, ornamentów i ruchu. Zmiany korzystają z istniejącego
+stanu formularza, historii i zapisu. Biblioteka v4 dodaje osiem separatorów.
+Szczegóły kontraktu, pauzy, wersjonowania oraz ograniczeń AI i recept całych
+stron: [site-section-decoration.md](site-section-decoration.md).

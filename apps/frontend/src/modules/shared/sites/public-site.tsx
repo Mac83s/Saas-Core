@@ -116,6 +116,7 @@ export function PublicSiteRenderer({ page }: { page: PublicSitePage }) {
   return renderPublishedPage(
     {
       kind: "publication",
+      locale: page.locale === "en" ? "en" : "pl",
       publicationId: page.publication_id,
       snapshotHash: page.snapshot_hash,
       blocks: page.blocks as unknown as SiteBlock[],

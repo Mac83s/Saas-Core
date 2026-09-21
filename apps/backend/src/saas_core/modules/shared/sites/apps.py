@@ -66,4 +66,8 @@ def check_content_contracts(**_kwargs: object) -> list[Error]:
         Path(settings.PAGE_TEMPLATE_CONTRACTS_PATH) / "sample-media.v1.json"
     ).is_file():
         errors.append(Error("Brak katalogu zdjęć szablonów.", id="sites.E005"))
+    if not (
+        Path(settings.SITE_BLOCK_CONTRACTS_PATH) / "section-decoration.v1.schema.json"
+    ).is_file():
+        errors.append(Error("Brak kontraktu dekoracji sekcji.", id="sites.E006"))
     return errors

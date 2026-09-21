@@ -15,6 +15,7 @@ from jsonschema.exceptions import SchemaError
 from rest_framework.exceptions import APIException, NotFound
 
 from .block_contracts import validate_site_block
+from .block_decoration import validate_decoration
 
 
 class PageTemplateNotFound(NotFound):
@@ -130,6 +131,7 @@ def page_template_catalog() -> PageTemplateCatalog:
                     )
                 blocks = tuple(recipe["blocks"])
                 for block in [*blocks, *recipe.get("localizedBlocks", {}).get("en", [])]:
+                    validate_decoration(block.get("decoration"))
                     validate_site_block(
                         block_type=block["block_type"],
                         schema_version=block["schema_version"],

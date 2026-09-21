@@ -91,3 +91,12 @@ Dalej: ocena wizualna na uruchomionym stacku, metadane ilości treści/mediów i
 kontekstowe rekomendacje, próba edytora wizualnego, biblioteka własnych szablonów,
 pełne 20 wariantów każdej kategorii i rollout produktów. AI pozostaje osobną
 odroczoną fazą; kontrakt katalogu jest już maszynowo czytelny.
+
+## Dekoracje i katalog v4 — 2026-09-21
+
+Bieżący katalog v4 zawiera 96 sekcji: zachowane 88 z v3 i osiem separatorów
+(space/line/double/dots/wave/curve/zigzag/accent). Każdy separator ma opisy
+PL/EN, wskazówki kompozycji i edytowalną wysokość, szerokość oraz ton.
+Osiem presetów dekoracji jest osobnym katalogiem wspólnego wyglądu, dostępnym
+dla wszystkich bloków; nie zwiększa liczby układów i nie zamyka macierzy 20 wariantów.
+Pełny kontrakt: [site-section-decoration.md](site-section-decoration.md).

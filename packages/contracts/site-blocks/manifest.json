@@ -93,6 +93,13 @@
       "schemas": {
         "1": "core.contact_form.v1.schema.json"
       }
+    },
+    {
+      "type": "core.separator",
+      "latestVersion": 1,
+      "schemas": {
+        "1": "core.separator.v1.schema.json"
+      }
     }
   ],
   "designTokens": "design-tokens.v1.schema.json"

@@ -36,3 +36,7 @@ export {
   renderSiteFooter,
   renderResponsiveNavigation,
 } from "./site-chrome";
+
+export { sectionDecorationPresets } from "./section-decoration-presets";
+export type { SectionDecorationPreset } from "./section-decoration-presets";
+export type { SeparatorV1Data } from "./separator-block";

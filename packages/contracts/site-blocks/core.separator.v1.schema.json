@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/site-blocks/core.separator.v1.schema.json",
+  "title": "Core decorative separator block v1",
+  "description": "A decorative boundary between content sections. Artwork and dimensions are controlled by the renderer, never supplied as executable content.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "layout": {
+      "type": "string",
+      "enum": [
+        "space",
+        "line",
+        "double",
+        "dots",
+        "wave",
+        "curve",
+        "zigzag",
+        "accent"
+      ],
+      "default": "line"
+    },
+    "size": {
+      "type": "string",
+      "enum": ["small", "medium", "large"],
+      "default": "medium"
+    },
+    "width": {
+      "type": "string",
+      "enum": ["full", "content", "short"],
+      "default": "content"
+    },
+    "tone": {
+      "type": "string",
+      "enum": ["muted", "accent"],
+      "default": "muted"
+    }
+  }
+}

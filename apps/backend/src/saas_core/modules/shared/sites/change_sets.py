@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterator
 from contextlib import contextmanager
+from copy import deepcopy
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -35,6 +36,7 @@ from saas_core.modules.core.organizations.context import TenantContext
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 
 from .block_contracts import validate_site_block
+from .block_decoration import normalize_block, stored_block_payload
 from .capabilities import CONTENT_CONTRACT_VERSION, MINIMUM_CONTENT_CONTRACT_VERSION
 from .metrics import (
     CHANGE_SET_LATENCY,
@@ -440,11 +442,7 @@ def _page_base(
     # the content.
     blocks = (
         [
-            {
-                "block_type": block.block_type,
-                "schema_version": block.schema_version,
-                "data": block.data,
-            }
+            stored_block_payload(block)
             for block in PageBlock.all_objects.filter(
                 organization_id=context.organization_id,
                 page_version_id=page.current_draft.id,
@@ -496,7 +494,15 @@ def _resulting_blocks(
         if index in inserts:
             kept.append(_stored(inserts[index]))
         if index not in removals:
-            kept.append(_stored(replacements[index]) if index in replacements else blocks[index])
+            if index in replacements:
+                replacement = _stored(replacements[index])
+                # v1 connectors cannot describe decoration. Rewriting content
+                # must preserve the appearance a person already chose.
+                if "decoration" not in replacements[index] and "decoration" in blocks[index]:
+                    replacement["decoration"] = deepcopy(blocks[index]["decoration"])
+                kept.append(replacement)
+            else:
+                kept.append(blocks[index])
     if len(blocks) in inserts:
         kept.append(_stored(inserts[len(blocks)]))
     return kept
@@ -504,11 +510,12 @@ def _resulting_blocks(
 
 def _stored(block: dict[str, Any]) -> dict[str, Any]:
     """The contract's envelope, in the shape the draft services store."""
-    return {
+    return normalize_block({
         "block_type": block["type"],
         "schema_version": block["schema_version"],
         "data": block["data"],
-    }
+        **({"decoration": block["decoration"]} if "decoration" in block else {}),
+    })
 
 
 class ApprovalDigestMismatch(APIException):

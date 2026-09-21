@@ -7,6 +7,8 @@
 @import "./site-studio.css";
 @import "./site-contact.css";
 @import "./site-contact-form.css";
+@import "./site-separator.css";
+@import "./site-section-decoration.css";
 @source "../../../apps/**/*.{ts,tsx}";
 @source "../**/*.{ts,tsx}";
 

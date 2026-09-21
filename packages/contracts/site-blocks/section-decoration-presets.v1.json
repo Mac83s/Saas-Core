@@ -1,0 +1,262 @@
+{
+  "schemaVersion": 1,
+  "presets": [
+    {
+      "id": "soft_gradient",
+      "labels": {
+        "pl": {
+          "name": "Miękki gradient",
+          "description": "Delikatny gradient i rozmyte koła do wprowadzenia lub kontaktu."
+        },
+        "en": {
+          "name": "Soft gradient",
+          "description": "A light gradient and soft circles for an introduction or contact section."
+        }
+      },
+      "decoration": {
+        "schemaVersion": 1,
+        "background": "gradient",
+        "ornament": "orbs",
+        "placement": "top_right",
+        "intensity": "subtle"
+      },
+      "guidance": {
+        "contentMotion": false,
+        "avoid": "Do not combine strong ornament density with busy photos; keep one animated accent per page.",
+        "recommendedWith": [
+          "core.hero",
+          "core.feature_list",
+          "core.faq",
+          "core.contact",
+          "core.contact_form",
+          "core.rich_text",
+          "core.link_list"
+        ]
+      }
+    },
+    {
+      "id": "botanical",
+      "labels": {
+        "pl": {
+          "name": "Roślinny akcent",
+          "description": "Subtelne liście w rogu, pasujące do spokojnych stron usługowych."
+        },
+        "en": {
+          "name": "Botanical accent",
+          "description": "Subtle corner leaves for calm service pages."
+        }
+      },
+      "decoration": {
+        "schemaVersion": 1,
+        "ornament": "botanical",
+        "placement": "bottom_left",
+        "intensity": "subtle"
+      },
+      "guidance": {
+        "contentMotion": false,
+        "avoid": "Do not combine strong ornament density with busy photos; keep one animated accent per page.",
+        "recommendedWith": [
+          "core.hero",
+          "core.feature_list",
+          "core.faq",
+          "core.contact",
+          "core.contact_form",
+          "core.rich_text",
+          "core.link_list"
+        ]
+      }
+    },
+    {
+      "id": "technical_grid",
+      "labels": {
+        "pl": {
+          "name": "Techniczna siatka",
+          "description": "Jasna siatka i obręcze do prezentacji technologii lub oferty."
+        },
+        "en": {
+          "name": "Technical grid",
+          "description": "A light grid and rings for technology or service sections."
+        }
+      },
+      "decoration": {
+        "schemaVersion": 1,
+        "background": "grid",
+        "ornament": "rings",
+        "placement": "top_right",
+        "intensity": "subtle"
+      },
+      "guidance": {
+        "contentMotion": false,
+        "avoid": "Do not combine strong ornament density with busy photos; keep one animated accent per page.",
+        "recommendedWith": [
+          "core.hero",
+          "core.feature_list",
+          "core.faq",
+          "core.contact",
+          "core.contact_form",
+          "core.rich_text",
+          "core.link_list"
+        ]
+      }
+    },
+    {
+      "id": "framed_card",
+      "labels": {
+        "pl": {
+          "name": "Delikatna karta",
+          "description": "Jasne tło z cienką ramką do wyróżnienia ważnych informacji."
+        },
+        "en": {
+          "name": "Soft card",
+          "description": "A light background and thin frame for key information."
+        }
+      },
+      "decoration": {
+        "schemaVersion": 1,
+        "background": "tint",
+        "frame": "outline"
+      },
+      "guidance": {
+        "contentMotion": false,
+        "avoid": "Do not combine strong ornament density with busy photos; keep one animated accent per page.",
+        "recommendedWith": [
+          "core.hero",
+          "core.feature_list",
+          "core.faq",
+          "core.contact",
+          "core.contact_form",
+          "core.rich_text",
+          "core.link_list"
+        ]
+      }
+    },
+    {
+      "id": "accent_frame",
+      "labels": {
+        "pl": {
+          "name": "Ramka z akcentem",
+          "description": "Akcent z palety witryny, bez ozdobników za tekstem."
+        },
+        "en": {
+          "name": "Accent frame",
+          "description": "An accent from the site palette, with no ornaments behind the text."
+        }
+      },
+      "decoration": {
+        "schemaVersion": 1,
+        "frame": "accent"
+      },
+      "guidance": {
+        "contentMotion": false,
+        "avoid": "Do not combine strong ornament density with busy photos; keep one animated accent per page.",
+        "recommendedWith": [
+          "core.hero",
+          "core.feature_list",
+          "core.faq",
+          "core.contact",
+          "core.contact_form",
+          "core.rich_text",
+          "core.link_list"
+        ]
+      }
+    },
+    {
+      "id": "dotted_paper",
+      "labels": {
+        "pl": {
+          "name": "Drobne kropki",
+          "description": "Powtarzalny wzór kropek jako tło dla uporządkowanej treści."
+        },
+        "en": {
+          "name": "Dotted paper",
+          "description": "A restrained dot pattern behind structured content."
+        }
+      },
+      "decoration": {
+        "schemaVersion": 1,
+        "background": "dots",
+        "frame": "outline",
+        "intensity": "subtle"
+      },
+      "guidance": {
+        "contentMotion": false,
+        "avoid": "Do not combine strong ornament density with busy photos; keep one animated accent per page.",
+        "recommendedWith": [
+          "core.hero",
+          "core.feature_list",
+          "core.faq",
+          "core.contact",
+          "core.contact_form",
+          "core.rich_text",
+          "core.link_list"
+        ]
+      }
+    },
+    {
+      "id": "gentle_wave",
+      "labels": {
+        "pl": {
+          "name": "Łagodna fala",
+          "description": "Fale przy dolnej krawędzi, łączące sąsiadujące sekcje."
+        },
+        "en": {
+          "name": "Gentle wave",
+          "description": "Waves near the lower corner connect adjacent sections."
+        }
+      },
+      "decoration": {
+        "schemaVersion": 1,
+        "background": "tint",
+        "ornament": "wave",
+        "placement": "bottom_left",
+        "intensity": "subtle"
+      },
+      "guidance": {
+        "contentMotion": false,
+        "avoid": "Do not combine strong ornament density with busy photos; keep one animated accent per page.",
+        "recommendedWith": [
+          "core.hero",
+          "core.feature_list",
+          "core.faq",
+          "core.contact",
+          "core.contact_form",
+          "core.rich_text",
+          "core.link_list"
+        ]
+      }
+    },
+    {
+      "id": "floating_rings",
+      "labels": {
+        "pl": {
+          "name": "Płynące obręcze",
+          "description": "Powolny ruch obręczy na opublikowanej stronie; można go zatrzymać."
+        },
+        "en": {
+          "name": "Floating rings",
+          "description": "Slow ring motion on the published page, with a pause control."
+        }
+      },
+      "decoration": {
+        "schemaVersion": 1,
+        "ornament": "rings",
+        "placement": "both",
+        "intensity": "subtle",
+        "motion": "drift"
+      },
+      "guidance": {
+        "contentMotion": false,
+        "avoid": "Do not combine strong ornament density with busy photos; keep one animated accent per page.",
+        "recommendedWith": [
+          "core.hero",
+          "core.feature_list",
+          "core.faq",
+          "core.contact",
+          "core.contact_form",
+          "core.rich_text",
+          "core.link_list"
+        ]
+      }
+    }
+  ]
+}

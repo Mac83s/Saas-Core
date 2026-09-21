@@ -32,6 +32,7 @@ from saas_core.modules.shared.billing.api import FeatureOperation, authorize_ent
 from saas_core.observability import correlation_id
 
 from .block_contracts import validate_site_block
+from .block_decoration import normalize_block, validate_decoration
 from .localization import entry_path
 from .models import (
     ContentCollection,
@@ -377,14 +378,7 @@ def save_entry_draft(
 ) -> tuple[ContentEntryVersion, bool]:
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
     normalized_key = _idempotency_key(idempotency_key)
-    normalized_blocks = [
-        {
-            "block_type": block["block_type"],
-            "schema_version": block["schema_version"],
-            "data": block["data"],
-        }
-        for block in blocks
-    ]
+    normalized_blocks = [normalize_block(block) for block in blocks]
     for block in normalized_blocks:
         validate_site_block(
             block_type=block["block_type"],
@@ -512,6 +506,8 @@ def publish_entry(
         owner_type=ENTRY_VERSION_REFERENCE_OWNER,
         owner_id=entry.current_draft.id,
     )
+    for block in entry.current_draft.blocks:
+        validate_decoration(block.get("decoration"))
     snapshot = {
         "schema_version": ENTRY_SNAPSHOT_SCHEMA_VERSION,
         "entry_id": str(entry.id),

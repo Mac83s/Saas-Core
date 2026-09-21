@@ -17,6 +17,7 @@ from saas_core.modules.shared.notifications.api_key_middleware import (
     IsSessionOrApiKey,
 )
 
+from .block_decoration import stored_block_payload
 from .capabilities import read_content_capabilities
 from .change_sets import (
     apply_change_set,
@@ -627,9 +628,7 @@ def _block_summary(block: PageBlock) -> dict[str, Any]:
     return {
         "id": block.id,
         "position": block.position,
-        "block_type": block.block_type,
-        "schema_version": block.schema_version,
-        "data": block.data,
+        **stored_block_payload(block),
     }
 
 

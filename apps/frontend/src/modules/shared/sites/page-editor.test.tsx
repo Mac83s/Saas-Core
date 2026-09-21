@@ -12,7 +12,11 @@ import type { ComponentProps } from "react";
 import axe from "axe-core";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
-import { ApiProblemError } from "@saas-core/api-client";
+import { ApiProblemError, type DraftSaveInput } from "@saas-core/api-client";
+import {
+  sectionDecorationPresets,
+  type SectionDecorationV1,
+} from "@saas-core/site-blocks";
 
 import englishMessages from "../../../../messages/en.json";
 import polishMessages from "../../../../messages/pl.json";
@@ -601,7 +605,7 @@ test("biblioteka filtruje branżę, zachowuje bazę i zapisuje wybraną sekcję"
     target: { value: "medicine" },
   });
   expect(
-    screen.getByRole("button", { name: "Dodaj: Karty usług" }),
+    screen.getByRole("button", { name: "Dodaj: Klasyczna lista" }),
   ).toBeDefined();
   expect(
     screen.queryByRole("button", { name: "Dodaj: Obszary obsługi" }),
@@ -1232,4 +1236,228 @@ test("invalid draft submission opens the mobile inspector and focuses the field"
   await waitFor(() => expect(heading).toHaveFocus());
   expect(heading).toHaveAttribute("aria-invalid", "true");
   expect(savePageDraft).not.toHaveBeenCalled();
+});
+
+test("section decorations survive legacy migration, content/layout changes and undo/redo before saving", async () => {
+  const decoration: SectionDecorationV1 = {
+    schemaVersion: 1,
+    background: "dots",
+    frame: "accent",
+    ornament: "rings",
+    placement: "both",
+    intensity: "soft",
+    motion: "drift",
+  };
+  getPageDraft.mockResolvedValue({
+    ...draft,
+    blocks: [{ ...draft.blocks[0], decoration }],
+  });
+  savePageDraft.mockImplementation(
+    async (_id: string, input: DraftSaveInput) => ({
+      ...draft,
+      version: input.expected_version + 1,
+      blocks: input.blocks.map((block, position) => ({
+        ...block,
+        id: draft.blocks[0].id,
+        position,
+      })),
+    }),
+  );
+  renderEditor(
+    "pl",
+    polishMessages,
+    vi.fn().mockResolvedValue(undefined),
+    true,
+  );
+  await screen.findByLabelText("Nagłówek");
+  const canvas = screen.getByTestId("live-canvas");
+  expect(canvas.querySelector(".site-decoration")).toHaveClass(
+    "site-decoration--bg-dots",
+    "site-decoration--frame-accent",
+    "site-decoration--motion-none",
+    "site-decoration--preview",
+  );
+
+  fireEvent.change(screen.getByLabelText("Nagłówek"), {
+    target: { value: "Zachowana dekoracja" },
+  });
+  fireEvent.change(screen.getByLabelText("Układ sekcji"), {
+    target: { value: "split" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Cofnij" }));
+  expect(screen.getByLabelText("Układ sekcji")).toHaveValue("classic");
+  expect(screen.getByLabelText("Nagłówek")).toHaveValue("Zachowana dekoracja");
+  fireEvent.click(screen.getByRole("button", { name: "Cofnij" }));
+  expect(screen.getByLabelText("Nagłówek")).toHaveValue("Stary nagłówek");
+  expect(canvas.querySelector(".site-decoration")).toHaveClass(
+    "site-decoration--bg-dots",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Ponów" }));
+  fireEvent.click(screen.getByRole("button", { name: "Ponów" }));
+  expect(screen.getByLabelText("Układ sekcji")).toHaveValue("split");
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz stronę" }));
+
+  await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
+  expect(savePageDraft.mock.calls[0][1].blocks).toEqual([
+    {
+      block_type: "core.hero",
+      schema_version: 5,
+      data: {
+        title: "Zachowana dekoracja",
+        text: "Opis hero",
+        layout: "split",
+      },
+      decoration,
+    },
+  ]);
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Cofnij" })).toBeDisabled(),
+  );
+  expect(canvas.querySelector(".site-decoration")).toHaveClass(
+    "site-decoration--bg-dots",
+    "site-decoration--motion-none",
+  );
+  expect(draft.blocks[0].data).toEqual({
+    heading: "Stary nagłówek",
+    body: "Opis hero",
+  });
+});
+
+test("section decoration preset persists, preview stays static and reset clears RHF state through undo/redo and save", async () => {
+  const preset = sectionDecorationPresets.find(
+    (item) => item.id === "floating_rings",
+  )!;
+  expect(preset.decoration.motion).not.toBe("none");
+  let savedResponse: unknown = draft;
+  savePageDraft.mockImplementation(
+    async (_id: string, input: DraftSaveInput) => {
+      savedResponse = {
+        ...draft,
+        version: input.expected_version + 1,
+        blocks: input.blocks.map((block, position) => ({
+          ...block,
+          id: draft.blocks[0].id,
+          position,
+        })),
+      };
+      return savedResponse;
+    },
+  );
+  getPageDraftPreview.mockImplementation(async () => savedResponse);
+  renderEditor(
+    "en",
+    englishMessages,
+    vi.fn().mockResolvedValue(undefined),
+    true,
+  );
+  await screen.findByLabelText("Heading");
+  const canvas = screen.getByTestId("live-canvas");
+  expect(canvas.querySelector(".site-decoration")).toBeNull();
+  fireEvent.click(
+    screen.getByText("Section decorations", { selector: "summary" }),
+  );
+  fireEvent.change(screen.getByRole("combobox", { name: "Ready-made style" }), {
+    target: { value: preset.id },
+  });
+  expect(canvas.querySelector(".site-decoration")).toHaveClass(
+    "site-decoration--preview",
+    "site-decoration--motion-none",
+  );
+  expect(
+    within(canvas).queryByRole("checkbox", {
+      name: "Pause decorative animation",
+    }),
+  ).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Save page" }));
+  await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
+  expect(savePageDraft.mock.calls[0][1].blocks[0].decoration).toEqual(
+    preset.decoration,
+  );
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Undo" })).toBeDisabled(),
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Protected preview" }));
+  const protectedPreview = await screen.findByTestId("draft-preview");
+  expect(protectedPreview.querySelector(".site-decoration")).toHaveClass(
+    "site-decoration--preview",
+    "site-decoration--motion-none",
+  );
+  expect(
+    within(protectedPreview).queryByRole("checkbox", {
+      name: "Pause decorative animation",
+    }),
+  ).toBeNull();
+  fireEvent.keyDown(document, { key: "Escape" });
+  await waitFor(() => expect(screen.queryByTestId("draft-preview")).toBeNull());
+
+  const summary = screen.getByText("Section decorations", {
+    selector: "summary",
+  });
+  if (!(summary.closest("details") as HTMLDetailsElement).open)
+    fireEvent.click(summary);
+  expect(
+    screen.getByRole("combobox", { name: "Ready-made style" }),
+  ).toHaveValue(preset.id);
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: englishMessages.Sites.decorations.reset,
+    }),
+  );
+  expect(canvas.querySelector(".site-decoration")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+  expect(canvas.querySelector(".site-decoration")).not.toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Redo" }));
+  expect(canvas.querySelector(".site-decoration")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Save page" }));
+  await waitFor(() => expect(savePageDraft).toHaveBeenCalledTimes(2));
+  expect(savePageDraft.mock.calls[1][1].expected_version).toBe(2);
+  expect(savePageDraft.mock.calls[1][1].blocks[0]).not.toHaveProperty(
+    "decoration",
+  );
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Undo" })).toBeDisabled(),
+  );
+  expect(canvas.querySelector(".site-decoration")).toBeNull();
+});
+
+test("separator editor restores stored dimensions and saves the selected layout, size, width and tone", async () => {
+  getPageDraft.mockResolvedValue({
+    ...draft,
+    blocks: [
+      {
+        ...draft.blocks[0],
+        block_type: "core.separator",
+        schema_version: 1,
+        data: { layout: "line", size: "small", width: "short", tone: "accent" },
+      },
+    ],
+  });
+  renderEditor("en", englishMessages, vi.fn().mockResolvedValue(undefined));
+  expect(await screen.findByRole("combobox", { name: "Height" })).toHaveValue(
+    "small",
+  );
+  expect(screen.getByRole("combobox", { name: "Width" })).toHaveValue("short");
+  expect(screen.getByRole("combobox", { name: "Color" })).toHaveValue("accent");
+  fireEvent.change(screen.getByRole("combobox", { name: "Height" }), {
+    target: { value: "large" },
+  });
+  fireEvent.change(screen.getByRole("combobox", { name: "Width" }), {
+    target: { value: "full" },
+  });
+  fireEvent.change(screen.getByRole("combobox", { name: "Color" }), {
+    target: { value: "muted" },
+  });
+  fireEvent.change(screen.getByRole("combobox", { name: "Section layout" }), {
+    target: { value: "wave" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save page" }));
+  await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
+  expect(savePageDraft.mock.calls[0][1].blocks).toEqual([
+    {
+      block_type: "core.separator",
+      schema_version: 1,
+      data: { layout: "wave", size: "large", width: "full", tone: "muted" },
+    },
+  ]);
 });

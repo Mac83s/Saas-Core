@@ -43,6 +43,7 @@ from saas_core.modules.shared.media.api import (
 from saas_core.observability import correlation_id
 
 from .block_contracts import validate_site_block
+from .block_decoration import normalize_block, stored_block_payload, validate_decoration
 from .localization import (
     SiteLocalizationReport,
     build_localization_report,
@@ -621,6 +622,7 @@ def get_draft_preview(*, page_id: UUID, version_id: UUID) -> PageDraft:
         ).order_by("position")
     )
     for block in blocks:
+        validate_decoration(block.decoration)
         validate_site_block(
             block_type=block.block_type,
             schema_version=block.schema_version,
@@ -901,14 +903,7 @@ def save_draft(
 ) -> MutationResult[PageVersion]:
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
     normalized_key = _idempotency_key(idempotency_key)
-    normalized_blocks = [
-        {
-            "block_type": block["block_type"],
-            "schema_version": block["schema_version"],
-            "data": block["data"],
-        }
-        for block in blocks
-    ]
+    normalized_blocks = [normalize_block(block) for block in blocks]
     normalized_media_asset_ids = tuple(sorted(set(media_asset_ids), key=str))
     for block in normalized_blocks:
         validate_site_block(
@@ -990,6 +985,7 @@ def save_draft(
             block_type=block["block_type"],
             schema_version=block["schema_version"],
             data=block["data"],
+            decoration=block.get("decoration"),
         )
         for position, block in enumerate(normalized_blocks)
     ])
@@ -1608,6 +1604,7 @@ def publish_site(*, site_id: UUID, idempotency_key: str) -> SitePublication:
     )
     blocks_by_version: dict[UUID, list[PageBlock]] = {}
     for block in blocks:
+        validate_decoration(block.decoration)
         validate_site_block(
             block_type=block.block_type,
             schema_version=block.schema_version,
@@ -2170,11 +2167,7 @@ def _publication_snapshot(
                 "version_id": str(_current_version_id(page)),
                 "version": page.current_draft.number if page.current_draft else 0,
                 "blocks": [
-                    {
-                        "block_type": block.block_type,
-                        "schema_version": block.schema_version,
-                        "data": block.data,
-                    }
+                    stored_block_payload(block)
                     for block in blocks_by_version.get(_current_version_id(page), [])
                 ],
                 "media_asset_ids": [str(asset_id) for asset_id in page_media_ids.get(page.id, ())],
