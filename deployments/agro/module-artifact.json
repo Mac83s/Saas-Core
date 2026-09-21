@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:8528e52fbbde569f71af4237c44127243e0fa7213ca83f86e57ffa61ad9d161a",
+  "profileHash": "sha256:554b76d7db5f586b03d7891ca8867d535983c0c49ee593f62ddb917d13400242",
   "schemaVersion": 1,
   "deployment": "agro",
   "product": {
@@ -25,10 +25,10 @@
       "description": null,
       "modules": [
         "shared.billing",
+        "shared.notifications",
         "shared.sites",
         "shared.media",
         "shared.profiles",
-        "shared.notifications",
         "shared.booking",
         "shared.seo",
         "shared.farms",
@@ -164,7 +164,7 @@
       }
     },
     {
-      "id": "shared.sites",
+      "id": "shared.notifications",
       "version": 1,
       "layer": "shared",
       "dependsOn": [
@@ -172,11 +172,56 @@
         "shared.billing"
       ],
       "backend": {
+        "djangoApp": "saas_core.modules.shared.notifications",
+        "urlPrefix": "/api/v1/notifications",
+        "permissions": [
+          "notifications.preferences",
+          "notifications.manage",
+          "notifications.support",
+          "integrations.manage"
+        ],
+        "entitlements": [
+          "notifications.enabled"
+        ],
+        "eventSchemas": [
+          "notifications.message.queued.v1",
+          "notifications.message.status.v1",
+          "sites.site.published.v1"
+        ],
+        "publicTables": [],
+        "platformTables": []
+      },
+      "frontend": {
+        "routes": [
+          "/panel/notifications",
+          "/panel/integrations",
+          "/panel/support/notifications"
+        ],
+        "navigation": [
+          "settings.notifications",
+          "settings.integrations"
+        ],
+        "translationNamespaces": [
+          "notifications"
+        ]
+      }
+    },
+    {
+      "id": "shared.sites",
+      "version": 1,
+      "layer": "shared",
+      "dependsOn": [
+        "core.organizations",
+        "shared.billing",
+        "shared.notifications"
+      ],
+      "backend": {
         "djangoApp": "saas_core.modules.shared.sites",
         "urlPrefix": "/api/v1/sites",
         "permissions": [
           "site.content.edit",
-          "site.publish"
+          "site.publish",
+          "sites.inquiry.submit"
         ],
         "entitlements": [
           "sites.enabled",
@@ -275,49 +320,6 @@
         ],
         "translationNamespaces": [
           "profiles"
-        ]
-      }
-    },
-    {
-      "id": "shared.notifications",
-      "version": 1,
-      "layer": "shared",
-      "dependsOn": [
-        "core.organizations",
-        "shared.billing"
-      ],
-      "backend": {
-        "djangoApp": "saas_core.modules.shared.notifications",
-        "urlPrefix": "/api/v1/notifications",
-        "permissions": [
-          "notifications.preferences",
-          "notifications.manage",
-          "notifications.support",
-          "integrations.manage"
-        ],
-        "entitlements": [
-          "notifications.enabled"
-        ],
-        "eventSchemas": [
-          "notifications.message.queued.v1",
-          "notifications.message.status.v1",
-          "sites.site.published.v1"
-        ],
-        "publicTables": [],
-        "platformTables": []
-      },
-      "frontend": {
-        "routes": [
-          "/panel/notifications",
-          "/panel/integrations",
-          "/panel/support/notifications"
-        ],
-        "navigation": [
-          "settings.notifications",
-          "settings.integrations"
-        ],
-        "translationNamespaces": [
-          "notifications"
         ]
       }
     },

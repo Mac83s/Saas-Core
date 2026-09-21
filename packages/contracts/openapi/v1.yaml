@@ -4442,6 +4442,80 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/public/site/inquiries/:
+    post:
+      operationId: public_site_inquiry_submit
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - public-sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SiteInquirySubmit'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SiteInquirySubmit'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SiteInquirySubmit'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteInquiryAccepted'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteInquiryAccepted'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/seo/audit-offer/:
     get:
       operationId: api_v1_seo_audit_offer_retrieve
@@ -5510,6 +5584,51 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/{site_id}/inquiries/:
+    get:
+      operationId: sites_inquiry_list
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: limit
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 30
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteInquiryList'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
           content:
             application/json:
               schema:
@@ -7212,6 +7331,77 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/inquiries/{inquiry_id}/:
+    get:
+      operationId: sites_inquiry_retrieve
+      parameters:
+      - in: path
+        name: inquiry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteInquiry'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/inquiries/{inquiry_id}/read/:
+    post:
+      operationId: sites_inquiry_mark_read
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: inquiry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteInquiry'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
           content:
             application/json:
               schema:
@@ -10466,6 +10656,28 @@ components:
       required:
       - blocks
       - expected_version
+    EmailStatusEnum:
+      enum:
+      - queued
+      - processing
+      - sent
+      - delivered
+      - bounced
+      - complained
+      - suppressed
+      - dead_letter
+      - unavailable
+      type: string
+      description: |-
+        * `queued` - Oczekuje
+        * `processing` - Przetwarzana
+        * `sent` - Wysłana
+        * `delivered` - Dostarczona
+        * `bounced` - Odrzucona
+        * `complained` - Zgłoszona
+        * `suppressed` - Wstrzymana
+        * `dead_letter` - Dead letter
+        * `unavailable` - Niedostępny
     EntitlementSupportItem:
       type: object
       properties:
@@ -13456,6 +13668,111 @@ components:
             $ref: '#/components/schemas/SiteDomain'
       required:
       - items
+    SiteInquiry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        site_id:
+          type: string
+          format: uuid
+        page_path:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        message:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        read_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        email_status:
+          $ref: '#/components/schemas/EmailStatusEnum'
+      required:
+      - created_at
+      - email
+      - email_status
+      - id
+      - message
+      - name
+      - page_path
+      - phone
+      - read_at
+      - site_id
+    SiteInquiryAccepted:
+      type: object
+      properties:
+        accepted:
+          type: boolean
+        reference:
+          type: string
+          format: uuid
+      required:
+      - accepted
+      - reference
+    SiteInquiryList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SiteInquiry'
+        next_cursor:
+          type:
+          - string
+          - 'null'
+          format: uuid
+      required:
+      - items
+      - next_cursor
+    SiteInquirySubmit:
+      type: object
+      properties:
+        publication_id:
+          type: string
+          format: uuid
+        path:
+          type: string
+          maxLength: 500
+        block_position:
+          type: integer
+          maximum: 1000
+          minimum: 0
+        name:
+          type: string
+          maxLength: 120
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        phone:
+          type: string
+          default: ''
+          maxLength: 32
+        message:
+          type: string
+          maxLength: 5000
+        website:
+          type: string
+          default: ''
+          maxLength: 200
+      required:
+      - block_position
+      - email
+      - message
+      - name
+      - path
+      - publication_id
     SiteList:
       type: object
       properties:

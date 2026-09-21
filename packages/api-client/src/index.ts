@@ -2922,3 +2922,67 @@ export async function readCatalogDictionary(): Promise<CatalogDictionary> {
   if (error || !data) throwProblem(error, response);
   return data;
 }
+
+export type SiteInquiry = components["schemas"]["SiteInquiry"];
+export type SiteInquirySubmit = components["schemas"]["SiteInquirySubmit"];
+export async function submitPublicSiteInquiry(
+  input: SiteInquirySubmit,
+  idempotencyKey: string,
+) {
+  const { data, error, response } = await client.POST(
+    "/api/v1/public/site/inquiries/",
+    {
+      body: input,
+      params: { header: { "Idempotency-Key": idempotencyKey } },
+      credentials: "omit",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+export async function listSiteInquiries(
+  siteId: string,
+  options: { cursor?: string; limit?: number } = {},
+) {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/{site_id}/inquiries/",
+    {
+      params: { path: { site_id: siteId }, query: options },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+export async function getSiteInquiry(inquiryId: string) {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/inquiries/{inquiry_id}/",
+    {
+      params: { path: { inquiry_id: inquiryId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+export async function markSiteInquiryRead(
+  inquiryId: string,
+  idempotencyKey: string,
+) {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/inquiries/{inquiry_id}/read/",
+    {
+      params: {
+        path: { inquiry_id: inquiryId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}

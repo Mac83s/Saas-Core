@@ -229,3 +229,23 @@ pasków, mobilny focus, podgląd biblioteki i potwierdzenie podmiany strony.
 Osobno 162 porównania stylów CTA publikacji i edycji przy 360/1440 px.
 Artefakty: `.runtime/site-studio/redesign-browser/` i `cta-browser/`.
 To rzeczywiste komponenty z syntetycznym API, bez dowodu wdrożenia.
+
+
+## Kontakt i zapytania — 2026-09-21
+
+Katalog v3 zachowuje wcześniejsze 72 sekcje i dodaje 16: kontakt bez formularza
+(6), kontakt z formularzem (4), social media i linki (6). Każdy wariant ma
+lokalizowane dane startowe, opis zastosowania i kontrakt kompozycji. Kontakt v1
+nadal renderuje dotychczasowy markup; v2 dopuszcza dodatkowe układy, godziny,
+zdjęcie i akcję. Linki mają walidowane protokoły i ikony z kodu.
+
+Formularz jest stałym blokiem, edytowalnym treściowo i wizualnie. Podgląd ma
+wyłączone pola bez zagnieżdżonego formularza. Renderer publikacji wstrzykuje
+adapter ze snapshotem i pozycją sekcji; kod pakietu nie wysyła żądań sieciowych.
+Kontrakt zapisu, izolacji, skrzynki i powiadomienia opisuje
+[site-inquiries.md](site-inquiries.md).
+
+Dowody tego przyrostu: 63 testy renderera, 96 komponentów/nawigacji/edytora,
+50 nowych testów API i 49 testów zgodności. Chromium obejmuje 16 nowych układów
+oraz aktywny formularz/skrzynkę przy 360/768/1440 px w PL/EN. Weryfikacja była
+izolowana; synchronizacja produktów i odbiór runtime pozostają otwarte.

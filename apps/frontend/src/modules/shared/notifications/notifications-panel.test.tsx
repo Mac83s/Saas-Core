@@ -15,11 +15,17 @@ import { ApiProblemError } from "@saas-core/api-client";
 import { NotificationsPanel } from "./notifications-panel";
 
 const {
+  listSites,
+  listSiteInquiries,
+  markSiteInquiryRead,
   getNotificationPreferences,
   getNotificationTemplates,
   previewNotificationTemplate,
   updateNotificationPreferences,
 } = vi.hoisted(() => ({
+  listSites: vi.fn(),
+  listSiteInquiries: vi.fn(),
+  markSiteInquiryRead: vi.fn(),
   getNotificationPreferences: vi.fn(),
   getNotificationTemplates: vi.fn(),
   previewNotificationTemplate: vi.fn(),
@@ -29,6 +35,9 @@ const {
 vi.mock("#i18n/navigation", () => ({ Link: "a" }));
 vi.mock("@saas-core/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@saas-core/api-client")>()),
+  listSites,
+  listSiteInquiries,
+  markSiteInquiryRead,
   getNotificationPreferences,
   getNotificationTemplates,
   previewNotificationTemplate,
@@ -37,6 +46,8 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  listSites.mockResolvedValue({ items: [], next_cursor: null });
+  listSiteInquiries.mockResolvedValue({ items: [], next_cursor: null });
   getNotificationPreferences.mockResolvedValue({
     locale: "pl",
     marketing_enabled: false,
@@ -211,3 +222,68 @@ function problem(code: string) {
     correlation_id: null,
   });
 }
+
+test.each(["pl", "en"] as const)(
+  "dopuszcza samą skrzynkę %s bez zapytań do powiadomień automatycznych",
+  async (locale) => {
+    const result = render(
+      <NextIntlClientProvider
+        locale={locale}
+        messages={locale === "pl" ? polishMessages : englishMessages}
+      >
+        <NotificationsPanel
+          canManageNotifications={false}
+          canReadSiteInquiries
+        />
+      </NextIntlClientProvider>,
+    );
+    expect(
+      await screen.findByText(
+        locale === "pl"
+          ? /Nie masz jeszcze witryny/
+          : /You do not have a website yet/,
+      ),
+    ).not.toBeNull();
+    expect(getNotificationTemplates).not.toHaveBeenCalled();
+    expect(getNotificationPreferences).not.toHaveBeenCalled();
+    expect((await axe.run(result.container)).violations).toHaveLength(0);
+  },
+);
+
+test("oddziela skrzynkę i automatyczne powiadomienia dostępnymi zakładkami", async () => {
+  render(
+    <NextIntlClientProvider locale="en" messages={englishMessages}>
+      <NotificationsPanel canReadSiteInquiries canManageNotifications />
+    </NextIntlClientProvider>,
+  );
+  expect(
+    await screen.findByText(/You do not have a website yet/),
+  ).not.toBeNull();
+  expect(
+    screen.getByRole("tab", { name: "Website inquiries" }),
+  ).toHaveAttribute("aria-selected", "true");
+  expect(getNotificationTemplates).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("tab", { name: "Automatic notifications" }));
+  expect(
+    await screen.findByRole("heading", { name: "Booking reminder" }),
+  ).not.toBeNull();
+  expect(
+    screen.getByRole("tab", { name: "Automatic notifications" }),
+  ).toHaveAttribute("aria-selected", "true");
+});
+
+test("brak obu uprawnień nie wywołuje endpointów ani nie pokazuje treści", () => {
+  render(
+    <NextIntlClientProvider locale="en" messages={englishMessages}>
+      <NotificationsPanel
+        canManageNotifications={false}
+        canReadSiteInquiries={false}
+      />
+    </NextIntlClientProvider>,
+  );
+  expect(listSites).not.toHaveBeenCalled();
+  expect(listSiteInquiries).not.toHaveBeenCalled();
+  expect(getNotificationTemplates).not.toHaveBeenCalled();
+  expect(getNotificationPreferences).not.toHaveBeenCalled();
+  expect(screen.queryByRole("heading")).toBeNull();
+});

@@ -13,6 +13,8 @@ import {
   type SiteBlock,
 } from "@saas-core/site-blocks";
 
+import { PublicContactForm } from "./public-contact-form";
+
 const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
 
 export type PublicSiteResult =
@@ -142,5 +144,15 @@ export function PublicSiteRenderer({ page }: { page: PublicSitePage }) {
             },
     },
     registry,
+    (form, blockPosition) => (
+      <PublicContactForm
+        publicationId={page.publication_id}
+        path={new URL(page.canonical_url).pathname}
+        blockPosition={blockPosition}
+        locale={page.locale === "en" ? "en" : "pl"}
+        submitLabel={form.submit_label}
+        successMessage={form.success_message}
+      />
+    ),
   );
 }

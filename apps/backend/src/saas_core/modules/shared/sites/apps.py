@@ -12,6 +12,9 @@ class SitesConfig(AppConfig):
     verbose_name = "Sites and content"
 
     def ready(self) -> None:
+        from .inquiry_emails import register_inquiry_email
+
+        register_inquiry_email()
         register(check_content_contracts, "sites")
 
 

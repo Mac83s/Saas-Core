@@ -11,6 +11,7 @@ from django.http.request import split_domain_port, validate_host
 # them can be answered under the panel's allow-list.
 PUBLIC_SITE_ROUTES = (
     "/api/v1/public/site/",
+    "/api/v1/public/site/inquiries/",
     "/api/v1/public/site/feed.xml",
     "/api/v1/public/site/atom.xml",
     "/api/v1/public/site/sitemap.xml",

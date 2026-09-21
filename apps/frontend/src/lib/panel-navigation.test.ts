@@ -163,3 +163,25 @@ describe("abonament w menu", () => {
     ).toEqual({ kind: "limited" });
   });
 });
+
+describe("website inquiry access", () => {
+  const messages = (modules: string[], permissions: string[]) =>
+    panelNavigation({
+      ...OWNER,
+      modules,
+      permissions,
+      isOwner: false,
+    }).company.some((item) => item.href === "/panel/notifications");
+  it("offers messages to website editors without automation permission", () => {
+    expect(
+      messages(["shared.notifications", "shared.sites"], ["site.content.edit"]),
+    ).toBe(true);
+    expect(messages(["shared.notifications"], ["site.content.edit"])).toBe(
+      false,
+    );
+    expect(messages(["shared.notifications", "shared.sites"], [])).toBe(false);
+    expect(messages(["shared.notifications"], ["notifications.manage"])).toBe(
+      true,
+    );
+  });
+});
