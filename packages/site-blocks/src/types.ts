@@ -56,6 +56,40 @@ export type ContactV1Data = JsonObject & {
   address?: string;
 };
 
+export type ContactV2Data = ContactV1Data & {
+  layout?: "classic" | "split" | "cards" | "band" | "photo" | "details";
+  text?: string;
+  hours?: string;
+  action?: { label: string; href: string };
+  image?: { asset_id: string; alt: string };
+};
+
+export type LinkListV1Data = JsonObject & {
+  title?: string;
+  text?: string;
+  layout?: "buttons" | "icons" | "cards" | "list" | "split" | "band";
+  links: { label: string; href: string; description?: string }[];
+};
+
+export type ContactFormV1Data = JsonObject & {
+  title: string;
+  text?: string;
+  layout?: "split" | "centered" | "card" | "photo";
+  locale?: "pl" | "en";
+  submit_label?: string;
+  success_message?: string;
+  privacy_label?: string;
+  privacy_href?: string;
+  image?: { asset_id: string; alt: string };
+};
+
+/** Runtime-only form adapter. A published snapshot never contains executable code. */
+export type BlockFormRenderer = (data: ContactFormV1Data) => ReactNode;
+export type PublishedFormRenderer = (
+  data: ContactFormV1Data,
+  blockPosition: number,
+) => ReactNode;
+
 export type TestimonialsV1Data = JsonObject & {
   title?: string;
   items: { quote: string; author: string; role?: string }[];
@@ -163,6 +197,7 @@ export interface BlockComponentProps {
   data: JsonObject;
   editor?: BlockEditor;
   imageRenderer?: BlockImageRenderer;
+  formRenderer?: BlockFormRenderer;
 }
 
 export interface BlockDefinition {
@@ -273,5 +308,6 @@ export interface BlockRegistry {
     key: string,
     editor?: BlockEditor,
     imageRenderer?: BlockImageRenderer,
+    formRenderer?: BlockFormRenderer,
   ): ReactElement;
 }

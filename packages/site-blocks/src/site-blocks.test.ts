@@ -222,12 +222,19 @@ describe("site block registry", () => {
     ).toThrow(InvalidBlockDataError);
   });
 
-  it("covers every ADR-031 catalogue category exactly once", () => {
+  it("covers every ADR-031 catalogue category while grouping contact tools together", () => {
     const categories = coreSiteBlockManifest.blocks.flatMap((block) =>
       block.catalog === undefined ? [] : [block.catalog.category],
     );
 
-    expect(categories).toHaveLength(9);
+    expect(
+      categories.filter((category) => category !== "contact"),
+    ).toHaveLength(8);
+    expect(
+      coreSiteBlockManifest.blocks.find(
+        (block) => block.type === "core.link_list",
+      )?.catalog?.category,
+    ).toBe("contact");
     expect(new Set(categories)).toEqual(
       new Set([
         "start",

@@ -136,9 +136,14 @@ export function SectionLibraryContent({
     [industry, blockType, query, locale],
   );
   const ordered = useMemo(() => {
-    const groups = ["core.hero", "core.feature_list", "core.faq"].map((type) =>
-      templates.filter((item) => item.blockType === type),
-    );
+    const groups = [
+      "core.hero",
+      "core.feature_list",
+      "core.faq",
+      "core.contact",
+      "core.contact_form",
+      "core.link_list",
+    ].map((type) => templates.filter((item) => item.blockType === type));
     const mixed = Array.from(
       { length: Math.max(...groups.map((group) => group.length), 0) },
       (_, index) =>
@@ -257,7 +262,14 @@ export function SectionLibraryContent({
               }}
             >
               <option value="">{t("allCategories")}</option>
-              {["hero", "feature_list", "faq"].map((name) => (
+              {[
+                "hero",
+                "feature_list",
+                "faq",
+                "contact",
+                "contact_form",
+                "link_list",
+              ].map((name) => (
                 <option key={name} value={`core.${name}`}>
                   {t(name)}
                 </option>

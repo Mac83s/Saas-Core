@@ -802,7 +802,10 @@
       "results": "{count, plural, one {# layout} other {# layouts}}",
       "previewAction": "Preview",
       "details": "About these templates",
-      "desktop": "Desktop"
+      "desktop": "Desktop",
+      "contact": "Contact",
+      "contact_form": "Contact form",
+      "link_list": "Social media and links"
     },
     "appearance": {
       "title": "Site-wide appearance",
@@ -924,7 +927,17 @@
       "validationError": "Complete the highlighted fields in section settings.",
       "replaceConfirm": "Replace and save draft"
     },
-    "uploadAndCrop": "Upload and crop"
+    "uploadAndCrop": "Upload and crop",
+    "contactHours": "Contact hours",
+    "linkItems": "Links",
+    "linkDescription": "Link description",
+    "submitLabel": "Submit button text",
+    "successMessage": "Submission confirmation",
+    "privacyLabel": "Privacy link text",
+    "privacyHref": "Privacy information URL",
+    "formDeliveryHint": "Inquiries are saved in Messages in your panel. The organization owner receives an email notification; the editor preview does not send messages.",
+    "contactFormBlock": "Contact form",
+    "linkListBlock": "Social media and links"
   },
   "BillingSupport": {
     "navigation": "Billing & access",

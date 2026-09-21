@@ -5,6 +5,8 @@
 @import "./site-fonts.css";
 @import "./site-typography.css";
 @import "./site-studio.css";
+@import "./site-contact.css";
+@import "./site-contact-form.css";
 @source "../../../apps/**/*.{ts,tsx}";
 @source "../**/*.{ts,tsx}";
 

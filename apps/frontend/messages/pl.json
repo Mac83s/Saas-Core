@@ -802,7 +802,10 @@
       "results": "{count, plural, one {# układ} few {# układy} other {# układów}}",
       "previewAction": "Podgląd",
       "details": "O szablonach",
-      "desktop": "Komputer"
+      "desktop": "Komputer",
+      "contact": "Kontakt",
+      "contact_form": "Formularz kontaktowy",
+      "link_list": "Social media i linki"
     },
     "appearance": {
       "title": "Wygląd całej witryny",
@@ -924,7 +927,17 @@
       "validationError": "Uzupełnij zaznaczone pola w ustawieniach sekcji.",
       "replaceConfirm": "Zastąp i zapisz szkic"
     },
-    "uploadAndCrop": "Wgraj i skadruj"
+    "uploadAndCrop": "Wgraj i skadruj",
+    "contactHours": "Godziny kontaktu",
+    "linkItems": "Linki",
+    "linkDescription": "Opis linku",
+    "submitLabel": "Tekst przycisku wysyłania",
+    "successMessage": "Potwierdzenie przyjęcia wiadomości",
+    "privacyLabel": "Tekst linku o prywatności",
+    "privacyHref": "Adres informacji o prywatności",
+    "formDeliveryHint": "Zapytania trafiają do Wiadomości w panelu. Powiadomienie e-mail otrzymuje właściciel organizacji; podgląd edytora nie wysyła wiadomości.",
+    "contactFormBlock": "Formularz kontaktowy",
+    "linkListBlock": "Social media i linki"
   },
   "BillingSupport": {
     "navigation": "Billing i dostęp",
