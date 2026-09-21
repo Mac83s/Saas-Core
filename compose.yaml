@@ -307,6 +307,8 @@ services:
       - egress
       - monitoring
       - storage
+      # Approved template photos are scanned synchronously by the API.
+      - scanner
     depends_on:
       migrate:
         condition: service_completed_successfully
