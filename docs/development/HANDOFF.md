@@ -1,5 +1,20 @@
 # Handoff następnej sesji
 
+## 2026-09-21 — istniejące plany zaktualizowane za zgodą właściciela
+
+Domknięto aktywację nowych uprawnień: jeden plan w Saas-Core oraz trzy
+w HoofCare przeniesiono na bieżące wersje, zachowując ceny, limity, stany
+i wszystkie terminy. Wyrównano także trzy mapowania abonamentów; dwa
+w HoofCare pozostawały jeszcze na wersji starszej od snapshotu uprawnień.
+MedPlano nie ma istniejących kont wymagających przeniesienia.
+
+[Aktualna oferta i raport aktywacji](../operations/releases/2026-09-21-plan-access.md)
+opisuje plany firmowe 99/149/299 zł oraz gospodarstwa 0/39 zł. Wszystkie trzy
+aplikacje mają nadal symulowane płatności. Gospodarstwa zachowują swój zakres
+modułów, a platformowy workspace i konta bez planu pozostały bez zmian.
+Dowody i świeże kopie baz: `.runtime/releases/20260921-plan-upgrade/`.
+Operacja nie wymagała restartu ani zmiany obrazów.
+
 ## 2026-09-21 — aktualizacja wdrożona na VPS
 
 Na zgodę właściciela wdrożono backend, frontend, worker i scheduler wszystkich
@@ -13,11 +28,11 @@ RLS, import zdjęć przez klucz `content:draft`, zapis dekoracji, publikację i
 odbiór edytora na komputerze oraz telefonie. Wszystkie te kontrole przeszły.
 Publiczne strony PL/EN i kontrole zdrowia odpowiadają 200 po HTTPS.
 
-Pozostaje decyzja właściciela o przeniesieniu starszych abonamentów na nową
-wersję planu z wizytówką przy tych samych cenach i limitach. Nie zmieniano
-uprawnień rzeczywistych organizacji. Cztery wcześniejsze zadania infrastruktury
-oraz szerszy plan Site Studio pozostają otwarte; opis niżej „bez wdrożenia”
-jest historycznym stanem sprzed tego wydania.
+Samo wdrożenie nie zmieniało uprawnień rzeczywistych organizacji. Właściciel
+następnie zatwierdził aktywację starszych abonamentów, wykonaną i opisaną
+powyżej. Cztery wcześniejsze zadania infrastruktury oraz szerszy plan
+Site Studio pozostają otwarte; opis niżej „bez wdrożenia” jest historycznym
+stanem sprzed tego wydania.
 
 ## 2026-09-21 — naprawa bramek aktualizacji po przejęciu sesji Claude
 

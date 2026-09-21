@@ -82,6 +82,12 @@ plan version. MedPlano has no pre-existing tenant snapshot. Moving existing
 subscriptions to new plan versions is pending the owner's separate answer;
 no real tenant entitlement was altered for this verification.
 
+**Subsequent owner-approved activation, 2026-09-21:** the four older plan
+snapshots and three subscription mappings have now been advanced with unchanged
+prices, quotas and lifecycle dates. See the separate
+[plan inventory and activation report](2026-09-21-plan-access.md).
+The paragraph above describes the state at container deployment.
+
 The four previous infrastructure follow-ups remain open: separate staging and
 rollback through GHCR, external alert receipt, encrypted offsite backup/restore,
 and the custom-domain/On-Demand TLS drill. This local release does not establish
