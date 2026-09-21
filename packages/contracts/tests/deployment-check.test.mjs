@@ -29,10 +29,10 @@ test("profil business składa wszystkie moduły Shared bez verticala", async () 
     "core.identity",
     "core.organizations",
     "shared.billing",
+    "shared.notifications",
     "shared.sites",
     "shared.media",
     "shared.profiles",
-    "shared.notifications",
     "shared.booking",
     "shared.seo",
   ]);
