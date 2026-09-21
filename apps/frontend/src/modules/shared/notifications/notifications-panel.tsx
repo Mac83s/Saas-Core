@@ -28,6 +28,14 @@ import {
 } from "@saas-core/ui/components/card";
 import { Label } from "@saas-core/ui/components/label";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
+import {
+  Tabs,
+  TabsIndicator,
+  TabsList,
+  TabsPanel,
+  TabsTab,
+} from "@saas-core/ui/components/tabs";
+import { SiteInquiries } from "../sites/site-inquiries";
 
 const schema = z.object({
   locale: z.enum(["pl", "en"]),
@@ -65,15 +73,35 @@ const NAMED_VARIABLES = new Set([
  */
 export function NotificationsPanel({
   canManageBilling = false,
+  canReadSiteInquiries = false,
+  canManageNotifications = true,
 }: {
   /** The owner is offered the plans when messages are not in the plan. */
   canManageBilling?: boolean;
+  canReadSiteInquiries?: boolean;
+  canManageNotifications?: boolean;
 }) {
-  return (
+  const t = useTranslations("Notifications");
+  const notifications = canManageNotifications ? (
     <div className="space-y-8">
       <TemplatesSection canManageBilling={canManageBilling} />
       <PreferencesSection />
     </div>
+  ) : null;
+  if (!canReadSiteInquiries) return notifications;
+  if (!canManageNotifications) return <SiteInquiries />;
+  return (
+    <Tabs defaultValue="inquiries">
+      <TabsList aria-label={t("sectionsLabel")}>
+        <TabsTab value="inquiries">{t("inquiriesTab")}</TabsTab>
+        <TabsTab value="notifications">{t("automationTab")}</TabsTab>
+        <TabsIndicator />
+      </TabsList>
+      <TabsPanel value="inquiries">
+        <SiteInquiries />
+      </TabsPanel>
+      <TabsPanel value="notifications">{notifications}</TabsPanel>
+    </Tabs>
   );
 }
 

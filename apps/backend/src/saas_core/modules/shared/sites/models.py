@@ -1754,3 +1754,38 @@ class SiteAppearanceRevision(TenantScopedModel):
                 condition=models.Q(number__gte=1), name="sites_appearance_number_ck"
             ),
         ]
+
+
+class SiteInquiry(TenantScopedModel):
+    """An inbound message accepted by a particular published contact form."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name="inquiries")
+    publication = models.ForeignKey(Publication, on_delete=models.PROTECT)
+    page_path = models.CharField(max_length=500)
+    block_position = models.PositiveIntegerField()
+    name = models.CharField(max_length=120)
+    email = models.EmailField(max_length=254)
+    phone = models.CharField(max_length=32, blank=True)
+    message = models.TextField(max_length=5000)
+    notification_message = models.ForeignKey(
+        "notifications.NotificationMessage", on_delete=models.PROTECT, null=True, blank=True
+    )
+    idempotency_key = models.CharField(max_length=120)
+    request_hash = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("-id",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("organization", "site", "idempotency_key"),
+                name="sites_inquiry_idempotency_uq",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=("organization", "site", "-id"), name="sites_inquiry_inbox_idx"),
+        ]

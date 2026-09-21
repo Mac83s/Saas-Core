@@ -132,10 +132,7 @@ def _active_membership(
                 OrganizationStatus.ACTIVE,
             ],
         )
-        .filter(
-            Q(role__organization__isnull=True)
-            | Q(role__organization_id=F("organization_id"))
-        )
+        .filter(Q(role__organization__isnull=True) | Q(role__organization_id=F("organization_id")))
         .first()
     )
 
@@ -164,9 +161,7 @@ def deferred_tenant_context(
                 actor_id=actor_id,
             )
             if membership is None:
-                raise InvalidTenantTaskContext(
-                    f"{causation_id}: membership nie jest już aktywny."
-                )
+                raise InvalidTenantTaskContext(f"{causation_id}: membership nie jest już aktywny.")
             context = context_from_membership(membership)
             with activate_tenant_context(context):
                 set_local_organization_id(context.organization_id)
@@ -226,11 +221,16 @@ def _contract_fields(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _service_context(contract: TenantTaskContract) -> TenantContext:
-    allowed = {"booking.public.read", "booking.public.manage"}
+    allowed_scopes = {
+        "public_booking": {"booking.public.read", "booking.public.manage"},
+        "public_site_inquiry": {"sites.inquiry.submit"},
+    }
+    allowed = allowed_scopes.get(contract.role_key)
     if (
         contract.version != 2
-        or contract.role_key != "public_booking"
+        or allowed is None
         or not set(contract.permissions) <= allowed
+        or (contract.role_key == "public_site_inquiry" and set(contract.permissions) != allowed)
     ):
         raise InvalidTenantTaskContext("Service tenant context ma niedozwolony zakres.")
     if not Organization.objects.filter(

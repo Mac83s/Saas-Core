@@ -19,6 +19,7 @@ from .domain_views import (
     SiteDomainListCreateView,
     SitePlatformDomainView,
 )
+from .inquiry_views import SiteInquiryDetailView, SiteInquiryListView, SiteInquiryReadView
 from .onboarding_views import (
     SiteOnboardingCompleteView,
     SiteOnboardingView,
@@ -59,6 +60,9 @@ from .views import (
 app_name = "sites"
 
 urlpatterns = [
+    path("<uuid:site_id>/inquiries/", SiteInquiryListView.as_view(), name="inquiry-list"),
+    path("inquiries/<uuid:inquiry_id>/", SiteInquiryDetailView.as_view(), name="inquiry-detail"),
+    path("inquiries/<uuid:inquiry_id>/read/", SiteInquiryReadView.as_view(), name="inquiry-read"),
     path(
         "template-media/<slug:photo_id>/materialize/",
         TemplatePhotoView.as_view(),

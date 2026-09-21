@@ -1645,6 +1645,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/public/site/inquiries/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["public_site_inquiry_submit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/seo/audit-offer/": {
         parameters: {
             query?: never;
@@ -1975,6 +1991,22 @@ export interface paths {
         get: operations["sites_domains_list"];
         put?: never;
         post: operations["sites_domains_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/{site_id}/inquiries/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["sites_inquiry_list"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2408,6 +2440,38 @@ export interface paths {
         get: operations["sites_entry_translations_list"];
         put?: never;
         post: operations["sites_entry_translation_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/inquiries/{inquiry_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["sites_inquiry_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/inquiries/{inquiry_id}/read/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sites_inquiry_mark_read"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3668,6 +3732,19 @@ export interface components {
             blocks: components["schemas"]["PageBlockInput"][];
             media_asset_ids?: string[];
         };
+        /**
+         * @description * `queued` - Oczekuje
+         *     * `processing` - Przetwarzana
+         *     * `sent` - Wysłana
+         *     * `delivered` - Dostarczona
+         *     * `bounced` - Odrzucona
+         *     * `complained` - Zgłoszona
+         *     * `suppressed` - Wstrzymana
+         *     * `dead_letter` - Dead letter
+         *     * `unavailable` - Niedostępny
+         * @enum {string}
+         */
+        EmailStatusEnum: "queued" | "processing" | "sent" | "delivered" | "bounced" | "complained" | "suppressed" | "dead_letter" | "unavailable";
         EntitlementSupportItem: {
             kind: components["schemas"]["EntitlementSupportItemKindEnum"];
             key: string;
@@ -4870,6 +4947,47 @@ export interface components {
         };
         SiteDomainList: {
             items: components["schemas"]["SiteDomain"][];
+        };
+        SiteInquiry: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            site_id: string;
+            page_path: string;
+            name: string;
+            /** Format: email */
+            email: string;
+            phone: string;
+            message: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            read_at: string | null;
+            email_status: components["schemas"]["EmailStatusEnum"];
+        };
+        SiteInquiryAccepted: {
+            accepted: boolean;
+            /** Format: uuid */
+            reference: string;
+        };
+        SiteInquiryList: {
+            items: components["schemas"]["SiteInquiry"][];
+            /** Format: uuid */
+            next_cursor: string | null;
+        };
+        SiteInquirySubmit: {
+            /** Format: uuid */
+            publication_id: string;
+            path: string;
+            block_position: number;
+            name: string;
+            /** Format: email */
+            email: string;
+            /** @default  */
+            phone: string;
+            message: string;
+            /** @default  */
+            website: string;
         };
         SiteList: {
             items: components["schemas"]["SiteSummary"][];
@@ -9952,6 +10070,89 @@ export interface operations {
             };
         };
     };
+    public_site_inquiry_submit: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteInquirySubmit"];
+                "application/x-www-form-urlencoded": components["schemas"]["SiteInquirySubmit"];
+                "multipart/form-data": components["schemas"]["SiteInquirySubmit"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteInquiryAccepted"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteInquiryAccepted"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     api_v1_seo_audit_offer_retrieve: {
         parameters: {
             query?: never;
@@ -11025,6 +11226,46 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_inquiry_list: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteInquiryList"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -12754,6 +12995,82 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_inquiry_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                inquiry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteInquiry"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_inquiry_mark_read: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                inquiry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteInquiry"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

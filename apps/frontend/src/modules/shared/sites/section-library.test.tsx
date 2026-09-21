@@ -221,14 +221,9 @@ test("keeps photo preparation and a retry error visible in the preview", async (
 });
 
 test.each([
-  ["core.contact", 6, "Contact details", "Kontakt"],
-  [
-    "core.contact_form",
-    4,
-    "Form beside introduction",
-    "Formularz obok wprowadzenia",
-  ],
-  ["core.link_list", 6, "", ""],
+  ["core.contact", 6],
+  ["core.contact_form", 4],
+  ["core.link_list", 6],
 ] as const)(
   "offers all %s layouts and copies editable data",
   async (type, count) => {

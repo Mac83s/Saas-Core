@@ -84,6 +84,7 @@ def _booking_routes() -> list[Route]:
 
 
 def _sites_routes() -> list[Route]:
+    from saas_core.modules.shared.sites.inquiry_views import PublicSiteInquiryView  # noqa: PLC0415
     from saas_core.modules.shared.sites.public_views import (  # noqa: PLC0415
         CaddyDomainAuthorizationView,
         PublicSiteAtomView,
@@ -103,6 +104,11 @@ def _sites_routes() -> list[Route]:
             name="caddy-domain-authorize",
         ),
         path("api/v1/sites/", include("saas_core.modules.shared.sites.urls")),
+        path(
+            "api/v1/public/site/inquiries/",
+            PublicSiteInquiryView.as_view(),
+            name="public-site-inquiry",
+        ),
         path("api/v1/public/site/", PublicSitePageView.as_view(), name="public-site-page"),
         path(
             "api/v1/public/site/feed.xml",
