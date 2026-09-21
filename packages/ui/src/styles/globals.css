@@ -88,6 +88,18 @@
   --ring: #14b8a6;
 }
 
+/* Native popup menus can composite the select's translucent dark fill over
+   a light system surface. Give their rows an opaque pair from the local
+   theme, including when the control appears in a light document preview. */
+[data-slot="native-select"] :is(option, optgroup) {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+[data-slot="native-select"] :is(option, optgroup):disabled {
+  color: var(--muted-foreground);
+}
+
 .site-theme {
   --site-accent: oklch(0.45 0.12 250);
   margin-inline: auto;
