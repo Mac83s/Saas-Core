@@ -44,9 +44,30 @@ ruff, mypy 423 pliki, `makemigrations --check`, import-linter, `deployment:check
 `api:check`. Migracja 0003 ma odwrotność (trigger i funkcja wracają do wersji
 bez `site`).
 
+Frontend w tym samym przyroście:
+
+- ekran **„Wizytówka"** w grupie „Firma" panelu (`/panel/profile`), nad „Stroną
+  internetową" — wizytówka jest podłogą oferty, strona opcją nad nią. Pola
+  zapisują się na `blur`, miasto i kategoria to `NativeSelect` ze słownika
+  z API, a karta publikacji mówi **dokąd prowadzi wpis**: do witryny klienta
+  albo do strony wizytówki na platformie;
+- publiczne `/katalog` (wyszukiwarka z filtrami ze słownika) i
+  `/katalog/<miasto>/<firma>` (trzy układy z `CatalogLayout`). `localePrefix`
+  jest `as-needed`, więc polski adres nie ma prefiksu i zgadza się z `path`
+  zwracanym przez API;
+- wpis prowadzący poza platformę otwiera się w nowej karcie i jest tak
+  oznaczony; wpis zostający na platformie nie;
+- `generateMetadata` i strona dzielą jedno pobranie przez `cache()` z Reacta —
+  klient czyta z `no-store`, więc bez tego każde wejście robota pobierałoby
+  rekord dwa razy;
+- **onboarding**: lista „Na start" na ekranie Dziś dostała krok „Uzupełnij
+  wizytówkę" **przed** krokiem strony internetowej. To cała odpowiedź na
+  pytanie z onboardingu: skoro wizytówka powstaje zawsze, nie ma czego pytać
+  przy zakładaniu firmy — jest co podpowiedzieć na pierwszym ekranie. Fikstura
+  testu listy nie miała `shared.profiles` w modułach, więc krok byłby niewidoczny
+  i nieprzetestowany; została uzupełniona razem z asercją kolejności.
+
 Otwarte:
-- **frontendu nie ma**: ekran „Wizytówka" w panelu i strony `/katalog/...`
-  (trzy układy z `CatalogLayout`) to następny etap;
 - plan `profile` nadal ma `sites.enabled`. ADR-053 §9 mówi, że ma je stracić —
   to decyzja cenowa i osobna `PlanVersion`, świadomie nie w tym przyroście;
 - publikacja i wycofanie używają akcji audytu `profile.updated` z metadanymi,

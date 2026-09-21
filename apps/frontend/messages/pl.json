@@ -119,7 +119,8 @@
     "themeLight": "Jasny motyw",
     "themeDark": "Ciemny motyw",
     "animals": "Zwierzęta",
-    "inventory": "Magazyn"
+    "inventory": "Magazyn",
+    "profile": "Wizytówka"
   },
   "Dashboard": {
     "eyebrow": "Centrum zarządzania",
@@ -161,7 +162,10 @@
     "teamAction": "Zaproś osobę",
     "websiteTitle": "Uruchom stronę internetową",
     "websiteBody": "Strona na naszej subdomenie działa od razu; własną domenę podepniesz później.",
-    "websiteAction": "Utwórz stronę"
+    "websiteAction": "Utwórz stronę",
+    "profileTitle": "Uzupełnij wizytówkę",
+    "profileBody": "Nazwa, miasto i kategoria wystarczą, żeby klienci znaleźli Cię w katalogu firm.",
+    "profileAction": "Otwórz wizytówkę"
   },
   "TeamPage": {
     "eyebrow": "Zespół i role",
@@ -1890,5 +1894,51 @@
     "unit_ml": "ml",
     "unit_g": "g",
     "unit_m": "m"
+  },
+  "Catalog": {
+    "title": "Katalog firm",
+    "intro": "Znajdź firmę w swojej okolicy.",
+    "query": "Szukaj",
+    "queryPlaceholder": "Nazwa albo czym się zajmuje",
+    "city": "Miasto",
+    "category": "Kategoria",
+    "anyCity": "Wszystkie miasta",
+    "anyCategory": "Wszystkie kategorie",
+    "empty": "Nic nie znaleziono. Spróbuj innego miasta albo kategorii.",
+    "more": "Pokaż więcej",
+    "loadFailed": "Nie udało się wczytać katalogu.",
+    "contact": "Kontakt",
+    "links": "Linki",
+    "specializations": "Specjalizacje",
+    "visitSite": "Przejdź na stronę firmy"
+  },
+  "Profile": {
+    "title": "Wizytówka firmy",
+    "intro": "Twoja wizytówka jest podstawą obecności w sieci. Uzupełnij dane i opublikuj ją w katalogu, żeby klienci mogli Cię znaleźć.",
+    "loading": "Wczytuję wizytówkę…",
+    "loadFailed": "Nie udało się wczytać wizytówki.",
+    "saveFailed": "Nie udało się zapisać zmiany.",
+    "publishFailed": "Nie udało się zmienić publikacji.",
+    "name": "Nazwa firmy",
+    "headline": "Jedno zdanie o firmie",
+    "headlinePlaceholder": "Np. Salon fryzjerski damsko-męski",
+    "bio": "Opis",
+    "city": "Miasto",
+    "category": "Kategoria",
+    "choose": "Wybierz…",
+    "phone": "Telefon",
+    "email": "E-mail",
+    "address": "Adres",
+    "layout": "Układ strony wizytówki",
+    "layout_card": "Wizytówka",
+    "layout_cover": "Ze zdjęciem na całą szerokość",
+    "layout_compact": "Zwięzła",
+    "catalogTitle": "Katalog firm",
+    "catalogPublished": "Twoja firma jest widoczna w katalogu.",
+    "catalogNotPublished": "Twojej firmy nie ma jeszcze w katalogu. Uzupełnij nazwę, miasto i kategorię, a potem opublikuj.",
+    "leadsToSite": "Wpis w katalogu prowadzi do Twojej strony internetowej.",
+    "leadsToCatalog": "Wpis w katalogu prowadzi do strony wizytówki na naszej platformie.",
+    "publish": "Opublikuj w katalogu",
+    "withdraw": "Wycofaj z katalogu"
   }
 }

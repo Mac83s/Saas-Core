@@ -16,6 +16,7 @@ const { api } = vi.hoisted(() => ({
     listInvitations: vi.fn(),
     listMemberships: vi.fn(),
     listSites: vi.fn(),
+    readOrganizationProfile: vi.fn(),
   },
 }));
 vi.mock("#i18n/navigation", () => ({ Link: "a" }));
@@ -36,6 +37,7 @@ const owner = [
   "booking.appointment.manage",
   "farms.manage",
   "site.content.edit",
+  "profiles.manage",
 ];
 
 function access(overrides: Partial<PanelAccess> = {}): PanelAccess {
@@ -46,6 +48,7 @@ function access(overrides: Partial<PanelAccess> = {}): PanelAccess {
       "shared.billing",
       "shared.booking",
       "shared.farms",
+      "shared.profiles",
       "shared.sites",
     ],
     permissions: owner,
@@ -77,6 +80,10 @@ beforeEach(() => {
   api.listInvitations.mockResolvedValue([]);
   api.listMemberships.mockResolvedValue([{ id: "only-me" }]);
   api.listSites.mockResolvedValue({ items: [] });
+  api.readOrganizationProfile.mockResolvedValue({
+    profile: { id: "profile-one" },
+    catalog: { published: false },
+  });
 });
 
 test("pokazuje kroki typu organizacji z postępem liczonym z danych", async () => {
@@ -89,7 +96,7 @@ test("pokazuje kroki typu organizacji z postępem liczonym z danych", async () =
   expect(
     await screen.findByRole("heading", { level: 2, name: "Na start" }),
   ).toBeInTheDocument();
-  expect(screen.getByText("Gotowe 2 z 5")).toBeInTheDocument();
+  expect(screen.getByText("Gotowe 2 z 6")).toBeInTheDocument();
   expect(
     screen.getAllByRole("listitem").map((item) => item.textContent),
   ).toEqual([
@@ -97,6 +104,9 @@ test("pokazuje kroki typu organizacji z postępem liczonym z danych", async () =
     expect.stringContaining("Dodaj pierwsze gospodarstwoZrobione"),
     expect.stringContaining("Zaplanuj pierwszą wizytęDo zrobienia"),
     expect.stringContaining("Zaproś kogoś do zespołuDo zrobienia"),
+    // The business card sits before the website: it is what puts the company
+    // in the directory, and every organization has it (ADR-053).
+    expect.stringContaining("Uzupełnij wizytówkęDo zrobienia"),
     expect.stringContaining("Uruchom stronę internetowąDo zrobienia"),
   ]);
   // A step that is done offers no action; the first open one leads on.
@@ -156,7 +166,7 @@ test("zaproszenie bez odpowiedzi zamyka krok zespołu", async () => {
   ]);
   renderList();
 
-  expect(await screen.findByText("Gotowe 1 z 5")).toBeInTheDocument();
+  expect(await screen.findByText("Gotowe 1 z 6")).toBeInTheDocument();
   expect(
     screen.getByText("Zaproś kogoś do zespołu").closest("li"),
   ).toHaveTextContent("Zrobione");
@@ -173,7 +183,7 @@ test("błąd odczytu daje ponowienie zamiast zmyślonego postępu", async () => 
 
   api.listFarms.mockResolvedValue([]);
   fireEvent.click(screen.getByRole("button", { name: "Spróbuj ponownie" }));
-  expect(await screen.findByText("Gotowe 0 z 5")).toBeInTheDocument();
+  expect(await screen.findByText("Gotowe 0 z 6")).toBeInTheDocument();
 });
 
 test("ukrycie listy zapamiętuje się lokalnie i przeżywa brak storage", async () => {
@@ -193,7 +203,7 @@ test("ukrycie listy zapamiętuje się lokalnie i przeżywa brak storage", async 
     throw new Error("storage disabled");
   });
   renderList();
-  expect(await screen.findByText("Gotowe 0 z 5")).toBeInTheDocument();
+  expect(await screen.findByText("Gotowe 0 z 6")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Ukryj listę" }));
   await waitFor(() => expect(screen.queryByText("Na start")).toBeNull());
   failing.mockRestore();

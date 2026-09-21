@@ -119,7 +119,8 @@
     "themeLight": "Light theme",
     "themeDark": "Dark theme",
     "animals": "Animals",
-    "inventory": "Inventory"
+    "inventory": "Inventory",
+    "profile": "Business card"
   },
   "Dashboard": {
     "eyebrow": "Management hub",
@@ -161,7 +162,10 @@
     "teamAction": "Invite someone",
     "websiteTitle": "Put your website online",
     "websiteBody": "A site on our subdomain works right away; you can connect your own domain later.",
-    "websiteAction": "Create the site"
+    "websiteAction": "Create the site",
+    "profileTitle": "Fill in your business card",
+    "profileBody": "A name, a city and a category are enough for customers to find you in the directory.",
+    "profileAction": "Open the business card"
   },
   "TeamPage": {
     "eyebrow": "Team & roles",
@@ -1890,5 +1894,51 @@
     "unit_ml": "ml",
     "unit_g": "g",
     "unit_m": "m"
+  },
+  "Catalog": {
+    "title": "Company directory",
+    "intro": "Find a company near you.",
+    "query": "Search",
+    "queryPlaceholder": "Name or what they do",
+    "city": "City",
+    "category": "Category",
+    "anyCity": "All cities",
+    "anyCategory": "All categories",
+    "empty": "Nothing found. Try another city or category.",
+    "more": "Show more",
+    "loadFailed": "Could not load the directory.",
+    "contact": "Contact",
+    "links": "Links",
+    "specializations": "Specialisations",
+    "visitSite": "Go to the company website"
+  },
+  "Profile": {
+    "title": "Business card",
+    "intro": "Your business card is the base of your presence online. Fill it in and publish it to the directory so customers can find you.",
+    "loading": "Loading your business card…",
+    "loadFailed": "Could not load the business card.",
+    "saveFailed": "Could not save the change.",
+    "publishFailed": "Could not change the publication.",
+    "name": "Company name",
+    "headline": "One sentence about the company",
+    "headlinePlaceholder": "For example: Hair salon for women and men",
+    "bio": "Description",
+    "city": "City",
+    "category": "Category",
+    "choose": "Choose…",
+    "phone": "Phone",
+    "email": "Email",
+    "address": "Address",
+    "layout": "Business card page layout",
+    "layout_card": "Card",
+    "layout_cover": "Full-width cover",
+    "layout_compact": "Compact",
+    "catalogTitle": "Company directory",
+    "catalogPublished": "Your company is visible in the directory.",
+    "catalogNotPublished": "Your company is not in the directory yet. Fill in the name, city and category, then publish.",
+    "leadsToSite": "The directory entry leads to your website.",
+    "leadsToCatalog": "The directory entry leads to your business card page on our platform.",
+    "publish": "Publish to the directory",
+    "withdraw": "Withdraw from the directory"
   }
 }

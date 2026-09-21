@@ -4235,6 +4235,27 @@ paths:
   /api/v1/public/catalog/:
     get:
       operationId: catalog_list
+      parameters:
+      - in: query
+        name: category
+        schema:
+          type: string
+        description: Klucz kategorii ze słownika.
+      - in: query
+        name: city
+        schema:
+          type: string
+        description: Slug miasta ze słownika katalogu.
+      - in: query
+        name: page
+        schema:
+          type: integer
+        description: Strona wyników, od 1.
+      - in: query
+        name: q
+        schema:
+          type: string
+        description: Szukaj po nazwie, nagłówku, kategorii.
       tags:
       - api
       security:
@@ -4322,6 +4343,80 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/public/site/inquiries/:
+    post:
+      operationId: public_site_inquiry_submit
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - public-sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SiteInquirySubmit'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SiteInquirySubmit'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SiteInquirySubmit'
+        required: true
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteInquiryAccepted'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteInquiryAccepted'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '413':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '429':
           content:
             application/json:
               schema:
@@ -13291,6 +13386,55 @@ components:
             $ref: '#/components/schemas/SiteDomain'
       required:
       - items
+    SiteInquiryAccepted:
+      type: object
+      properties:
+        accepted:
+          type: boolean
+        reference:
+          type: string
+          format: uuid
+      required:
+      - accepted
+      - reference
+    SiteInquirySubmit:
+      type: object
+      properties:
+        publication_id:
+          type: string
+          format: uuid
+        path:
+          type: string
+          maxLength: 500
+        block_position:
+          type: integer
+          maximum: 1000
+          minimum: 0
+        name:
+          type: string
+          maxLength: 120
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        phone:
+          type: string
+          default: ''
+          maxLength: 32
+        message:
+          type: string
+          maxLength: 5000
+        website:
+          type: string
+          default: ''
+          maxLength: 200
+      required:
+      - block_position
+      - email
+      - message
+      - name
+      - path
+      - publication_id
     SiteList:
       type: object
       properties:
