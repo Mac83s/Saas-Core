@@ -1,5 +1,45 @@
 # Handoff następnej sesji
 
+## 2026-09-21 — naprawa bramek aktualizacji po przejęciu sesji Claude
+
+Kod `4c202be` usuwa przyczyny zaległych błędów aktualizacji:
+
+- blueprint używa wąskiego `media.template.import`, otrzymywanego przez
+  `content:draft`/`content:publish`. Zdjęcia wybiera serwer z zatwierdzonej
+  recepty; pozostają quota, skanowanie, RLS, idempotencja i przegląd człowieka.
+  Dowolny upload, jego potwierdzenie i usuwanie nadal wymagają `media.manage`;
+- `organizationTypes.catalogCategories` pozwala produktom deklarować własne
+  kategorie bez edycji wspólnego słownika. Brak pola zachowuje słownik typu,
+  `[]` jawnie wyłącza kategorie. Kontrakt odrzuca duplikaty, brak etykiet,
+  klucze dłuższe niż 64 znaki oraz kategorie typu bez `shared.profiles`;
+- test ról porównuje pełne listy po sortowaniu: zachowuje kontrolę braków,
+  nadmiarowych grantów i duplikatów, bez zależności od kolejności migracji.
+
+Dowody w `/root/update-gates-20260921/`:
+
+- [x] pełny backend rdzenia: **899 PASS, 2 SKIP**, zero błędów; pominięcia
+  wynikają z pustej listy wertykałów w tym profilu;
+- [x] końcowe testy blueprintów, zdjęć, katalogu i ról: **58/58** od świeżej
+  bazy. Ponowne użycie bazy po pełnej suicie wymaga `--create-db`: testy
+  transakcyjne czyszczą role inicjalizowane migracjami;
+- [x] format, lint, typy TS, Ruff, mypy (**431** plików), granice importów,
+  brak nowych migracji i API drift; ostatnia korekta długości klucza
+  sprawdzona testem kontraktu;
+- [x] kontrakty: **28/28** na Node **24.21.0**, następnie końcowy kontrakt
+  deploymentu **14/14** na Node 24 po doprecyzowaniu limitu kategorii;
+- [x] frontend HoofCare po synchronizacji: **430/430**, **69** plików.
+  Pozostałe kontrole JS używały hostowego Node **22.22.2**.
+
+Produkty pobierają poprawkę przez `core:update`; ich pełne wyniki zapisuje
+`docs/product/HANDOFF.md` w odpowiednich repozytoriach. HoofCare deklaruje
+„Korekcja racic” dla firm korekcyjnych; gospodarstwa mają pustą listę kategorii.
+
+**Wdrożenie nadal osobno.** Nie przebudowano ani nie zrestartowano działających
+aplikacji i nie migrowano ich baz. Następny krok po uzgodnieniu okna: obrazy
+backendu i frontendu z tym samym hashem profilu, wcześniejsza migracja Sites
+`0031`, sprawdzenie planów/cech istniejących organizacji oraz odbiór panelu.
+Cztery wcześniejsze zadania infrastrukturalne pozostają bez nowego dowodu.
+
 ## 2026-09-21 — dokończenie scalenia po przerwaniu sesji Claude
 
 Punktem przejęcia był `main` `c01b442`: dekoracje `fdaff72`, dokumentacja

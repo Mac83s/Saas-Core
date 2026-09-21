@@ -582,6 +582,10 @@ test("kategorie katalogu należą do typu i wymagają modułu profili", async ()
       /catalogCategories/,
     ],
     [
+      { catalogCategories: [{ ...category, key: "x".repeat(65) }] },
+      /catalogCategories/,
+    ],
+    [
       { catalogCategories: [{ ...category, label: { pl: "Specjaliści" } }] },
       /catalogCategories/,
     ],
