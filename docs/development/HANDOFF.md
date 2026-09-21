@@ -1,5 +1,27 @@
 # Handoff następnej sesji
 
+## Kadr tam, gdzie zdjęcie wchodzi w układ, 2026-09-20
+
+Pole obrazu w manifeście bloku niesie proporcję (`BlockFieldDefinition.aspect`:
+hero 16:9, lista cech 4:3). Panel pokazuje przy takim polu „Wgraj i skadruj":
+ramka o tym kształcie, przesuwanie zdjęcia, suwak przybliżenia, a na serwer
+idzie sam kadr (`modules/shared/media/crop.tsx`).
+
+Co warto wiedzieć:
+
+- **kadr liczymy w pikselach oryginału** i dopiero wynik skalujemy do 1600 px;
+  odwrotna kolejność kosztuje jakość na podwójnym skalowaniu;
+- **wysyłamy sam kadr**, bo oryginał i tak nie zostaje w systemie po
+  przetworzeniu — zmiana kadru to ponowne wgranie, świadomie;
+- **manifest bloków jest danymi, nie komponentami**: publiczny renderer czyta
+  ten sam plik, więc proporcja to liczba w manifeście, a nie import z panelu;
+- pole media bez `aspect` zachowuje się jak dotąd (sam wybór z listy) — tak
+  wygląda każde miejsce, które nie narzuca kształtu.
+
+Dowód ze stacku dev: edytor stron serwuje przycisk „Wgraj i skadruj" i okno
+„Kadr zdjęcia". Geometrię kadru (pion → 16:9, przybliżenie, zejście do 1600 px)
+pilnuje `crop.test.ts`, a ścieżkę wybór → kadr → wysyłka `crop-upload.test.tsx`.
+
 ## Site Studio — responsywna typografia i fonty, 2026-09-21
 
 Usunięto zależność wielkości tekstu od szerokości całego panelu. Appearance v2
