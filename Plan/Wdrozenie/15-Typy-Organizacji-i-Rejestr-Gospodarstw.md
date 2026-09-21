@@ -80,7 +80,7 @@ Dowody w HANDOFF.
 3. Wizyta korekcyjna z wyborem karty gospodarstwa w kalendarzu. Rdzeń potrzebuje
    punktu rozszerzenia „szczegóły wizyty modułu” w formularzu rezerwacji.
 
-## Etap 3 — konto rolnika, połączenie i synchronizacja — W TOKU
+## Etap 3 — konto rolnika, połączenie i synchronizacja — ZROBIONE 2026-09-20
 
 Zrobione (kod aktywacji i udział): firma generuje jednorazowy kod do swojej
 karty (ważny 30 dni, w bazie tylko digest), rolnik przejmuje nim stado do
@@ -144,12 +144,72 @@ zamrożenie katalogu ICAR v1 („nadmierny róg” to korekcja funkcjonalna, SH
 zostaje krwawieniem podeszwy) oraz zdjęcia przy wpisie — przekazywane rolnikowi
 jako dostęp do pliku firmy, nie kopia.
 
-Otwarte: zdjęcia w panelu terenowym (wgrywanie przy wpisie), materiały i leki
-(RACICE 13.6, 16), tryb offline.
+Otwarte: tryb offline w terenie. Zdjęcia przy wpisie domknięte 20.09, materiały
+i leki (RACICE 13.6, 16) mają własny etap 6.
 
 ## Etap 5 — sprzedaż zwierząt
 
 Ruch zwierzęcia między rejestrami z historią wpisów zdrowotnych.
+
+## Etap 6 — magazyn materiałów i leków (Saas-Core + HoofCare) — M1/M2 ZROBIONE 2026-09-21
+
+Firma kupuje materiał, wydaje go ludziom, a ci zużywają go przy krowie. Trzy
+zdania, które muszą się zgadzać do sztuki, bo z nich wychodzi zarówno koszt
+korekcji, jak i odpowiedź na pytanie „czy korektorowi wystarczy do końca obory".
+
+Decyzje (21.09, Maciej):
+
+- leki to **kategoria materiału**, nie osobny byt: jeden katalog, kategorie
+  `block`, `dressing`, `medicine`, `tool`, `other`. Ekran korekcji ma z góry
+  trzy domyślne (klocek, opatrunek, lek), reszta wchodzi z listy „wybierz
+  materiał";
+- **zapas należy do osoby**, nie do samochodu ani wizyty. Korektor wyjeżdża z
+  bazy z pakietem i to jego stan schodzi przy pracy;
+- **brak pokrycia ostrzega, ale zapisuje**. Praca w oborze nie czeka na
+  magazyn; ujemny stan jest tym, co właściciel ma wyjaśnić;
+- przyjęcie niesie **ilość i cenę zakupu**; rozchód wycenia się średnią ważoną
+  kroczącą, więc koszt zabiegu wychodzi z magazynu, a nie z cennika;
+- magazynem zarządza właściciel i administrator firmy; biuro, korektor i
+  podgląd widzą stany (rola `trimmer` musi widzieć swój pakiet).
+
+Model: stan to suma ruchów (`InventoryMovement` dopisywalne, `InventoryBalance`
+trzymane obok dla ekranu). `holder` pusty to magazyn firmy, `holder` z osobą to
+jej pakiet. Wydanie i zwrot to dwa ruchy, zużycie jest idempotentne po
+`(organizacja, źródło, referencja, pozycja, posiadacz)` — wpis korekcji
+zapisany dwa razy to jeden klocek.
+
+**M1 — rdzeń (`shared.inventory`), zrobione.** Katalog pozycji, przyjęcie z
+ceną, wydanie osobie, zwrot, korekta z powodem, stany i ruchy; RLS, uprawnienia
+`inventory.read` / `inventory.manage`, cecha planu `inventory.enabled`; panel
+`/panel/inventory` (magazyn firmy, mój zapas, przyjęcie, wydanie korektorowi z
+podglądem, co ta osoba ma przy sobie). Saas-Core: panel i wydanie `9cf7895`,
+zwrot zużycia przy cofnięciu wpisu `6a7ab42`.
+
+**M2 — zużycie przy korekcji (HoofCare), zrobione.** `workspace` niesie pakiet
+korektora, wpis przyjmuje `materials`, zużycie schodzi z jego zapasu w tej samej
+transakcji co wpis. Ekran korekcji pokazuje stan przy zabiegu, pozwala dobrać
+materiał spoza trzech domyślnych i ostrzega, gdy schodzi poniżej zera. HoofCare:
+`808e44e` (backend), `9d24fbe` (teren), `7435aad` (uprawnienia ról typu).
+
+Dowód na żywym stacku (21.09): przyjęcie 20 szt. po 12,50 → magazyn firmy 20,
+wydanie 5 korektorowi → firma 15 / korektor 5, wpis z klockiem → korektor 4,
+powtórka tego samego wpisu → nadal 4, wpis na 10 szt. → −6 i zapis przechodzi.
+
+**M3 — leki, otwarte.** Partie i daty ważności, karencja na mleko i mięso,
+ewidencja podania i wpis karencji w kartotece zwierzęcia (to ostatnie przez
+`publish_health_entry`, bo rolnik musi to widzieć u siebie).
+
+**M4 — stan minimalny i koszty, otwarte.** Alert progu tym samym mechanizmem co
+„do przejrzenia" oraz raport zużycia i kosztu per korektor, gospodarstwo i
+okres.
+
+Do wzięcia przy najbliższym `core:update` w HoofCare: panel wydania (M1) i
+`release` w „Cofnij" — cofnięty wpis ma oddać materiał do zapasu; sam serwis
+rdzenia już to potrafi, wertykał jeszcze go nie woła.
+
+Uwaga wdrożeniowa: `publish_feature` wydaje nową wersję planu, ale subskrypcje
+zostają na poprzedniej — po wdrożeniu modułu trzeba przenieść je na bieżącą
+wersję, inaczej moduł jest ciemny mimo wdrożenia (na dev zrobione ręcznie).
 
 ## Poza planem (świadomie)
 

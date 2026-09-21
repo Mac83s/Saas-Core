@@ -1,5 +1,36 @@
 # Handoff następnej sesji
 
+## Magazyn materiałów: wydanie, zużycie przy krowie, zwrot — 2026-09-21
+
+Commity `6a7ab42`, `9cf7895`, `af389a8` (Saas-Core) oraz `9d24fbe`, `7435aad`
+(HoofCare). Plan i decyzje: etap 6 w
+[15-Typy-Organizacji-i-Rejestr-Gospodarstw.md](../../Plan/Wdrozenie/15-Typy-Organizacji-i-Rejestr-Gospodarstw.md).
+
+Łańcuch domknięty w obie strony: właściciel przyjmuje materiał z ceną, wydaje
+go korektorowi z panelu (widząc, co ta osoba już ma przy sobie), korektor zużywa
+go przy krowie z ekranu korekcji, a cofnięty wpis oddaje materiał osobnym ruchem
+kasującym. Zapas należy do osoby; brak pokrycia ostrzega, ale zapisuje — praca
+w oborze nie czeka na magazyn.
+
+Dowody: `test_inventory.py` **8/8** na bazie 55432, `inventory-panel.test.tsx`
+**2/2**, HoofCare `src/modules/vertical/hoofcare` **95/95**. Na stosie
+hoofcare.goldenstar.cloud: przyjęcie 20 po 12,50 → firma 20, wydanie 5 → firma
+15 / korektor 5, wpis z klockiem → korektor 4, powtórka wpisu → nadal 4, wpis na
+10 szt. → −6 i 201.
+
+Dwie rzeczy, których zielony test nie pokazuje, obie wyszły dopiero na stosie.
+Migracja modułu rdzenia nadaje uprawnienia rolom globalnym, a role per typ
+organizacji są konfiguracją produktu (ADR-050) — bez wpisu w
+`deployments/hoofcare/deployment.json` właściciel dostawał 403
+`organization_permission_denied` na własnym magazynie. `publish_feature` wydaje
+nową wersję planu, ale subskrypcje zostają na poprzedniej, więc moduł jest
+ciemny (403 `entitlement_required`) do czasu przeniesienia ich na bieżącą wersję
+— na dev zrobione ręcznie, w produkcji potrzebny krok wdrożeniowy.
+
+Otwarte: `release` i panel wydania czekają w HoofCare na `core:update`; M3 to
+leki z partiami, datami ważności i karencjami, M4 to próg stanu i koszty per
+korektor.
+
 ## Site Studio: kontakt, linki i zapytania — 2026-09-21
 
 Commity `91e50a2` i `9e49d67`. Katalog v3 ma **88 szablonów sekcji**:
