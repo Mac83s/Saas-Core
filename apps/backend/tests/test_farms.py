@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import uuid
 from contextlib import contextmanager
+from datetime import date
 from types import SimpleNamespace
 from typing import Any
 from unittest import mock
@@ -19,7 +20,7 @@ from django.conf import settings
 from django.db import IntegrityError, connection, transaction
 from django.utils import timezone
 from psycopg import sql
-from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 
 from saas_core.modules.core.identity.models import User, UserStatus
 from saas_core.modules.core.organizations.context import (
@@ -105,7 +106,8 @@ def link_for_schedule(
 
     Łączy obsługa, nie kod aktywacyjny: kod zakłada rolnikowi nowe gospodarstwo,
     a tutaj dwie firmy mają trafić do tego samego. Zgodę ustawia wprost na
-    wierszu, bo żaden przypadek użycia jej dziś nie przełącza.
+    wierszu — `set_share_schedule` ma własne testy i wymaga kontekstu rolnika,
+    a tu chodzi o stan początkowy, nie o drogę do niego.
     """
     from saas_core.modules.shared.farms.models import FarmShare  # noqa: PLC0415
     from saas_core.modules.shared.farms.services import create_farm  # noqa: PLC0415
@@ -123,6 +125,19 @@ def link_for_schedule(
     FarmShare.objects.filter(pk=share.pk).update(can_publish_schedule=schedule)
     share.can_publish_schedule = schedule
     return card, share
+
+
+def without_the_register(member: Membership) -> Membership:
+    """Ta sama osoba w roli, która rejestru nie widzi — rola to jedyna bramka."""
+    member.role = Role.objects.create(
+        organization=member.organization,
+        key="pomocnik",
+        name="Pomocnik",
+        scope=RoleScope.ORGANIZATION,
+        permissions=[],
+    )
+    member.save(update_fields=["role"])
+    return member
 
 
 def test_the_register_is_granted_to_core_roles() -> None:
@@ -1293,3 +1308,156 @@ def test_the_visit_register_is_isolated_under_a_role_without_bypass() -> None:
             )
             cursor.execute(sql.SQL("REVOKE USAGE ON SCHEMA public FROM {}").format(role))
             cursor.execute(sql.SQL("DROP ROLE {}").format(role))
+
+
+def test_the_visit_list_is_the_keepers_own_and_nobody_elses() -> None:
+    """Kartoteka wizyt czyta się we własnym tenancie: drugi rejestr nie widzi
+    ani wiersza pierwszego, ani tego, że jego gospodarstwo w ogóle istnieje."""
+    from saas_core.modules.shared.farms.herd_sync import (  # noqa: PLC0415
+        list_farm_visits,
+        publish_farm_visit,
+    )
+    from saas_core.modules.shared.farms.models import VisitStatus  # noqa: PLC0415
+    from saas_core.modules.shared.farms.services import create_farm  # noqa: PLC0415
+
+    company = membership("firma-lista")
+    farmer = membership("rolnik-lista")
+    stranger = membership("rolnik-obcy-lista")
+    with tenant(farmer) as request:
+        farm = create_farm(request=request, data={"name": "Gospodarstwo Listy"})
+    with tenant(stranger) as request:
+        create_farm(request=request, data={"name": "Cudze Gospodarstwo Listy"})
+    card, _ = link_for_schedule(company, farmer, farm.id)
+
+    with tenant(company):
+        publish_farm_visit(
+            company_organization_id=company.organization_id,
+            company_farm_id=card.id,
+            source="hoofcare.visit",
+            reference="wizyta-lista",
+            status=VisitStatus.DONE,
+            occurred_on=date(2026, 9, 15),
+            summary="Skorygowano 12 sztuk.",
+            details={
+                "sections": [{"title": "Racice", "rows": [{"label": "Sztuk", "value": "12"}]}]
+            },
+        )
+
+    with tenant(farmer):
+        (visit,) = list_farm_visits(farm.id)
+    assert (visit.status, visit.occurred_on, visit.company_name) == (
+        VisitStatus.DONE,
+        date(2026, 9, 15),
+        "firma-lista",
+    )
+    # Kształt raportu przechodzi nietknięty: rdzeń go renderuje, nie rozumie.
+    assert visit.details["sections"][0]["rows"][0]["label"] == "Sztuk"
+
+    # Cudze gospodarstwo to nie „zabronione", tylko „nie ma takiego wiersza".
+    with tenant(stranger):
+        assert list_farm_visits(farm.id) == []
+
+
+def test_the_visit_list_is_closed_without_the_permission_and_the_plan() -> None:
+    from saas_core.modules.shared.farms.herd_sync import list_farm_visits  # noqa: PLC0415
+    from saas_core.modules.shared.farms.services import create_farm  # noqa: PLC0415
+
+    farmer = membership("rolnik-bez-prawa")
+    with tenant(farmer) as request:
+        farm = create_farm(request=request, data={"name": "Gospodarstwo Bez Prawa"})
+
+    with tenant(without_the_register(farmer)), pytest.raises(PermissionDenied) as denied:
+        list_farm_visits(farm.id)
+    # Odmowa z roli, nie z planu: te dwie rzeczy prowadzą do innych ekranów.
+    assert not isinstance(denied.value, EntitlementRequired)
+
+    # Plan zamyka rejestr, zanim ktokolwiek zapyta o gospodarstwo — więc nawet
+    # identyfikator z powietrza nie przechodzi.
+    unpaid = membership("rolnik-bez-planu", entitled=False)
+    with tenant(unpaid), pytest.raises(EntitlementRequired):
+        list_farm_visits(uuid.uuid7())
+
+
+def test_the_keeper_turns_the_schedule_consent_on_and_the_audit_hears_it() -> None:
+    """ADR-052 pkt 4: zgoda jest rolnika, więc przestawia ją strona rejestru —
+    i dopiero ona otwiera firmie drogę do jego kartoteki wizyt."""
+    from saas_core.modules.shared.farms.herd_sync import (  # noqa: PLC0415
+        list_farm_visits,
+        publish_farm_visit,
+    )
+    from saas_core.modules.shared.farms.models import FarmShare, VisitStatus  # noqa: PLC0415
+    from saas_core.modules.shared.farms.services import create_farm  # noqa: PLC0415
+    from saas_core.modules.shared.farms.sharing import set_share_schedule  # noqa: PLC0415
+
+    company = membership("firma-zgoda")
+    farmer = membership("rolnik-zgoda")
+    with tenant(farmer) as request:
+        farm = create_farm(request=request, data={"name": "Gospodarstwo Zgody"})
+    card, share = link_for_schedule(company, farmer, farm.id, schedule=False)
+
+    visit: dict[str, Any] = {
+        "company_organization_id": company.organization_id,
+        "company_farm_id": card.id,
+        "source": "hoofcare.visit",
+        "reference": "wizyta-zgoda",
+        "status": VisitStatus.PLANNED,
+        "scheduled_for": timezone.now(),
+        "summary": "Korekcja, wtorek rano.",
+    }
+    with tenant(company):
+        assert publish_farm_visit(**visit) is None
+
+    with tenant(farmer) as request:
+        turned_on = set_share_schedule(request=request, share_id=share.id, allowed=True)
+        assert (turned_on.can_publish_schedule, turned_on.partner_name) == (True, "firma-zgoda")
+    with tenant(company):
+        assert publish_farm_visit(**visit) is not None
+    with tenant(farmer):
+        assert len(list_farm_visits(farm.id)) == 1
+
+    entries = OrganizationAuditEntry.objects.filter(
+        organization_id=farmer.organization_id,
+        action=OrganizationAuditAction.FARM_SHARE_CHANGED,
+    )
+    assert [entry.metadata for entry in entries] == [{"can_publish_schedule": True}]
+    assert entries.first() is not None and entries.first().target_id == farm.id
+
+    # Wyłączenie zamyka drogę nowym wizytom, a historii nie rusza.
+    with tenant(farmer) as request:
+        assert (
+            set_share_schedule(
+                request=request, share_id=share.id, allowed=False
+            ).can_publish_schedule
+            is False
+        )
+        # Drugie wyłączenie to ten sam stan, więc audyt nie dostaje drugiej linii.
+        set_share_schedule(request=request, share_id=share.id, allowed=False)
+        assert len(list_farm_visits(farm.id)) == 1
+    assert (
+        OrganizationAuditEntry.objects.filter(
+            organization_id=farmer.organization_id,
+            action=OrganizationAuditAction.FARM_SHARE_CHANGED,
+        ).count()
+        == 2
+    )
+    assert FarmShare.objects.get(pk=share.pk).can_publish_schedule is False
+
+
+def test_only_the_register_consents_to_the_companys_schedule() -> None:
+    """Firma nie nadaje sobie zgody sama: dla niej ten udział nie istnieje."""
+    from saas_core.modules.shared.farms.services import create_farm  # noqa: PLC0415
+    from saas_core.modules.shared.farms.sharing import set_share_schedule  # noqa: PLC0415
+
+    company = membership("firma-sama-sobie")
+    farmer = membership("rolnik-sama-sobie")
+    stranger = membership("ktos-inny-zgoda")
+    with tenant(farmer) as request:
+        farm = create_farm(request=request, data={"name": "Gospodarstwo Cudzej Zgody"})
+    _, share = link_for_schedule(company, farmer, farm.id, schedule=False)
+
+    for member in (company, stranger):
+        with tenant(member) as request, pytest.raises(NotFound):
+            set_share_schedule(request=request, share_id=share.id, allowed=True)
+
+    with tenant(without_the_register(farmer)) as request, pytest.raises(PermissionDenied):
+        set_share_schedule(request=request, share_id=share.id, allowed=True)

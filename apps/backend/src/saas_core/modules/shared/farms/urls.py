@@ -12,6 +12,8 @@ from .views import (
     FarmListCreateView,
     FarmShareListView,
     FarmShareRevokeView,
+    FarmShareScheduleView,
+    FarmVisitListView,
     SpeciesView,
 )
 
@@ -34,6 +36,11 @@ urlpatterns = [
     path(
         "shares/<uuid:share_id>/revoke/", FarmShareRevokeView.as_view(), name="farms-share-revoke"
     ),
+    path(
+        "shares/<uuid:share_id>/schedule/",
+        FarmShareScheduleView.as_view(),
+        name="farms-share-schedule",
+    ),
     path("<uuid:farm_id>/", FarmDetailView.as_view(), name="farms-detail"),
     path(
         "<uuid:farm_id>/activation-code/",
@@ -41,5 +48,6 @@ urlpatterns = [
         name="farms-activation-code",
     ),
     path("<uuid:farm_id>/shares/", FarmShareListView.as_view(), name="farms-shares"),
+    path("<uuid:farm_id>/visits/", FarmVisitListView.as_view(), name="farms-visits"),
     path("<uuid:farm_id>/send-herd/", FarmHerdPushView.as_view(), name="farms-send-herd"),
 ]

@@ -1728,6 +1728,48 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/farms/{farm_id}/visits/:
+    get:
+      operationId: farms_visit_list
+      description: Kartoteka wizyt gospodarstwa w rejestrze rolnika (ADR-052).
+      parameters:
+      - in: path
+        name: farm_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - farms
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FarmVisitEntry'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/farms/activation/redeem/:
     post:
       operationId: farms_activation_redeem
@@ -2093,6 +2135,58 @@ paths:
         required: true
       tags:
       - farms
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FarmShare'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/farms/shares/{share_id}/schedule/:
+    post:
+      operationId: farms_share_schedule
+      description: Zgoda rolnika na grafik firmy — tą samą drogą co cofnięcie udziału.
+      parameters:
+      - in: path
+        name: share_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - farms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FarmShareSchedule'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/FarmShareSchedule'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FarmShareSchedule'
+        required: true
       security:
       - cookieAuth: []
       responses:
@@ -9917,6 +10011,8 @@ components:
           format: uuid
         can_write_herd:
           type: boolean
+        can_publish_schedule:
+          type: boolean
         can_publish_health:
           type: boolean
         basis:
@@ -9938,6 +10034,7 @@ components:
       required:
       - basis
       - can_publish_health
+      - can_publish_schedule
       - can_write_herd
       - company_farm_id
       - company_organization_id
@@ -9949,6 +10046,15 @@ components:
       - registry_organization_id
       - revoked_at
       - status
+    FarmShareSchedule:
+      type: object
+      description: Zgoda rolnika na grafik firmy — włączana i wyłączana tym samym
+        polem.
+      properties:
+        can_publish_schedule:
+          type: boolean
+      required:
+      - can_publish_schedule
     FarmSpecies:
       type: object
       properties:
@@ -9982,6 +10088,44 @@ components:
       - created
       - farm
       - share
+    FarmVisitEntry:
+      type: object
+      description: |-
+        Jedna wizyta firmy w gospodarstwie, jak czyta ją rolnik (ADR-052).
+
+        Bez `source` i `source_reference`: to numer wizyty w systemie firmy, a nie
+        coś, czym rolnik operuje.
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+        scheduled_for:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        occurred_on:
+          type:
+          - string
+          - 'null'
+          format: date
+        company_name:
+          type: string
+        summary:
+          type: string
+        details:
+          type: object
+          additionalProperties: {}
+      required:
+      - company_name
+      - details
+      - id
+      - occurred_on
+      - scheduled_for
+      - status
+      - summary
     GenericMessage:
       type: object
       properties:

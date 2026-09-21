@@ -191,6 +191,40 @@ def list_shares(*, farm_id: UUID) -> list[FarmShare]:
 
 
 @transaction.atomic
+def set_share_schedule(*, request: HttpRequest, share_id: UUID, allowed: bool) -> FarmShare:
+    """Zgoda rolnika na grafik firmy — jedyna droga, którą się ją przestawia.
+
+    Tą samą drogą co cofnięcie udziału: `farms.manage` i wyłącznie strona
+    rejestru, bo to zgoda hodowcy na to, co firma mu przysyła, a nie uprawnienie,
+    które firma sama sobie nadaje (ADR-052 pkt 4). Wyłączenie nie kasuje niczego,
+    co już przyszło: historia wizyt zostaje, przestają dochodzić nowe.
+    """
+    context = authorize_entitled(FARMS_MANAGE, FARMS_ENABLED)
+    share = (
+        FarmShare.objects.select_for_update()
+        .filter(pk=share_id, registry_organization_id=context.organization_id)
+        .first()
+    )
+    if share is None:
+        raise NotFound("Nie ma takiego udostępnienia.")
+    if share.can_publish_schedule != allowed:
+        share.can_publish_schedule = allowed
+        share.save(update_fields=["can_publish_schedule"])
+        farm = Farm.all_objects.get(
+            organization_id=context.organization_id, id=share.registry_farm_id
+        )
+        audit_farm(
+            request,
+            context.organization_id,
+            OrganizationAuditAction.FARM_SHARE_CHANGED,
+            farm,
+            metadata={"can_publish_schedule": allowed},
+        )
+    _name_partner(share, context.organization_id)
+    return share
+
+
+@transaction.atomic
 def revoke_share(*, request: HttpRequest, share_id: UUID) -> FarmShare:
     """The farmer stops the sharing; the company keeps its card as it stands."""
     context = authorize_entitled(FARMS_MANAGE, FARMS_ENABLED)

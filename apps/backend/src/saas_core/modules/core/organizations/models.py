@@ -465,6 +465,7 @@ class OrganizationAuditAction(models.TextChoices):
     FARM_TAKEN_OVER = "farms.farm.taken_over", "Rolnik przejął gospodarstwo"
     FARM_SHARE_GRANTED = "farms.share.granted", "Udostępniono gospodarstwo firmie"
     FARM_SHARE_REVOKED = "farms.share.revoked", "Cofnięto udostępnienie gospodarstwa"
+    FARM_SHARE_CHANGED = "farms.share.changed", "Zmieniono zakres udostępnienia gospodarstwa"
     ANIMAL_HEALTH_RECORDED = "farms.animal.health_recorded", "Dopisano wpis w kartotece zwierzęcia"
     HERD_PUSHED = "farms.herd.pushed", "Wysłano stado do rejestru rolnika"
     BILLING_PROFILE_UPDATED = "billing.profile.updated", "Zmieniono dane do faktury"

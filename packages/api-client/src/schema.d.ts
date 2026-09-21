@@ -695,6 +695,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/farms/{farm_id}/visits/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Kartoteka wizyt gospodarstwa w rejestrze rolnika (ADR-052). */
+        get: operations["farms_visit_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/farms/activation/redeem/": {
         parameters: {
             query?: never;
@@ -789,6 +806,23 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["farms_share_revoke"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/farms/shares/{share_id}/schedule/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Zgoda rolnika na grafik firmy — tą samą drogą co cofnięcie udziału. */
+        post: operations["farms_share_schedule"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3473,6 +3507,7 @@ export interface components {
             /** Format: uuid */
             registry_organization_id: string;
             can_write_herd: boolean;
+            can_publish_schedule: boolean;
             can_publish_health: boolean;
             basis: string;
             status: string;
@@ -3482,6 +3517,10 @@ export interface components {
             revoked_at: string | null;
             partner_name: string;
             partner_is_company: boolean;
+        };
+        /** @description Zgoda rolnika na grafik firmy — włączana i wyłączana tym samym polem. */
+        FarmShareSchedule: {
+            can_publish_schedule: boolean;
         };
         FarmSpecies: {
             key: string;
@@ -3496,6 +3535,26 @@ export interface components {
             created: boolean;
             animals_added: number;
             share: components["schemas"]["FarmShare"];
+        };
+        /**
+         * @description Jedna wizyta firmy w gospodarstwie, jak czyta ją rolnik (ADR-052).
+         *
+         *     Bez `source` i `source_reference`: to numer wizyty w systemie firmy, a nie
+         *     coś, czym rolnik operuje.
+         */
+        FarmVisitEntry: {
+            /** Format: uuid */
+            id: string;
+            status: string;
+            /** Format: date-time */
+            scheduled_for: string | null;
+            /** Format: date */
+            occurred_on: string | null;
+            company_name: string;
+            summary: string;
+            details: {
+                [key: string]: unknown;
+            };
         };
         GenericMessage: {
             detail: string;
@@ -6621,6 +6680,51 @@ export interface operations {
             };
         };
     };
+    farms_visit_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                farm_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FarmVisitEntry"][];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     farms_activation_redeem: {
         parameters: {
             query?: never;
@@ -6981,6 +7085,57 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FarmShare"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    farms_share_schedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                share_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FarmShareSchedule"];
+                "application/x-www-form-urlencoded": components["schemas"]["FarmShareSchedule"];
+                "multipart/form-data": components["schemas"]["FarmShareSchedule"];
+            };
+        };
         responses: {
             200: {
                 headers: {

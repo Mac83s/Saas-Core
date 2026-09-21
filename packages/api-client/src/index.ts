@@ -2625,6 +2625,41 @@ export async function revokeFarmShare(shareId: string): Promise<FarmShare> {
   return data;
 }
 
+/** Kartoteka wizyt gospodarstwa w rejestrze rolnika (ADR-052). */
+export type FarmVisit = components["schemas"]["FarmVisitEntry"];
+
+export async function listFarmVisits(farmId: string): Promise<FarmVisit[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/farms/{farm_id}/visits/",
+    {
+      params: { path: { farm_id: farmId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Zgoda rolnika na grafik firmy; przestawia ją tylko strona rejestru. */
+export async function setFarmShareSchedule(
+  shareId: string,
+  allowed: boolean,
+): Promise<FarmShare> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/farms/shares/{share_id}/schedule/",
+    {
+      params: { path: { share_id: shareId } },
+      body: { can_publish_schedule: allowed },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export async function listFarmSpecies(): Promise<FarmSpecies[]> {
   const { data, error, response } = await client.GET("/api/v1/farms/species/", {
     credentials: "same-origin",

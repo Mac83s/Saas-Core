@@ -68,6 +68,7 @@ import {
 
 import { Link } from "#i18n/navigation";
 import { FarmForm } from "./farm-form";
+import { FarmVisits, ScheduleConsent } from "./farm-visits";
 import { FarmNoAccess, FarmNotice, focusRing } from "./farms-panel";
 import { farmProblem, farmProblemKind, type FarmProblem } from "./problem";
 
@@ -84,8 +85,10 @@ type AnimalValues = {
 
 /**
  * One farm's card (ADR-051): who to call, what stands in the barn and what to
- * remember about it. Visits belong to the booking module and a product's field
- * work to the product, so neither is shown here.
+ * remember about it. A product's field work belongs to the product, so it is
+ * not shown here. The visits tab is the one exception and only on the farmer's
+ * side: those rows live in this register (ADR-052), while a company reads its
+ * own visits in its own module.
  */
 export function FarmDetail({
   farmId,
@@ -223,6 +226,10 @@ export function FarmDetail({
       </div>
     );
 
+  // Czyj to wiersz: rejestr rolnika czy karta firmy. Rdzeń nie zna typów
+  // organizacji żadnego produktu (ADR-049), więc rozstrzyga to udział — a
+  // `partner_is_company` mówi wprost, że po tej stronie stoi rejestr.
+  const isRegistry = shares.some((share) => share.partner_is_company);
   const place = [farm?.address, farm?.village].filter(Boolean).join(", ");
   const editDialog = farm ? (
     <Dialog onOpenChange={setEditing} open={editing}>
@@ -350,6 +357,12 @@ export function FarmDetail({
           <Tabs defaultValue="animals">
             <TabsList>
               <TabsTab value="animals">{t("animals")}</TabsTab>
+              {/* Tylko rejestr rolnika: wizyty publikują tu firmy, którym on
+                  udostępnił gospodarstwo. Na karcie firmy ta zakładka nie
+                  miałaby z czego się wziąć — wiersze stoją u rolnika. */}
+              {isRegistry ? (
+                <TabsTab value="visits">{t("visits")}</TabsTab>
+              ) : null}
               <TabsTab value="notes">{t("notes")}</TabsTab>
               <TabsTab value="sharing">{t("sharing")}</TabsTab>
               <TabsIndicator />
@@ -469,6 +482,15 @@ export function FarmDetail({
               )}
             </TabsPanel>
 
+            {isRegistry ? (
+              <TabsPanel className="space-y-4" value="visits">
+                <p className="text-sm text-muted-foreground">
+                  {t("visitsDescription")}
+                </p>
+                <FarmVisits farmId={farmId} />
+              </TabsPanel>
+            ) : null}
+
             <TabsPanel className="space-y-4" value="notes">
               {farm.notes ? (
                 <p className="text-sm whitespace-pre-line">{farm.notes}</p>
@@ -502,57 +524,81 @@ export function FarmDetail({
               ) : (
                 <ul className="divide-y rounded-xl border">
                   {shares.map((share) => (
-                    <li
-                      className="flex flex-wrap items-center justify-between gap-3 p-4"
-                      key={share.id}
-                    >
-                      <div>
-                        <p className="font-medium wrap-anywhere">
-                          {share.partner_name || t("unknown")}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {t(
-                            share.partner_is_company
-                              ? "shareFromCompany"
-                              : "shareToFarmer",
-                            {
-                              date: format.dateTime(
-                                new Date(share.granted_at),
-                                {
-                                  dateStyle: "medium",
-                                },
-                              ),
-                            },
-                          )}
-                        </p>
-                      </div>
-                      {share.status === "active" ? (
-                        share.partner_is_company && canManage ? (
-                          <Button
-                            onClick={() => revoke(share)}
-                            size="sm"
-                            variant="outline"
-                          >
-                            {t("revokeShare")}
-                          </Button>
-                        ) : canManage ? (
-                          /* Strona firmy: dosyła stado do rejestru hodowcy —
-                             kod przekazania zamraża kartę w chwili wydania,
-                             więc sztuki dopisane później same tam nie trafią. */
-                          <Button
-                            onClick={sendHerd}
-                            size="sm"
-                            variant="outline"
-                          >
-                            <SendIcon aria-hidden="true" />
-                            {t("sendHerd")}
-                          </Button>
+                    <li className="space-y-3 p-4" key={share.id}>
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="font-medium wrap-anywhere">
+                            {share.partner_name || t("unknown")}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {t(
+                              share.partner_is_company
+                                ? "shareFromCompany"
+                                : "shareToFarmer",
+                              {
+                                date: format.dateTime(
+                                  new Date(share.granted_at),
+                                  {
+                                    dateStyle: "medium",
+                                  },
+                                ),
+                              },
+                            )}
+                          </p>
+                        </div>
+                        {share.status === "active" ? (
+                          share.partner_is_company && canManage ? (
+                            <Button
+                              onClick={() => revoke(share)}
+                              size="sm"
+                              variant="outline"
+                            >
+                              {t("revokeShare")}
+                            </Button>
+                          ) : canManage ? (
+                            /* Strona firmy: dosyła stado do rejestru hodowcy
+                               — kod przekazania zamraża kartę w chwili
+                               wydania, więc sztuki dopisane później same tam
+                               nie trafią. */
+                            <Button
+                              onClick={sendHerd}
+                              size="sm"
+                              variant="outline"
+                            >
+                              <SendIcon aria-hidden="true" />
+                              {t("sendHerd")}
+                            </Button>
+                          ) : (
+                            <Badge variant="outline">{t("shareActive")}</Badge>
+                          )
                         ) : (
-                          <Badge variant="outline">{t("shareActive")}</Badge>
-                        )
-                      ) : (
-                        <Badge variant="secondary">{t("shareRevoked")}</Badge>
-                      )}
+                          <Badge variant="secondary">{t("shareRevoked")}</Badge>
+                        )}
+                      </div>
+                      {/* Zgoda rolnika na grafik firmy (ADR-052 pkt 4): jego
+                          strona, jego decyzja — firma jej sobie nie nada.
+                          Cofnięty udział nie ma czego dotyczyć. */}
+                      {share.partner_is_company && share.status === "active" ? (
+                        <ScheduleConsent
+                          canManage={canManage}
+                          onChanged={(saved, allowed) => {
+                            setShares((current) =>
+                              current.map((item) =>
+                                item.id === saved.id ? saved : item,
+                              ),
+                            );
+                            setNotice(
+                              t(
+                                allowed
+                                  ? "scheduleConsentOnNotice"
+                                  : "scheduleConsentOffNotice",
+                                { name: saved.partner_name || t("unknown") },
+                              ),
+                            );
+                          }}
+                          share={share}
+                        />
+                      ) : null}
                     </li>
                   ))}
                 </ul>

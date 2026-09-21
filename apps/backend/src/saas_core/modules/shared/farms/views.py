@@ -18,7 +18,7 @@ from rest_framework.views import APIView
 
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
-from .herd_sync import push_herd, read_entry_photo
+from .herd_sync import list_farm_visits, push_herd, read_entry_photo
 from .serializers import (
     AnimalHealthEntrySerializer,
     AnimalHealthInputSerializer,
@@ -30,9 +30,11 @@ from .serializers import (
     FarmHerdPushSerializer,
     FarmInputSerializer,
     FarmSerializer,
+    FarmShareScheduleSerializer,
     FarmShareSerializer,
     FarmTakeoverSerializer,
     FarmUpdateSerializer,
+    FarmVisitEntrySerializer,
     SpeciesListSerializer,
 )
 from .services import (
@@ -51,6 +53,7 @@ from .sharing import (
     list_shares,
     redeem_activation_code,
     revoke_share,
+    set_share_schedule,
 )
 from .species import SPECIES
 
@@ -359,4 +362,44 @@ class FarmShareRevokeView(APIView):
     )
     def post(self, request: Request, share_id: UUID) -> Response:
         share = revoke_share(request=cast(HttpRequest, request), share_id=share_id)
+        return Response(FarmShareSerializer(share).data)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class FarmVisitListView(APIView):
+    """Kartoteka wizyt gospodarstwa w rejestrze rolnika (ADR-052)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        responses={200: FarmVisitEntrySerializer(many=True), **ERRORS},
+        operation_id="farms_visit_list",
+        tags=["farms"],
+    )
+    def get(self, request: Request, farm_id: UUID) -> Response:
+        # `list_farm_visits` sam autoryzuje i sam ukrywa wizyty zaplanowane
+        # przez firmę bez aktywnego udziału (ADR-052 pkt 9).
+        return Response(FarmVisitEntrySerializer(list_farm_visits(farm_id), many=True).data)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class FarmShareScheduleView(APIView):
+    """Zgoda rolnika na grafik firmy — tą samą drogą co cofnięcie udziału."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=FarmShareScheduleSerializer,
+        responses={200: FarmShareSerializer, **ERRORS},
+        operation_id="farms_share_schedule",
+        tags=["farms"],
+    )
+    def post(self, request: Request, share_id: UUID) -> Response:
+        serializer = FarmShareScheduleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        share = set_share_schedule(
+            request=cast(HttpRequest, request),
+            share_id=share_id,
+            allowed=serializer.validated_data["can_publish_schedule"],
+        )
         return Response(FarmShareSerializer(share).data)

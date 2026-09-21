@@ -158,6 +158,8 @@ class FarmShareSerializer(serializers.Serializer[Any]):
     company_organization_id = serializers.UUIDField()
     registry_organization_id = serializers.UUIDField()
     can_write_herd = serializers.BooleanField()
+    #: Zgoda rolnika na grafik firmy; domyślnie wyłączona (ADR-052 pkt 4).
+    can_publish_schedule = serializers.BooleanField()
     can_publish_health = serializers.BooleanField()
     basis = serializers.CharField()
     status = serializers.CharField()
@@ -166,6 +168,29 @@ class FarmShareSerializer(serializers.Serializer[Any]):
     #: The other side, as the caller sees it: set by `list_shares`.
     partner_name = serializers.CharField()
     partner_is_company = serializers.BooleanField()
+
+
+class FarmShareScheduleSerializer(serializers.Serializer[Any]):
+    """Zgoda rolnika na grafik firmy — włączana i wyłączana tym samym polem."""
+
+    can_publish_schedule = serializers.BooleanField()
+
+
+class FarmVisitEntrySerializer(serializers.Serializer[Any]):
+    """Jedna wizyta firmy w gospodarstwie, jak czyta ją rolnik (ADR-052).
+
+    Bez `source` i `source_reference`: to numer wizyty w systemie firmy, a nie
+    coś, czym rolnik operuje.
+    """
+
+    id = serializers.UUIDField()
+    status = serializers.CharField()
+    scheduled_for = serializers.DateTimeField(allow_null=True)
+    occurred_on = serializers.DateField(allow_null=True)
+    company_name = serializers.CharField()
+    summary = serializers.CharField()
+    #: Raport w kształcie rozwiązanym przez wertykał (ADR-052 pkt 7).
+    details = serializers.DictField()
 
 
 class FarmTakeoverSerializer(serializers.Serializer[Any]):

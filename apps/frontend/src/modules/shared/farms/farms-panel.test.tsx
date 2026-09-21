@@ -28,6 +28,8 @@ const api = vi.hoisted(() => ({
   sendFarmHerd: vi.fn(),
   listFarmAnimals: vi.fn(),
   listFarmSpecies: vi.fn(),
+  listFarmVisits: vi.fn(),
+  setFarmShareSchedule: vi.fn(),
   listFarms: vi.fn(),
   readFarm: vi.fn(),
   updateFarm: vi.fn(),
@@ -70,6 +72,7 @@ function share(overrides: Record<string, unknown> = {}) {
     company_organization_id: "019c5f87-fce8-739b-b960-b7a195bfc2ac",
     registry_organization_id: "019c5f87-fce8-739b-b960-b7a195bfc2ad",
     can_write_herd: true,
+    can_publish_schedule: false,
     can_publish_health: true,
     basis: "activation_code",
     status: "active",
@@ -111,6 +114,53 @@ const animals = [
     updated_at: "2026-09-16T07:30:00Z",
   },
 ];
+
+// Termin liczony od „teraz": inaczej ten sam test byłby przyszły dziś i
+// przeszły za miesiąc.
+const SOON = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+function visits(overrides: Record<string, unknown>[] = []) {
+  return [
+    {
+      id: "visit-planned",
+      status: "planned",
+      scheduled_for: SOON,
+      occurred_on: null,
+      company_name: "Korekcja Kowalski",
+      summary: "Korekcja, piątek rano.",
+      details: {},
+    },
+    {
+      id: "visit-done",
+      status: "done",
+      scheduled_for: "2026-09-15T06:00:00Z",
+      occurred_on: "2026-09-15",
+      company_name: "Korekcja Kowalski",
+      summary: "Skorygowano 12 sztuk.",
+      details: {
+        sections: [
+          {
+            title: "Racice",
+            rows: [
+              { label: "Sztuk", value: "12" },
+              { label: "Kulawizny", value: "2" },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      id: "visit-canceled",
+      status: "canceled",
+      scheduled_for: null,
+      occurred_on: null,
+      company_name: "Korekcja Kowalski",
+      summary: "Odwołana, choroba.",
+      details: {},
+    },
+    ...overrides,
+  ];
+}
 
 const problem = (status: number, code: string) =>
   new ApiProblemError({
@@ -160,6 +210,10 @@ beforeEach(() => {
   api.sendFarmHerd.mockResolvedValue({ added: 2, updated: 1, unchanged: 7 });
   api.revokeFarmShare.mockImplementation(async () =>
     share({ status: "revoked", revoked_at: "2026-09-20T09:00:00Z" }),
+  );
+  api.listFarmVisits.mockResolvedValue(visits());
+  api.setFarmShareSchedule.mockImplementation(async (_id, allowed) =>
+    share({ can_publish_schedule: allowed }),
   );
 });
 
@@ -487,4 +541,148 @@ test("firma dosyła stado do rejestru, a kod znika po połączeniu", async () =>
   expect(
     screen.queryByRole("button", { name: "Wygeneruj kod aktywacji" }),
   ).toBeNull();
+});
+
+test("kartoteka wizyt: przyszłe oddzielone od przeszłych, raport się rozwija", async () => {
+  // Rejestr rolnika: gospodarstwo jest udostępnione firmie, więc wizyty mają
+  // skąd przyjść. Na karcie firmy tej zakładki nie ma w ogóle.
+  api.listFarmShares.mockResolvedValue([share()]);
+  const { container } = wrap(<FarmDetail canManage canRead farmId={FARM} />);
+
+  fireEvent.click(await screen.findByRole("tab", { name: "Wizyty" }));
+  await waitFor(() => expect(api.listFarmVisits).toHaveBeenCalledWith(FARM));
+
+  const upcoming = (
+    await screen.findByRole("heading", { name: "Przyszłe wizyty" })
+  ).parentElement as HTMLElement;
+  expect(within(upcoming).getByText("Zaplanowana")).toBeVisible();
+  expect(within(upcoming).getByText("Korekcja, piątek rano.")).toBeVisible();
+  // Odbyta wizyta nigdy nie trafia do przyszłych, choć ma też termin.
+  expect(within(upcoming).queryByText("Odbyta")).toBeNull();
+
+  const past = screen.getByRole("heading", { name: "Przeszłe wizyty" })
+    .parentElement as HTMLElement;
+  expect(within(past).getByText("Odbyta")).toBeVisible();
+  expect(within(past).getByText("Odwołana")).toBeVisible();
+  expect(within(past).getByText("Skorygowano 12 sztuk.")).toBeVisible();
+  // Wizyta bez żadnej daty mówi to wprost, zamiast udawać dzisiejszą.
+  expect(within(past).getByText("nie podano")).toBeVisible();
+
+  // Raport rozwija tylko wiersz odbyty i tylko z treścią: zaplanowana i
+  // odwołana nie mają czego pokazać.
+  const toggles = screen.getAllByText("Raport");
+  expect(toggles).toHaveLength(1);
+  expect(screen.getByText("Kulawizny")).not.toBeVisible();
+  fireEvent.click(toggles[0]);
+  expect(screen.getByText("Kulawizny")).toBeVisible();
+  expect(screen.getByText("Racice")).toBeVisible();
+  expect(screen.getByText("12")).toBeVisible();
+
+  await expectAccessible(container);
+});
+
+test("wizyty po angielsku, a nieznany kształt raportu nie wysypuje ekranu", async () => {
+  api.listFarmShares.mockResolvedValue([share()]);
+  api.listFarmVisits.mockResolvedValue([
+    {
+      id: "visit-strange",
+      status: "done",
+      scheduled_for: null,
+      occurred_on: "2026-09-15",
+      company_name: "Korekcja Kowalski",
+      summary: "Skorygowano 12 sztuk.",
+      // Wertykał, którego rdzeń nie zna, przysłał coś swojego (ADR-052 pkt 7).
+      details: { icar: [{ code: "HOOF-03" }] },
+    },
+  ]);
+  const { container } = wrap(
+    <FarmDetail canManage canRead farmId={FARM} />,
+    "en",
+  );
+
+  fireEvent.click(await screen.findByRole("tab", { name: "Visits" }));
+  expect(
+    await screen.findByRole("heading", { name: "Upcoming visits" }),
+  ).toBeVisible();
+  expect(screen.getByText("Nothing is booked yet.")).toBeVisible();
+  expect(screen.getByText("Done")).toBeVisible();
+
+  fireEvent.click(screen.getByText("Report"));
+  expect(
+    screen.getByText(
+      "The company sent a report in a form we cannot show here. Ask them for the details.",
+    ),
+  ).toBeVisible();
+  await expectAccessible(container);
+});
+
+test("pusta kartoteka wizyt tłumaczy, czego brakuje, a błąd da się ponowić", async () => {
+  api.listFarmShares.mockResolvedValue([share()]);
+  api.listFarmVisits.mockRejectedValueOnce(new Error("sieć"));
+  wrap(<FarmDetail canManage canRead farmId={FARM} />);
+
+  fireEvent.click(await screen.findByRole("tab", { name: "Wizyty" }));
+  expect(
+    await screen.findByText("Nie udało się wczytać gospodarstw."),
+  ).toBeInTheDocument();
+
+  api.listFarmVisits.mockResolvedValue([]);
+  fireEvent.click(screen.getByRole("button", { name: "Spróbuj ponownie" }));
+  expect(await screen.findByText(/Żadna firma nie przysłała/)).toBeVisible();
+});
+
+test("karta firmy nie ma zakładki wizyt ani zgody na grafik", async () => {
+  api.listFarmShares.mockResolvedValue([
+    share({ partner_name: "Gospodarstwo Nowak", partner_is_company: false }),
+  ]);
+  wrap(<FarmDetail canManage canRead farmId={FARM} />);
+
+  await screen.findByRole("tab", { name: "Zwierzęta" });
+  expect(screen.queryByRole("tab", { name: "Wizyty" })).toBeNull();
+  expect(api.listFarmVisits).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByRole("tab", { name: "Dostęp" }));
+  expect(
+    await screen.findByRole("button", { name: "Wyślij stado do rejestru" }),
+  ).toBeVisible();
+  expect(screen.queryByLabelText(/Zgoda na grafik/)).toBeNull();
+});
+
+test("rolnik włącza zgodę na grafik i słyszy, co się zmieniło", async () => {
+  api.listFarmShares.mockResolvedValue([share()]);
+  const { container } = wrap(<FarmDetail canManage canRead farmId={FARM} />);
+
+  fireEvent.click(await screen.findByRole("tab", { name: "Dostęp" }));
+  const consent = await screen.findByLabelText("Zgoda na grafik tej firmy");
+  // Wyłączone to stan domyślny, więc mówi, co znaczy — nie wygląda na błąd.
+  expect(consent).not.toBeChecked();
+  expect(screen.getByText(/^Wyłączone — tak jest domyślnie/)).toBeVisible();
+  expect(
+    screen.getByText(
+      "Po włączeniu Korekcja Kowalski przysyła tu terminy swoich wizyt i raporty z nich, a Ty widzisz je w zakładce Wizyty.",
+    ),
+  ).toBeVisible();
+  await expectAccessible(container);
+
+  fireEvent.click(consent);
+  await waitFor(() =>
+    expect(api.setFarmShareSchedule).toHaveBeenCalledWith(share().id, true),
+  );
+  expect(
+    await screen.findByText("Włączono zgodę na grafik: Korekcja Kowalski."),
+  ).toBeInTheDocument();
+  expect(
+    await screen.findByLabelText("Zgoda na grafik tej firmy"),
+  ).toBeChecked();
+});
+
+test("bez farms.manage zgoda jest tylko do odczytu", async () => {
+  api.listFarmShares.mockResolvedValue([share({ can_publish_schedule: true })]);
+  wrap(<FarmDetail canRead farmId={FARM} />);
+
+  fireEvent.click(await screen.findByRole("tab", { name: "Dostęp" }));
+  const consent = await screen.findByLabelText("Zgoda na grafik tej firmy");
+  expect(consent).toBeChecked();
+  expect(consent).toBeDisabled();
+  expect(screen.queryByRole("button", { name: "Cofnij dostęp" })).toBeNull();
 });
