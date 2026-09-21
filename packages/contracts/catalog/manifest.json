@@ -1,0 +1,171 @@
+{
+  "schemaVersion": 1,
+  "comment": "ADR-053 §7. Miasta i kategorie katalogu publicznego. Lista jest celowo niepełna i rośnie z zasięgiem sprzedaży: każda pozycja to publiczny adres, więc dopisanie ma być widoczne w diffie. Wartość spoza tej listy jest odrzucana przy zapisie.",
+  "cities": [
+    {
+      "slug": "mragowo",
+      "name": "Mrągowo",
+      "voivodeship": "warmińsko-mazurskie"
+    },
+    {
+      "slug": "olsztyn",
+      "name": "Olsztyn",
+      "voivodeship": "warmińsko-mazurskie"
+    },
+    { "slug": "elk", "name": "Ełk", "voivodeship": "warmińsko-mazurskie" },
+    {
+      "slug": "gizycko",
+      "name": "Giżycko",
+      "voivodeship": "warmińsko-mazurskie"
+    },
+    {
+      "slug": "ketrzyn",
+      "name": "Kętrzyn",
+      "voivodeship": "warmińsko-mazurskie"
+    },
+    {
+      "slug": "szczytno",
+      "name": "Szczytno",
+      "voivodeship": "warmińsko-mazurskie"
+    },
+    {
+      "slug": "ostroda",
+      "name": "Ostróda",
+      "voivodeship": "warmińsko-mazurskie"
+    },
+    { "slug": "ilawa", "name": "Iława", "voivodeship": "warmińsko-mazurskie" },
+    {
+      "slug": "elblag",
+      "name": "Elbląg",
+      "voivodeship": "warmińsko-mazurskie"
+    },
+    {
+      "slug": "bartoszyce",
+      "name": "Bartoszyce",
+      "voivodeship": "warmińsko-mazurskie"
+    },
+    {
+      "slug": "braniewo",
+      "name": "Braniewo",
+      "voivodeship": "warmińsko-mazurskie"
+    },
+    {
+      "slug": "lidzbark-warminski",
+      "name": "Lidzbark Warmiński",
+      "voivodeship": "warmińsko-mazurskie"
+    },
+    {
+      "slug": "nidzica",
+      "name": "Nidzica",
+      "voivodeship": "warmińsko-mazurskie"
+    },
+    { "slug": "pisz", "name": "Pisz", "voivodeship": "warmińsko-mazurskie" },
+    {
+      "slug": "wegorzewo",
+      "name": "Węgorzewo",
+      "voivodeship": "warmińsko-mazurskie"
+    },
+    {
+      "slug": "olecko",
+      "name": "Olecko",
+      "voivodeship": "warmińsko-mazurskie"
+    },
+    {
+      "slug": "goldap",
+      "name": "Gołdap",
+      "voivodeship": "warmińsko-mazurskie"
+    },
+    {
+      "slug": "dzialdowo",
+      "name": "Działdowo",
+      "voivodeship": "warmińsko-mazurskie"
+    },
+    { "slug": "warszawa", "name": "Warszawa", "voivodeship": "mazowieckie" },
+    { "slug": "krakow", "name": "Kraków", "voivodeship": "małopolskie" },
+    { "slug": "lodz", "name": "Łódź", "voivodeship": "łódzkie" },
+    { "slug": "wroclaw", "name": "Wrocław", "voivodeship": "dolnośląskie" },
+    { "slug": "poznan", "name": "Poznań", "voivodeship": "wielkopolskie" },
+    { "slug": "gdansk", "name": "Gdańsk", "voivodeship": "pomorskie" },
+    { "slug": "gdynia", "name": "Gdynia", "voivodeship": "pomorskie" },
+    {
+      "slug": "szczecin",
+      "name": "Szczecin",
+      "voivodeship": "zachodniopomorskie"
+    },
+    {
+      "slug": "bydgoszcz",
+      "name": "Bydgoszcz",
+      "voivodeship": "kujawsko-pomorskie"
+    },
+    { "slug": "torun", "name": "Toruń", "voivodeship": "kujawsko-pomorskie" },
+    { "slug": "lublin", "name": "Lublin", "voivodeship": "lubelskie" },
+    { "slug": "bialystok", "name": "Białystok", "voivodeship": "podlaskie" },
+    { "slug": "katowice", "name": "Katowice", "voivodeship": "śląskie" },
+    { "slug": "rzeszow", "name": "Rzeszów", "voivodeship": "podkarpackie" },
+    { "slug": "kielce", "name": "Kielce", "voivodeship": "świętokrzyskie" },
+    { "slug": "opole", "name": "Opole", "voivodeship": "opolskie" },
+    {
+      "slug": "zielona-gora",
+      "name": "Zielona Góra",
+      "voivodeship": "lubuskie"
+    },
+    {
+      "slug": "gorzow-wielkopolski",
+      "name": "Gorzów Wielkopolski",
+      "voivodeship": "lubuskie"
+    }
+  ],
+  "categories": {
+    "business": [
+      {
+        "key": "uroda-i-zdrowie",
+        "label": { "pl": "Uroda i zdrowie", "en": "Beauty and health" }
+      },
+      {
+        "key": "uslugi-dla-domu",
+        "label": { "pl": "Usługi dla domu", "en": "Home services" }
+      },
+      {
+        "key": "budowlanka",
+        "label": { "pl": "Budowa i remonty", "en": "Construction" }
+      },
+      {
+        "key": "motoryzacja",
+        "label": { "pl": "Motoryzacja", "en": "Automotive" }
+      },
+      {
+        "key": "gastronomia",
+        "label": { "pl": "Gastronomia", "en": "Food and drink" }
+      },
+      { "key": "handel", "label": { "pl": "Handel", "en": "Retail" } },
+      {
+        "key": "turystyka-i-noclegi",
+        "label": { "pl": "Turystyka i noclegi", "en": "Travel and stays" }
+      },
+      {
+        "key": "sport-i-rekreacja",
+        "label": { "pl": "Sport i rekreacja", "en": "Sport and leisure" }
+      },
+      { "key": "edukacja", "label": { "pl": "Edukacja", "en": "Education" } },
+      {
+        "key": "it-i-marketing",
+        "label": { "pl": "IT i marketing", "en": "IT and marketing" }
+      },
+      {
+        "key": "finanse-i-prawo",
+        "label": { "pl": "Finanse i prawo", "en": "Finance and law" }
+      },
+      { "key": "transport", "label": { "pl": "Transport", "en": "Transport" } },
+      { "key": "zwierzeta", "label": { "pl": "Zwierzęta", "en": "Animals" } },
+      {
+        "key": "rolnictwo",
+        "label": { "pl": "Rolnictwo", "en": "Agriculture" }
+      },
+      { "key": "wydarzenia", "label": { "pl": "Wydarzenia", "en": "Events" } },
+      {
+        "key": "inne",
+        "label": { "pl": "Inne usługi", "en": "Other services" }
+      }
+    ]
+  }
+}

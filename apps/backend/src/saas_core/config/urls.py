@@ -66,7 +66,17 @@ def _notification_routes() -> list[Route]:
 
 
 def _profile_routes() -> list[Route]:
-    return [path("api/v1/profiles/", include("saas_core.modules.shared.profiles.urls"))]
+    return [
+        path("api/v1/profiles/", include("saas_core.modules.shared.profiles.urls")),
+        # The public catalogue (ADR-053), under the same `public` prefix the site
+        # renderer uses: unauthenticated, tenant-free, and a slug is what names
+        # the tenant. Kept inside the module's routes so a deployment without
+        # `shared.profiles` answers nothing rather than importing its views.
+        path(
+            "api/v1/public/catalog/",
+            include("saas_core.modules.shared.profiles.public_urls"),
+        ),
+    ]
 
 
 def _booking_routes() -> list[Route]:

@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:d1c21e12783bda7757c5eb6e741b26dfc3da88022654c9fff456d677169ea1f6",
+  "profileHash": "sha256:1584ba4d24446c370b35ddb309149118c9332c50352c642bd6d625599842a06d",
   "schemaVersion": 1,
   "deployment": "business",
   "product": {
@@ -245,7 +245,8 @@
       "layer": "shared",
       "dependsOn": [
         "core.organizations",
-        "shared.media"
+        "shared.media",
+        "shared.sites"
       ],
       "backend": {
         "djangoApp": "saas_core.modules.shared.profiles",
@@ -253,14 +254,19 @@
         "permissions": [
           "profiles.manage"
         ],
-        "entitlements": [],
+        "entitlements": [
+          "profiles.enabled"
+        ],
         "eventSchemas": [],
-        "publicTables": [],
+        "publicTables": [
+          "profiles_catalogentry"
+        ],
         "platformTables": []
       },
       "frontend": {
         "routes": [
-          "/profiles"
+          "/profiles",
+          "/katalog"
         ],
         "navigation": [
           "profiles"

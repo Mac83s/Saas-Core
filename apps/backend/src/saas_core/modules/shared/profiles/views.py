@@ -12,8 +12,11 @@ from rest_framework.views import APIView
 
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
-from .models import LOCALE_CHOICES, PublicProfile, PublicProfileTranslation
+from .catalog import catalog_entry_for, publish_profile, withdraw_profile
+from .models import LOCALE_CHOICES, CatalogEntry, PublicProfile, PublicProfileTranslation
+from .public_views import site_url
 from .serializers import (
+    OrganizationProfileSerializer,
     ProfileCreateSerializer,
     ProfileSummarySerializer,
     ProfileTranslationSerializer,
@@ -25,6 +28,7 @@ from .services import (
     delete_profile,
     get_profile,
     list_profiles,
+    organization_profile,
     save_translation,
     update_profile,
 )
@@ -46,6 +50,9 @@ def _summary(profile: PublicProfile) -> dict[str, Any]:
         "languages": profile.languages,
         "specializations": profile.specializations,
         "locale": profile.locale,
+        "city_slug": profile.city_slug,
+        "category": profile.category,
+        "layout": profile.layout,
         "version": profile.version,
     }
 
@@ -89,9 +96,7 @@ class ProfileListCreateView(APIView):
 class ProfileDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @extend_schema(
-        responses={200: ProfileSummarySerializer, 404: ProblemDetailsSerializer}
-    )
+    @extend_schema(responses={200: ProfileSummarySerializer, 404: ProblemDetailsSerializer})
     def get(self, _request: Request, profile_id: UUID) -> Response:
         return Response(_summary(get_profile(profile_id)))
 
@@ -142,3 +147,66 @@ class ProfileTranslationView(APIView):
             profile_id, locale=locale, **cast(dict[str, Any], serializer.validated_data)
         )
         return Response(_translation(translation))
+
+
+def _catalog_state(entry: CatalogEntry | None) -> dict[str, Any]:
+    if entry is None:
+        return {
+            "published": False,
+            "city_slug": "",
+            "slug": "",
+            "path": "",
+            "site_url": None,
+            "published_at": None,
+        }
+    return {
+        "published": True,
+        "city_slug": entry.city_slug,
+        "slug": entry.slug,
+        "path": f"/katalog/{entry.city_slug}/{entry.slug}/",
+        "site_url": site_url(entry),
+        "published_at": entry.published_at,
+    }
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class OrganizationProfileView(APIView):
+    """The company's own business card, plus whether it is in the catalogue.
+
+    GET creates the profile when it does not exist yet (ADR-053 §2), which is
+    why it is a separate endpoint from the generic list: the list must not have
+    a side effect.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(responses={200: OrganizationProfileSerializer})
+    def get(self, _request: Request) -> Response:
+        profile = organization_profile()
+        return Response({
+            "profile": _summary(profile),
+            "catalog": _catalog_state(catalog_entry_for(profile.organization_id)),
+        })
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class CatalogPublicationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=None,
+        responses={
+            200: OrganizationProfileSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, _request: Request) -> Response:
+        entry = publish_profile()
+        return Response({"profile": _summary(entry.profile), "catalog": _catalog_state(entry)})
+
+    @extend_schema(responses={204: None, 403: ProblemDetailsSerializer})
+    def delete(self, _request: Request) -> Response:
+        withdraw_profile()
+        return Response(status=status.HTTP_204_NO_CONTENT)

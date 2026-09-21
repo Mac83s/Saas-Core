@@ -4232,6 +4232,67 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/public/catalog/:
+    get:
+      operationId: catalog_list
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogPage'
+          description: ''
+  /api/v1/public/catalog/{city_slug}/{slug}/:
+    get:
+      operationId: catalog_profile
+      parameters:
+      - in: path
+        name: city_slug
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: slug
+        schema:
+          type: string
+        required: true
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogProfile'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/public/catalog/dictionary/:
+    get:
+      operationId: catalog_dictionary
+      description: The dictionary the catalogue filters by, for the search form to
+        render.
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogDictionary'
+          description: ''
   /api/v1/public/site/:
     get:
       operationId: public_site_page_retrieve
@@ -8974,6 +9035,31 @@ components:
       - resources
       - services
       - staff
+    CatalogCategory:
+      type: object
+      properties:
+        key:
+          type: string
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+      - key
+      - labels
+    CatalogCity:
+      type: object
+      properties:
+        slug:
+          type: string
+        name:
+          type: string
+        voivodeship:
+          type: string
+      required:
+      - name
+      - slug
+      - voivodeship
     CatalogCreate:
       type: object
       properties:
@@ -9030,6 +9116,153 @@ components:
         * `staff` - staff
         * `service` - service
         * `resource` - resource
+    CatalogDictionary:
+      type: object
+      properties:
+        cities:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogCity'
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogCategory'
+      required:
+      - categories
+      - cities
+    CatalogItem:
+      type: object
+      description: |-
+        One row of the public listing (ADR-053 §5).
+
+        `url` is always usable: the catalogue page when the company has no reachable
+        site, that site's address when it has one. `is_external` says which, so the
+        client can mark a link that leaves the platform without parsing the address.
+      properties:
+        slug:
+          type: string
+        city_slug:
+          type: string
+        city:
+          type: string
+        category:
+          type: string
+        display_name:
+          type: string
+        headline:
+          type: string
+        photo_id:
+          type:
+          - string
+          - 'null'
+        url:
+          type: string
+        is_external:
+          type: boolean
+      required:
+      - category
+      - city
+      - city_slug
+      - display_name
+      - headline
+      - is_external
+      - photo_id
+      - slug
+      - url
+    CatalogPage:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogItem'
+      required:
+      - items
+      - page
+      - page_size
+      - total
+    CatalogProfile:
+      type: object
+      description: |-
+        One row of the public listing (ADR-053 §5).
+
+        `url` is always usable: the catalogue page when the company has no reachable
+        site, that site's address when it has one. `is_external` says which, so the
+        client can mark a link that leaves the platform without parsing the address.
+      properties:
+        slug:
+          type: string
+        city_slug:
+          type: string
+        city:
+          type: string
+        category:
+          type: string
+        display_name:
+          type: string
+        headline:
+          type: string
+        photo_id:
+          type:
+          - string
+          - 'null'
+        url:
+          type: string
+        is_external:
+          type: boolean
+        layout:
+          type: string
+        voivodeship:
+          type: string
+        bio:
+          type: string
+        contact_email:
+          type: string
+        contact_phone:
+          type: string
+        contact_address:
+          type: string
+        links:
+          type: array
+          items:
+            type: object
+            additionalProperties: {}
+        languages:
+          type: array
+          items:
+            type: string
+        specializations:
+          type: array
+          items:
+            type: string
+        locale:
+          type: string
+      required:
+      - bio
+      - category
+      - city
+      - city_slug
+      - contact_address
+      - contact_email
+      - contact_phone
+      - display_name
+      - headline
+      - is_external
+      - languages
+      - layout
+      - links
+      - locale
+      - photo_id
+      - slug
+      - specializations
+      - url
+      - voivodeship
     CatalogState:
       type: object
       description: Whether this company is in the public catalogue, and under which
