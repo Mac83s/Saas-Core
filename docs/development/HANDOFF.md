@@ -1,5 +1,56 @@
 # Handoff następnej sesji
 
+## Site Studio: kontakt, linki i zapytania — 2026-09-21
+
+Commity `91e50a2` i `9e49d67`. Katalog v3 ma **88 szablonów sekcji**:
+wcześniejsze 72 zachowano, dodano 6 kontaktów bez formularza, 4 z formularzem
+oraz 6 social mediów/linków. Wybrane układy kopiują przykładowe zdjęcie przez
+istniejący cykl mediów. Są opisy PL/EN, dane edytora i metadane kompozycji dla
+późniejszego AI. Nadal istnieje osiem recept całych stron; nie rozbudowano ich
+w tym przyroście. Header i footer mają już po trzy stałe układy w „Wyglądzie”.
+
+Wybór właściciela: **zapytania do panelu + powiadomienie e-mail**. Aktywny
+formularz istnieje tylko na publikacji. Wiadomości trafiają do „Wiadomości →
+Zapytania ze strony”, e-mail do aktywnego właściciela organizacji przez outbox.
+Sukces oznacza trwały zapis; status dostarczenia jest osobny. Dostęp do skrzynki
+ma `site.content.edit`, niezależnie od `notifications.manage`; API kluczy
+integracyjnych nie dopuszcza. Prywatny adres odbiorcy nie trafia do bloku.
+Kontrakt i ograniczenia: [site-inquiries.md](../architecture/site-inquiries.md).
+
+Dowody: backend **50/50** nowych + **49/49** zgodności, 2 normalne skipy pustych
+verticali. Oddzielna baza `saas_core_site_inquiries` na porcie 55432. RLS jako
+rola NOBYPASSRLS: brak tenant 0 / obcy 0 / własny 1; test kolejności SET LOCAL,
+CSRF, entitlement, API-key deny, idempotency, rollback, starej publikacji,
+przeniesionej strony i awarii brokera po commit. Renderer **63/63**; frontend
+**96/96** w uruchomieniach pojedynczych workerów (38 edytor/studio, 22 biblioteka/
+menu, 36 formularz/skrzynka/powiadomienia). TypeScript, mypy 428 plików, Ruff,
+ESLint, module imports, profile/artifact i API drift poprawne. Brak driftu
+modelu Sites; check historii migracji offline ostrzega o braku połączenia,
+więc dowodem zastosowania migracji jest oddzielna baza testowa.
+
+Chromium: 16 nowych układów × 360/768/1440 × PL/EN, bez overflow, zdjęcia i CTA;
+axe galerii bez kontrastu. Dodatkowo aktywny formularz i skrzynka w rzeczywistym
+ciemnym motywie panelu: 12 widoków, axe bez naruszeń, retry bez zmiany klucza.
+Artefakty `.runtime/site-studio/new-contact-blocks/` oraz
+`.runtime/site-studio/contact-inquiries-browser/`. To izolowane fixture, nie
+odbiór zalogowanego wdrożenia ani dowód rzeczywistej dostawy e-maila.
+
+**Następny krok:** po zakończeniu równoległych prac sprawdzić czyste drzewa,
+wykonać `core:update` produktów, odświeżyć ich artefakty i wdrożyć backend,
+worker oraz frontend wraz z `sites/0030_site_inquiry`. Własny host wymaga także
+nowej allowlisty `http/hosts.py`. Sprawdzić publikację przez Caddy → formularz →
+skrzynka → rzeczywisty e-mail, a następnie to samo w trzech aplikacjach.
+Nie wykonywano restartów ani synchronizacji tego przyrostu. W momencie odczytu
+HoofCare miał rdzeń `49fb26d` (poprzedni edytor już obecny) i trwające zmiany
+profilu, MedPlano rdzeń `e996a911`.
+
+Równoległa sesja podczas generowania własnego kontraktu usunęła z dysku nasze
+niezacommitowane ścieżki/tłumaczenia/eksporty; wszystkie odtworzono przed tymi
+commitami. Nie „sprzątać” cudzych zmian historycznych migracji organizacji ani
+nie ścigać pełnego suite pod obciążeniem. Katalog 20 wariantów każdej pozostałej
+kategorii, różnicowanie całych stron, własne szablony i AI nadal są otwarte;
+znany niezależny blueprint/media 403 nie został tutaj zmieniony.
+
 ## Wizytówka zawsze i katalog publiczny — backend, 2026-09-21
 
 ADR-053. Decyzja właściciela: **wizytówka powstaje zawsze**, żeby każda firma
