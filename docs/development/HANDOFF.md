@@ -20,6 +20,13 @@ kontrola migracji i API drift przeszły we wszystkich trzech profilach
 Pozostałe lokalne kontrole JS używały hostowego Node **22.22.2** i zgłaszały
 ostrzeżenie wobec wymaganego Node 24. Dokładne logi: katalog odzyskiwania wyżej.
 
+Pełny przebieg backendu HoofCare: **917 PASS + 13 FAIL**. Jeden błąd był
+fałszywym alarmem strażnika `PRE_TENANT_DB`: zliczał nazwę w docstringu
+publicznego katalogu jako użycie połączenia. Doprecyzowano sam opis, bez
+zmiany zapytań ani listy dozwolonych miejsc. Pozostałe wyniki i klasyfikację
+opisuje handoff produktu; trzy znane błędy blueprintów odtworzono także
+na profilu rdzenia (**116 PASS + 3 FAIL** w wybranej regresji).
+
 **To nie jest odbiór wydania.** Pełny backend HoofCare ujawnił oprócz trzech
 znanych błędów blueprint/media 403 także problemy testów katalogu i kolejności
 uprawnień. Kontrakt kategorii katalogu zawiera tylko typ `business`;

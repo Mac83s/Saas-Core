@@ -8,7 +8,7 @@ together:
   `publicTables` and contains company entries only — never people;
 - the slug is the tenant declaration, exactly as a hostname is for the site
   renderer. Anything beyond the catalogue row is read *inside* the tenant the
-  slug named, under policy, and never through `PRE_TENANT_DB`.
+  slug named, under policy, and never through the pre-tenant connection.
 """
 
 from __future__ import annotations
