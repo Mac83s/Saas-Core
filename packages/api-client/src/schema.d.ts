@@ -613,55 +613,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/catalog/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["catalog_list"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/catalog/{city_slug}/{slug}/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["catalog_profile"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/catalog/dictionary/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description The dictionary the catalogue filters by, for the search form to render. */
-        get: operations["catalog_dictionary"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/farms/": {
         parameters: {
             query?: never;
@@ -3129,17 +3080,6 @@ export interface components {
             services: components["schemas"]["Service"][];
             resources: components["schemas"]["Resource"][];
         };
-        CatalogCategory: {
-            key: string;
-            label: {
-                [key: string]: string;
-            };
-        };
-        CatalogCity: {
-            slug: string;
-            name: string;
-            voivodeship: string;
-        };
         CatalogCreate: {
             kind: components["schemas"]["CatalogCreateKindEnum"];
             name: string;
@@ -3162,64 +3102,6 @@ export interface components {
          * @enum {string}
          */
         CatalogCreateKindEnum: "location" | "staff" | "service" | "resource";
-        CatalogDictionary: {
-            cities: components["schemas"]["CatalogCity"][];
-            categories: components["schemas"]["CatalogCategory"][];
-        };
-        /**
-         * @description One row of the public listing (ADR-053 §5).
-         *
-         *     `url` is always usable: the catalogue page when the company has no reachable
-         *     site, that site's address when it has one. `is_external` says which, so the
-         *     client can mark a link that leaves the platform without parsing the address.
-         */
-        CatalogItem: {
-            slug: string;
-            city_slug: string;
-            city: string;
-            category: string;
-            display_name: string;
-            headline: string;
-            photo_id: string | null;
-            url: string;
-            is_external: boolean;
-        };
-        CatalogPage: {
-            total: number;
-            page: number;
-            page_size: number;
-            items: components["schemas"]["CatalogItem"][];
-        };
-        /**
-         * @description One row of the public listing (ADR-053 §5).
-         *
-         *     `url` is always usable: the catalogue page when the company has no reachable
-         *     site, that site's address when it has one. `is_external` says which, so the
-         *     client can mark a link that leaves the platform without parsing the address.
-         */
-        CatalogProfile: {
-            slug: string;
-            city_slug: string;
-            city: string;
-            category: string;
-            display_name: string;
-            headline: string;
-            photo_id: string | null;
-            url: string;
-            is_external: boolean;
-            layout: string;
-            voivodeship: string;
-            bio: string;
-            contact_email: string;
-            contact_phone: string;
-            contact_address: string;
-            links: {
-                [key: string]: unknown;
-            }[];
-            languages: string[];
-            specializations: string[];
-            locale: string;
-        };
         /** @description Whether this company is in the public catalogue, and under which address. */
         CatalogState: {
             published: boolean;
@@ -6732,74 +6614,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SlotList"];
-                };
-            };
-        };
-    };
-    catalog_list: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CatalogPage"];
-                };
-            };
-        };
-    };
-    catalog_profile: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                city_slug: string;
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CatalogProfile"];
-                };
-            };
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDetails"];
-                };
-            };
-        };
-    };
-    catalog_dictionary: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CatalogDictionary"];
                 };
             };
         };
