@@ -1,6 +1,6 @@
 # Site Studio — interakcje edytora
 
-Status: przyrost fazy 3, 2026-09-19. Nie jest to odbiór wdrożenia.
+Status: przyrost fazy 3, 2026-09-21. Nie jest to odbiór wdrożenia.
 
 ## Stan i zapis
 
@@ -24,11 +24,14 @@ wybrana sekcja otwiera się w inspektorze.
 
 ## Obszary pracy
 
-Dla szerokości od 1536 px biblioteka, płótno i inspektor tworzą trzy kolumny.
-Biblioteka i inspektor pozostają widoczne podczas przewijania; ich dłuższa
-zawartość ma własne przewijanie. Przy 1280–1535 px płótno i inspektor są obok
-siebie, a bibliotekę rozwija się nad nimi. Na mniejszym ekranie wszystkie
-obszary są w jednej kolumnie, a biblioteka początkowo jest zwinięta.
+Od 1200 px lewy panel, canvas i inspektor tworzą trzy kolumny z osobnym
+przewijaniem. Lewy panel ma 300 px, prawy 340 px; od 1800 px odpowiednio
+320 i 360 px. Pasek zapisu pozostaje nad nimi. Lewa nawigacja przełącza
+strukturę sekcji, bibliotekę, całe strony i wygląd witryny. Metadane i media
+otwierają się w osobnych oknach, z błędami widocznymi wewnątrz nich.
+Poniżej 1200 px dolna nawigacja pokazuje jeden wybrany panel. Wybór sekcji
+przenosi focus na canvas, a błąd walidacji otwiera inspektor i błędne pole.
+Preferencja ograniczenia animacji wyłącza płynne przewijanie.
 
 Boczna biblioteka używa tego samego katalogu, kart, filtrów i podglądu co
 okno „Dodaj sekcję poniżej”. Pola filtrów mają lokalne ID, więc okno może być
@@ -56,8 +59,9 @@ W trybie edycji linki są neutralnymi elementami, żeby kontrolki tekstu nie
 były osadzone w aktywnych linkach. Nagłówki zachowują wygląd, ale mają rolę
 presentation, ponieważ nie definiują struktury nagłówków panelu. FAQ jest
 otwarte, aby odpowiedź dało się edytować. Bez adaptera publiczne linki,
-nagłówki i zamknięte FAQ zachowują wcześniejszy markup; test snapshotu nie
-został zmieniony. Renderer nie importuje pakietu UI.
+nagłówki i zamknięte FAQ zachowują semantykę publikacji. CTA hero i rezerwacji
+mają wspólną klasę wyglądu `site-section__action` na linku publikacji i span
+edytora. Snapshot zmienił się wyłącznie o tę klasę w istniejących CTA. Renderer nie importuje pakietu UI.
 
 ## Prototyp porównawczy Puck
 
@@ -196,8 +200,32 @@ szerokości list. Podgląd krótkiej sekcji nie wymusza pełnej wysokości okna.
 Przegląd katalogu: osiem recept pełnych podstron (Wizytówka, Strona specjalisty,
 Strona firmy, Oferta usługowa, Gabinet i opieka, Usługi dla gospodarstwa,
 Serwis elektroniki, Pracownia i realizacje). Każda ma cztery sekcje: hero,
-feature_list, FAQ i kontakt, z PL/EN oraz zdjęciami. Wybór jest obecnie dostępny
-tylko dla pustego draftu pod hasłem „Zacznij od szablonu”. To nie są zestawy
-wielostronicowych witryn ani ukończona biblioteka wszystkich kategorii.
-Otwarte: bogatsze kompozycje i bezpieczny wybór dla istniejącej podstrony.
+feature_list, FAQ i kontakt, z PL/EN oraz zdjęciami. Wybór w zakładce „Całe
+strony” jest dostępny również dla istniejącego draftu. Zastąpienie treści
+wymaga potwierdzenia i tworzy nową wersję przez istniejący endpoint importu.
+Anulowanie zachowuje niezapisane treści; sukces rozpoczyna nową lokalną
+historię. To nie są zestawy wielostronicowych witryn ani ukończona biblioteka
+wszystkich kategorii. Otwarte: bogatsze kompozycje i pozostałe kategorie.
 Osobno pozostaje zdiagnozowany 403 automatyzacji blueprintów ze zdjęciami.
+
+
+## Odbiór przebudowy edytora — 2026-09-21
+
+Biblioteka ma wyszukiwanie nazw, opisów i zastosowań, liczbę wyników,
+filtry kategorii i branży oraz większe miniatury. Kliknięcie miniatury otwiera
+osobny podgląd sekcji z wariantem telefonu. Zamknięcie przywraca focus;
+import zdjęcia blokuje zmianę zakładki i zamknięcie podglądu. Błąd importu
+pozostawia treść strony i pozwala ponowić tę samą operację.
+
+Strona ustala własne jasne kolory niezależnie od motywu panelu. CTA zachowują
+wypełnienie, obrys lub zaokrąglenie także podczas edycji etykiety; Enter nie
+uruchamia nawigacji. Nakładki wyboru sekcji nie zmieniają odstępów renderera.
+Widok formularzy ma jeden przewijany obszar obejmujący również wygląd.
+
+Dowody: PageEditor 33/33, PageStudio 5/5, biblioteka 8/8 (axe PL/EN),
+renderer i katalog 24/24; TypeScript, ESLint i Prettier. Chromium:
+3440/1440/1280/768/390 px, oba motywy, pełne przyciski zapisu, brak przepełnienia
+pasków, mobilny focus, podgląd biblioteki i potwierdzenie podmiany strony.
+Osobno 162 porównania stylów CTA publikacji i edycji przy 360/1440 px.
+Artefakty: `.runtime/site-studio/redesign-browser/` i `cta-browser/`.
+To rzeczywiste komponenty z syntetycznym API, bez dowodu wdrożenia.

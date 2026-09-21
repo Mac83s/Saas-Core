@@ -311,6 +311,13 @@ export function PageEditor({
   const liveBlocks = useWatch({ control: draftForm.control, name: "blocks" });
   const history = useDraftHistory(draftForm);
   const [visual, setVisual] = useState(true);
+  const [mediaOpen, setMediaOpen] = useState(false);
+  const [mediaProblem, setMediaProblem] = useState<string>();
+  const [metadataProblem, setMetadataProblem] = useState<string>();
+  const [inspectorRequest, setInspectorRequest] = useState(0);
+  const [metadataOpen, setMetadataOpen] = useState(false);
+  const [replacementTemplate, setReplacementTemplate] =
+    useState<PageTemplate | null>(null);
   const [selectedSection, setSelectedSection] = useState(0);
   const activeSection = Math.min(
     selectedSection,
@@ -511,7 +518,7 @@ export function PageEditor({
           }
         : {}),
     };
-    setProblem(undefined);
+    setMetadataProblem(undefined);
     setTranslationConflict(false);
     try {
       const saved = await savePageTranslation(
@@ -539,7 +546,7 @@ export function PageEditor({
         setTranslationConflict(true);
         return;
       }
-      setProblem(sitesErrorMessage(error, t));
+      setMetadataProblem(sitesErrorMessage(error, t));
     }
   };
 
@@ -564,7 +571,7 @@ export function PageEditor({
       size: file.size,
     };
     setLoading(true);
-    setProblem(undefined);
+    setMediaProblem(undefined);
     setUploadStatus(undefined);
     try {
       const intent = await initiateMediaUpload(
@@ -584,7 +591,7 @@ export function PageEditor({
       setFile(undefined);
       setAssets((await listMediaAssets()).items);
     } catch (error) {
-      setProblem(sitesErrorMessage(error, t));
+      setMediaProblem(sitesErrorMessage(error, t));
     } finally {
       setLoading(false);
     }
@@ -661,7 +668,7 @@ export function PageEditor({
   );
 
   return (
-    <div className="space-y-6">
+    <div className="site-studio-editor">
       {problem && (
         <div
           className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
@@ -671,22 +678,20 @@ export function PageEditor({
         </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("contentEditor")}</CardTitle>
-          <CardDescription>
-            {t("contentEditorDescription", { page: page.name })}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+      <Card className="studio-editor-main">
+        <CardContent className="studio-editor-content">
           <form
-            className="space-y-5"
+            className="studio-editor-form"
             onSubmit={(event) => {
               void draftForm.handleSubmit(handleSaveDraft, (errors) => {
                 const first = Object.keys(errors.blocks ?? {}).find((key) =>
                   /^\d+$/.test(key),
                 );
-                if (first !== undefined) setSelectedSection(Number(first));
+                if (first !== undefined) {
+                  setSelectedSection(Number(first));
+                  setInspectorRequest((request) => request + 1);
+                  setProblem(t("studio.validationError"));
+                }
               })(event);
             }}
           >
@@ -710,9 +715,9 @@ export function PageEditor({
 
             <fieldset
               disabled={loading || draftForm.formState.isSubmitting}
-              className="min-w-0 space-y-5"
+              className="studio-editor-fieldset"
             >
-              <div className="flex flex-wrap gap-2">
+              <div className="studio-toolbar">
                 <Button
                   type="button"
                   variant="outline"
@@ -745,87 +750,123 @@ export function PageEditor({
                 >
                   {t("studio.redo")}
                 </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setMediaOpen(true)}
+                >
+                  {t("media")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setMetadataOpen(true)}
+                >
+                  {t("studio.pageSettings")}
+                </Button>
+                <div className="studio-save-actions">
+                  <Button disabled={loading || draftConflict} type="submit">
+                    <SaveIcon aria-hidden="true" />
+                    {t("studio.save")}
+                  </Button>
+                  <Button
+                    disabled={loading || !draft?.draft_id}
+                    onClick={() => void showPreview()}
+                    type="button"
+                    variant="outline"
+                    aria-label={t("preview")}
+                    title={t("preview")}
+                  >
+                    <EyeIcon aria-hidden="true" />
+                    <span className="hidden sm:inline">{t("preview")}</span>
+                  </Button>
+                  <Badge variant="outline">
+                    {t("versionValue", { version: draft?.version ?? 0 })}
+                  </Badge>
+                </div>
               </div>
-              {(!visual || blocks.fields.length === 0) && (
-                <>
-                  {appearanceControls && (
-                    <details className="rounded-lg border p-3">
-                      <summary className="cursor-pointer font-semibold">
-                        {t("appearance.title")}
-                      </summary>
-                      {appearanceControls}
-                    </details>
-                  )}
-                  <SectionLibrary
-                    onBusyChange={setLoading}
-                    onAdd={(block) => {
-                      if (block.data.image)
-                        void listMediaAssets()
-                          .then((result) => setAssets(result.items))
-                          .catch(() => {});
-                      blocks.append(block);
-                      setSelectedSection(blocks.fields.length);
-                    }}
-                  />
-                  {blockPicker(false)}
-                </>
-              )}
-
-              <div className="space-y-4">
-                {blocks.fields.length === 0 && (
-                  <div className="space-y-4 rounded-lg border border-dashed p-4">
-                    <p className="text-sm text-muted-foreground">
-                      {t("emptyBlocks")}
-                    </p>
-                    <div>
-                      <h3 className="font-medium">{t("startFromTemplate")}</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {t("startFromTemplateDescription")}
-                      </p>
-                    </div>
-                    <ul className="grid gap-3 sm:grid-cols-3">
-                      {pageTemplates.map((template) => (
-                        <li key={template.id}>
-                          <TemplateOption
-                            closeLabel={common("close")}
-                            loading={loading}
-                            locale={templateLocale}
-                            onApply={() => void applyTemplate(template)}
-                            previewLabel={t("previewTemplate")}
-                            previewTitle={t("previewNamedTemplate", {
-                              name: template.labels[templateLocale].name,
-                            })}
-                            template={template}
-                            thumbnailLabel={t("templateThumbnail", {
-                              name: template.labels[templateLocale].name,
-                            })}
-                            useLabel={t("useNamedTemplate", {
-                              name: template.labels[templateLocale].name,
-                            })}
-                          />
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+              <div
+                className={`studio-editing-body ${visual ? "" : "studio-form-list"}`}
+              >
+                {!visual && (
+                  <>
+                    {appearanceControls && (
+                      <details className="rounded-lg border p-3">
+                        <summary className="cursor-pointer font-semibold">
+                          {t("appearance.title")}
+                        </summary>
+                        {appearanceControls}
+                      </details>
+                    )}
+                    <SectionLibrary
+                      onBusyChange={setLoading}
+                      onAdd={(block) => {
+                        if (block.data.image)
+                          void listMediaAssets()
+                            .then((result) => setAssets(result.items))
+                            .catch(() => {});
+                        blocks.append(block);
+                        setSelectedSection(blocks.fields.length);
+                      }}
+                    />
+                    {blockPicker(false)}
+                  </>
                 )}
-                {visual && blocks.fields.length > 0 ? (
+
+                {visual && draft ? (
                   <SectionCanvas
+                    inspectorRequest={inspectorRequest}
                     appearance={appearance}
                     navigation={navigation}
+                    appearanceControls={appearanceControls}
+                    templates={
+                      <div className="space-y-4">
+                        <p className="text-sm text-muted-foreground">
+                          {t("startFromTemplateDescription")}
+                        </p>
+                        <ul className="grid gap-4">
+                          {pageTemplates.map((template) => (
+                            <li key={template.id}>
+                              <TemplateOption
+                                closeLabel={common("close")}
+                                loading={loading}
+                                locale={templateLocale}
+                                onApply={() => {
+                                  if (blocks.fields.length)
+                                    setReplacementTemplate(template);
+                                  else void applyTemplate(template);
+                                }}
+                                previewLabel={t("previewTemplate")}
+                                previewTitle={t("previewNamedTemplate", {
+                                  name: template.labels[templateLocale].name,
+                                })}
+                                template={template}
+                                thumbnailLabel={t("templateThumbnail", {
+                                  name: template.labels[templateLocale].name,
+                                })}
+                                useLabel={t("useNamedTemplate", {
+                                  name: template.labels[templateLocale].name,
+                                })}
+                              />
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    }
+                    emptyState={
+                      <div className="studio-empty-page">
+                        <h2>{t("startFromTemplate")}</h2>
+                        <p>{t("studio.emptyCanvas")}</p>
+                      </div>
+                    }
                     library={
                       <>
-                        {appearanceControls && (
-                          <details className="rounded-lg border p-3">
-                            <summary className="cursor-pointer font-semibold">
-                              {t("appearance.title")}
-                            </summary>
-                            <div className="mt-4">{appearanceControls}</div>
-                          </details>
-                        )}
-                        <p className="text-sm text-muted-foreground">
-                          {t("studio.libraryPlacement")}
-                        </p>
-                        {blockPicker(true)}
+                        <details className="rounded-lg border p-3">
+                          <summary className="cursor-pointer text-sm font-medium">
+                            {t("studio.emptyBlock")}
+                          </summary>
+                          <div className="pt-3">{blockPicker(true)}</div>
+                        </details>
                         <SectionLibraryContent
                           onBusyChange={setLoading}
                           compact
@@ -869,53 +910,57 @@ export function PageEditor({
                     selected={activeSection}
                     onSelect={setSelectedSection}
                     inspector={
-                      <>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => {
-                            blocks.insert(
-                              activeSection + 1,
-                              structuredClone(
-                                draftForm.getValues(`blocks.${activeSection}`),
-                              ),
-                            );
-                            setSelectedSection(activeSection + 1);
-                          }}
-                        >
-                          {t("studio.duplicate")}
-                        </Button>
-                        <SectionLibrary
-                          onBusyChange={setLoading}
-                          triggerLabel={t("studio.insertAfter")}
-                          onAdd={(block) => {
-                            if (block.data.image)
-                              void listMediaAssets()
-                                .then((result) => setAssets(result.items))
-                                .catch(() => {});
-                            blocks.insert(activeSection + 1, block);
-                            setSelectedSection(activeSection + 1);
-                          }}
-                        />
-                        <BlockFields
-                          assets={assets}
-                          form={draftForm}
-                          index={activeSection}
-                          key={blocks.fields[activeSection].id}
-                          type={blocks.fields[activeSection].block_type}
-                          isFirst={activeSection === 0}
-                          isLast={activeSection === blocks.fields.length - 1}
-                          moveUp={() => {
-                            blocks.swap(activeSection, activeSection - 1);
-                            setSelectedSection(activeSection - 1);
-                          }}
-                          moveDown={() => {
-                            blocks.swap(activeSection, activeSection + 1);
-                            setSelectedSection(activeSection + 1);
-                          }}
-                          onRemove={() => blocks.remove(activeSection)}
-                        />
-                      </>
+                      blocks.fields.length > 0 ? (
+                        <>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              blocks.insert(
+                                activeSection + 1,
+                                structuredClone(
+                                  draftForm.getValues(
+                                    `blocks.${activeSection}`,
+                                  ),
+                                ),
+                              );
+                              setSelectedSection(activeSection + 1);
+                            }}
+                          >
+                            {t("studio.duplicate")}
+                          </Button>
+                          <SectionLibrary
+                            onBusyChange={setLoading}
+                            triggerLabel={t("studio.insertAfter")}
+                            onAdd={(block) => {
+                              if (block.data.image)
+                                void listMediaAssets()
+                                  .then((result) => setAssets(result.items))
+                                  .catch(() => {});
+                              blocks.insert(activeSection + 1, block);
+                              setSelectedSection(activeSection + 1);
+                            }}
+                          />
+                          <BlockFields
+                            assets={assets}
+                            form={draftForm}
+                            index={activeSection}
+                            key={blocks.fields[activeSection].id}
+                            type={blocks.fields[activeSection].block_type}
+                            isFirst={activeSection === 0}
+                            isLast={activeSection === blocks.fields.length - 1}
+                            moveUp={() => {
+                              blocks.swap(activeSection, activeSection - 1);
+                              setSelectedSection(activeSection - 1);
+                            }}
+                            moveDown={() => {
+                              blocks.swap(activeSection, activeSection + 1);
+                              setSelectedSection(activeSection + 1);
+                            }}
+                            onRemove={() => blocks.remove(activeSection)}
+                          />
+                        </>
+                      ) : null
                     }
                   />
                 ) : (
@@ -937,322 +982,401 @@ export function PageEditor({
                   </>
                 )}
               </div>
-
-              <div className="space-y-3 rounded-lg border p-4">
-                <div>
-                  <h3 className="font-medium">{t("media")}</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {t("mediaDescription")}
-                  </p>
-                </div>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                  <Field className="flex-1">
-                    <FieldLabel htmlFor="media-picker">
-                      {t("chooseMedia")}
-                    </FieldLabel>
-                    <Combobox
-                      isItemEqualToValue={(item, value) => item.id === value.id}
-                      itemToStringLabel={(item) => item.original_filename}
-                      itemToStringValue={(item) => item.id}
-                      items={selectableAssets}
-                      onValueChange={setAssetOption}
-                      value={assetOption}
-                    >
-                      <ComboboxInput
-                        id="media-picker"
-                        placeholder={t("searchMedia")}
-                        triggerLabel={t("openOptions")}
-                      />
-                      <ComboboxContent>
-                        <ComboboxEmpty>{t("noReadyMedia")}</ComboboxEmpty>
-                        <ComboboxList>
-                          {selectableAssets.map((asset) => (
-                            <ComboboxItem key={asset.id} value={asset}>
-                              {asset.original_filename}
-                            </ComboboxItem>
-                          ))}
-                        </ComboboxList>
-                      </ComboboxContent>
-                    </Combobox>
-                  </Field>
-                  <Button
-                    disabled={!assetOption}
-                    onClick={() => {
-                      if (!assetOption) return;
-                      draftForm.setValue(
-                        "media_asset_ids",
-                        [...selectedMediaIds, assetOption.id],
-                        { shouldDirty: true },
-                      );
-                      setAssetOption(null);
-                    }}
-                    type="button"
-                    variant="outline"
-                  >
-                    <PlusIcon aria-hidden="true" />
-                    {t("add")}
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {selectedMediaIds.map((assetId) => {
-                    const asset = assets.find((item) => item.id === assetId);
-                    return (
-                      <Badge key={assetId} variant="secondary">
-                        {asset?.original_filename ?? assetId}
-                        <button
-                          aria-label={t("removeMedia", {
-                            name: asset?.original_filename ?? assetId,
-                          })}
-                          className="ml-1 rounded p-0.5 hover:bg-background"
-                          onClick={() =>
-                            draftForm.setValue(
-                              "media_asset_ids",
-                              selectedMediaIds.filter((id) => id !== assetId),
-                              { shouldDirty: true },
-                            )
-                          }
-                          type="button"
-                        >
-                          <Trash2Icon aria-hidden="true" className="size-3" />
-                        </button>
-                      </Badge>
-                    );
-                  })}
-                </div>
-                <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-                  <Field>
-                    <FieldLabel htmlFor="media-upload">
-                      {t("uploadImage")}
-                    </FieldLabel>
-                    <Input
-                      accept="image/jpeg,image/png,image/webp"
-                      id="media-upload"
-                      onChange={(event) => setFile(event.target.files?.[0])}
-                      type="file"
-                    />
-                  </Field>
-                  <Button
-                    disabled={!file || loading}
-                    onClick={() => void uploadFile()}
-                    type="button"
-                    variant="outline"
-                  >
-                    <ImagePlusIcon aria-hidden="true" />
-                    {t("upload")}
-                  </Button>
-                </div>
-                {uploadStatus && (
-                  <p className="text-sm text-muted-foreground" role="status">
-                    {uploadStatus}
-                  </p>
-                )}
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                <Button disabled={loading || draftConflict} type="submit">
-                  <SaveIcon aria-hidden="true" />
-                  {t("saveDraft")}
-                </Button>
-                <Button
-                  disabled={loading || !draft?.draft_id}
-                  onClick={() => void showPreview()}
-                  type="button"
-                  variant="outline"
-                >
-                  <EyeIcon aria-hidden="true" />
-                  {t("preview")}
-                </Button>
-                <Badge variant="outline">
-                  {t("versionValue", { version: draft?.version ?? 0 })}
-                </Badge>
-              </div>
             </fieldset>
           </form>
         </CardContent>
       </Card>
 
-      {renderedPreview && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("preview")}</CardTitle>
-            <CardDescription>{t("previewDescription")}</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div
-              aria-label={t("previewViewport")}
-              className="flex flex-wrap gap-2"
-              role="group"
-            >
-              {(
-                [
-                  ["desktop", MonitorIcon],
-                  ["tablet", TabletIcon],
-                  ["mobile", SmartphoneIcon],
-                ] as const
-              ).map(([viewport, Icon]) => (
-                <Button
-                  aria-pressed={previewViewport === viewport}
-                  key={viewport}
-                  onClick={() => setPreviewViewport(viewport)}
-                  size="sm"
-                  type="button"
-                  variant={previewViewport === viewport ? "default" : "outline"}
-                >
-                  <Icon aria-hidden="true" />
-                  {t(`previewViewport_${viewport}`)}
-                </Button>
-              ))}
-            </div>
-            <div
-              className="overflow-x-auto rounded-lg border bg-muted/30 p-3 sm:p-6"
-              data-testid="draft-preview"
-            >
+      <Dialog
+        open={Boolean(renderedPreview)}
+        onOpenChange={(open) => {
+          if (!open) setPreview(undefined);
+        }}
+      >
+        <DialogContent
+          closeLabel={common("close")}
+          className="max-h-[92dvh] overflow-y-auto sm:max-w-[95vw]"
+        >
+          <DialogTitle>{t("preview")}</DialogTitle>
+          <DialogDescription>{t("previewDescription")}</DialogDescription>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("preview")}</CardTitle>
+              <CardDescription>{t("previewDescription")}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div
-                className="mx-auto min-h-80 rounded-lg border bg-background p-6 shadow-sm transition-[width]"
-                data-testid="draft-preview-viewport"
-                data-viewport={previewViewport}
-                style={{ width: previewWidths[previewViewport] }}
+                aria-label={t("previewViewport")}
+                className="flex flex-wrap gap-2"
+                role="group"
               >
-                {renderedPreview}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("metadata")}</CardTitle>
-          <CardDescription>{t("metadataDescription")}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form
-            className="space-y-5"
-            onSubmit={(event) => {
-              void translationForm.handleSubmit(handleSaveTranslation)(event);
-            }}
-          >
-            <Field>
-              <FieldLabel htmlFor="translation-locale">
-                {t("locale")}
-              </FieldLabel>
-              <Select
-                onValueChange={(nextLocale) => {
-                  if (!nextLocale) return;
-                  setLocale(nextLocale);
-                  setTranslationConflict(false);
-                  translationReceipt.current = undefined;
-                  translationForm.reset(
-                    translationValues(
-                      translations.find((item) => item.locale === nextLocale),
-                      page.key,
-                    ),
-                  );
-                }}
-                value={locale}
-              >
-                <SelectTrigger className="w-full" id="translation-locale">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pl">{common("polish")}</SelectItem>
-                  <SelectItem value="en">{common("english")}</SelectItem>
-                </SelectContent>
-              </Select>
-            </Field>
-
-            {translationConflict && (
-              <div
-                className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive"
-                role="alert"
-              >
-                {t("translationConflict")}
-              </div>
-            )}
-
-            <FieldGroup>
-              <TranslationTextField
-                disabled={Boolean(selectedTranslation?.slug_locked)}
-                form={translationForm}
-                id="translation-slug"
-                label={t("slug")}
-                name="slug"
-              />
-              <TranslationTextField
-                form={translationForm}
-                id="translation-title"
-                label={t("metaTitle")}
-                name="title"
-              />
-              <TranslationTextareaField
-                form={translationForm}
-                id="translation-description"
-                label={t("metaDescription")}
-                name="description"
-              />
-              <TranslationTextField
-                form={translationForm}
-                id="translation-social-title"
-                label={t("socialTitle")}
-                name="social_title"
-              />
-              <TranslationTextareaField
-                form={translationForm}
-                id="translation-social-description"
-                label={t("socialDescription")}
-                name="social_description"
-              />
-            </FieldGroup>
-
-            {locale !== baseLocale && (
-              <fieldset className="space-y-2 rounded-lg border p-4">
-                <legend className="px-1 text-sm font-medium">
-                  {t("fallbacks")}
-                </legend>
                 {(
                   [
-                    ["allow_title_fallback", "metaTitle"],
-                    ["allow_description_fallback", "metaDescription"],
-                    ["allow_social_title_fallback", "socialTitle"],
-                    ["allow_social_description_fallback", "socialDescription"],
+                    ["desktop", MonitorIcon],
+                    ["tablet", TabletIcon],
+                    ["mobile", SmartphoneIcon],
                   ] as const
-                ).map(([name, label]) => (
-                  <label className="flex items-center gap-2 text-sm" key={name}>
-                    <input
-                      type="checkbox"
-                      {...translationForm.register(name)}
-                    />
-                    {t("allowFallback", { field: t(label) })}
-                  </label>
+                ).map(([viewport, Icon]) => (
+                  <Button
+                    aria-pressed={previewViewport === viewport}
+                    key={viewport}
+                    onClick={() => setPreviewViewport(viewport)}
+                    size="sm"
+                    type="button"
+                    variant={
+                      previewViewport === viewport ? "default" : "outline"
+                    }
+                  >
+                    <Icon aria-hidden="true" />
+                    {t(`previewViewport_${viewport}`)}
+                  </Button>
                 ))}
-              </fieldset>
-            )}
+              </div>
+              <div
+                className="overflow-x-auto rounded-lg border bg-muted/30 p-3 sm:p-6"
+                data-testid="draft-preview"
+              >
+                <div
+                  className="mx-auto min-h-80 rounded-lg border bg-background p-6 shadow-sm transition-[width]"
+                  data-testid="draft-preview-viewport"
+                  data-viewport={previewViewport}
+                  style={{ width: previewWidths[previewViewport] }}
+                >
+                  {renderedPreview}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </DialogContent>
+      </Dialog>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <Button disabled={loading || translationConflict} type="submit">
-                <SaveIcon aria-hidden="true" />
-                {t("saveMetadata")}
-              </Button>
-              <Badge variant="outline">
-                {t("versionValue", {
-                  version: selectedTranslation?.version ?? 0,
+      <Dialog open={metadataOpen} onOpenChange={setMetadataOpen}>
+        <DialogContent
+          closeLabel={common("close")}
+          className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl"
+        >
+          <DialogTitle>{t("metadata")}</DialogTitle>
+          <DialogDescription>{t("metadataDescription")}</DialogDescription>
+          {metadataProblem && (
+            <p role="alert" className="text-sm text-destructive">
+              {metadataProblem}
+            </p>
+          )}
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("metadata")}</CardTitle>
+              <CardDescription>{t("metadataDescription")}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form
+                className="space-y-5"
+                onSubmit={(event) => {
+                  void translationForm.handleSubmit(handleSaveTranslation)(
+                    event,
+                  );
+                }}
+              >
+                <fieldset
+                  disabled={loading || translationForm.formState.isSubmitting}
+                  className="space-y-5"
+                >
+                  <Field>
+                    <FieldLabel htmlFor="translation-locale">
+                      {t("locale")}
+                    </FieldLabel>
+                    <Select
+                      onValueChange={(nextLocale) => {
+                        if (!nextLocale) return;
+                        setLocale(nextLocale);
+                        setMetadataProblem(undefined);
+                        setTranslationConflict(false);
+                        translationReceipt.current = undefined;
+                        translationForm.reset(
+                          translationValues(
+                            translations.find(
+                              (item) => item.locale === nextLocale,
+                            ),
+                            page.key,
+                          ),
+                        );
+                      }}
+                      value={locale}
+                    >
+                      <SelectTrigger className="w-full" id="translation-locale">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pl">{common("polish")}</SelectItem>
+                        <SelectItem value="en">{common("english")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+
+                  {translationConflict && (
+                    <div
+                      className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive"
+                      role="alert"
+                    >
+                      {t("translationConflict")}
+                    </div>
+                  )}
+
+                  <FieldGroup>
+                    <TranslationTextField
+                      disabled={Boolean(selectedTranslation?.slug_locked)}
+                      form={translationForm}
+                      id="translation-slug"
+                      label={t("slug")}
+                      name="slug"
+                    />
+                    <TranslationTextField
+                      form={translationForm}
+                      id="translation-title"
+                      label={t("metaTitle")}
+                      name="title"
+                    />
+                    <TranslationTextareaField
+                      form={translationForm}
+                      id="translation-description"
+                      label={t("metaDescription")}
+                      name="description"
+                    />
+                    <TranslationTextField
+                      form={translationForm}
+                      id="translation-social-title"
+                      label={t("socialTitle")}
+                      name="social_title"
+                    />
+                    <TranslationTextareaField
+                      form={translationForm}
+                      id="translation-social-description"
+                      label={t("socialDescription")}
+                      name="social_description"
+                    />
+                  </FieldGroup>
+
+                  {locale !== baseLocale && (
+                    <fieldset className="space-y-2 rounded-lg border p-4">
+                      <legend className="px-1 text-sm font-medium">
+                        {t("fallbacks")}
+                      </legend>
+                      {(
+                        [
+                          ["allow_title_fallback", "metaTitle"],
+                          ["allow_description_fallback", "metaDescription"],
+                          ["allow_social_title_fallback", "socialTitle"],
+                          [
+                            "allow_social_description_fallback",
+                            "socialDescription",
+                          ],
+                        ] as const
+                      ).map(([name, label]) => (
+                        <label
+                          className="flex items-center gap-2 text-sm"
+                          key={name}
+                        >
+                          <input
+                            type="checkbox"
+                            {...translationForm.register(name)}
+                          />
+                          {t("allowFallback", { field: t(label) })}
+                        </label>
+                      ))}
+                    </fieldset>
+                  )}
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                      disabled={
+                        loading ||
+                        translationForm.formState.isSubmitting ||
+                        translationConflict
+                      }
+                      type="submit"
+                    >
+                      <SaveIcon aria-hidden="true" />
+                      {t("saveMetadata")}
+                    </Button>
+                    <Badge variant="outline">
+                      {t("versionValue", {
+                        version: selectedTranslation?.version ?? 0,
+                      })}
+                    </Badge>
+                    {selectedTranslation?.slug_locked && (
+                      <>
+                        <Badge variant="secondary">{t("slugLocked")}</Badge>
+                        <PageUrlDialog
+                          locale={locale}
+                          onChanged={reloadTranslations}
+                          pageId={page.id}
+                          slug={selectedTranslation.slug}
+                        />
+                      </>
+                    )}
+                  </div>
+                </fieldset>
+              </form>
+            </CardContent>
+          </Card>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={mediaOpen} onOpenChange={setMediaOpen}>
+        <DialogContent
+          closeLabel={common("close")}
+          className="max-h-[90dvh] overflow-y-auto sm:max-w-2xl"
+        >
+          <DialogTitle>{t("media")}</DialogTitle>
+          <DialogDescription>{t("mediaDescription")}</DialogDescription>
+          {mediaProblem && (
+            <p role="alert" className="text-sm text-destructive">
+              {mediaProblem}
+            </p>
+          )}
+          <fieldset disabled={loading}>
+            <div className="space-y-3 rounded-lg border p-4">
+              <div>
+                <h3 className="font-medium">{t("media")}</h3>
+                <p className="text-sm text-muted-foreground">
+                  {t("mediaDescription")}
+                </p>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+                <Field className="flex-1">
+                  <FieldLabel htmlFor="media-picker">
+                    {t("chooseMedia")}
+                  </FieldLabel>
+                  <Combobox
+                    isItemEqualToValue={(item, value) => item.id === value.id}
+                    itemToStringLabel={(item) => item.original_filename}
+                    itemToStringValue={(item) => item.id}
+                    items={selectableAssets}
+                    onValueChange={setAssetOption}
+                    value={assetOption}
+                  >
+                    <ComboboxInput
+                      id="media-picker"
+                      placeholder={t("searchMedia")}
+                      triggerLabel={t("openOptions")}
+                    />
+                    <ComboboxContent>
+                      <ComboboxEmpty>{t("noReadyMedia")}</ComboboxEmpty>
+                      <ComboboxList>
+                        {selectableAssets.map((asset) => (
+                          <ComboboxItem key={asset.id} value={asset}>
+                            {asset.original_filename}
+                          </ComboboxItem>
+                        ))}
+                      </ComboboxList>
+                    </ComboboxContent>
+                  </Combobox>
+                </Field>
+                <Button
+                  disabled={!assetOption}
+                  onClick={() => {
+                    if (!assetOption) return;
+                    draftForm.setValue(
+                      "media_asset_ids",
+                      [...selectedMediaIds, assetOption.id],
+                      { shouldDirty: true },
+                    );
+                    setAssetOption(null);
+                  }}
+                  type="button"
+                  variant="outline"
+                >
+                  <PlusIcon aria-hidden="true" />
+                  {t("add")}
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {selectedMediaIds.map((assetId) => {
+                  const asset = assets.find((item) => item.id === assetId);
+                  return (
+                    <Badge key={assetId} variant="secondary">
+                      {asset?.original_filename ?? assetId}
+                      <button
+                        aria-label={t("removeMedia", {
+                          name: asset?.original_filename ?? assetId,
+                        })}
+                        className="ml-1 rounded p-0.5 hover:bg-background"
+                        onClick={() =>
+                          draftForm.setValue(
+                            "media_asset_ids",
+                            selectedMediaIds.filter((id) => id !== assetId),
+                            { shouldDirty: true },
+                          )
+                        }
+                        type="button"
+                      >
+                        <Trash2Icon aria-hidden="true" className="size-3" />
+                      </button>
+                    </Badge>
+                  );
                 })}
-              </Badge>
-              {selectedTranslation?.slug_locked && (
-                <>
-                  <Badge variant="secondary">{t("slugLocked")}</Badge>
-                  <PageUrlDialog
-                    locale={locale}
-                    onChanged={reloadTranslations}
-                    pageId={page.id}
-                    slug={selectedTranslation.slug}
+              </div>
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+                <Field>
+                  <FieldLabel htmlFor="media-upload">
+                    {t("uploadImage")}
+                  </FieldLabel>
+                  <Input
+                    accept="image/jpeg,image/png,image/webp"
+                    id="media-upload"
+                    onChange={(event) => setFile(event.target.files?.[0])}
+                    type="file"
                   />
-                </>
+                </Field>
+                <Button
+                  disabled={!file || loading}
+                  onClick={() => void uploadFile()}
+                  type="button"
+                  variant="outline"
+                >
+                  <ImagePlusIcon aria-hidden="true" />
+                  {t("upload")}
+                </Button>
+              </div>
+              {uploadStatus && (
+                <p className="text-sm text-muted-foreground" role="status">
+                  {uploadStatus}
+                </p>
               )}
             </div>
-          </form>
-        </CardContent>
-      </Card>
+          </fieldset>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={Boolean(replacementTemplate)}
+        onOpenChange={(open) => {
+          if (!open) setReplacementTemplate(null);
+        }}
+      >
+        <DialogContent closeLabel={common("close")}>
+          <DialogTitle>{t("studio.replaceTitle")}</DialogTitle>
+          <DialogDescription>
+            {t("studio.replaceDescription")}
+          </DialogDescription>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setReplacementTemplate(null)}
+            >
+              {common("cancel")}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                const template = replacementTemplate;
+                setReplacementTemplate(null);
+                if (template) void applyTemplate(template);
+              }}
+            >
+              {t("studio.replaceConfirm")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

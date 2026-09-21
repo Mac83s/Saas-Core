@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { renderPrivateMedia } from "./private-media-preview";
 import { useTranslations } from "next-intl";
 import {
@@ -16,6 +16,16 @@ import {
 } from "@saas-core/site-blocks";
 import { InlineText } from "@saas-core/ui/components/inline-text";
 import { ReorderList } from "@saas-core/ui/components/reorder-list";
+import {
+  MonitorIcon,
+  TabletIcon,
+  SmartphoneIcon,
+  LayersIcon,
+  PlusIcon,
+  PaletteIcon,
+  LayoutTemplateIcon,
+  PanelRightIcon,
+} from "lucide-react";
 import { Button } from "@saas-core/ui/components/button";
 import {
   blockOptions,
@@ -30,6 +40,10 @@ export function SectionCanvas({
   onSelect,
   inspector,
   library,
+  appearanceControls,
+  inspectorRequest = 0,
+  templates,
+  emptyState,
   appearance,
   navigation = [],
   blockIds,
@@ -46,15 +60,60 @@ export function SectionCanvas({
   onSelect: (index: number) => void;
   inspector: ReactNode;
   library: ReactNode;
+  appearanceControls?: ReactNode;
+  inspectorRequest?: number;
+  templates?: ReactNode;
+  emptyState?: ReactNode;
   appearance?: SiteAppearance;
   navigation?: readonly NavigationLink[];
 }) {
   const t = useTranslations("Sites");
-  const libraryId = useId();
-  const libraryRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
-  const inspectorRef = useRef<HTMLDivElement>(null);
-  const [libraryOpen, setLibraryOpen] = useState(false);
+  const inspectorRef = useRef<HTMLElement>(null);
+  const [leftPanel, setLeftPanel] = useState<
+    "outline" | "library" | "templates" | "appearance"
+  >(blocks.length ? "outline" : "templates");
+  const [mobileNavigationState, setMobileNavigationState] = useState<{
+    panel: "left" | "canvas" | "inspector";
+    request: number;
+  }>({ panel: "canvas", request: inspectorRequest });
+  const mobilePanel =
+    mobileNavigationState.request === inspectorRequest
+      ? mobileNavigationState.panel
+      : "inspector";
+  const setMobilePanel = (panel: "left" | "canvas" | "inspector") =>
+    setMobileNavigationState({ panel, request: inspectorRequest });
+  useEffect(() => {
+    if (!inspectorRequest) return;
+    const frame = requestAnimationFrame(() =>
+      inspectorRef.current
+        ?.querySelector<HTMLElement>('[aria-invalid="true"]')
+        ?.focus(),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [inspectorRequest]);
+  const sectionLabel = (index: number) =>
+    t(
+      blockOptions.find((option) => option.type === blocks[index]?.block_type)
+        ?.labelKey ?? "addBlock",
+    );
+  const chooseSection = (index: number) => {
+    onSelect(index);
+    setMobilePanel("canvas");
+    requestAnimationFrame(() => {
+      if (window.matchMedia?.("(max-width: 1199px)").matches)
+        canvasRef.current?.focus({ preventScroll: true });
+      canvasRef.current
+        ?.querySelector(`[data-section-index="${index}"]`)
+        ?.scrollIntoView?.({
+          block: "nearest",
+          behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)")
+            .matches
+            ? "auto"
+            : "smooth",
+        });
+    });
+  };
   const [viewport, setViewport] = useState<"desktop" | "tablet" | "mobile">(
     "desktop",
   );
@@ -69,59 +128,134 @@ export function SectionCanvas({
   const menuMode =
     viewport !== "desktop" ? appearance?.navigation[viewport] : undefined;
   return (
-    <div className="space-y-3 pb-20 lg:pb-0">
-      <p className="text-sm text-muted-foreground">
-        {t("studio.liveDescription")}
-      </p>
-      <div
-        role="group"
-        aria-label={t("previewViewport")}
-        className="flex flex-wrap gap-2"
+    <div
+      className="studio-workspace"
+      data-testid="studio-workspace"
+      data-mobile-panel={mobilePanel}
+    >
+      <aside
+        className="studio-sidebar studio-sidebar--left"
+        aria-label={t("studio.pageNavigation")}
       >
-        {(["desktop", "tablet", "mobile"] as const).map((value) => (
-          <Button
-            key={value}
-            type="button"
-            size="sm"
-            variant={viewport === value ? "default" : "outline"}
-            aria-pressed={viewport === value}
-            onClick={() => setViewport(value)}
-          >
-            {t(`previewViewport_${value}`)}
-          </Button>
-        ))}
-      </div>
-      <div
-        data-testid="studio-workspace"
-        className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_18rem] 2xl:grid-cols-[15rem_minmax(0,1fr)_18rem]"
-      >
-        <aside
-          ref={libraryRef}
-          tabIndex={-1}
-          className="min-w-0 space-y-3 rounded-lg border p-3 xl:col-span-2 2xl:col-span-1 2xl:sticky 2xl:top-4"
-          aria-label={t("sectionLibrary.title")}
-        >
-          <h3 className="hidden font-semibold 2xl:block">
-            {t("sectionLibrary.title")}
-          </h3>
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full 2xl:hidden"
-            aria-expanded={libraryOpen}
-            aria-controls={libraryId}
-            onClick={() => setLibraryOpen(!libraryOpen)}
-          >
-            {t("sectionLibrary.open")}
-          </Button>
+        <div className="studio-sidebar-header">
+          <h3>{t("studio.pageNavigation")}</h3>
           <div
-            id={libraryId}
-            className={`${libraryOpen ? "block" : "hidden"} max-h-[60vh] space-y-4 overflow-y-auto p-1.5 2xl:block 2xl:max-h-[75vh]`}
+            className="studio-sidebar-tabs"
+            role="group"
+            aria-label={t("studio.tools")}
           >
-            {library}
+            {(
+              [
+                ["outline", LayersIcon, "studio.sections"],
+                ["library", PlusIcon, "sectionLibrary.open"],
+                ["templates", LayoutTemplateIcon, "studio.pageTemplates"],
+                ["appearance", PaletteIcon, "studio.design"],
+              ] as const
+            )
+              .filter(([key]) => key !== "appearance" || appearanceControls)
+              .map(([key, Icon, label]) => (
+                <Button
+                  key={key}
+                  type="button"
+                  size="sm"
+                  variant={leftPanel === key ? "secondary" : "ghost"}
+                  aria-pressed={leftPanel === key}
+                  aria-label={t(label)}
+                  disabled={disabled}
+                  onClick={() => setLeftPanel(key)}
+                >
+                  <Icon aria-hidden="true" />
+                  {t(key === "library" ? "studio.libraryTool" : label)}
+                </Button>
+              ))}
           </div>
-        </aside>
-        <div className="min-w-0 overflow-x-auto rounded-lg border bg-muted/30 p-3">
+        </div>
+        <div className="studio-sidebar-scroll">
+          {leftPanel === "outline" && (
+            <>
+              <p className="mb-4 text-sm text-muted-foreground">
+                {t("studio.outlineHint")}
+              </p>
+              <ol className="studio-outline">
+                {blocks.map((block, index) => (
+                  <li key={blockIds[index]}>
+                    <button
+                      type="button"
+                      aria-current={selected === index ? "true" : undefined}
+                      disabled={disabled}
+                      onClick={() => chooseSection(index)}
+                    >
+                      <span className="studio-outline-number">{index + 1}</span>
+                      <span className="min-w-0">
+                        <span className="block text-xs text-muted-foreground">
+                          {sectionLabel(index)}
+                        </span>
+                        <span className="block truncate font-medium">
+                          {String(
+                            block.data.title ||
+                              block.data.heading ||
+                              sectionLabel(index),
+                          )}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-4 w-full"
+                disabled={disabled}
+                onClick={() => setLeftPanel("library")}
+              >
+                <PlusIcon aria-hidden="true" />
+                {t("studio.addSection")}
+              </Button>
+            </>
+          )}
+          {leftPanel === "library" && library}
+          {leftPanel === "templates" && templates}
+          {leftPanel === "appearance" && appearanceControls}
+        </div>
+      </aside>
+      <div className="studio-stage">
+        <div className="studio-stage-toolbar">
+          <div
+            role="group"
+            aria-label={t("previewViewport")}
+            className="flex gap-1"
+          >
+            {(
+              [
+                ["desktop", MonitorIcon],
+                ["tablet", TabletIcon],
+                ["mobile", SmartphoneIcon],
+              ] as const
+            ).map(([value, Icon]) => (
+              <Button
+                key={value}
+                type="button"
+                size="sm"
+                variant={viewport === value ? "secondary" : "ghost"}
+                aria-pressed={viewport === value}
+                onClick={() => setViewport(value)}
+              >
+                <Icon aria-hidden="true" />
+                <span className="hidden sm:inline">
+                  {t(`previewViewport_${value}`)}
+                </span>
+                <span className="sr-only sm:hidden">
+                  {t(`previewViewport_${value}`)}
+                </span>
+              </Button>
+            ))}
+          </div>
+          <span className="text-xs text-muted-foreground">
+            {t("studio.liveCanvasLabel")}
+          </span>
+        </div>
+        <div className="studio-stage-scroll">
           <div
             ref={canvasRef}
             tabIndex={-1}
@@ -129,7 +263,7 @@ export function SectionCanvas({
             aria-label={t("studio.canvas")}
             data-testid="live-canvas"
             data-viewport={viewport}
-            className={`${appearance ? `${designTokenClassName(appearance.designTokens)} ${siteAppearanceClassName(appearance)}` : "site-theme site-theme--neutral site-theme--sans site-theme--radius-medium site-theme--comfortable"} mx-auto space-y-3 bg-background site-canvas--${viewport}`}
+            className={`${appearance ? `${designTokenClassName(appearance.designTokens)} ${siteAppearanceClassName(appearance)}` : "site-theme site-theme--neutral site-theme--sans site-theme--radius-medium site-theme--comfortable"} studio-page site-canvas--${viewport}`}
             style={{
               width:
                 viewport === "desktop"
@@ -138,8 +272,10 @@ export function SectionCanvas({
                     ? 768
                     : 390,
               minHeight: 200,
+              maxWidth: viewport === "desktop" ? undefined : "100%",
             }}
           >
+            {blocks.length === 0 && emptyState}
             {appearance && (
               <div inert aria-hidden="true">
                 {menuMode === "drawer" && mobileNavigation}
@@ -219,9 +355,10 @@ export function SectionCanvas({
                 );
                 return (
                   <div
-                    className={`relative rounded border-2 ${selected === index ? "border-primary" : "border-transparent"}`}
+                    data-section-index={index}
+                    className={`studio-section ${selected === index ? "studio-section--selected" : ""}`}
                   >
-                    <div className="flex items-center justify-between gap-2 border-b bg-background p-2 text-sm">
+                    <div className="studio-section-handle">
                       <button
                         type="button"
                         className="min-w-0 rounded text-left focus-visible:outline-2 focus-visible:outline-primary"
@@ -265,54 +402,51 @@ export function SectionCanvas({
             )}
           </div>
         </div>
-        <div
-          className="min-w-0 space-y-3 xl:sticky xl:top-4 xl:max-h-[85vh] xl:overflow-y-auto"
-          ref={inspectorRef}
-          tabIndex={-1}
-          aria-label={t("studio.inspector")}
-          role="region"
-        >
-          <h3 className="font-semibold">{t("studio.inspector")}</h3>
-          {inspector}
-        </div>
       </div>
-      <nav
-        aria-label={t("studio.tools")}
-        className="fixed inset-x-0 bottom-0 z-40 flex justify-around gap-2 border-t bg-background p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-lg lg:hidden"
+      <aside
+        ref={inspectorRef}
+        className="studio-sidebar studio-sidebar--right"
+        aria-label={t("studio.inspector")}
       >
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => {
-            setLibraryOpen(true);
-            requestAnimationFrame(() => {
-              libraryRef.current?.focus();
-              libraryRef.current?.scrollIntoView({ block: "start" });
-            });
-          }}
-        >
-          {t("studio.libraryTool")}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => {
-            canvasRef.current?.focus();
-            canvasRef.current?.scrollIntoView({ block: "start" });
-          }}
-        >
-          {t("studio.canvas")}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => {
-            inspectorRef.current?.focus();
-            inspectorRef.current?.scrollIntoView({ block: "start" });
-          }}
-        >
-          {t("studio.settingsTool")}
-        </Button>
+        <div className="studio-sidebar-header">
+          <p className="text-xs text-muted-foreground">
+            {t("studio.inspector")}
+          </p>
+          <h3>
+            {blocks.length
+              ? sectionLabel(selected)
+              : t("studio.nothingSelected")}
+          </h3>
+        </div>
+        <div className="studio-sidebar-scroll">
+          {blocks.length ? (
+            inspector
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {t("studio.selectHint")}
+            </p>
+          )}
+        </div>
+      </aside>
+      <nav aria-label={t("studio.tools")} className="studio-mobile-nav">
+        {(
+          [
+            ["left", LayersIcon, "studio.pageNavigation"],
+            ["canvas", MonitorIcon, "studio.canvas"],
+            ["inspector", PanelRightIcon, "studio.settingsTool"],
+          ] as const
+        ).map(([key, Icon, label]) => (
+          <Button
+            key={key}
+            type="button"
+            variant={mobilePanel === key ? "secondary" : "ghost"}
+            aria-pressed={mobilePanel === key}
+            onClick={() => setMobilePanel(key)}
+          >
+            <Icon aria-hidden="true" />
+            {t(label)}
+          </Button>
+        ))}
       </nav>
     </div>
   );

@@ -1,5 +1,32 @@
 # Handoff następnej sesji
 
+## Site Studio — nowa nawigacja i przyciski, 2026-09-21
+
+Przebudowano edytor: lewy panel (struktura, biblioteka, całe strony, wygląd),
+środkowy canvas i prawy inspektor mają własne przewijanie. Paski zapisu i
+widoku są stale dostępne. Poniżej 1200 px dolna nawigacja przełącza panele.
+Metadane i media są w modalach, z własnymi alertami i blokadą pól w trakcie
+zapisu. Błąd walidacji otwiera inspektor i fokusuje wymagane pole.
+
+CTA w hero/rezerwacji wyglądają jednakowo w podglądzie i publikacji, także
+podczas inline edit. Ciemny motyw panelu nie zmienia kolorów strony.
+Biblioteka: wyszukiwarka, filtry, większe miniatury, podgląd w dialogu.
+Osiem obecnych recept całych stron można zastosować także na istniejącej
+podstronie po potwierdzeniu zastąpienia sekcji. Anulowanie zachowuje dirty draft.
+
+Dowody lokalne: PageEditor 33/33, PageStudio 5/5, biblioteka 8/8 z axe PL/EN,
+renderer/katalog 24/24, tsc/lint/format. Chromium: układ i paski bez overflow
+przy 3440/1440/1280/768/390 px, oba motywy, mobilny focus i modale;
+162 porównania CTA przy 360/1440 px. Artefakty `.runtime/site-studio/redesign-browser/`
+i `.runtime/site-studio/cta-browser/`. API w fixture jest syntetyczne.
+
+Nie wdrażano, nie restartowano i nie synchronizowano produktów; równoległe
+sesje nadal modyfikują wspólne repo. Następny krok: core:update do HoofCare
+i MedPlano oraz uzgodnione wdrożenie i zalogowany odbiór na trzech aplikacjach.
+Dalszy katalog, większe zróżnicowanie recept i znany blueprint/media 403
+pozostają otwarte. Szczegóły: `docs/architecture/site-studio-editor.md`.
+
+
 ## Kadr tam, gdzie zdjęcie wchodzi w układ, 2026-09-20
 
 Pole obrazu w manifeście bloku niesie proporcję (`BlockFieldDefinition.aspect`:
@@ -35,9 +62,9 @@ hero 32/46.96/72 px. Podgląd 390 px przy oknach 1440 i 422 ma 33.12 px w obu.
 Sześć fontów z polskimi znakami załadowanych lokalnie. Artefakty:
 .runtime/site-studio/font-review/. To fixture renderera, nie zalogowany stack.
 
-Pełne strony: osiem czterosekcyjnych kompozycji, dostępnych tylko na pustej
-podstronie. Rozbudowa ich układów i wybór dla istniejącej treści pozostają
-otwarte. Znana regresja blueprint/media 403 nie jest naprawiona w tym przyroście.
+Pełne strony: osiem czterosekcyjnych kompozycji. W tym przyroście były
+dostępne tylko na pustej podstronie; kolejny przyrost opisany wyżej dodał
+potwierdzony wybór dla istniejącej treści. Rozbudowa ich układów jest otwarta. Znana regresja blueprint/media 403 nie jest naprawiona w tym przyroście.
 Nie wdrażano ani nie restartowano aplikacji. Zmiany trafić mają przez core:update
 do HoofCare i MedPlano, a następnie do wszystkich trzech par backend/frontend.
 

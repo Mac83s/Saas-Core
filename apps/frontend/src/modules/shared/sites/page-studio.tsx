@@ -193,14 +193,16 @@ export function PageStudio({
       <DialogContent
         fullScreen
         showCloseButton={false}
-        className="flex flex-col gap-0"
+        className="flex flex-col gap-0 overflow-hidden"
       >
         <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b bg-background px-4 py-3 sm:px-6">
           <div className="min-w-0">
             <DialogTitle className="truncate">
               {t("studioTitle", { page: page.name })}
             </DialogTitle>
-            <DialogDescription>{t("studioDescription")}</DialogDescription>
+            <DialogDescription className="sr-only">
+              {t("studioDescription")}
+            </DialogDescription>
           </div>
           <Button
             type="button"
@@ -212,7 +214,7 @@ export function PageStudio({
           </Button>
         </header>
         <div
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3 sm:p-6"
+          className="min-h-0 flex-1 overflow-hidden"
           data-testid="fullscreen-studio"
         >
           {open && (

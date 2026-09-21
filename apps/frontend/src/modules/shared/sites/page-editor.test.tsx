@@ -1,11 +1,14 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import type { ComponentProps } from "react";
 import axe from "axe-core";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
@@ -178,9 +181,7 @@ test("migruje hero v1 i zapisuje nową wersję draftu przez aktualny kontrakt", 
   const heading = await screen.findByLabelText("Nagłówek");
   expect((heading as HTMLInputElement).value).toBe("Stary nagłówek");
   fireEvent.change(heading, { target: { value: "Nowy nagłówek" } });
-  fireEvent.click(
-    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz stronę" }));
 
   await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
   expect(savePageDraft.mock.calls[0]?.[0]).toBe(page.id);
@@ -207,9 +208,7 @@ test("odrzuca tekst hero dłuższy niż kanoniczny limit bloku, bez wysyłki", a
   // used to apply the larger limit to both, so the backend rejected a draft the
   // panel had accepted.
   fireEvent.change(text, { target: { value: "x".repeat(601) } });
-  fireEvent.click(
-    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz stronę" }));
 
   expect(
     await screen.findByText("Tekst jest za długi dla tego bloku."),
@@ -217,9 +216,7 @@ test("odrzuca tekst hero dłuższy niż kanoniczny limit bloku, bez wysyłki", a
   expect(savePageDraft).not.toHaveBeenCalled();
 
   fireEvent.change(text, { target: { value: "x".repeat(600) } });
-  fireEvent.click(
-    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz stronę" }));
   await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
 });
 
@@ -233,8 +230,7 @@ test("dodaje sekcję z powtarzalną listą i zapisuje jej wpisy", async () => {
   fireEvent.change(picker, { target: { value: "FAQ" } });
   fireEvent.keyDown(picker, { key: "ArrowDown" });
   fireEvent.click(await screen.findByRole("option", { name: "FAQ" }));
-  // Two "Dodaj" buttons exist — this one adds a block, the other adds media.
-  fireEvent.click(screen.getAllByRole("button", { name: "Dodaj" })[0]);
+  fireEvent.click(screen.getByRole("button", { name: "Dodaj" }));
 
   fireEvent.click(await screen.findByRole("button", { name: "Dodaj pozycję" }));
   fireEvent.change(await screen.findByLabelText("Pytanie"), {
@@ -243,9 +239,7 @@ test("dodaje sekcję z powtarzalną listą i zapisuje jej wpisy", async () => {
   fireEvent.change(screen.getByLabelText("Odpowiedź"), {
     target: { value: "Około godziny." },
   });
-  fireEvent.click(
-    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz stronę" }));
 
   await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
   expect(savePageDraft.mock.calls[0]?.[1].blocks[1]).toEqual({
@@ -262,7 +256,7 @@ test("dodaje sekcję z powtarzalną listą i zapisuje jej wpisy", async () => {
 test("importuje szablon do wersjonowanego draftu przez API", async () => {
   getPageDraft.mockResolvedValue({ ...draft, blocks: [] });
   const onChanged = vi.fn().mockResolvedValue(undefined);
-  renderEditor("pl", polishMessages, onChanged);
+  renderEditor("pl", polishMessages, onChanged, true);
 
   // An empty page offers templates instead of a bare "no sections" message.
   fireEvent.click(
@@ -301,14 +295,14 @@ test.each([
   "pokazuje lokalizowaną miniaturę i dostępny preview w $locale",
   async ({ locale, messages, previewButton, previewTitle, thumbnail }) => {
     getPageDraft.mockResolvedValue({ ...draft, blocks: [] });
-    renderEditor(locale, messages, vi.fn().mockResolvedValue(undefined));
+    renderEditor(locale, messages, vi.fn().mockResolvedValue(undefined), true);
 
     const thumbnailElement = await screen.findByRole("img", {
       name: thumbnail,
     });
     const templateGrid = thumbnailElement.closest("ul");
-    expect(templateGrid?.className).toContain("grid");
-    expect(templateGrid?.className).toContain("sm:grid-cols-3");
+    expect(templateGrid).not.toBeNull();
+    expect(within(templateGrid!).getAllByRole("img")).toHaveLength(8);
 
     const trigger = screen.getAllByRole("button", {
       name: previewButton,
@@ -337,13 +331,13 @@ test("nie wysyła sekcji FAQ bez ani jednego wpisu", async () => {
   fireEvent.change(picker, { target: { value: "FAQ" } });
   fireEvent.keyDown(picker, { key: "ArrowDown" });
   fireEvent.click(await screen.findByRole("option", { name: "FAQ" }));
-  // Two "Dodaj" buttons exist — this one adds a block, the other adds media.
-  fireEvent.click(screen.getAllByRole("button", { name: "Dodaj" })[0]);
-  fireEvent.click(
-    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Dodaj" }));
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz stronę" }));
 
-  expect(await screen.findByRole("alert")).not.toBeNull();
+  expect(await screen.findByText("To pole jest wymagane.")).toHaveAttribute(
+    "role",
+    "alert",
+  );
   expect(savePageDraft).not.toHaveBeenCalled();
 });
 
@@ -362,17 +356,13 @@ test("pokazuje konflikt optimistic lock bez nadpisania lokalnych wartości", asy
 
   const heading = await screen.findByLabelText("Nagłówek");
   fireEvent.change(heading, { target: { value: "Moja lokalna wersja" } });
-  fireEvent.click(
-    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz stronę" }));
 
   expect(await screen.findByText(/Ktoś zapisał nowszy draft/)).not.toBeNull();
   expect((screen.getByLabelText("Nagłówek") as HTMLInputElement).value).toBe(
     "Moja lokalna wersja",
   );
-  expect(
-    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
-  ).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Zapisz stronę" })).toBeDisabled();
   expect(
     screen.getByRole("button", { name: "Wczytaj wersję serwera" }),
   ).toHaveFocus();
@@ -405,6 +395,7 @@ test("zapisuje metadane EN z jawnym fallbackiem i optimistic lockiem", async () 
   renderEditor("en", englishMessages, vi.fn().mockResolvedValue(undefined));
   await screen.findByLabelText("Heading");
 
+  fireEvent.click(screen.getByRole("button", { name: "Page settings" }));
   const localeSelect = screen.getByRole("combobox", { name: "Locale" });
   fireEvent.click(localeSelect);
   const englishOption = await screen.findByRole("option", { name: "English" });
@@ -451,6 +442,7 @@ test("konflikt metadanych zachowuje lokalną wartość", async () => {
   renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
   await screen.findByLabelText("Nagłówek");
 
+  fireEvent.click(screen.getByRole("button", { name: "Ustawienia strony" }));
   fireEvent.change(screen.getByLabelText("Tytuł strony"), {
     target: { value: "Moja lokalna metadata" },
   });
@@ -500,6 +492,9 @@ test("przesyła obraz przez signed PUT i odświeża listę mediów", async () =>
   renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
   await screen.findByLabelText("Nagłówek");
 
+  fireEvent.click(
+    screen.getByRole("button", { name: polishMessages.Sites.media }),
+  );
   const file = new File([new Uint8Array(12)], "hero.png", {
     type: "image/png",
   });
@@ -575,6 +570,10 @@ function renderEditor(
   messages: typeof polishMessages | typeof englishMessages,
   onChanged: () => Promise<void>,
   visual = false,
+  extraProps: Pick<
+    ComponentProps<typeof PageEditor>,
+    "appearanceControls" | "onExitStateChange"
+  > = {},
 ) {
   const result = render(
     <NextIntlClientProvider
@@ -582,7 +581,7 @@ function renderEditor(
       messages={messages}
       timeZone="Europe/Warsaw"
     >
-      <PageEditor onChanged={onChanged} page={page} />
+      <PageEditor {...extraProps} onChanged={onChanged} page={page} />
     </NextIntlClientProvider>,
   );
   if (!visual)
@@ -612,12 +611,10 @@ test("biblioteka filtruje branżę, zachowuje bazę i zapisuje wybraną sekcję"
   );
   await waitFor(() =>
     expect(
-      screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
+      screen.getByRole("button", { name: "Zapisz stronę" }),
     ).not.toBeDisabled(),
   );
-  fireEvent.click(
-    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz stronę" }));
   await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
   expect(savePageDraft.mock.calls[0]?.[1].blocks[1]).toMatchObject({
     block_type: "core.feature_list",
@@ -639,9 +636,7 @@ test("zmiana układu zachowuje tekst istniejącej sekcji", async () => {
   fireEvent.change(screen.getByLabelText("Układ sekcji"), {
     target: { value: "split" },
   });
-  fireEvent.click(
-    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz stronę" }));
   await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
   expect(savePageDraft.mock.calls[0]?.[1].blocks[0]).toMatchObject({
     schema_version: 5,
@@ -657,12 +652,18 @@ test("biblioteka EN pokazuje opis, dostępny podgląd i angielską treść", asy
     await screen.findByRole("button", { name: "Preview: Expandable FAQ" }),
   );
   const preview = screen.getByRole("region", { name: "Section preview" });
-  expect(document.activeElement).toBe(preview);
   expect(preview.textContent).toContain("How do I start?");
-  const result = await axe.run(screen.getByRole("dialog"), {
+  const previewDialog = screen.getByRole("dialog", { name: "Expandable FAQ" });
+  const result = await axe.run(previewDialog, {
     rules: { "color-contrast": { enabled: false } },
   });
   expect(result.violations).toEqual([]);
+  fireEvent.click(within(previewDialog).getByRole("button", { name: "Close" }));
+  await waitFor(() =>
+    expect(
+      screen.queryByRole("region", { name: "Section preview" }),
+    ).toBeNull(),
+  );
   fireEvent.click(screen.getByRole("button", { name: "Add: Service cards" }));
   expect(
     (screen.getAllByLabelText("Heading")[1] as HTMLInputElement).value,
@@ -778,9 +779,7 @@ test("moving a section by keyboard follows its inspector and is one undo step", 
     screen.getByTestId("live-canvas").querySelector("h1")?.textContent,
   ).toBe("Stary nagłówek");
   fireEvent.click(screen.getByRole("button", { name: "Ponów" }));
-  fireEvent.click(
-    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz stronę" }));
   await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
   expect(
     savePageDraft.mock.calls[0]?.[1].blocks.map(
@@ -871,9 +870,7 @@ test("inline list editing addresses the selected item even when titles are ident
   });
   fireEvent.change(input, { target: { value: "Zmieniona druga pozycja" } });
   fireEvent.blur(input);
-  fireEvent.click(
-    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz stronę" }));
   await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
   expect(savePageDraft.mock.calls[0]?.[1].blocks[0].data).toEqual({
     layout: "cards",
@@ -910,9 +907,7 @@ test("the contextual library inserts between sections and undo restores the orig
     2,
   );
   fireEvent.click(screen.getByRole("button", { name: "Ponów" }));
-  fireEvent.click(
-    screen.getByRole("button", { name: "Zapisz nową wersję draftu" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz stronę" }));
   await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
   expect(
     savePageDraft.mock.calls[0]?.[1].blocks.map(
@@ -937,9 +932,9 @@ test.each(["pl", "en"] as const)(
     const toggle = screen.getByRole("button", {
       name: locale === "pl" ? "Biblioteka sekcji" : "Section library",
     });
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
     fireEvent.change(
       screen.getByLabelText(locale === "pl" ? "Branża" : "Industry"),
       { target: { value: "medicine" } },
@@ -980,3 +975,261 @@ test.each(["pl", "en"] as const)(
     expect(new Set(ids).size).toBe(ids.length);
   },
 );
+
+test.each([
+  ["pl", polishMessages],
+  ["en", englishMessages],
+] as const)(
+  "studio navigation switches tools without losing the edited section (%s)",
+  async (locale, messages) => {
+    renderEditor(locale, messages, vi.fn().mockResolvedValue(undefined), true, {
+      appearanceControls: <div>Appearance controls fixture</div>,
+    });
+    const heading = await screen.findByLabelText(
+      locale === "pl" ? "Nagłówek" : "Heading",
+    );
+    fireEvent.change(heading, { target: { value: "Unsaved studio title" } });
+    const rail = screen.getByRole("complementary", {
+      name: messages.Sites.studio.pageNavigation,
+    });
+    const tools = within(rail).getByRole("group", {
+      name: messages.Sites.studio.tools,
+    });
+    const outline = within(tools).getByRole("button", {
+      name: messages.Sites.studio.sections,
+    });
+    const library = within(tools).getByRole("button", {
+      name: messages.Sites.sectionLibrary.open,
+    });
+    const templates = within(tools).getByRole("button", {
+      name: messages.Sites.studio.pageTemplates,
+    });
+    const design = within(tools).getByRole("button", {
+      name: messages.Sites.studio.design,
+    });
+    expect(outline).toHaveAttribute("aria-pressed", "true");
+    expect(
+      within(rail).getByRole("button", { name: /Unsaved studio title/ }),
+    ).toHaveAttribute("aria-current", "true");
+    fireEvent.click(library);
+    expect(library).toHaveAttribute("aria-pressed", "true");
+    expect(outline).toHaveAttribute("aria-pressed", "false");
+    expect(
+      within(rail).getByRole("searchbox", {
+        name: messages.Sites.sectionLibrary.search,
+      }),
+    ).toBeDefined();
+    fireEvent.click(templates);
+    expect(templates).toHaveAttribute("aria-pressed", "true");
+    expect(within(rail).queryByRole("searchbox")).toBeNull();
+    expect(
+      within(rail).getAllByRole("button", {
+        name: locale === "pl" ? /^Użyj szablonu / : /^Use /,
+      }),
+    ).toHaveLength(8);
+    fireEvent.click(design);
+    expect(design).toHaveAttribute("aria-pressed", "true");
+    expect(within(rail).getByText("Appearance controls fixture")).toBeDefined();
+    expect(within(rail).queryByRole("img")).toBeNull();
+    fireEvent.click(outline);
+    expect(outline).toHaveAttribute("aria-pressed", "true");
+    expect(
+      within(rail).getByRole("button", { name: /Unsaved studio title/ }),
+    ).toHaveAttribute("aria-current", "true");
+    expect(heading).toHaveValue("Unsaved studio title");
+    expect(screen.getByTestId("live-canvas")).toHaveTextContent(
+      "Unsaved studio title",
+    );
+    expect(
+      screen.getByRole("button", { name: messages.Sites.studio.undo }),
+    ).not.toBeDisabled();
+    expect(importPageTemplate).not.toHaveBeenCalled();
+    expect(savePageDraft).not.toHaveBeenCalled();
+  },
+);
+
+test.each([
+  ["pl", polishMessages],
+  ["en", englishMessages],
+] as const)(
+  "replacing existing content requires confirmation and cancel preserves dirty edits (%s)",
+  async (locale, messages) => {
+    const onChanged = vi.fn().mockResolvedValue(undefined);
+    const onExitStateChange = vi.fn();
+    renderEditor(locale, messages, onChanged, true, { onExitStateChange });
+    const heading = await screen.findByLabelText(
+      locale === "pl" ? "Nagłówek" : "Heading",
+    );
+    fireEvent.change(heading, { target: { value: "Keep this local draft" } });
+    await waitFor(() =>
+      expect(onExitStateChange).toHaveBeenLastCalledWith({
+        dirty: true,
+        busy: false,
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.Sites.studio.pageTemplates }),
+    );
+    const useTemplate = screen.getByRole("button", {
+      name:
+        locale === "pl"
+          ? "Użyj szablonu Wizytówka"
+          : "Use the Profile template",
+    });
+    fireEvent.click(useTemplate);
+    const confirmation = screen.getByRole("dialog", {
+      name: messages.Sites.studio.replaceTitle,
+    });
+    expect(
+      within(confirmation).getByText(messages.Sites.studio.replaceDescription),
+    ).toBeDefined();
+    expect(importPageTemplate).not.toHaveBeenCalled();
+    expect(savePageDraft).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(confirmation).getByRole("button", {
+        name: messages.Common.cancel,
+      }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(heading).toHaveValue("Keep this local draft");
+    expect(screen.getByTestId("live-canvas")).toHaveTextContent(
+      "Keep this local draft",
+    );
+    expect(onExitStateChange).toHaveBeenLastCalledWith({
+      dirty: true,
+      busy: false,
+    });
+    expect(
+      screen.getByRole("button", { name: messages.Sites.studio.undo }),
+    ).not.toBeDisabled();
+    expect(importPageTemplate).not.toHaveBeenCalled();
+    fireEvent.click(useTemplate);
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: messages.Sites.studio.replaceConfirm,
+      }),
+    );
+    await waitFor(() => expect(importPageTemplate).toHaveBeenCalledOnce());
+    expect(importPageTemplate.mock.calls[0]).toEqual([
+      page.id,
+      {
+        expected_version: 1,
+        template_id: "core.profile",
+        template_version: 2,
+        locale,
+      },
+      expect.any(String),
+    ]);
+    await waitFor(() =>
+      expect(onExitStateChange).toHaveBeenLastCalledWith({
+        dirty: false,
+        busy: false,
+      }),
+    );
+    expect(
+      await screen.findByDisplayValue("Twoje imię i to, w czym pomagasz"),
+    ).toBeDefined();
+    expect(screen.getByTestId("live-canvas")).not.toHaveTextContent(
+      "Keep this local draft",
+    );
+    expect(
+      screen.getByRole("button", { name: messages.Sites.studio.undo }),
+    ).toBeDisabled();
+    expect(savePageDraft).not.toHaveBeenCalled();
+    expect(onChanged).toHaveBeenCalledOnce();
+  },
+);
+
+test("metadata errors stay visible in the dialog and retry keeps the same request key", async () => {
+  savePageTranslation.mockRejectedValueOnce(
+    new Error("Unavailable metadata API"),
+  );
+  const onChanged = vi.fn().mockResolvedValue(undefined);
+  renderEditor("en", englishMessages, onChanged);
+  await screen.findByLabelText("Heading");
+  fireEvent.click(screen.getByRole("button", { name: "Page settings" }));
+  const dialog = screen.getByRole("dialog", {
+    name: englishMessages.Sites.metadata,
+  });
+  const title = within(dialog).getByLabelText("Page title");
+  fireEvent.change(title, { target: { value: "Keep local metadata" } });
+  const save = within(dialog).getByRole("button", { name: "Save metadata" });
+  fireEvent.click(save);
+  expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+    englishMessages.Sites.problem,
+  );
+  expect(title).toHaveValue("Keep local metadata");
+  expect(save).not.toBeDisabled();
+  expect(onChanged).not.toHaveBeenCalled();
+  fireEvent.click(save);
+  await waitFor(() => expect(savePageTranslation).toHaveBeenCalledTimes(2));
+  expect(savePageTranslation.mock.calls[0]).toEqual(
+    savePageTranslation.mock.calls[1],
+  );
+  await waitFor(() => expect(within(dialog).queryByRole("alert")).toBeNull());
+  expect(onChanged).toHaveBeenCalledOnce();
+});
+
+test("a pending metadata save disables fields, locale changes and repeat submission", async () => {
+  let resolveSave!: (value: typeof translation) => void;
+  savePageTranslation.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolveSave = resolve;
+      }),
+  );
+  renderEditor("en", englishMessages, vi.fn().mockResolvedValue(undefined));
+  await screen.findByLabelText("Heading");
+  fireEvent.click(screen.getByRole("button", { name: "Page settings" }));
+  const dialog = screen.getByRole("dialog", {
+    name: englishMessages.Sites.metadata,
+  });
+  const title = within(dialog).getByLabelText("Page title");
+  const locale = within(dialog).getByRole("combobox", { name: "Locale" });
+  const save = within(dialog).getByRole("button", { name: "Save metadata" });
+  fireEvent.change(title, { target: { value: "Pending metadata title" } });
+  fireEvent.click(save);
+  await waitFor(() => expect(savePageTranslation).toHaveBeenCalledOnce());
+  expect(title).toBeDisabled();
+  expect(within(dialog).getByLabelText("Meta description")).toBeDisabled();
+  expect(locale).toBeDisabled();
+  expect(save).toBeDisabled();
+  // Native clicks respect disabled fieldsets, just like pointer/keyboard activation.
+  locale.click();
+  save.click();
+  expect(screen.queryByRole("option", { name: "English" })).toBeNull();
+  expect(savePageTranslation).toHaveBeenCalledOnce();
+  await act(async () =>
+    resolveSave({
+      ...translation,
+      title: "Pending metadata title",
+      version: 2,
+    }),
+  );
+  await waitFor(() => expect(save).not.toBeDisabled());
+  expect(title).not.toBeDisabled();
+  expect(locale).not.toBeDisabled();
+  expect(title).toHaveValue("Pending metadata title");
+});
+
+test("invalid draft submission opens the mobile inspector and focuses the field", async () => {
+  renderEditor(
+    "en",
+    englishMessages,
+    vi.fn().mockResolvedValue(undefined),
+    true,
+  );
+  const heading = await screen.findByLabelText("Heading");
+  const workspace = screen.getByTestId("studio-workspace");
+  expect(workspace).toHaveAttribute("data-mobile-panel", "canvas");
+  fireEvent.change(heading, { target: { value: "" } });
+  fireEvent.click(
+    screen.getByRole("button", { name: englishMessages.Sites.studio.save }),
+  );
+  await waitFor(() =>
+    expect(workspace).toHaveAttribute("data-mobile-panel", "inspector"),
+  );
+  await waitFor(() => expect(heading).toHaveFocus());
+  expect(heading).toHaveAttribute("aria-invalid", "true");
+  expect(savePageDraft).not.toHaveBeenCalled();
+});
