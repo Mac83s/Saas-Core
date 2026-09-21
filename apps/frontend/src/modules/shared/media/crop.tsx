@@ -100,8 +100,9 @@ export function ImageCropUpload({
   onUploaded: (assetId: string) => void;
 }) {
   const t = useTranslations("MediaCrop");
-  const [file, setFile] = useState<File>();
-  const [url, setUrl] = useState<string>();
+  // Plik i jego adres razem: adres powstaje przy wyborze, a nie w efekcie,
+  // który dokładałby kolejne przejście renderowania po każdym wyborze.
+  const [picked, setPicked] = useState<{ file: File; url: string }>();
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0.5, y: 0.5 });
   const [busy, setBusy] = useState(false);
@@ -109,16 +110,18 @@ export function ImageCropUpload({
   const frame = useRef<HTMLDivElement>(null);
   const dragging = useRef<{ x: number; y: number } | null>(null);
 
-  useEffect(() => {
-    if (!file) return;
-    const objectUrl = URL.createObjectURL(file);
-    setUrl(objectUrl);
-    return () => URL.revokeObjectURL(objectUrl);
-  }, [file]);
+  // Sprzątanie adresu blob w jednym miejscu: przy wyborze następnego zdjęcia i
+  // przy zamknięciu okna, także bez kliknięcia „Anuluj”.
+  const url = picked?.url;
+  useEffect(
+    () => () => {
+      if (url) URL.revokeObjectURL(url);
+    },
+    [url],
+  );
 
   function reset() {
-    setFile(undefined);
-    setUrl(undefined);
+    setPicked(undefined);
     setZoom(1);
     setOffset({ x: 0.5, y: 0.5 });
     setFailed(false);
@@ -139,16 +142,17 @@ export function ImageCropUpload({
   }
 
   async function send() {
-    if (!file) return;
+    if (!picked) return;
     setBusy(true);
     setFailed(false);
     try {
-      const cropped = await cropImage(file, {
+      const cropped = await cropImage(picked.file, {
         aspect,
         zoom,
         offsetX: offset.x,
         offsetY: offset.y,
       });
+      const { file } = picked;
       const asset = await uploadImage(
         cropped,
         `crop:${file.name}:${file.size}:${file.lastModified}:${aspect.join("x")}`,
@@ -172,13 +176,14 @@ export function ImageCropUpload({
           onChange={(event) => {
             const chosen = event.target.files?.[0];
             event.target.value = "";
-            if (chosen) setFile(chosen);
+            if (chosen)
+              setPicked({ file: chosen, url: URL.createObjectURL(chosen) });
           }}
           type="file"
         />
       </label>
 
-      <Dialog onOpenChange={(open) => !open && reset()} open={Boolean(file)}>
+      <Dialog onOpenChange={(open) => !open && reset()} open={Boolean(picked)}>
         <DialogContent closeLabel={t("close")}>
           <DialogHeader>
             <DialogTitle>{t("title")}</DialogTitle>
@@ -198,13 +203,14 @@ export function ImageCropUpload({
             ref={frame}
             style={{ aspectRatio: `${aspect[0]} / ${aspect[1]}` }}
           >
-            {url ? (
-              // eslint-disable-next-line @next/next/no-img-element -- adres blob
-              // żyje tylko w tym oknie; optymalizator Next pobrałby go z serwera.
+            {picked ? (
+              /* Adres blob żyje tylko w tym oknie; optymalizator Next
+                 pobrałby go z serwera, którego nie zna. */
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 alt={t("preview")}
                 className="absolute inset-0 size-full object-cover"
-                src={url}
+                src={picked.url}
                 style={{
                   objectPosition: `${offset.x * 100}% ${offset.y * 100}%`,
                   transform: `scale(${zoom})`,
