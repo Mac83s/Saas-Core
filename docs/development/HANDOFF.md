@@ -1,5 +1,40 @@
 # Handoff następnej sesji
 
+## 2026-09-21 — dokończenie scalenia po przerwaniu sesji Claude
+
+Punktem przejęcia był `main` `c01b442`: dekoracje `fdaff72`, dokumentacja
+`585d0e4`, ekran wizyt i porządkowanie migracji były już scalone. MedPlano
+zakończył aktualizację (`0a971f2`), a HoofCare pozostawił merge do `c01b442`
+bez commita. Stan HoofCare zabezpieczono w
+`/root/merge-recovery-20260921/`; odtworzony merge i ponowna generacja
+kontraktów dały identyczne drzewo `f18747c79d2faca42b1ca43816c89f9707d0e716`.
+Prace odbiorowe prowadzono w osobnych worktree.
+
+`138f4a6` naprawia dwa nieaktualne oczekiwania testów kontraktów: powiadomienia
+muszą poprzedzać Sites, a manifest zawiera już `link_list`, `contact_form`
+i `separator`. Pozostawiono jawne listy oraz walidację wszystkich schematów.
+Kontrakty: **27/27** także na Node **24.21.0**. Renderer **104/104**, wspólne
+UI **53/53**. Format, pełny lint, typy TS, Ruff, mypy, granice importów,
+kontrola migracji i API drift przeszły we wszystkich trzech profilach
+(mypy: rdzeń **431**, MedPlano **435**, HoofCare **459** plików).
+Pozostałe lokalne kontrole JS używały hostowego Node **22.22.2** i zgłaszały
+ostrzeżenie wobec wymaganego Node 24. Dokładne logi: katalog odzyskiwania wyżej.
+
+**To nie jest odbiór wydania.** Pełny backend HoofCare ujawnił oprócz trzech
+znanych błędów blueprint/media 403 także problemy testów katalogu i kolejności
+uprawnień. Kontrakt kategorii katalogu zawiera tylko typ `business`;
+`trimming_company` nie ma kategorii, a walidacja poprawnie odmawia użycia
+kategorii innego typu. Nie rozszerzano uprawnień automatyzacji ani kontraktu
+katalogu przy okazji scalenia. Końcowy wynik profilu produktu i dalszy krok
+należą do `docs/product/HANDOFF.md` w HoofCare.
+
+Odczyt uruchomionych backendów Saas-Core, MedPlano i HoofCare potwierdził brak
+`block_decoration.py` oraz migracji Sites `0031` w każdym obrazie. Nie wykonano
+wdrożenia ani migracji baz aplikacji. Testy używają osobnego, jednorazowego
+PostgreSQL 18, z migracjami od pustej bazy. Następny etap wdrożeniowy wymaga
+rozliczenia czerwonych testów, budowy obrazów na Node 24, migracji w uzgodnionym
+oknie oraz odbioru zalogowanego panelu przez rzeczywisty hostname.
+
 ## Kartoteka wizyt rolnika — domknięta (ADR-052), 2026-09-21
 
 Rolnik widzi terminy przyszłych i przeszłych wizyt oraz raporty. Cały łańcuch
