@@ -167,3 +167,18 @@ def test_appearance_is_copied_into_publication_and_later_changes_stay_private():
     changed["header"]["layout"] = "stacked"
     assert save(client, url, changed, version=1, key="two").status_code == 200
     assert Publication.all_objects.get(site_id=site_id).snapshot == snapshot
+
+
+def test_google_font_v2_roundtrip_preserves_legacy_revisions():
+    client, _, _ = sites_client(slug="appearance-google", role_key="owner")
+    site_id = create_site(client).data["id"]
+    url = f"/api/v1/sites/{site_id}/appearance/"
+    legacy = client.get(url).data["appearance"]
+    assert save(client, url, legacy).status_code == 200
+    modern = {**deepcopy(legacy), "schemaVersion": 2, "font": "inter"}
+    result = save(client, url, modern, version=1, key="google-font")
+    assert result.status_code == 200
+    assert client.get(url).data["appearance"] == modern
+    assert SiteAppearanceRevision.all_objects.get(site_id=site_id, number=1).data == legacy
+    invalid = {**modern, "font": "https://fonts.example/unsafe"}
+    assert save(client, url, invalid, version=2, key="external-font").status_code == 400

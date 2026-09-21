@@ -515,6 +515,8 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
             path: ["image", "asset_id"],
             kind: "media",
             labelKey: "imageAsset",
+            // Pierwszy ekran strony: szeroki kadr filmowy.
+            aspect: [16, 9],
           },
           { path: ["image", "alt"], kind: "text", labelKey: "imageAlt" },
           { path: ["action", "label"], kind: "text", labelKey: "actionLabel" },
@@ -553,6 +555,8 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
             path: ["image", "asset_id"],
             kind: "media",
             labelKey: "imageAsset",
+            // Obok listy cech: kadr bliżej kwadratu trzyma wysokość sekcji.
+            aspect: [4, 3],
           },
           { path: ["image", "alt"], kind: "text", labelKey: "imageAlt" },
           {

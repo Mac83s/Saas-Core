@@ -896,7 +896,8 @@
       "inlineHint": "Enter applies, Escape cancels. Leaving the field applies the change.",
       "inlineMultilineHint": "Enter adds a line. Ctrl+Enter applies, Escape cancels. Leaving the field applies the change.",
       "insertAfter": "Add section below"
-    }
+    },
+    "uploadAndCrop": "Upload and crop"
   },
   "BillingSupport": {
     "navigation": "Billing & access",
@@ -1816,5 +1817,16 @@
     "loadError": "Could not load the calendar and team.",
     "retry": "Try again",
     "empty": "The calendar has no staff yet."
+  },
+  "MediaCrop": {
+    "title": "Crop the photo",
+    "description": "This spot shows the picture at {width}:{height}. Drag the photo and set the zoom.",
+    "preview": "Crop preview",
+    "zoom": "Zoom",
+    "send": "Crop and send",
+    "sending": "Sending…",
+    "cancel": "Cancel",
+    "close": "Close",
+    "failed": "The photo did not go through."
   }
 }

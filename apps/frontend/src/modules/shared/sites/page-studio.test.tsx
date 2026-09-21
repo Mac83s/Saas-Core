@@ -141,15 +141,15 @@ test("appearance changes save separately and failed saves retain the working val
   vi.mocked(saveSiteAppearance).mockRejectedValueOnce(new Error("Conflict"));
   setup("en", "site");
   fireEvent.change(await screen.findByLabelText("Font"), {
-    target: { value: "georgia" },
+    target: { value: "inter" },
   });
   fireEvent.click(screen.getByRole("button", { name: "Save appearance" }));
   expect(await screen.findByRole("alert")).toBeDefined();
-  expect(screen.getByLabelText("Font")).toHaveValue("georgia");
+  expect(screen.getByLabelText("Font")).toHaveValue("inter");
   vi.mocked(saveSiteAppearance).mockResolvedValueOnce({
     site_id: "site",
     version: 1,
-    appearance: { ...appearance, font: "georgia" },
+    appearance: { ...appearance, schemaVersion: 2, font: "inter" },
   });
   fireEvent.click(screen.getByRole("button", { name: "Save appearance" }));
   await waitFor(() =>

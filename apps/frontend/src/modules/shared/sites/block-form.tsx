@@ -8,6 +8,8 @@
  *  block is — a second copy would drift the moment a block gains a field. */
 
 import { useLocale, useTranslations } from "next-intl";
+
+import { ImageCropUpload } from "../media/crop";
 import {
   useFieldArray,
   useWatch,
@@ -345,22 +347,39 @@ function BlockField<TValues extends FieldValues>({
 
   const control =
     field.kind === "media" ? (
-      // Only assets that finished scanning: offering a pending one would let
-      // the operator publish a page whose picture is not there yet.
-      <NativeSelect
-        aria-invalid={Boolean(error)}
-        id={id}
-        {...form.register(name as never)}
-      >
-        <option value="">{t("noImage")}</option>
-        {assets
-          .filter((asset) => asset.state === "ready")
-          .map((asset) => (
-            <option key={asset.id} value={asset.id}>
-              {asset.original_filename}
-            </option>
-          ))}
-      </NativeSelect>
+      <div className="flex flex-wrap items-center gap-2">
+        {/* Only assets that finished scanning: offering a pending one would let
+            the operator publish a page whose picture is not there yet. */}
+        <NativeSelect
+          aria-invalid={Boolean(error)}
+          className="flex-1"
+          id={id}
+          {...form.register(name as never)}
+        >
+          <option value="">{t("noImage")}</option>
+          {assets
+            .filter((asset) => asset.state === "ready")
+            .map((asset) => (
+              <option key={asset.id} value={asset.id}>
+                {asset.original_filename}
+              </option>
+            ))}
+        </NativeSelect>
+        {/* Zdjęcie wgrywane w to konkretne miejsce kadrujemy do jego
+            proporcji: układ decyduje o ramce, operator o tym, co w niej
+            jest (decyzja z 20.09). */}
+        {field.aspect ? (
+          <ImageCropUpload
+            aspect={field.aspect}
+            label={t("uploadAndCrop")}
+            onUploaded={(assetId) =>
+              form.setValue(name as never, assetId as never, {
+                shouldDirty: true,
+              })
+            }
+          />
+        ) : null}
+      </div>
     ) : field.kind === "textarea" ? (
       <Textarea
         aria-invalid={Boolean(error)}

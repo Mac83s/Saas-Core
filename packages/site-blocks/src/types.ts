@@ -129,6 +129,11 @@ export interface BlockFieldDefinition {
   readonly kind: BlockFieldKind;
   /** Key under the panel's `Sites.blockFields` messages. */
   readonly labelKey: string;
+  /** Present on `kind: "media"`: the shape this picture is shown in, as
+   *  `[width, height]`. The panel crops to it before sending, so a photo taken
+   *  in portrait does not arrive as a letterboxed hero — the layout decides the
+   *  frame, the operator decides what is inside it. */
+  readonly aspect?: readonly [number, number];
   /** Present exactly when `kind` is `"list"`: the shape of a single entry. */
   readonly item?: readonly BlockFieldDefinition[];
 }

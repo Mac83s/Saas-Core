@@ -2,6 +2,8 @@
 @import "tw-animate-css";
 @import "./site-appearance.css";
 @import "./section-catalog.css";
+@import "./site-fonts.css";
+@import "./site-typography.css";
 @source "../../../apps/**/*.{ts,tsx}";
 @source "../**/*.{ts,tsx}";
 

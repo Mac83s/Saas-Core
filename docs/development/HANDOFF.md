@@ -1,5 +1,47 @@
 # Handoff następnej sesji
 
+## Kadr tam, gdzie zdjęcie wchodzi w układ, 2026-09-20
+
+Pole obrazu w manifeście bloku niesie proporcję (`BlockFieldDefinition.aspect`:
+hero 16:9, lista cech 4:3). Panel pokazuje przy takim polu „Wgraj i skadruj":
+ramka o tym kształcie, przesuwanie zdjęcia, suwak przybliżenia, a na serwer
+idzie sam kadr (`modules/shared/media/crop.tsx`).
+
+Co warto wiedzieć:
+
+- **kadr liczymy w pikselach oryginału** i dopiero wynik skalujemy do 1600 px;
+  odwrotna kolejność kosztuje jakość na podwójnym skalowaniu;
+- **wysyłamy sam kadr**, bo oryginał i tak nie zostaje w systemie po
+  przetworzeniu — zmiana kadru to ponowne wgranie, świadomie;
+- **manifest bloków jest danymi, nie komponentami**: publiczny renderer czyta
+  ten sam plik, więc proporcja to liczba w manifeście, a nie import z panelu;
+- pole media bez `aspect` zachowuje się jak dotąd (sam wybór z listy) — tak
+  wygląda każde miejsce, które nie narzuca kształtu.
+
+Dowód ze stacku dev: edytor stron serwuje przycisk „Wgraj i skadruj" i okno
+„Kadr zdjęcia". Geometrię kadru (pion → 16:9, przybliżenie, zejście do 1600 px)
+pilnuje `crop.test.ts`, a ścieżkę wybór → kadr → wysyłka `crop-upload.test.tsx`.
+
+## Site Studio — responsywna typografia i fonty, 2026-09-21
+
+Usunięto zależność wielkości tekstu od szerokości całego panelu. Appearance v2
+dodaje sześć lokalnych rodzin Google Fonts (Inter, Manrope, DM Sans, Nunito,
+Lora, Playfair Display) z polskimi znakami i OFL. V1 pozostaje niezmieniona;
+nowe fonty wymagają backendu rozumiejącego v2. Bez migracji tabel.
+
+Dowody: appearance API 14/14, frontend PageStudio 5/5, renderer 32/32; tsc,
+ESLint i Ruff. Chromium: 72 sekcje i osiem stron bez overflow przy 360/768/1440;
+hero 32/46.96/72 px. Podgląd 390 px przy oknach 1440 i 422 ma 33.12 px w obu.
+Sześć fontów z polskimi znakami załadowanych lokalnie. Artefakty:
+.runtime/site-studio/font-review/. To fixture renderera, nie zalogowany stack.
+
+Pełne strony: osiem czterosekcyjnych kompozycji, dostępnych tylko na pustej
+podstronie. Rozbudowa ich układów i wybór dla istniejącej treści pozostają
+otwarte. Znana regresja blueprint/media 403 nie jest naprawiona w tym przyroście.
+Nie wdrażano ani nie restartowano aplikacji. Zmiany trafić mają przez core:update
+do HoofCare i MedPlano, a następnie do wszystkich trzech par backend/frontend.
+
+
 ## Wizyta bez rezerwacji i fundament rejestru wizyt, 2026-09-21
 
 Rdzeń `e0d847c`, HoofCare `49ed983`. Wdrożone na hoofcare.goldenstar.cloud
