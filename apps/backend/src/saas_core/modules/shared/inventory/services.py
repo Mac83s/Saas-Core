@@ -273,6 +273,52 @@ def consume(
     )
 
 
+@transaction.atomic
+def release(
+    *,
+    request: HttpRequest,
+    organization_id: UUID,
+    source: str,
+    source_reference: str,
+) -> None:
+    """Cofnięte źródło oddaje materiał temu, komu go zdjęło.
+
+    Zużycie istnieje tylko razem ze swoim wpisem: kiedy wpis znika, zapas musi
+    wrócić, bo inaczej właściciel widzi ubytek bez pracy, która go tłumaczy.
+    Kasujemy osobnym wierszem, nie kasowaniem starego — księga zostaje
+    dopisywalna, a dzień korektora daje się odtworzyć ruch po ruchu.
+    """
+    undone = f"{source_reference}:void"
+    for movement in InventoryMovement.all_objects.filter(
+        organization_id=organization_id,
+        source=source,
+        source_reference=source_reference,
+        kind=MovementKind.CONSUMPTION,
+        quantity__lt=0,
+    ).select_related("item"):
+        already = InventoryMovement.all_objects.filter(
+            organization_id=organization_id,
+            source=source,
+            source_reference=undone,
+            item_id=movement.item_id,
+            holder_id=movement.holder_id,
+        ).exists()
+        if already:
+            continue
+        _move(
+            request,
+            organization_id,
+            item=movement.item,
+            kind=MovementKind.CONSUMPTION,
+            quantity=-movement.quantity,
+            holder_id=movement.holder_id,
+            unit_cost_minor=movement.unit_cost_minor,
+            source=source,
+            source_reference=undone,
+            actor_id=movement.holder_id,
+        )
+
+
 def movements(*, item_id: UUID | None = None) -> QuerySet[InventoryMovement]:
     context = authorize_entitled(
         INVENTORY_READ, INVENTORY_ENABLED, operation=FeatureOperation.READ
