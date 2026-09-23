@@ -182,7 +182,10 @@
     grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
     column-gap: clamp(2rem, 5cqw, 4rem);
   }
-  .site-theme .site-section--split_intro > .site-section__aside {
+  .site-theme .site-section--split_intro > .site-section__aside,
+  .site-theme
+    .site-section--split_intro:has(> .site-section__intro)
+    > :not(.site-section__intro) {
     grid-column: 2;
   }
   .site-theme
@@ -191,11 +194,19 @@
     ) {
     grid-template-columns: minmax(0, 2fr) minmax(15rem, 1fr);
     column-gap: clamp(2rem, 4cqw, 3.5rem);
+    /* v3 photo, author and actions stay in the text column under it. */
+    grid-auto-flow: row dense;
   }
   .site-theme .site-section--facts_panel > .site-section__intro {
     grid-column: 1 / -1;
   }
+  .site-theme
+    .site-section--facts_panel:has(> .site-section__aside)
+    > :not(.site-section__intro, .site-section__aside) {
+    grid-column: 1;
+  }
   .site-theme .site-section--facts_panel > .site-section__aside {
+    grid-column: 2;
     position: sticky;
     top: 1rem;
   }
@@ -213,7 +224,700 @@
   }
   .site-theme
     .site-section--chapters:has(> .site-section__toc)
-    > :is(.site-prose, .site-section__aside) {
+    > :not(.site-section__intro, .site-section__toc) {
+    grid-column: 2;
+  }
+}
+
+/* Rich text v3: eyebrow, section photo, author card and the actions row,
+   shared by every layout. Each layout below arranges the same fields. */
+.site-theme .site-section__intro > .site-section__eyebrow {
+  color: var(--site-accent);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+.site-theme .site-section__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+/* One primary action per section; the second is quiet: an outline, or a
+   plain link when the site already draws buttons as outlines. Both keep the
+   44 px tap height of .site-section__action. */
+.site-theme .site-section__action--secondary {
+  border-color: currentColor;
+  background: transparent;
+  color: var(--site-accent);
+}
+.site-buttons--outline .site-section__action--secondary {
+  border-color: transparent;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.site-theme .site-section__image {
+  min-width: 0;
+}
+.site-theme .site-section__image img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--site-radius, 0.75rem);
+}
+.site-theme .site-section__image figcaption {
+  margin-top: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.9375rem;
+}
+.site-theme .site-author {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+}
+.site-theme :is(.site-author__portrait, .site-author__monogram) {
+  flex: none;
+  width: 3.5rem;
+  aspect-ratio: 1;
+  border-radius: 999px;
+}
+.site-theme .site-author__portrait img {
+  height: 100%;
+  max-height: none;
+  aspect-ratio: 1;
+  border-radius: 999px;
+}
+.site-theme .site-author__monogram {
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--site-accent) 12%, var(--background));
+  color: var(--site-accent);
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+/* A name still to be filled in has no initials: a neutral figure instead. */
+.site-theme .site-author__monogram:empty {
+  --site-figure: color-mix(in srgb, var(--site-accent) 40%, transparent);
+  background:
+    radial-gradient(
+      circle at 50% 38%,
+      var(--site-figure) 0 17%,
+      transparent 18%
+    ),
+    radial-gradient(
+      ellipse 32% 22% at 50% 86%,
+      var(--site-figure) 0 97%,
+      transparent 100%
+    ),
+    color-mix(in srgb, var(--site-accent) 12%, var(--background));
+}
+.site-theme .site-author .site-author__name {
+  font-weight: 600;
+  line-height: 1.4;
+}
+.site-theme .site-author .site-author__role {
+  color: var(--muted-foreground);
+  font-size: 0.9375rem;
+  line-height: 1.4;
+}
+.site-theme :is(.site-section__main, .site-section__expert) {
+  display: grid;
+  gap: clamp(1.5rem, 3cqw, 2.5rem);
+  align-content: start;
+  min-width: 0;
+}
+.site-theme .site-chapters {
+  display: grid;
+  gap: clamp(2rem, 5cqw, 3.5rem);
+  min-width: 0;
+}
+.site-theme .site-chapter {
+  min-width: 0;
+}
+
+/* lead_statement: the lead is the thesis, set at heading scale; the text
+   develops it below a rule, offset into a reading column on a wide page. */
+.site-theme .site-section--lead_statement > .site-section__intro > h2 {
+  font-size: clamp(1.125rem, 1rem + 0.6cqw, 1.375rem);
+}
+.site-theme
+  .site-section--lead_statement
+  > .site-section__intro
+  > .site-section__lead {
+  max-width: 30ch;
+  color: var(--foreground);
+  /* 1.625rem at 320 px keeps a long Polish word on one line. */
+  font-size: clamp(1.625rem, 1.1rem + 2.6cqw, 3.25rem);
+  font-weight: 600;
+  line-height: 1.18;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+.site-theme .site-section--lead_statement > .site-prose {
+  padding-top: clamp(1.25rem, 3cqw, 2rem);
+  border-top: 3px solid var(--site-accent);
+}
+
+/* two_parts: the first two chapters are parallel framed panels, the second
+   one quieter (the counterpoint: "for whom not"). */
+.site-theme .site-section__parts {
+  display: grid;
+  gap: clamp(1rem, 3cqw, 2rem);
+  min-width: 0;
+}
+.site-theme .site-section__parts > .site-chapter {
+  padding: clamp(1.25rem, 3cqw, 2rem);
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  border-top: 4px solid var(--site-accent);
+  border-radius: var(--site-radius, 0.75rem);
+}
+.site-theme .site-section__parts > .site-chapter + .site-chapter {
+  border-top-color: color-mix(in srgb, currentColor 40%, transparent);
+  background: color-mix(in srgb, currentColor 3%, transparent);
+}
+
+/* panorama: the photo runs edge to edge of the section above the title;
+   everything else reads in one centred column. */
+.site-theme .site-section--rich_text.site-section--panorama {
+  grid-template-columns: minmax(0, 1fr);
+  overflow-x: clip;
+}
+.site-theme .site-section--panorama > :not(.site-section__image) {
+  justify-self: center;
+  width: min(100%, 46rem);
+}
+.site-theme .site-section--panorama > .site-section__image {
+  margin-inline: calc(-1 * var(--site-gutter, 1.5rem));
+}
+.site-theme .site-section--panorama > .site-section__image img {
+  aspect-ratio: 3 / 2;
+  max-height: 36rem;
+  border-radius: 0;
+}
+.site-theme .site-section--panorama > .site-section__image figcaption {
+  width: min(100% - 2 * var(--site-gutter, 1.5rem), 46rem);
+  margin-inline: auto;
+}
+
+/* illustrated: an article column; the photo and wide figures leave it for
+   the section's width in the reading flow. */
+.site-theme .site-section--rich_text.site-section--illustrated {
+  grid-template-columns:
+    [full-start] minmax(0, 1fr) [column-start] minmax(0, 46rem)
+    [column-end] minmax(0, 1fr) [full-end];
+}
+.site-theme .site-section--illustrated > *,
+.site-theme .site-section--illustrated > .site-prose > * {
+  grid-column: column;
+}
+.site-theme .site-section--illustrated > .site-prose {
+  display: grid;
+  grid-column: full;
+  grid-template-columns: inherit;
+}
+.site-theme
+  .site-section--illustrated
+  > .site-prose
+  > :is(.site-section__image, .site-figure--wide) {
+  grid-column: full;
+  margin-block: 1rem;
+}
+.site-theme .site-section--illustrated .site-section__image img {
+  aspect-ratio: 16 / 9;
+}
+
+/* margin_quote: the first quote, large; in the flow on a phone, lifted into
+   the margin beside the text on a wide page (one element, placed by CSS). */
+.site-theme .site-section--rich_text.site-section--margin_quote {
+  grid-template-columns: minmax(0, 68rem);
+  justify-content: center;
+}
+.site-theme .site-section--margin_quote .site-quote--margin {
+  padding: 1.25rem 0 0;
+  border-inline-start: 0;
+  border-top: 4px solid var(--site-accent);
+}
+.site-theme .site-section--margin_quote .site-quote--margin blockquote p {
+  font-size: clamp(1.375rem, 1.1rem + 1.2cqw, 1.875rem);
+  font-style: normal;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+/* summary_box: the aside comes first, as a bold "in short" panel. */
+.site-theme
+  .site-section--rich_text:is(
+    .site-section--summary_box,
+    .site-section--timeline
+  ) {
+  grid-template-columns: minmax(0, 52rem);
+  justify-content: center;
+}
+.site-theme .site-section--summary_box > .site-section__aside {
+  padding: clamp(1.5rem, 4cqw, 2.25rem);
+  border: 0;
+  border-inline-start: 6px solid var(--site-accent);
+  background: color-mix(in srgb, var(--site-accent) 10%, var(--background));
+}
+.site-theme .site-section--summary_box > .site-section__aside > h3 {
+  color: var(--site-accent);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.site-theme .site-section--summary_box > .site-section__aside :is(p, li) {
+  font-weight: 500;
+}
+
+/* expert_note: the author card, with the action under it, beside the text. */
+.site-theme .site-section--expert_note .site-section__expert {
+  gap: 1.25rem;
+  padding: clamp(1.25rem, 3cqw, 1.75rem);
+  border-radius: var(--site-radius, 0.75rem);
+  background: color-mix(in srgb, var(--site-accent) 7%, var(--background));
+}
+.site-theme
+  .site-section--expert_note
+  :is(.site-author__portrait, .site-author__monogram) {
+  width: clamp(4.5rem, 12cqw, 7rem);
+}
+.site-theme .site-section--expert_note .site-author__monogram {
+  font-size: clamp(1.5rem, 1rem + 1.5cqw, 2.25rem);
+}
+
+/* alternating_chapters: heading (and the chapter's illustration) on one
+   side, the text on the other; the sides swap every chapter. */
+.site-theme .site-section--alternating_chapters .site-chapter {
+  display: grid;
+  gap: 1rem;
+  padding-top: clamp(1.5rem, 3cqw, 2.25rem);
+  border-top: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+}
+.site-theme .site-chapter__head {
+  display: grid;
+  gap: 1rem;
+  align-content: start;
+  min-width: 0;
+}
+.site-theme .site-chapter__head > h2 {
+  margin: 0;
+}
+
+/* timeline: chapters are points on a vertical axis. */
+.site-theme .site-section--timeline .site-chapters {
+  position: relative;
+  gap: clamp(1.75rem, 4cqw, 2.75rem);
+  padding-inline-start: 2.5rem;
+}
+.site-theme .site-section--timeline .site-chapters::before {
+  content: "";
+  position: absolute;
+  inset-block: 0.75rem;
+  inset-inline-start: 0.6875rem;
+  width: 2px;
+  background: color-mix(in srgb, var(--site-accent) 35%, transparent);
+}
+.site-theme .site-section--timeline .site-chapter {
+  position: relative;
+}
+.site-theme .site-section--timeline .site-chapter::before {
+  content: "";
+  position: absolute;
+  top: 0.3rem;
+  inset-inline-start: -2.5rem;
+  box-sizing: border-box;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 4px solid var(--site-accent);
+  border-radius: 999px;
+  background: var(--background);
+}
+
+/* numbered_sections: big 01, 02… before each argument. */
+.site-theme .site-section--numbered_sections .site-chapter {
+  display: grid;
+  gap: 0.5rem 1.5rem;
+  padding-top: clamp(1.25rem, 3cqw, 2rem);
+  border-top: 2px solid color-mix(in srgb, currentColor 20%, transparent);
+}
+.site-theme .site-chapter__number {
+  color: var(--site-accent);
+  font-size: clamp(2.75rem, 1.5rem + 5cqw, 5.5rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+  line-height: 0.9;
+}
+
+/* manifesto: list items are large principles, paragraphs short comments. */
+.site-theme .site-section--rich_text.site-section--manifesto {
+  grid-template-columns: minmax(0, 60rem);
+  justify-content: center;
+}
+.site-theme .site-section--manifesto .site-prose > :is(ul, ol) {
+  padding: 0;
+  list-style: none;
+}
+.site-theme .site-section--manifesto .site-prose > :is(ul, ol) > li {
+  max-width: 26ch;
+  margin: 0;
+  padding-block: clamp(0.875rem, 2.5cqw, 1.5rem);
+  border-top: 2px solid;
+  /* Large, but 1.375rem at 320 px: a long Polish word still fits. */
+  font-size: clamp(1.375rem, 0.95rem + 2.8cqw, 3rem);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+  hyphens: auto;
+}
+.site-theme .site-section--manifesto .site-prose > :is(ul, ol) > li li {
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.site-theme .site-section--manifesto .site-prose > :is(ul, ol) > li:last-child {
+  border-bottom: 2px solid;
+}
+.site-theme .site-section--manifesto .site-prose > p {
+  max-width: 52ch;
+  color: var(--muted-foreground);
+}
+
+/* problem_solution: problem → analysis → solution panels joined by arrows;
+   the solution panel carries the action. */
+.site-theme .site-section--problem_solution .site-chapters {
+  --site-panel-gap: 2.5rem;
+  gap: var(--site-panel-gap);
+}
+.site-theme .site-section--problem_solution .site-chapter {
+  --site-panel-ink: color-mix(in srgb, currentColor 45%, transparent);
+  position: relative;
+  display: grid;
+  gap: 1.25rem;
+  align-content: start;
+  padding: clamp(1.25rem, 3cqw, 2rem);
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  border-top: 4px solid var(--site-panel-ink);
+  border-radius: var(--site-radius, 0.75rem);
+}
+.site-theme .site-section--problem_solution .site-chapter:first-child {
+  /* The warning note's ink. */
+  --site-panel-ink: #a15c00;
+}
+.site-theme .site-section--problem_solution .site-chapter:nth-child(3) {
+  --site-panel-ink: var(--site-accent);
+  border: 2px solid var(--site-accent);
+  border-top-width: 4px;
+  background: color-mix(in srgb, var(--site-accent) 8%, var(--background));
+}
+.site-theme
+  .site-section--problem_solution
+  .site-chapter
+  + .site-chapter::before {
+  content: "↓";
+  content: "↓" / "";
+  position: absolute;
+  top: calc(var(--site-panel-gap) / -2);
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  translate: -50% -50%;
+  border-radius: 999px;
+  background: var(--site-accent);
+  color: var(--background);
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* howto: numbered lists are big steps, bullet lists a checklist, notes the
+   explanations beside them on a wide page. */
+.site-theme .site-section--rich_text.site-section--howto {
+  grid-template-columns: minmax(0, 64rem);
+  justify-content: center;
+}
+.site-theme .site-section--howto .site-prose > ol {
+  display: grid;
+  gap: 1.25rem;
+  padding: 0;
+  list-style: none;
+  counter-reset: site-step;
+}
+.site-theme .site-section--howto .site-prose > ol > li {
+  position: relative;
+  min-height: 2.75rem;
+  margin: 0;
+  padding-top: 0.375rem;
+  padding-inline-start: 4rem;
+  counter-increment: site-step;
+  font-size: clamp(1.0625rem, 1rem + 0.35cqw, 1.25rem);
+}
+.site-theme .site-section--howto .site-prose > ol > li::before {
+  content: counter(site-step);
+  content: counter(site-step) / "";
+  position: absolute;
+  top: 0;
+  inset-inline-start: 0;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 999px;
+  background: var(--site-accent);
+  color: var(--background);
+  font-weight: 700;
+}
+.site-theme .site-section--howto .site-prose > ul {
+  padding: 1rem 1.25rem;
+  border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+  border-radius: var(--site-radius, 0.75rem);
+  list-style: none;
+}
+.site-theme .site-section--howto .site-prose > ul > li {
+  position: relative;
+  padding-inline-start: 2rem;
+}
+.site-theme .site-section--howto .site-prose > ul > li::before {
+  content: "✓";
+  content: "✓" / "";
+  position: absolute;
+  inset-inline-start: 0;
+  color: var(--site-accent);
+  font-weight: 700;
+}
+
+/* resources: list items with a link become cards of materials. */
+.site-theme
+  .site-section--resources
+  .site-prose
+  > ul:has(> li > .site-prose__link) {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: 1rem;
+  max-width: none;
+  padding: 0;
+  list-style: none;
+}
+.site-theme
+  .site-section--resources
+  .site-prose
+  > ul
+  > li:has(> .site-prose__link) {
+  max-width: none;
+  margin: 0;
+  padding: 1.25rem 1.25rem 1.375rem;
+  border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+  border-top: 4px solid var(--site-accent);
+  border-radius: var(--site-radius, 0.75rem);
+  background: color-mix(in srgb, var(--site-accent) 4%, var(--background));
+}
+.site-theme .site-section--resources .site-prose > ul > li > .site-prose__link {
+  font-weight: 600;
+}
+/* A link that opens the item is the card's title, on its own line. */
+.site-theme
+  .site-section--resources
+  .site-prose
+  > ul
+  > li
+  > .site-prose__link:first-child {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+.site-theme
+  .site-section--resources
+  .site-prose
+  > ul
+  > li
+  > .site-prose__link::after {
+  content: " →";
+  content: " →" / "";
+}
+
+/* essay_cta: an essay column, the aside framed as its conclusions, and a
+   closing band with the primary and the quiet action. */
+.site-theme .site-section--rich_text.site-section--essay_cta {
+  grid-template-columns: minmax(0, 1fr);
+}
+.site-theme .site-section--essay_cta > :not(.site-section__actions) {
+  justify-self: center;
+  width: min(100%, 42rem);
+}
+.site-theme .site-section--essay_cta > .site-section__intro > h2 {
+  font-size: clamp(1.75rem, 1.2rem + 2.4cqw, 3rem);
+}
+.site-theme .site-section--essay_cta > .site-section__aside {
+  padding: clamp(1.5rem, 4cqw, 2.25rem);
+  border: 3px double var(--site-accent);
+  background: none;
+}
+.site-theme .site-section--essay_cta > .site-section__actions {
+  justify-content: center;
+  margin-top: clamp(0.5rem, 2cqw, 1.5rem);
+  padding: clamp(1.5rem, 4cqw, 2.5rem);
+  border-radius: var(--site-radius, 0.75rem);
+  background: color-mix(in srgb, var(--site-accent) 10%, var(--background));
+}
+
+/* Wide page: the layouts that set things side by side. Below 48rem every
+   one of them is a single column in DOM order. */
+@container (min-width: 48rem) {
+  .site-theme .site-section--rich_text.site-section--lead_statement {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+    column-gap: clamp(2rem, 5cqw, 4rem);
+  }
+  .site-theme .site-section--lead_statement > .site-section__intro {
+    grid-column: 1 / -1;
+  }
+  .site-theme .site-section--lead_statement > :not(.site-section__intro) {
+    grid-column: 2;
+  }
+
+  .site-theme .site-section__parts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .site-theme
+    .site-section--rich_text.site-section--side_photo:has(
+      > .site-section__image
+    ) {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "intro image"
+      "main image";
+    column-gap: clamp(2rem, 5cqw, 4rem);
+  }
+  .site-theme
+    .site-section--side_photo:has(> .site-section__image)
+    > .site-section__intro {
+    grid-area: intro;
+  }
+  .site-theme
+    .site-section--side_photo:has(> .site-section__image)
+    > .site-section__main {
+    grid-area: main;
+  }
+  .site-theme .site-section--side_photo > .site-section__image {
+    grid-area: image;
+    position: sticky;
+    top: 1rem;
+  }
+  .site-theme .site-section--side_photo > .site-section__image img {
+    aspect-ratio: 4 / 5;
+    max-height: 40rem;
+  }
+
+  .site-theme .site-section--panorama > .site-section__image img {
+    aspect-ratio: 21 / 9;
+  }
+
+  .site-theme
+    .site-section--margin_quote
+    .site-prose:has(> .site-quote--margin) {
+    --site-margin: clamp(13rem, 26cqw, 20rem);
+    --site-margin-gap: clamp(2rem, 4cqw, 3.5rem);
+    display: flow-root;
+    padding-inline-end: calc(var(--site-margin) + var(--site-margin-gap));
+  }
+  /* A float with a negative margin: it hangs in the padding and takes no
+     room from the lines beside it. */
+  .site-theme .site-section--margin_quote .site-prose > .site-quote--margin {
+    float: right;
+    width: var(--site-margin);
+    margin: 0.25rem calc(-1 * (var(--site-margin) + var(--site-margin-gap)))
+      1.5rem 0;
+  }
+
+  .site-theme
+    .site-section--rich_text.site-section--expert_note:has(
+      > .site-section__expert
+    ) {
+    grid-template-columns: minmax(14rem, 1fr) minmax(0, 2fr);
+    column-gap: clamp(2rem, 5cqw, 4rem);
+  }
+  .site-theme
+    .site-section--expert_note:has(> .site-section__expert)
+    > .site-section__intro {
+    grid-column: 1 / -1;
+  }
+  .site-theme .site-section--expert_note > .site-section__expert {
+    position: sticky;
+    top: 1rem;
+  }
+  .site-theme .site-section--expert_note .site-section__expert .site-author {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .site-theme .site-section--alternating_chapters .site-chapter {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    column-gap: clamp(2rem, 5cqw, 4rem);
+    align-items: start;
+  }
+  .site-theme .site-section--alternating_chapters .site-chapter__head {
+    position: sticky;
+    top: 1rem;
+  }
+  .site-theme
+    .site-section--alternating_chapters
+    .site-chapter:nth-child(even) {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  }
+  .site-theme
+    .site-section--alternating_chapters
+    .site-chapter:nth-child(even)
+    > .site-chapter__head {
+    grid-row: 1;
+    grid-column: 2;
+  }
+  .site-theme
+    .site-section--alternating_chapters
+    .site-chapter:nth-child(even)
+    > .site-prose {
+    grid-row: 1;
+    grid-column: 1;
+  }
+
+  .site-theme .site-section--numbered_sections .site-chapter {
+    grid-template-columns: minmax(7rem, 1fr) minmax(0, 4fr);
+    align-items: start;
+  }
+
+  .site-theme .site-section--problem_solution .site-chapters {
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+  }
+  .site-theme
+    .site-section--problem_solution
+    .site-chapter
+    + .site-chapter::before {
+    content: "→";
+    content: "→" / "";
+    top: 2.5rem;
+    left: calc(var(--site-panel-gap) / -2);
+  }
+
+  /* A note sits beside the steps it explains: the block before it. */
+  .site-theme .site-section--howto .site-prose:has(> .site-note) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(13rem, 17rem);
+    column-gap: clamp(2rem, 4cqw, 3rem);
+    align-items: start;
+  }
+  .site-theme .site-section--howto .site-prose:has(> .site-note) > * {
+    grid-column: 1;
+  }
+  .site-theme .site-section--howto .site-prose:has(> .site-note) > .site-note {
     grid-column: 2;
   }
 }

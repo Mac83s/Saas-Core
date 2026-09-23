@@ -10,11 +10,16 @@ import featureListV2Schema from "@saas-core/contracts/site-blocks/core.feature_l
 import faqV2Schema from "@saas-core/contracts/site-blocks/core.faq.v2.schema.json";
 import featureListV4Schema from "@saas-core/contracts/site-blocks/core.feature_list.v4.schema.json";
 import richTextV2Schema from "@saas-core/contracts/site-blocks/core.rich_text.v2.schema.json";
+import richTextV3Schema from "@saas-core/contracts/site-blocks/core.rich_text.v3.schema.json";
 import quoteV1Schema from "@saas-core/contracts/site-blocks/core.quote.v1.schema.json";
 import productV1Schema from "@saas-core/contracts/site-blocks/core.product.v1.schema.json";
 import { plainBlockText } from "./block-text";
 import { ProductBlock, QuoteBlock } from "./editorial-blocks";
-import { migrateRichTextV1ToV2, RichTextBlock } from "./rich-text-block";
+import {
+  migrateRichTextV1ToV2,
+  migrateRichTextV2ToV3,
+  RichTextBlock,
+} from "./rich-text-block";
 import {
   featureListIntro,
   featureListNote,
@@ -542,17 +547,19 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
     },
     {
       type: "core.rich_text",
-      latestVersion: 2,
+      latestVersion: 3,
       schemas: [
         { version: 1, schema: richTextV1Schema },
         { version: 2, schema: richTextV2Schema },
+        { version: 3, schema: richTextV3Schema },
       ],
-      migrators: { 1: migrateRichTextV1ToV2 },
+      migrators: { 1: migrateRichTextV1ToV2, 2: migrateRichTextV2ToV3 },
       component: RichTextBlock,
       catalog: {
         category: "about",
         labelKey: "richTextBlock",
         fields: [
+          { path: ["eyebrow"], kind: "text", labelKey: "eyebrow" },
           { path: ["title"], kind: "text", labelKey: "heading" },
           { path: ["lead"], kind: "textarea", labelKey: "lead" },
           {
@@ -560,11 +567,50 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
             kind: "richText",
             labelKey: "richTextContent",
           },
+          {
+            path: ["image", "asset_id"],
+            kind: "media",
+            labelKey: "imageAsset",
+            // Zdjęcie obok tekstu, panorama albo ilustracja w toku czytania.
+            aspect: [4, 3],
+          },
+          { path: ["image", "alt"], kind: "text", labelKey: "imageAlt" },
+          {
+            path: ["image", "caption"],
+            kind: "text",
+            labelKey: "imageCaption",
+          },
+          { path: ["author", "name"], kind: "text", labelKey: "authorName" },
+          { path: ["author", "role"], kind: "text", labelKey: "authorRole" },
+          {
+            path: ["author", "image", "asset_id"],
+            kind: "media",
+            labelKey: "authorPhoto",
+            // Portret na karcie autora: kwadrat, w kółku.
+            aspect: [1, 1],
+          },
+          {
+            path: ["author", "image", "alt"],
+            kind: "text",
+            labelKey: "imageAlt",
+          },
           { path: ["aside", "title"], kind: "text", labelKey: "asideTitle" },
           {
             path: ["aside", "content"],
             kind: "richText",
             labelKey: "asideContent",
+          },
+          { path: ["action", "label"], kind: "text", labelKey: "actionLabel" },
+          { path: ["action", "href"], kind: "url", labelKey: "actionHref" },
+          {
+            path: ["secondaryAction", "label"],
+            kind: "text",
+            labelKey: "secondaryActionLabel",
+          },
+          {
+            path: ["secondaryAction", "href"],
+            kind: "url",
+            labelKey: "secondaryActionHref",
           },
         ],
       },

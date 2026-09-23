@@ -31,9 +31,9 @@ from .services import (
 )
 
 TEXT_FIELDS = frozenset({
-    "title", "text", "question", "answer", "label", "subtitle", "lead", "tagline",
+    "title", "text", "question", "answer", "label", "subtitle", "lead", "tagline", "eyebrow",
 })
-SLOT_MAX_LENGTH = {"text": 2000, "answer": 2000, "lead": 1200}
+SLOT_MAX_LENGTH = {"text": 2000, "answer": 2000, "lead": 1200, "eyebrow": 80}
 
 
 class BlueprintRefused(APIException):

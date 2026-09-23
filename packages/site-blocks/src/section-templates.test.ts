@@ -1,10 +1,11 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import Ajv2020 from "ajv/dist/2020.js";
-import catalog from "@saas-core/contracts/site-blocks/section-templates.v5.json";
-import previousCatalog from "@saas-core/contracts/site-blocks/section-templates.v4.json";
+import catalog from "@saas-core/contracts/site-blocks/section-templates.v6.json";
+import previousCatalog from "@saas-core/contracts/site-blocks/section-templates.v5.json";
+import v4Catalog from "@saas-core/contracts/site-blocks/section-templates.v4.json";
 import olderCatalog from "@saas-core/contracts/site-blocks/section-templates.v3.json";
-import schema from "@saas-core/contracts/site-blocks/section-templates.v5.schema.json";
+import schema from "@saas-core/contracts/site-blocks/section-templates.v6.schema.json";
 import {
   availableSectionTemplates,
   coreSectionTemplates,
@@ -22,6 +23,7 @@ describe("section template contract", () => {
   it("keeps all historical recipes unchanged when extending the catalogue", () => {
     for (const previous of [
       ...olderCatalog.templates,
+      ...v4Catalog.templates,
       ...previousCatalog.templates,
     ])
       expect(
@@ -32,8 +34,11 @@ describe("section template contract", () => {
       ).toEqual(previous);
   });
 
-  it("adds exactly the v5 editorial sections to the 96 v4 recipes", () => {
-    expect(coreSectionTemplates()).toHaveLength(104);
+  it("appends exactly the sixteen v6 conversion sections to the 104 v5 recipes", () => {
+    expect(coreSectionTemplates()).toHaveLength(120);
+    expect(coreSectionTemplates().slice(0, 104)).toEqual(
+      previousCatalog.templates,
+    );
     const counts = new Map<string, [number, number]>();
     for (const template of coreSectionTemplates()) {
       const key = `${template.blockType.replace("core.", "")}@${template.schemaVersion}`;
@@ -55,43 +60,63 @@ describe("section template contract", () => {
       "contact_form@1": [4, 0],
       "separator@1": [8, 0],
       "rich_text@2": [4, 0],
+      "rich_text@3": [16, 0],
       "quote@1": [1, 0],
       "product@1": [1, 0],
     });
-    const added = coreSectionTemplates().filter(
-      (template) =>
-        !previousCatalog.templates.some((item) => item.id === template.id),
+    const layouts = [
+      "lead_statement",
+      "two_parts",
+      "side_photo",
+      "panorama",
+      "illustrated",
+      "margin_quote",
+      "summary_box",
+      "expert_note",
+      "alternating_chapters",
+      "timeline",
+      "numbered_sections",
+      "manifesto",
+      "problem_solution",
+      "howto",
+      "resources",
+      "essay_cta",
+    ];
+    const added = coreSectionTemplates().slice(104);
+    expect(added.map((template) => template.id).sort()).toEqual(
+      layouts.map((layout) => `core.rich_text_${layout}`).sort(),
     );
-    expect(
-      added.map(({ id, blockType, schemaVersion, layout }) => [
-        id,
-        blockType,
-        schemaVersion,
-        layout,
-      ]),
-    ).toEqual([
-      ["core.rich_text_column", "core.rich_text", 2, "column"],
-      ["core.rich_text_split_intro", "core.rich_text", 2, "split_intro"],
-      ["core.rich_text_facts_panel", "core.rich_text", 2, "facts_panel"],
-      ["core.rich_text_chapters", "core.rich_text", 2, "chapters"],
-      ["core.feature_list_steps_notes", "core.feature_list", 4, "steps_notes"],
-      [
-        "core.feature_list_benefits_commentary",
-        "core.feature_list",
-        4,
-        "benefits_commentary",
-      ],
-      ["core.quote_portrait", "core.quote", 1, "portrait"],
-      ["core.product_showcase", "core.product", 1, "showcase"],
-    ]);
     for (const template of added) {
-      expect(template.kind).toBe("default");
-      expect(template.industries).toEqual([]);
-      expect(template.version).toBe(1);
+      const layout = template.id.replace("core.rich_text_", "");
+      expect(template).toMatchObject({
+        blockType: "core.rich_text",
+        schemaVersion: 3,
+        kind: "default",
+        industries: [],
+        version: 1,
+        layout,
+      });
+      expect(template.seed.pl.layout).toBe(layout);
+      expect(template.seed.en.layout).toBe(layout);
+      // Required for every recipe added from v6 on.
+      expect(template.conversion).toEqual({
+        stage: expect.stringMatching(
+          /^(attention|interest|proof|objection|action)$/,
+        ),
+        primaryAction: expect.any(Boolean),
+      });
     }
+    // One family of twenty editorial layouts across schema versions 2 and 3.
+    const richText = coreSectionTemplates().filter(
+      (template) =>
+        template.blockType === "core.rich_text" && template.kind === "default",
+    );
+    expect(richText).toHaveLength(20);
+    expect(new Set(richText.map((template) => template.layout)).size).toBe(20);
     expect(
-      added.find((template) => template.id === "core.product_showcase")
-        ?.sampleMedia,
+      coreSectionTemplates().find(
+        (template) => template.id === "core.product_showcase",
+      )?.sampleMedia,
     ).toMatchObject({ id: "electronics", path: ["images", 0] });
   });
   it("validates the manifest and every localized seed against the canonical schemas", () => {

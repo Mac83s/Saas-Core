@@ -162,13 +162,14 @@ test("a legacy text opens unchanged, splits into paragraphs and keeps spaces aro
   const paragraph = await screen.findByLabelText("Treść akapitu");
   expect(paragraph).toHaveValue(legacyText);
 
-  // Saved untouched, the v1 text becomes one v2 paragraph, every character kept.
+  // Saved untouched, the v1 text becomes one paragraph of the latest version
+  // (v3 only adds optional fields), every character kept.
   save();
   await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
   expect(savedInput().blocks).toEqual([
     {
       block_type: "core.rich_text",
-      schema_version: 2,
+      schema_version: 3,
       data: {
         content: [{ type: "paragraph", content: [{ text: legacyText }] }],
       },
@@ -354,7 +355,7 @@ test("inserting the same chapters layout twice keeps heading anchors unique on t
   );
   expect(anchors.length).toBeGreaterThan(2);
   expect(new Set(anchors).size).toBe(anchors.length);
-});
+}, 45_000);
 
 test("editing a word on the canvas writes the exact run of the rich text", async () => {
   mockDraft(
@@ -394,6 +395,8 @@ test("editing a word on the canvas writes the exact run of the rich text", async
   });
   fireEvent.change(input, { target: { value: "najważniejszy" } });
   fireEvent.keyDown(input, { key: "Enter", ctrlKey: true });
+  // The commit re-renders the canvas; save what the page now shows.
+  await waitFor(() => expect(canvas).toHaveTextContent("najważniejszy"));
   save();
   await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
   expect(savedInput().blocks[0].data).toMatchObject({

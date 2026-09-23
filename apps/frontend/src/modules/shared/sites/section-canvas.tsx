@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type ReactNode,
+  type Ref,
+} from "react";
 import { renderPrivateMedia } from "./private-media-preview";
 import { useTranslations } from "next-intl";
 import {
@@ -28,6 +35,7 @@ import {
   LayoutTemplateIcon,
   PanelRightIcon,
 } from "lucide-react";
+import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
 import {
   blockOptions,
@@ -36,7 +44,12 @@ import {
   type BlockFormValues,
 } from "./block-form";
 
+/** Lets the page editor pick a section exactly as the outline does. */
+export type SectionCanvasHandle = { choose: (index: number) => void };
+
 export function SectionCanvas({
+  ref,
+  unfilled,
   blocks,
   selected,
   onSelect,
@@ -54,6 +67,9 @@ export function SectionCanvas({
   onTextChange,
   disabled,
 }: {
+  ref?: Ref<SectionCanvasHandle>;
+  /** `[Uzupełnij: …]` markers still in each section, by position. */
+  unfilled?: readonly number[];
   blocks: BlockFormValues[];
   blockIds: string[];
   onMove: (from: number, to: number) => void;
@@ -119,6 +135,7 @@ export function SectionCanvas({
         });
     });
   };
+  useImperativeHandle(ref, () => ({ choose: chooseSection }));
   const [viewport, setViewport] = useState<"desktop" | "tablet" | "mobile">(
     "desktop",
   );
@@ -198,7 +215,12 @@ export function SectionCanvas({
                         <span className="block truncate font-medium">
                           {outlineTitle(block) || sectionLabel(index)}
                         </span>
-                      </span>
+                      </span>{" "}
+                      {unfilled?.[index] ? (
+                        <span className="ml-auto">
+                          <UnfilledBadge count={unfilled[index]} />
+                        </span>
+                      ) : null}
                     </button>
                   </li>
                 ))}
@@ -491,8 +513,24 @@ function inlineField(
     : undefined;
 }
 
+/** The count a section carries in the outline and in the banner: the digit is
+ *  what is seen, the words are what is read and what a hover shows. */
+export function UnfilledBadge({ count }: { count: number }) {
+  const t = useTranslations("Sites.studio.placeholders");
+  const label = t("count", { count });
+  return (
+    <Badge
+      className="border-warning-foreground/30 bg-warning text-warning-foreground"
+      title={label}
+    >
+      <span aria-hidden="true">{count}</span>
+      <span className="sr-only">{label}</span>
+    </Badge>
+  );
+}
+
 /** The outline names a section by its own words where it has some. */
-function outlineTitle(block: BlockFormValues): string {
+export function outlineTitle(block: BlockFormValues): string {
   const { title, heading, author, quote } = block.data;
   for (const candidate of [title, heading, author])
     if (typeof candidate === "string" && candidate.trim()) return candidate;

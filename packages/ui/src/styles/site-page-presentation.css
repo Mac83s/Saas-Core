@@ -100,6 +100,12 @@
   .site-section__action {
   color: var(--site-accent);
 }
+/* The quiet action is not filled, so it keeps the surface's own ink. */
+.site-theme
+  :is(.site-presentation--surface-accent, .site-presentation--surface-inverse)
+  .site-section__action.site-section__action--secondary {
+  color: var(--foreground);
+}
 
 /* Page fonts. Same specificity as .site-font--* and later in the cascade, so
    the page's body font wins over the site's. Headings take their own. */

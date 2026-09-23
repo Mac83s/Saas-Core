@@ -67,7 +67,7 @@ test("limits initial thumbnail rendering and exposes the remaining catalogue", (
   );
   expect(screen.getAllByRole("article")).toHaveLength(12);
   fireEvent.click(
-    screen.getByRole("button", { name: "Show more layouts (92 remaining)" }),
+    screen.getByRole("button", { name: "Show more layouts (108 remaining)" }),
   );
   expect(screen.getAllByRole("article")).toHaveLength(24);
   fireEvent.change(screen.getByLabelText("Category"), {
@@ -230,7 +230,6 @@ test.each([
   ["core.contact_form", 4],
   ["core.link_list", 6],
   ["core.separator", 8],
-  ["core.rich_text", 4],
   ["core.quote", 1],
 ] as const)(
   "offers all %s layouts and copies editable data",
@@ -281,4 +280,20 @@ test("puts a product's sample photo into its gallery, not into `image`", async (
     "019ff20d-a000-7000-8000-000000000123",
   );
   expect(block.data.images[0].alt.length).toBeGreaterThan(0);
+});
+
+test("offers all twenty editorial layouts, the first twelve before 'show more'", () => {
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <SectionLibraryContent onAdd={vi.fn()} />
+    </NextIntlClientProvider>,
+  );
+  fireEvent.change(screen.getByLabelText("Category"), {
+    target: { value: "core.rich_text" },
+  });
+  expect(screen.getAllByRole("article")).toHaveLength(12);
+  fireEvent.click(
+    screen.getByRole("button", { name: "Show more layouts (8 remaining)" }),
+  );
+  expect(screen.getAllByRole("article")).toHaveLength(20);
 });

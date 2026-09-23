@@ -66,6 +66,18 @@ describe("shared section decoration contract", () => {
         },
       },
       {
+        block_type: "core.rich_text",
+        schema_version: 3,
+        data: {
+          layout: "expert_note",
+          eyebrow: "Why us",
+          content: [{ type: "paragraph", content: [{ text: "Details" }] }],
+          author: { name: "Sample author" },
+          action: { label: "Book", href: "#contact" },
+          secondaryAction: { label: "Prices", href: "/prices/" },
+        },
+      },
+      {
         block_type: "core.quote",
         schema_version: 1,
         data: { quote: "Measure twice.", author: "Sample author" },

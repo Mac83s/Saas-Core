@@ -815,3 +815,66 @@ def test_missing_presentation_contracts_are_detected_before_runtime(tmp_path):
     finally:
         presentation_validator.cache_clear()
         page_presentation_validator.cache_clear()
+
+
+def test_rich_text_v3_call_to_action_and_photos_are_saved_and_referenced(page_surface):
+    client, org, owner, site, page = page_surface
+    photo = create_media_asset(org, owner)
+    portrait = create_media_asset(org, owner)
+    v3 = {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {
+            "layout": "expert_note",
+            "eyebrow": "Dla firm",
+            "title": "Porozmawiajmy o Twoim projekcie",
+            "content": [para("Tekst"), heading("jak-pracujemy")],
+            "image": {"asset_id": str(photo.id), "alt": "Pracownia", "caption": "Podpis"},
+            "author": {
+                "name": "[Uzupełnij: imię i nazwisko]",
+                "role": "Projektant",
+                "image": {"asset_id": str(portrait.id), "alt": "Portret"},
+            },
+            "action": {"label": "Umów konsultację", "href": "#kontakt"},
+            "secondaryAction": {"label": "Zobacz realizacje", "href": "/realizacje/"},
+        },
+    }
+    saved = save(client, page, [v3])
+    assert saved.status_code == 201, saved.data
+    assert ids(saved.data["media_asset_ids"]) == ids([photo.id, portrait.id])
+    assert saved.data["blocks"][0]["data"]["action"]["href"] == "#kontakt"
+
+    script_link = {"label": "X", "href": "javascript:alert(1)"}
+    hostile = {**v3, "data": {**v3["data"], "action": script_link}}
+    refused = save(client, page, [hostile], version=1, key="hostile")
+    assert refused.status_code == 400, refused.data
+
+
+def test_blueprint_offers_the_eyebrow_but_never_the_author():
+    template = PageTemplate(
+        id="core.slots_v3",
+        version=1,
+        category="article",
+        labels={},
+        required_entitlements=(),
+        media=(),
+        blocks=(
+            {
+                "block_type": "core.rich_text",
+                "schema_version": 3,
+                "data": {
+                    "layout": "expert_note",
+                    "eyebrow": "Dla firm",
+                    "content": [para("Tekst")],
+                    "author": {"name": "Ktoś", "role": "Rola"},
+                    "action": {"label": "Umów", "href": "/kontakt/"},
+                },
+            },
+        ),
+    )
+    slots = {slot["key"]: slot["max_length"] for slot in template_slots(template)}
+    assert slots == {
+        "/0/data/eyebrow": 80,
+        "/0/data/content/0/content/0/text": 2000,
+        "/0/data/action/label": 200,
+    }

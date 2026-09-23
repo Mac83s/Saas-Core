@@ -1,8 +1,13 @@
-import catalog from "@saas-core/contracts/site-blocks/section-templates.v5.json";
+import catalog from "@saas-core/contracts/site-blocks/section-templates.v6.json";
 
 import { setAtPath } from "./rich-text";
 
-import type { BlockRegistry, JsonObject, SiteBlock } from "./types";
+import type {
+  BlockRegistry,
+  ConversionStage,
+  JsonObject,
+  SiteBlock,
+} from "./types";
 
 export interface SectionTemplate {
   id: string;
@@ -40,6 +45,9 @@ export interface SectionTemplate {
   styleAffinities?: readonly string[];
   supportedWidths?: readonly ("narrow" | "standard" | "wide" | "full")[];
   targetSurface?: readonly ("page" | "entry")[];
+  /** v6, required for every template added from v6 on: where the section
+   *  sits on the visitor's path and whether it carries the primary action. */
+  conversion?: { stage: ConversionStage; primaryAction: boolean };
   seed: Record<"pl" | "en", JsonObject>;
 }
 const templates = catalog.templates as unknown as readonly SectionTemplate[];

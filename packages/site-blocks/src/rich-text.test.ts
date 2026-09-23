@@ -50,7 +50,7 @@ describe("rich text helpers", () => {
 
 describe("unfilled placeholders", () => {
   it("finds every marker with its block and exact path", () => {
-    const blocks = [
+    const blocks: { data: JsonObject }[] = [
       { data: { title: "Gotowe" } },
       {
         data: {

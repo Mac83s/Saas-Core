@@ -395,7 +395,8 @@
     "modePublish": "Publikacja",
     "modeAddress": "Adres",
     "choosePageFirst": "Wybierz podstronę w zakładce Podstrony, żeby edytować jej treść.",
-    "eyebrow": "Witryna i publikacja",
+    "eyebrow": "Etykieta nad tytułem",
+    "panelEyebrow": "Witryna i publikacja",
     "title": "Twoja witryna",
     "description": "Twórz podstrony, sprawdzaj ich gotowość i publikuj, gdy są gotowe.",
     "planRequiredTitle": "Najpierw wybierz plan",
@@ -940,7 +941,14 @@
       "replaceTitle": "Zastąpić treść szablonem?",
       "replaceDescription": "Gotowy szablon zastąpi wszystkie sekcje tej podstrony i zapisze nowy szkic. Niezapisane zmiany treści zostaną odrzucone. Opublikowana strona pozostanie bez zmian.",
       "validationError": "Uzupełnij zaznaczone pola w ustawieniach sekcji.",
-      "replaceConfirm": "Zastąp i zapisz szkic"
+      "replaceConfirm": "Zastąp i zapisz szkic",
+      "placeholders": {
+        "summary": "{count, plural, one {Na tej stronie zostało # miejsce do uzupełnienia.} few {Na tej stronie zostały # miejsca do uzupełnienia.} many {Na tej stronie zostało # miejsc do uzupełnienia.} other {Na tej stronie zostało # miejsca do uzupełnienia.}}",
+        "hint": "Zastąp je prawdziwymi opiniami, liczbami i przykładami przed publikacją.",
+        "sections": "Sekcje z miejscami do uzupełnienia",
+        "showSections": "{count, plural, few {Pokaż # sekcje} many {Pokaż # sekcji} other {Pokaż # sekcji}}",
+        "count": "{count, plural, one {# miejsce do uzupełnienia} few {# miejsca do uzupełnienia} many {# miejsc do uzupełnienia} other {# miejsca do uzupełnienia}}"
+      }
     },
     "uploadAndCrop": "Wgraj i skadruj",
     "contactHours": "Godziny kontaktu",
@@ -1130,6 +1138,11 @@
     "productTagline": "Hasło produktu",
     "productImages": "Zdjęcia produktu",
     "imageCaption": "Podpis zdjęcia",
+    "authorName": "Imię i nazwisko autora",
+    "authorRole": "Rola autora",
+    "authorPhoto": "Portret autora",
+    "secondaryActionLabel": "Działanie pomocnicze — tekst",
+    "secondaryActionHref": "Działanie pomocnicze — adres",
     "productSpecs": "Parametry",
     "specLabel": "Nazwa parametru",
     "specValue": "Wartość",

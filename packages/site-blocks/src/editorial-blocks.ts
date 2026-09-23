@@ -1,6 +1,7 @@
 import { createElement as h, type ReactNode } from "react";
 
 import { plainBlockText } from "./block-text";
+import { unfilledPlaceholders } from "./rich-text";
 
 import type {
   BlockComponentProps,
@@ -13,7 +14,7 @@ function externalRel(href: string): "noreferrer" | undefined {
   return href.startsWith("https://") ? "noreferrer" : undefined;
 }
 
-function picture(
+export function picture(
   image: { asset_id: string; alt: string },
   imageRenderer?: BlockImageRenderer,
 ): ReactNode {
@@ -27,15 +28,19 @@ function picture(
       });
 }
 
-/** Up to two initials; derived text, so it never goes through the editor. */
-function monogram(author: string | undefined): string {
+/** Up to two initials; derived text, so it never goes through the editor.
+ *  A template's `[Uzupełnij: …]` is not a name, and a name without letters
+ *  has no initials: both give `fallback`. */
+export function monogram(author: string | undefined, fallback = "“"): string {
+  if (unfilledPlaceholders([{ data: { author: author ?? "" } }]).length > 0)
+    return fallback;
   const initials = (author ?? "")
     .split(/\s+/)
-    .filter(Boolean)
+    .flatMap((word) => word.match(/\p{L}/u) ?? [])
     .slice(0, 2)
-    .map((word) => word[0]!.toUpperCase())
-    .join("");
-  return initials || "“";
+    .join("")
+    .toUpperCase();
+  return initials || fallback;
 }
 
 /** An editorial quote, not a review: no rating, and the source is a citation. */

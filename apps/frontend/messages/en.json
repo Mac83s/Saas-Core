@@ -395,7 +395,8 @@
     "modePublish": "Publishing",
     "modeAddress": "Address",
     "choosePageFirst": "Pick a page under Pages to edit its content.",
-    "eyebrow": "Sites and publishing",
+    "eyebrow": "Eyebrow label",
+    "panelEyebrow": "Sites and publishing",
     "title": "Your website",
     "description": "Write your pages, check they are ready, and publish them when they are.",
     "planRequiredTitle": "Choose a plan first",
@@ -940,7 +941,14 @@
       "replaceTitle": "Replace content with a template?",
       "replaceDescription": "The template will replace every section on this page and save a new draft. Unsaved content changes will be discarded. The published page will stay unchanged.",
       "validationError": "Complete the highlighted fields in section settings.",
-      "replaceConfirm": "Replace and save draft"
+      "replaceConfirm": "Replace and save draft",
+      "placeholders": {
+        "summary": "{count, plural, one {This page still has # place to fill in.} other {This page still has # places to fill in.}}",
+        "hint": "{count, plural, one {Replace it with a real review, figure or example before you publish.} other {Replace them with real reviews, figures and examples before you publish.}}",
+        "sections": "Sections with places to fill in",
+        "showSections": "{count, plural, one {Show # section} other {Show # sections}}",
+        "count": "{count, plural, one {# place to fill in} other {# places to fill in}}"
+      }
     },
     "uploadAndCrop": "Upload and crop",
     "contactHours": "Contact hours",
@@ -1130,6 +1138,11 @@
     "productTagline": "Product tagline",
     "productImages": "Product photos",
     "imageCaption": "Photo caption",
+    "authorName": "Author name",
+    "authorRole": "Author role",
+    "authorPhoto": "Author portrait",
+    "secondaryActionLabel": "Secondary action label",
+    "secondaryActionHref": "Secondary action link",
     "productSpecs": "Specifications",
     "specLabel": "Specification",
     "specValue": "Value",

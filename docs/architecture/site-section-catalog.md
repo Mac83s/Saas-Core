@@ -37,7 +37,9 @@ entitlementami. UI pierwszego przekroju używa wyłącznie sekcji shared.sites;
 gdy pojawią się recepty wymagające innych modułów, kontekst katalogu musi
 pochodzić z faktycznych capabilities, przed zaoferowaniem tych recept.
 
-Od 2026-09-23 runtime czyta `section-templates.v5.json`: 96 recept v4 bez
+Od 2026-09-23 runtime czyta `section-templates.v6.json` (120 recept): v5
+bez zmian oraz 16 układów redakcyjnych `core.rich_text` v3 z metadanymi
+`conversion`; rodzina redakcyjna ma 20 układów. Wcześniej v5: 96 recept v4 bez
 zmian oraz 8 nowych (cztery układy `core.rich_text` v2, dwa
 `core.feature_list` v4, `core.quote` i `core.product`). v5 dodaje opcjonalne
 `sampleMedia.path` i metadane dopasowania; szczegóły w

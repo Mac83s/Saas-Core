@@ -162,9 +162,10 @@ describe("core.rich_text v2", () => {
     const before = structuredClone(legacyRichText);
     const migrated = registry.migrate(legacyRichText);
     expect(legacyRichText).toEqual(before);
+    // v1 -> v2 -> v3: the v3 step only copies.
     expect(migrated).toEqual({
       block_type: "core.rich_text",
-      schema_version: 2,
+      schema_version: 3,
       data: {
         content: [
           {

@@ -112,7 +112,8 @@ import {
 } from "./block-form";
 import { mutationKey, type MutationReceipt } from "./idempotency";
 import { renderPrivateMedia } from "./private-media-preview";
-import { SectionCanvas } from "./section-canvas";
+import { SectionCanvas, type SectionCanvasHandle } from "./section-canvas";
+import { PlaceholderBanner, unfilledBySection } from "./placeholder-banner";
 import { useDraftHistory } from "./draft-history";
 import { pageTemplatePreview } from "./template-media-preview";
 import { SectionLibrary, SectionLibraryContent } from "./section-library";
@@ -318,6 +319,8 @@ export function PageEditor({
   }, [dirty]);
   const blocks = useFieldArray({ control: draftForm.control, name: "blocks" });
   const liveBlocks = useWatch({ control: draftForm.control, name: "blocks" });
+  const unfilled = useMemo(() => unfilledBySection(liveBlocks), [liveBlocks]);
+  const canvas = useRef<SectionCanvasHandle>(null);
   const pagePresentation = useWatch({
     control: draftForm.control,
     name: "page_presentation",
@@ -843,6 +846,17 @@ export function PageEditor({
                     </Badge>
                   </div>
                 </div>
+                <PlaceholderBanner
+                  blocks={liveBlocks}
+                  counts={unfilled}
+                  onChoose={(index) => {
+                    if (canvas.current) canvas.current.choose(index);
+                    else {
+                      setVisual(true);
+                      setSelectedSection(index);
+                    }
+                  }}
+                />
                 <div
                   className={`studio-editing-body ${visual ? "" : "studio-form-list"}`}
                 >
@@ -874,6 +888,8 @@ export function PageEditor({
 
                   {visual && draft ? (
                     <SectionCanvas
+                      ref={canvas}
+                      unfilled={unfilled}
                       inspectorRequest={inspectorRequest}
                       appearance={appearance}
                       navigation={navigation}

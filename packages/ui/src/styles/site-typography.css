@@ -11,13 +11,15 @@
    width, so the second term is negative and the gutter is exactly what it
    always was; on a full-width page it centres content at the site width. */
 .site-theme .site-block {
-  min-width: 0;
-  padding-inline: max(
+  /* Named so a layout can run a photo from edge to edge of its section. */
+  --site-gutter: max(
     clamp(1.25rem, 4cqw, 3.5rem),
     calc(
       (100cqw - var(--site-inner-width, var(--site-content-width, 72rem))) / 2
     )
   );
+  min-width: 0;
+  padding-inline: var(--site-gutter);
   overflow-wrap: anywhere;
 }
 .site-theme .site-block :is(h1, h2, h3, p, li, dd, dt, summary) {

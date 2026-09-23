@@ -9201,6 +9201,3490 @@
       "styleAffinities": ["product", "technical", "premium", "studio"],
       "supportedWidths": ["wide", "full"],
       "targetSurface": ["page"]
+    },
+    {
+      "id": "core.rich_text_lead_statement",
+      "version": 1,
+      "blockType": "core.rich_text",
+      "schemaVersion": 3,
+      "layout": "lead_statement",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Teza z rozwinięciem",
+          "description": "Wstęp w skali nagłówka jako jedno mocne zdanie, pod nim krótkie rozwinięcie w kolumnie czytania i przycisk działania. Najlepiej 40–120 słów.",
+          "usage": "Układ: teza z rozwinięciem. Otwarcie podstrony albo pierwsza sekcja po hero; konwertuje najlepiej, gdy teza mówi, co klient zyskuje, a przycisk prowadzi prosto do kontaktu."
+        },
+        "en": {
+          "name": "Statement with a follow-up",
+          "description": "The lead set at heading size as one strong sentence, followed by a short explanation in a reading column and an action button. Works best with 40–120 words.",
+          "usage": "Layout: statement with a follow-up. Opens a subpage or follows the hero; converts best when the statement says what the customer gains and the button leads straight to contact."
+        }
+      },
+      "goals": ["introduce", "start_conversation"],
+      "composition": {
+        "role": "editorial",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "eyebrow": "Nasze podejście",
+          "title": "Jasne zasady od pierwszej rozmowy",
+          "lead": "Zanim się zdecydujesz, wiesz, co dostaniesz, ile to potrwa i ile zapłacisz.",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Po krótkiej rozmowie przygotowujemy propozycję na piśmie: zakres prac, termin i koszt. Nic nie zaczynamy bez Twojej akceptacji."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Jeśli w trakcie pojawi się coś nieprzewidzianego, najpierw się odzywamy i pytamy o zgodę. Nie dopisujemy prac ani kosztów na własną rękę."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Przez cały czas masz jedną osobę kontaktową, która zna Twoją sprawę od początku do końca."
+                }
+              ]
+            }
+          ],
+          "action": {
+            "label": "Poproś o wycenę",
+            "href": "mailto:kontakt@example.com"
+          },
+          "secondaryAction": {
+            "label": "Zobacz, jak pracujemy",
+            "href": "/jak-pracujemy/"
+          },
+          "layout": "lead_statement"
+        },
+        "en": {
+          "eyebrow": "Our approach",
+          "title": "Clear terms from the very first conversation",
+          "lead": "Before you decide, you know what you will get, how long it will take and what it will cost.",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "After a short conversation we send you a written proposal with the scope, the timing and the cost. Nothing starts until you approve it."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "If something unexpected comes up along the way, we get in touch and ask first. We never add work or costs on our own."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Throughout, you have one contact person who knows your case from start to finish."
+                }
+              ]
+            }
+          ],
+          "action": {
+            "label": "Get a quote",
+            "href": "mailto:hello@example.com"
+          },
+          "secondaryAction": {
+            "label": "See how we work",
+            "href": "/how-we-work/"
+          },
+          "layout": "lead_statement"
+        }
+      },
+      "contentProfiles": ["S", "M"],
+      "readingPattern": "linear",
+      "styleAffinities": ["editorial", "premium", "studio", "expert"],
+      "supportedWidths": ["narrow", "standard"],
+      "targetSurface": ["page"],
+      "conversion": {
+        "stage": "attention",
+        "primaryAction": true
+      }
+    },
+    {
+      "id": "core.rich_text_two_parts",
+      "version": 1,
+      "blockType": "core.rich_text",
+      "schemaVersion": 3,
+      "layout": "two_parts",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Dwie równoległe części",
+          "description": "Dwie pierwsze grupy ze śródtytułem H2 stoją obok siebie – np. „dla kogo” i „dla kogo nie” – a kolejne pod nimi. Na telefonie jedna pod drugą.",
+          "usage": "Układ: dwie równoległe części. Środek strony oferty; konwertuje najlepiej jako szczere dopasowanie, po którym czytelnik sam uznaje, że oferta jest dla niego. Obie części o podobnej długości."
+        },
+        "en": {
+          "name": "Two parallel parts",
+          "description": "The first two H2 groups sit side by side – e.g. “who it's for” and “who it's not for” – with any further groups below. On phones they stack.",
+          "usage": "Layout: two parallel parts. Middle of an offer page; converts best as an honest fit check that lets readers decide for themselves that the offer is for them. Keep both parts similar in length."
+        }
+      },
+      "goals": ["explain_offer", "start_conversation"],
+      "composition": {
+        "role": "editorial",
+        "preferredPosition": "body",
+        "recommendedNext": ["reassurance", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "eyebrow": "Czy to dla Ciebie?",
+          "title": "Sprawdź, czy dobrze do siebie pasujemy",
+          "lead": "Wolimy powiedzieć to od razu, niż rozczarować Cię w połowie pracy. Oto komu pomagamy najlepiej – i kiedy lepiej poszukać kogoś innego.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "dla-kogo",
+              "text": "To dobry wybór, jeśli…"
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "chcesz powierzyć sprawę komuś, kto poprowadzi ją od początku do końca,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "zależy Ci na jasnym zakresie i terminie, zanim cokolwiek się zacznie,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "wolisz rozmowę z konkretną osobą niż zgłoszenie w kolejce,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "cenisz rzetelność bardziej niż najniższą cenę."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "dla-kogo-nie",
+              "text": "Lepiej poszukaj kogoś innego, jeśli…"
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "liczy się dla Ciebie wyłącznie najniższa cena,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "chcesz gotowego rozwiązania bez rozmowy o tym, czego naprawdę potrzebujesz,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "[Uzupełnij: czego nie robisz albo gdzie nie działasz, np. usługi poza Twoim zakresem lub obszarem]."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "nie-masz-pewnosci",
+              "text": "Nie masz pewności?"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Opisz krótko swoją sytuację. Odpowiemy szczerze, czy możemy pomóc – a jeśli nie, podpowiemy, gdzie szukać."
+                }
+              ]
+            }
+          ],
+          "action": {
+            "label": "Zapytaj, czy możemy pomóc",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "two_parts"
+        },
+        "en": {
+          "eyebrow": "Is this for you?",
+          "title": "See whether we are the right fit",
+          "lead": "We would rather say it upfront than disappoint you halfway through. Here is who we help best – and when you would be better off elsewhere.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "who-its-for",
+              "text": "A good fit if you…"
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "want someone to handle the whole thing from start to finish"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "need a clear scope and timeline before anything begins"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "prefer talking to a real person over a ticket in a queue"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "value reliability more than the lowest price"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "who-its-not-for",
+              "text": "Probably not for you if you…"
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "only care about the lowest price"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "want a ready-made fix without talking through what you actually need"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "[Fill in: what you do not do or where you do not work, e.g. services outside your scope or area]"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "not-sure",
+              "text": "Not sure yet?"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Tell us briefly about your situation. We will say honestly whether we can help – and if not, where to look instead."
+                }
+              ]
+            }
+          ],
+          "action": {
+            "label": "Ask if we can help",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "two_parts"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 2,
+        "maxItems": 4,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 400,
+        "mediaAspectRatio": null
+      },
+      "contentProfiles": ["M"],
+      "readingPattern": "scan",
+      "styleAffinities": ["editorial", "studio", "expert", "premium"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page"],
+      "conversion": {
+        "stage": "interest",
+        "primaryAction": true
+      }
+    },
+    {
+      "id": "core.rich_text_side_photo",
+      "version": 1,
+      "blockType": "core.rich_text",
+      "schemaVersion": 3,
+      "layout": "side_photo",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Tekst obok zdjęcia",
+          "description": "Tekst z tytułem obok zdjęcia z podpisem. Na telefonie zdjęcie stoi po tytule, przed tekstem. Bez zdjęcia tekst zajmuje kolumnę.",
+          "usage": "Układ: tekst obok zdjęcia. Środek strony lub wpis; o firmie, miejscu pracy albo usłudze. Konwertuje najlepiej z prawdziwym zdjęciem ludzi lub miejsca – zdjęcie przykładowe zastąp własnym."
+        },
+        "en": {
+          "name": "Text beside a photo",
+          "description": "Text with a title beside a captioned photo. On phones the photo follows the title, before the text. Without a photo the text fills the column.",
+          "usage": "Layout: text beside a photo. Page body or an entry; about the business, the workplace or a service. Converts best with a real photo of your people or place – replace the sample photo with your own."
+        }
+      },
+      "goals": ["introduce", "build_trust"],
+      "composition": {
+        "role": "editorial",
+        "preferredPosition": "body",
+        "recommendedNext": ["offer", "reassurance", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "eyebrow": "O nas",
+          "title": "Obsługa, która ma dla Ciebie czas",
+          "lead": "Nie jesteś dla nas numerem zgłoszenia. Od pierwszej rozmowy do zakończenia pracy zajmuje się Tobą ta sama osoba.",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Zaczynamy od wysłuchania, czego potrzebujesz i co do tej pory działało, a co nie. Dopiero potem proponujemy rozwiązanie – dopasowane do Twojej sytuacji, a nie do gotowego pakietu."
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "Jedna osoba kontaktowa",
+                      "bold": true
+                    },
+                    {
+                      "text": " – nie tłumaczysz wszystkiego od nowa."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Odpowiedź w umówionym czasie",
+                      "bold": true
+                    },
+                    {
+                      "text": " – wiesz, kiedy się odezwiemy."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Podsumowanie na koniec",
+                      "bold": true
+                    },
+                    {
+                      "text": " – wiesz, co zostało zrobione i dlaczego."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "[Uzupełnij: jedno–dwa zdania o tym, kto prowadzi firmę i skąd się wzięła]"
+                }
+              ]
+            }
+          ],
+          "layout": "side_photo"
+        },
+        "en": {
+          "eyebrow": "About us",
+          "title": "Service that makes time for you",
+          "lead": "You are not a ticket number to us. The same person looks after you from the first conversation until the work is done.",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We start by listening to what you need and what you have already tried. Only then do we suggest a solution – one that fits your situation, not a ready-made package."
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "One contact person",
+                      "bold": true
+                    },
+                    {
+                      "text": " – no explaining everything all over again."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Replies when we said we would",
+                      "bold": true
+                    },
+                    {
+                      "text": " – you know when you will hear from us."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "A summary at the end",
+                      "bold": true
+                    },
+                    {
+                      "text": " – you know what was done and why."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "[Fill in: a sentence or two about who runs the business and how it started]"
+                }
+              ]
+            }
+          ],
+          "layout": "side_photo"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 120,
+        "bodyMaxCharacters": 1000,
+        "mediaAspectRatio": "4:3"
+      },
+      "sampleMedia": {
+        "id": "business",
+        "alt": {
+          "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+          "en": "Bright studio with an oak table and laptop"
+        },
+        "path": ["image"]
+      },
+      "contentProfiles": ["M"],
+      "readingPattern": "linear",
+      "styleAffinities": ["studio", "organic", "editorial", "premium"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "interest",
+        "primaryAction": false
+      }
+    },
+    {
+      "id": "core.rich_text_panorama",
+      "version": 1,
+      "blockType": "core.rich_text",
+      "schemaVersion": 3,
+      "layout": "panorama",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Panorama nad tekstem",
+          "description": "Zdjęcie od krawędzi do krawędzi sekcji nad tytułem, pod nim wstęp, krótki tekst i przycisk. Bez zdjęcia sekcja zaczyna się od tytułu.",
+          "usage": "Układ: panorama nad tekstem. Otwarcie strony albo nowy rozdział; konwertuje najlepiej, gdy zdjęcie pokazuje miejsce lub efekt pracy, a tekst jest krótki. Wybierz szeroki kadr."
+        },
+        "en": {
+          "name": "Panorama above the text",
+          "description": "An edge-to-edge photo above the title, followed by the lead, a short text and a button. Without a photo the section starts with the title.",
+          "usage": "Layout: panorama above the text. Opens a page or a new chapter; converts best when the photo shows the place or the result of your work and the text stays short. Choose a wide shot."
+        }
+      },
+      "goals": ["introduce", "start_conversation"],
+      "composition": {
+        "role": "editorial",
+        "preferredPosition": "start",
+        "recommendedNext": ["offer", "reassurance", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "eyebrow": "Obsługa na miejscu",
+          "title": "Przyjedziemy do Ciebie",
+          "lead": "Oceniamy sytuację na miejscu, na własne oczy. Dzięki temu propozycja od razu uwzględnia to, co ważne właśnie u Ciebie.",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Nie musisz niczego przywozić ani organizować transportu. Umawiamy dogodny termin, przyjeżdżamy z potrzebnym sprzętem i na miejscu mówimy, co proponujemy i dlaczego."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Gdzie pracujemy:",
+                  "bold": true
+                },
+                {
+                  "text": " [Uzupełnij: miejscowości lub zasięg dojazdu]."
+                }
+              ]
+            }
+          ],
+          "action": {
+            "label": "Umów wizytę na miejscu",
+            "href": "tel:+48000000000"
+          },
+          "layout": "panorama"
+        },
+        "en": {
+          "eyebrow": "On-site service",
+          "title": "We come to you",
+          "lead": "We assess things on site, with our own eyes, so the proposal reflects what actually matters in your case.",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "There is nothing for you to bring in and no transport to arrange. We agree on a convenient date, arrive with the equipment we need and explain on the spot what we suggest and why."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Where we work:",
+                  "bold": true
+                },
+                {
+                  "text": " [Fill in: towns or travel radius]."
+                }
+              ]
+            }
+          ],
+          "action": {
+            "label": "Book an on-site visit",
+            "href": "tel:+48000000000"
+          },
+          "layout": "panorama"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 600,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "agriculture",
+        "alt": {
+          "pl": "Krowy na pastwisku przy gospodarstwie",
+          "en": "Cows grazing near a farm"
+        },
+        "path": ["image"]
+      },
+      "contentProfiles": ["S", "M"],
+      "readingPattern": "visual",
+      "styleAffinities": ["organic", "premium", "editorial", "studio"],
+      "supportedWidths": ["wide", "full"],
+      "targetSurface": ["page"],
+      "conversion": {
+        "stage": "attention",
+        "primaryAction": true
+      }
+    },
+    {
+      "id": "core.rich_text_illustrated",
+      "version": 1,
+      "blockType": "core.rich_text",
+      "schemaVersion": 3,
+      "layout": "illustrated",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Artykuł ze zdjęciem w toku",
+          "description": "Kolumna artykułu, w której zdjęcie stoi po pierwszym akapicie i wychodzi poza kolumnę do szerokości sekcji. Tak samo szerokie ilustracje w treści.",
+          "usage": "Układ: artykuł ze zdjęciem w toku. Wpis lub opis usługi powyżej 150 słów; konwertuje najlepiej, gdy zdjęcie pokazuje to, o czym mówi tekst. Pierwszy akapit napisz tak, by prowadził do zdjęcia."
+        },
+        "en": {
+          "name": "Article with an inline photo",
+          "description": "An article column where the photo follows the first paragraph and breaks out of the column to the section's width. Wide illustrations in the text do the same.",
+          "usage": "Layout: article with an inline photo. An entry or a service description over 150 words; converts best when the photo shows what the text describes. Write the first paragraph as a lead-in to the photo."
+        }
+      },
+      "goals": ["explain_topic", "build_trust"],
+      "composition": {
+        "role": "editorial",
+        "preferredPosition": "body",
+        "recommendedNext": ["reassurance", "offer", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "eyebrow": "Jak pracujemy",
+          "title": "Najpierw sprawdzamy, potem proponujemy",
+          "lead": "Dobra decyzja wymaga rzetelnej diagnozy. Dlatego zanim cokolwiek zaproponujemy, dokładnie sprawdzamy, z czym mamy do czynienia.",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Każde zlecenie zaczynamy od rozpoznania: oglądamy, sprawdzamy i pytamy o historię problemu. To zwykle krótki etap, który później oszczędza sporo czasu i pieniędzy."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "co-sprawdzamy",
+              "text": "Co dokładnie sprawdzamy"
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "co jest źródłem problemu, a co tylko jego objawem,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "czy wystarczy proste rozwiązanie, czy potrzeba czegoś więcej,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "jakie masz możliwości i czym się od siebie różnią."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "co-dostajesz",
+              "text": "Co dostajesz po diagnozie"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Krótkie podsumowanie: co ustaliliśmy, jakie masz możliwości i ile kosztuje każda z nich. Możesz spokojnie to przemyśleć – nie oczekujemy decyzji od ręki."
+                }
+              ]
+            },
+            {
+              "type": "note",
+              "tone": "tip",
+              "title": "Warto przygotować",
+              "content": [
+                {
+                  "text": "Jeśli masz zdjęcia, dokumenty albo notatki z wcześniejszych prób rozwiązania problemu, pokaż je przy pierwszym spotkaniu. Przyspieszą diagnozę."
+                }
+              ]
+            }
+          ],
+          "layout": "illustrated"
+        },
+        "en": {
+          "eyebrow": "How we work",
+          "title": "We check first, then we suggest",
+          "lead": "A good decision needs a sound diagnosis. So before we propose anything, we take a careful look at what we are dealing with.",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Every job starts with an assessment: we look, we test and we ask how the problem developed. It is usually a short step, and it saves a good deal of time and money later."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "what-we-check",
+              "text": "What exactly we check"
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "what is causing the problem and what is only a symptom"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "whether a simple fix will do or something more is needed"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "what your options are and how they differ"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "what-you-get",
+              "text": "What you get after the assessment"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "A short summary: what we found, what your options are and what each of them costs. Take your time to think it over – we do not expect a decision on the spot."
+                }
+              ]
+            },
+            {
+              "type": "note",
+              "tone": "tip",
+              "title": "Worth bringing",
+              "content": [
+                {
+                  "text": "If you have photos, documents or notes from earlier attempts to solve the problem, bring them to the first meeting. They speed up the assessment."
+                }
+              ]
+            }
+          ],
+          "layout": "illustrated"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 120,
+        "bodyMaxCharacters": 4000,
+        "mediaAspectRatio": "3:2"
+      },
+      "sampleMedia": {
+        "id": "electronics",
+        "alt": {
+          "pl": "Stanowisko diagnostyki elektroniki",
+          "en": "Electronics diagnostic workbench"
+        },
+        "path": ["image"]
+      },
+      "contentProfiles": ["M", "L"],
+      "readingPattern": "linear",
+      "styleAffinities": ["editorial", "expert", "technical"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "interest",
+        "primaryAction": false
+      }
+    },
+    {
+      "id": "core.rich_text_margin_quote",
+      "version": 1,
+      "blockType": "core.rich_text",
+      "schemaVersion": 3,
+      "layout": "margin_quote",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Tekst z cytatem na marginesie",
+          "description": "Pierwszy cytat w treści staje się dużym cytatem na marginesie obok tekstu. Na telefonie stoi w toku czytania.",
+          "usage": "Układ: tekst z cytatem na marginesie. Środek strony, po ofercie; konwertuje najlepiej z prawdziwą opinią klienta podpisaną imieniem i opublikowaną za jego zgodą. Nie publikuj przykładowej wypowiedzi jako opinii."
+        },
+        "en": {
+          "name": "Text with a margin quote",
+          "description": "The first quote in the text becomes a large quote in the margin beside it. On phones it sits in the reading flow.",
+          "usage": "Layout: text with a margin quote. Page body, after the offer; converts best with a real customer review, signed with a name and published with consent. Never publish an example statement as a review."
+        }
+      },
+      "goals": ["build_trust"],
+      "composition": {
+        "role": "editorial",
+        "preferredPosition": "body",
+        "recommendedNext": ["offer", "reassurance", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "eyebrow": "Z perspektywy klienta",
+          "title": "Co zmienia się po współpracy z nami",
+          "lead": "Najlepiej opowiadają o tym ci, którzy już z nami pracowali.",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Klienci zgłaszają się do nas najczęściej wtedy, gdy [Uzupełnij: typowa sytuacja, z którą przychodzą klienci]. Chcą, żeby ktoś zajął się sprawą porządnie i powiedział wprost, na czym stoją."
+                }
+              ]
+            },
+            {
+              "type": "quote",
+              "content": [
+                {
+                  "text": "[Uzupełnij: prawdziwa opinia klienta w jednym–dwóch zdaniach – jak było przed współpracą i co zmieniło się po niej]"
+                }
+              ],
+              "author": "[Uzupełnij: imię i miejscowość klienta, za jego zgodą]"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Dlatego pracujemy według prostych zasad:"
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "mówimy, co zrobimy, zanim zaczniemy,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "informujemy o postępach, zanim zdążysz zapytać,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "kończymy tym, co obiecaliśmy – albo uczciwie wyjaśniamy, co się zmieniło i dlaczego."
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "layout": "margin_quote"
+        },
+        "en": {
+          "eyebrow": "In our customers' words",
+          "title": "What changes when you work with us",
+          "lead": "The people who have already worked with us tell it best.",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Customers usually come to us when [Fill in: the typical situation that brings customers to you]. They want someone to handle it properly and tell them plainly where they stand."
+                }
+              ]
+            },
+            {
+              "type": "quote",
+              "content": [
+                {
+                  "text": "[Fill in: a real customer review in one or two sentences – what things were like before and what changed afterwards]"
+                }
+              ],
+              "author": "[Fill in: the customer's first name and town, with their consent]"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "That is why we stick to a few simple rules:"
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "we say what we will do before we start"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "we tell you how things are going before you have to ask"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "we finish what we promised – or explain honestly what changed and why"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "layout": "margin_quote"
+        }
+      },
+      "contentProfiles": ["M"],
+      "readingPattern": "linear",
+      "styleAffinities": ["editorial", "premium", "organic", "expert"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "proof",
+        "primaryAction": false
+      }
+    },
+    {
+      "id": "core.rich_text_summary_box",
+      "version": 1,
+      "blockType": "core.rich_text",
+      "schemaVersion": 3,
+      "layout": "summary_box",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "W skrócie przed tekstem",
+          "description": "Wyróżniony panel „w skrócie” przed tekstem, a pod nim szczegóły ze śródtytułami. W panelu 3–5 krótkich punktów.",
+          "usage": "Układ: w skrócie przed tekstem. Opis usługi lub wpis dla czytelników, którzy chcą szybko ocenić ofertę; konwertuje najlepiej, gdy panel odpowiada: dla kogo, co dostajesz, ile to trwa i jak zacząć."
+        },
+        "en": {
+          "name": "Summary before the text",
+          "description": "A highlighted “at a glance” panel before the text, with details under subheadings below. Keep 3–5 short points in the panel.",
+          "usage": "Layout: summary before the text. A service description or an entry for readers who want to judge the offer quickly; converts best when the panel answers who it is for, what you get, how long it takes and how to start."
+        }
+      },
+      "goals": ["explain_offer", "summarize_facts"],
+      "composition": {
+        "role": "editorial",
+        "preferredPosition": "body",
+        "recommendedNext": ["reassurance", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "eyebrow": "Szczegóły usługi",
+          "title": "Co dokładnie dostajesz",
+          "lead": "Najważniejsze informacje masz w skrócie w ramce. Niżej szczegóły dla tych, którzy chcą wiedzieć więcej.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "co-obejmuje-usluga",
+              "text": "Co obejmuje usługa"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Zajmujemy się całością: od rozpoznania sytuacji, przez wykonanie, po sprawdzenie efektu razem z Tobą. Nie musisz niczego koordynować."
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "rozmowa i ustalenie, czego potrzebujesz,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "propozycja z zakresem, terminem i kosztem,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "wykonanie w umówionym terminie,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "odbiór i krótkie podsumowanie."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "czego-nie-obejmuje",
+              "text": "Czego usługa nie obejmuje"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "[Uzupełnij: czego nie robisz w ramach tej usługi i co można zamówić osobno]. Mówimy o tym na początku, żeby uniknąć niedomówień."
+                }
+              ]
+            }
+          ],
+          "aside": {
+            "title": "W skrócie",
+            "content": [
+              {
+                "type": "list",
+                "style": "bullet",
+                "items": [
+                  {
+                    "content": [
+                      {
+                        "text": "Dla kogo:",
+                        "bold": true
+                      },
+                      {
+                        "text": " [Uzupełnij: komu najczęściej pomagasz]"
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "Co dostajesz:",
+                        "bold": true
+                      },
+                      {
+                        "text": " rozwiązanie dopasowane do Twojej sytuacji i podsumowanie na piśmie."
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "Ile to trwa:",
+                        "bold": true
+                      },
+                      {
+                        "text": " [Uzupełnij: typowy czas realizacji]"
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "Jak zacząć:",
+                        "bold": true
+                      },
+                      {
+                        "text": " napisz lub zadzwoń – odpowiemy i zaproponujemy termin."
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "layout": "summary_box"
+        },
+        "en": {
+          "eyebrow": "Service details",
+          "title": "What exactly you get",
+          "lead": "The essentials are summed up in the box. Details follow below for anyone who wants to know more.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "whats-included",
+              "text": "What the service includes"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We take care of the whole thing: from assessing your situation, through doing the work, to checking the result together with you. There is nothing for you to coordinate."
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "a conversation to find out what you need"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "a proposal with the scope, timing and cost"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "the work, done on the agreed date"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "a final check and a short summary"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "whats-not-included",
+              "text": "What the service does not include"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "[Fill in: what you do not do as part of this service and what can be ordered separately]. We say so at the start to avoid any misunderstanding."
+                }
+              ]
+            }
+          ],
+          "aside": {
+            "title": "At a glance",
+            "content": [
+              {
+                "type": "list",
+                "style": "bullet",
+                "items": [
+                  {
+                    "content": [
+                      {
+                        "text": "Who it is for:",
+                        "bold": true
+                      },
+                      {
+                        "text": " [Fill in: who you help most often]"
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "What you get:",
+                        "bold": true
+                      },
+                      {
+                        "text": " a solution that fits your situation and a written summary."
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "How long it takes:",
+                        "bold": true
+                      },
+                      {
+                        "text": " [Fill in: typical turnaround]"
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "How to start:",
+                        "bold": true
+                      },
+                      {
+                        "text": " write or call – we will reply and suggest a date."
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "layout": "summary_box"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 5,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 160,
+        "mediaAspectRatio": null
+      },
+      "contentProfiles": ["M", "L"],
+      "readingPattern": "scan",
+      "styleAffinities": ["expert", "technical", "editorial", "product"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "interest",
+        "primaryAction": false
+      }
+    },
+    {
+      "id": "core.rich_text_expert_note",
+      "version": 1,
+      "blockType": "core.rich_text",
+      "schemaVersion": 3,
+      "layout": "expert_note",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Objaśnienie specjalisty",
+          "description": "Karta autora – portret lub inicjały, imię i rola – obok objaśnienia. Przycisk działania stoi pod kartą.",
+          "usage": "Układ: objaśnienie specjalisty. Środek strony lub wpis; konwertuje najlepiej, gdy wypowiada się prawdziwa osoba z imienia i nazwiska, a przycisk prowadzi do rozmowy z nią. Wpisz tylko kwalifikacje, które możesz potwierdzić."
+        },
+        "en": {
+          "name": "Specialist's note",
+          "description": "An author card – portrait or initials, name and role – beside an explanation. The action button sits below the card.",
+          "usage": "Layout: specialist's note. Page body or an entry; converts best when a real, named person speaks and the button leads to a conversation with them. Only state qualifications you can confirm."
+        }
+      },
+      "goals": ["build_trust", "explain_topic", "start_conversation"],
+      "composition": {
+        "role": "editorial",
+        "preferredPosition": "body",
+        "recommendedNext": ["offer", "reassurance", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "eyebrow": "Słowo od specjalisty",
+          "title": "Kiedy działać od razu, a kiedy można zaplanować termin",
+          "lead": "Krótkie objaśnienie od osoby, która na co dzień zajmuje się takimi sprawami.",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Wiele problemów zaczyna się od drobnych sygnałów, które łatwo zlekceważyć. Im wcześniej ktoś je oceni, tym zwykle prostsze jest rozwiązanie."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Zgłoś się od razu, gdy:",
+                  "bold": true
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "problem wraca mimo wcześniejszych prób rozwiązania,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "sytuacja wyraźnie się pogarsza,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "[Uzupełnij: sygnał typowy dla Twojej branży, który wymaga szybkiej reakcji]."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Możesz zaplanować wizytę w dogodnym terminie, gdy:",
+                  "bold": true
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "problem pojawił się raz i nie narasta,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "chcesz zapobiec kłopotom, zanim się pojawią."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Nie masz pewności, która sytuacja dotyczy Ciebie? Zapytaj – krótka rozmowa zwykle to rozstrzyga."
+                }
+              ]
+            }
+          ],
+          "author": {
+            "name": "[Uzupełnij: imię i nazwisko]",
+            "role": "[Uzupełnij: specjalizacja lub stanowisko]"
+          },
+          "action": {
+            "label": "Skonsultuj swoją sytuację",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "expert_note"
+        },
+        "en": {
+          "eyebrow": "A word from our specialist",
+          "title": "When to act straight away – and when you can book ahead",
+          "lead": "A short explanation from someone who deals with this every day.",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Many problems start with small signs that are easy to brush aside. The sooner someone looks at them, the simpler the fix usually is."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Get in touch straight away if:",
+                  "bold": true
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "the problem keeps coming back despite earlier attempts to fix it"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "things are clearly getting worse"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "[Fill in: a warning sign typical of your field that needs a quick response]"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "You can book a convenient date if:",
+                  "bold": true
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "the problem appeared once and is not getting worse"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "you want to prevent trouble before it starts"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Not sure which applies to you? Ask – a short conversation usually settles it."
+                }
+              ]
+            }
+          ],
+          "author": {
+            "name": "[Fill in: full name]",
+            "role": "[Fill in: specialism or job title]"
+          },
+          "action": {
+            "label": "Get advice on your situation",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "expert_note"
+        }
+      },
+      "contentProfiles": ["M"],
+      "readingPattern": "linear",
+      "styleAffinities": ["expert", "editorial", "premium"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "proof",
+        "primaryAction": true
+      }
+    },
+    {
+      "id": "core.rich_text_alternating_chapters",
+      "version": 1,
+      "blockType": "core.rich_text",
+      "schemaVersion": 3,
+      "layout": "alternating_chapters",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Rozdziały naprzemiennie",
+          "description": "Grupy ze śródtytułem H2 jako rzędy: śródtytuł po jednej stronie, treść po drugiej, strony zamieniają się co rozdział. Najlepiej 3–5 rozdziałów.",
+          "usage": "Układ: rozdziały naprzemiennie. Środek strony oferty; konwertuje najlepiej, gdy każdy śródtytuł nazywa korzyść, a treść krótko ją uzasadnia. Ilustracja rozdziału dołącza do strony śródtytułu."
+        },
+        "en": {
+          "name": "Alternating chapters",
+          "description": "H2 groups as rows: the subheading on one side, the text on the other, switching sides with each chapter. Works best with 3–5 chapters.",
+          "usage": "Layout: alternating chapters. Middle of an offer page; converts best when each subheading names a benefit and the text briefly backs it up. A chapter's illustration joins its subheading's side."
+        }
+      },
+      "goals": ["explain_offer", "guide_reading"],
+      "composition": {
+        "role": "editorial",
+        "preferredPosition": "body",
+        "recommendedNext": ["reassurance", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "eyebrow": "Co zyskujesz",
+          "title": "Zadbamy o to, co dla Ciebie najważniejsze",
+          "lead": "Każdy klient przychodzi z inną sprawą, ale te cztery rzeczy są ważne niemal dla wszystkich. Oto jak o nie dbamy.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "oszczedzasz-czas",
+              "text": "Oszczędzasz czas"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Nie musisz dzwonić kilka razy ani pilnować postępów. Ustalamy termin i sposób kontaktu, a potem sami informujemy Cię o tym, co się dzieje."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "wiesz-ile-zaplacisz",
+              "text": "Wiesz, ile zapłacisz"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Koszt poznajesz przed rozpoczęciem pracy. Jeśli coś miałoby go zmienić, najpierw o tym rozmawiamy i czekamy na Twoją decyzję."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "masz-spokoj",
+              "text": "Masz spokój w trakcie"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Pracujemy według ustalonego planu, a każdy etap kończy się czymś, co możesz zobaczyć i ocenić. Na koniec nie czekają Cię niespodzianki."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "efekt-zostaje",
+              "text": "Efekt zostaje na dłużej"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Po zakończeniu dostajesz podsumowanie i wskazówki, jak dbać o efekt. Jeśli pojawią się pytania, wiesz, do kogo się zwrócić."
+                }
+              ]
+            }
+          ],
+          "layout": "alternating_chapters"
+        },
+        "en": {
+          "eyebrow": "What you gain",
+          "title": "We look after what matters most to you",
+          "lead": "Every customer comes with a different job, but these four things matter to almost everyone. Here is how we take care of them.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "you-save-time",
+              "text": "You save time"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "No need to call again and again or chase progress. We agree on a date and how we keep in touch, and then we keep you posted ourselves."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "you-know-the-cost",
+              "text": "You know what you will pay"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "You learn the cost before the work starts. If anything might change it, we talk it through first and wait for your decision."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "peace-of-mind",
+              "text": "You have peace of mind along the way"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We follow an agreed plan, and each stage ends with something you can see and judge for yourself. No surprises at the end."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "results-that-last",
+              "text": "The result lasts"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "When we finish, you get a summary and tips on keeping the result in good shape. If questions come up, you know who to ask."
+                }
+              ]
+            }
+          ],
+          "layout": "alternating_chapters"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 5,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 400,
+        "mediaAspectRatio": null
+      },
+      "contentProfiles": ["M", "L"],
+      "readingPattern": "scan",
+      "styleAffinities": ["editorial", "studio", "premium", "organic"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page"],
+      "conversion": {
+        "stage": "interest",
+        "primaryAction": false
+      }
+    },
+    {
+      "id": "core.rich_text_timeline",
+      "version": 1,
+      "blockType": "core.rich_text",
+      "schemaVersion": 3,
+      "layout": "timeline",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Oś czasu",
+          "description": "Grupy ze śródtytułem H2 jako punkty na pionowej osi czasu. Najlepiej 3–6 etapów po 1–3 zdania.",
+          "usage": "Układ: oś czasu. Przed formularzem kontaktowym albo na stronie „jak pracujemy”; konwertuje najlepiej, gdy pokazuje, co stanie się po kontakcie i kiedy. Wpisz taki czas odpowiedzi, jakiego naprawdę dotrzymujesz."
+        },
+        "en": {
+          "name": "Timeline",
+          "description": "H2 groups as points on a vertical timeline. Works best with 3–6 stages of 1–3 sentences each.",
+          "usage": "Layout: timeline. Before the contact form or on a “how we work” page; converts best when it shows what happens after someone gets in touch, and when. Only promise a response time you actually keep."
+        }
+      },
+      "goals": ["explain_process"],
+      "composition": {
+        "role": "editorial",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact", "reassurance"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "eyebrow": "Przebieg współpracy",
+          "title": "Co się dzieje, gdy się do nas odezwiesz",
+          "lead": "Od pierwszej wiadomości do zakończenia pracy – etap po etapie, żeby nic Cię nie zaskoczyło.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "odpowiadamy",
+              "text": "Odpowiadamy na Twoją wiadomość"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Odzywamy się [Uzupełnij: w jakim czasie odpowiadasz, np. w ciągu jednego dnia roboczego] i dopytujemy o szczegóły. Na tym etapie nic Cię nie zobowiązuje."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "rozmowa",
+              "text": "Rozmawiamy o Twojej sytuacji"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Ustalamy, czego potrzebujesz i co jest dla Ciebie najważniejsze. Jeśli trzeba coś zobaczyć na miejscu, umawiamy krótką wizytę."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "propozycja",
+              "text": "Dostajesz propozycję na piśmie"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Zakres, termin i koszt w jednym dokumencie. Masz czas, żeby spokojnie wszystko przemyśleć i zadać pytania."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "realizacja",
+              "text": "Realizujemy i informujemy na bieżąco"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Pracujemy według planu i dajemy znać, jak postępują prace. Jeśli pojawi się coś nieprzewidzianego, najpierw rozmawiamy z Tobą."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "odbior",
+              "text": "Odbierasz efekt i podsumowanie"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Sprawdzamy wszystko razem z Tobą i przekazujemy krótkie podsumowanie. Wiesz, co zostało zrobione i o co warto zadbać później."
+                }
+              ]
+            }
+          ],
+          "layout": "timeline"
+        },
+        "en": {
+          "eyebrow": "How it works",
+          "title": "What happens when you get in touch",
+          "lead": "From your first message to the finished job – every stage in order, so you know what to expect.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "we-reply",
+              "text": "We reply to your message"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We get back to you [Fill in: how quickly you reply, e.g. within one working day] and ask about the details. Nothing at this stage commits you to anything."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "we-talk",
+              "text": "We talk about your situation"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We find out what you need and what matters most to you. If we need to see something in person, we arrange a short visit."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "proposal",
+              "text": "You get a written proposal"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "The scope, timing and cost in one document. You have time to think it over and ask questions."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "the-work",
+              "text": "We do the work and keep you posted"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We follow the plan and let you know how things are going. If anything unexpected comes up, we talk to you first."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "handover",
+              "text": "You receive the result and a summary"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We check everything together with you and hand over a short summary. You know what was done and what to keep an eye on later."
+                }
+              ]
+            }
+          ],
+          "layout": "timeline"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 6,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 300,
+        "mediaAspectRatio": null
+      },
+      "contentProfiles": ["M", "L"],
+      "readingPattern": "scan",
+      "styleAffinities": ["technical", "expert", "editorial", "organic"],
+      "supportedWidths": ["narrow", "standard"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "interest",
+        "primaryAction": false
+      }
+    },
+    {
+      "id": "core.rich_text_numbered_sections",
+      "version": 1,
+      "blockType": "core.rich_text",
+      "schemaVersion": 3,
+      "layout": "numbered_sections",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Numerowane argumenty",
+          "description": "Grupy ze śródtytułem H2 z dużymi numerami 01, 02… jako kolejne argumenty. Najlepiej 3–5 grup.",
+          "usage": "Układ: numerowane argumenty. Druga połowa strony, przed kontaktem; konwertuje najlepiej, gdy każdy śródtytuł to wątpliwość klienta, a treść ją rozwiewa. Ceny i gwarancje wpisuj tylko prawdziwe."
+        },
+        "en": {
+          "name": "Numbered arguments",
+          "description": "H2 groups with large numbers 01, 02… as a sequence of arguments. Works best with 3–5 groups.",
+          "usage": "Layout: numbered arguments. Second half of the page, before contact; converts best when each subheading is a customer's doubt and the text answers it. Only state real prices and guarantees."
+        }
+      },
+      "goals": ["answer_questions", "start_conversation"],
+      "composition": {
+        "role": "editorial",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact", "reassurance"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "eyebrow": "Zanim zdecydujesz",
+          "title": "„A co, jeśli…?” – odpowiadamy, zanim zapytasz",
+          "lead": "Te pytania słyszymy najczęściej przed rozpoczęciem współpracy. Lepiej poznać odpowiedzi, zanim podejmiesz decyzję.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "za-drogo",
+              "text": "A co, jeśli okaże się za drogo?"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Koszt znasz, zanim cokolwiek zaczniemy. Jeśli budżet jest ograniczony, powiemy, co da się zrobić w jego ramach, a co można odłożyć na później."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Orientacyjne ceny:",
+                  "bold": true
+                },
+                {
+                  "text": " [Uzupełnij: widełki cen albo informacja, od czego zależy koszt]."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "brak-czasu",
+              "text": "A co, jeśli nie mam czasu tego pilnować?"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Nie musisz. Jedna osoba prowadzi Twoją sprawę i sama informuje Cię o postępach. Od Ciebie potrzebujemy tylko decyzji w kluczowych momentach."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Sposób kontaktu wybierasz Ty: telefon, e-mail albo krótkie podsumowanie po każdym etapie."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "cos-pojdzie-nie-tak",
+              "text": "A co, jeśli coś pójdzie nie tak?"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Mówimy o tym od razu, razem z propozycją rozwiązania i jego wpływem na termin. Niczego nie ukrywamy i nie zostawiamy Cię z problemem."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Gwarancja i reklamacje:",
+                  "bold": true
+                },
+                {
+                  "text": " [Uzupełnij: jak u Ciebie wygląda gwarancja lub zgłaszanie reklamacji]."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "potrzebuje-czasu",
+              "text": "A co, jeśli potrzebuję więcej czasu?"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Pierwsza rozmowa do niczego nie zobowiązuje. Możesz zapytać, dostać propozycję na piśmie i spokojnie zdecydować później – bez ponaglania z naszej strony."
+                }
+              ]
+            }
+          ],
+          "action": {
+            "label": "Umów niezobowiązującą rozmowę",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "numbered_sections"
+        },
+        "en": {
+          "eyebrow": "Before you decide",
+          "title": "“What if…?” – answered before you ask",
+          "lead": "These are the questions we hear most often before we start working together. Better you know the answers before you decide.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "too-expensive",
+              "text": "What if it turns out too expensive?"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "You know the cost before anything starts. If your budget is tight, we tell you what can be done within it and what can wait until later."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Guide prices:",
+                  "bold": true
+                },
+                {
+                  "text": " [Fill in: price ranges or what the cost depends on]."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "no-time",
+              "text": "What if I have no time to keep an eye on it?"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "You do not need to. One person handles your case and keeps you posted. All we need from you are decisions at the key moments."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "You choose how we keep in touch: by phone, by email or with a short summary after each stage."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "something-goes-wrong",
+              "text": "What if something goes wrong?"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We tell you straight away, together with a proposed fix and how it affects the schedule. We do not hide anything or leave you alone with the problem."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Guarantee and complaints:",
+                  "bold": true
+                },
+                {
+                  "text": " [Fill in: how your guarantee or complaints process works]."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "not-ready-yet",
+              "text": "What if I am not ready yet?"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "The first conversation commits you to nothing. You can ask, get a written proposal and decide later in your own time – with no pressure from us."
+                }
+              ]
+            }
+          ],
+          "action": {
+            "label": "Book a no-obligation call",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "numbered_sections"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 5,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 500,
+        "mediaAspectRatio": null
+      },
+      "contentProfiles": ["M", "L"],
+      "readingPattern": "scan",
+      "styleAffinities": ["editorial", "expert", "premium", "studio"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "objection",
+        "primaryAction": true
+      }
+    },
+    {
+      "id": "core.rich_text_manifesto",
+      "version": 1,
+      "blockType": "core.rich_text",
+      "schemaVersion": 3,
+      "layout": "manifesto",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Manifest z zasadami",
+          "description": "Pozycje listy jako duże zasady, akapity jako krótkie rozwinięcia, przycisk po zasadach. Najlepiej 4–6 zasad.",
+          "usage": "Układ: manifest z zasadami. Strona „o nas” albo otwarcie oferty; konwertuje najlepiej, gdy zasady są konkretne i klient może je sprawdzić, a nie są ogólnymi hasłami."
+        },
+        "en": {
+          "name": "Manifesto of principles",
+          "description": "List items as large principles, paragraphs as short explanations, a button after the principles. Works best with 4–6 principles.",
+          "usage": "Layout: manifesto of principles. An about page or the opening of an offer; converts best when the principles are concrete and something a customer can check, not general slogans."
+        }
+      },
+      "goals": ["introduce", "build_trust"],
+      "composition": {
+        "role": "editorial",
+        "preferredPosition": "body",
+        "recommendedNext": ["offer", "reassurance", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "eyebrow": "Nasze zasady",
+          "title": "Zasady, z których możesz nas rozliczyć",
+          "lead": "Krótko o tym, jak pracujemy i czego możesz od nas wymagać.",
+          "content": [
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "Mówimy wprost, także gdy odpowiedź brzmi „nie”."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Najpierw słuchamy, potem proponujemy."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Koszt znasz, zanim zaczniemy."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Dotrzymujemy terminów – a jeśli coś się zmienia, uprzedzamy wcześniej."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Kończymy jasnym podsumowaniem tego, co zostało zrobione."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "To nie hasła na ścianę, tylko sposób pracy, który możesz sprawdzić. Jeśli któraś z tych zasad kiedyś zawiedzie, powiedz nam – potraktujemy to poważnie."
+                }
+              ]
+            }
+          ],
+          "action": {
+            "label": "Umów pierwszą rozmowę",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "manifesto"
+        },
+        "en": {
+          "eyebrow": "What we stand for",
+          "title": "Principles you can hold us to",
+          "lead": "In short: how we work and what you can expect from us.",
+          "content": [
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "We tell it straight, even when the answer is no."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "We listen first, then we propose."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "You know the cost before we start."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "We keep to deadlines – and if something changes, we tell you early."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "We finish with a clear summary of what was done."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "These are not slogans for the wall but a way of working you can check. If one of these principles ever lets you down, tell us – we will take it seriously."
+                }
+              ]
+            }
+          ],
+          "action": {
+            "label": "Book a first conversation",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "manifesto"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 4,
+        "maxItems": 6,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 120,
+        "mediaAspectRatio": null
+      },
+      "contentProfiles": ["S", "M"],
+      "readingPattern": "scan",
+      "styleAffinities": ["editorial", "premium", "studio", "organic"],
+      "supportedWidths": ["narrow", "standard", "wide"],
+      "targetSurface": ["page"],
+      "conversion": {
+        "stage": "attention",
+        "primaryAction": true
+      }
+    },
+    {
+      "id": "core.rich_text_problem_solution",
+      "version": 1,
+      "blockType": "core.rich_text",
+      "schemaVersion": 3,
+      "layout": "problem_solution",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Problem, analiza, rozwiązanie",
+          "description": "Trzy pierwsze grupy ze śródtytułem H2 jako panele: problem, analiza i rozwiązanie. Przycisk stoi w panelu rozwiązania.",
+          "usage": "Układ: problem, analiza, rozwiązanie. Strona usługi lub kampanii; konwertuje najlepiej, gdy problem jest opisany słowami klienta, a rozwiązanie kończy się jednym konkretnym krokiem."
+        },
+        "en": {
+          "name": "Problem, analysis, solution",
+          "description": "The first three H2 groups as panels: the problem, the analysis and the solution. The button sits in the solution panel.",
+          "usage": "Layout: problem, analysis, solution. A service or campaign page; converts best when the problem is described in the customer's own words and the solution ends with one clear step."
+        }
+      },
+      "goals": ["explain_offer", "receive_inquiry"],
+      "composition": {
+        "role": "editorial",
+        "preferredPosition": "body",
+        "recommendedNext": ["reassurance", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "eyebrow": "Znasz to?",
+          "title": "Z czym przychodzisz i z czym wychodzisz",
+          "lead": "Większość klientów trafia do nas z podobną sytuacją. Oto jak ją rozwiązujemy.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "problem",
+              "text": "Sprawa stoi w miejscu"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Odkładasz sprawę, bo nie wiesz, od czego zacząć ani komu zaufać. Każda oferta wygląda inaczej, a żadna nie mówi jasno, co dokładnie dostaniesz."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "analiza",
+              "text": "Skąd to się bierze"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Zwykle brakuje jednego: rzetelnego rozpoznania na starcie. Bez niego trudno porównać oferty, za to łatwo zapłacić za coś, czego nie potrzebujesz."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "rozwiazanie",
+              "text": "Jak to rozwiązujemy"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Zaczynamy od rozmowy i oceny Twojej sytuacji. Potem dostajesz jasną propozycję, a o dalszych krokach decydujesz Ty."
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "rozmowa i ocena sytuacji,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "propozycja na piśmie: zakres, termin, koszt,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "realizacja z jedną osobą kontaktową od początku do końca."
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "action": {
+            "label": "Poproś o propozycję",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "problem_solution"
+        },
+        "en": {
+          "eyebrow": "Sound familiar?",
+          "title": "What you come with, and what you leave with",
+          "lead": "Most customers come to us in a similar situation. Here is how we sort it out.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "problem",
+              "text": "Things are stuck"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "You keep putting the job off because you do not know where to start or whom to trust. Every offer looks different, and none of them says clearly what you will actually get."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "analysis",
+              "text": "Why this happens"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "What is usually missing is a proper assessment at the start. Without one, offers are hard to compare – and it is easy to pay for something you do not need."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "solution",
+              "text": "How we solve it"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We start with a conversation and an assessment of your situation. Then you get a clear proposal, and you decide what happens next."
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "a conversation and an assessment"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "a written proposal: scope, timing, cost"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "the work, with one contact person from start to finish"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "action": {
+            "label": "Request a proposal",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "problem_solution"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 3,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 400,
+        "mediaAspectRatio": null
+      },
+      "contentProfiles": ["M"],
+      "readingPattern": "scan",
+      "styleAffinities": ["editorial", "studio", "product", "technical"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page"],
+      "conversion": {
+        "stage": "action",
+        "primaryAction": true
+      }
+    },
+    {
+      "id": "core.rich_text_howto",
+      "version": 1,
+      "blockType": "core.rich_text",
+      "schemaVersion": 3,
+      "layout": "howto",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Poradnik krok po kroku",
+          "description": "Listy numerowane jako duże kroki, lista punktowana jako lista kontrolna, uwagi jako objaśnienia z boku. Najlepiej 3–8 kroków.",
+          "usage": "Układ: poradnik krok po kroku. Przygotowanie do wizyty, instrukcja albo wpis; konwertuje najlepiej, gdy ostatnim krokiem jest kontakt, a przycisk pozwala go wykonać od razu."
+        },
+        "en": {
+          "name": "Step-by-step guide",
+          "description": "Numbered lists as large steps, a bulleted list as a checklist, notes as side explanations. Works best with 3–8 steps.",
+          "usage": "Layout: step-by-step guide. Preparing for a visit, instructions or an entry; converts best when the last step is getting in touch and the button lets readers do it right away."
+        }
+      },
+      "goals": ["explain_process", "answer_questions"],
+      "composition": {
+        "role": "editorial",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact", "reassurance"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "eyebrow": "Poradnik",
+          "title": "Jak przygotować się do pierwszego spotkania",
+          "lead": "Kilka prostych kroków sprawi, że już pierwsza rozmowa przyniesie konkretne odpowiedzi – bez dodatkowych wizyt i dopytywania.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "krok-po-kroku",
+              "text": "Krok po kroku"
+            },
+            {
+              "type": "list",
+              "style": "ordered",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "Opisz sytuację w kilku zdaniach.",
+                      "bold": true
+                    },
+                    {
+                      "text": " Co się dzieje, od kiedy i co już zostało zrobione. Nie musi być elegancko – ważne, żeby było konkretnie."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Zbierz to, co masz pod ręką.",
+                      "bold": true
+                    },
+                    {
+                      "text": " Zdjęcia, dokumenty, wcześniejsze ustalenia albo notatki. Nawet nieuporządkowane bardzo pomagają."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Zapisz swoje pytania.",
+                      "bold": true
+                    },
+                    {
+                      "text": " W trakcie rozmowy łatwo o czymś zapomnieć. Z listą pytań wyjdziesz ze wszystkimi odpowiedziami."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Zdecyduj, co jest dla Ciebie najważniejsze.",
+                      "bold": true
+                    },
+                    {
+                      "text": " Termin, budżet, a może trwałość efektu? Dzięki temu propozycja od razu trafi w Twoje potrzeby."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Umów termin.",
+                      "bold": true
+                    },
+                    {
+                      "text": " Napisz albo zadzwoń – zaproponujemy dogodny dzień i godzinę."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "note",
+              "tone": "tip",
+              "title": "Nie masz wszystkiego?",
+              "content": [
+                {
+                  "text": "Nic nie szkodzi. Przyjdź z tym, co masz – brakujące informacje ustalimy razem."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "lista-kontrolna",
+              "text": "Lista kontrolna przed spotkaniem"
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "krótki opis sytuacji,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "zdjęcia lub dokumenty, jeśli je masz,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "lista pytań,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Twoje priorytety: termin, budżet, efekt,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "[Uzupełnij: co jeszcze warto zabrać na spotkanie w Twojej branży]."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "note",
+              "tone": "info",
+              "title": "Co dalej",
+              "content": [
+                {
+                  "text": "Po spotkaniu dostajesz podsumowanie i propozycję na piśmie. Decyzję podejmujesz w swoim tempie."
+                }
+              ]
+            }
+          ],
+          "action": {
+            "label": "Umów pierwsze spotkanie",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "howto"
+        },
+        "en": {
+          "eyebrow": "Guide",
+          "title": "How to prepare for your first meeting",
+          "lead": "A few simple steps mean even the first conversation gives you clear answers – with no extra visits or back-and-forth.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "step-by-step",
+              "text": "Step by step"
+            },
+            {
+              "type": "list",
+              "style": "ordered",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "Describe the situation in a few sentences.",
+                      "bold": true
+                    },
+                    {
+                      "text": " What is happening, since when and what you have already tried. It does not need to be polished – just specific."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Gather what you have to hand.",
+                      "bold": true
+                    },
+                    {
+                      "text": " Photos, documents, earlier agreements or notes. Even if they are not tidy, they help a lot."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Write down your questions.",
+                      "bold": true
+                    },
+                    {
+                      "text": " It is easy to forget something mid-conversation. With a list, you will leave with every answer."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Decide what matters most to you.",
+                      "bold": true
+                    },
+                    {
+                      "text": " The date, the budget, or how long the result lasts? That way the proposal fits your needs from the start."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Book a date.",
+                      "bold": true
+                    },
+                    {
+                      "text": " Write or call – we will suggest a day and time that suits you."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "note",
+              "tone": "tip",
+              "title": "Missing something?",
+              "content": [
+                {
+                  "text": "No problem. Bring what you have – we will work out the rest together."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "checklist",
+              "text": "Checklist before the meeting"
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "a short description of the situation"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "photos or documents, if you have them"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "your list of questions"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "your priorities: date, budget, result"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "[Fill in: anything else worth bringing in your field]"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "note",
+              "tone": "info",
+              "title": "What happens next",
+              "content": [
+                {
+                  "text": "After the meeting you get a summary and a written proposal. You decide in your own time."
+                }
+              ]
+            }
+          ],
+          "action": {
+            "label": "Book your first meeting",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "howto"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 300,
+        "mediaAspectRatio": null
+      },
+      "contentProfiles": ["M", "L"],
+      "readingPattern": "scan",
+      "styleAffinities": ["technical", "expert", "editorial", "organic"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "objection",
+        "primaryAction": true
+      }
+    },
+    {
+      "id": "core.rich_text_resources",
+      "version": 1,
+      "blockType": "core.rich_text",
+      "schemaVersion": 3,
+      "layout": "resources",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Materiały do pobrania",
+          "description": "Pozycje listy zawierające link jako karty materiałów, ze wstępem nad nimi. Najlepiej 3–8 materiałów z krótkim opisem.",
+          "usage": "Układ: materiały do pobrania. Środek strony lub wpis; konwertuje najlepiej, gdy materiały pomagają podjąć decyzję – cennik, przebieg współpracy, wzór umowy, realizacje. Linkuj tylko do istniejących plików i stron."
+        },
+        "en": {
+          "name": "Resources",
+          "description": "List items that contain a link become resource cards, with an introduction above them. Works best with 3–8 resources, each with a short description.",
+          "usage": "Layout: resources. Page body or an entry; converts best when the materials help people decide – pricing, how we work, a sample contract, past projects. Only link to files and pages that exist."
+        }
+      },
+      "goals": ["build_trust", "navigate"],
+      "composition": {
+        "role": "editorial",
+        "preferredPosition": "body",
+        "recommendedNext": ["reassurance", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "eyebrow": "Materiały",
+          "title": "Wszystko, czego potrzebujesz do decyzji",
+          "lead": "Zebraliśmy w jednym miejscu to, o co klienci pytają najczęściej. Przejrzyj materiały w wolnej chwili.",
+          "content": [
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "Przebieg współpracy krok po kroku",
+                      "bold": true,
+                      "href": "/materialy/przebieg-wspolpracy/"
+                    },
+                    {
+                      "text": " – od pierwszej rozmowy do odbioru, z informacją, co dzieje się na każdym etapie."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Cennik i zasady wyceny",
+                      "bold": true,
+                      "href": "/materialy/cennik/"
+                    },
+                    {
+                      "text": " – [Uzupełnij: aktualny cennik albo opis, od czego zależy koszt]."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Wzór umowy",
+                      "bold": true,
+                      "href": "https://example.com/materialy/wzor-umowy.pdf"
+                    },
+                    {
+                      "text": " – przeczytaj warunki, zanim cokolwiek podpiszesz."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Przykładowe realizacje",
+                      "bold": true,
+                      "href": "/materialy/realizacje/"
+                    },
+                    {
+                      "text": " – [Uzupełnij: opisy prawdziwych realizacji, publikowane za zgodą klientów]."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Lista kontrolna przed spotkaniem",
+                      "bold": true,
+                      "href": "/materialy/lista-kontrolna/"
+                    },
+                    {
+                      "text": " – co przygotować, żeby pierwsza rozmowa była konkretna."
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "layout": "resources"
+        },
+        "en": {
+          "eyebrow": "Resources",
+          "title": "Everything you need to decide",
+          "lead": "We have gathered the things customers ask about most in one place. Browse them whenever suits you.",
+          "content": [
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "How working with us goes, step by step",
+                      "bold": true,
+                      "href": "/resources/how-we-work/"
+                    },
+                    {
+                      "text": " – from the first conversation to the handover, with what happens at each stage."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Prices and how we quote",
+                      "bold": true,
+                      "href": "/resources/pricing/"
+                    },
+                    {
+                      "text": " – [Fill in: your current price list or what the cost depends on]."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Sample contract",
+                      "bold": true,
+                      "href": "https://example.com/resources/sample-contract.pdf"
+                    },
+                    {
+                      "text": " – read the terms before you sign anything."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Past projects",
+                      "bold": true,
+                      "href": "/resources/projects/"
+                    },
+                    {
+                      "text": " – [Fill in: write-ups of real projects, published with your customers' consent]."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Checklist before the meeting",
+                      "bold": true,
+                      "href": "/resources/checklist/"
+                    },
+                    {
+                      "text": " – what to prepare so the first conversation gets straight to the point."
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "layout": "resources"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 200,
+        "mediaAspectRatio": null
+      },
+      "contentProfiles": ["S", "M"],
+      "readingPattern": "reference",
+      "styleAffinities": ["technical", "expert", "product", "editorial"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "proof",
+        "primaryAction": false
+      }
+    },
+    {
+      "id": "core.rich_text_essay_cta",
+      "version": 1,
+      "blockType": "core.rich_text",
+      "schemaVersion": 3,
+      "layout": "essay_cta",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Esej z wezwaniem do działania",
+          "description": "Kolumna eseju z ramką „wnioski” i pasem działania na końcu: przycisk główny i ciche działanie pomocnicze.",
+          "usage": "Układ: esej z wezwaniem do działania. Zakończenie strony lub wpisu; konwertuje najlepiej, gdy tekst prowadzi do jednej decyzji, a ramka zbiera wnioski w 3–4 punktach."
+        },
+        "en": {
+          "name": "Essay with a call to action",
+          "description": "An essay column with a “conclusions” box and an action band at the end: a primary button and a quieter secondary action.",
+          "usage": "Layout: essay with a call to action. The end of a page or an entry; converts best when the text leads to one decision and the box sums up the conclusions in 3–4 points."
+        }
+      },
+      "goals": ["receive_inquiry", "start_conversation"],
+      "composition": {
+        "role": "editorial",
+        "preferredPosition": "end",
+        "recommendedNext": ["contact", "footer"],
+        "repeatable": false
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Dobry wybór nie musi być trudny",
+          "lead": "Porównujesz oferty i trudno ocenić, która jest naprawdę korzystna? Oto, na co warto patrzeć.",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Większość osób, które do nas trafiają, porównała już kilka ofert. Różnią się ceną, terminem i tym, jak wiele obiecują. Na pierwszy rzut oka trudno powiedzieć, która z nich jest najlepsza."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Najdrożej kosztują zwykle niedomówienia: zakres, którego nikt nie zapisał, termin, którego nikt nie potwierdził, koszt, który „jakoś się wyjaśni”. Właśnie dlatego zaczynamy od rozmowy i propozycji na piśmie."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Wiesz, na co się umawiasz, zanim cokolwiek zapłacisz. A jeśli uznamy, że ktoś inny pomoże Ci lepiej, powiemy to wprost."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Nie musisz decydować od razu. Wystarczy, że opiszesz swoją sytuację – odpowiemy, co proponujemy i ile to potrwa."
+                }
+              ]
+            }
+          ],
+          "aside": {
+            "title": "Wnioski",
+            "content": [
+              {
+                "type": "list",
+                "style": "bullet",
+                "items": [
+                  {
+                    "content": [
+                      {
+                        "text": "Porównuj zakres, nie tylko cenę."
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "Proś o propozycję na piśmie."
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "Pytaj, co się stanie, gdy coś się zmieni."
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "action": {
+            "label": "Zapytaj o termin i wycenę",
+            "href": "mailto:kontakt@example.com"
+          },
+          "secondaryAction": {
+            "label": "Wolisz rozmowę? Zadzwoń",
+            "href": "tel:+48000000000"
+          },
+          "layout": "essay_cta"
+        },
+        "en": {
+          "title": "A good choice does not have to be a hard one",
+          "lead": "Comparing offers and finding it hard to tell which one is really worth it? Here is what to look at.",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Most people who come to us have already compared a few offers. They differ in price, in timing and in how much they promise. At first glance it is hard to say which is best."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "What usually costs the most is what was never said: a scope nobody wrote down, a date nobody confirmed, a cost that would “sort itself out”. That is exactly why we start with a conversation and a written proposal."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "You know what you are agreeing to before you pay anything. And if we think someone else could help you better, we will tell you so."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "You do not have to decide right away. Just describe your situation – we will tell you what we suggest and how long it will take."
+                }
+              ]
+            }
+          ],
+          "aside": {
+            "title": "Conclusions",
+            "content": [
+              {
+                "type": "list",
+                "style": "bullet",
+                "items": [
+                  {
+                    "content": [
+                      {
+                        "text": "Compare the scope, not just the price."
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "Ask for a written proposal."
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "Ask what happens if something changes."
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "action": {
+            "label": "Get a date and a quote",
+            "href": "mailto:hello@example.com"
+          },
+          "secondaryAction": {
+            "label": "Prefer to talk? Call us",
+            "href": "tel:+48000000000"
+          },
+          "layout": "essay_cta"
+        }
+      },
+      "contentProfiles": ["M", "L"],
+      "readingPattern": "linear",
+      "styleAffinities": ["editorial", "premium", "expert", "organic"],
+      "supportedWidths": ["narrow", "standard"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "action",
+        "primaryAction": true
+      }
     }
   ]
 }

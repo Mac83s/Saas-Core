@@ -238,6 +238,11 @@ odpowiada kolejności czytania; układ zmienia tylko rozmieszczenie.
 | `resources` | pozycje list zawierające link jako karty materiałów, wstęp nad nimi | proof |
 | `essay_cta` | kolumna eseju, `aside` jako ramka „wnioski”, na końcu pas z głównym i cichym działaniem | action |
 
+Jedyny wyjątek od kolejności danych: w `alternating_chapters` ilustracje
+rozdziału stoją w DOM przy śródtytule (czytanie: śródtytuł → ilustracja →
+tekst, tak jak na ekranie). Karta autora i cytat pokazują inicjały tylko z
+prawdziwego imienia; imię z miejscem `[Uzupełnij: …]` daje neutralny znak.
+
 Razem z `column`, `split_intro`, `facts_panel` i `chapters` to 20 układów
 rodziny redakcyjnej. Seedy katalogu mówią językiem korzyści klienta; dowody
 (opinie, liczby, realizacje) są miejscami `[Uzupełnij: …]` (EN `[Fill in: …]`),

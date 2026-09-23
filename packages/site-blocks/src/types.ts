@@ -163,8 +163,14 @@ export type RichTextV3Layout =
   | "resources"
   | "essay_cta";
 
-export type RichTextV3Data = Omit<RichTextV2Data, "layout"> & {
+/** Spelled out: `Omit` over JsonObject's index signature would erase the
+ *  named v2 fields. */
+export type RichTextV3Data = JsonObject & {
   layout?: RichTextV3Layout;
+  title?: string;
+  lead?: string;
+  content: RichTextNode[];
+  aside?: RichTextV2Data["aside"];
   eyebrow?: string;
   image?: { asset_id: string; alt: string; caption?: string };
   author?: {

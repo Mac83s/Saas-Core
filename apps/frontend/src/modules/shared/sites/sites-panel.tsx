@@ -376,7 +376,7 @@ export function SitesPanel({
   const heading = (
     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
       <div>
-        <p className="text-sm font-medium text-primary">{t("eyebrow")}</p>
+        <p className="text-sm font-medium text-primary">{t("panelEyebrow")}</p>
         <h1
           className="text-3xl font-semibold tracking-tight"
           id="sites-heading"
