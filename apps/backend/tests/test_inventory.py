@@ -264,7 +264,8 @@ def test_work_never_stops_for_a_stock_level_and_one_source_is_one_document() -> 
         )
         assert first is not None and again is not None
         assert (first.id, first.kind, first.status) == (again.id, "RW", "posted")
-        assert holder_stock(owner.organization_id, trimmer.id) == {block.id: Decimal(-2)}
+        (held,) = holder_stock(owner.organization_id, trimmer.id)
+        assert (held["item_id"], held["quantity"]) == (block.id, Decimal(-2))
 
 
 def test_a_cancelled_source_gives_the_material_back_once() -> None:
@@ -294,7 +295,8 @@ def test_a_cancelled_source_gives_the_material_back_once() -> None:
                 source_reference="wpis-1",
             )
         # Powtórka cofnięcia nie oddaje drugi raz, a cudzego wpisu nie rusza.
-        assert holder_stock(owner.organization_id, trimmer.id) == {block.id: Decimal(-1)}
+        (held,) = holder_stock(owner.organization_id, trimmer.id)
+        assert (held["item_id"], held["quantity"]) == (block.id, Decimal(-1))
 
 
 def test_a_reservation_holds_stock_until_released() -> None:

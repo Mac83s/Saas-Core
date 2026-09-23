@@ -835,14 +835,25 @@ def _move(
 # --- operacje dla innych modułów (przez api.py) -----------------------------------------
 
 
-def holder_stock(organization_id: UUID, holder_id: UUID) -> dict[UUID, Decimal]:
-    """Ile czego ma przy sobie ten człowiek. Bramkę sprawdził już wołający."""
-    return {
-        balance.item_id: Decimal(balance.quantity)
+def holder_stock(organization_id: UUID, holder_id: UUID) -> list[dict[str, Any]]:
+    """Co ten człowiek ma przy sobie, pozycja po pozycji.
+
+    Bramkę sprawdził już wołający (ekran pracy w terenie pyta o zapas osoby,
+    która właśnie pracuje). Kategoria to jej klucz — po nim produkt rozpoznaje
+    swoje pozycje.
+    """
+    return [
+        {
+            "item_id": balance.item_id,
+            "name": balance.item.name,
+            "category": balance.item.category.key if balance.item.category else "",
+            "unit": balance.item.unit,
+            "quantity": Decimal(balance.quantity),
+        }
         for balance in InventoryBalance.all_objects.filter(
             organization_id=organization_id, location__holder_id=holder_id
-        )
-    }
+        ).select_related("item", "item__category")
+    ]
 
 
 def available(organization_id: UUID, item_id: UUID, location_id: UUID) -> Decimal:
