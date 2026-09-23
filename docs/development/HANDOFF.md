@@ -15,7 +15,7 @@ i git; zamknięte pozycje z dawnego dziennika zostały pominięte.
 | Plan | O czym | Gdzie jesteśmy |
 | --- | --- | --- |
 | `saas-core-panel-i-katalog-listy-wizytowka-historia-wyszukiwarka` | standard list panelu, wizytówka, historia zmian, limit podstron, wyszukiwarka katalogu | fazy 1–4 zrobione (DataTable, przełącznik wizytówki, historia zmian, limit podstron); dalej magazyn v2, potem Meilisearch |
-| `magazyn-materia-o-w-od-pakietu-korektora-do-kare` | uniwersalny magazyn firm (`shared.inventory` v2, ADR-055): dokumenty, miejsca, rezerwacje, rezerwacje stanu przy wizytach, przyszły sklep | fazy 4, 5 i 8 zrobione 23.09 (rdzeń v2, HoofCare przepięty, panel na DataTable, włączony wszędzie); dalej magazyn w rezerwacjach, przygotowanie do wizyty |
+| `magazyn-materia-o-w-od-pakietu-korektora-do-kare` | uniwersalny magazyn firm (`shared.inventory` v2, ADR-055): dokumenty, miejsca, rezerwacje, rezerwacje stanu przy wizytach, przyszły sklep | fazy 4, 5, 6 i 8 zrobione 23–24.09 (rdzeń v2, HoofCare przepięty, panel na DataTable, włączony wszędzie, produkty przy wizycie); dalej przygotowanie do wizyty i alert małego stanu w HoofCare |
 | `saas-core-site-studio-templates`, `saas-core-site-studio-rich-content-and-full-width` | Site Studio: szablony, warianty, bogata treść | bogata treść, pełna szerokość, wygląd strony i 3 strony demonstracyjne scalone i wdrożone 23.09 (saas, a wieczorem też HoofCare i MedPlano) (`docs/architecture/site-rich-content.md`, raport `2026-09-23-rich-content`); faza 3a (20 układów redakcyjnych pod konwersję, `core.rich_text` v3, katalog v6, ostrzeżenie o miejscach `[Uzupełnij: …]`) i 3b (8 stylów strony, kotwice sekcji i przyciski „do formularza”, 9 recept stron v5 z celem i ścieżką konwersji, 8 dawnych szablonów wycofanych z galerii) scalone 23.09; dalej edytor WYSIWYG (etap 2b) |
 | `domkna-c-saas-core-po-audycie-realna-kompozycja-` | baza P0–P3 po audycie | treść w `Plan/Wdrozenie/13-…` |
 
@@ -98,11 +98,10 @@ magazyn 9–10 → pozostałe listy na DataTable.
 - **Listy na DataTable:** zespół, historia i magazyn; własne tabele nadal w
   `farms-panel`, `animals-panel`, `farm-detail`, `seo/audits-panel`,
   `seo/gsc-panel`.
-- **Magazyn v2 (ADR-055):** włączony we wszystkich profilach i planach (od
-  23.09); rezerwacje stanu mają API, ale żaden moduł ich jeszcze nie woła
-  (faza 6); brak wydruku dokumentów (PDF później), partii, alertów i
-  raportów. Nagłówek panelu ma tekst pod HoofCare. Skróty panelu (przyjęcie, wydanie, zwrot)
-  tworzą od razu zatwierdzone PZ i MM.
+- **Magazyn v2 (ADR-055):** włączony we wszystkich profilach i planach;
+  wizyty rezerwują i zdejmują produkty zawsze z magazynu głównego (bez zapasu
+  osoby i innych magazynów); zakończonej wizyty nie cofa się w kalendarzu; brak
+  wydruku dokumentów (PDF później), partii, alertów i raportów.
 - **Wyszukiwarka panelu** z makiety — brak API i UI; **warianty kolorów
   produktów** (5 od właściciela) — brak.
 - **Integracja SEO na instancjach (plan 14:74-91, 205):** osiem przepływów na
