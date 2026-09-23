@@ -20,6 +20,10 @@ import { SelfServiceBooking } from "./self-service-booking";
 
 const api = vi.hoisted(() => ({
   cancelBookingAppointment: vi.fn(),
+  completeBookingAppointment: vi.fn(),
+  listInventoryBalances: vi.fn(),
+  listInventoryItems: vi.fn(),
+  setBookingAppointmentMaterials: vi.fn(),
   createBookingAppointment: vi.fn(),
   createPublicBookingAppointment: vi.fn(),
   getBookingCatalog: vi.fn(),
@@ -271,6 +275,79 @@ test("an appointment opens its details and is canceled only after confirmation",
   await waitFor(() =>
     expect(api.listBookingAppointments).toHaveBeenCalledTimes(2),
   );
+});
+
+test("a visit's products can change until it is completed, which takes them off the shelf", async () => {
+  const OIL = "77777777-7777-4777-8777-777777777777";
+  const oil = {
+    item_id: OIL,
+    name: "Oil",
+    unit: "piece",
+    quantity: "2.000",
+    mode: "sale",
+    unit_price_minor: 4000,
+    currency: "PLN",
+  };
+  api.listBookingAppointments.mockResolvedValue([
+    { ...appointment, materials: [oil] },
+    completed,
+  ]);
+  api.listInventoryItems.mockResolvedValue([
+    { id: OIL, name: "Oil", active: true },
+  ]);
+  api.listInventoryBalances.mockResolvedValue([
+    { item_id: OIL, available: "1.000" },
+  ]);
+  api.setBookingAppointmentMaterials.mockImplementation(
+    (_id: string, materials: { quantity: string }[]) =>
+      Promise.resolve({
+        ...appointment,
+        materials: [{ ...oil, quantity: materials[0].quantity }],
+      }),
+  );
+  api.completeBookingAppointment.mockResolvedValue({
+    ...appointment,
+    status: "completed",
+    materials: [oil],
+  });
+  renderCalendar({ canUseInventory: true });
+  fireEvent.click(await screen.findByRole("button", { name: /Jan Kowalski/ }));
+  const details = await screen.findByRole("dialog", { name: "Jan Kowalski" });
+  expect(within(details).getByText(/Sales total/)).not.toBeNull();
+
+  fireEvent.click(
+    within(details).getByRole("button", { name: "Change products" }),
+  );
+  const quantity = await within(details).findByLabelText("Quantity");
+  // Its own reservation (2) plus the free stock (1): three fit, four do not.
+  fireEvent.change(quantity, { target: { value: "4" } });
+  expect(within(details).getByText(/Only 3 free in stock/)).not.toBeNull();
+  fireEvent.click(
+    within(details).getByRole("button", { name: "Save products" }),
+  );
+  expect(
+    await within(details).findByText("Visit products saved."),
+  ).not.toBeNull();
+  expect(api.setBookingAppointmentMaterials).toHaveBeenCalledWith(
+    appointment.id,
+    [{ item_id: OIL, quantity: "4", mode: "sale" }],
+  );
+
+  fireEvent.click(
+    within(details).getByRole("button", { name: "Complete the visit" }),
+  );
+  expect(
+    await within(details).findByText(
+      "Visit completed. Its products left the warehouse.",
+    ),
+  ).not.toBeNull();
+  expect(api.completeBookingAppointment).toHaveBeenCalledWith(
+    appointment.id,
+    expect.stringMatching(/^[0-9a-f-]{36}$/),
+  );
+  expect(
+    within(details).queryByRole("button", { name: "Change products" }),
+  ).toBeNull();
 });
 
 test("a new appointment takes a free time and says when one is taken", async () => {

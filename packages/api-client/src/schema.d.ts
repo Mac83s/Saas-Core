@@ -421,6 +421,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/booking/appointments/{appointment_id}/complete/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Wizyta się odbyła: produkty schodzą z magazynu (RW, WZ). */
+        post: operations["api_v1_booking_appointments_complete_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/appointments/{appointment_id}/materials/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Produkty jednej wizyty; rezerwacja stanu idzie za nimi. */
+        put: operations["api_v1_booking_appointments_materials_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/booking/appointments/{appointment_id}/reschedule/": {
         parameters: {
             query?: never;
@@ -447,6 +481,23 @@ export interface paths {
         get: operations["api_v1_booking_catalog_retrieve"];
         put?: never;
         post: operations["api_v1_booking_catalog_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/catalog/services/{service_id}/materials/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Produkty, które zabiera każda wizyta tej usługi. */
+        put: operations["api_v1_booking_catalog_services_materials_update"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3203,6 +3254,7 @@ export interface components {
             staff_membership_id: string | null;
             location_name: string;
             resource_name: string | null;
+            materials?: components["schemas"]["MaterialLine"][];
             self_service_token?: string | null;
         };
         AppointmentCreate: {
@@ -3217,6 +3269,7 @@ export interface components {
             /** Format: date-time */
             starts_at: string;
             customer: components["schemas"]["CustomerInput"];
+            materials?: components["schemas"]["MaterialInput"][];
         };
         AppointmentList: {
             items: components["schemas"]["Appointment"][];
@@ -4512,6 +4565,28 @@ export interface components {
             email: string;
             password: string;
         };
+        /** @description Produkt z magazynu przy usłudze albo wizycie (ADR-055). */
+        MaterialInput: {
+            /** Format: uuid */
+            item_id: string;
+            /** Format: decimal */
+            quantity: string;
+            /** @default consume */
+            mode: components["schemas"]["ModeEnum"];
+        };
+        MaterialLine: {
+            /** Format: uuid */
+            item_id: string;
+            name: string;
+            unit: string;
+            quantity: string;
+            mode: components["schemas"]["ModeEnum"];
+            unit_price_minor: number | null;
+            currency: string;
+        };
+        MaterialsInput: {
+            materials: components["schemas"]["MaterialInput"][];
+        };
         MediaAsset: {
             /** Format: uuid */
             id: string;
@@ -4588,6 +4663,12 @@ export interface components {
         MfaCode: {
             code: string;
         };
+        /**
+         * @description * `consume` - consume
+         *     * `sale` - sale
+         * @enum {string}
+         */
+        ModeEnum: "consume" | "sale";
         NavigationItem: {
             /** Format: uuid */
             page_id: string;
@@ -5227,6 +5308,7 @@ export interface components {
             public_slug: string;
             duration_minutes: number;
             appointment_kind: string;
+            materials?: components["schemas"]["MaterialInput"][];
         };
         SessionSummary: {
             /** Format: uuid */
@@ -6943,6 +7025,56 @@ export interface operations {
             };
         };
     };
+    api_v1_booking_appointments_complete_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                appointment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+        };
+    };
+    api_v1_booking_appointments_materials_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                appointment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MaterialsInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["MaterialsInput"];
+                "multipart/form-data": components["schemas"]["MaterialsInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+        };
+    };
     api_v1_booking_appointments_reschedule_create: {
         parameters: {
             query?: never;
@@ -7022,6 +7154,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_booking_catalog_services_materials_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                service_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MaterialsInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["MaterialsInput"];
+                "multipart/form-data": components["schemas"]["MaterialsInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaterialsInput"];
                 };
             };
         };

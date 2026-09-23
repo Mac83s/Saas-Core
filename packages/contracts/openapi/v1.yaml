@@ -1008,6 +1008,67 @@ paths:
               schema:
                 $ref: '#/components/schemas/Appointment'
           description: ''
+  /api/v1/booking/appointments/{appointment_id}/complete/:
+    post:
+      operationId: api_v1_booking_appointments_complete_create
+      description: 'Wizyta się odbyła: produkty schodzą z magazynu (RW, WZ).'
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: appointment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+          description: ''
+  /api/v1/booking/appointments/{appointment_id}/materials/:
+    put:
+      operationId: api_v1_booking_appointments_materials_update
+      description: Produkty jednej wizyty; rezerwacja stanu idzie za nimi.
+      parameters:
+      - in: path
+        name: appointment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MaterialsInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MaterialsInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MaterialsInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+          description: ''
   /api/v1/booking/appointments/{appointment_id}/reschedule/:
     post:
       operationId: api_v1_booking_appointments_reschedule_create
@@ -1091,6 +1152,40 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/catalog/services/{service_id}/materials/:
+    put:
+      operationId: api_v1_booking_catalog_services_materials_update
+      description: Produkty, które zabiera każda wizyta tej usługi.
+      parameters:
+      - in: path
+        name: service_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MaterialsInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MaterialsInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MaterialsInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaterialsInput'
           description: ''
   /api/v1/booking/catalog/staff/{staff_id}/:
     patch:
@@ -9641,6 +9736,10 @@ components:
           type:
           - string
           - 'null'
+        materials:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaterialLine'
         self_service_token:
           type:
           - string
@@ -9680,6 +9779,10 @@ components:
           format: date-time
         customer:
           $ref: '#/components/schemas/CustomerInput'
+        materials:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaterialInput'
       required:
       - customer
       - location_id
@@ -12956,6 +13059,61 @@ components:
       required:
       - email
       - password
+    MaterialInput:
+      type: object
+      description: Produkt z magazynu przy usłudze albo wizycie (ADR-055).
+      properties:
+        item_id:
+          type: string
+          format: uuid
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+        mode:
+          allOf:
+          - $ref: '#/components/schemas/ModeEnum'
+          default: consume
+      required:
+      - item_id
+      - quantity
+    MaterialLine:
+      type: object
+      properties:
+        item_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        unit:
+          type: string
+        quantity:
+          type: string
+        mode:
+          $ref: '#/components/schemas/ModeEnum'
+        unit_price_minor:
+          type:
+          - integer
+          - 'null'
+        currency:
+          type: string
+      required:
+      - currency
+      - item_id
+      - mode
+      - name
+      - quantity
+      - unit
+      - unit_price_minor
+    MaterialsInput:
+      type: object
+      properties:
+        materials:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaterialInput'
+      required:
+      - materials
     MediaAsset:
       type: object
       properties:
@@ -13130,6 +13288,14 @@ components:
           minLength: 6
       required:
       - code
+    ModeEnum:
+      enum:
+      - consume
+      - sale
+      type: string
+      description: |-
+        * `consume` - consume
+        * `sale` - sale
     NavigationItem:
       type: object
       properties:
@@ -14684,6 +14850,10 @@ components:
           type: integer
         appointment_kind:
           type: string
+        materials:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaterialInput'
       required:
       - appointment_kind
       - duration_minutes

@@ -161,6 +161,7 @@
       "booking_appointment_rescheduled": "Zmieniono termin rezerwacji",
       "booking_appointment_canceled": "Odwołano rezerwację",
       "booking_appointment_completed": "Zakończono wizytę",
+      "booking_appointment_materials_changed": "Zmieniono produkty wizyty",
       "booking_customer_anonymized": "Zanonimizowano klienta",
       "profile_created": "Utworzono wizytówkę",
       "profile_updated": "Zmieniono wizytówkę",
@@ -1636,7 +1637,11 @@
     "slotBusy": "Ten termin jest zajęty albo poza grafikiem. Wolne obok:",
     "freeTimes": "Wolne terminy tego dnia:",
     "noFreeDay": "Tego dnia nie ma wolnych terminów. Najbliższy wolny:",
-    "noFreeWeek": "W ciągu 7 dni nie ma wolnych terminów. Sprawdź grafik w ustawieniach usług."
+    "noFreeWeek": "W ciągu 7 dni nie ma wolnych terminów. Sprawdź grafik w ustawieniach usług.",
+    "complete": "Zakończ wizytę",
+    "completed": "Wizyta zakończona. Produkty zeszły z magazynu.",
+    "completeError": "Nie udało się zakończyć wizyty.",
+    "materialsSaved": "Zapisano produkty wizyty."
   },
   "PublicBooking": {
     "title": "Umów termin",
@@ -1683,6 +1688,31 @@
     "minutes": "{count} min",
     "saveError": "Nie udało się zapisać. Spróbuj ponownie.",
     "incomplete": "Uzupełnij wymagane pola formularza."
+  },
+  "BookingMaterials": {
+    "title": "Produkty z magazynu",
+    "newDescription": "Podpowiadamy produkty z usługi; możesz je zmienić. Stan rezerwuje się od razu, schodzi przy zakończeniu wizyty.",
+    "serviceTitle": "Produkty w usługach",
+    "serviceDescription": "Co każda wizyta tej usługi zabiera z magazynu głównego. Zużycie idzie na koszt firmy, sprzedaż dolicza się klientowi.",
+    "service": "Usługa",
+    "item": "Produkt",
+    "pickItem": "Wybierz produkt",
+    "quantity": "Ilość",
+    "mode": "Rozliczenie",
+    "consume": "Zużycie",
+    "sale": "Sprzedaż klientowi",
+    "remove": "Usuń produkt",
+    "add": "Dodaj produkt",
+    "short": "Na stanie wolne tylko {available} — zapiszemy, ale zabraknie.",
+    "loading": "Wczytuję magazyn…",
+    "noItems": "Magazyn nie ma jeszcze pozycji — dodaj je w Magazyn › Katalog.",
+    "none": "Bez produktów.",
+    "salesTotal": "Sprzedaż razem: {total} netto",
+    "edit": "Zmień produkty",
+    "save": "Zapisz produkty",
+    "cancelEdit": "Anuluj",
+    "saved": "Zapisano produkty usługi.",
+    "failed": "Nie udało się zapisać produktów."
   },
   "BookingSelfService": {
     "title": "Zarządzaj rezerwacją",
@@ -2408,9 +2438,9 @@
     "failed": "Nie udało się wysłać zdjęcia."
   },
   "Inventory": {
-    "eyebrow": "Magazyn",
+    "eyebrow": "Towary i materiały",
     "title": "Magazyn",
-    "description": "Co firma ma na stanie, co przyszło i wyszło, i z czym ludzie wyjeżdżają w teren.",
+    "description": "Co firma ma na stanie, co przyszło, co wyszło i co ludzie mają przy sobie.",
     "noAccessTitle": "Brak dostępu do magazynu",
     "noAccess": "Magazyn widzą osoby z dostępem do niego. Jeśli go potrzebujesz, poproś właściciela.",
     "loading": "Wczytuję magazyn…",

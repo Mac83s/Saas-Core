@@ -26,9 +26,11 @@ import {
 import {
   ApiProblemError,
   cancelBookingAppointment,
+  completeBookingAppointment,
   createBookingAppointment,
   getBookingSlots,
   rescheduleBookingAppointment,
+  setBookingAppointmentMaterials,
   type BookingAppointment,
   type BookingCatalog,
   type BookingSlotList,
@@ -64,6 +66,14 @@ import {
   wallClock,
   zonedInstant,
 } from "./calendar-time";
+import {
+  draftsOf,
+  materialsInput,
+  MaterialsEditor,
+  MaterialsList,
+  useWarehouse,
+  type MaterialDraft,
+} from "./materials-editor";
 
 type Slot = BookingSlotList["items"][number];
 type Translate = ReturnType<typeof useTranslations>;
@@ -310,6 +320,7 @@ type NewValues = {
 };
 
 export function NewAppointmentDialog({
+  canUseInventory = false,
   catalog,
   day,
   onCreated,
@@ -318,6 +329,7 @@ export function NewAppointmentDialog({
   restoreFocus,
   zone,
 }: {
+  canUseInventory?: boolean;
   catalog: BookingCatalog;
   /** The day the calendar shows; the form starts there unless it is past. */
   day: string;
@@ -341,6 +353,7 @@ export function NewAppointmentDialog({
           <DialogDescription>{t("createDescription")}</DialogDescription>
         </DialogHeader>
         <NewAppointmentForm
+          canUseInventory={canUseInventory}
           catalog={catalog}
           day={day}
           onCreated={onCreated}
@@ -352,11 +365,13 @@ export function NewAppointmentDialog({
 }
 
 function NewAppointmentForm({
+  canUseInventory,
   catalog,
   day,
   onCreated,
   zone,
 }: {
+  canUseInventory: boolean;
   catalog: BookingCatalog;
   day: string;
   onCreated: (appointment: BookingAppointment) => void;
@@ -410,6 +425,13 @@ function NewAppointmentForm({
     name: ["service_id", "location_id", "staff_id", "date", "time"],
   });
   const search = useFreeSlots(serviceId, locationId, date, version);
+  const materials = useTranslations("BookingMaterials");
+  const warehouse = useWarehouse(canUseInventory);
+  // The service's products until somebody edits them; then exactly what they typed.
+  const [edited, setEdited] = useState<MaterialDraft[]>();
+  const drafts =
+    edited ??
+    draftsOf(catalog.services.find((one) => one.id === serviceId)?.materials);
   const slots = search.slots?.filter(
     (slot) => !staffId || slot.staff_id === staffId,
   );
@@ -447,6 +469,7 @@ function NewAppointmentForm({
               phone: values.phone.trim(),
               locale: locale === "en" ? "en" : "pl",
             },
+            ...(edited ? { materials: materialsInput(edited) } : {}),
           },
           idempotencyKey,
         ),
@@ -600,6 +623,18 @@ function NewAppointmentForm({
         </div>
         <FieldDescription>{t("contactHint")}</FieldDescription>
       </FieldSet>
+      {canUseInventory ? (
+        <FieldSet>
+          <FieldLegend>{materials("title")}</FieldLegend>
+          <FieldDescription>{materials("newDescription")}</FieldDescription>
+          <MaterialsEditor
+            drafts={drafts}
+            idPrefix="appointment-materials"
+            onChange={setEdited}
+            warehouse={warehouse}
+          />
+        </FieldSet>
+      ) : null}
       {problem ? (
         <p className="text-sm text-destructive" role="alert">
           {problem}
@@ -621,6 +656,7 @@ function NewAppointmentForm({
 export function AppointmentDialog({
   appointment,
   canManage,
+  canUseInventory = false,
   catalog,
   onChanged,
   onOpenChange,
@@ -630,6 +666,7 @@ export function AppointmentDialog({
 }: {
   appointment?: BookingAppointment;
   canManage: boolean;
+  canUseInventory?: boolean;
   catalog?: BookingCatalog;
   onChanged: (appointment: BookingAppointment) => void;
   onOpenChange: (open: boolean) => void;
@@ -649,6 +686,7 @@ export function AppointmentDialog({
           <AppointmentDetails
             appointment={appointment}
             canManage={canManage}
+            canUseInventory={canUseInventory}
             catalog={catalog}
             key={appointment.id}
             onChanged={onChanged}
@@ -663,12 +701,14 @@ export function AppointmentDialog({
 function AppointmentDetails({
   appointment,
   canManage,
+  canUseInventory,
   catalog,
   onChanged,
   zone,
 }: {
   appointment: BookingAppointment;
   canManage: boolean;
+  canUseInventory: boolean;
   catalog?: BookingCatalog;
   onChanged: (appointment: BookingAppointment) => void;
   zone: string;
@@ -705,11 +745,30 @@ function AppointmentDetails({
           </Fragment>
         ))}
       </dl>
+      {appointment.materials?.length || (canUseInventory && canManage) ? (
+        <VisitMaterials
+          appointment={appointment}
+          editable={
+            canManage && canUseInventory && appointment.status === "confirmed"
+          }
+          onChanged={(updated) => {
+            setNotice(t("materialsSaved"));
+            onChanged(updated);
+          }}
+        />
+      ) : null}
       <p className="text-sm text-success-foreground" role="status">
         {notice}
       </p>
       {canManage && catalog && appointment.status === "confirmed" ? (
         <DialogFooter>
+          <CompleteButton
+            appointment={appointment}
+            onDone={(updated) => {
+              setNotice(t("completed"));
+              onChanged(updated);
+            }}
+          />
           <RescheduleDialog
             appointment={appointment}
             catalog={catalog}
@@ -731,6 +790,152 @@ function AppointmentDetails({
             when={when}
           />
         </DialogFooter>
+      ) : null}
+    </>
+  );
+}
+
+/** The visit's products; while it is confirmed they can still change. */
+function VisitMaterials({
+  appointment,
+  editable,
+  onChanged,
+}: {
+  appointment: BookingAppointment;
+  editable: boolean;
+  onChanged: (appointment: BookingAppointment) => void;
+}) {
+  const t = useTranslations("BookingMaterials");
+  const lines = appointment.materials ?? [];
+  const [drafts, setDrafts] = useState<MaterialDraft[]>();
+  const warehouse = useWarehouse(drafts !== undefined);
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState("");
+  // What this visit already reserved counts as its own, not as a shortage.
+  const held: Record<string, number> = {};
+  for (const line of lines)
+    held[line.item_id] = (held[line.item_id] ?? 0) + Number(line.quantity);
+
+  async function save(next: MaterialDraft[]) {
+    setBusy(true);
+    setProblem("");
+    try {
+      onChanged(
+        await setBookingAppointmentMaterials(
+          appointment.id,
+          materialsInput(next),
+        ),
+      );
+      setDrafts(undefined);
+    } catch (error) {
+      setProblem(
+        error instanceof ApiProblemError ? error.message : t("failed"),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section
+      aria-labelledby={`materials-${appointment.id}`}
+      className="space-y-2"
+    >
+      <h3 className="text-sm font-medium" id={`materials-${appointment.id}`}>
+        {t("title")}
+      </h3>
+      {drafts === undefined ? (
+        <>
+          <MaterialsList lines={lines} />
+          {editable ? (
+            <Button
+              onClick={() => setDrafts(draftsOf(lines))}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              {t("edit")}
+            </Button>
+          ) : null}
+        </>
+      ) : (
+        <>
+          <MaterialsEditor
+            drafts={drafts}
+            held={held}
+            idPrefix={`visit-materials-${appointment.id}`}
+            onChange={setDrafts}
+            warehouse={warehouse}
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button
+              disabled={busy}
+              onClick={() => void save(drafts)}
+              size="sm"
+              type="button"
+            >
+              {t("save")}
+            </Button>
+            <Button
+              onClick={() => setDrafts(undefined)}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              {t("cancelEdit")}
+            </Button>
+          </div>
+        </>
+      )}
+      {problem ? (
+        <p className="text-sm text-destructive" role="alert">
+          {problem}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+/** The visit took place: its products leave the warehouse. */
+function CompleteButton({
+  appointment,
+  onDone,
+}: {
+  appointment: BookingAppointment;
+  onDone: (appointment: BookingAppointment) => void;
+}) {
+  const t = useTranslations("Calendar");
+  // One key per visit on screen: a retry after a lost answer completes it once.
+  const idempotencyKey = useRef(crypto.randomUUID());
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState("");
+
+  async function complete() {
+    setBusy(true);
+    setProblem("");
+    try {
+      onDone(
+        await completeBookingAppointment(
+          appointment.id,
+          idempotencyKey.current,
+        ),
+      );
+    } catch (error) {
+      setProblem(problemText(error, t, "completeError"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <Button disabled={busy} onClick={() => void complete()} type="button">
+        {t("complete")}
+      </Button>
+      {problem ? (
+        <p className="text-sm text-destructive" role="alert">
+          {problem}
+        </p>
       ) : null}
     </>
   );

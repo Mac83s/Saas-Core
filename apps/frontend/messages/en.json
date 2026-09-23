@@ -161,6 +161,7 @@
       "booking_appointment_rescheduled": "Appointment rescheduled",
       "booking_appointment_canceled": "Appointment canceled",
       "booking_appointment_completed": "Appointment completed",
+      "booking_appointment_materials_changed": "Visit products changed",
       "booking_customer_anonymized": "Customer anonymized",
       "profile_created": "Business card created",
       "profile_updated": "Business card changed",
@@ -1636,7 +1637,11 @@
     "slotBusy": "This time is taken or outside working hours. Free nearby:",
     "freeTimes": "Free times on this day:",
     "noFreeDay": "There are no free times on this day. Next free time:",
-    "noFreeWeek": "There are no free times in the next 7 days. Check the schedule in the services settings."
+    "noFreeWeek": "There are no free times in the next 7 days. Check the schedule in the services settings.",
+    "complete": "Complete the visit",
+    "completed": "Visit completed. Its products left the warehouse.",
+    "completeError": "The visit could not be completed.",
+    "materialsSaved": "Visit products saved."
   },
   "PublicBooking": {
     "title": "Book a time",
@@ -1683,6 +1688,31 @@
     "minutes": "{count} min",
     "saveError": "Could not save. Try again.",
     "incomplete": "Fill in the form's required fields."
+  },
+  "BookingMaterials": {
+    "title": "Products from the warehouse",
+    "newDescription": "Suggested from the service; you can change them. Stock is reserved now and leaves when the visit is completed.",
+    "serviceTitle": "Products in services",
+    "serviceDescription": "What every visit of this service takes from the main warehouse. Usage is the company's cost, a sale is charged to the customer.",
+    "service": "Service",
+    "item": "Product",
+    "pickItem": "Choose a product",
+    "quantity": "Quantity",
+    "mode": "Accounted as",
+    "consume": "Usage",
+    "sale": "Sold to the customer",
+    "remove": "Remove the product",
+    "add": "Add a product",
+    "short": "Only {available} free in stock — it will save, but it will run short.",
+    "loading": "Loading the warehouse…",
+    "noItems": "The warehouse has no items yet — add them in Inventory › Catalogue.",
+    "none": "No products.",
+    "salesTotal": "Sales total: {total} net",
+    "edit": "Change products",
+    "save": "Save products",
+    "cancelEdit": "Cancel",
+    "saved": "Service products saved.",
+    "failed": "The products could not be saved."
   },
   "BookingSelfService": {
     "title": "Manage booking",
@@ -2408,9 +2438,9 @@
     "failed": "The photo did not go through."
   },
   "Inventory": {
-    "eyebrow": "Inventory",
+    "eyebrow": "Goods and materials",
     "title": "Inventory",
-    "description": "What the company holds, what came in and went out, and what people take into the field.",
+    "description": "What the company holds, what came in and went out, and what people carry.",
     "noAccessTitle": "No access to the inventory",
     "noAccess": "The inventory is for people with access to it. Ask the owner if you need it.",
     "loading": "Loading the inventory…",

@@ -57,6 +57,30 @@ class CustomerInputSerializer(serializers.Serializer[dict[str, Any]]):
     locale = serializers.ChoiceField(choices=("pl", "en"), default="pl")
 
 
+class MaterialInputSerializer(serializers.Serializer[dict[str, Any]]):
+    """Produkt z magazynu przy usłudze albo wizycie (ADR-055)."""
+
+    item_id = serializers.UUIDField()
+    quantity = serializers.DecimalField(max_digits=12, decimal_places=3, min_value=0)
+    #: `consume` — zużycie na koszt firmy (RW); `sale` — sprzedaż klientowi (WZ).
+    mode = serializers.ChoiceField(choices=("consume", "sale"), default="consume")
+
+
+class MaterialLineSerializer(serializers.Serializer[dict[str, Any]]):
+    item_id = serializers.UUIDField()
+    name = serializers.CharField()
+    unit = serializers.CharField()
+    quantity = serializers.CharField()
+    mode = serializers.ChoiceField(choices=("consume", "sale"))
+    #: Cena sprzedaży netto z chwili zapisu; null dla zużycia.
+    unit_price_minor = serializers.IntegerField(allow_null=True)
+    currency = serializers.CharField()
+
+
+class MaterialsInputSerializer(serializers.Serializer[dict[str, Any]]):
+    materials = MaterialInputSerializer(many=True)
+
+
 class AppointmentCreateSerializer(serializers.Serializer[dict[str, Any]]):
     service_id = serializers.UUIDField()
     staff_id = serializers.UUIDField()
@@ -64,6 +88,8 @@ class AppointmentCreateSerializer(serializers.Serializer[dict[str, Any]]):
     resource_id = serializers.UUIDField(required=False, allow_null=True)
     starts_at = serializers.DateTimeField()
     customer = CustomerInputSerializer()
+    #: Pominięte: produkty z usługi. Podane: dokładnie te (wymaga inventory.use).
+    materials = MaterialInputSerializer(many=True, required=False)
 
 
 class RescheduleSerializer(serializers.Serializer[dict[str, Any]]):
@@ -84,6 +110,8 @@ class AppointmentSerializer(serializers.Serializer[dict[str, Any]]):
     staff_membership_id = serializers.UUIDField(allow_null=True)
     location_name = serializers.CharField()
     resource_name = serializers.CharField(allow_null=True)
+    #: Tylko w panelu firmy; klient w self-service tego nie dostaje.
+    materials = MaterialLineSerializer(many=True, required=False)
     self_service_token = serializers.CharField(required=False, allow_null=True)
 
 
@@ -127,6 +155,8 @@ class ServiceSerializer(serializers.Serializer[dict[str, Any]]):
     duration_minutes = serializers.IntegerField()
     #: Lets a vertical's screen offer only its own kind of visit (ADR-050).
     appointment_kind = serializers.CharField()
+    #: Produkty z magazynu, które wizyta tej usługi zabiera.
+    materials = MaterialInputSerializer(many=True, required=False)
 
 
 class ResourceSerializer(serializers.Serializer[dict[str, Any]]):

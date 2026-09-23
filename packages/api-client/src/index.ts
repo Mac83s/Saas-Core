@@ -169,6 +169,8 @@ export type IntegrationWebhook = components["schemas"]["Webhook"];
 export type NotificationSupportHealth = components["schemas"]["SupportHealth"];
 export type BookingCatalog = components["schemas"]["Catalog"];
 export type BookingAppointment = components["schemas"]["Appointment"];
+export type BookingMaterialInput = components["schemas"]["MaterialInput"];
+export type BookingMaterialLine = components["schemas"]["MaterialLine"];
 export type BookingAppointmentList = components["schemas"]["AppointmentList"];
 export type BookingAppointmentInput =
   components["schemas"]["AppointmentCreate"];
@@ -1491,6 +1493,65 @@ export async function cancelBookingAppointment(
   );
   if (error || !data) throwProblem(error, response);
   return data;
+}
+
+/** The visit took place: its products leave the warehouse (ADR-055). */
+export async function completeBookingAppointment(
+  appointmentId: string,
+  idempotencyKey: string,
+): Promise<BookingAppointment> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/appointments/{appointment_id}/complete/",
+    {
+      params: {
+        path: { appointment_id: appointmentId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Products one visit takes; the stock reservation follows them. */
+export async function setBookingAppointmentMaterials(
+  appointmentId: string,
+  materials: BookingMaterialInput[],
+): Promise<BookingAppointment> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/booking/appointments/{appointment_id}/materials/",
+    {
+      params: { path: { appointment_id: appointmentId } },
+      body: { materials },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Products every visit of this service takes from the warehouse. */
+export async function setBookingServiceMaterials(
+  serviceId: string,
+  materials: BookingMaterialInput[],
+): Promise<BookingMaterialInput[]> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/booking/catalog/services/{service_id}/materials/",
+    {
+      params: { path: { service_id: serviceId } },
+      body: { materials },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data.materials;
 }
 
 export async function rescheduleBookingAppointment(

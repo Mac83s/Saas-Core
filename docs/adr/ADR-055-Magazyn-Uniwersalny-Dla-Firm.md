@@ -62,6 +62,23 @@ każdym z nich. Moduł jest domyślnie włączony we wszystkich produktach.
 13. **Dane v1** były testowe (HoofCare, 21.09) i zostają wyczyszczone migracją;
     schemat zmienia się odwracalnie.
 
+## Uzupełnienie 2026-09-24: produkty przy wizycie (faza 6)
+
+- Usługa rezerwacji niesie listę produktów (`Service.materials`: pozycja,
+  ilość, rozliczenie „zużycie” albo „sprzedaż klientowi”). Wizyta dostaje jej
+  kopię z nazwą i ceną sprzedaży z chwili zapisu (`Appointment.materials`);
+  osoba z `inventory.use` może ją zmienić przy tworzeniu i do zakończenia.
+- JSON zamiast kluczy obcych: magazyn nie jest zależnością rezerwacji, a produkt
+  bez magazynu w profilu nie istnieje. Pozycje sprawdza `booking/materials.py`
+  przez `inventory.api.describe_items`; w kopii z usługi pozycja ukryta po
+  ustawieniu usługi jest pomijana, żeby nie blokować klientowi rezerwacji.
+- Potwierdzenie (utworzenie) rezerwuje stan w magazynie głównym, zakończenie
+  wystawia RW (zużycie) i WZ (sprzedaż) bez blokady brakiem towaru, odwołanie
+  zwalnia rezerwację. Źródło dokumentów i rezerwacji: `booking.appointment`.
+- Klient (strona publiczna, self-service) nie widzi produktów wizyty.
+- Rdzeń dostał akcję „Zakończ wizytę” w kalendarzu panelu — wcześniej kończył
+  wizyty tylko HoofCare.
+
 ## Konsekwencje
 
 - Dziesięć tabel tenantowych z wymuszonym RLS (ADR-039): pozycja, kategoria,

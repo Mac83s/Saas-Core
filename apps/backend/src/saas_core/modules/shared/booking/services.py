@@ -28,6 +28,7 @@ from saas_core.modules.shared.billing.authorization import authorize_entitled
 from saas_core.modules.shared.notifications.security import decrypt_secret, encrypt_secret
 from saas_core.modules.shared.notifications.services import queue_email
 
+from . import materials as stock
 from .availability import available_slots
 from .models import (
     Appointment,
@@ -277,6 +278,7 @@ def create_appointment(
     idempotency_key: str,
     principal_ref: str,
     walk_in_minutes: int | None = None,
+    materials: list[dict[str, Any]] | None = None,
 ) -> CreatedAppointment:
     """Books a free slot, or — with `walk_in_minutes` — records work already under way.
 
@@ -300,6 +302,7 @@ def create_appointment(
         "starts_at": starts_at.isoformat(),
         "customer": customer_data,
         "walk_in_minutes": walk_in_minutes,
+        **({"materials": materials} if materials is not None else {}),
     })
     existing = (
         BookingMutation.all_objects.filter(
@@ -380,6 +383,13 @@ def create_appointment(
             contact_hash=contact_hash,
             locale=customer_data.get("locale", organization.default_locale),
         )
+    if materials is not None:
+        # Hand-picked products: whoever types them must be allowed to take stock.
+        if materials or stock.enabled():
+            stock.authorize_change()
+        lines = stock.normalize(organization.id, materials)
+    else:
+        lines = stock.normalize(organization.id, service.materials, strict=False)
     ends_at = starts_at + timedelta(minutes=walk_in_minutes or service.duration_minutes)
     # A walk-in takes no buffers: they exist to protect a plan, and there is none.
     before = 0 if walk_in_minutes else service.buffer_before_minutes
@@ -401,14 +411,13 @@ def create_appointment(
         occupied_until=occupied_until,
         timezone=organization.timezone,
         service_name=service.name,
+        materials=lines,
         self_service_token_ciphertext=encrypt_secret(token),
         self_service_expires_at=expires,
         # Nothing to remind anybody about when the visit is already happening.
         reminder_due_at=None
         if walk_in_minutes
-        else max(
-            timezone.now(), starts_at - timedelta(hours=settings.BOOKING_REMINDER_LEAD_HOURS)
-        ),
+        else max(timezone.now(), starts_at - timedelta(hours=settings.BOOKING_REMINDER_LEAD_HOURS)),
     )
     try:
         AppointmentStaffAllocation.all_objects.create(
@@ -434,6 +443,7 @@ def create_appointment(
         to_status=AppointmentStatus.CONFIRMED,
         actor_kind=context.principal_kind,
     )
+    stock.reserve(organization.id, appointment.id, lines)
     BookingMutation.all_objects.create(
         organization=organization,
         appointment=appointment,
@@ -659,6 +669,7 @@ def cancel_appointment(
             to_status=AppointmentStatus.CANCELED,
             actor_kind=context.principal_kind,
         )
+        stock.release(context.organization_id, appointment.id)
         customer = appointment.customer
         if customer.email:
             queue_email(
@@ -667,9 +678,7 @@ def cancel_appointment(
                 template_version=1,
                 locale=customer.locale,
                 template_context={
-                    "organization_name": Organization.objects.get(
-                        pk=context.organization_id
-                    ).name,
+                    "organization_name": Organization.objects.get(pk=context.organization_id).name,
                     "starts_at": local_time(
                         appointment.starts_at, appointment.timezone, customer.locale
                     ),
@@ -735,6 +744,66 @@ def appointment_for_tenant(organization_id: UUID, appointment_id: UUID) -> Appoi
 
 
 @transaction.atomic
+def set_service_materials(*, service_id: UUID, materials: list[dict[str, Any]]) -> Service:
+    """Produkty, które każda wizyta tej usługi zabiera z magazynu."""
+    context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
+    if materials:
+        stock.authorize_change()
+    service = Service.all_objects.select_for_update().filter(pk=service_id).first()
+    if service is None:
+        raise NotFound("Usługa nie istnieje.")
+    lines = stock.normalize(context.organization_id, materials)
+    service.materials = [
+        {"item_id": line["item_id"], "quantity": line["quantity"], "mode": line["mode"]}
+        for line in lines
+    ]
+    service.save(update_fields=["materials", "updated_at"])
+    record_audit(
+        organization=Organization.objects.get(pk=context.organization_id),
+        action="booking.catalog.changed",
+        actor=User.objects.filter(pk=context.actor_id).first(),
+        target_type="service",
+        target_id=service.id,
+        metadata={"materials": len(lines)},
+    )
+    return service
+
+
+@transaction.atomic
+def set_appointment_materials(
+    *, appointment_id: UUID, materials: list[dict[str, Any]]
+) -> Appointment:
+    """Produkty jednej wizyty, wpisane ręcznie — rezerwacja idzie za nimi."""
+    context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
+    stock.authorize_change()
+    appointment = Appointment.all_objects.select_for_update().filter(pk=appointment_id).first()
+    if appointment is None:
+        raise NotFound("Rezerwacja nie istnieje.")
+    if appointment.status != AppointmentStatus.CONFIRMED:
+        raise AppointmentNotChangeable
+    before = appointment.materials
+    appointment.materials = stock.normalize(context.organization_id, materials)
+    appointment.save(update_fields=["materials", "updated_at"])
+    stock.reserve(context.organization_id, appointment.id, appointment.materials)
+    record_audit(
+        organization=Organization.objects.get(pk=context.organization_id),
+        action="booking.appointment.materials_changed",
+        actor=User.objects.filter(pk=context.actor_id).first(),
+        target_type="appointment",
+        target_id=appointment.id,
+        metadata={
+            "changes": {
+                "materials": {
+                    "from": [f"{x['name']} × {x['quantity']}" for x in before],
+                    "to": [f"{x['name']} × {x['quantity']}" for x in appointment.materials],
+                }
+            }
+        },
+    )
+    return appointment
+
+
+@transaction.atomic
 def complete_appointment(
     *, appointment_id: UUID, idempotency_key: str, principal_ref: str
 ) -> Appointment:
@@ -767,6 +836,10 @@ def complete_appointment(
             to_status=AppointmentStatus.COMPLETED,
             actor_kind=context.principal_kind,
         )
+        if context.actor_id is not None:
+            stock.settle(
+                context.organization_id, appointment.id, appointment.materials, context.actor_id
+            )
         record_audit(
             organization=Organization.objects.get(pk=context.organization_id),
             action="booking.appointment.completed",

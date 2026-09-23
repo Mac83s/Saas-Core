@@ -33,6 +33,10 @@ export default async function ServicesSettingsPage() {
       ) : allows(access, { permission: "booking.appointment.manage" }) ? (
         <BookingSettings
           canManageBilling={access.isOwner}
+          canUseInventory={allows(access, {
+            module: "shared.inventory",
+            permission: "inventory.use",
+          })}
           organizationType={organization.organization_type}
         />
       ) : (

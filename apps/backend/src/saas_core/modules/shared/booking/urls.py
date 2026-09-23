@@ -2,7 +2,9 @@ from django.urls import path
 
 from .views import (
     AppointmentCancelView,
+    AppointmentCompleteView,
     AppointmentListCreateView,
+    AppointmentMaterialsView,
     AppointmentRescheduleView,
     BookingCatalogView,
     BookingScheduleView,
@@ -15,6 +17,7 @@ from .views import (
     SelfServiceAppointmentView,
     SelfServiceCancelView,
     SelfServiceRescheduleView,
+    ServiceMaterialsView,
 )
 
 app_name = "booking"
@@ -32,6 +35,21 @@ urlpatterns = [
     ),
     path(
         "appointments/<uuid:appointment_id>/cancel/", AppointmentCancelView.as_view(), name="cancel"
+    ),
+    path(
+        "appointments/<uuid:appointment_id>/complete/",
+        AppointmentCompleteView.as_view(),
+        name="complete",
+    ),
+    path(
+        "appointments/<uuid:appointment_id>/materials/",
+        AppointmentMaterialsView.as_view(),
+        name="appointment-materials",
+    ),
+    path(
+        "catalog/services/<uuid:service_id>/materials/",
+        ServiceMaterialsView.as_view(),
+        name="service-materials",
     ),
     path(
         "customers/<uuid:customer_id>/anonymize/",
