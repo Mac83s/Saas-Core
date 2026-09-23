@@ -1,5 +1,6 @@
 import axe from "axe-core";
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -7,7 +8,7 @@ import {
   within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
 import { expect, test } from "vitest";
 
@@ -197,4 +198,50 @@ test("full screen moves the same editor into a dialog and back", async () => {
   expect(
     screen.getByRole("textbox", { name: "Treść sekcji" }),
   ).toHaveTextContent("Plan pracy");
+});
+
+test("an editor remounted by undo gets the caret and full screen back", async () => {
+  function Remounting() {
+    const [round, setRound] = useState(0);
+    return (
+      <>
+        {/* What the page editor does on undo: the section's fields mount
+            again under a new key. */}
+        <RichTextEditor
+          key={round}
+          label="Treść sekcji"
+          name="blocks.0.data.content"
+        />
+        <button onClick={() => setRound((value) => value + 1)} type="button">
+          remount
+        </button>
+      </>
+    );
+  }
+  render(
+    <Harness>
+      <Remounting />
+    </Harness>,
+  );
+  await screen.findByRole("textbox", { name: "Treść sekcji" });
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Pisz na pełnym ekranie: Treść sekcji",
+    }),
+  );
+  const dialog = await screen.findByRole("dialog", { name: "Treść sekcji" });
+  const text = within(dialog).getByRole("textbox", { name: "Treść sekcji" });
+  await waitFor(() => expect(document.activeElement).toBe(text));
+
+  // The remount comes from the keyboard (Ctrl+Z), so focus stays in the text.
+  // (The dialog hides the rest of the page from roles, hence `hidden`.)
+  act(() =>
+    screen.getByRole("button", { name: "remount", hidden: true }).click(),
+  );
+  const again = await screen.findByRole("dialog", { name: "Treść sekcji" });
+  await waitFor(() =>
+    expect(document.activeElement).toBe(
+      within(again).getByRole("textbox", { name: "Treść sekcji" }),
+    ),
+  );
 });

@@ -31,6 +31,7 @@ import {
   useContext,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   type MouseEvent,
@@ -264,6 +265,11 @@ type RichTextEditorProps = {
   onUploadImage?: (assetId: string) => void;
 };
 
+/** Undo and redo reset the page form, and the section's fields mount again:
+ *  an editor leaving with the caret hands the caret, and full screen, to the
+ *  next editor of its path, so Ctrl+Z, Ctrl+Y can be pressed in a row. */
+const handover = new Map<string, { caret: number; fullScreen: boolean }>();
+
 /** One editor per path: the editor's callbacks are bound when it is created,
  *  so a section that moves (and changes its path) gets a fresh one. */
 export function RichTextEditor(props: RichTextEditorProps) {
@@ -289,7 +295,13 @@ function PathEditor({
   const page = useContext(PageEditorContext);
   // The page's history; outside the page editor there is none to join.
   const history = page;
-  const [fullScreen, setFullScreen] = useState(false);
+  const [fullScreen, showFullScreen] = useState(false);
+  // Read by the handover when this editor leaves; kept with the state.
+  const fullScreenRef = useRef(false);
+  function setFullScreen(value: boolean) {
+    fullScreenRef.current = value;
+    showFullScreen(value);
+  }
   const [linking, setLinking] = useState(false);
   const [status, setStatus] = useState("");
   // For the paste handler, which ProseMirror calls with its view only.
@@ -507,6 +519,29 @@ function PathEditor({
   useEffect(() => {
     editorRef.current = editor;
   }, [editor]);
+
+  // Layout effects: the leaving editor's cleanup runs while its text is
+  // still in the page with focus, and before the next editor's effect.
+  useLayoutEffect(() => {
+    if (!editor) return;
+    const taken = handover.get(name);
+    if (taken) {
+      handover.delete(name);
+      editor.commands.focus(
+        Math.min(taken.caret, editor.state.doc.content.size),
+      );
+      // Restores what the previous editor showed, once, when it hands over.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (taken.fullScreen) setFullScreen(true);
+    }
+    return () => {
+      if (!editor.isDestroyed && editor.view.hasFocus())
+        handover.set(name, {
+          caret: editor.state.selection.from,
+          fullScreen: fullScreenRef.current,
+        });
+    };
+  }, [editor, name]);
 
   // Leaving the section with typing still pending writes it.
   useEffect(
