@@ -142,6 +142,44 @@ export type RichTextV2Data = JsonObject & {
   aside?: { title?: string; content: RichTextAsideNode[] };
 };
 
+/** v3 = v2 plus an optional call to action, an eyebrow, a side photograph and
+ *  an author card; the sixteen added layouts arrange the same fields. */
+export type RichTextV3Layout =
+  | NonNullable<RichTextV2Data["layout"]>
+  | "lead_statement"
+  | "two_parts"
+  | "side_photo"
+  | "panorama"
+  | "illustrated"
+  | "margin_quote"
+  | "summary_box"
+  | "expert_note"
+  | "alternating_chapters"
+  | "timeline"
+  | "numbered_sections"
+  | "manifesto"
+  | "problem_solution"
+  | "howto"
+  | "resources"
+  | "essay_cta";
+
+export type RichTextV3Data = Omit<RichTextV2Data, "layout"> & {
+  layout?: RichTextV3Layout;
+  eyebrow?: string;
+  image?: { asset_id: string; alt: string; caption?: string };
+  author?: {
+    name: string;
+    role?: string;
+    image?: { asset_id: string; alt: string };
+  };
+  action?: { label: string; href: string };
+  secondaryAction?: { label: string; href: string };
+};
+
+/** Where a catalogue section sits on the visitor's path (catalogue v6). */
+export type ConversionStage =
+  "attention" | "interest" | "proof" | "objection" | "action";
+
 export type FeatureListV1Data = JsonObject & {
   image?: { asset_id: string; alt: string };
   title?: string;

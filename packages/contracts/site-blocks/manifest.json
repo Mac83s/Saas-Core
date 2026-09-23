@@ -14,10 +14,11 @@
     },
     {
       "type": "core.rich_text",
-      "latestVersion": 2,
+      "latestVersion": 3,
       "schemas": {
         "1": "core.rich_text.v1.schema.json",
-        "2": "core.rich_text.v2.schema.json"
+        "2": "core.rich_text.v2.schema.json",
+        "3": "core.rich_text.v3.schema.json"
       }
     },
     {

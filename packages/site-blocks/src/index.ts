@@ -45,6 +45,7 @@ export { sectionDecorationPresets } from "./section-decoration-presets";
 export type { SectionDecorationPreset } from "./section-decoration-presets";
 export type { SeparatorV1Data } from "./separator-block";
 export {
+  unfilledPlaceholders,
   blockAssetIds,
   ensureUniqueAnchors,
   isRichTextAnchor,
@@ -52,3 +53,4 @@ export {
   richTextAnchorSlug,
   setAtPath,
 } from "./rich-text";
+export type { UnfilledPlaceholder } from "./rich-text";

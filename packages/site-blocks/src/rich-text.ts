@@ -181,3 +181,39 @@ export function ensureUniqueAnchors(
     return copy;
   });
 }
+
+const PLACEHOLDER = /\[(?:Uzupełnij|Fill in):[^\]]*\]/g;
+
+export interface UnfilledPlaceholder {
+  /** Position of the block on the page. */
+  readonly blockIndex: number;
+  /** Path of the string inside the block's data, as the editor adapter uses. */
+  readonly path: readonly string[];
+  /** The marker itself, e.g. "[Uzupełnij: prawdziwa opinia klienta]". */
+  readonly text: string;
+}
+
+/** Places a template left for the owner's real material — reviews, numbers,
+ *  references — written as `[Uzupełnij: …]` (EN `[Fill in: …]`). Templates
+ *  never invent proof, so a marker still on the page is something to finish
+ *  before publishing, not a typo. */
+export function unfilledPlaceholders(
+  blocks: readonly { data: JsonObject }[],
+): UnfilledPlaceholder[] {
+  const found: UnfilledPlaceholder[] = [];
+  blocks.forEach((block, blockIndex) => {
+    const visit = (value: JsonValue, path: string[]): void => {
+      if (typeof value === "string") {
+        for (const match of value.matchAll(PLACEHOLDER))
+          found.push({ blockIndex, path, text: match[0] });
+      } else if (Array.isArray(value)) {
+        value.forEach((child, index) => visit(child, [...path, String(index)]));
+      } else if (value !== null && typeof value === "object") {
+        for (const [key, child] of Object.entries(value))
+          visit(child, [...path, key]);
+      }
+    };
+    visit(block.data, []);
+  });
+  return found;
+}

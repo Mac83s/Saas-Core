@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { blockAssetIds, richTextAnchorSlug, setAtPath } from "./rich-text";
+import {
+  blockAssetIds,
+  richTextAnchorSlug,
+  setAtPath,
+  unfilledPlaceholders,
+} from "./rich-text";
 import type { JsonObject } from "./types";
 
 describe("rich text helpers", () => {
@@ -40,5 +45,36 @@ describe("rich text helpers", () => {
     expect(() => setAtPath(data, ["images", 5], "x")).toThrow();
     expect(() => setAtPath(data, ["missing", "image"], "x")).toThrow();
     expect(() => setAtPath(data, [], "x")).toThrow();
+  });
+});
+
+describe("unfilled placeholders", () => {
+  it("finds every marker with its block and exact path", () => {
+    const blocks = [
+      { data: { title: "Gotowe" } },
+      {
+        data: {
+          content: [
+            {
+              type: "quote",
+              content: [{ text: "[Uzupełnij: prawdziwa opinia klienta]" }],
+            },
+          ],
+          lead: "Mamy [Fill in: number] clients and [Fill in: years] years.",
+        },
+      },
+    ];
+    expect(unfilledPlaceholders(blocks)).toEqual([
+      {
+        blockIndex: 1,
+        path: ["content", "0", "content", "0", "text"],
+        text: "[Uzupełnij: prawdziwa opinia klienta]",
+      },
+      { blockIndex: 1, path: ["lead"], text: "[Fill in: number]" },
+      { blockIndex: 1, path: ["lead"], text: "[Fill in: years]" },
+    ]);
+    expect(
+      unfilledPlaceholders([{ data: { text: "[x] zwykły nawias" } }]),
+    ).toEqual([]);
   });
 });

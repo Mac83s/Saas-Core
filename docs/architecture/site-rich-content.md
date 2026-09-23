@@ -197,3 +197,50 @@ wdrożenia stosu i `core:update` produktów.
 - **Dowód zgodności wstecznej:** osiem dotychczasowych recept renderuje się
   bajt w bajt tak samo jak na `bf1a014`, a ich zrzuty 1440/390/3440 px są
   identyczne co do piksela (Chromium, 24/24).
+
+## Faza 3 — układy redakcyjne pod konwersję (od 2026-09-23)
+
+Decyzja właściciela: szablony powstają pod konwersję (lista kontrolna w
+[site-section-catalog.md](site-section-catalog.md)). `core.rich_text` v3 =
+v2 + opcjonalne `eyebrow` (etykieta nad tytułem), `image` (zdjęcie z
+podpisem), `author` (imię, rola, portret), `action` i `secondaryAction`
+(główne i ciche działanie; `href` jak w linkach bloków plus `#kotwica`).
+Migracja v2 → v3 kopiuje dane. Katalog v6 dodaje `conversion`: etap ścieżki
+(`attention`, `interest`, `proof`, `objection`, `action`) i to, czy sekcja
+niesie główne działanie; pole jest wymagane dla każdej recepty dodanej od v6.
+
+**Działanie w sekcji.** Gdy jest `action`, sekcja kończy się rzędem
+`.site-section__actions`: przycisk główny i opcjonalnie ciche działanie
+(obrys/link). Jedno główne działanie na sekcję. Układy niżej mówią, gdzie
+rząd stoi, jeśli nie na końcu. W edytorze przyciski są tekstem do edycji,
+bez nawigacji.
+
+**Rozdziały.** Kilka układów dzieli `content` na grupy zaczynające się od
+śródtytułu H2 (treść przed pierwszym H2 to wstęp). Kolejność DOM zawsze
+odpowiada kolejności czytania; układ zmienia tylko rozmieszczenie.
+
+| Układ | Kompozycja | Etap |
+|---|---|---|
+| `lead_statement` | `lead` w skali nagłówka jako teza, pod nim rozwinięcie w kolumnie czytania, działanie pod tekstem | attention |
+| `two_parts` | dwie pierwsze grupy H2 obok siebie jako równoległe części (np. „dla kogo / dla kogo nie”), kolejne pod spodem | interest |
+| `side_photo` | tekst obok `image` z podpisem; na telefonie zdjęcie po tytule | interest |
+| `panorama` | `image` od krawędzi do krawędzi sekcji nad tytułem, potem wstęp, tekst i działanie | attention |
+| `illustrated` | kolumna artykułu; `image` stoi w toku czytania po pierwszym akapicie i wychodzi poza kolumnę do szerokości sekcji, tak samo ilustracje `width: wide` | interest |
+| `margin_quote` | pierwszy węzeł `quote` jako duży cytat na marginesie obok tekstu (na telefonie w toku) | proof |
+| `summary_box` | panel `aside` jako „w skrócie” przed tekstem, wyróżniony | interest |
+| `expert_note` | karta `author` (portret lub inicjały, imię, rola) obok objaśnienia; działanie pod kartą | proof |
+| `alternating_chapters` | grupy H2 jako rzędy: śródtytuł po jednej stronie, treść po drugiej, strony zamieniają się co rozdział; ilustracja grupy dołącza do strony śródtytułu | interest |
+| `timeline` | grupy H2 jako punkty osi czasu z pionową linią | interest |
+| `numbered_sections` | grupy H2 z dużymi numerami 01, 02… jako kolejne argumenty | objection |
+| `manifesto` | pozycje list jako duże zasady, akapity jako krótkie rozwinięcia, działanie po zasadach | attention |
+| `problem_solution` | trzy pierwsze grupy H2 jako panele problem → analiza → rozwiązanie; działanie w panelu rozwiązania | action |
+| `howto` | listy numerowane jako duże kroki, lista punktowana jako lista kontrolna, uwagi jako objaśnienia z boku | objection |
+| `resources` | pozycje list zawierające link jako karty materiałów, wstęp nad nimi | proof |
+| `essay_cta` | kolumna eseju, `aside` jako ramka „wnioski”, na końcu pas z głównym i cichym działaniem | action |
+
+Razem z `column`, `split_intro`, `facts_panel` i `chapters` to 20 układów
+rodziny redakcyjnej. Seedy katalogu mówią językiem korzyści klienta; dowody
+(opinie, liczby, realizacje) są miejscami `[Uzupełnij: …]` (EN `[Fill in: …]`),
+nigdy wymyśloną treścią. Edytor strony pokazuje, które sekcje mają jeszcze
+takie miejsca (`unfilledPlaceholders` w `@saas-core/site-blocks`), zanim
+właściciel zapisze i opublikuje stronę.
