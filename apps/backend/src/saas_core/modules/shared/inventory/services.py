@@ -592,20 +592,40 @@ def _document_values(organization_id: UUID, data: dict[str, Any]) -> dict[str, A
 
 @transaction.atomic
 def create_document(
-    *, request: HttpRequest, kind: str, data: dict[str, Any], lines: Sequence[LineInput]
+    *,
+    request: HttpRequest,
+    kind: str,
+    data: dict[str, Any],
+    lines: Sequence[LineInput],
+    document_id: UUID | None = None,
 ) -> StockDocument:
+    """Nowy szkic. `document_id` nadaje klient: powtórka po zgubionej
+    odpowiedzi zwraca ten sam dokument zamiast drugiego."""
     context = _manage_context()
-    document = StockDocument.all_objects.create(
-        organization_id=context.organization_id,
-        kind=kind,
-        document_date=data.get("document_date") or timezone.localdate(),
-        created_by_id=context.actor_id,
-        **{
-            key: value
-            for key, value in _document_values(context.organization_id, data).items()
-            if key != "document_date"
-        },
-    )
+    if document_id is not None:
+        existing = StockDocument.all_objects.filter(
+            organization_id=context.organization_id, pk=document_id
+        ).first()
+        if existing is not None:
+            if existing.kind != kind:
+                raise ValidationError({"id": "Ten identyfikator ma dokument innego rodzaju."})
+            return existing
+    try:
+        with transaction.atomic():
+            document = StockDocument.all_objects.create(
+                **({"id": document_id} if document_id is not None else {}),
+                organization_id=context.organization_id,
+                kind=kind,
+                document_date=data.get("document_date") or timezone.localdate(),
+                created_by_id=context.actor_id,
+                **{
+                    key: value
+                    for key, value in _document_values(context.organization_id, data).items()
+                    if key != "document_date"
+                },
+            )
+    except IntegrityError as error:
+        raise ValidationError({"id": "Ten identyfikator dokumentu jest zajęty."}) from error
     _write_lines(document, lines)
     return document
 
@@ -634,8 +654,8 @@ def update_document(
 def post_document(*, request: HttpRequest, document_id: UUID) -> StockDocument:
     context = _manage_context()
     document = _get(StockDocument, context.organization_id, document_id, lock=True)
-    if document.status != DocumentStatus.DRAFT:
-        raise DocumentPosted
+    if document.status == DocumentStatus.POSTED:
+        return document  # A retry: posting twice is posting once.
     _post(document, actor_id=context.actor_id, allow_negative=document.kind != DocumentKind.WZ)
     _audit(
         request,
@@ -1005,7 +1025,13 @@ def release_reservations(*, organization_id: UUID, source: str, source_reference
 
 @transaction.atomic
 def receive(
-    *, request: HttpRequest, item_id: UUID, quantity: Decimal, unit_cost_minor: int, note: str = ""
+    *,
+    request: HttpRequest,
+    item_id: UUID,
+    quantity: Decimal,
+    unit_cost_minor: int,
+    note: str = "",
+    document_id: UUID | None = None,
 ) -> StockDocument:
     """Przyjęcie do magazynu głównego z ceną z faktury (PZ)."""
     context = _manage_context()
@@ -1014,13 +1040,20 @@ def receive(
         kind=DocumentKind.PZ,
         data={"target_location_id": default_warehouse(context.organization_id).id, "note": note},
         lines=[LineInput(item_id=item_id, quantity=quantity, unit_price_minor=unit_cost_minor)],
+        document_id=document_id,
     )
     return post_document(request=request, document_id=document.id)
 
 
 @transaction.atomic
 def issue(
-    *, request: HttpRequest, item_id: UUID, holder_id: UUID, quantity: Decimal, note: str = ""
+    *,
+    request: HttpRequest,
+    item_id: UUID,
+    holder_id: UUID,
+    quantity: Decimal,
+    note: str = "",
+    document_id: UUID | None = None,
 ) -> StockDocument:
     """Wydanie osobie: przesunięcie z magazynu głównego do jej zapasu (MM)."""
     context = _manage_context()
@@ -1033,13 +1066,20 @@ def issue(
             "note": note,
         },
         lines=[LineInput(item_id=item_id, quantity=quantity)],
+        document_id=document_id,
     )
     return post_document(request=request, document_id=document.id)
 
 
 @transaction.atomic
 def give_back(
-    *, request: HttpRequest, item_id: UUID, holder_id: UUID, quantity: Decimal, note: str = ""
+    *,
+    request: HttpRequest,
+    item_id: UUID,
+    holder_id: UUID,
+    quantity: Decimal,
+    note: str = "",
+    document_id: UUID | None = None,
 ) -> StockDocument:
     """Zwrot niewykorzystanego towaru do magazynu głównego (MM)."""
     context = _manage_context()
@@ -1052,13 +1092,20 @@ def give_back(
             "note": note,
         },
         lines=[LineInput(item_id=item_id, quantity=quantity)],
+        document_id=document_id,
     )
     return post_document(request=request, document_id=document.id)
 
 
 @transaction.atomic
 def adjust(
-    *, request: HttpRequest, item_id: UUID, holder_id: UUID | None, quantity: Decimal, note: str
+    *,
+    request: HttpRequest,
+    item_id: UUID,
+    holder_id: UUID | None,
+    quantity: Decimal,
+    note: str,
+    document_id: UUID | None = None,
 ) -> StockDocument:
     """Korekta stanu z powodem: nadwyżka jako PW, ubytek jako RW."""
     context = _manage_context()
@@ -1080,6 +1127,7 @@ def adjust(
             "note": note.strip(),
         },
         lines=[LineInput(item_id=item_id, quantity=abs(quantity))],
+        document_id=document_id,
     )
     return post_document(request=request, document_id=document.id)
 

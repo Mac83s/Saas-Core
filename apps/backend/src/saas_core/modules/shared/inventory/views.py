@@ -339,6 +339,7 @@ class StockDocumentListView(APIView):
         data = _valid(StockDocumentInputSerializer, request)
         document = services.create_document(
             request=_http(request),
+            document_id=data.pop("id", None),
             kind=data.pop("kind"),
             lines=_lines(data.pop("lines", [])) or [],
             data=data,
@@ -367,6 +368,7 @@ class StockDocumentDetailView(APIView):
     def patch(self, request: Request, document_id: UUID) -> Response:
         data = _valid(StockDocumentInputSerializer, request, partial=True)
         data.pop("kind", None)
+        data.pop("id", None)
         document = services.update_document(
             request=_http(request),
             document_id=document_id,
@@ -429,6 +431,7 @@ class InventoryReceiptView(APIView):
         data = _valid(InventoryReceiptInputSerializer, request)
         document = services.receive(
             request=_http(request),
+            document_id=data.get("id"),
             item_id=data["item_id"],
             quantity=data["quantity"],
             unit_cost_minor=data["unit_cost_minor"],
@@ -453,6 +456,7 @@ class InventoryIssueView(APIView):
         data = _valid(InventoryIssueInputSerializer, request)
         document = services.issue(
             request=_http(request),
+            document_id=data.get("id"),
             item_id=data["item_id"],
             holder_id=data["holder_id"],
             quantity=data["quantity"],
@@ -477,6 +481,7 @@ class InventoryReturnView(APIView):
         data = _valid(InventoryIssueInputSerializer, request)
         document = services.give_back(
             request=_http(request),
+            document_id=data.get("id"),
             item_id=data["item_id"],
             holder_id=data["holder_id"],
             quantity=data["quantity"],
@@ -501,6 +506,7 @@ class InventoryAdjustView(APIView):
         data = _valid(InventoryAdjustInputSerializer, request)
         document = services.adjust(
             request=_http(request),
+            document_id=data.get("id"),
             item_id=data["item_id"],
             holder_id=data.get("holder_id"),
             quantity=data["quantity"],

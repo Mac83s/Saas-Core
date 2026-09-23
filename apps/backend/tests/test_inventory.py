@@ -469,3 +469,45 @@ def test_another_companys_warehouse_is_simply_not_there() -> None:
                 data={},
                 lines=[LineInput(item_id=foreign.id, quantity=Decimal(1))],
             )
+
+
+def test_a_retried_request_is_the_same_document() -> None:
+    """Odpowiedź zgubiona w sieci: klient powtarza z tym samym id i dostaje
+    ten sam dokument — dostawa nie wchodzi na stan dwa razy."""
+    from uuid import uuid4  # noqa: PLC0415
+
+    from saas_core.modules.shared.inventory.services import (  # noqa: PLC0415
+        LineInput,
+        create_document,
+        post_document,
+        receive,
+    )
+
+    owner = membership("magazyn-powtorka")
+    with tenant(owner) as request:
+        block = item(request)
+        key = uuid4()
+        for _ in range(2):
+            first = receive(
+                request=request,
+                item_id=block.id,
+                quantity=Decimal(5),
+                unit_cost_minor=100,
+                document_id=key,
+            )
+        assert first.id == key and quantities() == {"Klocek": Decimal(5)}
+
+        draft_key = uuid4()
+        drafts = [
+            create_document(
+                request=request,
+                kind="RW",
+                data={"source_location_id": first.target_location_id},
+                lines=[LineInput(item_id=block.id, quantity=Decimal(2))],
+                document_id=draft_key,
+            )
+            for _ in range(2)
+        ]
+        assert drafts[0].id == drafts[1].id == draft_key
+        numbers = {post_document(request=request, document_id=draft_key).number for _ in range(2)}
+        assert len(numbers) == 1 and quantities() == {"Klocek": Decimal(3)}

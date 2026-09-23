@@ -59,6 +59,7 @@ export function StockTab({
   const [failed, setFailed] = useState(false);
   const [dialog, setDialog] = useState<Movement | null>(null);
   const [form, setForm] = useState({
+    id: "",
     item_id: "",
     holder_id: "",
     quantity: "",
@@ -164,7 +165,14 @@ export function StockTab({
   const people = data.crew;
   const items = data.items.filter((item) => item.active);
   const open = (kind: Movement) => {
-    setForm({ item_id: "", holder_id: "", quantity: "", price: "" });
+    // One id per opened form: a retry after a lost answer is the same document.
+    setForm({
+      id: crypto.randomUUID(),
+      item_id: "",
+      holder_id: "",
+      quantity: "",
+      price: "",
+    });
     setHeld([]);
     setDialog(kind);
   };
@@ -172,6 +180,7 @@ export function StockTab({
   async function submit() {
     if (dialog === "receive") {
       await receiveInventory({
+        id: form.id,
         item_id: form.item_id,
         quantity: form.quantity,
         // Cena z faktury, w groszach: po niej wycenia się rozchód.
@@ -181,6 +190,7 @@ export function StockTab({
       return;
     }
     const input = {
+      id: form.id,
       item_id: form.item_id,
       holder_id: form.holder_id,
       quantity: form.quantity,

@@ -163,6 +163,7 @@ test("wydanie osobie pokazuje, co ma przy sobie, i idzie jako jedno polecenie", 
 
   await waitFor(() => expect(api.issueInventory).toHaveBeenCalledTimes(1));
   expect(api.issueInventory).toHaveBeenCalledWith({
+    id: expect.any(String),
     item_id: BLOCK,
     holder_id: TRIMMER,
     quantity: "5",

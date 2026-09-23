@@ -160,6 +160,8 @@ class StockDocumentSerializer(serializers.Serializer[Any]):
 
 
 class StockDocumentInputSerializer(serializers.Serializer[Any]):
+    #: Nadaje klient; powtórka z tym samym id nie tworzy drugiego dokumentu.
+    id = serializers.UUIDField(required=False)
     kind = serializers.ChoiceField(choices=DocumentKind.choices)
     document_date = serializers.DateField(required=False)
     source_location_id = serializers.UUIDField(required=False, allow_null=True)
@@ -175,6 +177,8 @@ class StockDocumentCorrectionSerializer(serializers.Serializer[Any]):
 
 
 class InventoryReceiptInputSerializer(serializers.Serializer[Any]):
+    #: Nadaje klient; powtórka z tym samym id nie tworzy drugiego dokumentu.
+    id = serializers.UUIDField(required=False)
     item_id = serializers.UUIDField()
     quantity = _quantity(min_value=0)
     unit_cost_minor = serializers.IntegerField(min_value=0, default=0)
@@ -182,6 +186,8 @@ class InventoryReceiptInputSerializer(serializers.Serializer[Any]):
 
 
 class InventoryIssueInputSerializer(serializers.Serializer[Any]):
+    #: Nadaje klient; powtórka z tym samym id nie tworzy drugiego dokumentu.
+    id = serializers.UUIDField(required=False)
     item_id = serializers.UUIDField()
     holder_id = serializers.UUIDField()
     quantity = _quantity(min_value=0)
@@ -189,6 +195,8 @@ class InventoryIssueInputSerializer(serializers.Serializer[Any]):
 
 
 class InventoryAdjustInputSerializer(serializers.Serializer[Any]):
+    #: Nadaje klient; powtórka z tym samym id nie tworzy drugiego dokumentu.
+    id = serializers.UUIDField(required=False)
     item_id = serializers.UUIDField()
     holder_id = serializers.UUIDField(required=False, allow_null=True, default=None)
     quantity = _quantity()

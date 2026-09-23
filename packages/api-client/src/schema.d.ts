@@ -4327,6 +4327,8 @@ export interface components {
         };
         InventoryAdjustInput: {
             /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
             item_id: string;
             /** Format: uuid */
             holder_id?: string | null;
@@ -4366,6 +4368,8 @@ export interface components {
             readonly system: boolean;
         };
         InventoryIssueInput: {
+            /** Format: uuid */
+            id?: string;
             /** Format: uuid */
             item_id: string;
             /** Format: uuid */
@@ -4428,6 +4432,8 @@ export interface components {
             created_at: string;
         };
         InventoryReceiptInput: {
+            /** Format: uuid */
+            id?: string;
             /** Format: uuid */
             item_id: string;
             /** Format: decimal */
@@ -4879,6 +4885,8 @@ export interface components {
             membership_id?: string | null;
         };
         PatchedStockDocumentInput: {
+            /** Format: uuid */
+            id?: string;
             kind?: components["schemas"]["StockDocumentKindEnum"];
             /** Format: date */
             document_date?: string;
@@ -5518,6 +5526,8 @@ export interface components {
             note?: string;
         };
         StockDocumentInput: {
+            /** Format: uuid */
+            id?: string;
             kind: components["schemas"]["StockDocumentKindEnum"];
             /** Format: date */
             document_date?: string;

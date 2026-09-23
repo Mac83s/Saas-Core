@@ -74,6 +74,7 @@ export function DocumentsTab({
   const warehouse = data.locations.find((location) => location.is_default);
   const today = new Date().toISOString().slice(0, 10);
   const blank = () => ({
+    id: crypto.randomUUID(),
     kind: "PZ" as StockDocumentKind,
     document_date: today,
     source: warehouse?.id ?? "",
@@ -120,6 +121,7 @@ export function DocumentsTab({
   async function save() {
     const kind = draft.kind;
     const document = await createStockDocument({
+      id: draft.id,
       kind,
       document_date: draft.document_date,
       source_location_id: FROM.includes(kind) ? draft.source : null,
@@ -139,14 +141,10 @@ export function DocumentsTab({
         })),
     });
     if (!draft.post) return onChanged(t("documentDrafted"));
-    try {
-      const posted = await postStockDocument(document.id);
-      onChanged(t("documentPosted", { number: posted.number }));
-    } catch (error) {
-      // The draft exists; resubmitting the form would make a second one.
-      onChanged(t("documentDrafted"));
-      setProblem(problemText(error, t("failed")));
-    }
+    // A failed post keeps the dialog open; resubmitting reuses the draft's id,
+    // so the API returns the same draft instead of making a second one.
+    const posted = await postStockDocument(document.id);
+    onChanged(t("documentPosted", { number: posted.number }));
   }
 
   const columns: ColumnDef<StockDocument, unknown>[] = [

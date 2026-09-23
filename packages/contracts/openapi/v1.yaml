@@ -12475,6 +12475,9 @@ components:
     InventoryAdjustInput:
       type: object
       properties:
+        id:
+          type: string
+          format: uuid
         item_id:
           type: string
           format: uuid
@@ -12580,6 +12583,9 @@ components:
     InventoryIssueInput:
       type: object
       properties:
+        id:
+          type: string
+          format: uuid
         item_id:
           type: string
           format: uuid
@@ -12750,6 +12756,9 @@ components:
     InventoryReceiptInput:
       type: object
       properties:
+        id:
+          type: string
+          format: uuid
         item_id:
           type: string
           format: uuid
@@ -13870,6 +13879,9 @@ components:
     PatchedStockDocumentInput:
       type: object
       properties:
+        id:
+          type: string
+          format: uuid
         kind:
           $ref: '#/components/schemas/StockDocumentKindEnum'
         document_date:
@@ -15407,6 +15419,9 @@ components:
     StockDocumentInput:
       type: object
       properties:
+        id:
+          type: string
+          format: uuid
         kind:
           $ref: '#/components/schemas/StockDocumentKindEnum'
         document_date:
