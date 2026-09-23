@@ -154,23 +154,25 @@ export function HistoryPanel() {
       query={query}
       rowCount={page?.total ?? 0}
       toolbar={
-        <label className="flex w-full flex-wrap items-center gap-2 text-sm sm:w-auto">
+        <label className="flex w-full flex-wrap items-center gap-2 text-sm sm:w-auto sm:flex-nowrap">
           <span className="text-muted-foreground">{t("filter")}</span>
-          <NativeSelect
-            className="w-full sm:w-64"
-            onChange={(event) => {
-              setAction(event.target.value);
-              setQuery((current) => ({ ...current, pageIndex: 0 }));
-            }}
-            value={action}
-          >
-            <option value="">{t("allActions")}</option>
-            {(page?.actions ?? []).map((key) => (
-              <option key={key} value={key}>
-                {actionLabel(key)}
-              </option>
-            ))}
-          </NativeSelect>
+          {/* NativeSelect fills its parent; the parent sets the width. */}
+          <span className="w-full sm:w-64">
+            <NativeSelect
+              onChange={(event) => {
+                setAction(event.target.value);
+                setQuery((current) => ({ ...current, pageIndex: 0 }));
+              }}
+              value={action}
+            >
+              <option value="">{t("allActions")}</option>
+              {(page?.actions ?? []).map((key) => (
+                <option key={key} value={key}>
+                  {actionLabel(key)}
+                </option>
+              ))}
+            </NativeSelect>
+          </span>
         </label>
       }
     />
