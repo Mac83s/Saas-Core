@@ -1314,7 +1314,12 @@
         "indent": "Sub-item (Tab)",
         "outdent": "Level up (Shift+Tab)",
         "pagePlace": "Place on this page",
-        "pagePlaceNone": "— choose —"
+        "pagePlaceNone": "— choose —",
+        "insertQuote": "Insert quote",
+        "insertNote": "Insert note",
+        "insertFigure": "Insert illustration",
+        "todos": "{count, plural, one {# place left to fill in.} other {# places left to fill in.}}",
+        "nextTodo": "Go to the next one (F8)"
       }
     },
     "lead": "Lead",

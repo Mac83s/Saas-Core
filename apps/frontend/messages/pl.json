@@ -1314,7 +1314,12 @@
         "indent": "Podpunkt (Tab)",
         "outdent": "Poziom wyżej (Shift+Tab)",
         "pagePlace": "Miejsce na tej stronie",
-        "pagePlaceNone": "— wybierz —"
+        "pagePlaceNone": "— wybierz —",
+        "insertQuote": "Wstaw cytat",
+        "insertNote": "Wstaw uwagę",
+        "insertFigure": "Wstaw ilustrację",
+        "todos": "{count, plural, one {Zostało # miejsce do uzupełnienia.} few {Zostały # miejsca do uzupełnienia.} many {Zostało # miejsc do uzupełnienia.} other {Zostało # miejsca do uzupełnienia.}}",
+        "nextTodo": "Przejdź do następnego (F8)"
       }
     },
     "lead": "Wstęp",

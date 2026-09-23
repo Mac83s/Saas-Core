@@ -1,5 +1,11 @@
 import axe from "axe-core";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
@@ -69,7 +75,9 @@ function Harness({
         >
           replace
         </button>
-        <output>{form.formState.isDirty ? "dirty" : "clean"}</output>
+        <output aria-label="form">
+          {form.formState.isDirty ? "dirty" : "clean"}
+        </output>
       </FormProvider>
     </NextIntlClientProvider>
   );
@@ -97,7 +105,9 @@ test("loads the stored text as a document and reloads it when the value changes 
   fireEvent.click(screen.getByRole("button", { name: "replace" }));
   await waitFor(() => expect(text.textContent).toBe("Po cofnięciu"));
   // Reloading is not an edit: nothing is written back.
-  expect(screen.getByRole("status").textContent).toBe("clean");
+  expect(screen.getByRole("status", { name: "form" }).textContent).toBe(
+    "clean",
+  );
 
   const results = await axe.run(document.body, {
     rules: { region: { enabled: false } },
@@ -120,4 +130,51 @@ test("the aside offers only paragraphs and lists", async () => {
   expect(
     screen.getByRole("button", { name: "Lista punktowana" }),
   ).not.toBeNull();
+});
+
+test("quotes, notes and figures are cards with their fields", async () => {
+  render(
+    <Harness
+      value={[
+        {
+          type: "quote",
+          content: [{ text: "Dobre biuro to spokój." }],
+          author: "Anna",
+        },
+        { type: "note", tone: "tip", content: [{ text: "Zabierz rzut." }] },
+        {
+          type: "figure",
+          image: {
+            asset_id: "00000000-0000-4000-8000-000000000001",
+            alt: "Biuro",
+          },
+          width: "wide",
+        },
+        {
+          type: "paragraph",
+          content: [{ text: "Cena: [Uzupełnij: kwota] za metr." }],
+        },
+      ]}
+    >
+      <RichTextEditor label="Treść sekcji" name="blocks.0.data.content" />
+    </Harness>,
+  );
+  const text = await screen.findByRole("textbox", { name: "Treść sekcji" });
+  expect(await within(text).findByDisplayValue("Anna")).not.toBeNull();
+  expect(within(text).getByLabelText("Rodzaj uwagi")).toHaveProperty(
+    "value",
+    "tip",
+  );
+  expect(within(text).getByLabelText("Szerokość ilustracji")).toHaveProperty(
+    "value",
+    "wide",
+  );
+  expect(
+    within(text).getByRole("button", { name: "Usuń element: Cytat" }),
+  ).not.toBeNull();
+  // The place to fill in is marked and counted.
+  expect(text.querySelector(".rich-text-editor__todo")?.textContent).toBe(
+    "[Uzupełnij: kwota]",
+  );
+  expect(screen.getByText("Zostało 1 miejsce do uzupełnienia.")).not.toBeNull();
 });

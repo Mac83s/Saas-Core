@@ -7,7 +7,7 @@
  *  when it loses focus — one undo step, like the other buffered fields. A
  *  value changed from outside (undo, the canvas, a template) reloads it. */
 
-import { Extension, type Editor } from "@tiptap/core";
+import { Extension, type Editor, type JSONContent } from "@tiptap/core";
 import { ListKeymap } from "@tiptap/extension-list";
 import { Placeholder, UndoRedo } from "@tiptap/extensions";
 import { Plugin } from "@tiptap/pm/state";
@@ -15,12 +15,15 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import {
   BoldIcon,
+  ImageIcon,
   IndentIcon,
+  InfoIcon,
   ItalicIcon,
   LinkIcon,
   ListIcon,
   ListOrderedIcon,
   OutdentIcon,
+  QuoteIcon,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
@@ -58,9 +61,15 @@ import {
 } from "@saas-core/ui/components/toolbar";
 
 import { DraftHistoryContext } from "./draft-history";
+import {
+  RichTextMediaContext,
+  withCardViews,
+  type RichTextMediaOption,
+} from "./rich-text-cards";
 import { fromEditorDoc, toEditorDoc } from "./rich-text-doc";
 import { collectAnchors, useErrorText } from "./rich-text-field";
 import { isRichTextHref } from "./rich-text-markup";
+import { htmlToRichNodes, plainTextToRichNodes } from "./rich-text-paste";
 import { richTextExtensions, type RichTextNodeType } from "./rich-text-schema";
 
 const IDLE_COMMIT_MS = 700;
@@ -76,6 +85,85 @@ function listDepth(editor: Editor): number {
     if (type === "bulletList" || type === "orderedList") depth += 1;
   }
   return depth;
+}
+
+/** A place the seed leaves for the owner's own facts (`[Uzupełnij: …]`). */
+const TODO = /\[(?:Uzupełnij|Fill in):[^\]]*\]/g;
+
+/** Where the places to fill in are, in document positions. The schema has
+ *  no inline atoms, so a textblock's text offsets map one to one. */
+function todoRanges(editor: Editor): { from: number; to: number }[] {
+  const ranges: { from: number; to: number }[] = [];
+  editor.state.doc.descendants((node, position) => {
+    if (!node.isTextblock) return;
+    for (const match of node.textContent.matchAll(TODO))
+      ranges.push({
+        from: position + 1 + match.index,
+        to: position + 1 + match.index + match[0].length,
+      });
+    return false;
+  });
+  return ranges;
+}
+
+/** Selects the next place to fill in, so typing replaces it. */
+function selectNextTodo(editor: Editor): boolean {
+  const ranges = todoRanges(editor);
+  const caret = editor.state.selection.to;
+  const next = ranges.find((range) => range.from >= caret) ?? ranges[0];
+  if (!next) return false;
+  editor.chain().focus().setTextSelection(next).scrollIntoView().run();
+  return true;
+}
+
+const Todos = Extension.create({
+  name: "richTextTodos",
+  addProseMirrorPlugins() {
+    const editor = this.editor;
+    return [
+      new Plugin({
+        props: {
+          decorations: (state) =>
+            DecorationSet.create(
+              state.doc,
+              todoRanges(editor).map((range) =>
+                Decoration.inline(range.from, range.to, {
+                  class: "rich-text-editor__todo",
+                }),
+              ),
+            ),
+        },
+      }),
+    ];
+  },
+});
+
+/** A card goes after the block holding the caret, or replaces an empty
+ *  paragraph there; a quote or note takes the caret into its text. */
+function insertCard(editor: Editor, card: JSONContent) {
+  const { $from } = editor.state.selection;
+  const empty = $from.depth === 1 && $from.parent.content.size === 0;
+  const from = $from.depth ? (empty ? $from.before(1) : $from.after(1)) : 0;
+  const to = empty ? $from.after(1) : from;
+  const chain = editor.chain().focus().insertContentAt({ from, to }, card);
+  if (card.type !== "figure") chain.setTextSelection(from + 1);
+  chain.run();
+}
+
+/** What a clipboard node becomes where only some blocks are allowed (the
+ *  aside): its text as a paragraph. */
+function fitNode(
+  node: RichTextNode,
+  allows: (type: RichTextNodeType) => boolean,
+): RichTextNode[] {
+  if (allows(node.type)) return [node];
+  if (node.type === "heading")
+    return [{ type: "paragraph", content: [{ text: node.text }] }];
+  if (node.type === "quote" || node.type === "note")
+    return node.content.length
+      ? [{ type: "paragraph", content: node.content }]
+      : [];
+  return [];
 }
 
 /** Marks are allowed here: not in a heading. */
@@ -120,6 +208,11 @@ type RichTextEditorProps = {
   disabled?: boolean;
   /** The aside allows only `["paragraph", "list"]`. */
   allowedNodes?: readonly RichTextNodeType[];
+  /** Ready media assets a figure may show. */
+  mediaOptions?: readonly RichTextMediaOption[];
+  /** Offers upload-and-crop on figures; called with the new asset id after
+   *  it is set, so the owner can refresh `mediaOptions`. */
+  onUploadImage?: (assetId: string) => void;
 };
 
 /** One editor per path: the editor's callbacks are bound when it is created,
@@ -133,6 +226,8 @@ function PathEditor({
   label,
   disabled = false,
   allowedNodes,
+  mediaOptions = [],
+  onUploadImage,
 }: RichTextEditorProps) {
   const t = useTranslations("Sites.richText");
   const id = useId();
@@ -143,6 +238,9 @@ function PathEditor({
   const error = useErrorText(name)("");
   const history = useContext(DraftHistoryContext);
   const [linking, setLinking] = useState(false);
+  const [status, setStatus] = useState("");
+  // For the paste handler, which ProseMirror calls with its view only.
+  const editorRef = useRef<Editor | null>(null);
   // The JSON both sides agree on: what was loaded or last written.
   const written = useRef(stored);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -198,14 +296,56 @@ function PathEditor({
     return true;
   }
 
+  /** Anything pasted from outside the editor goes through the clipboard
+   *  normalizer (Word, Google Docs): only the contract's nodes and marks,
+   *  never styles or images. A copy inside the editor stays ProseMirror's. */
+  function paste(event: ClipboardEvent): boolean {
+    const editor = editorRef.current;
+    const data = event.clipboardData;
+    const html = data?.getData("text/html") ?? "";
+    if (!editor || !data || html.includes("data-pm-slice")) return false;
+    const plain = data.getData("text/plain");
+    if (!html && !plain) return false;
+    const parsed = html
+      ? htmlToRichNodes(
+          html,
+          new Set(collectAnchors(getValues("blocks") ?? [])),
+        )
+      : { nodes: plainTextToRichNodes(plain), droppedImages: false };
+    const nodes = parsed.nodes.flatMap((node) => fitNode(node, allows));
+    const content = toEditorDoc(nodes).content ?? [];
+    const inline = nodes.length === 1 && nodes[0]?.type === "paragraph";
+    if (nodes.length)
+      editor.commands.insertContent(
+        inline ? (content[0]?.content ?? []) : content,
+      );
+    setStatus(
+      [
+        nodes.length > 1 ? t("pasted", { count: nodes.length }) : "",
+        parsed.droppedImages ? t("imagesDropped") : "",
+      ]
+        .filter(Boolean)
+        .join(" "),
+    );
+    return true;
+  }
+
   const editor = useEditor({
     immediatelyRender: false,
     editable: !disabled,
     extensions: [
-      ...richTextExtensions(allowedNodes),
+      ...withCardViews(richTextExtensions(allowedNodes)),
       ...(allows("list") ? [ListKeymap] : []),
-      Placeholder.configure({ placeholder: t("editor.placeholder") }),
+      Placeholder.configure({
+        placeholder: ({ node }) =>
+          node.type.name === "quote"
+            ? t("quoteText")
+            : node.type.name === "note"
+              ? t("noteText")
+              : t("editor.placeholder"),
+      }),
       AnchorHints,
+      Todos,
       // Outside the page editor there is no page history to join.
       ...(history ? [] : [UndoRedo]),
       Extension.create({
@@ -220,6 +360,20 @@ function PathEditor({
             // A third list level is not in the contract.
             Tab: ({ editor }) =>
               editor.isActive("listItem") && listDepth(editor) >= 2,
+            F8: ({ editor }) => selectNextTodo(editor),
+            // A quote or a note is one run of text: Enter leaves it for a
+            // new paragraph instead of starting a second card.
+            Enter: ({ editor }) => {
+              const { $from } = editor.state.selection;
+              const card = $from.parent.type.name;
+              if (card !== "quote" && card !== "note") return false;
+              const after = $from.after();
+              return editor
+                .chain()
+                .insertContentAt(after, { type: "paragraph" })
+                .setTextSelection(after + 1)
+                .run();
+            },
             ...(history
               ? {
                   "Mod-z": ({ editor }) => historyStep("undo", editor),
@@ -241,6 +395,7 @@ function PathEditor({
         "aria-describedby": `${id}-hint`,
         class: "rich-text-editor__content",
       },
+      handlePaste: (_view, event) => paste(event),
     },
     onUpdate: ({ editor, transaction }) => {
       if (transaction.getMeta(SETTLE)) return;
@@ -271,6 +426,10 @@ function PathEditor({
     editor?.setEditable(!disabled);
   }, [editor, disabled]);
 
+  useEffect(() => {
+    editorRef.current = editor;
+  }, [editor]);
+
   // Leaving the section with typing still pending writes it.
   useEffect(
     () => () => {
@@ -296,8 +455,20 @@ function PathEditor({
         onLink={() => setLinking(true)}
         textId={`${id}-text`}
       />
-      <EditorContent editor={editor} />
+      <RichTextMediaContext
+        value={{ options: mediaOptions, onUpload: onUploadImage }}
+      >
+        <EditorContent editor={editor} />
+      </RichTextMediaContext>
       <FieldError>{error}</FieldError>
+      <TodoStatus editor={editor} />
+      <p
+        aria-live="polite"
+        className="text-sm text-muted-foreground"
+        role="status"
+      >
+        {status}
+      </p>
       {editor && linking && (
         <LinkDialog
           editor={editor}
@@ -446,7 +617,65 @@ function EditorToolbar({
             </ToolbarButton>
           </>
         )}
+        {(allows("quote") || allows("note") || allows("figure")) && (
+          <ToolbarSeparator />
+        )}
+        {allows("quote") && (
+          <ToolbarButton
+            {...keep}
+            aria-label={t("editor.insertQuote")}
+            onClick={() => insertCard(editor, { type: "quote" })}
+          >
+            <QuoteIcon aria-hidden />
+          </ToolbarButton>
+        )}
+        {allows("note") && (
+          <ToolbarButton
+            {...keep}
+            aria-label={t("editor.insertNote")}
+            onClick={() => insertCard(editor, { type: "note" })}
+          >
+            <InfoIcon aria-hidden />
+          </ToolbarButton>
+        )}
+        {allows("figure") && (
+          <ToolbarButton
+            {...keep}
+            aria-label={t("editor.insertFigure")}
+            onClick={() =>
+              insertCard(editor, {
+                type: "figure",
+                attrs: { assetId: "", alt: "" },
+              })
+            }
+          >
+            <ImageIcon aria-hidden />
+          </ToolbarButton>
+        )}
       </Toolbar>
+    </div>
+  );
+}
+
+/** How many places are left to fill in, with a way to the next one. */
+function TodoStatus({ editor }: { editor: Editor | null }) {
+  const t = useTranslations("Sites.richText");
+  const count = useEditorState({
+    editor,
+    selector: ({ editor }) => (editor ? todoRanges(editor).length : 0),
+  });
+  if (!editor || !count) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm">
+      <span>{t("editor.todos", { count })}</span>
+      <Button
+        onClick={() => selectNextTodo(editor)}
+        size="sm"
+        type="button"
+        variant="outline"
+      >
+        {t("editor.nextTodo")}
+      </Button>
     </div>
   );
 }

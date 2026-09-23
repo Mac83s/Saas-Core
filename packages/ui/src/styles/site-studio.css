@@ -381,12 +381,70 @@
   text-decoration: underline;
   text-underline-offset: 0.15em;
 }
-.rich-text-editor__content p.is-editor-empty:first-child::before {
+/* A hint in the empty text under the caret: a paragraph's, a quote's. */
+.rich-text-editor__content .is-empty::before {
   content: attr(data-placeholder);
   float: left;
   height: 0;
   color: var(--muted-foreground);
   pointer-events: none;
+}
+.rich-text-editor__content .ProseMirror-selectednode {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+/* A place left for the owner's own facts: `[Uzupełnij: …]`. */
+.rich-text-editor__todo {
+  border-radius: 0.2rem;
+  background: color-mix(in oklch, #f5c518 40%, transparent);
+  box-decoration-break: clone;
+}
+/* Quotes, notes and figures are cards: their own text in place, their
+   fields around it. */
+.rich-text-editor__content .rich-text-card {
+  display: grid;
+  gap: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem 0.75rem;
+  background: color-mix(in oklch, var(--muted) 55%, var(--background));
+  white-space: normal;
+}
+.rich-text-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  user-select: none;
+}
+.rich-text-editor__content .rich-text-card__text {
+  min-height: 2.5rem;
+  border: 1px dashed var(--border);
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.5rem;
+  background: var(--background);
+  white-space: pre-wrap;
+}
+.rich-text-card--quote .rich-text-card__text {
+  font-style: italic;
+}
+.rich-text-card__fields {
+  display: grid;
+  gap: 0.5rem;
+}
+.rich-text-card--note[data-tone="tip"] {
+  border-color: color-mix(in oklch, var(--primary) 50%, var(--border));
+}
+.rich-text-card--note[data-tone="warning"] {
+  border-color: color-mix(in oklch, #d97706 60%, var(--border));
+}
+.rich-text-card__image {
+  max-width: 12rem;
 }
 .rich-text-editor__anchor {
   margin-inline-start: 0.5rem;
