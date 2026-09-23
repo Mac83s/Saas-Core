@@ -18,7 +18,7 @@ from rest_framework.exceptions import APIException, NotFound, ValidationError
 
 from saas_core.modules.core.identity.models import User
 
-from .audit import record_audit
+from .audit import audit_snapshot, field_changes, record_audit
 from .authorization import authorize
 from .models import (
     Invitation,
@@ -143,6 +143,7 @@ def update_role(
     if role.version != version:
         raise RoleVersionConflict
     previous = list(role.permissions)
+    before = audit_snapshot(role, ("name", "permissions"))
     if name is not None:
         role.name = name.strip()
     if permissions is not None:
@@ -155,7 +156,11 @@ def update_role(
         actor=cast(User, request.user),
         target_type="role",
         target_id=role.id,
-        metadata={"previous_permissions": previous, "permissions": role.permissions},
+        metadata={
+            "previous_permissions": previous,
+            "permissions": role.permissions,
+            "changes": field_changes(before, audit_snapshot(role, ("name", "permissions"))),
+        },
     )
     return role
 

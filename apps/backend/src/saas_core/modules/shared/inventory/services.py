@@ -17,7 +17,11 @@ from django.http import HttpRequest
 from rest_framework.exceptions import NotFound, ValidationError
 
 from saas_core.modules.core.identity.models import User
-from saas_core.modules.core.organizations.audit import record_audit
+from saas_core.modules.core.organizations.audit import (
+    audit_snapshot,
+    field_changes,
+    record_audit,
+)
 from saas_core.modules.core.organizations.models import Organization, OrganizationAuditAction
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 
@@ -75,11 +79,22 @@ def create_item(*, request: HttpRequest, data: dict[str, Any]) -> InventoryItem:
 def update_item(*, request: HttpRequest, item_id: UUID, data: dict[str, Any]) -> InventoryItem:
     context = authorize_entitled(INVENTORY_MANAGE, INVENTORY_ENABLED)
     item = _item(context.organization_id, item_id, lock=True)
-    for field in ("name", "category", "unit", "minimum_quantity", "active", "notes"):
-        if field in data:
-            setattr(item, field, data[field])
+    fields = [
+        field
+        for field in ("name", "category", "unit", "minimum_quantity", "active", "notes")
+        if field in data
+    ]
+    before = audit_snapshot(item, fields)
+    for field in fields:
+        setattr(item, field, data[field])
     item.save()
-    _audit(request, context.organization_id, OrganizationAuditAction.INVENTORY_ITEM_UPDATED, item)
+    _audit(
+        request,
+        context.organization_id,
+        OrganizationAuditAction.INVENTORY_ITEM_UPDATED,
+        item,
+        {"changes": field_changes(before, audit_snapshot(item, fields))},
+    )
     return item
 
 
@@ -383,7 +398,11 @@ def _move(
 
 
 def _audit(
-    request: HttpRequest, organization_id: UUID, action: str, item: InventoryItem
+    request: HttpRequest,
+    organization_id: UUID,
+    action: str,
+    item: InventoryItem,
+    metadata: dict[str, Any] | None = None,
 ) -> None:
     record_audit(
         organization=Organization.objects.get(pk=organization_id),
@@ -391,4 +410,5 @@ def _audit(
         actor=cast(User, request.user),
         target_type="inventory_item",
         target_id=item.id,
+        metadata=metadata,
     )

@@ -1397,6 +1397,23 @@ export interface paths {
         patch: operations["api_v1_organizations_current_partial_update"];
         trace?: never;
     };
+    "/api/v1/organizations/current/history/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The organization's history of changes, newest first (owner, admin). */
+        get: operations["api_v1_organizations_current_history_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organizations/current/invitations/": {
         parameters: {
             query?: never;
@@ -3386,6 +3403,13 @@ export interface components {
             approval_digest: string;
             published: boolean;
         };
+        /**
+         * @description * `panel` - panel
+         *     * `api_key` - api_key
+         *     * `system` - system
+         * @enum {string}
+         */
+        ChannelEnum: "panel" | "api_key" | "system";
         CheckoutCreate: {
             plan: string;
         };
@@ -4104,6 +4128,37 @@ export interface components {
          * @enum {string}
          */
         HealthStatusEnum: "ok" | "degraded";
+        HistoryActor: {
+            name: string;
+            /** Format: email */
+            email: string;
+        };
+        HistoryEntry: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            occurred_at: string;
+            action: string;
+            actor: components["schemas"]["HistoryActor"] | null;
+            channel: components["schemas"]["ChannelEnum"] | components["schemas"]["NullEnum"];
+            target_type: string;
+            /** Format: uuid */
+            target_id: string | null;
+            changes: {
+                [key: string]: unknown;
+            };
+            changed_fields: string[];
+            details: {
+                [key: string]: unknown;
+            };
+        };
+        HistoryPage: {
+            total: number;
+            page: number;
+            page_size: number;
+            actions: string[];
+            items: components["schemas"]["HistoryEntry"][];
+        };
         InventoryAdjustInput: {
             /** Format: uuid */
             item_id: string;
@@ -9303,6 +9358,37 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_organizations_current_history_retrieve: {
+        parameters: {
+            query?: {
+                action?: string;
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HistoryPage"];
+                };
+            };
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

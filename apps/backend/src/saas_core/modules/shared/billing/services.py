@@ -12,7 +12,11 @@ from django.utils import timezone
 from rest_framework.exceptions import APIException, NotFound
 
 from saas_core.modules.core.identity.models import User
-from saas_core.modules.core.organizations.audit import record_audit
+from saas_core.modules.core.organizations.audit import (
+    audit_snapshot,
+    field_changes,
+    record_audit,
+)
 from saas_core.modules.core.organizations.authorization import authorize
 from saas_core.modules.core.organizations.models import (
     BillingProfile,
@@ -197,6 +201,7 @@ def update_billing_details(*, changes: dict[str, Any]) -> BillingProfile:
     profile, _created = BillingProfile.objects.select_for_update().get_or_create(
         organization=organization
     )
+    before = audit_snapshot(profile, changes)
     for field, value in changes.items():
         setattr(profile, field, value)
     profile.full_clean(validate_unique=False, validate_constraints=False)
@@ -207,7 +212,13 @@ def update_billing_details(*, changes: dict[str, Any]) -> BillingProfile:
         actor=User.objects.get(pk=context.actor_id),
         target_type="billing_profile",
         target_id=profile.id,
-        metadata={"fields": sorted(changes)},
+        # Invoice data can be a sole trader's own name and address.
+        metadata={
+            "fields": sorted(changes),
+            "changes": field_changes(
+                before, audit_snapshot(profile, changes), private=list(changes)
+            ),
+        },
     )
     return profile
 

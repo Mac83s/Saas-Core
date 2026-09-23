@@ -716,6 +716,31 @@ export async function listMemberships(): Promise<MembershipSummary[]> {
   return data;
 }
 
+export type HistoryPage = components["schemas"]["HistoryPage"];
+export type HistoryEntry = components["schemas"]["HistoryEntry"];
+
+/** The organization's history of changes, newest first (owner and admin). */
+export async function readOrganizationHistory(
+  query: { page?: number; pageSize?: number; action?: string } = {},
+): Promise<HistoryPage> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/organizations/current/history/",
+    {
+      params: {
+        query: {
+          page: query.page,
+          page_size: query.pageSize,
+          action: query.action || undefined,
+        },
+      },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export async function updateMembership(
   membershipId: string,
   input: MembershipUpdateInput,

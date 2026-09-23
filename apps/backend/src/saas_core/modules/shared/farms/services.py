@@ -21,7 +21,11 @@ from django.utils import timezone
 from rest_framework.exceptions import NotFound, ValidationError
 
 from saas_core.modules.core.identity.models import User
-from saas_core.modules.core.organizations.audit import record_audit
+from saas_core.modules.core.organizations.audit import (
+    audit_snapshot,
+    field_changes,
+    record_audit,
+)
 from saas_core.modules.core.organizations.models import Organization, OrganizationAuditAction
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 
@@ -112,6 +116,10 @@ def _clean_animal(data: dict[str, Any], *, species: str) -> dict[str, Any]:
     return cleaned
 
 
+#: The keeper's own data: the history says it changed, never what it was.
+FARM_PRIVATE = ("tax_id", "address", "keeper_name", "email", "phone", "notes")
+
+
 def audit_farm(
     request: HttpRequest,
     organization_id: UUID,
@@ -178,11 +186,18 @@ def update_farm(*, request: HttpRequest, farm_id: UUID, data: dict[str, Any]) ->
     if farm is None:
         raise NotFound("Nie ma takiego gospodarstwa.")
     cleaned = _clean_farm(data)
+    before = audit_snapshot(farm, cleaned)
     for field, value in cleaned.items():
         setattr(farm, field, value)
     _unique(farm.save)
     setattr(farm, "animal_count", Animal.all_objects.filter(farm=farm).count())  # noqa: B010
-    audit_farm(request, context.organization_id, OrganizationAuditAction.FARM_UPDATED, farm)
+    audit_farm(
+        request,
+        context.organization_id,
+        OrganizationAuditAction.FARM_UPDATED,
+        farm,
+        {"changes": field_changes(before, audit_snapshot(farm, cleaned), private=FARM_PRIVATE)},
+    )
     return farm
 
 
@@ -351,12 +366,19 @@ def update_animal(*, request: HttpRequest, animal_id: UUID, data: dict[str, Any]
         raise NotFound("Nie ma takiego zwierzęcia.")
     reviewed = data.pop("reviewed", None)
     cleaned = _clean_animal(data, species=animal.species)
+    before = audit_snapshot(animal, cleaned)
     for field, value in cleaned.items():
         setattr(animal, field, value)
     if reviewed:
         # Przejrzane przez hodowcę: znacznik znika, wiersz zostaje.
         animal.review_requested_at = None
     _unique(animal.save)
-    audit_farm(request, context.organization_id, OrganizationAuditAction.ANIMAL_UPDATED, animal)
+    audit_farm(
+        request,
+        context.organization_id,
+        OrganizationAuditAction.ANIMAL_UPDATED,
+        animal,
+        {"changes": field_changes(before, audit_snapshot(animal, cleaned))},
+    )
     _mirror(request, animal)
     return animal

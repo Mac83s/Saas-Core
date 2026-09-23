@@ -171,3 +171,35 @@ class RoleUpdateSerializer(serializers.Serializer[dict[str, Any]]):
     version = serializers.IntegerField(min_value=1)
     name = serializers.CharField(max_length=80, trim_whitespace=True, required=False)
     permissions = serializers.ListField(child=serializers.CharField(max_length=120), required=False)
+
+
+class HistoryQuerySerializer(serializers.Serializer[dict[str, Any]]):
+    page = serializers.IntegerField(min_value=1, default=1)
+    page_size = serializers.IntegerField(min_value=1, max_value=100, default=25)
+    action = serializers.CharField(max_length=64, required=False, default="")
+
+
+class HistoryActorSerializer(serializers.Serializer[dict[str, Any]]):
+    name = serializers.CharField()
+    email = serializers.EmailField()
+
+
+class HistoryEntrySerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    occurred_at = serializers.DateTimeField()
+    action = serializers.CharField()
+    actor = HistoryActorSerializer(allow_null=True)
+    channel = serializers.ChoiceField(choices=["panel", "api_key", "system"], allow_null=True)
+    target_type = serializers.CharField(allow_blank=True)
+    target_id = serializers.UUIDField(allow_null=True)
+    changes = serializers.DictField(child=serializers.JSONField())
+    changed_fields = serializers.ListField(child=serializers.CharField())
+    details = serializers.DictField(child=serializers.JSONField())
+
+
+class HistoryPageSerializer(serializers.Serializer[dict[str, Any]]):
+    total = serializers.IntegerField()
+    page = serializers.IntegerField()
+    page_size = serializers.IntegerField()
+    actions = serializers.ListField(child=serializers.CharField())
+    items = HistoryEntrySerializer(many=True)

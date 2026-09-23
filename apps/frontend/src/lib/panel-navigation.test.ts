@@ -76,13 +76,14 @@ describe("ustawienia", () => {
     limited: true,
   };
 
-  it("Firma, Konto, Usługi i grafik, Zaawansowane, a na końcu zakładki produktu", () => {
+  it("Firma, Historia zmian, Konto, Usługi i grafik, Zaawansowane, a na końcu zakładki produktu", () => {
     const tabs = sectionTabs("/panel/settings/account", {
       ...OWNER,
       modules: [...OWNER.modules, "shared.booking", "vertical.demo"],
     });
     expect(tabs?.map((tab) => tab.href)).toEqual([
       "/panel/settings/company",
+      "/panel/settings/history",
       "/panel/settings/account",
       "/panel/settings/services",
       "/panel/integrations",
@@ -95,6 +96,7 @@ describe("ustawienia", () => {
       sectionTabs("/panel/settings/account", OWNER)?.map((tab) => tab.href),
     ).toEqual([
       "/panel/settings/company",
+      "/panel/settings/history",
       "/panel/settings/account",
       "/panel/integrations",
     ]);

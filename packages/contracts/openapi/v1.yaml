@@ -3633,6 +3633,48 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/organizations/current/history/:
+    get:
+      operationId: api_v1_organizations_current_history_retrieve
+      description: The organization's history of changes, newest first (owner, admin).
+      parameters:
+      - in: query
+        name: action
+        schema:
+          type: string
+          default: ''
+          maxLength: 64
+          minLength: 1
+      - in: query
+        name: page
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - in: query
+        name: page_size
+        schema:
+          type: integer
+          maximum: 100
+          minimum: 1
+          default: 25
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryPage'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/organizations/current/invitations/:
     get:
       operationId: api_v1_organizations_current_invitations_list
@@ -9714,6 +9756,16 @@ components:
       - proposal_id
       - published
       - resource_id
+    ChannelEnum:
+      enum:
+      - panel
+      - api_key
+      - system
+      type: string
+      description: |-
+        * `panel` - panel
+        * `api_key` - api_key
+        * `system` - system
     CheckoutCreate:
       type: object
       properties:
@@ -11495,6 +11547,87 @@ components:
       description: |-
         * `ok` - ok
         * `degraded` - degraded
+    HistoryActor:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+      required:
+      - email
+      - name
+    HistoryEntry:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        occurred_at:
+          type: string
+          format: date-time
+        action:
+          type: string
+        actor:
+          oneOf:
+          - $ref: '#/components/schemas/HistoryActor'
+          - type: 'null'
+        channel:
+          oneOf:
+          - $ref: '#/components/schemas/ChannelEnum'
+          - $ref: '#/components/schemas/NullEnum'
+        target_type:
+          type: string
+        target_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        changes:
+          type: object
+          additionalProperties: {}
+        changed_fields:
+          type: array
+          items:
+            type: string
+        details:
+          type: object
+          additionalProperties: {}
+      required:
+      - action
+      - actor
+      - changed_fields
+      - changes
+      - channel
+      - details
+      - id
+      - occurred_at
+      - target_id
+      - target_type
+    HistoryPage:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        actions:
+          type: array
+          items:
+            type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryEntry'
+      required:
+      - actions
+      - items
+      - page
+      - page_size
+      - total
     InventoryAdjustInput:
       type: object
       properties:

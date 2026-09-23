@@ -16,7 +16,11 @@ from django.db.models import QuerySet
 from rest_framework.exceptions import APIException, NotFound, ValidationError
 
 from saas_core.modules.core.identity.models import User
-from saas_core.modules.core.organizations.audit import record_audit
+from saas_core.modules.core.organizations.audit import (
+    audit_snapshot,
+    field_changes,
+    record_audit,
+)
 from saas_core.modules.core.organizations.authorization import authorize
 from saas_core.modules.core.organizations.context import require_tenant_context
 from saas_core.modules.core.organizations.models import (
@@ -47,6 +51,8 @@ EDITABLE_FIELDS = (
     "category",
     "layout",
 )
+#: Personal even on a company card — the history records only that they changed.
+CONTACT_FIELDS = ("contact_email", "contact_phone", "contact_address")
 
 
 class OrganizationProfileExists(APIException):
@@ -227,6 +233,8 @@ def update_profile(profile_id: UUID, *, expected_version: int, **values: Any) ->
     if profile.version != expected_version:
         raise ProfileVersionConflict
 
+    tracked = (*EDITABLE_FIELDS, "photo", "membership")
+    before = audit_snapshot(profile, tracked)
     if "photo_id" in values:
         profile.photo = _resolve_photo(values.pop("photo_id"))
     if "membership_id" in values:
@@ -248,7 +256,18 @@ def update_profile(profile_id: UUID, *, expected_version: int, **values: Any) ->
         actor=User.objects.filter(pk=context.actor_id).first(),
         target_type="public_profile",
         target_id=profile.id,
-        metadata={"version": profile.version},
+        metadata={
+            "version": profile.version,
+            # A person's card is personal data end to end; a company's only
+            # in its contact fields.
+            "changes": field_changes(
+                before,
+                audit_snapshot(profile, tracked),
+                private=tracked
+                if profile.subject_kind == ProfileSubjectKind.PERSON
+                else CONTACT_FIELDS,
+            ),
+        },
     )
     return profile
 
