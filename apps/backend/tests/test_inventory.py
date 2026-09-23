@@ -8,6 +8,7 @@ i księga ruchów, i stan trzymany obok niej.
 from __future__ import annotations
 
 from contextlib import contextmanager
+from dataclasses import replace
 from decimal import Decimal
 from types import SimpleNamespace
 from typing import Any
@@ -54,6 +55,15 @@ pytestmark = [
 ]
 
 ENTRY = "hoofcare.entry"
+
+
+@pytest.fixture(autouse=True)
+def core_catalog(settings: Any) -> None:
+    """Core's own set for every type: a product's declaration (HoofCare's
+    „Klocek”) must not change what these tests start from."""
+    settings.ORGANIZATION_TYPES = {
+        key: replace(value, inventory=None) for key, value in settings.ORGANIZATION_TYPES.items()
+    }
 
 
 def membership(slug: str, *, organization_type: str | None = None) -> Membership:
