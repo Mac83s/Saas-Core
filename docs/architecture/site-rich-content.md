@@ -154,9 +154,14 @@ strong/b, em/i, a z dozwolonym adresem) do dozwolonych węzłów; zwykły tekst
 dzieli po pustych liniach. Obrazy z schowka nie są importowane.
 
 Płótno edytuje w miejscu teksty przebiegów, śródtytułów i podpisów tym samym
-`InlineText` i tą samą historią RHF. Nie dodajemy zależności edytora ani
-`contentEditable`; wybór silnika bogatej edycji pozostaje otwarty i wymaga
-osobnej decyzji. Normalizacja zapisu nie przycina spacji wewnątrz przebiegów.
+`InlineText` i tą samą historią RHF. Normalizacja zapisu nie przycina spacji
+wewnątrz przebiegów.
+
+Etap 2b zastępuje panel ze składnią `**` edytorem WYSIWYG (TipTap) na tym
+samym kontrakcie — [ADR-056](../adr/ADR-056-Edytor-Tekstu-WYSIWYG-Na-Kontrakcie-Rich-Text.md):
+schemat edytora = węzły `core.rich_text`, zapis wyłącznie JSON, jedna
+historia cofania, pisanie w panelu bocznym i na pełnym ekranie. Do czasu
+objęcia wszystkich węzłów panel działa jak wyżej.
 
 ## Automatyzacja treści
 
