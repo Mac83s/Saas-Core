@@ -478,21 +478,27 @@ function PathEditor({
   });
 
   // A value changed elsewhere replaces the text; the caret stays near where
-  // it was.
+  // it was. The form's current value decides, not this render's: on a busy
+  // machine a write after a pause can land between a render and this effect,
+  // and reloading the older value would drop what was typed since.
   useEffect(() => {
-    if (!editor || stored === written.current) return;
+    if (!editor) return;
+    const current = JSON.stringify(
+      (getValues(name) as RichTextNode[] | undefined) ?? [],
+    );
+    if (current === written.current) return;
     clearTimeout(timer.current);
     timer.current = undefined;
-    written.current = stored;
+    written.current = current;
     const caret = editor.state.selection.from;
     editor.commands.setContent(
-      toEditorDoc(JSON.parse(stored) as RichTextNode[]),
+      toEditorDoc(JSON.parse(current) as RichTextNode[]),
       { emitUpdate: false },
     );
     editor.commands.setTextSelection(
       Math.min(caret, editor.state.doc.content.size),
     );
-  }, [editor, stored]);
+  }, [editor, stored, getValues, name]);
 
   useEffect(() => {
     editor?.setEditable(!disabled);
