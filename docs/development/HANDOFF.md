@@ -1,5 +1,41 @@
 # Handoff następnej sesji
 
+## 2026-09-23 — Site Studio: bogata treść, pełna szerokość, wygląd strony (gałąź, bez wdrożenia)
+
+Fazy 1–2 planu memex `saas-core-site-studio-rich-content-and-full-width` na
+gałęzi `feat/site-studio-rich-content` (worktree
+`/root/worktrees/saas-core-rich-content`). **Nie scalono do `main` i nie
+wdrożono** — czeka na decyzję właściciela i jego przegląd wizualny.
+
+- `core.rich_text` v2: akapity z pogrubieniem/kursywą/linkami, śródtytuły
+  H2–H4 ze stałymi kotwicami, listy dwupoziomowe, cytaty, uwagi, ilustracje.
+  v1 migruje do jednego akapitu i renderuje się identycznie jak dotąd.
+- Nowe `core.feature_list` v4, `core.quote` v1 i `core.product` v1 (bez cen),
+  osiem układów w katalogu v5 (104 recepty) i trzy recepty stron: produkt,
+  przewodnik po usłudze i długi artykuł ekspercki (PL/EN, cztery istniejące
+  zdjęcia demonstracyjne).
+- Koperta sekcji `presentation` (szerokość treści, powierzchnia) i
+  `page_presentation` na wersji strony (pełna szerokość, fonty) — przez
+  drafty, change sets, propozycje, snapshot, rollback i publiczne API.
+  Migracja `sites/0032`, kontrole `sites.E007`/`E008`.
+- Serwer sam zbiera identyfikatory zdjęć z danych bloków (ilustracje,
+  galerie, bloki od connectora); powtórzona kotwica to 400.
+- Panel pisania w inspektorze, edycja przebiegów na płótnie, „Wygląd tej
+  strony” w zakładce Wygląd, unikalne kotwice przy wstawianiu sekcji.
+
+Dowody (po scaleniu `main` z `DataTable`): renderer **132/132**, kontrakty **33/33**, UI **60/60**, frontend
+**394/394**; backend `test_site_rich_content.py` **37/37** plus sites
+(decoration 23, api 32, blueprints 27, connections 9, operations 4,
+collections 58, content operations 8, proposal review 10, deployment 4);
+ruff, mypy (433), import-linter, brak nowych migracji, `api:check`. Osiem
+dotychczasowych recept: markup identyczny bajt w bajt, zrzuty 1440/390/3440
+identyczne co do piksela z `bf1a014` (24/24). Kontrakt i decyzje:
+[site-rich-content.md](../architecture/site-rich-content.md).
+
+Otwarte: przegląd wizualny właściciela, scalenie i wdrożenie, odbiór zapisu,
+podglądu i publikacji na działającym stosie oraz `core:update` produktów;
+prawdziwe zdjęcia produktów i portretów (są tylko cztery ilustracje AI).
+
 ## 2026-09-23 — standard list panelu: `DataTable` (ADR-054)
 
 Decyzja właściciela: każda lista w panelu klienta jest listą na shadcn i ma być
