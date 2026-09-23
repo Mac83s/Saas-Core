@@ -1,22 +1,16 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
 
-import { ApiProblemError, readCatalogProfile } from "@saas-core/api-client";
-
 import { CatalogProfilePage } from "../../../../../modules/shared/profiles";
+import { readCatalogProfileOnServer } from "../../../../../modules/shared/profiles/catalog-server";
 
-// `generateMetadata` and the page both need the record, and the client reads
-// with `no-store`, so without this every crawler hit would fetch it twice.
+// `generateMetadata` and the page both need the record, and the read is
+// `no-store`, so without this every crawler hit would fetch it twice.
 const load = cache(async (city: string, slug: string) => {
-  try {
-    return await readCatalogProfile(city, slug);
-  } catch (error) {
-    // A withdrawn or erased company is gone, not broken.
-    if (error instanceof ApiProblemError && error.problem.status === 404) {
-      notFound();
-    }
-    throw error;
-  }
+  const profile = await readCatalogProfileOnServer(city, slug);
+  // A withdrawn or erased company is gone, not broken.
+  if (!profile) notFound();
+  return profile;
 });
 
 export async function generateMetadata({

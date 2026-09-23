@@ -164,11 +164,7 @@ def publish_profile() -> CatalogEntry:
 
     record_audit(
         organization=organization,
-        # ponytail: reuses profile.updated instead of its own audit action —
-        # adding one means altering the enum in core.organizations, and another
-        # session holds an uncommitted migration on that column. Give publish
-        # and withdraw their own actions the next time that enum is touched.
-        action=OrganizationAuditAction.PROFILE_UPDATED,
+        action=OrganizationAuditAction.PROFILE_PUBLISHED,
         actor=User.objects.filter(pk=context.actor_id).first(),
         target_type="catalog_entry",
         target_id=entry.id,
@@ -186,7 +182,7 @@ def withdraw_profile() -> None:
         return
     record_audit(
         organization=Organization.objects.get(pk=context.organization_id),
-        action=OrganizationAuditAction.PROFILE_UPDATED,
+        action=OrganizationAuditAction.PROFILE_WITHDRAWN,
         actor=User.objects.filter(pk=context.actor_id).first(),
         target_type="catalog_entry",
         target_id=entry.id,

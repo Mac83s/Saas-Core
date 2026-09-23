@@ -14,7 +14,6 @@ import {
   type CatalogState,
   type PublicProfileSummary,
 } from "@saas-core/api-client";
-import { Button } from "@saas-core/ui/components/button";
 import {
   Card,
   CardContent,
@@ -26,6 +25,7 @@ import {
 import { Field, FieldLabel } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
+import { Switch } from "@saas-core/ui/components/switch";
 import { Textarea } from "@saas-core/ui/components/textarea";
 
 import { profileProblem } from "./problem";
@@ -314,13 +314,16 @@ export function ProfilePanel({ canManage }: { canManage: boolean }) {
           </CardContent>
         )}
         <CardFooter className="flex-col items-start gap-3">
-          <Button
-            disabled={readOnly}
-            onClick={() => void togglePublication()}
-            variant={catalog.published ? "outline" : "default"}
-          >
-            {catalog.published ? t("withdraw") : t("publish")}
-          </Button>
+          {/* On/off rather than "publish": the card always exists (ADR-053),
+              and not every company wants to be listed. */}
+          <label className="flex min-h-11 items-center gap-3 font-medium">
+            <Switch
+              checked={catalog.published}
+              disabled={readOnly}
+              onCheckedChange={() => void togglePublication()}
+            />
+            {t("showInCatalog")}
+          </label>
           {error && (
             <p className="text-destructive text-sm" role="alert">
               {error}

@@ -132,6 +132,13 @@ the work:
   when that gate's expected outcomes genuinely hold; never skip a gate or use a
   status assertion as evidence.
 
+- When the human answers a design question, file it in the same turn: the choice
+  as a decision (`memex_remember`), the answer in its plan (decisions, open
+  questions, phases). A plan discussed over several conversations is only as
+  current as its last recorded answer; waiting for the session-end worklog is how
+  answers get lost when a session is interrupted. The plan lives in the vault —
+  a repository handoff keeps only the current state and names the plan id.
+
 - Add a task when a concrete action must survive this session. Link it to a plan
   when it advances a multi-step outcome. Move it through backlog → ready → doing
   → blocked/done as work changes. Do not turn every implementation step into a

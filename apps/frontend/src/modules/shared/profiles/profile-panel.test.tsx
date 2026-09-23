@@ -121,9 +121,11 @@ afterEach(cleanup);
 test("the business card screen offers publication and is accessible", async () => {
   const { container } = view(<ProfilePanel canManage />);
 
-  expect(
-    await screen.findByRole("button", { name: "Opublikuj w katalogu" }),
-  ).toBeTruthy();
+  // Off by default: nobody is listed without switching it on (ADR-053).
+  const toggle = await screen.findByRole("switch", {
+    name: "Pokazuj wizytówkę w katalogu",
+  });
+  expect(toggle.getAttribute("aria-checked")).toBe("false");
   // The dictionary drives the selects, so a value outside it cannot be picked.
   expect(screen.getByRole("option", { name: "Mrągowo" })).toBeTruthy();
   expect(screen.getByRole("option", { name: "Uroda i zdrowie" })).toBeTruthy();
@@ -132,7 +134,7 @@ test("the business card screen offers publication and is accessible", async () =
   expect(results.violations).toEqual([]);
 });
 
-test("publication swaps the button and shows where the entry leads", async () => {
+test("switching the card on shows where the entry leads", async () => {
   api.publishOrganizationProfile.mockResolvedValue(
     body({
       catalog: catalog({
@@ -145,19 +147,44 @@ test("publication swaps the button and shows where the entry leads", async () =>
   );
 
   view(<ProfilePanel canManage />);
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Opublikuj w katalogu" }),
-  );
+  const toggle = await screen.findByRole("switch", {
+    name: "Pokazuj wizytówkę w katalogu",
+  });
+  fireEvent.click(toggle);
 
-  expect(
-    await screen.findByRole("button", { name: "Wycofaj z katalogu" }),
-  ).toBeTruthy();
+  await waitFor(() => expect(toggle.getAttribute("aria-checked")).toBe("true"));
+  expect(api.publishOrganizationProfile).toHaveBeenCalledTimes(1);
   expect(screen.getByText("/katalog/mragowo/salon-uroda/")).toBeTruthy();
   expect(
     screen.getByText(
       "Wpis w katalogu prowadzi do strony wizytówki na naszej platformie.",
     ),
   ).toBeTruthy();
+});
+
+test("switching a listed card off withdraws it", async () => {
+  const listed = catalog({
+    published: true,
+    city_slug: "mragowo",
+    slug: "salon-uroda",
+    path: "/katalog/mragowo/salon-uroda/",
+  });
+  api.readOrganizationProfile
+    .mockResolvedValueOnce(body({ catalog: listed }))
+    .mockResolvedValueOnce(body());
+
+  view(<ProfilePanel canManage />);
+  const toggle = await screen.findByRole("switch", {
+    name: "Pokazuj wizytówkę w katalogu",
+  });
+  expect(toggle.getAttribute("aria-checked")).toBe("true");
+  fireEvent.click(toggle);
+
+  await waitFor(() =>
+    expect(toggle.getAttribute("aria-checked")).toBe("false"),
+  );
+  expect(api.withdrawOrganizationProfile).toHaveBeenCalledTimes(1);
+  expect(screen.queryByText("/katalog/mragowo/salon-uroda/")).toBeNull();
 });
 
 test("a company with a website is said to lead there instead", async () => {
@@ -197,9 +224,10 @@ test("a refused publication shows the server's own sentence", async () => {
   );
 
   view(<ProfilePanel canManage />);
-  fireEvent.click(
-    await screen.findByRole("button", { name: "Opublikuj w katalogu" }),
-  );
+  const toggle = await screen.findByRole("switch", {
+    name: "Pokazuj wizytówkę w katalogu",
+  });
+  fireEvent.click(toggle);
 
   expect(
     await screen.findByText(
@@ -215,12 +243,10 @@ test("without the permission nothing on the card can be edited", async () => {
 
   expect((name as HTMLInputElement).disabled).toBe(true);
   expect(
-    (
-      screen.getByRole("button", {
-        name: "Opublikuj w katalogu",
-      }) as HTMLButtonElement
-    ).disabled,
-  ).toBe(true);
+    screen
+      .getByRole("switch", { name: "Pokazuj wizytówkę w katalogu" })
+      .getAttribute("aria-disabled"),
+  ).toBe("true");
 });
 
 test("the public listing links out only for an entry that leaves the platform", async () => {

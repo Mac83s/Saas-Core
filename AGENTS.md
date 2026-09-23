@@ -8,7 +8,10 @@
 - mapa fal: `Plan/Wdrozenie/00-MAPA-WDROZENIA.md`;
 - fala produktowa (po bazie): `Plan/Wdrozenie/10A-W9.5-Customer-Experience-Commerce-i-AI.md`;
 - równoległa gałąź kontraktowa publikacji: `Plan/Wdrozenie/10B-W9.6-Publication-Platform-i-SeoContentRank.md`;
-- punkt wznowienia następnej sesji: `docs/development/HANDOFF.md`;
+- stan bieżący (krótki, aktualizowany w miejscu, bez historii):
+  `docs/development/HANDOFF.md`;
+- żywe plany, ich fazy i odpowiedzi właściciela: memex (`desk/plans`, projekt
+  `saas-core`); `Plan/Wdrozenie/` to baza i historia fal;
 - decyzje techniczne: `docs/adr/`;
 - wykonywalne kontrakty: `docs/architecture/`.
 
@@ -104,7 +107,9 @@ repozytorium założone jako kopia Saas-Core, z Saas-Core jako `upstream`.
 Implementuj wyłącznie aktywny etap i jego konieczne fundamenty. Bazą pozostaje
 plan 13 (P0-P3). To, co wspólne dla produktów, należy do `shared`, nie do
 skopiowania między wertykałami. Po znaczącym etapie
-aktualizuj checklistę, `docs/development/HANDOFF.md` oraz Memex. Nie oznaczaj
+zapisz fazę planu w memeksie (z dowodem) i zaktualizuj stan w
+`docs/development/HANDOFF.md` — zmieniasz jego sekcje, nie dopisujesz dziennika;
+historia żyje w git i w worklogach memeksu. Nie oznaczaj
 bramki jako ukończonej bez testu lub jednoznacznego artefaktu będącego dowodem;
 jeśli część zakresu zostaje otwarta, napisz wprost która i dlaczego.
 
@@ -163,6 +168,10 @@ what past sessions learned. Read `.claude/skills/memex/SKILL.md` (or
 1. `memex_remember(action: "update")` to refine one that still holds.
 2. `memex_remember(action: "retire", superseded_by: …)` when it no longer does.
 3. Never leave a stale decision recorded — it is injected into every future pack as current.
+
+**The human answers a design question or settles a choice**
+1. In the same turn, not at the end of the session: the choice goes to `memex_remember` (record, or update the decision it refines).
+2. The plan it belongs to gets the answer too — decisions, open questions, phases in `desk/plans/`. The plan lives in the vault; a repo handoff holds only the current state and names the plan.
 
 **The human tells you how they want to be worked with** (a language, a format, a standing correction)
 1. `memex_remember(action: "prefer", what: "<the rule, one line>")` — it reaches their sessions only.

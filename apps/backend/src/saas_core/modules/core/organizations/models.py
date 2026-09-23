@@ -491,6 +491,8 @@ class OrganizationAuditAction(models.TextChoices):
     PROFILE_CREATED = "profile.created", "Utworzono profil publiczny"
     PROFILE_UPDATED = "profile.updated", "Zmieniono profil publiczny"
     PROFILE_DELETED = "profile.deleted", "Usunięto profil publiczny"
+    PROFILE_PUBLISHED = "profile.published", "Włączono wizytówkę w katalogu"
+    PROFILE_WITHDRAWN = "profile.withdrawn", "Wyłączono wizytówkę z katalogu"
     BOOKING_SCHEDULE_CHANGED = "booking.schedule.changed", "Zmieniono grafik rezerwacji"
     BOOKING_APPOINTMENT_CREATED = "booking.appointment.created", "Utworzono rezerwację"
     BOOKING_APPOINTMENT_RESCHEDULED = (
