@@ -29,7 +29,8 @@ magazyn 9–10 → pozostałe listy na DataTable.
   `--env-file .env.<produkt>` i `compose.<produkt>.yaml`.
 - Kod działający na VPS i raporty wydań: `docs/operations/releases/`
   (ostatnie z 23.09: DataTable, przełącznik wizytówki i strona wizytówki w
-  katalogu, bogata treść Site Studio, historia zmian). Od 23.09 wieczorem
+  katalogu, bogata treść Site Studio, historia zmian, limit podstron, układy
+  i recepty stron pod konwersję — Site Studio 3a i 3b). Od 23.09 wieczorem
   HoofCare i MedPlano stoją na tym samym rdzeniu co Saas-Core (`e239f40`,
   decyzja właściciela „niech leci do produktów core”).
 - Płatności we wszystkich trzech: `BILLING_PROVIDER=simulated`.
