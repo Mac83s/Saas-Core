@@ -14,7 +14,7 @@ i git; zamknięte pozycje z dawnego dziennika zostały pominięte.
 
 | Plan | O czym | Gdzie jesteśmy |
 | --- | --- | --- |
-| `saas-core-panel-i-katalog-listy-wizytowka-historia-wyszukiwarka` | standard list panelu, wizytówka, historia zmian, limit podstron, wyszukiwarka katalogu | fazy 1–3 zrobione (DataTable, przełącznik wizytówki, historia zmian); dalej `pages.max`, potem magazyn v2, Meilisearch |
+| `saas-core-panel-i-katalog-listy-wizytowka-historia-wyszukiwarka` | standard list panelu, wizytówka, historia zmian, limit podstron, wyszukiwarka katalogu | fazy 1–4 zrobione (DataTable, przełącznik wizytówki, historia zmian, limit podstron); dalej magazyn v2, potem Meilisearch |
 | `magazyn-materia-o-w-od-pakietu-korektora-do-kare` | uniwersalny magazyn firm (`shared.inventory` v2): dokumenty, miejsca, rezerwacje, rezerwacje stanu przy wizytach, przyszły sklep | projekt v2 przyjęty 23.09; implementacja po fazach 2–4 planu panelu |
 | `saas-core-site-studio-templates`, `saas-core-site-studio-rich-content-and-full-width` | Site Studio: szablony, warianty, bogata treść | bogata treść, pełna szerokość, wygląd strony i 3 strony demonstracyjne scalone i wdrożone 23.09 (saas, a wieczorem też HoofCare i MedPlano) (`docs/architecture/site-rich-content.md`, raport `2026-09-23-rich-content`); faza 3a (20 układów redakcyjnych pod konwersję, `core.rich_text` v3, katalog v6, ostrzeżenie o miejscach `[Uzupełnij: …]`) scalona 23.09; dalej 3b — kierunki wizualne, kotwice sekcji, recepty stron pod konwersję — potem edytor WYSIWYG |
 | `domkna-c-saas-core-po-audycie-realna-kompozycja-` | baza P0–P3 po audycie | treść w `Plan/Wdrozenie/13-…` |
@@ -30,7 +30,7 @@ magazyn 9–10 → pozostałe listy na DataTable.
 - Kod działający na VPS i raporty wydań: `docs/operations/releases/`
   (ostatnie z 23.09: DataTable, przełącznik wizytówki i strona wizytówki w
   katalogu, bogata treść Site Studio, historia zmian). Od 23.09 wieczorem
-  HoofCare i MedPlano stoją na tym samym rdzeniu co Saas-Core (`7b41eb6`,
+  HoofCare i MedPlano stoją na tym samym rdzeniu co Saas-Core (`e239f40`,
   decyzja właściciela „niech leci do produktów core”).
 - Płatności we wszystkich trzech: `BILLING_PROVIDER=simulated`.
 - E-mail: Saas-Core wysyła przez Resend SMTP; HoofCare i MedPlano zapisują
@@ -59,7 +59,10 @@ magazyn 9–10 → pozostałe listy na DataTable.
 - **Wizytówka (ADR-053):** plan `profile` nadal ma `sites.enabled`
   (`shared/billing/migrations/0012_seed_profile_plan.py:26`) — decyzja cenowa
   właściciela; wyszukiwarka to jeszcze `tsvector simple`.
-- **Limit podstron `pages.max`** — nieegzekwowany; faza 4 planu panelu.
+- **Limit podstron** działa od 23.09 (Profil 5, Witryna 15, Pro 50; liczby
+  tymczasowe, do ustalenia przez właściciela). Migawka bez `pages.max` nie ma
+  limitu — zmiana planu dociera do organizacji dopiero po przeniesieniu jej
+  abonamentu na nową wersję (skrypt w `.runtime/releases/20260923-pages-limit/`).
 - **Historia zmian:** „było → jest” zapisują główne edycje (firma, wizytówka,
   rola, gospodarstwo, zwierzę, pozycja magazynu, dane do faktury); pozostałe
   akcje pokazują listę pól albo nic. Wpisy sprzed 23.09 nie mają kanału.
