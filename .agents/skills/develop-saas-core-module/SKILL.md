@@ -76,6 +76,11 @@ verifies both directions.
    change shows up as a diff in every profile that uses the module.
 8. Tables: read `change-tenant-data` before adding any model with an
    organization.
+9. Panel pages: every list is `DataTable` from
+   `@saas-core/ui/components/data-table`, with words from
+   `useDataTableLabels()` (ADR-054) — never a hand-made `<table>` or a list of
+   cards. Column renderers are plain functions without hooks; a phone gets
+   cards, so mark the title column `meta.primary` and the menu `meta.actions`.
 
 ## Traps
 

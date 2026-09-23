@@ -1,5 +1,28 @@
 # Handoff następnej sesji
 
+## 2026-09-23 — standard list panelu: `DataTable` (ADR-054)
+
+Decyzja właściciela: każda lista w panelu klienta jest listą na shadcn i ma być
+standardem budowania podstron. `packages/ui` dostał prymitywy `Table*` (shadcn)
+i `DataTable` na TanStack Table: sortowanie z polskim alfabetem, wyszukiwanie
+bez znaczenia wielkości liter i ogonków, stronicowanie, pusty stan, ładowanie,
+tryb serwerowy (`rowCount` + `onQueryChange`, wyszukiwanie z opóźnieniem 300 ms)
+oraz `RowActions` (menu wiersza 44 px oddające focus). Na telefonie wiersze są
+kartami w tym samym DOM — każde działanie istnieje raz. Renderery kolumn są
+wołane jak zwykłe funkcje, bo `flexRender` remontował komórki przy każdym
+renderze strony i dialog tracił element, do którego oddaje focus (złapał to test
+zespołu). Pierwsze wdrożenie: lista zespołu. Reguła w `AGENTS.md` i w skillu
+`develop-saas-core-module`; `docs/adr/README.md` uzupełniony o ADR-043–054.
+
+Dowody: UI **60/60** (w tym 7 nowych testów `DataTable`), frontend **335/335**,
+`pnpm lint` (core/deployment/ai:validate/ai:eval/ESLint), `pnpm typecheck`,
+`prettier --check`. Plan i kolejne kroki: memex
+`saas-core-panel-i-katalog-listy-wizytowka-historia-wyszukiwarka` (faza 1) oraz
+`magazyn-materia-o-w-od-pakietu-korektora-do-kare` (magazyn v2 na tym standardzie).
+
+**Wdrożone tego samego dnia** we wszystkich trzech frontendach; raport:
+[2026-09-23-data-table](../operations/releases/2026-09-23-data-table.md).
+
 ## 2026-09-21 — czytelne listy wyboru w ciemnym motywie, wdrożone
 
 `ddfb091` nadaje opcjom i grupom `NativeSelect` nieprzezroczyste tło i kolor
