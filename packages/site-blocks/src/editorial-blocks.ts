@@ -5,13 +5,42 @@ import { unfilledPlaceholders } from "./rich-text";
 
 import type {
   BlockComponentProps,
+  BlockEditor,
   BlockImageRenderer,
-  ProductV1Data,
+  BlockTextRenderer,
+  ProductV2Data,
   QuoteV1Data,
 } from "./types";
 
 function externalRel(href: string): "noreferrer" | undefined {
   return href.startsWith("https://") ? "noreferrer" : undefined;
+}
+
+/** A block's primary action as it always rendered, or — with a quieter
+ *  second action — both in the `.site-section__actions` row of rich text v3.
+ *  Without the second action nothing changes, so older markup stays byte for
+ *  byte. In the editor both are editable text without navigation. */
+export function withSecondaryAction(
+  primary: ReactNode,
+  secondary: { label: string; href: string } | undefined,
+  text: BlockTextRenderer,
+  editor?: BlockEditor,
+): ReactNode {
+  if (secondary === undefined) return primary;
+  return h(
+    "div",
+    { className: "site-section__actions" },
+    primary,
+    h(
+      editor ? "span" : "a",
+      {
+        className: "site-section__action site-section__action--secondary",
+        href: editor ? undefined : secondary.href,
+        rel: editor ? undefined : externalRel(secondary.href),
+      },
+      text(["secondaryAction", "label"], secondary.label),
+    ),
+  );
 }
 
 export function picture(
@@ -130,7 +159,7 @@ export function ProductBlock({
   imageRenderer,
 }: BlockComponentProps) {
   const text = editor?.text ?? plainBlockText;
-  const product = data as ProductV1Data;
+  const product = data as ProductV2Data;
   const layout = product.layout ?? "showcase";
   const [first, ...rest] = product.images ?? [];
   const caption = (value: string | undefined, index: number) =>
@@ -258,17 +287,22 @@ export function ProductBlock({
             ),
           )
         : null,
-      product.action
-        ? h(
-            editor ? "span" : "a",
-            {
-              className: "site-section__action",
-              href: editor ? undefined : product.action.href,
-              rel: editor ? undefined : externalRel(product.action.href),
-            },
-            text(["action", "label"], product.action.label),
-          )
-        : null,
+      withSecondaryAction(
+        product.action
+          ? h(
+              editor ? "span" : "a",
+              {
+                className: "site-section__action",
+                href: editor ? undefined : product.action.href,
+                rel: editor ? undefined : externalRel(product.action.href),
+              },
+              text(["action", "label"], product.action.label),
+            )
+          : null,
+        product.secondaryAction,
+        text,
+        editor,
+      ),
     ),
   );
 }

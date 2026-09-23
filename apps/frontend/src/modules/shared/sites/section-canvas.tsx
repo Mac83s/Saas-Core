@@ -22,6 +22,7 @@ import {
   type SiteAppearance,
   type BlockFieldDefinition,
   type PagePresentationV1,
+  type PagePresentationV2,
 } from "@saas-core/site-blocks";
 import { InlineText } from "@saas-core/ui/components/inline-text";
 import { ReorderList } from "@saas-core/ui/components/reorder-list";
@@ -84,8 +85,8 @@ export function SectionCanvas({
   templates?: ReactNode;
   emptyState?: ReactNode;
   appearance?: SiteAppearance;
-  /** This page's own look: full width and fonts on the canvas root. */
-  pagePresentation?: PagePresentationV1 | null;
+  /** This page's own look: style, full width and fonts on the canvas root. */
+  pagePresentation?: PagePresentationV1 | PagePresentationV2 | null;
   navigation?: readonly NavigationLink[];
 }) {
   const t = useTranslations("Sites");

@@ -53,6 +53,24 @@
 .site-section--hero.site-section--overlay_center .site-section__action {
   justify-self: center;
 }
+/* hero v6: with a secondary action both sit in one row (rich text v3's),
+   aligned like the layout's text. On a photo the quiet action keeps the
+   overlay's white ink rather than the palette accent. */
+.site-section--hero:is(
+    .site-section--centered,
+    .site-section--overlay_center,
+    .site-section--spotlight
+  )
+  .site-section__actions {
+  justify-content: center;
+}
+.site-section--hero:is(
+    .site-section--overlay_left,
+    .site-section--overlay_center
+  )
+  .site-section__action--secondary {
+  color: inherit;
+}
 .site-section--hero.site-section--image_above > img {
   order: -1;
   aspect-ratio: 3/1;
@@ -372,6 +390,17 @@
   }
   .site-section--feature_list.site-section--bento li:first-child {
     grid-row: span 2;
+  }
+  /* An item left alone in the last row spans it instead of half of it. The
+     bento's first item fills two rows, so there the lone one is even. */
+  .site-section--feature_list:is(.site-section--chips, .site-section--tiles)
+    li:last-child:nth-child(odd):not(:first-child),
+  .site-section--feature_list.site-section--bento
+    li:last-child:nth-child(even):not(:nth-child(2)),
+  .site-section--faq.site-section--cards
+    dl
+    > div:last-child:nth-child(odd):not(:first-child) {
+    grid-column: 1 / -1;
   }
   .site-section--feature_list.site-section--strip ul {
     grid-template-columns: repeat(3, minmax(0, 1fr));

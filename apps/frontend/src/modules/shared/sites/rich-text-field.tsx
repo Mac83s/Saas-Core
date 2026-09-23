@@ -92,7 +92,8 @@ const INSERTIONS = [
 ] as const;
 type Insertion = (typeof INSERTIONS)[number][0];
 
-/** Every heading anchor in `value`, duplicates included. */
+/** Every heading and section anchor in `value`, duplicates included: they
+ *  share one namespace on the page. */
 function collectAnchors(value: unknown, found: string[] = []): string[] {
   if (Array.isArray(value))
     value.forEach((item) => collectAnchors(item, found));
@@ -100,6 +101,8 @@ function collectAnchors(value: unknown, found: string[] = []): string[] {
     const node = value as Record<string, unknown>;
     if (node.type === "heading" && typeof node.anchor === "string")
       found.push(node.anchor);
+    const section = node.presentation as { anchor?: unknown } | undefined;
+    if (typeof section?.anchor === "string") found.push(section.anchor);
     Object.values(node).forEach((item) => collectAnchors(item, found));
   }
   return found;

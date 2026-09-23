@@ -88,6 +88,9 @@ export function InlineText({
             font: "inherit",
             lineHeight: "inherit",
             textAlign: "inherit",
+            // A button does not inherit it by default, so an uppercase label
+            // or eyebrow would read differently here than when published.
+            textTransform: "inherit",
             overflowWrap: "anywhere",
           }}
           onClick={() => {

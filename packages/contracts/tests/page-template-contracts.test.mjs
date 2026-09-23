@@ -97,9 +97,13 @@ function walk(value, visit) {
   }
 }
 
-function headingAnchors(blocks) {
+/** Every `#anchor` target on a page variant: section anchors (presentation
+ *  v2) and rich-text heading anchors share one namespace. */
+function pageAnchors(blocks) {
   const anchors = [];
   for (const block of blocks) {
+    if (block.presentation?.anchor !== undefined)
+      anchors.push(block.presentation.anchor);
     if (block.block_type !== "core.rich_text") continue;
     walk(block.data, (key, value) => {
       if (key === "anchor") anchors.push(value);
@@ -108,26 +112,46 @@ function headingAnchors(blocks) {
   return anchors;
 }
 
+/** The latest version of every template the gallery still offers. */
+function offered(templates) {
+  return templates.filter(
+    ({ entry, version }) =>
+      entry.retired !== true && version === entry.latestVersion,
+  );
+}
+
+// Retired by the owner on 2026-09-23: hidden in the gallery and the blueprint
+// catalogue, but their files stay importable for pages already built on them.
+const RETIRED = [
+  "core.profile",
+  "core.specialist_landing",
+  "core.company",
+  "core.service_landing",
+  "core.medicine_clinic",
+  "core.agriculture_services",
+  "core.electronics_service",
+  "core.business_studio",
+];
+
 test("every template recipe matches the recipe schema and its manifest entry", async () => {
   const { manifest, validateRecipe, templates } = await loadTemplates();
 
   assert.equal(manifest.schemaVersion, 1);
-  assert.deepEqual(
-    manifest.templates.map((entry) => entry.id),
-    [
-      "core.profile",
-      "core.specialist_landing",
-      "core.company",
-      "core.service_landing",
-      "core.medicine_clinic",
-      "core.agriculture_services",
-      "core.electronics_service",
-      "core.business_studio",
-      "core.product_first_impression",
-      "core.service_guide",
-      "core.expert_knowledge",
-    ],
-  );
+  assert.equal(manifest.recipe, "page-template.v5.schema.json");
+  const ids = manifest.templates.map((entry) => entry.id);
+  assert.equal(new Set(ids).size, ids.length, "template ids must be unique");
+  for (const entry of manifest.templates)
+    assert.ok(
+      entry.retired === undefined || entry.retired === true,
+      `${entry.id}: retired is either true or absent`,
+    );
+  for (const id of RETIRED)
+    assert.equal(
+      manifest.templates.find((entry) => entry.id === id)?.retired,
+      true,
+      `${id} stays retired`,
+    );
+  assert.ok(offered(templates).length > 0, "the gallery offers something");
 
   for (const { entry, version, recipe } of templates) {
     assert.equal(
@@ -251,7 +275,7 @@ test("template link targets stay inside the allowed href forms", async () => {
 
   for (const { recipe } of templates) {
     for (const [locale, blocks] of variants(recipe)) {
-      const anchors = new Set(headingAnchors(blocks));
+      const anchors = new Set(pageAnchors(blocks));
       walk(blocks, (key, href) => {
         if (key !== "href") return;
         assert.match(
@@ -259,11 +283,12 @@ test("template link targets stay inside the allowed href forms", async () => {
           allowed,
           `${recipe.id} ${locale}: seeded href ${href} is not an allowed form`,
         );
-        // An in-page link must land on a heading of the same page variant.
+        // An in-page link (a heading link or a "to the form" button) must land
+        // on a section or heading of the same page variant.
         if (href.startsWith("#"))
           assert.ok(
             anchors.has(href.slice(1)),
-            `${recipe.id} ${locale}: ${href} has no heading`,
+            `${recipe.id} v${recipe.version} ${locale}: ${href} has no target`,
           );
       });
     }
@@ -326,30 +351,52 @@ test("recipe presentation envelopes validate against their own contracts", async
   const { templates } = await loadTemplates();
   const ajv = new Ajv2020({ allErrors: true, strict: true });
   // The recipe schema only says "object" here on purpose: each envelope has
-  // one owner, and a second copy of its enums would drift.
-  const validatePage = ajv.compile(
-    await readJson("site-blocks", "page-presentation.v1.schema.json"),
-  );
+  // one owner, and a second copy of its enums would drift. The envelope's own
+  // schemaVersion picks the contract; every published version stays accepted.
+  const compile = async (name, versions) =>
+    new Map(
+      await Promise.all(
+        versions.map(async (version) => [
+          version,
+          ajv.compile(
+            await readJson("site-blocks", `${name}.v${version}.schema.json`),
+          ),
+        ]),
+      ),
+    );
+  const pageContracts = await compile("page-presentation", [1, 2]);
   const envelopes = {
-    decoration: ajv.compile(
-      await readJson("site-blocks", "section-decoration.v1.schema.json"),
-    ),
-    presentation: ajv.compile(
-      await readJson("site-blocks", "section-presentation.v1.schema.json"),
-    ),
+    decoration: await compile("section-decoration", [1]),
+    presentation: await compile("section-presentation", [1, 2]),
+  };
+  const contractFor = (contracts, value, where) => {
+    const validate = contracts.get(value?.schemaVersion);
+    assert.ok(validate, `${where}: unknown schemaVersion`);
+    return validate;
   };
 
   for (const { recipe } of templates) {
-    if (recipe.pagePresentation !== undefined)
+    if (recipe.pagePresentation !== undefined) {
+      const validatePage = contractFor(
+        pageContracts,
+        recipe.pagePresentation,
+        `${recipe.id} pagePresentation`,
+      );
       assert.equal(
         validatePage(recipe.pagePresentation),
         true,
         `${recipe.id}: ${JSON.stringify(validatePage.errors)}`,
       );
+    }
     for (const [locale, blocks] of variants(recipe)) {
       for (const [index, block] of blocks.entries()) {
-        for (const [key, validate] of Object.entries(envelopes)) {
+        for (const [key, contracts] of Object.entries(envelopes)) {
           if (block[key] === undefined) continue;
+          const validate = contractFor(
+            contracts,
+            block[key],
+            `${recipe.id} ${locale} block ${index} ${key}`,
+          );
           assert.equal(
             validate(block[key]),
             true,
@@ -361,27 +408,42 @@ test("recipe presentation envelopes validate against their own contracts", async
   }
 });
 
-test("rich text heading anchors are unique within each recipe variant", async () => {
+test("section and heading anchors are unique within each recipe variant", async () => {
   const { templates } = await loadTemplates();
 
   for (const { recipe } of templates) {
     for (const [locale, blocks] of variants(recipe)) {
-      const anchors = headingAnchors(blocks);
+      const anchors = pageAnchors(blocks);
       // The backend refuses a draft with a repeated anchor, so an import of
       // such a recipe would fail on its first save.
       assert.equal(
         new Set(anchors).size,
         anchors.length,
-        `${recipe.id} ${locale}: ${anchors.join(", ")}`,
+        `${recipe.id} v${recipe.version} ${locale}: ${anchors.join(", ")}`,
       );
     }
+  }
+});
+
+test("every offered page declares its conversion path", async () => {
+  const { templates } = await loadTemplates();
+
+  for (const { recipe } of offered(templates)) {
+    const where = `${recipe.id} v${recipe.version}`;
+    const { conversion } = recipe;
+    assert.ok(conversion, `${where}: conversion is required`);
+    // One stage per block, in block order; the EN seed is the same page.
+    assert.equal(conversion.stages.length, recipe.blocks.length, where);
+    // The first screen has to sell, and somewhere the reader must be able to act.
+    assert.equal(conversion.stages[0], "attention", where);
+    assert.ok(conversion.stages.includes("action"), where);
   }
 });
 
 test("composed page recipes pin section versions and materialize their exact seed data", async () => {
   const { templates } = await loadTemplates();
   const catalogs = await Promise.all(
-    [1, 2, 3, 4, 5].map((version) =>
+    [1, 2, 3, 4, 5, 6].map((version) =>
       readJson("site-blocks", `section-templates.v${version}.json`),
     ),
   );

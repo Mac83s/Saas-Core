@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "recipe": "page-template.v4.schema.json",
+  "recipe": "page-template.v5.schema.json",
   "templates": [
     {
       "id": "core.profile",
@@ -8,7 +8,8 @@
       "versions": {
         "1": "core.profile.v1.json",
         "2": "core.profile.v2.json"
-      }
+      },
+      "retired": true
     },
     {
       "id": "core.specialist_landing",
@@ -16,7 +17,8 @@
       "versions": {
         "1": "core.specialist_landing.v1.json",
         "2": "core.specialist_landing.v2.json"
-      }
+      },
+      "retired": true
     },
     {
       "id": "core.company",
@@ -24,7 +26,8 @@
       "versions": {
         "1": "core.company.v1.json",
         "2": "core.company.v2.json"
-      }
+      },
+      "retired": true
     },
     {
       "id": "core.service_landing",
@@ -32,55 +35,105 @@
       "versions": {
         "1": "core.service_landing.v1.json",
         "2": "core.service_landing.v2.json"
-      }
+      },
+      "retired": true
     },
     {
       "id": "core.medicine_clinic",
       "latestVersion": 1,
       "versions": {
         "1": "core.medicine_clinic.v1.json"
-      }
+      },
+      "retired": true
     },
     {
       "id": "core.agriculture_services",
       "latestVersion": 1,
       "versions": {
         "1": "core.agriculture_services.v1.json"
-      }
+      },
+      "retired": true
     },
     {
       "id": "core.electronics_service",
       "latestVersion": 1,
       "versions": {
         "1": "core.electronics_service.v1.json"
-      }
+      },
+      "retired": true
     },
     {
       "id": "core.business_studio",
       "latestVersion": 1,
       "versions": {
         "1": "core.business_studio.v1.json"
-      }
+      },
+      "retired": true
     },
     {
       "id": "core.product_first_impression",
-      "latestVersion": 1,
+      "latestVersion": 2,
       "versions": {
-        "1": "core.product_first_impression.v1.json"
+        "1": "core.product_first_impression.v1.json",
+        "2": "core.product_first_impression.v2.json"
       }
     },
     {
       "id": "core.service_guide",
-      "latestVersion": 1,
+      "latestVersion": 2,
       "versions": {
-        "1": "core.service_guide.v1.json"
+        "1": "core.service_guide.v1.json",
+        "2": "core.service_guide.v2.json"
       }
     },
     {
       "id": "core.expert_knowledge",
+      "latestVersion": 2,
+      "versions": {
+        "1": "core.expert_knowledge.v1.json",
+        "2": "core.expert_knowledge.v2.json"
+      }
+    },
+    {
+      "id": "core.product_full_story",
       "latestVersion": 1,
       "versions": {
-        "1": "core.expert_knowledge.v1.json"
+        "1": "core.product_full_story.v1.json"
+      }
+    },
+    {
+      "id": "core.technical_b2b",
+      "latestVersion": 1,
+      "versions": {
+        "1": "core.technical_b2b.v1.json"
+      }
+    },
+    {
+      "id": "core.service_focused",
+      "latestVersion": 1,
+      "versions": {
+        "1": "core.service_focused.v1.json"
+      }
+    },
+    {
+      "id": "core.premium_service",
+      "latestVersion": 1,
+      "versions": {
+        "1": "core.premium_service.v1.json"
+      }
+    },
+    {
+      "id": "core.studio_manifesto",
+      "latestVersion": 1,
+      "versions": {
+        "1": "core.studio_manifesto.v1.json"
+      }
+    },
+    {
+      "id": "core.case_study",
+      "latestVersion": 1,
+      "versions": {
+        "1": "core.case_study.v1.json"
       }
     }
   ],

@@ -120,11 +120,23 @@ function richTextHeadings(
   );
 }
 
-/** Heading anchors of the given blocks' rich text, in page order. */
+/** The section's own anchor (presentation v2), if it has one. */
+function sectionAnchor(block: SiteBlock): string | undefined {
+  return block.presentation?.schemaVersion === 2
+    ? block.presentation.anchor
+    : undefined;
+}
+
+/** Every anchor of the given blocks, in page order: a section's own anchor,
+ *  then its rich-text heading anchors. One namespace, unique on a page. */
 export function richTextAnchors(blocks: readonly SiteBlock[]): string[] {
-  return blocks.flatMap((block) =>
-    richTextHeadings(block).map((heading) => heading.anchor),
-  );
+  return blocks.flatMap((block) => {
+    const section = sectionAnchor(block);
+    return [
+      ...(section === undefined ? [] : [section]),
+      ...richTextHeadings(block).map((heading) => heading.anchor),
+    ];
+  });
 }
 
 function rewriteHrefs(value: JsonValue, renamed: Map<string, string>): void {
@@ -146,36 +158,56 @@ function rewriteHrefs(value: JsonValue, renamed: Map<string, string>): void {
   }
 }
 
-/** Anchors are unique within a page. Inserting, duplicating or importing a
- *  section renames a later duplicate (`-2`, `-3`…) and rewrites the renamed
- *  section's own `#anchor` links with it. `existing` holds anchors already on
- *  the page outside `blocks`. Changed blocks are copies; the input stays. */
+/** Anchors are unique within a page: a section's own anchor and its heading
+ *  anchors share one namespace. Inserting, duplicating or importing a section
+ *  renames a later duplicate (`-2`, `-3`…) and rewrites the renamed section's
+ *  own `#anchor` links (text links and actions alike) with it. `existing`
+ *  holds anchors already on the page outside `blocks`. Changed blocks are
+ *  copies; the input stays. */
 export function ensureUniqueAnchors(
   blocks: readonly SiteBlock[],
   existing: ReadonlySet<string> = new Set(),
 ): SiteBlock[] {
   const taken = new Set(existing);
   return blocks.map((block) => {
-    const headings = richTextHeadings(block);
-    if (headings.every((heading) => !taken.has(heading.anchor))) {
-      headings.forEach((heading) => taken.add(heading.anchor));
+    const own = richTextAnchors([block]);
+    if (
+      own.every((anchor, i) => !taken.has(anchor) && own.indexOf(anchor) === i)
+    ) {
+      own.forEach((anchor) => taken.add(anchor));
       return block;
     }
-    const copy: SiteBlock = { ...block, data: structuredClone(block.data) };
     const kept = new Set<string>();
     const renamed = new Map<string, string>();
-    for (const heading of richTextHeadings(copy)) {
-      if (taken.has(heading.anchor)) {
-        const anchor = richTextAnchorSlug(heading.anchor, taken);
-        if (!renamed.has(heading.anchor)) renamed.set(heading.anchor, anchor);
-        heading.anchor = anchor;
-      } else {
-        kept.add(heading.anchor);
+    const claim = (anchor: string): string => {
+      if (!taken.has(anchor)) {
+        kept.add(anchor);
+        taken.add(anchor);
+        return anchor;
       }
-      taken.add(heading.anchor);
-    }
-    // A link keeps its target while one heading of this section still owns
-    // the old anchor; otherwise it follows the rename.
+      const next = richTextAnchorSlug(anchor, taken);
+      if (!renamed.has(anchor)) renamed.set(anchor, next);
+      taken.add(next);
+      return next;
+    };
+    const presentation =
+      block.presentation?.schemaVersion === 2 ? block.presentation : undefined;
+    const copy: SiteBlock = {
+      ...block,
+      data: structuredClone(block.data),
+      ...(presentation?.anchor === undefined
+        ? {}
+        : {
+            presentation: {
+              ...presentation,
+              anchor: claim(presentation.anchor),
+            },
+          }),
+    };
+    for (const heading of richTextHeadings(copy))
+      heading.anchor = claim(heading.anchor);
+    // A link keeps its target while this section still owns the old anchor
+    // (itself or one of its headings); otherwise it follows the rename.
     for (const anchor of kept) renamed.delete(anchor);
     rewriteHrefs(copy.data, renamed);
     return copy;

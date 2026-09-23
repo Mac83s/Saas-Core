@@ -1,0 +1,1292 @@
+{
+  "id": "core.case_study",
+  "version": 1,
+  "category": "article",
+  "industries": [],
+  "labels": {
+    "pl": {
+      "name": "Studium przypadku",
+      "description": "Artykuł o jednej realizacji, który prowadzi do zapytania: kontekst, ograniczenia, diagnoza, przebieg, materiały, udokumentowany wynik, wnioski i kontakt. Wyniki i dane klienta to miejsca do uzupełnienia. Przykład: nowe zasady zapisów w gabinecie; wymień treści demonstracyjne przed publikacją."
+    },
+    "en": {
+      "name": "Case study",
+      "description": "An article about one project that leads to an enquiry: context, constraints, diagnosis, process, materials, a documented result, conclusions and contact. Results and client details are placeholders. Example: new booking rules at a private practice; replace the demo content."
+    }
+  },
+  "requiredEntitlements": ["sites.enabled"],
+  "pagePresentation": {
+    "schemaVersion": 2,
+    "width": "contained",
+    "style": "editorial"
+  },
+  "conversion": {
+    "goal": "inquiry",
+    "stages": [
+      "attention",
+      "interest",
+      "interest",
+      "objection",
+      "interest",
+      "interest",
+      "proof",
+      "proof",
+      "proof",
+      "action",
+      "action"
+    ]
+  },
+  "blocks": [
+    {
+      "block_type": "core.hero",
+      "schema_version": 6,
+      "data": {
+        "title": "Studium przypadku: jak przebudowaliśmy zapisy w prywatnym gabinecie",
+        "text": "Klient: [Uzupełnij: nazwa lub opis klienta – za jego zgodą]. Opisujemy, od czego zaczęliśmy, jakie mieliśmy ograniczenia, co zmieniliśmy i jaki był zmierzony wynik. Jeśli Twoja firma ma podobny kłopot, na końcu znajdziesz, jak zacząć.",
+        "action": {
+          "label": "Porozmawiaj o swoim przypadku",
+          "href": "#kontakt"
+        },
+        "secondaryAction": {
+          "label": "Przejdź do wyniku",
+          "href": "#wynik"
+        },
+        "layout": "editorial"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 3,
+      "data": {
+        "layout": "summary_box",
+        "eyebrow": "Studium przypadku",
+        "title": "O projekcie w kilku zdaniach",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Gabinet przyjmował zapisy telefonicznie, e-mailem i przez wiadomości – każdą drogą osobno. Rejestracja poświęcała na nie coraz więcej czasu, a pacjenci nie zawsze wiedzieli, czy ich termin jest potwierdzony."
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Naszym zadaniem było ułożyć jeden przebieg zapisów, który ten sam zespół udźwignie na co dzień. Poniżej opisujemy, jak do tego doszliśmy, i pokazujemy wynik dokładnie tak, jak go zmierzyliśmy."
+              }
+            ]
+          }
+        ],
+        "aside": {
+          "title": "W skrócie",
+          "content": [
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "Klient:",
+                      "bold": true
+                    },
+                    {
+                      "text": " [Uzupełnij: nazwa lub opis klienta – za jego zgodą]."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Zakres:",
+                      "bold": true
+                    },
+                    {
+                      "text": " przebudowa zapisów i potwierdzania wizyt."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Czas trwania:",
+                      "bold": true
+                    },
+                    {
+                      "text": " [Uzupełnij: od kiedy do kiedy trwał projekt]."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Zespół:",
+                      "bold": true
+                    },
+                    {
+                      "text": " [Uzupełnij: kto pracował po Twojej stronie i po stronie klienta]."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Wynik:",
+                      "bold": true
+                    },
+                    {
+                      "text": " [Uzupełnij: jedno zdanie o zmierzonym wyniku – szczegóły niżej]."
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "surface": "muted"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 3,
+      "data": {
+        "layout": "illustrated",
+        "eyebrow": "Kontekst",
+        "title": "Punkt wyjścia",
+        "lead": "Na początku nie było jednego dużego problemu, tylko wiele drobnych, które razem zabierały zespołowi coraz więcej czasu.",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Pacjenci zapisywali się na kilka sposobów, a każdą drogę obsługiwała inna osoba. Terminy trafiały do kalendarza z opóźnieniem i zdarzało się, że ten sam termin był obiecany dwóm osobom."
+              }
+            ]
+          },
+          {
+            "type": "figure",
+            "caption": "Zdjęcie poglądowe. [Uzupełnij: zdjęcie z projektu – tylko za zgodą klienta i bez danych pacjentów].",
+            "width": "wide"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Zespół wiedział, że trzeba coś zmienić, ale każda próba kończyła się kolejnym zeszytem albo arkuszem. [Uzupełnij: jak klient opisał problem własnymi słowami]."
+              }
+            ]
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 3,
+      "data": {
+        "layout": "numbered_sections",
+        "eyebrow": "Ograniczenia",
+        "title": "Czego nie mogliśmy zmienić",
+        "lead": "Każdy projekt ma swoje granice. Tu były trzy i to one ukształtowały rozwiązanie.",
+        "content": [
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "bez-przerwy-w-przyjeciach",
+            "text": "Gabinet nie mógł przestać przyjmować"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Zmiany wprowadzaliśmy w trakcie normalnej pracy. Każdy krok musiał dać się cofnąć, gdyby coś poszło nie tak."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "dane-pacjentow",
+            "text": "Dane pacjentów zostają pod kontrolą gabinetu"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Nowy przebieg nie mógł wynosić danych poza narzędzia, z których gabinet już korzystał. [Uzupełnij: jakie wymagania dotyczące danych osobowych obowiązywały w projekcie]."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "bez-nowego-etatu",
+            "text": "Ten sam zespół, bez nowego etatu"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Rozwiązanie miało obsłużyć ta sama rejestracja. Liczyło się więc, ile pracy zdejmie z zespołu, a nie ile funkcji będzie miało narzędzie."
+              }
+            ]
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 3,
+      "data": {
+        "layout": "problem_solution",
+        "eyebrow": "Diagnoza",
+        "title": "Co ustaliliśmy i co wybraliśmy",
+        "lead": "Zanim cokolwiek zmieniliśmy, przez [Uzupełnij: okres obserwacji] przyglądaliśmy się, jak naprawdę wyglądają zapisy.",
+        "content": [
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "problem",
+            "text": "Zapisy rozproszone po kanałach"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Terminy trafiały do gabinetu kilkoma drogami, a żadna nie była tą główną. Nikt nie miał pełnego obrazu dnia."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "przyczyna",
+            "text": "Skąd się to brało"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Nie brakowało narzędzi, tylko jednej zasady: gdzie termin jest zapisany naprawdę i kto go potwierdza. Bez niej każdy kanał prowadził własny kalendarz."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "rozwiazanie",
+            "text": "Co wybraliśmy"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Jedno miejsce, w którym powstaje każdy termin, i jedną osobę odpowiedzialną za potwierdzenia w danym dniu. Pozostałe kanały tylko do tego miejsca kierują."
+              }
+            ]
+          },
+          {
+            "type": "list",
+            "style": "bullet",
+            "items": [
+              {
+                "content": [
+                  {
+                    "text": "jeden kalendarz jako jedyne źródło terminów,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "stały sposób potwierdzania wizyty,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "krótka instrukcja dla każdej osoby w rejestracji."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "surface": "muted"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 3,
+      "data": {
+        "layout": "timeline",
+        "eyebrow": "Przebieg",
+        "title": "Jak wprowadzaliśmy zmiany",
+        "lead": "Małymi krokami, z możliwością powrotu na każdym etapie.",
+        "content": [
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "obserwacja",
+            "text": "Obserwacja"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Byliśmy przy rejestracji w zwykłe dni pracy i spisywaliśmy każdą drogę, którą przychodził zapis. [Uzupełnij: jak długo trwała obserwacja]."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "projekt-przebiegu",
+            "text": "Projekt nowego przebiegu"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Rozrysowaliśmy drogę zapisu od pierwszego kontaktu pacjenta do potwierdzenia wizyty i omówiliśmy ją z całym zespołem."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "proba",
+            "text": "Próba na małą skalę"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Nowe zasady działały najpierw [Uzupełnij: w jakim zakresie, np. dla jednego specjalisty]. Poprawki wprowadzaliśmy na bieżąco, zanim zasady objęły cały gabinet."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "wdrozenie",
+            "text": "Wdrożenie w całym gabinecie"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Po próbie zasady objęły wszystkie drogi zapisów. [Uzupełnij: kiedy nastąpiło pełne wdrożenie i co wymagało dodatkowych zmian]."
+              }
+            ]
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.feature_list",
+      "schema_version": 4,
+      "data": {
+        "title": "Co powstało w projekcie",
+        "lead": "Gabinet dostał materiały, z których korzysta bez nas. Pokazujemy je za zgodą klienta i bez danych pacjentów.",
+        "items": [
+          {
+            "title": "Mapa przebiegu zapisów",
+            "text": "Jedna strona z drogą zapisu od pierwszego kontaktu do potwierdzenia wizyty. [Uzupełnij: link albo zdjęcie mapy, jeśli możesz ją pokazać]."
+          },
+          {
+            "title": "Instrukcja dla rejestracji",
+            "text": "Krótki opis, kto co robi w ciągu dnia i co zrobić, gdy pacjent zapisze się inną drogą."
+          },
+          {
+            "title": "Wzory wiadomości",
+            "text": "Gotowe treści potwierdzeń i przypomnień, takie same w każdym kanale."
+          },
+          {
+            "title": "Raport z wdrożenia",
+            "text": "[Uzupełnij: co zawierał raport końcowy i czy możesz go udostępnić]."
+          }
+        ],
+        "layout": "cards"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "surface": "muted"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 3,
+      "data": {
+        "layout": "facts_panel",
+        "eyebrow": "Wynik",
+        "title": "Co zmieniło się po wdrożeniu",
+        "lead": "Wynik podajemy tylko tak, jak go zmierzyliśmy – z datą i sposobem pomiaru.",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "[Uzupełnij: zmierzony wynik, np. czas obsługi jednego zapisu albo liczba pomyłek w terminach przed zmianą i po niej – z datą pomiaru]."
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "[Uzupełnij: co zmieniło się w codziennej pracy rejestracji, opisane słowami zespołu]."
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Jeśli jakiegoś efektu nie dało się zmierzyć, piszemy o tym wprost, zamiast go szacować."
+              }
+            ]
+          }
+        ],
+        "aside": {
+          "title": "Jak mierzyliśmy",
+          "content": [
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "Przed zmianą:",
+                      "bold": true
+                    },
+                    {
+                      "text": " [Uzupełnij: okres pomiaru]."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Po zmianie:",
+                      "bold": true
+                    },
+                    {
+                      "text": " [Uzupełnij: okres pomiaru]."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Źródło danych:",
+                      "bold": true
+                    },
+                    {
+                      "text": " [Uzupełnij: np. kalendarz gabinetu albo rejestr połączeń]."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Kto potwierdził wynik:",
+                      "bold": true
+                    },
+                    {
+                      "text": " [Uzupełnij: osoba po stronie klienta]."
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "anchor": "wynik"
+      }
+    },
+    {
+      "block_type": "core.quote",
+      "schema_version": 1,
+      "data": {
+        "layout": "portrait",
+        "quote": "[Uzupełnij: wypowiedź klienta o współpracy lub wyniku – dosłownie i za jego zgodą].",
+        "author": "[Uzupełnij: imię i nazwisko]",
+        "role": "[Uzupełnij: stanowisko i nazwa gabinetu]",
+        "context": "Wypowiedź publikujemy za zgodą klienta, bez skrótów, które zmieniałyby jej sens."
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "narrow",
+        "surface": "accent"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 3,
+      "data": {
+        "layout": "essay_cta",
+        "title": "Czego nauczył nas ten projekt",
+        "lead": "Wnioski, które przydadzą się każdej firmie, do której klienci zgłaszają się kilkoma drogami naraz.",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Punktem zwrotnym nie było nowe narzędzie, tylko jedna zasada: termin istnieje wtedy, gdy jest zapisany w jednym miejscu. Narzędzia dobraliśmy do tej zasady, a nie odwrotnie."
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Druga lekcja dotyczy tempa. Próba na małą skalę pozwoliła poprawić zasady, zanim objęły cały zespół, i nikt nie musiał uczyć się wszystkiego naraz. [Uzupełnij: wniosek, który klient uznał za najważniejszy]."
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Jeśli rozpoznajesz tu swoją firmę, nie musisz od razu planować wdrożenia. Wystarczy rozmowa o tym, jak dziś wyglądają Twoje zapisy – powiemy, od czego byśmy zaczęli."
+              }
+            ]
+          }
+        ],
+        "aside": {
+          "title": "Wnioski",
+          "content": [
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "Najpierw obserwacja, potem narzędzie."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Jedna zasada jest ważniejsza niż wiele funkcji."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Najpierw próba na małą skalę, potem zmiana dla wszystkich."
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "action": {
+          "label": "Opisz swój przypadek",
+          "href": "#kontakt"
+        },
+        "secondaryAction": {
+          "label": "Wolisz rozmowę? Zadzwoń",
+          "href": "tel:+48000000000"
+        }
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.contact_form",
+      "schema_version": 1,
+      "data": {
+        "layout": "split",
+        "locale": "pl",
+        "title": "Masz podobny kłopot? Opisz go",
+        "text": "Napisz w kilku zdaniach, jak dziś wygląda sytuacja w Twojej firmie i co chcesz zmienić. Odpowiemy [Uzupełnij: kiedy, np. w ciągu dwóch dni roboczych] i zaproponujemy krótką rozmowę. Wiadomość do niczego nie zobowiązuje.",
+        "submit_label": "Poproś o rozmowę",
+        "success_message": "Dziękujemy! Wiadomość dotarła. Odpowiemy e-mailem i zaproponujemy termin rozmowy.",
+        "privacy_label": "Informacje o prywatności"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "surface": "muted",
+        "anchor": "kontakt"
+      }
+    }
+  ],
+  "localizedBlocks": {
+    "en": [
+      {
+        "block_type": "core.hero",
+        "schema_version": 6,
+        "data": {
+          "title": "Case study: how we rebuilt appointment booking at a private practice",
+          "text": "Client: [Fill in: client name or description – with their consent]. We describe where we started, the constraints we worked under, what we changed and the result we measured. If your business has a similar problem, the end of the page shows how to get started.",
+          "action": {
+            "label": "Talk about your case",
+            "href": "#contact"
+          },
+          "secondaryAction": {
+            "label": "Skip to the result",
+            "href": "#result"
+          },
+          "layout": "editorial"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {
+          "layout": "summary_box",
+          "eyebrow": "Case study",
+          "title": "The project in a few sentences",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "The practice took bookings by phone, by email and through messages – each channel handled separately. Reception spent more and more time on them, and patients were not always sure whether their appointment was confirmed."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Our job was to design a single booking process the same team could run day to day. Below we describe how we got there and show the result exactly as we measured it."
+                }
+              ]
+            }
+          ],
+          "aside": {
+            "title": "At a glance",
+            "content": [
+              {
+                "type": "list",
+                "style": "bullet",
+                "items": [
+                  {
+                    "content": [
+                      {
+                        "text": "Client:",
+                        "bold": true
+                      },
+                      {
+                        "text": " [Fill in: client name or description – with their consent]."
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "Scope:",
+                        "bold": true
+                      },
+                      {
+                        "text": " redesign of booking and appointment confirmation."
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "Duration:",
+                        "bold": true
+                      },
+                      {
+                        "text": " [Fill in: when the project started and ended]."
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "Team:",
+                        "bold": true
+                      },
+                      {
+                        "text": " [Fill in: who worked on your side and on the client’s side]."
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "Result:",
+                        "bold": true
+                      },
+                      {
+                        "text": " [Fill in: one sentence on the measured result – details below]."
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "surface": "muted"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {
+          "layout": "illustrated",
+          "eyebrow": "Context",
+          "title": "Where we started",
+          "lead": "At the start there was no single big problem, just many small ones that together took more and more of the team’s time.",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Patients booked in several ways, and each channel was handled by a different person. Appointments reached the calendar late, and now and then the same slot was promised to two people."
+                }
+              ]
+            },
+            {
+              "type": "figure",
+              "caption": "Illustrative photo. [Fill in: a photo from the project – only with the client’s consent and without patient data].",
+              "width": "wide"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "The team knew something had to change, but every attempt ended with yet another notebook or spreadsheet. [Fill in: how the client described the problem in their own words]."
+                }
+              ]
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {
+          "layout": "numbered_sections",
+          "eyebrow": "Constraints",
+          "title": "What we could not change",
+          "lead": "Every project has its limits. Here there were three, and they shaped the solution.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "no-break-in-appointments",
+              "text": "The practice could not stop seeing patients"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We made changes while normal work went on. Every step had to be reversible in case something went wrong."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "patient-data",
+              "text": "Patient data stays under the practice’s control"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "The new process could not move data outside the tools the practice already used. [Fill in: the personal data requirements that applied to the project]."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "no-new-hire",
+              "text": "The same team, no new hire"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "The same reception team had to run the solution. What mattered was how much work it took off their plate, not how many features the tool had."
+                }
+              ]
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {
+          "layout": "problem_solution",
+          "eyebrow": "Diagnosis",
+          "title": "What we found and what we chose",
+          "lead": "Before changing anything, we spent [Fill in: observation period] watching how booking really worked.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "problem",
+              "text": "Bookings scattered across channels"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Appointments reached the practice by several routes, and none of them was the main one. Nobody had the full picture of the day."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "cause",
+              "text": "Where it came from"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "There was no shortage of tools – just no single rule about where an appointment really lives and who confirms it. Without one, every channel kept its own calendar."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "solution",
+              "text": "What we chose"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "One place where every appointment is created, and one person responsible for confirmations on any given day. The other channels simply point to that place."
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "one calendar as the only source of appointments"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "a fixed way of confirming each visit"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "a short guide for everyone at reception"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "surface": "muted"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {
+          "layout": "timeline",
+          "eyebrow": "Process",
+          "title": "How we introduced the changes",
+          "lead": "In small steps, with a way back at every stage.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "observation",
+              "text": "Observation"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We sat in at reception on ordinary working days and noted every route a booking came in by. [Fill in: how long the observation lasted]."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "process-design",
+              "text": "Designing the new process"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We mapped the booking path from the patient’s first contact to the confirmed visit and went through it with the whole team."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "pilot",
+              "text": "A small pilot"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "The new rules first applied [Fill in: to what extent, e.g. for one specialist]. We made adjustments as we went, before the rules covered the whole practice."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "rollout",
+              "text": "Rollout across the practice"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "After the pilot, the rules covered every booking channel. [Fill in: when the full rollout happened and what needed further changes]."
+                }
+              ]
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.feature_list",
+        "schema_version": 4,
+        "data": {
+          "title": "What the project produced",
+          "lead": "The practice received materials it uses without us. We show them with the client’s consent and without patient data.",
+          "items": [
+            {
+              "title": "Booking process map",
+              "text": "A single page showing the path from first contact to a confirmed visit. [Fill in: a link or photo of the map, if you can share it]."
+            },
+            {
+              "title": "Reception guide",
+              "text": "A short description of who does what during the day and what to do when a patient books by another route."
+            },
+            {
+              "title": "Message templates",
+              "text": "Ready-made confirmations and reminders, the same in every channel."
+            },
+            {
+              "title": "Rollout report",
+              "text": "[Fill in: what the final report covered and whether you can share it]."
+            }
+          ],
+          "layout": "cards"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "surface": "muted"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {
+          "layout": "facts_panel",
+          "eyebrow": "Result",
+          "title": "What changed after the rollout",
+          "lead": "We report the result only as we measured it – with dates and the method of measurement.",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "[Fill in: the measured result, e.g. time to handle one booking or the number of scheduling mistakes before and after the change – with the measurement dates]."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "[Fill in: what changed in reception’s day-to-day work, in the team’s own words]."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Where an effect could not be measured, we say so plainly instead of estimating it."
+                }
+              ]
+            }
+          ],
+          "aside": {
+            "title": "How we measured",
+            "content": [
+              {
+                "type": "list",
+                "style": "bullet",
+                "items": [
+                  {
+                    "content": [
+                      {
+                        "text": "Before the change:",
+                        "bold": true
+                      },
+                      {
+                        "text": " [Fill in: measurement period]."
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "After the change:",
+                        "bold": true
+                      },
+                      {
+                        "text": " [Fill in: measurement period]."
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "Data source:",
+                        "bold": true
+                      },
+                      {
+                        "text": " [Fill in: e.g. the practice calendar or the call log]."
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "Confirmed by:",
+                        "bold": true
+                      },
+                      {
+                        "text": " [Fill in: the person on the client’s side]."
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "anchor": "result"
+        }
+      },
+      {
+        "block_type": "core.quote",
+        "schema_version": 1,
+        "data": {
+          "layout": "portrait",
+          "quote": "[Fill in: the client’s words about the work or the result – verbatim and with their consent].",
+          "author": "[Fill in: full name]",
+          "role": "[Fill in: job title and name of the practice]",
+          "context": "We publish this statement with the client’s consent and without cuts that would change its meaning."
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "narrow",
+          "surface": "accent"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {
+          "layout": "essay_cta",
+          "title": "What this project taught us",
+          "lead": "Lessons that apply to any business whose customers get in touch through several channels at once.",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "The turning point was not a new tool but a single rule: an appointment exists once it is recorded in one place. We chose the tools to fit that rule, not the other way round."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "The second lesson is about pace. A small pilot let us refine the rules before they covered the whole team, and nobody had to learn everything at once. [Fill in: the lesson the client found most important]."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "If you recognise your own business here, you do not need to plan a rollout straight away. A conversation about how your bookings work today is enough – we will tell you where we would start."
+                }
+              ]
+            }
+          ],
+          "aside": {
+            "title": "Takeaways",
+            "content": [
+              {
+                "type": "list",
+                "style": "bullet",
+                "items": [
+                  {
+                    "content": [
+                      {
+                        "text": "Observe first, choose tools second."
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "One clear rule matters more than many features."
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "Pilot small before changing things for everyone."
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          "action": {
+            "label": "Describe your case",
+            "href": "#contact"
+          },
+          "secondaryAction": {
+            "label": "Prefer to talk? Call us",
+            "href": "tel:+48000000000"
+          }
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.contact_form",
+        "schema_version": 1,
+        "data": {
+          "layout": "split",
+          "locale": "en",
+          "title": "Facing something similar? Tell us about it",
+          "text": "In a few sentences, tell us how things look in your business today and what you would like to change. We will reply [Fill in: when, e.g. within two working days] and suggest a short call. Your message comes with no obligation.",
+          "submit_label": "Request a conversation",
+          "success_message": "Thank you! Your message has arrived. We will reply by email and suggest a time to talk.",
+          "privacy_label": "Privacy information"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "surface": "muted",
+          "anchor": "contact"
+        }
+      }
+    ]
+  },
+  "media": [
+    {
+      "id": "medicine",
+      "source": "assets/medicine-room.png",
+      "filename": "medicine-room.png",
+      "contentType": "image/png",
+      "sha256": "c66c34c8edd56d749d8cb0371212b6a6c989b0cd8126bd5f98728d55103a4c7c"
+    }
+  ],
+  "mediaBindings": [
+    {
+      "blockPosition": 2,
+      "mediaId": "medicine",
+      "alt": {
+        "pl": "Jasny gabinet z biurkiem przy oknie, fotelem zabiegowym i roślinami na półkach",
+        "en": "A bright consultation room with a desk by the window, a treatment chair and plants on the shelves"
+      },
+      "path": ["content", 1, "image"]
+    }
+  ]
+}

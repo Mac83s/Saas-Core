@@ -1,0 +1,738 @@
+{
+  "id": "core.product_full_story",
+  "version": 1,
+  "category": "product",
+  "industries": [],
+  "labels": {
+    "pl": {
+      "name": "Produkt — pełna opowieść",
+      "description": "Pełna strona produktu, która prowadzi do zapytania: potrzeba, rozwiązanie z galerią, zawartość zestawu, zastosowania, parametry, miejsce na prawdziwe opinie, pytania i formularz. Przykład: trenażer diagnostyki elektroniki; bez ceny i koszyka, wymień treści demonstracyjne przed publikacją."
+    },
+    "en": {
+      "name": "Product — the full story",
+      "description": "A complete product page that leads to an inquiry: the need, the solution with a gallery, what is in the box, uses, specifications, room for real reviews, questions and a form. Example: an electronics fault-finding trainer; no price or cart, replace the demonstration content before publishing."
+    }
+  },
+  "requiredEntitlements": ["sites.enabled"],
+  "pagePresentation": {
+    "schemaVersion": 2,
+    "width": "full",
+    "style": "mosaic"
+  },
+  "conversion": {
+    "goal": "inquiry",
+    "stages": [
+      "attention",
+      "interest",
+      "interest",
+      "interest",
+      "interest",
+      "interest",
+      "proof",
+      "objection",
+      "action"
+    ]
+  },
+  "blocks": [
+    {
+      "block_type": "core.hero",
+      "schema_version": 6,
+      "data": {
+        "title": "Ćwiczenia z diagnostyki elektroniki, które powtórzysz z każdą grupą",
+        "text": "Trenażer z usterkami włączanymi przełącznikiem – dla szkół technicznych, centrów szkoleniowych i serwisów, które uczą szukania usterek na prawdziwych pomiarach, a nie tylko na schemacie.",
+        "action": {
+          "label": "Zapytaj o trenażer dla swojej pracowni",
+          "href": "#kontakt"
+        },
+        "secondaryAction": {
+          "label": "Zobacz, jak działa",
+          "href": "#jak-dziala"
+        },
+        "layout": "split"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "wide"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 3,
+      "data": {
+        "layout": "problem_solution",
+        "eyebrow": "Znasz to?",
+        "title": "Dlaczego diagnostyki trudno uczyć",
+        "lead": "Szukanie usterek to umiejętność praktyczna. Na zajęciach najczęściej brakuje jednego: usterki, którą można pokazać wtedy, kiedy jest potrzebna.",
+        "content": [
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "problem",
+            "text": "Na schemacie wszystko jest jasne"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Uczniowie znają prawo Ohma i potrafią czytać schemat, ale przy stole, z miernikiem w ręku, nie wiedzą, od czego zacząć. Teoria sama nie zamienia się w metodę szukania usterki."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "przyczyna",
+            "text": "Usterek nie da się zaplanować"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Uszkodzone urządzenia trafiają na zajęcia przypadkiem, każde psuje się inaczej, a raz naprawione przestaje być ćwiczeniem. Trudno przygotować zadanie, które każda grupa wykona w tych samych warunkach."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "rozwiazanie",
+            "text": "Usterka, którą włączasz przełącznikiem"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Trenażer ma wbudowane usterki, które prowadzący włącza przełącznikami schowanymi pod osobną pokrywą. Uczniowie mierzą, stawiają hipotezy i wskazują przyczynę, a Ty sprawdzasz odpowiedź z kluczem."
+              }
+            ]
+          },
+          {
+            "type": "list",
+            "style": "bullet",
+            "items": [
+              {
+                "content": [
+                  {
+                    "text": "to samo zadanie dla każdej grupy,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "usterka znika po wyłączeniu przełącznika,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "pomiary na prawdziwym układzie, a nie w symulacji."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.product",
+      "schema_version": 2,
+      "data": {
+        "layout": "showcase",
+        "title": "Trenażer diagnostyki elektroniki",
+        "tagline": "Cztery typowe obwody, usterki włączane przełącznikiem i karty ćwiczeń z kluczem odpowiedzi.",
+        "text": "Na płytce pracują obwody, które uczniowie spotkają w prawdziwych urządzeniach: zasilacz, wzmacniacz, generator i prosty układ cyfrowy. Prowadzący wybiera usterkę, a uczniowie szukają jej miernikiem i oscyloskopem w oznaczonych punktach pomiarowych. Po ćwiczeniu wystarczy wyłączyć przełącznik, żeby układ wrócił do sprawnej pracy.",
+        "images": [],
+        "action": {
+          "label": "Zapytaj o ofertę dla pracowni",
+          "href": "#kontakt"
+        },
+        "secondaryAction": {
+          "label": "Zobacz parametry",
+          "href": "#parametry"
+        }
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "wide",
+        "surface": "muted",
+        "anchor": "jak-dziala"
+      }
+    },
+    {
+      "block_type": "core.feature_list",
+      "schema_version": 4,
+      "data": {
+        "layout": "bento",
+        "title": "Co jest w zestawie",
+        "lead": "Wszystko, czego prowadzący potrzebuje, żeby poprowadzić zajęcia od pierwszego dnia.",
+        "items": [
+          {
+            "title": "Płytka trenażera",
+            "text": "Cztery bloki obwodów z opisanymi punktami pomiarowymi, w obudowie, która chroni elementy przed przypadkowym uszkodzeniem."
+          },
+          {
+            "title": "Panel usterek",
+            "text": "Przełączniki usterek schowane pod osobną pokrywą – uczniowie nie widzą, która usterka jest włączona."
+          },
+          {
+            "title": "Karty ćwiczeń",
+            "text": "Zadania o rosnącym stopniu trudności: od prostych pomiarów napięć po analizę przebiegów."
+          },
+          {
+            "title": "Klucz dla prowadzącego",
+            "text": "Opis każdej usterki: objawy, oczekiwane wyniki pomiarów i typowe błędne tropy."
+          },
+          {
+            "title": "Zasilacz",
+            "text": "Zasilacz sieciowy niskiego napięcia – na samej płytce nie ma napięcia sieciowego."
+          },
+          {
+            "title": "Instrukcja",
+            "text": "Zasady pracy przy stanowisku i przygotowanie zajęć krok po kroku, w PDF."
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "wide"
+      }
+    },
+    {
+      "block_type": "core.feature_list",
+      "schema_version": 4,
+      "data": {
+        "layout": "benefits_commentary",
+        "title": "Gdzie się sprawdza",
+        "lead": "Trenażer powstał do nauki metody szukania usterek. Najlepiej sprawdza się tam, gdzie tę samą umiejętność ćwiczy wiele osób.",
+        "items": [
+          {
+            "title": "Szkoły techniczne",
+            "text": "Zajęcia praktyczne, na których każda grupa dostaje to samo zadanie, a prowadzący ocenia tok rozumowania, a nie szczęście."
+          },
+          {
+            "title": "Centra szkoleniowe i kursy",
+            "text": "Powtarzalne ćwiczenia na kursach dla dorosłych, bez szukania uszkodzonych urządzeń przed każdą edycją."
+          },
+          {
+            "title": "Serwisy i działy utrzymania ruchu",
+            "text": "Wdrożenie nowych techników: metoda pracy z miernikiem i oscyloskopem, zanim trafią do urządzeń klientów."
+          },
+          {
+            "title": "Uczelnie i koła zainteresowań",
+            "text": "Praktyka uzupełniająca wykład, którą studenci mogą powtarzać we własnym tempie."
+          }
+        ],
+        "note": {
+          "title": "Czego trenażer nie zastąpi",
+          "text": "Nie zastąpi pracy na urządzeniach, które naprawia Twój serwis, ani nauki lutowania. Uczy metody szukania usterki – do konkretnych urządzeń potrzebne są ich schematy i dokumentacja."
+        }
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.feature_list",
+      "schema_version": 4,
+      "data": {
+        "layout": "specification",
+        "title": "Parametry",
+        "lead": "Parametry opisują przykładową konfigurację trenażera. Jeśli potrzebujesz innego zestawu obwodów lub usterek, zapytaj o wariant.",
+        "items": [
+          {
+            "title": "Wymiary płytki",
+            "text": "200 × 150 mm"
+          },
+          {
+            "title": "Zasilanie",
+            "text": "zasilacz sieciowy 12 V DC w zestawie"
+          },
+          {
+            "title": "Bloki obwodów",
+            "text": "zasilacz liniowy, wzmacniacz, generator, układ cyfrowy"
+          },
+          {
+            "title": "Usterki",
+            "text": "16, włączane przełącznikami pod pokrywą prowadzącego"
+          },
+          {
+            "title": "Punkty pomiarowe",
+            "text": "oznaczone na płytce i w instrukcji"
+          },
+          {
+            "title": "Potrzebne przyrządy",
+            "text": "multimetr; do części ćwiczeń oscyloskop"
+          },
+          {
+            "title": "Materiały",
+            "text": "karty ćwiczeń i klucz odpowiedzi w PDF"
+          },
+          {
+            "title": "Gwarancja",
+            "text": "[Uzupełnij: okres i warunki gwarancji]"
+          },
+          {
+            "title": "Deklaracje i oznaczenia",
+            "text": "[Uzupełnij: oznaczenia i deklaracje, które produkt faktycznie posiada]"
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "surface": "muted",
+        "anchor": "parametry"
+      }
+    },
+    {
+      "block_type": "core.testimonials",
+      "schema_version": 1,
+      "data": {
+        "title": "Opinie prowadzących zajęcia",
+        "items": [
+          {
+            "quote": "[Uzupełnij: prawdziwa opinia nauczyciela lub instruktora – jak wyglądały zajęcia przed trenażerem i co się zmieniło]",
+            "author": "[Uzupełnij: imię i szkoła lub firma, za zgodą]",
+            "role": "[Uzupełnij: np. nauczyciel przedmiotów zawodowych]"
+          },
+          {
+            "quote": "[Uzupełnij: druga opinia – np. osoby, która wdraża nowych techników w serwisie]",
+            "author": "[Uzupełnij: imię i firma, za zgodą]",
+            "role": "[Uzupełnij: stanowisko]"
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.faq",
+      "schema_version": 3,
+      "data": {
+        "layout": "cards",
+        "title": "Pytania przed zamówieniem",
+        "items": [
+          {
+            "question": "Czy uczniowie mogą uszkodzić trenażer?",
+            "answer": "Włączenie usterki nie uszkadza płytki – po wyłączeniu przełącznika układ wraca do sprawnej pracy. Przy pomiarach obowiązują zwykłe zasady pracy z elektroniką, opisane w instrukcji."
+          },
+          {
+            "question": "Czy potrzebny jest oscyloskop?",
+            "answer": "Większość ćwiczeń wykonasz multimetrem. Zadania z generatorem i wzmacniaczem wymagają oscyloskopu – są oznaczone na kartach ćwiczeń."
+          },
+          {
+            "question": "Czy mogę układać własne ćwiczenia?",
+            "answer": "Tak. Klucz opisuje każdą usterkę, więc łatwo złożyć z nich własne zadania. Jeśli potrzebujesz innych usterek, opisz to w zapytaniu."
+          },
+          {
+            "question": "Ile kosztuje trenażer?",
+            "answer": "Cena zależy od liczby stanowisk i wariantu. [Uzupełnij: cena lub widełki cen oraz rabat przy kilku stanowiskach – jeśli go udzielasz]."
+          },
+          {
+            "question": "Jak długo czeka się na dostawę?",
+            "answer": "[Uzupełnij: typowy czas realizacji zamówienia i sposób dostawy]."
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.contact_form",
+      "schema_version": 1,
+      "data": {
+        "layout": "split",
+        "locale": "pl",
+        "title": "Zapytaj o trenażer dla swojej pracowni",
+        "text": "Napisz, ile stanowisk potrzebujesz i kto będzie z nich korzystał. Odpowiemy [Uzupełnij: w jakim czasie, np. w ciągu jednego dnia roboczego] z ofertą i propozycją terminu dostawy. Zapytanie do niczego nie zobowiązuje.",
+        "submit_label": "Poproś o ofertę",
+        "success_message": "Dziękujemy! Zapytanie dotarło. Odpowiemy e-mailem z ofertą.",
+        "privacy_label": "Informacje o prywatności"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "surface": "muted",
+        "anchor": "kontakt"
+      }
+    }
+  ],
+  "localizedBlocks": {
+    "en": [
+      {
+        "block_type": "core.hero",
+        "schema_version": 6,
+        "data": {
+          "title": "Electronics fault-finding exercises you can repeat with every group",
+          "text": "A trainer with faults you switch on at will – for technical schools, training centres and service teams who teach fault-finding with real measurements, not just on a diagram.",
+          "action": {
+            "label": "Ask about a trainer for your lab",
+            "href": "#contact"
+          },
+          "secondaryAction": {
+            "label": "See how it works",
+            "href": "#how-it-works"
+          },
+          "layout": "split"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "wide"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {
+          "layout": "problem_solution",
+          "eyebrow": "Sound familiar?",
+          "title": "Why fault-finding is hard to teach",
+          "lead": "Finding faults is a practical skill. What most classes lack is a fault you can show exactly when you need it.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "problem",
+              "text": "On the diagram, everything is clear"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Students know Ohm's law and can read a schematic, but at the bench, meter in hand, they do not know where to start. Theory does not turn into a fault-finding method on its own."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "cause",
+              "text": "Faults cannot be planned"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Broken devices reach the classroom by chance, each one fails differently, and once repaired it is no longer an exercise. It is hard to set a task that every group can do under the same conditions."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "solution",
+              "text": "A fault you switch on"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "The trainer has built-in faults that the instructor switches on with switches hidden under a separate cover. Students measure, form hypotheses and name the cause, and you check their answer against the key."
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "the same task for every group,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "the fault disappears when you switch it off,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "measurements on a real circuit, not a simulation."
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.product",
+        "schema_version": 2,
+        "data": {
+          "layout": "showcase",
+          "title": "Electronics fault-finding trainer",
+          "tagline": "Four typical circuits, faults you switch on and exercise cards with an answer key.",
+          "text": "The board carries circuits students will meet in real devices: a power supply, an amplifier, a signal generator and a simple digital circuit. The instructor picks a fault, and students track it down with a multimeter and an oscilloscope at marked test points. After the exercise, one flick of the switch returns the circuit to normal operation.",
+          "images": [],
+          "action": {
+            "label": "Ask for a quote for your lab",
+            "href": "#contact"
+          },
+          "secondaryAction": {
+            "label": "See the specifications",
+            "href": "#specifications"
+          }
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "wide",
+          "surface": "muted",
+          "anchor": "how-it-works"
+        }
+      },
+      {
+        "block_type": "core.feature_list",
+        "schema_version": 4,
+        "data": {
+          "layout": "bento",
+          "title": "What is in the box",
+          "lead": "Everything an instructor needs to run a class from day one.",
+          "items": [
+            {
+              "title": "Trainer board",
+              "text": "Four circuit blocks with labelled test points, in an enclosure that protects the components from accidental damage."
+            },
+            {
+              "title": "Fault panel",
+              "text": "Fault switches hidden under a separate cover – students cannot see which fault is on."
+            },
+            {
+              "title": "Exercise cards",
+              "text": "Tasks of increasing difficulty, from simple voltage checks to waveform analysis."
+            },
+            {
+              "title": "Instructor's key",
+              "text": "A description of every fault: symptoms, expected readings and the usual false leads."
+            },
+            {
+              "title": "Power supply",
+              "text": "A low-voltage mains adapter – there is no mains voltage on the board itself."
+            },
+            {
+              "title": "Manual",
+              "text": "Bench safety rules and step-by-step class preparation, as a PDF."
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "wide"
+        }
+      },
+      {
+        "block_type": "core.feature_list",
+        "schema_version": 4,
+        "data": {
+          "layout": "benefits_commentary",
+          "title": "Where it works best",
+          "lead": "The trainer was built to teach a fault-finding method. It works best where many people practise the same skill.",
+          "items": [
+            {
+              "title": "Technical schools",
+              "text": "Practical classes where every group gets the same task and the instructor marks the reasoning, not luck."
+            },
+            {
+              "title": "Training centres and courses",
+              "text": "Repeatable exercises on adult courses, without hunting for broken devices before every intake."
+            },
+            {
+              "title": "Service and maintenance teams",
+              "text": "Onboarding new technicians: a way of working with a meter and an oscilloscope before they touch customers' equipment."
+            },
+            {
+              "title": "Universities and clubs",
+              "text": "Hands-on practice alongside lectures that students can repeat at their own pace."
+            }
+          ],
+          "note": {
+            "title": "What the trainer will not replace",
+            "text": "It will not replace work on the devices your service team repairs, nor soldering practice. It teaches a fault-finding method – specific devices still need their own schematics and documentation."
+          }
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.feature_list",
+        "schema_version": 4,
+        "data": {
+          "layout": "specification",
+          "title": "Specifications",
+          "lead": "The specifications describe an example configuration of the trainer. If you need a different set of circuits or faults, ask about a variant.",
+          "items": [
+            {
+              "title": "Board size",
+              "text": "200 × 150 mm"
+            },
+            {
+              "title": "Power supply",
+              "text": "12 V DC mains adapter included"
+            },
+            {
+              "title": "Circuit blocks",
+              "text": "linear power supply, amplifier, signal generator, digital circuit"
+            },
+            {
+              "title": "Faults",
+              "text": "16, switched on under the instructor's cover"
+            },
+            {
+              "title": "Test points",
+              "text": "labelled on the board and in the manual"
+            },
+            {
+              "title": "Instruments needed",
+              "text": "a multimeter; an oscilloscope for some exercises"
+            },
+            {
+              "title": "Materials",
+              "text": "exercise cards and answer key as PDF"
+            },
+            {
+              "title": "Warranty",
+              "text": "[Fill in: warranty period and terms]"
+            },
+            {
+              "title": "Declarations and markings",
+              "text": "[Fill in: the markings and declarations the product actually has]"
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "surface": "muted",
+          "anchor": "specifications"
+        }
+      },
+      {
+        "block_type": "core.testimonials",
+        "schema_version": 1,
+        "data": {
+          "title": "What instructors say",
+          "items": [
+            {
+              "quote": "[Fill in: a real review from a teacher or instructor – what classes were like before the trainer and what changed]",
+              "author": "[Fill in: name and school or company, with consent]",
+              "role": "[Fill in: e.g. vocational electronics teacher]"
+            },
+            {
+              "quote": "[Fill in: a second review – e.g. from someone who onboards new service technicians]",
+              "author": "[Fill in: name and company, with consent]",
+              "role": "[Fill in: job title]"
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.faq",
+        "schema_version": 3,
+        "data": {
+          "layout": "cards",
+          "title": "Questions before you order",
+          "items": [
+            {
+              "question": "Can students damage the trainer?",
+              "answer": "Switching a fault on does not harm the board – switch it off and the circuit returns to normal operation. The usual rules for working with electronics apply to measurements; the manual describes them."
+            },
+            {
+              "question": "Do I need an oscilloscope?",
+              "answer": "Most exercises need only a multimeter. Tasks with the signal generator and the amplifier need an oscilloscope – they are marked on the exercise cards."
+            },
+            {
+              "question": "Can I write my own exercises?",
+              "answer": "Yes. The key describes every fault, so it is easy to build your own tasks from them. If you need different faults, describe them in your inquiry."
+            },
+            {
+              "question": "How much does the trainer cost?",
+              "answer": "The price depends on the number of benches and the variant. [Fill in: the price or price range and any multi-bench discount – if you offer one]."
+            },
+            {
+              "question": "How long is delivery?",
+              "answer": "[Fill in: your usual lead time and how you deliver]."
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.contact_form",
+        "schema_version": 1,
+        "data": {
+          "layout": "split",
+          "locale": "en",
+          "title": "Ask about a trainer for your lab",
+          "text": "Tell us how many benches you need and who will use them. We will reply [Fill in: how soon, e.g. within one working day] with a quote and a proposed delivery date. Asking commits you to nothing.",
+          "submit_label": "Get a quote",
+          "success_message": "Thank you! Your inquiry has arrived. We will reply by email with a quote.",
+          "privacy_label": "Privacy information"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "surface": "muted",
+          "anchor": "contact"
+        }
+      }
+    ]
+  },
+  "media": [
+    {
+      "id": "electronics",
+      "source": "assets/electronics-workshop.png",
+      "filename": "electronics-workshop.png",
+      "contentType": "image/png",
+      "sha256": "4c2d226103ee37783e586345b7c3dac12088e47210c079b6be1b54666a1c6eb8"
+    }
+  ],
+  "mediaBindings": [
+    {
+      "blockPosition": 0,
+      "mediaId": "electronics",
+      "alt": {
+        "pl": "Zielona płytka drukowana na niebieskiej macie warsztatowej, obok śrubokręt, pinceta i sondy miernika",
+        "en": "A green circuit board on a blue workbench mat, next to a screwdriver, tweezers and multimeter probes"
+      }
+    },
+    {
+      "blockPosition": 2,
+      "mediaId": "electronics",
+      "alt": {
+        "pl": "Zielona płytka drukowana na niebieskiej macie warsztatowej, obok śrubokręt, pinceta i sondy miernika",
+        "en": "A green circuit board on a blue workbench mat, next to a screwdriver, tweezers and multimeter probes"
+      },
+      "path": ["images", 0]
+    }
+  ]
+}

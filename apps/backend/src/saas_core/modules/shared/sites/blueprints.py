@@ -13,6 +13,7 @@ from rest_framework.exceptions import APIException
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 
+from .block_contracts import site_block_contracts
 from .models import (
     BlueprintImportReceipt,
     ContentProposal,
@@ -72,37 +73,71 @@ def _site(
     return context, site
 
 
+def _schema_node(schema: dict[str, Any], node: Any, value: Any) -> Any:
+    """The schema node that governs `value`: `$ref` resolved within the block's
+    own schema, a `oneOf` of node shapes narrowed by the node's `type`."""
+    while isinstance(node, dict):
+        ref = node.get("$ref")
+        if isinstance(ref, str) and ref.startswith("#/$defs/"):
+            node = schema.get("$defs", {}).get(ref.removeprefix("#/$defs/"))
+            continue
+        branches = node.get("oneOf")
+        if isinstance(branches, list) and isinstance(value, dict):
+            node = next(
+                (
+                    branch
+                    for branch in (_schema_node(schema, b, None) for b in branches)
+                    if isinstance(branch, dict)
+                    and branch.get("properties", {}).get("type", {}).get("const")
+                    == value.get("type")
+                ),
+                None,
+            )
+            continue
+        return node
+    return None
+
+
 def template_slots(template: PageTemplate) -> list[dict[str, Any]]:
+    """Every plain-text slot a generator may fill, capped by the block schema's
+    own limit at that path (a hero title 120, a button label 80), so a value
+    that fits the slot always fits the block."""
+    contracts = site_block_contracts().validators
     slots: list[dict[str, Any]] = []
 
-    def visit(value: Any, path: str, field: str = "", limit: int | None = None) -> None:
+    def visit(value: Any, path: str, schema: dict[str, Any], node: Any, field: str = "") -> None:
+        node = _schema_node(schema, node, value)
         if isinstance(value, dict):
             # Quotes are attributed statements: automation must not put words
             # in anyone's mouth, neither in a quote block nor a quote node.
             if value.get("type") == "quote":
                 return
-            # A rich-text heading keeps the heading's own 200-character cap
-            # rather than the 2000 its field name suggests.
-            heading = value.get("type") == "heading"
+            properties = node.get("properties", {}) if isinstance(node, dict) else {}
             for key, child in value.items():
-                visit(child, path + "/" + key, key, 200 if heading else None)
+                visit(child, path + "/" + key, schema, properties.get(key), key)
         elif isinstance(value, list):
+            items = node.get("items") if isinstance(node, dict) else None
             for index, child in enumerate(value):
-                visit(child, path + "/" + str(index))
+                visit(child, path + "/" + str(index), schema, items)
         # A run of spaces between two marked runs can never be refilled
         # (render_slots refuses blank values), so it is not offered at all.
         elif isinstance(value, str) and field in TEXT_FIELDS and value.strip():
+            cap = SLOT_MAX_LENGTH.get(field, 200)
+            schema_cap = node.get("maxLength") if isinstance(node, dict) else None
             slots.append({
                 "key": path,
                 "kind": "text",
-                "max_length": limit or SLOT_MAX_LENGTH.get(field, 200),
+                "max_length": min(cap, schema_cap) if isinstance(schema_cap, int) else cap,
                 "default": value,
             })
 
     for index, block in enumerate(template.blocks):
         if block["block_type"] in {"core.pricing", "core.legal", "core.quote"}:
             continue
-        visit(block["data"], f"/{index}/data")
+        validator = contracts.get(block["block_type"], {}).get(block["schema_version"])
+        raw = validator.schema if validator is not None else None
+        schema: dict[str, Any] = dict(raw) if isinstance(raw, dict) else {}
+        visit(block["data"], f"/{index}/data", schema, schema)
     return slots
 
 
@@ -111,6 +146,8 @@ def read_blueprint_catalog(*, site_id: UUID) -> dict[str, Any]:
     templates = []
     for versions in page_template_catalog().templates.values():
         template = versions[max(versions)]
+        if template.retired:
+            continue
         try:
             for entitlement in template.required_entitlements:
                 authorize_entitled(SITE_CONTENT_EDIT, entitlement, operation=FeatureOperation.READ)

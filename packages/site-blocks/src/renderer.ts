@@ -21,6 +21,7 @@ import type {
   BlockRenderOptions,
   DesignTokensV1,
   PagePresentationV1,
+  PagePresentationV2,
   DraftPreviewDocument,
   NavigationLink,
   IndexPagination,
@@ -184,7 +185,7 @@ function renderDocument(
   appearance?: SiteAppearance | null,
   formRenderer?: PublishedFormRenderer,
   options?: BlockRenderOptions,
-  pagePresentation?: PagePresentationV1 | null,
+  pagePresentation?: PagePresentationV1 | PagePresentationV2 | null,
 ): ReactElement {
   const menu = renderNavigation(navigation, navigationLabel);
   const content = createElement(

@@ -6,6 +6,7 @@ import heroV5Schema from "@saas-core/contracts/site-blocks/core.hero.v5.schema.j
 import featureListV3Schema from "@saas-core/contracts/site-blocks/core.feature_list.v3.schema.json";
 import faqV3Schema from "@saas-core/contracts/site-blocks/core.faq.v3.schema.json";
 import heroV4Schema from "@saas-core/contracts/site-blocks/core.hero.v4.schema.json";
+import heroV6Schema from "@saas-core/contracts/site-blocks/core.hero.v6.schema.json";
 import featureListV2Schema from "@saas-core/contracts/site-blocks/core.feature_list.v2.schema.json";
 import faqV2Schema from "@saas-core/contracts/site-blocks/core.faq.v2.schema.json";
 import featureListV4Schema from "@saas-core/contracts/site-blocks/core.feature_list.v4.schema.json";
@@ -13,8 +14,13 @@ import richTextV2Schema from "@saas-core/contracts/site-blocks/core.rich_text.v2
 import richTextV3Schema from "@saas-core/contracts/site-blocks/core.rich_text.v3.schema.json";
 import quoteV1Schema from "@saas-core/contracts/site-blocks/core.quote.v1.schema.json";
 import productV1Schema from "@saas-core/contracts/site-blocks/core.product.v1.schema.json";
+import productV2Schema from "@saas-core/contracts/site-blocks/core.product.v2.schema.json";
 import { plainBlockText } from "./block-text";
-import { ProductBlock, QuoteBlock } from "./editorial-blocks";
+import {
+  ProductBlock,
+  QuoteBlock,
+  withSecondaryAction,
+} from "./editorial-blocks";
 import {
   migrateRichTextV1ToV2,
   migrateRichTextV2ToV3,
@@ -53,7 +59,7 @@ import type {
   FooterV1Data,
   HeroV1Data,
   HeroV2Data,
-  HeroV3Data,
+  HeroV6Data,
   JsonObject,
   PricingV1Data,
   SiteBlockManifest,
@@ -77,7 +83,7 @@ function HeroBlock({ data, editor, imageRenderer }: BlockComponentProps) {
   const text = editor?.text ?? plainBlockText;
   const variant = renderSectionLayout("core.hero", data, editor, imageRenderer);
   if (variant) return variant;
-  const hero = data as HeroV3Data;
+  const hero = data as HeroV6Data;
   const action = hero.action;
   return createElement(
     "section",
@@ -103,17 +109,22 @@ function HeroBlock({ data, editor, imageRenderer }: BlockComponentProps) {
           })
       : null,
     hero.text ? createElement("p", null, text(["text"], hero.text)) : null,
-    action
-      ? createElement(
-          editor ? "span" : "a",
-          {
-            className: "site-section__action",
-            href: editor ? undefined : action.href,
-            rel: editor ? undefined : externalRel(action.href),
-          },
-          text(["action", "label"], action.label),
-        )
-      : null,
+    withSecondaryAction(
+      action
+        ? createElement(
+            editor ? "span" : "a",
+            {
+              className: "site-section__action",
+              href: editor ? undefined : action.href,
+              rel: editor ? undefined : externalRel(action.href),
+            },
+            text(["action", "label"], action.label),
+          )
+        : null,
+      hero.secondaryAction,
+      text,
+      editor,
+    ),
   );
 }
 
@@ -511,19 +522,21 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
     },
     {
       type: "core.hero",
-      latestVersion: 5,
+      latestVersion: 6,
       schemas: [
         { version: 1, schema: heroV1Schema },
         { version: 2, schema: heroV2Schema },
         { version: 3, schema: heroV3Schema },
         { version: 4, schema: heroV4Schema },
         { version: 5, schema: heroV5Schema },
+        { version: 6, schema: heroV6Schema },
       ],
       migrators: {
         1: migrateHeroV1ToV2,
         2: migrateHeroV2ToV3,
         3: (data) => ({ ...data }),
         4: (data) => ({ ...data }),
+        5: (data) => ({ ...data }),
       },
       component: HeroBlock,
       catalog: {
@@ -542,6 +555,16 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
           { path: ["image", "alt"], kind: "text", labelKey: "imageAlt" },
           { path: ["action", "label"], kind: "text", labelKey: "actionLabel" },
           { path: ["action", "href"], kind: "url", labelKey: "actionHref" },
+          {
+            path: ["secondaryAction", "label"],
+            kind: "text",
+            labelKey: "secondaryActionLabel",
+          },
+          {
+            path: ["secondaryAction", "href"],
+            kind: "url",
+            labelKey: "secondaryActionHref",
+          },
         ],
       },
     },
@@ -921,9 +944,12 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
     },
     {
       type: "core.product",
-      latestVersion: 1,
-      schemas: [{ version: 1, schema: productV1Schema }],
-      migrators: {},
+      latestVersion: 2,
+      schemas: [
+        { version: 1, schema: productV1Schema },
+        { version: 2, schema: productV2Schema },
+      ],
+      migrators: { 1: (data) => ({ ...data }) },
       component: ProductBlock,
       catalog: {
         category: "offer",
@@ -967,6 +993,16 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
           },
           { path: ["action", "label"], kind: "text", labelKey: "actionLabel" },
           { path: ["action", "href"], kind: "url", labelKey: "actionHref" },
+          {
+            path: ["secondaryAction", "label"],
+            kind: "text",
+            labelKey: "secondaryActionLabel",
+          },
+          {
+            path: ["secondaryAction", "href"],
+            kind: "url",
+            labelKey: "secondaryActionHref",
+          },
         ],
       },
     },

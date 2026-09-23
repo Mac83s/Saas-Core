@@ -66,6 +66,8 @@ class PageTemplate:
     localized_blocks: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     media_bindings: tuple[dict[str, Any], ...] = ()
     page_presentation: dict[str, Any] | None = None
+    # Retired templates stay importable by id; they leave only the offer.
+    retired: bool = False
 
     def draft_blocks(self, locale: str = "pl") -> list[dict[str, Any]]:
         return deepcopy(self.localized_blocks.get(locale, list(self.blocks)))
@@ -146,10 +148,12 @@ def page_template_catalog() -> PageTemplateCatalog:
             template_id = item["id"]
             latest_version = item["latestVersion"]
             version_paths = item["versions"]
+            retired = item.get("retired", False)
             if (
                 not isinstance(template_id, str)
                 or not isinstance(latest_version, int)
                 or not isinstance(version_paths, dict)
+                or not isinstance(retired, bool)
             ):
                 raise TypeError
             versions = {int(version): path for version, path in version_paths.items()}
@@ -185,6 +189,11 @@ def page_template_catalog() -> PageTemplateCatalog:
                 localized = recipe.get("localizedBlocks", {})
                 if any(len(translated) != len(blocks) for translated in localized.values()):
                     raise ImproperlyConfigured("Localized template block counts differ")
+                # v5: one path stage per block, in block order.
+                if "conversion" in recipe and len(recipe["conversion"]["stages"]) != len(blocks):
+                    raise ImproperlyConfigured(
+                        f"Recepta {template_id} v{version}: etapy konwersji nie odpowiadają blokom"
+                    )
                 bindings = tuple(recipe.get("mediaBindings", []))
                 targets: set[tuple[Any, ...]] = set()
                 media_ids = {item.id for item in media}
@@ -221,6 +230,7 @@ def page_template_catalog() -> PageTemplateCatalog:
                     localized_blocks=localized,
                     media_bindings=bindings,
                     page_presentation=page_presentation,
+                    retired=retired,
                 )
     except (APIException, KeyError, TypeError, ValueError) as error:
         raise ImproperlyConfigured("Manifest szablonów stron jest nieprawidłowy") from error

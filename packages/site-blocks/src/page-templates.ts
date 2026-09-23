@@ -6,9 +6,16 @@ import serviceLandingV1 from "@saas-core/contracts/page-templates/core.service_l
 import companyV1 from "@saas-core/contracts/page-templates/core.company.v2.json";
 import profileV1 from "@saas-core/contracts/page-templates/core.profile.v2.json";
 import specialistLandingV1 from "@saas-core/contracts/page-templates/core.specialist_landing.v2.json";
-import productFirstImpression from "@saas-core/contracts/page-templates/core.product_first_impression.v1.json";
-import serviceGuide from "@saas-core/contracts/page-templates/core.service_guide.v1.json";
-import expertKnowledge from "@saas-core/contracts/page-templates/core.expert_knowledge.v1.json";
+import productFirstImpression from "@saas-core/contracts/page-templates/core.product_first_impression.v2.json";
+import serviceGuide from "@saas-core/contracts/page-templates/core.service_guide.v2.json";
+import expertKnowledge from "@saas-core/contracts/page-templates/core.expert_knowledge.v2.json";
+import productFullStory from "@saas-core/contracts/page-templates/core.product_full_story.v1.json";
+import technicalB2b from "@saas-core/contracts/page-templates/core.technical_b2b.v1.json";
+import serviceFocused from "@saas-core/contracts/page-templates/core.service_focused.v1.json";
+import premiumService from "@saas-core/contracts/page-templates/core.premium_service.v1.json";
+import studioManifesto from "@saas-core/contracts/page-templates/core.studio_manifesto.v1.json";
+import caseStudy from "@saas-core/contracts/page-templates/core.case_study.v1.json";
+import templateManifest from "@saas-core/contracts/page-templates/manifest.json";
 
 import { InvalidPageTemplateError } from "./errors";
 import { setAtPath } from "./rich-text";
@@ -36,7 +43,25 @@ const recipes: readonly PageTemplate[] = [
   productFirstImpression as unknown as PageTemplate,
   serviceGuide as unknown as PageTemplate,
   expertKnowledge as unknown as PageTemplate,
+  productFullStory as unknown as PageTemplate,
+  technicalB2b as unknown as PageTemplate,
+  serviceFocused as unknown as PageTemplate,
+  premiumService as unknown as PageTemplate,
+  studioManifesto as unknown as PageTemplate,
+  caseStudy as unknown as PageTemplate,
 ];
+
+const retired = new Set(
+  templateManifest.templates
+    .filter((entry) => (entry as { retired?: boolean }).retired === true)
+    .map((entry) => entry.id),
+);
+
+/** A retired recipe stays importable by id and its pages stay as they are,
+ *  but galleries and the blueprint catalogue no longer offer it. */
+export function isRetiredPageTemplate(id: string): boolean {
+  return retired.has(id);
+}
 
 /** Recipes are seed content, not a second content model: applying one produces
  *  ordinary blocks that go through the same draft save, validation and
@@ -133,8 +158,8 @@ export function pageTemplateBlocks(
   return seeded;
 }
 
-/** Templates this deployment can actually apply: every block is registered and
- *  every entitlement is granted. */
+/** Templates this deployment can actually apply and still offers: not
+ *  retired, every block is registered and every entitlement is granted. */
 export function availablePageTemplates(
   registry: BlockRegistry,
   entitlements: readonly string[],
@@ -142,6 +167,7 @@ export function availablePageTemplates(
 ): readonly PageTemplate[] {
   const granted = new Set(entitlements);
   return templates.filter((template) => {
+    if (isRetiredPageTemplate(template.id)) return false;
     if (
       (template.requiredEntitlements ?? []).some(
         (entitlement) => !granted.has(entitlement),

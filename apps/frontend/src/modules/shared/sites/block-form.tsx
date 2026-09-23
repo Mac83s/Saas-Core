@@ -37,6 +37,7 @@ import {
   type SiteBlock,
   type SectionDecorationV1,
   type SectionPresentationV1,
+  type SectionPresentationV2,
 } from "@saas-core/site-blocks";
 import { Button } from "@saas-core/ui/components/button";
 import {
@@ -57,8 +58,10 @@ export type BlockFormValues = {
   block_type: string;
   data: JsonObject;
   decoration?: SectionDecorationV1;
-  presentation?: SectionPresentationV1;
+  presentation?: SectionPresentation;
 };
+
+type SectionPresentation = SectionPresentationV1 | SectionPresentationV2;
 
 /** Every block the library offers, in manifest order. A block without a
  *  `catalog` entry still renders published pages but is not offered here. */
@@ -177,7 +180,7 @@ export const blockFormSchema = z
     data: z.custom<JsonObject>((value) => isObject(value as JsonValue)),
     // The shared JSON Schema is checked by the same registry as the public renderer.
     decoration: z.custom<SectionDecorationV1>().optional(),
-    presentation: z.custom<SectionPresentationV1>().optional(),
+    presentation: z.custom<SectionPresentation>().optional(),
   })
   .superRefine((block, context) => {
     refineAgainstBlockContract(block, context);
@@ -219,7 +222,7 @@ export function BlockFields<TValues extends FieldValues>({
   const presentation = useWatch({
     control: form.control,
     name: `${prefix}.presentation` as Path<TValues>,
-  }) as SectionPresentationV1 | undefined;
+  }) as SectionPresentation | undefined;
   const locale = useLocale() === "en" ? "en" : "pl";
   const layouts = coreSectionTemplates().filter(
     (template) => template.blockType === type,
@@ -349,6 +352,7 @@ export function BlockFields<TValues extends FieldValues>({
         </summary>
         <div className="pt-4">
           <SectionPresentationFields
+            blockIndex={index}
             value={presentation}
             onChange={(value) =>
               form.setValue(
@@ -678,7 +682,7 @@ export function mediaIdsInBlocks(blocks: readonly BlockFormValues[]): string[] {
   return [...new Set(blocks.flatMap((block) => blockAssetIds(block.data)))];
 }
 
-/** Heading anchors are unique on a page (the API answers 400
+/** Section and heading anchors are unique on a page (the API answers 400
  *  `duplicate_rich_text_anchor`). Blocks entering the page — an inserted or
  *  duplicated section — are renamed against the blocks already there, links
  *  to the renamed anchors inside them included. Unchanged blocks come back
@@ -691,14 +695,20 @@ export function withUniqueAnchors(
     block_type: block.block_type,
     schema_version: 0,
     data: block.data,
+    ...(block.presentation ? { presentation: block.presentation } : {}),
   });
   return ensureUniqueAnchors(
     incoming.map(asSite),
     new Set(richTextAnchors(existing.map(asSite))),
   ).map((site, index) =>
-    site.data === incoming[index].data
+    site.data === incoming[index].data &&
+    site.presentation === incoming[index].presentation
       ? incoming[index]
-      : { ...incoming[index], data: site.data },
+      : {
+          ...incoming[index],
+          data: site.data,
+          ...(site.presentation ? { presentation: site.presentation } : {}),
+        },
   );
 }
 
@@ -742,7 +752,7 @@ export function toSiteBlock(block: {
       ? {
           presentation: structuredClone(
             block.presentation,
-          ) as SectionPresentationV1,
+          ) as SectionPresentation,
         }
       : {}),
   };

@@ -739,8 +739,9 @@
   > ul
   > li
   > .site-prose__link::after {
-  content: " →";
-  content: " →" / "";
+  /* A no-break space: the arrow never wraps onto a line of its own. */
+  content: "\a0→";
+  content: "\a0→" / "";
 }
 
 /* essay_cta: an essay column, the aside framed as its conclusions, and a

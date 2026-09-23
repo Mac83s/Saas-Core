@@ -3,13 +3,14 @@
   "blocks": [
     {
       "type": "core.hero",
-      "latestVersion": 5,
+      "latestVersion": 6,
       "schemas": {
         "1": "core.hero.v1.schema.json",
         "2": "core.hero.v2.schema.json",
         "3": "core.hero.v3.schema.json",
         "4": "core.hero.v4.schema.json",
-        "5": "core.hero.v5.schema.json"
+        "5": "core.hero.v5.schema.json",
+        "6": "core.hero.v6.schema.json"
       }
     },
     {
@@ -113,9 +114,10 @@
     },
     {
       "type": "core.product",
-      "latestVersion": 1,
+      "latestVersion": 2,
       "schemas": {
-        "1": "core.product.v1.schema.json"
+        "1": "core.product.v1.schema.json",
+        "2": "core.product.v2.schema.json"
       }
     }
   ],

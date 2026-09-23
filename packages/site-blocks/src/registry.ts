@@ -6,6 +6,7 @@ import {
 } from "react";
 import decorationSchema from "@saas-core/contracts/site-blocks/section-decoration.v1.schema.json";
 import presentationSchema from "@saas-core/contracts/site-blocks/section-presentation.v1.schema.json";
+import presentationV2Schema from "@saas-core/contracts/site-blocks/section-presentation.v2.schema.json";
 import { decorateSection } from "./section-decoration-renderer";
 
 import Ajv2020, {
@@ -27,6 +28,7 @@ import type {
   BlockRegistry,
   JsonObject,
   SectionPresentationV1,
+  SectionPresentationV2,
   SiteBlock,
   SiteBlockManifest,
 } from "./types";
@@ -122,7 +124,7 @@ function ownBranchErrors(
 /** Classes only for the values that are set; an empty envelope adds nothing,
  *  so legacy markup stays byte-identical. */
 function presentationClassName(
-  presentation: SectionPresentationV1 | undefined,
+  presentation: SectionPresentationV1 | SectionPresentationV2 | undefined,
 ): string {
   if (!presentation || (!presentation.inner && !presentation.surface))
     return "";
@@ -259,7 +261,10 @@ export function createSiteBlockRegistry(
   // `verbose` gives union errors their branches and data (ownBranchErrors).
   const ajv = new Ajv2020({ allErrors: true, strict: true, verbose: true });
   const validateDecoration = ajv.compile(decorationSchema);
-  const validatePresentation = ajv.compile(presentationSchema);
+  const presentationValidators = {
+    1: ajv.compile(presentationSchema),
+    2: ajv.compile(presentationV2Schema),
+  };
   const definitions = new Map<string, BlockDefinition>();
   const validators = new Map<string, Map<number, ValidateFunction>>();
 
@@ -308,6 +313,11 @@ export function createSiteBlockRegistry(
         })),
       );
     }
+    // Checked against the version it names; any other version fails v1.
+    const validatePresentation =
+      block.presentation?.schemaVersion === 2
+        ? presentationValidators[2]
+        : presentationValidators[1];
     if (
       block.presentation !== undefined &&
       !validatePresentation(block.presentation)
@@ -398,23 +408,36 @@ export function createSiteBlockRegistry(
         key,
       );
       const presentation = presentationClassName(migrated.presentation);
-      if (!presentation) return decorated;
-      // No wrapper of its own: the classes join the outermost element — the
-      // decoration layer when there is one, else the block's own root. Block
-      // components are plain functions without hooks, so calling one here
-      // yields exactly the element React would have rendered.
-      const root = (
-        decorated.type === definition.component
-          ? (definition.component as FunctionComponent<BlockComponentProps>)(
-              props,
-            )
-          : decorated
-      ) as ReactElement<{ className?: string }>;
+      // The section anchor is a publication id, like heading ids: a preview
+      // sits inside the panel, where it could collide with the panel's own.
+      const anchor =
+        effective.preview === false &&
+        migrated.presentation?.schemaVersion === 2
+          ? migrated.presentation.anchor
+          : undefined;
+      if (!presentation && !anchor) return decorated;
+      // No wrapper of its own: classes and id join the outermost element —
+      // the decoration layer when there is one, else the block's own root.
+      // Block components are plain functions without hooks, so calling one
+      // here yields exactly the element React would have rendered. A block
+      // that delegates to another component (contact v2 layouts) is followed
+      // down to the HTML element, or the classes would land on a prop the
+      // inner component never reads.
+      let root = decorated as ReactElement<{ className?: string; id?: string }>;
+      while (typeof root.type === "function")
+        root = (root.type as FunctionComponent<typeof root.props>)(
+          root.props,
+        ) as typeof root;
       return cloneElement(root, {
         key,
-        className: [root.props.className, presentation]
-          .filter(Boolean)
-          .join(" "),
+        ...(presentation
+          ? {
+              className: [root.props.className, presentation]
+                .filter(Boolean)
+                .join(" "),
+            }
+          : {}),
+        ...(anchor ? { id: anchor } : {}),
       });
     },
   };

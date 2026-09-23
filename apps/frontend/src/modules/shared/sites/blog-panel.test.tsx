@@ -7,6 +7,7 @@ import { ApiProblemError } from "@saas-core/api-client";
 
 import polishMessages from "../../../../messages/pl.json";
 import { BlogPanel } from "./blog-panel";
+import { registry } from "./block-form";
 
 const {
   createContentCollection,
@@ -324,7 +325,8 @@ test("entry editing preserves decoration through migration and clears it only on
   await waitFor(() => expect(saveContentEntryDraft).toHaveBeenCalledOnce());
   expect(saveContentEntryDraft.mock.calls[0]?.[1].blocks[0]).toMatchObject({
     block_type: "core.hero",
-    schema_version: 5,
+    // Saved at the hero's latest contract version.
+    schema_version: registry.definitions.get("core.hero")?.latestVersion,
     data: { title: "Nowy nagłówek wpisu", text: "Przykładowy opis" },
     decoration,
   });
