@@ -249,3 +249,52 @@ rodziny redakcyjnej. Seedy katalogu mówią językiem korzyści klienta; dowody
 nigdy wymyśloną treścią. Edytor strony pokazuje, które sekcje mają jeszcze
 takie miejsca (`unfilledPlaceholders` w `@saas-core/site-blocks`), zanim
 właściciel zapisze i opublikuje stronę.
+
+## Faza 3b — style stron, kotwice sekcji, recepty pod konwersję
+
+### Kotwice sekcji i przyciski „do formularza”
+
+Koperta `presentation` v2 (`section-presentation.v2.schema.json`) dodaje
+`anchor`. Najbardziej zewnętrzny element sekcji dostaje `id` równy kotwicy,
+tylko w publikacji (jak `id` śródtytułów). Kotwice sekcji i śródtytułów to
+jedna przestrzeń nazw, unikalna na stronie; backend odrzuca powtórzenie
+(400 `duplicate_rich_text_anchor`), edytor naprawia kolizje przy wstawianiu i
+duplikacji. `core.hero` v6 i `core.product` v2 pozwalają przyciskom
+prowadzić pod `#kotwica`; hero v6 ma też cichsze `secondaryAction`. Recepty
+nadają formularzowi kontaktu kotwicę `kontakt`, a główne przyciski strony
+prowadzą do `#kontakt`. Przewijanie zostawia margines na przyklejoną
+nawigację (`scroll-margin-top`).
+
+### Osiem kierunków wizualnych (`page_presentation.style`, v2)
+
+Styl strony to zestaw decyzji typograficznych i kompozycyjnych dla sekcji tej
+strony. Kolor akcentu pozostaje z palety witryny; header, stopka i menu się
+nie zmieniają. Jawnie wybrany font nagłówków lub tekstu wygrywa ze stylem.
+Brak stylu = dotychczasowy wygląd (piksel w piksel).
+
+| Styl | Typografia | Rytm i kształty | Charakter |
+|---|---|---|---|
+| `editorial` | nagłówki Lora 600, tekst Inter | przestronnie, cienka linia nad sekcją, promień 2 px | etykiety kapitalikami z rozstrzeleniem, wstęp większą czcionką |
+| `product` | nagłówki Manrope 800, ciasne odstępy liter, skala ×1,1 | promień 14 px, zdjęcia z miękkim cieniem | duże przyciski w kształcie pigułki, mocne pasy ciemnej powierzchni |
+| `studio` | nagłówki Manrope 800, skala ×1,3, bardzo ciasno | kąty proste, gruba linia pod tytułem sekcji | wysoki kontrast, przyciski prostokątne z grubym obrysem |
+| `mosaic` | nagłówki DM Sans 700 | promień 18 px, pozycje list i paneli jako karty z cieniem | lekkie stonowane tła, większe odstępy siatki |
+| `premium` | nagłówki Playfair Display 500, tekst Inter | bardzo przestronnie, kąty proste | etykiety z szerokim rozstrzeleniem, przyciski z cienkim obrysem, wersaliki |
+| `expert` | nagłówki DM Sans 600, tekst Inter | spokojny rytm, promień 10 px | uwagi i panele faktów w miękkim tle, czytelna hierarchia |
+| `organic` | nagłówki i tekst Nunito | promień 24 px, zdjęcia mocno zaokrąglone | ciepłe stonowane tło, przyciski-pigułki |
+| `technical` | nagłówki Inter 700, liczby tabelaryczne | promień 4 px, delikatna siatka na stonowanym tle | etykiety czcionką o stałej szerokości, parametry jak tabela |
+
+Style działają przez klasę `site-style--{styl}` na `.site-theme` i reguły
+ograniczone do wnętrza sekcji (`.site-block`), więc nie dotykają headera i
+stopki. Wymagania: kontrast WCAG AA na wszystkich powierzchniach, cele dotyku
+44 px, telefon 320 px bez przewijania w bok, bez nowego ruchu.
+
+### Recepty stron v5 i wycofanie słabych szablonów
+
+`page-template.v5.schema.json` (nadzbiór v4) dodaje `conversion`: cel strony
+(`inquiry`, `call`, `booking`, `email`, `visit`) i etap ścieżki każdego bloku
+(ta sama długość i kolejność co `blocks`). Każda najnowsza recepta, która nie
+jest wycofana, ma `conversion`, zaczyna się etapem `attention`, ma co
+najmniej jeden blok `action` i przechodzi listę kontrolną konwersji. W
+manifeście szablonów `retired: true` ukrywa osiem dawnych szablonów w galerii
+i w katalogu blueprintów; ich pliki zostają, strony już z nich zbudowane się
+nie zmieniają, a import przez API po identyfikatorze nadal działa.

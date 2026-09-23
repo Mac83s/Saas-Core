@@ -10,7 +10,7 @@ export interface SiteBlock<TData extends JsonObject = JsonObject> {
   readonly schema_version: number;
   readonly data: TData;
   readonly decoration?: SectionDecorationV1;
-  readonly presentation?: SectionPresentationV1;
+  readonly presentation?: SectionPresentationV1 | SectionPresentationV2;
 }
 
 /** Shared allowlisted presentation, separate from the versioned content data. */
@@ -33,6 +33,27 @@ export type SectionPresentationV1 = {
   surface?: "default" | "muted" | "accent" | "inverse";
 };
 
+/** v2 adds a section anchor: buttons on the same page can point at `#anchor`.
+ *  One namespace with rich-text heading anchors, unique on a page. */
+export type SectionPresentationV2 = Omit<
+  SectionPresentationV1,
+  "schemaVersion"
+> & {
+  schemaVersion: 2;
+  anchor?: string;
+};
+
+/** Visual directions a page can take (page presentation v2). */
+export type PageStyle =
+  | "editorial"
+  | "product"
+  | "studio"
+  | "mosaic"
+  | "premium"
+  | "expert"
+  | "organic"
+  | "technical";
+
 export type SiteFont =
   | "system"
   | "arial"
@@ -53,6 +74,11 @@ export type PagePresentationV1 = {
   width?: "contained" | "full";
   headingFont?: SiteFont;
   bodyFont?: SiteFont;
+};
+
+export type PagePresentationV2 = Omit<PagePresentationV1, "schemaVersion"> & {
+  schemaVersion: 2;
+  style?: PageStyle;
 };
 
 export interface BlockRenderOptions {
@@ -402,7 +428,7 @@ export interface SiteBlockManifest {
 
 export interface DraftPreviewDocument {
   readonly appearance?: SiteAppearance | null;
-  readonly pagePresentation?: PagePresentationV1 | null;
+  readonly pagePresentation?: PagePresentationV1 | PagePresentationV2 | null;
   readonly kind: "draft-preview";
   readonly versionId: string;
   readonly blocks: readonly SiteBlock[];
@@ -433,7 +459,7 @@ export interface PaginationLabels {
 export interface PublishedPageDocument {
   readonly locale?: "pl" | "en";
   readonly appearance?: SiteAppearance | null;
-  readonly pagePresentation?: PagePresentationV1 | null;
+  readonly pagePresentation?: PagePresentationV1 | PagePresentationV2 | null;
   readonly kind: "publication";
   readonly publicationId: string;
   readonly snapshotHash: string;
@@ -480,7 +506,12 @@ export interface PageTemplate {
   readonly localizedBlocks?: { readonly en: readonly SiteBlock[] };
   readonly mediaBindings?: readonly TemplateMediaBinding[];
   /** Recipe v4: copied into the imported page version. */
-  readonly pagePresentation?: PagePresentationV1;
+  readonly pagePresentation?: PagePresentationV1 | PagePresentationV2;
+  /** Recipe v5: the page's goal and the path stage of every block. */
+  readonly conversion?: {
+    readonly goal: "inquiry" | "call" | "booking" | "email" | "visit";
+    readonly stages: readonly ConversionStage[];
+  };
   readonly blocks: readonly SiteBlock[];
 }
 

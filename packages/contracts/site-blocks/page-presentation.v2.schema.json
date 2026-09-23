@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/site-blocks/page-presentation.v2.schema.json",
+  "title": "Page presentation v2",
+  "description": "Optional presentation stored with one page version. Applies only inside that page: header, footer, navigation and the site-wide appearance stay shared. A missing value inherits the site appearance. v2 adds a visual direction (style kit) that sets the page's typography, rhythm, shapes and surfaces inside its sections; explicit fonts still win.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion"],
+  "properties": {
+    "schemaVersion": {
+      "const": 2
+    },
+    "width": {
+      "type": "string",
+      "enum": ["contained", "full"]
+    },
+    "headingFont": {
+      "type": "string",
+      "enum": [
+        "system",
+        "arial",
+        "georgia",
+        "trebuchet",
+        "verdana",
+        "inter",
+        "manrope",
+        "dm-sans",
+        "nunito",
+        "lora",
+        "playfair-display"
+      ]
+    },
+    "bodyFont": {
+      "type": "string",
+      "enum": [
+        "system",
+        "arial",
+        "georgia",
+        "trebuchet",
+        "verdana",
+        "inter",
+        "manrope",
+        "dm-sans",
+        "nunito",
+        "lora",
+        "playfair-display"
+      ]
+    },
+    "style": {
+      "type": "string",
+      "enum": [
+        "editorial",
+        "product",
+        "studio",
+        "mosaic",
+        "premium",
+        "expert",
+        "organic",
+        "technical"
+      ]
+    }
+  }
+}
