@@ -6,3 +6,12 @@ import { afterEach } from "vitest";
 // the first render and every `getByRole` finds two matches. Files that already
 // call `cleanup` in their own `afterEach` are unaffected — it is idempotent.
 afterEach(cleanup);
+
+// jsdom has no PointerEvent, and Base UI forwards a switch's click as one
+// (`dispatchClickWithModifiers`); a MouseEvent carries everything it reads.
+if (typeof window !== "undefined" && !("PointerEvent" in window)) {
+  Object.defineProperty(window, "PointerEvent", {
+    configurable: true,
+    value: class PointerEvent extends MouseEvent {},
+  });
+}

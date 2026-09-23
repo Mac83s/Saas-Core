@@ -1,6 +1,7 @@
 # ADR-053: wizytówka powstaje zawsze, katalog publiczny stoi obok witryn
 
-Status: proponowana, 2026-09-21.
+Status: zaakceptowana, 2026-09-23 (decyzja właściciela, z doprecyzowaniem w §10);
+zaproponowana 2026-09-21. §8 zostanie zastąpiony osobnym ADR (wyszukiwarka).
 **Zastępuje ADR-036 §4 tiret trzecie** („profil prosty bez strony" jako
 jednostronicowa witryna z recepty `core.profile.v1`). Reszta ADR-036 pozostaje
 obowiązująca w całości — w szczególności §3 (`PublicProfile` w `shared.profiles`),
@@ -158,6 +159,10 @@ drugim źródłem prawdy o tym, kto jest w katalogu.
 
 ### 9. Entitlement i plany
 
+> Stan 2026-09-23: cecha `profiles.enabled` jest we wszystkich planach. Odebranie
+> planowi `profile` cechy `sites.enabled` (akapit niżej) nie zostało wykonane —
+> to decyzja cenowa właściciela, której jeszcze nie podjął.
+
 Powstaje entitlement `profiles.enabled`, deklarowany przez `shared.profiles`.
 Wizytówka jest podłogą oferty, więc cechę dostają wszystkie plany; publikacja w
 katalogu sprawdza ją tak samo jak każda inna mutacja.
@@ -167,6 +172,24 @@ wizytówki bez witryny, a nie planem witryny jednostronicowej. Zmiana idzie now�
 `PlanVersion` — wersje planów są niezmienne (ADR-026, ADR-032), a downgrade nie
 usuwa treści: witryna organizacji, która zejdzie na `profile`, zostaje do odczytu
 i nie może być ponownie opublikowana.
+
+### 10. Doprecyzowanie właściciela, 2026-09-23
+
+1. **Wizytówka jest dostępna w każdym planie i dla każdego typu organizacji,
+   któremu produkt da `shared.profiles`.** Rdzeń nie zakłada branży — nie wiadomo,
+   w jakie branże wejdą produkty. HoofCare daje ją także gospodarstwom, z własną
+   kategorią katalogu.
+2. **Obecność w katalogu jest przełącznikiem „Pokazuj wizytówkę w katalogu”,
+   domyślnie wyłączonym.** To §3 wyrażony w panelu: nie każdy chce być w
+   katalogu, więc nikt nie trafia tam bez własnej decyzji. Włączenie tworzy
+   wiersz katalogu, wyłączenie go kasuje (§4).
+3. **Włączenie i wyłączenie mają osobne akcje historii zmian** —
+   `profile.published` i `profile.withdrawn` z autorem — zamiast ogólnego
+   `profile.updated`.
+4. **Wyszukiwanie przechodzi na osobny silnik wielojęzyczny** z wyszukiwaniem po
+   znaczeniu (Meilisearch, plan memex
+   `saas-core-panel-i-katalog-listy-wizytowka-historia-wyszukiwarka`, faza 5).
+   Opisze to osobny ADR; do jego wdrożenia obowiązuje §8.
 
 ## Konsekwencje
 

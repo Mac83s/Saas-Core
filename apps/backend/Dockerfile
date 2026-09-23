@@ -82,4 +82,7 @@ EXPOSE 8000
 HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=5 \
   CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/live/', timeout=2)"]
 
-CMD ["sh", "-c", "python manage.py check_database_role && mkdir -p /tmp/prometheus && rm -f /tmp/prometheus/*.db && exec gunicorn saas_core.config.wsgi:application --bind=0.0.0.0:8000 --workers=2 --threads=2 --timeout=30 --graceful-timeout=20 --error-logfile=-"]
+# --keep-alive outlives the ~4 s Node's fetch keeps an idle connection to the
+# backend. With gunicorn's default 2 s the frontend sometimes reused a socket the
+# backend had just closed and a server render failed (UND_ERR_SOCKET, 2026-09-23).
+CMD ["sh", "-c", "python manage.py check_database_role && mkdir -p /tmp/prometheus && rm -f /tmp/prometheus/*.db && exec gunicorn saas_core.config.wsgi:application --bind=0.0.0.0:8000 --workers=2 --threads=2 --timeout=30 --graceful-timeout=20 --keep-alive=10 --error-logfile=-"]

@@ -2064,11 +2064,10 @@
     "layout_compact": "Zwięzła",
     "catalogTitle": "Katalog firm",
     "catalogPublished": "Twoja firma jest widoczna w katalogu.",
-    "catalogNotPublished": "Twojej firmy nie ma jeszcze w katalogu. Uzupełnij nazwę, miasto i kategorię, a potem opublikuj.",
+    "catalogNotPublished": "Wizytówka jest wyłączona — nikt nie znajdzie Cię w katalogu. Uzupełnij nazwę, miasto i kategorię, a potem ją włącz.",
     "leadsToSite": "Wpis w katalogu prowadzi do Twojej strony internetowej.",
     "leadsToCatalog": "Wpis w katalogu prowadzi do strony wizytówki na naszej platformie.",
-    "publish": "Opublikuj w katalogu",
-    "withdraw": "Wycofaj z katalogu"
+    "showInCatalog": "Pokazuj wizytówkę w katalogu"
   },
   "SiteInquiries": {
     "title": "Zapytania ze strony",

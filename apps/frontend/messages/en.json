@@ -2064,11 +2064,10 @@
     "layout_compact": "Compact",
     "catalogTitle": "Company directory",
     "catalogPublished": "Your company is visible in the directory.",
-    "catalogNotPublished": "Your company is not in the directory yet. Fill in the name, city and category, then publish.",
+    "catalogNotPublished": "Your business card is switched off — nobody finds you in the directory. Fill in the name, city and category, then switch it on.",
     "leadsToSite": "The directory entry leads to your website.",
     "leadsToCatalog": "The directory entry leads to your business card page on our platform.",
-    "publish": "Publish to the directory",
-    "withdraw": "Withdraw from the directory"
+    "showInCatalog": "Show my business card in the directory"
   },
   "SiteInquiries": {
     "title": "Website inquiries",

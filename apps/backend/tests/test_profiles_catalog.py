@@ -28,6 +28,8 @@ from saas_core.modules.core.identity.models import User, UserStatus
 from saas_core.modules.core.organizations.models import (
     Membership,
     Organization,
+    OrganizationAuditAction,
+    OrganizationAuditEntry,
     OrganizationStatus,
     Role,
 )
@@ -171,7 +173,7 @@ def test_publication_needs_a_place_and_puts_the_company_in_the_public_listing() 
 
 
 def test_withdrawal_removes_the_row_rather_than_flagging_it() -> None:
-    client, organization, _user = catalog_client(slug="wizytowka-wycofanie")
+    client, organization, user = catalog_client(slug="wizytowka-wycofanie")
     _ready(client)
     client.post(PUBLISH_URL, {}, format="json", HTTP_X_CSRFTOKEN=_csrf(client))
     assert CatalogEntry.all_objects.filter(organization=organization).count() == 1
@@ -182,6 +184,14 @@ def test_withdrawal_removes_the_row_rather_than_flagging_it() -> None:
     assert CatalogEntry.all_objects.filter(organization=organization).count() == 0
     assert APIClient().get(CATALOG_URL, {"city": "mragowo"}).data["total"] == 0
     assert client.get(PROFILE_URL).data["catalog"]["published"] is False
+    # Switching the card on and off is its own history, not "profile updated".
+    history = OrganizationAuditEntry.objects.filter(
+        organization=organization, target_type="catalog_entry"
+    ).order_by("occurred_at")
+    assert [(entry.action, entry.actor_user_id) for entry in history] == [
+        (OrganizationAuditAction.PROFILE_PUBLISHED, user.id),
+        (OrganizationAuditAction.PROFILE_WITHDRAWN, user.id),
+    ]
 
 
 def test_people_never_reach_the_catalogue() -> None:

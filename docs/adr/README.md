@@ -48,7 +48,7 @@ rejestr z `Plan/SaaS-Core-06-Rejestr-Decyzji.md`.
 | [ADR-050](ADR-050-Typy-Organizacji-Definiowane-Przez-Produkt.md) | typy organizacji definiowane przez produkt | Proposed |
 | [ADR-051](ADR-051-Rejestr-Gospodarstw-I-Zwierzat.md) | rejestr gospodarstw i zwierząt z kopiami firm i synchronizacją | Proposed |
 | [ADR-052](ADR-052-Wizyty-Gospodarstwa-W-Rejestrze-Rolnika.md) | wizyty gospodarstwa w rejestrze rolnika | Proposed |
-| [ADR-053](ADR-053-Wizytowka-Zawsze-I-Katalog-Publiczny.md) | wizytówka powstaje zawsze, katalog publiczny obok witryn | Proposed |
+| [ADR-053](ADR-053-Wizytowka-Zawsze-I-Katalog-Publiczny.md) | wizytówka powstaje zawsze, katalog publiczny obok witryn | Accepted |
 | [ADR-054](ADR-054-Listy-Panelu-Na-Wspolnym-DataTable.md) | listy panelu klienta na wspólnym DataTable | Accepted |
 
 Każda zmiana decyzji tworzy nowy ADR. Całkowicie zastąpiony dokument otrzymuje
