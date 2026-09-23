@@ -126,7 +126,14 @@ class InventoryMovementSerializer(serializers.Serializer[Any]):
 
 class StockDocumentLineSerializer(serializers.Serializer[Any]):
     item_id = serializers.UUIDField()
-    item_name = serializers.CharField(source="item.name", read_only=True)
+    item_name = serializers.CharField(source="item.name")
+    quantity = _quantity()
+    unit_price_minor = serializers.IntegerField(allow_null=True)
+    note = serializers.CharField()
+
+
+class StockDocumentLineInputSerializer(serializers.Serializer[Any]):
+    item_id = serializers.UUIDField()
     quantity = _quantity(min_value=0)
     unit_price_minor = serializers.IntegerField(required=False, allow_null=True, min_value=0)
     note = serializers.CharField(max_length=240, required=False, allow_blank=True)
@@ -160,7 +167,7 @@ class StockDocumentInputSerializer(serializers.Serializer[Any]):
     supplier_id = serializers.UUIDField(required=False, allow_null=True)
     counterparty = serializers.CharField(max_length=160, required=False, allow_blank=True)
     note = serializers.CharField(max_length=240, required=False, allow_blank=True)
-    lines = StockDocumentLineSerializer(many=True, required=False)
+    lines = StockDocumentLineInputSerializer(many=True, required=False)
 
 
 class StockDocumentCorrectionSerializer(serializers.Serializer[Any]):

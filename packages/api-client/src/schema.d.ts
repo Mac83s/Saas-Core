@@ -4890,7 +4890,7 @@ export interface components {
             supplier_id?: string | null;
             counterparty?: string;
             note?: string;
-            lines?: components["schemas"]["StockDocumentLine"][];
+            lines?: components["schemas"]["StockDocumentLineInput"][];
         };
         PatchedStockLocation: {
             /** Format: uuid */
@@ -5529,7 +5529,7 @@ export interface components {
             supplier_id?: string | null;
             counterparty?: string;
             note?: string;
-            lines?: components["schemas"]["StockDocumentLine"][];
+            lines?: components["schemas"]["StockDocumentLineInput"][];
         };
         /**
          * @description * `PZ` - Przyjęcie zewnętrzne
@@ -5544,7 +5544,15 @@ export interface components {
         StockDocumentLine: {
             /** Format: uuid */
             item_id: string;
-            readonly item_name: string;
+            item_name: string;
+            /** Format: decimal */
+            quantity: string;
+            unit_price_minor: number | null;
+            note: string;
+        };
+        StockDocumentLineInput: {
+            /** Format: uuid */
+            item_id: string;
             /** Format: decimal */
             quantity: string;
             unit_price_minor?: number | null;

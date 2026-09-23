@@ -13899,7 +13899,7 @@ components:
         lines:
           type: array
           items:
-            $ref: '#/components/schemas/StockDocumentLine'
+            $ref: '#/components/schemas/StockDocumentLineInput'
     PatchedStockLocation:
       type: object
       properties:
@@ -15436,7 +15436,7 @@ components:
         lines:
           type: array
           items:
-            $ref: '#/components/schemas/StockDocumentLine'
+            $ref: '#/components/schemas/StockDocumentLineInput'
       required:
       - kind
     StockDocumentKindEnum:
@@ -15463,7 +15463,28 @@ components:
           format: uuid
         item_name:
           type: string
-          readOnly: true
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+        unit_price_minor:
+          type:
+          - integer
+          - 'null'
+        note:
+          type: string
+      required:
+      - item_id
+      - item_name
+      - note
+      - quantity
+      - unit_price_minor
+    StockDocumentLineInput:
+      type: object
+      properties:
+        item_id:
+          type: string
+          format: uuid
         quantity:
           type: string
           format: decimal
@@ -15478,7 +15499,6 @@ components:
           maxLength: 240
       required:
       - item_id
-      - item_name
       - quantity
     StockDocumentStatusEnum:
       enum:

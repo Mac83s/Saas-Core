@@ -2570,106 +2570,245 @@ export async function updateFarmAnimal(
 }
 
 export type InventoryItem = components["schemas"]["InventoryItem"];
+export type InventoryItemInput = components["schemas"]["InventoryItemInput"];
 export type InventoryBalance = components["schemas"]["InventoryBalance"];
 export type InventoryMovement = components["schemas"]["InventoryMovement"];
 export type InventoryCategory = components["schemas"]["InventoryCategory"];
+export type StockLocation = components["schemas"]["StockLocation"];
+export type Supplier = components["schemas"]["Supplier"];
 export type StockDocument = components["schemas"]["StockDocument"];
+export type StockDocumentInput = components["schemas"]["StockDocumentInput"];
+export type StockDocumentKind = components["schemas"]["StockDocumentKindEnum"];
 
-/** Kategorie firmy; zestaw startowy deklaruje produkt (ADR-055). */
-export async function listInventoryCategories(): Promise<InventoryCategory[]> {
-  const { data, error, response } = await client.GET(
-    "/api/v1/inventory/categories/",
-    { credentials: "same-origin", cache: "no-store" },
+type Fetch = (
+  path: never,
+  init: never,
+) => Promise<{ data?: unknown; error?: unknown; response: Response }>;
+
+// ponytail: two generic callers for the warehouse's many endpoints. The path is
+// checked against the schema; the response type is the wrapper's promise.
+async function inventoryRead<T>(
+  path: keyof paths,
+  query: Record<string, string | boolean | undefined> = {},
+): Promise<T> {
+  const params = Object.fromEntries(
+    Object.entries(query).filter(
+      ([, value]) => value !== undefined && value !== "",
+    ),
+  );
+  const { data, error, response } = await (client.GET as Fetch)(
+    path as never,
+    {
+      params: { query: params },
+      credentials: "same-origin",
+      cache: "no-store",
+    } as never,
   );
   if (error || !data) throwProblem(error, response);
-  return data;
+  return data as T;
+}
+
+async function inventoryWrite<T>(
+  method: "POST" | "PATCH" | "DELETE",
+  path: keyof paths,
+  pathParams: Record<string, string>,
+  body?: unknown,
+): Promise<T> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await (client[method] as Fetch)(
+    path as never,
+    {
+      params: { path: pathParams },
+      ...(body === undefined ? {} : { body }),
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    } as never,
+  );
+  if (error || !response.ok) throwProblem(error, response);
+  return data as T;
+}
+
+/** Kategorie firmy; zestaw startowy deklaruje produkt (ADR-055). */
+export function listInventoryCategories(): Promise<InventoryCategory[]> {
+  return inventoryRead("/api/v1/inventory/categories/");
+}
+
+export function createInventoryCategory(
+  name: string,
+): Promise<InventoryCategory> {
+  return inventoryWrite("POST", "/api/v1/inventory/categories/", {}, { name });
+}
+
+export function renameInventoryCategory(
+  categoryId: string,
+  name: string,
+): Promise<InventoryCategory> {
+  return inventoryWrite(
+    "PATCH",
+    "/api/v1/inventory/categories/{category_id}/",
+    { category_id: categoryId },
+    { name },
+  );
+}
+
+export function deleteInventoryCategory(categoryId: string): Promise<void> {
+  return inventoryWrite(
+    "DELETE",
+    "/api/v1/inventory/categories/{category_id}/",
+    { category_id: categoryId },
+  );
+}
+
+/** Magazyny firmy i zapasy osób. */
+export function listStockLocations(): Promise<StockLocation[]> {
+  return inventoryRead("/api/v1/inventory/locations/");
+}
+
+export function createWarehouse(name: string): Promise<StockLocation> {
+  return inventoryWrite("POST", "/api/v1/inventory/locations/", {}, { name });
+}
+
+export function updateStockLocation(
+  locationId: string,
+  input: { name?: string; active?: boolean },
+): Promise<StockLocation> {
+  return inventoryWrite(
+    "PATCH",
+    "/api/v1/inventory/locations/{location_id}/",
+    { location_id: locationId },
+    input,
+  );
+}
+
+export function listSuppliers(): Promise<Supplier[]> {
+  return inventoryRead("/api/v1/inventory/suppliers/");
+}
+
+export function saveSupplier(
+  input: Partial<Omit<Supplier, "id">> & { name: string },
+  supplierId?: string,
+): Promise<Supplier> {
+  return supplierId
+    ? inventoryWrite(
+        "PATCH",
+        "/api/v1/inventory/suppliers/{supplier_id}/",
+        { supplier_id: supplierId },
+        input,
+      )
+    : inventoryWrite("POST", "/api/v1/inventory/suppliers/", {}, input);
 }
 
 /** Katalog towarów firmy: jedna pozycja to jeden SKU. */
-export async function listInventoryItems(
+export function listInventoryItems(
   filters: { category?: string; search?: string } = {},
 ): Promise<InventoryItem[]> {
-  const query: { category?: string; q?: string } = {};
-  if (filters.category) query.category = filters.category;
-  if (filters.search) query.q = filters.search;
-  const { data, error, response } = await client.GET(
-    "/api/v1/inventory/items/",
-    {
-      params: { query },
-      credentials: "same-origin",
-      cache: "no-store",
-    },
-  );
-  if (error || !data) throwProblem(error, response);
-  return data;
+  return inventoryRead("/api/v1/inventory/items/", {
+    category: filters.category,
+    q: filters.search,
+  });
 }
 
-export async function createInventoryItem(
-  input: components["schemas"]["InventoryItemInput"],
+export function createInventoryItem(
+  input: InventoryItemInput,
 ): Promise<InventoryItem> {
-  const csrfToken = await getCsrfToken();
-  const { data, error, response } = await client.POST(
-    "/api/v1/inventory/items/",
-    {
-      body: input,
-      credentials: "same-origin",
-      headers: { "X-CSRFToken": csrfToken },
-    },
-  );
-  if (error || !data) throwProblem(error, response);
-  return data;
+  return inventoryWrite("POST", "/api/v1/inventory/items/", {}, input);
 }
 
-/** Stany: magazynu firmy, wskazanej osoby albo własne. */
-export async function listInventoryBalances(
-  filters: { holderId?: string; mine?: boolean } = {},
+export function updateInventoryItem(
+  itemId: string,
+  input: Partial<InventoryItemInput>,
+): Promise<InventoryItem> {
+  return inventoryWrite(
+    "PATCH",
+    "/api/v1/inventory/items/{item_id}/",
+    { item_id: itemId },
+    input,
+  );
+}
+
+/** Stany jednego miejsca; bez filtrów — magazyn główny. */
+export function listInventoryBalances(
+  filters: { locationId?: string; holderId?: string; mine?: boolean } = {},
 ): Promise<InventoryBalance[]> {
-  const query: { holder_id?: string; mine?: boolean } = {};
-  if (filters.holderId) query.holder_id = filters.holderId;
-  if (filters.mine) query.mine = true;
-  const { data, error, response } = await client.GET(
-    "/api/v1/inventory/balances/",
-    {
-      params: { query },
-      credentials: "same-origin",
-      cache: "no-store",
-    },
-  );
-  if (error || !data) throwProblem(error, response);
-  return data;
+  return inventoryRead("/api/v1/inventory/balances/", {
+    location_id: filters.locationId,
+    holder_id: filters.holderId,
+    mine: filters.mine || undefined,
+  });
 }
 
-export async function receiveInventory(
+export function listInventoryMovements(
+  filters: { itemId?: string; locationId?: string } = {},
+): Promise<InventoryMovement[]> {
+  return inventoryRead("/api/v1/inventory/movements/", {
+    item_id: filters.itemId,
+    location_id: filters.locationId,
+  });
+}
+
+export function listStockDocuments(
+  filters: { kind?: string; status?: string } = {},
+): Promise<StockDocument[]> {
+  return inventoryRead("/api/v1/inventory/documents/", filters);
+}
+
+export function createStockDocument(
+  input: StockDocumentInput,
+): Promise<StockDocument> {
+  return inventoryWrite("POST", "/api/v1/inventory/documents/", {}, input);
+}
+
+export function updateStockDocument(
+  documentId: string,
+  input: Partial<StockDocumentInput>,
+): Promise<StockDocument> {
+  return inventoryWrite(
+    "PATCH",
+    "/api/v1/inventory/documents/{document_id}/",
+    { document_id: documentId },
+    input,
+  );
+}
+
+/** Zatwierdzenie: wiersze stają się ruchami, dokument dostaje numer. */
+export function postStockDocument(documentId: string): Promise<StockDocument> {
+  return inventoryWrite(
+    "POST",
+    "/api/v1/inventory/documents/{document_id}/post/",
+    { document_id: documentId },
+  );
+}
+
+/** Korekta: nowy dokument, który cofa ruchy zatwierdzonego. */
+export function correctStockDocument(
+  documentId: string,
+  note = "",
+): Promise<StockDocument> {
+  return inventoryWrite(
+    "POST",
+    "/api/v1/inventory/documents/{document_id}/correct/",
+    { document_id: documentId },
+    { note },
+  );
+}
+
+export function receiveInventory(
   input: components["schemas"]["InventoryReceiptInput"],
 ): Promise<StockDocument> {
-  const csrfToken = await getCsrfToken();
-  const { data, error, response } = await client.POST(
-    "/api/v1/inventory/receipts/",
-    {
-      body: input,
-      credentials: "same-origin",
-      headers: { "X-CSRFToken": csrfToken },
-    },
-  );
-  if (error || !data) throwProblem(error, response);
-  return data;
+  return inventoryWrite("POST", "/api/v1/inventory/receipts/", {}, input);
 }
 
 /** Wydanie pracownikowi: pakiet, z którym wyjeżdża w teren. */
-export async function issueInventory(
+export function issueInventory(
   input: components["schemas"]["InventoryIssueInput"],
 ): Promise<StockDocument> {
-  const csrfToken = await getCsrfToken();
-  const { data, error, response } = await client.POST(
-    "/api/v1/inventory/issues/",
-    {
-      body: input,
-      credentials: "same-origin",
-      headers: { "X-CSRFToken": csrfToken },
-    },
-  );
-  if (error || !data) throwProblem(error, response);
-  return data;
+  return inventoryWrite("POST", "/api/v1/inventory/issues/", {}, input);
+}
+
+export function returnInventory(
+  input: components["schemas"]["InventoryIssueInput"],
+): Promise<StockDocument> {
+  return inventoryWrite("POST", "/api/v1/inventory/returns/", {}, input);
 }
 
 export type FarmShare = components["schemas"]["FarmShare"];
