@@ -6,6 +6,7 @@ export {
   availablePageTemplates,
   bindTemplateMedia,
   corePageTemplates,
+  isRetiredPageTemplate,
   pageTemplateBlocks,
   templatePreviewAssetId,
 } from "./page-templates";

@@ -695,6 +695,15 @@
     "previewTemplate": "Preview",
     "previewNamedTemplate": "Preview of the {name} template",
     "templateThumbnail": "Thumbnail of the {name} template",
+    "templateGoal": "Goal: {goal}",
+    "templateStyle": "Style: {style}",
+    "conversionGoals": {
+      "inquiry": "inquiry",
+      "call": "call",
+      "booking": "booking",
+      "email": "email",
+      "visit": "visit"
+    },
     "heading": "Heading",
     "text": "Text",
     "actionLabel": "Action label",
@@ -1317,11 +1326,12 @@
     "invalidSectionPresentation": "The width or background of a section has a value that is not allowed. Reset that section to its default.",
     "invalidPagePresentation": "This page's look has a value that is not allowed. Use the site's look and save again.",
     "sectionPresentation": {
-      "title": "Section width and background",
+      "title": "Section width, background and anchor",
       "description": "Applies to this section only. Text keeps a comfortable reading width whatever the background.",
       "fields": {
         "inner": "Content width",
-        "surface": "Section background"
+        "surface": "Section background",
+        "anchor": "Section anchor"
       },
       "options": {
         "inner": {
@@ -1349,19 +1359,23 @@
           "muted": "A slightly darker background sets the section apart.",
           "accent": "The site's accent colour with white text, for highlights.",
           "inverse": "A dark background with light text, for strong emphasis."
-        }
+        },
+        "anchor": "Buttons on this page can lead to this section: put #anchor in their link. Lowercase letters, digits and hyphens, starting with a letter."
       },
-      "reset": "Reset to default"
+      "reset": "Reset to default",
+      "anchorLink": "Link to paste into a button:"
     },
     "pagePresentation": {
       "title": "This page's look",
       "description": "Applies to this page only. The header, footer and menu stay shared across the whole site.",
       "fields": {
+        "style": "Page style",
         "width": "Page width",
         "headingFont": "Heading font",
         "bodyFont": "Body font"
       },
       "hints": {
+        "style": "Typography, rhythm and shapes of this page's sections. The accent colour, header and footer stay the site's.",
         "width": "Full width stretches section backgrounds across the window; text keeps the site's width.",
         "headingFont": "Titles and headings on this page.",
         "bodyFont": "Paragraphs, lists and other text on this page."
@@ -1371,7 +1385,42 @@
       "reset": "Use the site's look",
       "summaryHeadingFont": "Headings: {font}",
       "summaryBodyFont": "Text: {font}",
-      "review": "Page look"
+      "review": "Page look",
+      "styles": {
+        "editorial": {
+          "name": "Editorial",
+          "description": "Serif headings, a calm rhythm and thin rules — for expert content and articles."
+        },
+        "product": {
+          "name": "Product",
+          "description": "Bold, tight headings, rounded photos with soft shadows and large buttons — for offers and products."
+        },
+        "studio": {
+          "name": "Studio",
+          "description": "Large, tight headings, sharp corners and high contrast — for creative brands and portfolios."
+        },
+        "mosaic": {
+          "name": "Mosaic",
+          "description": "Content in shadowed cards on light backgrounds and a roomy grid — for many services and comparisons."
+        },
+        "premium": {
+          "name": "Premium",
+          "description": "Elegant serif headings, plenty of air and thin outlines — for high-end brands."
+        },
+        "expert": {
+          "name": "Expert",
+          "description": "A clear hierarchy, a calm rhythm, facts and notes in soft panels — for advice and specialists."
+        },
+        "organic": {
+          "name": "Organic",
+          "description": "Soft rounded shapes, warm backgrounds and pill buttons — for practices, families and local services."
+        },
+        "technical": {
+          "name": "Technical",
+          "description": "Precise figures, a subtle grid and specifications laid out like a table — for technical services and repairs."
+        }
+      },
+      "summaryStyle": "Style: {style}"
     }
   },
   "BillingSupport": {

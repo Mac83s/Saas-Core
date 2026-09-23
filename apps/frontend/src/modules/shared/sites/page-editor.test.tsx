@@ -14,14 +14,23 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import { ApiProblemError, type DraftSaveInput } from "@saas-core/api-client";
 import {
+  availablePageTemplates,
   sectionDecorationPresets,
   type SectionDecorationV1,
 } from "@saas-core/site-blocks";
 
 import englishMessages from "../../../../messages/en.json";
 import polishMessages from "../../../../messages/pl.json";
+import { registry } from "./block-form";
 import { PageEditor } from "./page-editor";
 import { PublicationHistory } from "./publication-history";
+
+// The gallery offers whatever recipes are current (retired ones are hidden),
+// so the tests follow the first offered one instead of naming it.
+const offeredTemplates = availablePageTemplates(registry, ["sites.enabled"]);
+const [firstTemplate] = offeredTemplates;
+// What leaves the panel is always the hero's latest contract version.
+const heroVersion = registry.definitions.get("core.hero")?.latestVersion;
 
 const {
   completeMediaUpload,
@@ -196,7 +205,7 @@ test("migruje hero v1 i zapisuje nową wersję draftu przez aktualny kontrakt", 
         block_type: "core.hero",
         // Saved at the current contract version: the editor migrates a v1
         // draft on load, so what leaves the panel is always the latest.
-        schema_version: 5,
+        schema_version: heroVersion,
         data: { title: "Nowy nagłówek", text: "Opis hero" },
       },
     ],
@@ -264,7 +273,9 @@ test("importuje szablon do wersjonowanego draftu przez API", async () => {
 
   // An empty page offers templates instead of a bare "no sections" message.
   fireEvent.click(
-    await screen.findByRole("button", { name: "Użyj szablonu Wizytówka" }),
+    await screen.findByRole("button", {
+      name: `Użyj szablonu ${firstTemplate.labels.pl.name}`,
+    }),
   );
 
   expect(await screen.findByDisplayValue(/Twoje imię/)).not.toBeNull();
@@ -272,8 +283,8 @@ test("importuje szablon do wersjonowanego draftu przez API", async () => {
   expect(importPageTemplate.mock.calls[0]?.[0]).toBe(page.id);
   expect(importPageTemplate.mock.calls[0]?.[1]).toEqual({
     expected_version: 1,
-    template_id: "core.profile",
-    template_version: 2,
+    template_id: firstTemplate.id,
+    template_version: firstTemplate.version,
     locale: "pl",
   });
   expect(savePageDraft).not.toHaveBeenCalled();
@@ -284,16 +295,16 @@ test.each([
   {
     locale: "pl" as const,
     messages: polishMessages,
-    thumbnail: "Miniatura szablonu Wizytówka",
+    thumbnail: `Miniatura szablonu ${firstTemplate.labels.pl.name}`,
     previewButton: "Zobacz podgląd",
-    previewTitle: "Podgląd szablonu Wizytówka",
+    previewTitle: `Podgląd szablonu ${firstTemplate.labels.pl.name}`,
   },
   {
     locale: "en" as const,
     messages: englishMessages,
-    thumbnail: "Thumbnail of the Profile template",
+    thumbnail: `Thumbnail of the ${firstTemplate.labels.en.name} template`,
     previewButton: "Preview",
-    previewTitle: "Preview of the Profile template",
+    previewTitle: `Preview of the ${firstTemplate.labels.en.name} template`,
   },
 ])(
   "pokazuje lokalizowaną miniaturę i dostępny preview w $locale",
@@ -306,7 +317,9 @@ test.each([
     });
     const templateGrid = thumbnailElement.closest("ul");
     expect(templateGrid).not.toBeNull();
-    expect(within(templateGrid!).getAllByRole("img")).toHaveLength(11);
+    expect(within(templateGrid!).getAllByRole("img")).toHaveLength(
+      offeredTemplates.length,
+    );
 
     const trigger = screen.getAllByRole("button", {
       name: previewButton,
@@ -643,7 +656,7 @@ test("zmiana układu zachowuje tekst istniejącej sekcji", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Zapisz stronę" }));
   await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
   expect(savePageDraft.mock.calls[0]?.[1].blocks[0]).toMatchObject({
-    schema_version: 5,
+    schema_version: heroVersion,
     data: { title: "Stary nagłówek", text: "Opis hero", layout: "split" },
   });
 });
@@ -1034,7 +1047,7 @@ test.each([
       within(rail).getAllByRole("button", {
         name: locale === "pl" ? /^Użyj szablonu / : /^Use /,
       }),
-    ).toHaveLength(11);
+    ).toHaveLength(offeredTemplates.length);
     fireEvent.click(design);
     expect(design).toHaveAttribute("aria-pressed", "true");
     expect(within(rail).getByText("Appearance controls fixture")).toBeDefined();
@@ -1081,8 +1094,8 @@ test.each([
     const useTemplate = screen.getByRole("button", {
       name:
         locale === "pl"
-          ? "Użyj szablonu Wizytówka"
-          : "Use the Profile template",
+          ? `Użyj szablonu ${firstTemplate.labels.pl.name}`
+          : `Use the ${firstTemplate.labels.en.name} template`,
     });
     fireEvent.click(useTemplate);
     const confirmation = screen.getByRole("dialog", {
@@ -1122,8 +1135,8 @@ test.each([
       page.id,
       {
         expected_version: 1,
-        template_id: "core.profile",
-        template_version: 2,
+        template_id: firstTemplate.id,
+        template_version: firstTemplate.version,
         locale,
       },
       expect.any(String),
@@ -1305,7 +1318,7 @@ test("section decorations survive legacy migration, content/layout changes and u
   expect(savePageDraft.mock.calls[0][1].blocks).toEqual([
     {
       block_type: "core.hero",
-      schema_version: 5,
+      schema_version: heroVersion,
       data: {
         title: "Zachowana dekoracja",
         text: "Opis hero",

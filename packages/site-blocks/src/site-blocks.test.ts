@@ -8,6 +8,7 @@ import {
   availablePageTemplates,
   coreSiteBlockManifest,
   corePageTemplates,
+  isRetiredPageTemplate,
   coreSectionTemplates,
   createSiteBlockRegistry,
   defineSiteBlockManifest,
@@ -42,11 +43,11 @@ describe("site block registry", () => {
     const migrated = registry.migrate(legacyHero);
 
     expect(legacyHero).toEqual(original);
-    // v1 -> v2 -> v3 -> v4 -> v5 in one pass. The picture v3 added is optional, so a hero
+    // v1 -> … -> v6 in one pass. The picture v3 added is optional, so a hero
     // published before images existed arrives with its fields untouched.
     expect(migrated).toEqual({
       block_type: "core.hero",
-      schema_version: 5,
+      schema_version: 6,
       data: {
         title: "Bezpieczna strona organizacji",
         text: "Treść zachowana ze starszej publikacji.",
@@ -283,6 +284,21 @@ describe("page templates", () => {
     expect(
       availablePageTemplates(full, ["sites.enabled"]).map(({ id }) => id),
     ).toEqual([
+      "core.product_first_impression",
+      "core.service_guide",
+      "core.expert_knowledge",
+      "core.product_full_story",
+      "core.technical_b2b",
+      "core.service_focused",
+      "core.premium_service",
+      "core.studio_manifesto",
+      "core.case_study",
+    ]);
+    // Retired recipes stay loadable (import by id) but are never offered.
+    const retired = corePageTemplates().filter(({ id }) =>
+      isRetiredPageTemplate(id),
+    );
+    expect(retired.map(({ id }) => id)).toEqual([
       "core.profile",
       "core.specialist_landing",
       "core.company",
@@ -291,10 +307,11 @@ describe("page templates", () => {
       "core.agriculture_services",
       "core.electronics_service",
       "core.business_studio",
-      "core.product_first_impression",
-      "core.service_guide",
-      "core.expert_knowledge",
     ]);
+    for (const template of retired) pageTemplateBlocks(template, full);
+    expect(availablePageTemplates(full, ["sites.enabled"], retired)).toEqual(
+      [],
+    );
 
     // Without the entitlement the recipe declares, nothing is offered.
     expect(availablePageTemplates(full, [])).toEqual([]);

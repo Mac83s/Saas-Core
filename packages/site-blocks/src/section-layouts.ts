@@ -1,6 +1,7 @@
 import { createElement as h, type ReactElement } from "react";
 
 import { plainBlockText } from "./block-text";
+import { withSecondaryAction } from "./editorial-blocks";
 
 import type {
   BlockEditor,
@@ -8,7 +9,7 @@ import type {
   BlockTextRenderer,
   FaqV1Data,
   FeatureListV4Data,
-  HeroV3Data,
+  HeroV6Data,
   JsonObject,
 } from "./types";
 
@@ -78,7 +79,7 @@ export function renderSectionLayout(
     "data-section-layout": layout,
   };
   if (type === "core.hero") {
-    const hero = data as HeroV3Data;
+    const hero = data as HeroV6Data;
     const title = h(
       "h1",
       editor ? { role: "presentation" } : null,
@@ -88,20 +89,25 @@ export function renderSectionLayout(
       "div",
       { className: "site-section__body" },
       hero.text ? h("p", null, text(["text"], hero.text)) : null,
-      hero.action
-        ? h(
-            editor ? "span" : "a",
-            {
-              href: editor ? undefined : hero.action.href,
-              rel:
-                !editor && hero.action.href.startsWith("https://")
-                  ? "noreferrer"
-                  : undefined,
-              className: "site-section__action",
-            },
-            text(["action", "label"], hero.action.label),
-          )
-        : null,
+      withSecondaryAction(
+        hero.action
+          ? h(
+              editor ? "span" : "a",
+              {
+                href: editor ? undefined : hero.action.href,
+                rel:
+                  !editor && hero.action.href.startsWith("https://")
+                    ? "noreferrer"
+                    : undefined,
+                className: "site-section__action",
+              },
+              text(["action", "label"], hero.action.label),
+            )
+          : null,
+        hero.secondaryAction,
+        text,
+        editor,
+      ),
     );
     const image = hero.image
       ? imageRenderer

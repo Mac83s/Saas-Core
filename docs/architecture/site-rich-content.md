@@ -270,7 +270,15 @@ nawigację (`scroll-margin-top`).
 Styl strony to zestaw decyzji typograficznych i kompozycyjnych dla sekcji tej
 strony. Kolor akcentu pozostaje z palety witryny; header, stopka i menu się
 nie zmieniają. Jawnie wybrany font nagłówków lub tekstu wygrywa ze stylem.
-Brak stylu = dotychczasowy wygląd (piksel w piksel).
+Brak stylu = dotychczasowy wygląd (piksel w piksel), z trzema poprawkami,
+które dotyczą każdej strony:
+
+- blok opinii `core.testimonials` ma własny wygląd — wcześniej cytat, imię i
+  rola zlewały się w jeden wiersz;
+- w siatkach dwukolumnowych (kafle, bento, chipy, FAQ w kartach) pozycja bez
+  pary zajmuje cały ostatni wiersz, a cztery karty `cards` układają się 2 × 2;
+- sekcje kontaktu v2 stosują tło i szerokość z koperty prezentacji (wcześniej
+  były po cichu pomijane).
 
 | Styl | Typografia | Rytm i kształty | Charakter |
 |---|---|---|---|
@@ -278,7 +286,7 @@ Brak stylu = dotychczasowy wygląd (piksel w piksel).
 | `product` | nagłówki Manrope 800, ciasne odstępy liter, skala ×1,1 | promień 14 px, zdjęcia z miękkim cieniem | duże przyciski w kształcie pigułki, mocne pasy ciemnej powierzchni |
 | `studio` | nagłówki Manrope 800, skala ×1,3, bardzo ciasno | kąty proste, gruba linia pod tytułem sekcji | wysoki kontrast, przyciski prostokątne z grubym obrysem |
 | `mosaic` | nagłówki DM Sans 700 | promień 18 px, pozycje list i paneli jako karty z cieniem | lekkie stonowane tła, większe odstępy siatki |
-| `premium` | nagłówki Playfair Display 500, tekst Inter | bardzo przestronnie, kąty proste | etykiety z szerokim rozstrzeleniem, przyciski z cienkim obrysem, wersaliki |
+| `premium` | nagłówki Playfair Display 500, tekst Inter | bardzo przestronnie, kąty proste | etykiety z szerokim rozstrzeleniem; przyciski kwadratowe, wersaliki — główny wypełniony, drugi jako podkreślony link |
 | `expert` | nagłówki DM Sans 600, tekst Inter | spokojny rytm, promień 10 px | uwagi i panele faktów w miękkim tle, czytelna hierarchia |
 | `organic` | nagłówki i tekst Nunito | promień 24 px, zdjęcia mocno zaokrąglone | ciepłe stonowane tło, przyciski-pigułki |
 | `technical` | nagłówki Inter 700, liczby tabelaryczne | promień 4 px, delikatna siatka na stonowanym tle | etykiety czcionką o stałej szerokości, parametry jak tabela |

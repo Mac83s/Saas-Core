@@ -695,6 +695,15 @@
     "previewTemplate": "Zobacz podgląd",
     "previewNamedTemplate": "Podgląd szablonu {name}",
     "templateThumbnail": "Miniatura szablonu {name}",
+    "templateGoal": "Cel: {goal}",
+    "templateStyle": "Styl: {style}",
+    "conversionGoals": {
+      "inquiry": "zapytanie ofertowe",
+      "call": "telefon",
+      "booking": "rezerwacja wizyty",
+      "email": "e-mail",
+      "visit": "wizyta na miejscu"
+    },
     "heading": "Nagłówek",
     "text": "Treść",
     "actionLabel": "Etykieta akcji",
@@ -1317,11 +1326,12 @@
     "invalidSectionPresentation": "Szerokość lub tło jednej z sekcji ma niedozwoloną wartość. Przywróć domyślne ustawienia tej sekcji.",
     "invalidPagePresentation": "Wygląd tej strony ma niedozwoloną wartość. Przywróć wygląd witryny i zapisz ponownie.",
     "sectionPresentation": {
-      "title": "Szerokość i tło sekcji",
+      "title": "Szerokość, tło i kotwica sekcji",
       "description": "Dotyczy tylko tej sekcji. Tekst zachowuje wygodną szerokość czytania niezależnie od tła.",
       "fields": {
         "inner": "Szerokość treści",
-        "surface": "Tło sekcji"
+        "surface": "Tło sekcji",
+        "anchor": "Kotwica sekcji"
       },
       "options": {
         "inner": {
@@ -1349,19 +1359,23 @@
           "muted": "Delikatnie przyciemnione tło oddziela sekcję od sąsiednich.",
           "accent": "Tło w kolorze akcentu witryny z białym tekstem, do wyróżnień.",
           "inverse": "Ciemne tło z jasnym tekstem, do mocnych akcentów."
-        }
+        },
+        "anchor": "Przyciski na tej stronie mogą prowadzić do tej sekcji: wpisz w ich adresie #kotwica. Małe litery, cyfry i myślniki, na początku litera."
       },
-      "reset": "Przywróć domyślne"
+      "reset": "Przywróć domyślne",
+      "anchorLink": "Adres do wklejenia w przycisku:"
     },
     "pagePresentation": {
       "title": "Wygląd tej strony",
       "description": "Dotyczy tylko tej podstrony. Nagłówek, stopka i menu pozostają wspólne dla całej witryny.",
       "fields": {
+        "style": "Styl strony",
         "width": "Szerokość strony",
         "headingFont": "Font nagłówków",
         "bodyFont": "Font tekstu"
       },
       "hints": {
+        "style": "Typografia, rytm i kształty sekcji tej strony. Kolor akcentu, nagłówek i stopka zostają z witryny.",
         "width": "Pełna szerokość rozciąga tła sekcji na całe okno; tekst zachowuje szerokość witryny.",
         "headingFont": "Tytuły i śródtytuły na tej stronie.",
         "bodyFont": "Akapity, listy i pozostały tekst na tej stronie."
@@ -1371,7 +1385,42 @@
       "reset": "Przywróć wygląd witryny",
       "summaryHeadingFont": "Nagłówki: {font}",
       "summaryBodyFont": "Tekst: {font}",
-      "review": "Wygląd strony"
+      "review": "Wygląd strony",
+      "styles": {
+        "editorial": {
+          "name": "Redakcyjny",
+          "description": "Szeryfowe nagłówki, spokojny rytm, cienkie linie — dla eksperckich treści i artykułów."
+        },
+        "product": {
+          "name": "Produktowy",
+          "description": "Mocne, zwarte nagłówki, zaokrąglone zdjęcia z cieniem i duże przyciski — dla oferty i produktów."
+        },
+        "studio": {
+          "name": "Studyjny",
+          "description": "Duże, ciasne nagłówki, ostre kąty i wysoki kontrast — dla marek kreatywnych i portfolio."
+        },
+        "mosaic": {
+          "name": "Mozaika",
+          "description": "Treść w kartach z cieniem na lekkim tle i przestronna siatka — dla wielu usług i porównań."
+        },
+        "premium": {
+          "name": "Premium",
+          "description": "Eleganckie szeryfowe nagłówki, dużo powietrza i cienkie obrysy — dla marek z wyższej półki."
+        },
+        "expert": {
+          "name": "Ekspercki",
+          "description": "Czytelna hierarchia, spokojny rytm, fakty i uwagi w miękkich panelach — dla porad i specjalistów."
+        },
+        "organic": {
+          "name": "Naturalny",
+          "description": "Miękkie zaokrąglenia, ciepłe tło i przyciski-pigułki — dla gabinetów, rodzin i usług lokalnych."
+        },
+        "technical": {
+          "name": "Techniczny",
+          "description": "Precyzyjne liczby, delikatna siatka i parametry jak w tabeli — dla usług technicznych i serwisu."
+        }
+      },
+      "summaryStyle": "Styl: {style}"
     }
   },
   "BillingSupport": {

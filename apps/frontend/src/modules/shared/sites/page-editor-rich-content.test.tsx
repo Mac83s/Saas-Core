@@ -6,13 +6,22 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
+import axe from "axe-core";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import type { DraftSaveInput } from "@saas-core/api-client";
+import {
+  availablePageTemplates,
+  corePageTemplates,
+  isRetiredPageTemplate,
+  type PageTemplate,
+} from "@saas-core/site-blocks";
 
+import englishMessages from "../../../../messages/en.json";
 import polishMessages from "../../../../messages/pl.json";
-import { PageEditor } from "./page-editor";
+import { registry } from "./block-form";
+import { PageEditor, TemplateOption } from "./page-editor";
 
 const {
   getPageDraft,
@@ -259,9 +268,9 @@ test("section width and surface are saved beside the content and reset removes t
   await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
   expect(savedInput().blocks[0]).toEqual({
     block_type: "core.hero",
-    schema_version: 5,
+    schema_version: registry.definitions.get("core.hero")?.latestVersion,
     data: { title: "Tytuł", layout: "classic" },
-    presentation: { schemaVersion: 1, inner: "narrow", surface: "inverse" },
+    presentation: { schemaVersion: 2, inner: "narrow", surface: "inverse" },
   });
 
   fireEvent.click(
@@ -437,3 +446,144 @@ test("the template gallery shows the new recipes with their bundled photos", asy
     expect(image.getAttribute("src") ?? "").not.toContain("/media/");
   expect(importPageTemplate).not.toHaveBeenCalled();
 });
+
+test("a page style reaches the canvas root, is saved as v2 and reset sends null", async () => {
+  renderEditor(true);
+  const canvas = await screen.findByTestId("live-canvas");
+  fireEvent.click(
+    screen.getByRole("button", { name: polishMessages.Sites.studio.design }),
+  );
+  const t = polishMessages.Sites.pagePresentation;
+  fireEvent.change(screen.getByLabelText(t.fields.style), {
+    target: { value: "editorial" },
+  });
+  expect(canvas).toHaveClass("site-style--editorial");
+  expect(
+    screen.getByText(t.styles.editorial.description, { exact: false }),
+  ).toBeDefined();
+  save();
+  await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
+  expect(savedInput().page_presentation).toEqual({
+    schemaVersion: 2,
+    style: "editorial",
+  });
+
+  fireEvent.click(screen.getByRole("button", { name: t.reset }));
+  expect(canvas).not.toHaveClass("site-style--editorial");
+  save();
+  await waitFor(() => expect(savePageDraft).toHaveBeenCalledTimes(2));
+  expect(savedInput(1).page_presentation).toBeNull();
+});
+
+test("a section anchor is checked against the page, saved as v2 and renamed on duplicate", async () => {
+  mockDraft(
+    draftWith([
+      {
+        block_type: "core.hero",
+        schema_version: 5,
+        data: { title: "Tytuł", layout: "classic" },
+      },
+      {
+        block_type: "core.rich_text",
+        schema_version: 3,
+        data: {
+          content: [
+            { type: "heading", level: 2, anchor: "kontakt", text: "Kontakt" },
+          ],
+        },
+      },
+    ]),
+  );
+  renderEditor(true);
+  await screen.findByLabelText("Nagłówek");
+  const t = polishMessages.Sites;
+  const anchor = screen.getByLabelText(t.sectionPresentation.fields.anchor);
+  fireEvent.change(anchor, { target: { value: "kontakt" } });
+  expect(screen.getByText(t.richText.anchorTaken)).toBeDefined();
+  fireEvent.change(anchor, { target: { value: "formularz" } });
+  expect(screen.queryByText(t.richText.anchorTaken)).toBeNull();
+  expect(screen.getByText("#formularz")).toBeDefined();
+
+  fireEvent.click(screen.getByRole("button", { name: t.studio.duplicate }));
+  save();
+  await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
+  expect(savedInput().blocks.map((block) => block.presentation)).toEqual([
+    { schemaVersion: 2, anchor: "formularz" },
+    { schemaVersion: 2, anchor: "formularz-2" },
+    undefined,
+  ]);
+}, 45_000);
+
+test("the gallery offers no retired template and labels each recipe's goal", async () => {
+  mockDraft(draftWith([]));
+  renderEditor(true);
+  const rail = await screen.findByRole("complementary", {
+    name: polishMessages.Sites.studio.pageNavigation,
+  });
+  fireEvent.click(
+    within(rail).getByRole("button", {
+      name: polishMessages.Sites.studio.pageTemplates,
+    }),
+  );
+  const offered = availablePageTemplates(registry, ["sites.enabled"]);
+  const retired = corePageTemplates().filter((template) =>
+    isRetiredPageTemplate(template.id),
+  );
+  expect(retired.length).toBeGreaterThan(0);
+  expect(
+    within(rail).getAllByRole("button", { name: /^Użyj szablonu / }),
+  ).toHaveLength(offered.length);
+  for (const template of retired)
+    expect(
+      within(rail).queryByRole("button", {
+        name: `Użyj szablonu ${template.labels.pl.name}`,
+      }),
+    ).toBeNull();
+  expect(within(rail).queryAllByText(/^Cel: /)).toHaveLength(
+    offered.filter((template) => template.conversion).length,
+  );
+});
+
+test.each([
+  ["pl", polishMessages, "Cel: zapytanie ofertowe", "Styl: Redakcyjny"],
+  ["en", englishMessages, "Goal: inquiry", "Style: Editorial"],
+] as const)(
+  "a recipe card shows its goal and page style, and the thumbnail wears the style (%s)",
+  async (locale, messages, goal, style) => {
+    const [base] = availablePageTemplates(registry, ["sites.enabled"]);
+    const template: PageTemplate = {
+      ...base,
+      pagePresentation: { schemaVersion: 2, style: "editorial" },
+      conversion: {
+        goal: "inquiry",
+        stages: base.blocks.map(() => "interest" as const),
+      },
+    };
+    const { container } = render(
+      <NextIntlClientProvider locale={locale} messages={messages}>
+        <TemplateOption
+          closeLabel="Close"
+          loading={false}
+          locale={locale}
+          onApply={vi.fn()}
+          previewLabel="Preview"
+          previewTitle="Preview title"
+          template={template}
+          thumbnailLabel="Thumbnail"
+          useLabel="Use"
+        />
+      </NextIntlClientProvider>,
+    );
+    expect(screen.getByText(goal)).toBeDefined();
+    expect(screen.getByText(style)).toBeDefined();
+    expect(
+      screen
+        .getByRole("img", { name: "Thumbnail" })
+        .querySelector(".site-style--editorial"),
+    ).not.toBeNull();
+    const result = await axe.run(container, {
+      rules: { "color-contrast": { enabled: false } },
+    });
+    expect(result.violations).toEqual([]);
+  },
+);

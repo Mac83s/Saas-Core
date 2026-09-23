@@ -1,0 +1,696 @@
+{
+  "id": "core.studio_manifesto",
+  "version": 1,
+  "category": "company",
+  "industries": [],
+  "labels": {
+    "pl": {
+      "name": "Marka i manifest",
+      "description": "Strona firmy zbudowana wokół jej zasad, która prowadzi do zapytania: typograficzne otwarcie, manifest, historia w osi czasu, ludzie, przykłady prac, pytania i zaproszenie do kontaktu. Przykład: pracownia naprawy elektroniki; wymień treści demonstracyjne przed publikacją."
+    },
+    "en": {
+      "name": "Brand and manifesto",
+      "description": "A company page built around its principles that leads to an enquiry: a typographic opening, the manifesto, a timeline story, the people, work examples, questions and an invitation to get in touch. Example: an electronics repair workshop; replace the demonstration content before publishing."
+    }
+  },
+  "requiredEntitlements": ["sites.enabled"],
+  "pagePresentation": {
+    "schemaVersion": 2,
+    "width": "full",
+    "style": "studio"
+  },
+  "conversion": {
+    "goal": "inquiry",
+    "stages": [
+      "attention",
+      "interest",
+      "interest",
+      "proof",
+      "proof",
+      "objection",
+      "action"
+    ]
+  },
+  "blocks": [
+    {
+      "block_type": "core.hero",
+      "schema_version": 6,
+      "data": {
+        "title": "Naprawiamy, zanim wymienimy",
+        "text": "Pracownia elektroniki dla firm i warsztatów, które wolą przywrócić sprzęt do pracy, niż kupować nowy. Diagnozujemy, naprawiamy i mówimy wprost, kiedy naprawa się nie opłaca.",
+        "action": {
+          "label": "Opisz swoje urządzenie",
+          "href": "#kontakt"
+        },
+        "secondaryAction": {
+          "label": "Przeczytaj nasze zasady",
+          "href": "#zasady"
+        },
+        "layout": "poster"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "wide"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 3,
+      "data": {
+        "layout": "manifesto",
+        "eyebrow": "Manifest",
+        "title": "Pięć zasad, z których możesz nas rozliczyć",
+        "lead": "Tak pracujemy przy każdym urządzeniu, dużym i małym.",
+        "content": [
+          {
+            "type": "list",
+            "style": "bullet",
+            "items": [
+              {
+                "content": [
+                  {
+                    "text": "Najpierw diagnoza, potem wycena, na końcu naprawa."
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Mówimy, kiedy naprawa się nie opłaca."
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Wymieniamy tylko to, co naprawdę trzeba."
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Każdą zmianę w urządzeniu zapisujemy."
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Oddajemy sprzęt z opisem tego, co zrobiliśmy i dlaczego."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "To nie hasła na ścianę pracowni, tylko sposób pracy, który sprawdzisz przy pierwszym zleceniu. Jeśli któraś z tych zasad zawiedzie, powiedz nam o tym – potraktujemy to poważnie."
+              }
+            ]
+          }
+        ],
+        "action": {
+          "label": "Sprawdź, czy naprawa się opłaca",
+          "href": "#kontakt"
+        }
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "surface": "inverse",
+        "anchor": "zasady"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 3,
+      "data": {
+        "layout": "timeline",
+        "eyebrow": "Historia",
+        "title": "Jak doszliśmy do tego, co robimy dziś",
+        "lead": "Krótko o drodze pracowni. Bez legend – tylko to, co możesz sprawdzić.",
+        "content": [
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "poczatek",
+            "text": "Początek"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "[Uzupełnij: kiedy i od czego zaczęliście – jedno, dwa zdania]."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "pierwsza-pracownia",
+            "text": "Pierwsza pracownia"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "[Uzupełnij: gdzie powstało pierwsze stanowisko i jakie zlecenia przychodziły najczęściej]."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "specjalizacja",
+            "text": "Specjalizacja"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "[Uzupełnij: w jakim sprzęcie się wyspecjalizowaliście i dlaczego właśnie w nim]."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "pracownia-dzis",
+            "text": "Pracownia dziś"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "[Uzupełnij: gdzie jesteście, ile osób pracuje w pracowni i dla kogo pracujecie najczęściej]."
+              }
+            ]
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 3,
+      "data": {
+        "layout": "expert_note",
+        "eyebrow": "Ludzie",
+        "title": "Z kim będziesz rozmawiać",
+        "lead": "Twoje urządzenie od przyjęcia do odbioru prowadzi jedna osoba. To ona dzwoni z diagnozą i to ona odpowiada na pytania.",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "W pracowni nie ma infolinii ani działu obsługi. Rozmawiasz z osobą, która trzyma Twoje urządzenie w rękach i wie, co w nim znalazła."
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Czym zajmujemy się na co dzień:",
+                "bold": true
+              }
+            ]
+          },
+          {
+            "type": "list",
+            "style": "bullet",
+            "items": [
+              {
+                "content": [
+                  {
+                    "text": "[Uzupełnij: rodzaj sprzętu, np. sterowniki maszyn],"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "[Uzupełnij: rodzaj sprzętu, np. zasilacze i przetwornice],"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "[Uzupełnij: uprawnienia lub szkolenia – tylko te, które możesz okazać]."
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "author": {
+          "name": "[Uzupełnij: imię i nazwisko]",
+          "role": "[Uzupełnij: rola w pracowni, np. prowadzi naprawy]"
+        }
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "surface": "muted"
+      }
+    },
+    {
+      "block_type": "core.feature_list",
+      "schema_version": 4,
+      "data": {
+        "title": "Przykłady naszej pracy",
+        "lead": "Opisujemy tylko zlecenia, na których publikację klient się zgodził. Każdy opis mówi, co było zepsute, co zrobiliśmy i jak urządzenie działa dziś.",
+        "items": [
+          {
+            "title": "[Uzupełnij: urządzenie i branża klienta]",
+            "text": "[Uzupełnij: usterka, co zrobiliście i jak urządzenie działa dziś – za zgodą klienta]."
+          },
+          {
+            "title": "[Uzupełnij: urządzenie i branża klienta]",
+            "text": "[Uzupełnij: dlaczego naprawa była lepsza od wymiany i co na tym zyskał klient]."
+          },
+          {
+            "title": "[Uzupełnij: urządzenie i branża klienta]",
+            "text": "[Uzupełnij: zlecenie, przy którym uczciwie odradziliście naprawę – i co zaproponowaliście w zamian]."
+          }
+        ],
+        "note": {
+          "title": "Twoje urządzenie nie pasuje do żadnego przykładu?",
+          "text": "Napisz mimo to. Jeśli to nie nasza specjalność, powiemy od razu i podpowiemy, gdzie szukać."
+        },
+        "layout": "tiles"
+      },
+      "decoration": {
+        "schemaVersion": 1,
+        "background": "grid",
+        "intensity": "subtle"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "wide"
+      }
+    },
+    {
+      "block_type": "core.faq",
+      "schema_version": 3,
+      "data": {
+        "title": "Zanim napiszesz",
+        "items": [
+          {
+            "question": "Ile kosztuje diagnoza?",
+            "answer": "[Uzupełnij: koszt diagnozy albo zasady jej rozliczania]. Wycenę naprawy dostajesz przed rozpoczęciem prac – bez Twojej zgody niczego nie naprawiamy."
+          },
+          {
+            "question": "Jak długo trwa naprawa?",
+            "answer": "[Uzupełnij: zwykły czas diagnozy i naprawy]. Termin podajemy razem z wyceną, a jeśli czekamy na części, mówimy o tym od razu."
+          },
+          {
+            "question": "Co, jeśli naprawa się nie opłaca?",
+            "answer": "Powiemy to wprost i wyjaśnimy dlaczego. Ty decydujesz, co dalej – nikt nie namawia Cię na naprawę za wszelką cenę."
+          },
+          {
+            "question": "Jak dostarczyć urządzenie?",
+            "answer": "[Uzupełnij: osobiście, kurierem albo z odbiorem na miejscu – i pod jaki adres]."
+          },
+          {
+            "question": "Czy naprawa jest objęta gwarancją?",
+            "answer": "[Uzupełnij: warunki gwarancji na naprawę, jeśli jej udzielasz]."
+          }
+        ],
+        "layout": "split"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.contact_form",
+      "schema_version": 1,
+      "data": {
+        "layout": "split",
+        "locale": "pl",
+        "title": "Masz urządzenie, które warto uratować?",
+        "text": "Opisz, co to za sprzęt, co się z nim dzieje i od kiedy. Odpowiemy [Uzupełnij: kiedy, np. w ciągu jednego dnia roboczego] z pierwszą oceną: czy naprawa ma sens i jak ją zacząć. Bez zobowiązań.",
+        "submit_label": "Poproś o pierwszą ocenę",
+        "success_message": "Dziękujemy! Opis dotarł do pracowni. Odpowiemy e-mailem z pierwszą oceną.",
+        "privacy_label": "Informacje o prywatności"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "surface": "muted",
+        "anchor": "kontakt"
+      }
+    }
+  ],
+  "localizedBlocks": {
+    "en": [
+      {
+        "block_type": "core.hero",
+        "schema_version": 6,
+        "data": {
+          "title": "We repair before we replace",
+          "text": "Electronics repair for businesses and workshops that would rather get equipment working again than buy new. We diagnose, repair and tell you plainly when a repair is not worth it.",
+          "action": {
+            "label": "Describe your device",
+            "href": "#contact"
+          },
+          "secondaryAction": {
+            "label": "Read our principles",
+            "href": "#principles"
+          },
+          "layout": "poster"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "wide"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {
+          "layout": "manifesto",
+          "eyebrow": "Manifesto",
+          "title": "Five principles you can hold us to",
+          "lead": "This is how we work on every device, large or small.",
+          "content": [
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "Diagnosis first, then a quote, and only then the repair."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "We tell you when a repair is not worth it."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "We replace only what really needs replacing."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "We record every change we make to a device."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "We return every device with a note on what we did and why."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "These are not slogans for the workshop wall but a way of working you can check on your first job. If we ever fall short of one of them, tell us – we will take it seriously."
+                }
+              ]
+            }
+          ],
+          "action": {
+            "label": "Find out if a repair makes sense",
+            "href": "#contact"
+          }
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "surface": "inverse",
+          "anchor": "principles"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {
+          "layout": "timeline",
+          "eyebrow": "Our story",
+          "title": "How we got to what we do today",
+          "lead": "The workshop’s story in brief. No legends – only what you can check.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "beginning",
+              "text": "The beginning"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "[Fill in: when and how you started – a sentence or two]."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "first-workshop",
+              "text": "The first workshop"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "[Fill in: where your first bench was and what kind of jobs came in most often]."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "specialisation",
+              "text": "Specialisation"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "[Fill in: which equipment you specialised in and why that one]."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "workshop-today",
+              "text": "The workshop today"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "[Fill in: where you are, how many people work in the workshop and who you most often work for]."
+                }
+              ]
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {
+          "layout": "expert_note",
+          "eyebrow": "People",
+          "title": "Who you will be talking to",
+          "lead": "One person looks after your device from drop-off to collection. They call you with the diagnosis and they answer your questions.",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "There is no call centre and no customer service desk. You talk to the person who has your device on their bench and knows what they found inside."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "What we work on day to day:",
+                  "bold": true
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "[Fill in: type of equipment, e.g. machine controllers]"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "[Fill in: type of equipment, e.g. power supplies and converters]"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "[Fill in: qualifications or training – only those you can show]"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "author": {
+            "name": "[Fill in: full name]",
+            "role": "[Fill in: role in the workshop, e.g. lead repair technician]"
+          }
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "surface": "muted"
+        }
+      },
+      {
+        "block_type": "core.feature_list",
+        "schema_version": 4,
+        "data": {
+          "title": "Examples of our work",
+          "lead": "We only describe jobs the client has agreed to publish. Each write-up says what was broken, what we did and how the device works today.",
+          "items": [
+            {
+              "title": "[Fill in: device and the client’s industry]",
+              "text": "[Fill in: the fault, what you did and how the device works today – with the client’s consent]."
+            },
+            {
+              "title": "[Fill in: device and the client’s industry]",
+              "text": "[Fill in: why repairing beat replacing and what the client gained]."
+            },
+            {
+              "title": "[Fill in: device and the client’s industry]",
+              "text": "[Fill in: a job where you honestly advised against a repair – and what you suggested instead]."
+            }
+          ],
+          "note": {
+            "title": "Your device does not match any example?",
+            "text": "Write to us anyway. If it is not our speciality, we will say so straight away and point you to someone who can help."
+          },
+          "layout": "tiles"
+        },
+        "decoration": {
+          "schemaVersion": 1,
+          "background": "grid",
+          "intensity": "subtle"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "wide"
+        }
+      },
+      {
+        "block_type": "core.faq",
+        "schema_version": 3,
+        "data": {
+          "title": "Before you write",
+          "items": [
+            {
+              "question": "How much does a diagnosis cost?",
+              "answer": "[Fill in: diagnosis fee or how it is charged]. You get a repair quote before any work starts – we never repair anything without your approval."
+            },
+            {
+              "question": "How long does a repair take?",
+              "answer": "[Fill in: usual time for diagnosis and repair]. We give you a date with the quote, and if we are waiting for parts, we tell you straight away."
+            },
+            {
+              "question": "What if a repair is not worth it?",
+              "answer": "We say so plainly and explain why. You decide what happens next – nobody will push you into a repair at any cost."
+            },
+            {
+              "question": "How do I get the device to you?",
+              "answer": "[Fill in: in person, by courier or collected on site – and to which address]."
+            },
+            {
+              "question": "Is the repair covered by a warranty?",
+              "answer": "[Fill in: warranty terms for repairs, if you offer one]."
+            }
+          ],
+          "layout": "split"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.contact_form",
+        "schema_version": 1,
+        "data": {
+          "layout": "split",
+          "locale": "en",
+          "title": "Got a device worth saving?",
+          "text": "Tell us what the equipment is, what is wrong with it and since when. We will reply [Fill in: when, e.g. within one working day] with a first assessment: whether a repair makes sense and how to start. No obligation.",
+          "submit_label": "Get a first assessment",
+          "success_message": "Thank you! Your description has reached the workshop. We will reply by email with a first assessment.",
+          "privacy_label": "Privacy information"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "surface": "muted",
+          "anchor": "contact"
+        }
+      }
+    ]
+  },
+  "media": [
+    {
+      "id": "electronics",
+      "source": "assets/electronics-workshop.png",
+      "filename": "electronics-workshop.png",
+      "contentType": "image/png",
+      "sha256": "4c2d226103ee37783e586345b7c3dac12088e47210c079b6be1b54666a1c6eb8"
+    }
+  ],
+  "mediaBindings": [
+    {
+      "blockPosition": 0,
+      "mediaId": "electronics",
+      "alt": {
+        "pl": "Płytka drukowana na niebieskiej macie warsztatowej, obok śrubokręt, miernik i oscyloskop",
+        "en": "A circuit board on a blue workbench mat next to a screwdriver, a multimeter and an oscilloscope"
+      },
+      "path": ["image"]
+    }
+  ]
+}

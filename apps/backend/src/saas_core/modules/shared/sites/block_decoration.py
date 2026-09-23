@@ -4,6 +4,7 @@ separate from each block's content schema."""
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from copy import deepcopy
 from functools import cache
 from pathlib import Path
@@ -51,18 +52,34 @@ def decoration_validator() -> Draft202012Validator:
     )
 
 
+# Both presentation envelopes pick their contract by `schemaVersion`; older
+# versions stay valid for blocks and pages already stored with them.
+PRESENTATION_VERSIONS = (1, 2)
+
+
 @cache
-def presentation_validator() -> Draft202012Validator:
+def presentation_validator(version: int) -> Draft202012Validator:
     return _envelope_validator(
-        "section-presentation.v1.schema.json", "Nieprawidłowy kontrakt wyglądu sekcji."
+        f"section-presentation.v{version}.schema.json", "Nieprawidłowy kontrakt wyglądu sekcji."
     )
 
 
 @cache
-def page_presentation_validator() -> Draft202012Validator:
+def page_presentation_validator(version: int) -> Draft202012Validator:
     return _envelope_validator(
-        "page-presentation.v1.schema.json", "Nieprawidłowy kontrakt wyglądu strony."
+        f"page-presentation.v{version}.schema.json", "Nieprawidłowy kontrakt wyglądu strony."
     )
+
+
+def _is_invalid(value: Any, validator: Callable[[int], Draft202012Validator]) -> bool:
+    if not isinstance(value, dict):
+        return True
+    version = value.get("schemaVersion")
+    if version not in PRESENTATION_VERSIONS:
+        return True
+    # `true` and `1.0` compare equal to 1 but would name another file; int()
+    # picks the contract, whose `const` still refuses `true`.
+    return next(validator(int(version)).iter_errors(value), None) is not None
 
 
 def validate_decoration(value: Any) -> None:
@@ -77,16 +94,14 @@ def validate_presentation(value: Any) -> None:
     # Same rule as decoration: NULL keeps the legacy rendering and the legacy hash.
     if value is None:
         return
-    if not isinstance(value, dict) or next(presentation_validator().iter_errors(value), None):
+    if _is_invalid(value, presentation_validator):
         raise InvalidSectionPresentation
 
 
 def validate_page_presentation(value: Any) -> None:
     if value is None:
         return
-    if not isinstance(value, dict) or next(
-        page_presentation_validator().iter_errors(value), None
-    ):
+    if _is_invalid(value, page_presentation_validator):
         raise InvalidPagePresentation
 
 

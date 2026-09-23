@@ -3,7 +3,12 @@ import schema from "@saas-core/contracts/site-blocks/site-appearance.v1.schema.j
 import schemaV2 from "@saas-core/contracts/site-blocks/site-appearance.v2.schema.json";
 import tokensSchema from "@saas-core/contracts/site-blocks/design-tokens.v1.schema.json";
 import pagePresentationSchema from "@saas-core/contracts/site-blocks/page-presentation.v1.schema.json";
-import type { DesignTokensV1, PagePresentationV1 } from "./types";
+import pagePresentationV2Schema from "@saas-core/contracts/site-blocks/page-presentation.v2.schema.json";
+import type {
+  DesignTokensV1,
+  PagePresentationV1,
+  PagePresentationV2,
+} from "./types";
 
 export const siteGoogleFonts = {
   inter: "Inter",
@@ -53,12 +58,15 @@ export function siteAppearanceClassName(value: SiteAppearance): string {
 const validatePagePresentation = new Ajv2020({
   allErrors: true,
   strict: true,
-}).compile<PagePresentationV1>(pagePresentationSchema);
+}).compile<PagePresentationV1 | PagePresentationV2>({
+  anyOf: [pagePresentationSchema, pagePresentationV2Schema],
+});
 
 /** Classes for one page's own presentation, set on the same `.site-theme`
- *  element as the site appearance. Absent means the page inherits it all. */
+ *  element as the site appearance. Absent means the page inherits it all.
+ *  A v2 style adds `site-style--{style}`; explicit fonts still win in CSS. */
 export function pagePresentationClassName(
-  value: PagePresentationV1 | null | undefined,
+  value: PagePresentationV1 | PagePresentationV2 | null | undefined,
 ): string {
   if (value === null || value === undefined) return "";
   if (!validatePagePresentation(value))
@@ -67,6 +75,9 @@ export function pagePresentationClassName(
     value.width === "full" ? "site-page--full" : "",
     value.headingFont ? `site-heading-font--${value.headingFont}` : "",
     value.bodyFont ? `site-body-font--${value.bodyFont}` : "",
+    value.schemaVersion === 2 && value.style
+      ? `site-style--${value.style}`
+      : "",
   ]
     .filter(Boolean)
     .join(" ");

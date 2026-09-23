@@ -1,4 +1,4 @@
-"""What the server reads out of block data itself: media ids and heading anchors.
+"""What the server reads out of blocks themselves: media ids and page anchors.
 
 Mirrors `blockAssetIds` in `@saas-core/site-blocks` (rich-text.ts). Every block
 schema uses `asset_id` for a media asset and nothing else, so one walk covers a
@@ -18,7 +18,7 @@ from rest_framework.exceptions import APIException
 class DuplicateRichTextAnchor(APIException):
     status_code = 400
     default_code = "duplicate_rich_text_anchor"
-    default_detail = "Kotwica śródtytułu powtarza się na tej stronie."
+    default_detail = "Kotwica sekcji lub śródtytułu powtarza się na tej stronie."
 
 
 def block_asset_ids(blocks: Iterable[dict[str, Any]]) -> list[UUID]:
@@ -59,7 +59,18 @@ def rich_text_anchors(blocks: Iterable[dict[str, Any]]) -> list[str]:
     ]
 
 
+def section_anchors(blocks: Iterable[dict[str, Any]]) -> list[str]:
+    """`presentation.anchor` (section presentation v2) of every block that has one."""
+    return [
+        block["presentation"]["anchor"]
+        for block in blocks
+        if isinstance(block.get("presentation"), dict) and "anchor" in block["presentation"]
+    ]
+
+
 def assert_unique_anchors(blocks: Iterable[dict[str, Any]]) -> None:
-    anchors = rich_text_anchors(blocks)
+    """Section and heading anchors are one namespace: both become an `id` on the page."""
+    blocks = list(blocks)
+    anchors = section_anchors(blocks) + rich_text_anchors(blocks)
     if len(anchors) != len(set(anchors)):
         raise DuplicateRichTextAnchor

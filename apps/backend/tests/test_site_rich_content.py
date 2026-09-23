@@ -1,5 +1,6 @@
-"""Rich content (phase 1-2): the section presentation envelope, page-local
-presentation, images nested in block data, heading anchors, v4 recipes and the
+"""Rich content (phase 1-3b): the section presentation envelope (v1, v2 with an
+anchor), page-local presentation (v1, v2 with a style), images nested in block
+data, section and heading anchors, v4/v5 recipes, retired templates and the
 blueprint slot rules. docs/architecture/site-rich-content.md is the contract."""
 
 import hashlib
@@ -45,6 +46,7 @@ from test_sites_api import (
     create_page,
     create_site,
     csrf_value,
+    import_page_template,
     publish_site_request,
     rollback_site_request,
     save_translation,
@@ -61,6 +63,8 @@ from test_sites_collections import (
 pytestmark = pytest.mark.django_db
 PRESENTATION = {"schemaVersion": 1, "inner": "wide", "surface": "muted"}
 PAGE = {"schemaVersion": 1, "width": "full", "headingFont": "lora", "bodyFont": "inter"}
+ANCHORED = {"schemaVersion": 2, "inner": "narrow", "anchor": "kontakt"}
+STYLED_PAGE = {"schemaVersion": 2, "width": "contained", "style": "editorial"}
 ORIGINAL_TEMPLATES = (
     "core.profile",
     "core.specialist_landing",
@@ -190,10 +194,21 @@ def test_presentation_envelope_roundtrip_legacy_hash_null_reset_and_immutability
     "presentation",
     [
         {},
-        {"schemaVersion": 2},
+        {"schemaVersion": 3},
+        {"schemaVersion": "2"},
+        {"schemaVersion": True},
+        {"schemaVersion": [2]},
         {"schemaVersion": 1, "inner": "huge"},
         {"schemaVersion": 1, "surface": "#ff0000"},
         {"schemaVersion": 1, "width": "full"},
+        # The anchor exists from v2 on.
+        {"schemaVersion": 1, "anchor": "kontakt"},
+        {"schemaVersion": 2, "anchor": "Kontakt"},
+        {"schemaVersion": 2, "anchor": "1-kontakt"},
+        {"schemaVersion": 2, "anchor": "kontakt#"},
+        {"schemaVersion": 2, "anchor": ""},
+        {"schemaVersion": 2, "anchor": "a" * 65},
+        {"schemaVersion": 2, "inner": "huge"},
         [],
         "wide",
     ],
@@ -273,6 +288,11 @@ def test_page_presentation_absent_inherits_null_clears_and_travels_with_publicat
         {"schemaVersion": 1, "width": "wide"},
         {"schemaVersion": 1, "headingFont": "comic-sans"},
         {"schemaVersion": 1, "inner": "full"},
+        # The style exists from v2 on.
+        {"schemaVersion": 1, "style": "editorial"},
+        {"schemaVersion": 2, "style": "neon"},
+        {"schemaVersion": 2, "headingFont": "comic-sans"},
+        {"schemaVersion": 3, "style": "editorial"},
         ["full"],
     ],
 )
@@ -448,6 +468,11 @@ def test_nested_media_is_referenced_published_and_served(page_surface, monkeypat
     [
         [rich(heading("intro"), para("A"), heading("intro"))],
         [rich(heading("intro")), block(), rich(heading("intro"))],
+        # Section anchors share the namespace: in the same block, across
+        # blocks, and between two sections.
+        [{**rich(heading("kontakt")), "presentation": ANCHORED}],
+        [block(presentation=ANCHORED), rich(heading("kontakt"))],
+        [block(presentation=ANCHORED), block(presentation=ANCHORED)],
     ],
 )
 def test_duplicate_heading_anchors_are_refused_on_pages_and_entries(page_surface, blocks):
@@ -465,9 +490,16 @@ def test_duplicate_heading_anchors_are_refused_on_pages_and_entries(page_surface
     assert unique.status_code == 201, unique.data
 
 
-def test_change_set_inserting_a_duplicate_anchor_is_refused_at_preview(page_surface):
+@pytest.mark.parametrize(
+    "existing",
+    [
+        rich(heading("intro"), para("Tekst")),
+        block(presentation={"schemaVersion": 2, "anchor": "intro"}),
+    ],
+)
+def test_change_set_inserting_a_duplicate_anchor_is_refused_at_preview(page_surface, existing):
     client, _, _, site, page = page_surface
-    assert save(client, page, [rich(heading("intro"), para("Tekst"))]).status_code == 201
+    assert save(client, page, [existing]).status_code == 201
     target = {"kind": "site_page", "site_id": str(site), "page_id": str(page), "locale": "pl"}
     doc = _change_set(
         target=target,
@@ -600,6 +632,13 @@ def _drop_figure_binding(recipe):
     recipe["mediaBindings"].pop(2)
 
 
+def _collide_en_section_anchor(recipe):
+    # Checked per locale variant: the Polish blocks alone are fine.
+    english = recipe["localizedBlocks"]["en"]
+    english[0]["presentation"] = {"schemaVersion": 2, "anchor": "intro"}
+    english[1]["data"]["content"].append(heading("intro"))
+
+
 @pytest.mark.parametrize(
     "mutate",
     [
@@ -636,6 +675,35 @@ def _drop_figure_binding(recipe):
         pytest.param(
             lambda r: r["blocks"][1]["data"]["content"].extend([heading("wstep")] * 2),
             id="duplicate-anchor",
+        ),
+        pytest.param(_collide_en_section_anchor, id="section-anchor-collides-in-en"),
+        pytest.param(
+            lambda r: r["blocks"][0].__setitem__(
+                "presentation", {"schemaVersion": 1, "anchor": "kontakt"}
+            ),
+            id="anchor-in-presentation-v1",
+        ),
+        pytest.param(
+            lambda r: r.__setitem__("pagePresentation", {"schemaVersion": 2, "style": "neon"}),
+            id="page-style",
+        ),
+        pytest.param(
+            lambda r: r.__setitem__(
+                "conversion", {"goal": "inquiry", "stages": ["attention", "action"]}
+            ),
+            id="conversion-stages-short",
+        ),
+        pytest.param(
+            lambda r: r.__setitem__(
+                "conversion", {"goal": "inquiry", "stages": ["attention"] + ["action"] * 3}
+            ),
+            id="conversion-stages-long",
+        ),
+        pytest.param(
+            lambda r: r.__setitem__(
+                "conversion", {"goal": "sale", "stages": ["attention", "proof", "action"]}
+            ),
+            id="conversion-goal",
         ),
     ],
 )
@@ -732,7 +800,20 @@ def test_existing_recipes_keep_their_blueprint_slots():
     for template_id in ORIGINAL_TEMPLATES:
         versions = catalog.templates[template_id]
         template = versions[max(versions)]
-        assert template_slots(template) == _legacy_slots(template), template_id
+        # Retired: no longer offered to blueprints (see
+        # test_retired_templates_leave_the_blueprint_catalog_but_stay_importable),
+        # but asked directly they still offer the same fields with the same
+        # defaults. Only the caps moved: each now follows the block schema's
+        # own limit (a hero title 120, a button label 80), never looser.
+        assert all(version.retired for version in versions.values()), template_id
+        current, legacy = template_slots(template), _legacy_slots(template)
+        assert [(s["key"], s["default"]) for s in current] == [
+            (s["key"], s["default"]) for s in legacy
+        ], template_id
+        assert all(
+            now["max_length"] <= before["max_length"]
+            for now, before in zip(current, legacy, strict=True)
+        ), template_id
 
 
 def test_blueprint_slots_skip_quotes_blank_runs_and_captions():
@@ -779,13 +860,16 @@ def test_blueprint_slots_skip_quotes_blank_runs_and_captions():
         "/0/data/content/1/content/2/text": 2000,
         "/0/data/title": 200,
         "/0/data/lead": 1200,
-        "/2/data/title": 200,
+        "/2/data/title": 160,
         "/2/data/tagline": 200,
         "/2/data/text": 2000,
     }
 
 
-def test_missing_presentation_contracts_are_detected_before_runtime(tmp_path):
+@pytest.mark.parametrize(
+    ("version", "codes"), [(1, ["sites.E007", "sites.E008"]), (2, ["sites.E009", "sites.E010"])]
+)
+def test_missing_presentation_contracts_are_detected_before_runtime(tmp_path, version, codes):
     from shutil import copytree
 
     from saas_core.modules.shared.sites.apps import check_content_contracts
@@ -798,20 +882,17 @@ def test_missing_presentation_contracts_are_detected_before_runtime(tmp_path):
 
     assert check_content_contracts() == []
     contracts = copytree(settings.SITE_BLOCK_CONTRACTS_PATH, tmp_path / "blocks")
-    (contracts / "section-presentation.v1.schema.json").unlink()
-    (contracts / "page-presentation.v1.schema.json").unlink()
+    (contracts / f"section-presentation.v{version}.schema.json").unlink()
+    (contracts / f"page-presentation.v{version}.schema.json").unlink()
     try:
         with override_settings(SITE_BLOCK_CONTRACTS_PATH=contracts):
             presentation_validator.cache_clear()
             page_presentation_validator.cache_clear()
-            assert [error.id for error in check_content_contracts()] == [
-                "sites.E007",
-                "sites.E008",
-            ]
+            assert [error.id for error in check_content_contracts()] == codes
             with pytest.raises(ImproperlyConfigured, match="wyglądu sekcji"):
-                validate_presentation(PRESENTATION)
+                validate_presentation({**PRESENTATION, "schemaVersion": version})
             with pytest.raises(ImproperlyConfigured, match="wyglądu strony"):
-                validate_page_presentation(PAGE)
+                validate_page_presentation({**PAGE, "schemaVersion": version})
     finally:
         presentation_validator.cache_clear()
         page_presentation_validator.cache_clear()
@@ -876,5 +957,133 @@ def test_blueprint_offers_the_eyebrow_but_never_the_author():
     assert slots == {
         "/0/data/eyebrow": 80,
         "/0/data/content/0/content/0/text": 2000,
-        "/0/data/action/label": 200,
+        "/0/data/action/label": 80,
+    }
+
+
+def test_v2_envelopes_carry_the_section_anchor_and_the_page_style(page_surface):
+    client, _, _, site, page = page_surface
+    # v1 and v2 envelopes live side by side on one page.
+    blocks = [block(presentation=PRESENTATION), block(presentation=ANCHORED)]
+    saved = save(client, page, blocks, page_presentation=STYLED_PAGE)
+    assert saved.status_code == 201, saved.data
+    assert [item["presentation"] for item in saved.data["blocks"]] == [PRESENTATION, ANCHORED]
+    assert saved.data["page_presentation"] == STYLED_PAGE
+    draft = client.get(f"/api/v1/sites/pages/{page}/draft/").data
+    assert draft["blocks"][1]["presentation"]["anchor"] == "kontakt"
+    assert draft["page_presentation"] == STYLED_PAGE
+    publication = publish_home(client, site, page, key="publish")
+    snapshot = publication.snapshot["pages"][0]
+    assert snapshot["page_presentation"] == STYLED_PAGE
+    assert snapshot["blocks"][1]["presentation"] == ANCHORED
+    public = public_home(site)
+    assert public["page_presentation"]["style"] == "editorial"
+    assert public["blocks"][1]["presentation"]["anchor"] == "kontakt"
+    # v1 page presentation is still accepted on the next draft.
+    legacy = save(client, page, blocks, version=1, key="legacy", page_presentation=PAGE)
+    assert legacy.status_code == 201, legacy.data
+    assert legacy.data["page_presentation"] == PAGE
+
+
+def test_hero_v6_actions_point_at_a_section_and_refuse_scripts(page_surface):
+    client, _, _, _, page = page_surface
+    hero = {
+        "block_type": "core.hero",
+        "schema_version": 6,
+        "data": {
+            "title": "Umów bezpłatną wycenę",
+            "action": {"label": "Umów bezpłatną wycenę", "href": "#kontakt"},
+            "secondaryAction": {"label": "Zobacz ofertę", "href": "/oferta/"},
+        },
+    }
+    saved = save(client, page, [hero, block(presentation=ANCHORED)])
+    assert saved.status_code == 201, saved.data
+    assert saved.data["blocks"][0]["data"]["action"]["href"] == "#kontakt"
+    assert saved.data["blocks"][0]["data"]["secondaryAction"]["href"] == "/oferta/"
+    for index, (field, href) in enumerate(
+        (field, href)
+        for field in ("action", "secondaryAction")
+        for href in ("javascript:alert(1)", "#Kontakt", "//evil.test/")
+    ):
+        hostile = deepcopy(hero)
+        hostile["data"][field]["href"] = href
+        refused = save(client, page, [hostile], version=1, key=f"hostile-{index}")
+        assert refused.status_code == 400, (field, href, refused.data)
+
+
+def test_v5_recipe_with_conversion_page_style_and_section_anchor_loads(tmp_path):
+    recipe = _recipe()
+    recipe["pagePresentation"] = STYLED_PAGE
+    recipe["conversion"] = {"goal": "inquiry", "stages": ["attention", "proof", "action"]}
+    for variant in (recipe["blocks"], recipe["localizedBlocks"]["en"]):
+        variant[2]["presentation"] = ANCHORED
+        variant[1]["data"]["content"].append(heading("jak-pracujemy"))
+    template = _load(tmp_path, recipe).get(template_id="core.rich_fixture", version=1)
+    assert template.page_presentation == STYLED_PAGE
+    assert template.draft_blocks("en")[2]["presentation"] == ANCHORED
+    assert template.retired is False
+
+
+def test_retired_templates_leave_the_blueprint_catalog_but_stay_importable(page_surface):
+    client, _, _, site, page = page_surface
+    listing = client.get("/api/v1/sites/blueprint-catalog/", {"site_id": str(site)})
+    assert listing.status_code == 200, listing.data
+    offered = {item["id"] for item in listing.data["templates"]}
+    assert offered.isdisjoint(ORIGINAL_TEMPLATES)
+    assert {"core.product_first_impression", "core.service_guide"} <= offered
+    # Existing pages and API clients still import a retired template by id.
+    imported = import_page_template(
+        client, page, expected_version=0, idempotency_key="retired", template_id="core.profile"
+    )
+    assert imported.status_code == 201, imported.data
+
+
+def test_manifest_retirement_is_a_boolean_for_every_version(tmp_path):
+    contracts = _write_contracts(tmp_path, _recipe())
+    manifest_path = contracts / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+
+    def load(flag: Any) -> PageTemplateCatalog:
+        manifest["templates"][0]["retired"] = flag
+        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+        page_template_catalog.cache_clear()
+        try:
+            with override_settings(PAGE_TEMPLATE_CONTRACTS_PATH=contracts):
+                return page_template_catalog()
+        finally:
+            page_template_catalog.cache_clear()
+
+    assert load(True).get(template_id="core.rich_fixture", version=1).retired
+    with pytest.raises(ImproperlyConfigured):
+        load("yes")
+
+
+def test_blueprint_offers_the_hero_secondary_action_label_but_no_address():
+    template = PageTemplate(
+        id="core.slots_hero_v6",
+        version=1,
+        category="landing",
+        labels={},
+        required_entitlements=(),
+        media=(),
+        blocks=(
+            {
+                "block_type": "core.hero",
+                "schema_version": 6,
+                "data": {
+                    "title": "Tytuł",
+                    "text": "Opis",
+                    "action": {"label": "Umów wycenę", "href": "#kontakt"},
+                    "secondaryAction": {"label": "Zobacz ofertę", "href": "/oferta/"},
+                },
+                "presentation": ANCHORED,
+            },
+        ),
+    )
+    slots = {slot["key"]: slot["max_length"] for slot in template_slots(template)}
+    assert slots == {
+        "/0/data/title": 120,
+        "/0/data/text": 600,
+        "/0/data/action/label": 80,
+        "/0/data/secondaryAction/label": 80,
     }

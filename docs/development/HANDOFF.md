@@ -16,7 +16,7 @@ i git; zamknięte pozycje z dawnego dziennika zostały pominięte.
 | --- | --- | --- |
 | `saas-core-panel-i-katalog-listy-wizytowka-historia-wyszukiwarka` | standard list panelu, wizytówka, historia zmian, limit podstron, wyszukiwarka katalogu | fazy 1–3 zrobione (DataTable, przełącznik wizytówki, historia zmian); dalej `pages.max`, potem magazyn v2, Meilisearch |
 | `magazyn-materia-o-w-od-pakietu-korektora-do-kare` | uniwersalny magazyn firm (`shared.inventory` v2): dokumenty, miejsca, rezerwacje, rezerwacje stanu przy wizytach, przyszły sklep | projekt v2 przyjęty 23.09; implementacja po fazach 2–4 planu panelu |
-| `saas-core-site-studio-templates`, `saas-core-site-studio-rich-content-and-full-width` | Site Studio: szablony, warianty, bogata treść | bogata treść, pełna szerokość, wygląd strony i 3 strony demonstracyjne scalone i wdrożone 23.09 (saas, a wieczorem też HoofCare i MedPlano) (`docs/architecture/site-rich-content.md`, raport `2026-09-23-rich-content`); faza 3a (20 układów redakcyjnych pod konwersję, `core.rich_text` v3, katalog v6, ostrzeżenie o miejscach `[Uzupełnij: …]`) scalona 23.09; dalej 3b — kierunki wizualne, kotwice sekcji, recepty stron pod konwersję — potem edytor WYSIWYG |
+| `saas-core-site-studio-templates`, `saas-core-site-studio-rich-content-and-full-width` | Site Studio: szablony, warianty, bogata treść | bogata treść, pełna szerokość, wygląd strony i 3 strony demonstracyjne scalone i wdrożone 23.09 (saas, a wieczorem też HoofCare i MedPlano) (`docs/architecture/site-rich-content.md`, raport `2026-09-23-rich-content`); faza 3a (20 układów redakcyjnych pod konwersję, `core.rich_text` v3, katalog v6, ostrzeżenie o miejscach `[Uzupełnij: …]`) i 3b (8 stylów strony, kotwice sekcji i przyciski „do formularza”, 9 recept stron v5 z celem i ścieżką konwersji, 8 dawnych szablonów wycofanych z galerii) scalone 23.09; dalej edytor WYSIWYG (etap 2b) |
 | `domkna-c-saas-core-po-audycie-realna-kompozycja-` | baza P0–P3 po audycie | treść w `Plan/Wdrozenie/13-…` |
 
 Kolejność przyjęta 23.09: faza panelu 3 → 4 → magazyn 4–8 → wyszukiwarka →
@@ -81,12 +81,13 @@ magazyn 9–10 → pozostałe listy na DataTable.
 - **Strony marketingowe:** brak bloga i stron prawnych; formularz kontaktowy
   czeka na klucze (`contact/page.tsx:21`); SCR dla stron marketingowych
   (plan 14:133).
-- **Site Studio:** faza 3b szablonów pod konwersję (reguły w skillu
-  `develop-sites`): kierunki wizualne, kotwice sekcji dla przycisków „do
-  formularza”, recepty stron v5 zastępujące słabe szablony; edytor WYSIWYG na
-  strukturze `core.rich_text`; prawdziwe zdjęcia produktu i portretów (dziś 4
-  ilustracje AI); `core:update` produktów o fazę 3a; własne szablony (faza 4),
-  AI (faza 8), Content Ops v2. Realne doręczenie zapytań ze strony przez SMTP nieudowodnione. Import
+- **Site Studio:** edytor WYSIWYG na strukturze `core.rich_text` (etap 2b);
+  prawdziwe zdjęcia produktu i portretów (dziś 4 ilustracje AI, recepty
+  używają ich wielokrotnie); `core:update` produktów o fazy 3a i 3b; własne
+  szablony (faza 4), AI (faza 8), Content Ops v2. Formularz kontaktu nie ma
+  konfiguracji pól — telefon jest zawsze opcjonalny, więc prośba o
+  oddzwonienie nie wymusi numeru. Styl `studio`/`product` chce nagłówków 800,
+  a dołączony Manrope kończy się na 700. Realne doręczenie zapytań ze strony przez SMTP nieudowodnione. Import
   szablonu ze zdjęciem zwraca 500, gdy ClamAV nie zdąży w 30 s (obciążony host)
   — powinien być błąd „spróbuj ponownie”; publiczne zdjęcia bez wariantów
   responsywnych (oryginały PNG ~2 MB).

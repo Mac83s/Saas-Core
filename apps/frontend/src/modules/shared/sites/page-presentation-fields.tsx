@@ -6,6 +6,8 @@ import { useTranslations } from "next-intl";
 import {
   siteGoogleFonts,
   type PagePresentationV1,
+  type PagePresentationV2,
+  type PageStyle,
   type SiteFont,
 } from "@saas-core/site-blocks";
 import { Button } from "@saas-core/ui/components/button";
@@ -28,7 +30,21 @@ const FONTS: readonly SiteFont[] = [
   "verdana",
 ];
 
+export type PagePresentation = PagePresentationV1 | PagePresentationV2;
+
+const PAGE_STYLES: readonly PageStyle[] = [
+  "editorial",
+  "product",
+  "studio",
+  "mosaic",
+  "premium",
+  "expert",
+  "organic",
+  "technical",
+];
+
 const OPTIONS = {
+  style: PAGE_STYLES,
   width: ["full"],
   headingFont: FONTS,
   bodyFont: FONTS,
@@ -47,14 +63,15 @@ function useFontLabel() {
 
 /** One page's own look, stored with the page draft. Controlled: the draft
  *  form owns the value, so undo, dirty state and the exit guard cover it.
- *  An empty choice means "as the site"; nothing chosen at all is `null`. */
+ *  An empty choice means "as the site"; nothing chosen at all is `null`.
+ *  A style needs the v2 envelope; widths and fonts alone stay v1. */
 export function PagePresentationFields({
   value,
   onChange,
   disabled = false,
 }: {
-  value: PagePresentationV1 | null;
-  onChange: (value: PagePresentationV1 | null) => void;
+  value: PagePresentation | null;
+  onChange: (value: PagePresentation | null) => void;
   disabled?: boolean;
 }) {
   const t = useTranslations("Sites.pagePresentation");
@@ -67,10 +84,17 @@ export function PagePresentationFields({
       (option !== "" && !(OPTIONS[field] as readonly string[]).includes(option))
     )
       return;
-    const next: PagePresentationV1 = { ...value, schemaVersion: 1 };
+    const next: Record<string, unknown> = { ...value, [field]: option };
+    delete next.schemaVersion;
     if (option === "") delete next[field];
-    else Object.assign(next, { [field]: option });
-    onChange(Object.keys(next).length > 1 ? next : null);
+    onChange(
+      Object.keys(next).length
+        ? ({
+            ...next,
+            schemaVersion: next.style ? 2 : 1,
+          } as PagePresentation)
+        : null,
+    );
   }
 
   return (
@@ -83,29 +107,39 @@ export function PagePresentationFields({
       <p className="text-sm text-muted-foreground" id={`${id}-description`}>
         {t("description")}
       </p>
-      {(Object.keys(OPTIONS) as PresentationField[]).map((field) => (
-        <Field key={field}>
-          <FieldLabel htmlFor={`${id}-${field}`}>
-            {t(`fields.${field}`)}
-          </FieldLabel>
-          <NativeSelect
-            aria-describedby={`${id}-${field}-hint`}
-            id={`${id}-${field}`}
-            onChange={(event) => update(field, event.target.value)}
-            value={value?.[field] ?? ""}
-          >
-            <option value="">{t("asSite")}</option>
-            {OPTIONS[field].map((option) => (
-              <option key={option} value={option}>
-                {field === "width" ? t("fullWidth") : fontLabel(option)}
-              </option>
-            ))}
-          </NativeSelect>
-          <FieldDescription id={`${id}-${field}-hint`}>
-            {t(`hints.${field}`)}
-          </FieldDescription>
-        </Field>
-      ))}
+      {(Object.keys(OPTIONS) as PresentationField[]).map((field) => {
+        const current =
+          (value as Partial<PagePresentationV2> | null)?.[field] ?? "";
+        return (
+          <Field key={field}>
+            <FieldLabel htmlFor={`${id}-${field}`}>
+              {t(`fields.${field}`)}
+            </FieldLabel>
+            <NativeSelect
+              aria-describedby={`${id}-${field}-hint`}
+              id={`${id}-${field}`}
+              onChange={(event) => update(field, event.target.value)}
+              value={current}
+            >
+              <option value="">{t("asSite")}</option>
+              {OPTIONS[field].map((option) => (
+                <option key={option} value={option}>
+                  {field === "style"
+                    ? t(`styles.${option}.name`)
+                    : field === "width"
+                      ? t("fullWidth")
+                      : fontLabel(option)}
+                </option>
+              ))}
+            </NativeSelect>
+            <FieldDescription id={`${id}-${field}-hint`}>
+              {field === "style" && current
+                ? t(`styles.${current}.description`)
+                : t(`hints.${field}`)}
+            </FieldDescription>
+          </Field>
+        );
+      })}
       <Button
         disabled={disabled || value === null}
         onClick={() => onChange(null)}
@@ -118,12 +152,18 @@ export function PagePresentationFields({
   );
 }
 
-/** A one-line description for review screens: "Full width · Headings: Lora". */
+/** A one-line description for review screens:
+ *  "Style: Editorial · Full width · Headings: Lora". */
 export function PagePresentationSummary({ value }: { value: unknown }) {
   const t = useTranslations("Sites.pagePresentation");
   const fontLabel = useFontLabel();
-  const presentation = (value ?? {}) as Partial<PagePresentationV1>;
+  const presentation = (value ?? {}) as Partial<PagePresentationV2>;
   const parts = [
+    presentation.style
+      ? t("summaryStyle", {
+          style: t(`styles.${presentation.style}.name`),
+        })
+      : "",
     presentation.width === "full" ? t("fullWidth") : "",
     presentation.headingFont
       ? t("summaryHeadingFont", {

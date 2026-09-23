@@ -55,6 +55,13 @@
   );
 }
 
+/* Section anchors (presentation v2) and heading anchors are publication ids.
+   A link to one scrolls it clear of the fixed phone and tablet menu bar. */
+.site-theme :is(.site-block, .site-decoration)[id],
+.site-theme .site-block [id] {
+  scroll-margin-top: 4.5rem;
+}
+
 /* Section `surface`: a colour scheme from the site palette. The element swaps
    the theme tokens, so everything drawn with them follows. Checked at WCAG AA
    on all three palettes: foreground on muted 14.6:1, accent on muted 5.4:1

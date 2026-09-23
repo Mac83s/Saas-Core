@@ -50,7 +50,6 @@ import {
   availablePageTemplates,
   blockAssetIds,
   renderDraftPreview,
-  type PagePresentationV1,
   type PageTemplate,
   type SiteAppearance,
   type NavigationLink,
@@ -117,7 +116,10 @@ import { PlaceholderBanner, unfilledBySection } from "./placeholder-banner";
 import { useDraftHistory } from "./draft-history";
 import { pageTemplatePreview } from "./template-media-preview";
 import { SectionLibrary, SectionLibraryContent } from "./section-library";
-import { PagePresentationFields } from "./page-presentation-fields";
+import {
+  PagePresentationFields,
+  type PagePresentation,
+} from "./page-presentation-fields";
 import { PageUrlDialog } from "./page-url";
 import { sitesErrorMessage } from "./problem";
 
@@ -133,7 +135,7 @@ const draftSchema = z.object({
   blocks: z.array(blockFormSchema),
   media_asset_ids: z.array(z.string()),
   // Only allowlisted values can be chosen; the API validates the contract.
-  page_presentation: z.custom<PagePresentationV1>().nullable(),
+  page_presentation: z.custom<PagePresentation>().nullable(),
 });
 
 type DraftValues = z.infer<typeof draftSchema>;
@@ -146,7 +148,7 @@ const previewWidths: Record<PreviewViewport, string> = {
   mobile: "390px",
 };
 
-function TemplateOption({
+export function TemplateOption({
   closeLabel,
   loading,
   locale,
@@ -167,7 +169,12 @@ function TemplateOption({
   thumbnailLabel: string;
   useLabel: string;
 }) {
+  const t = useTranslations("Sites");
   const label = template.labels[locale];
+  const style =
+    template.pagePresentation && "style" in template.pagePresentation
+      ? template.pagePresentation.style
+      : undefined;
   const preview = pageTemplatePreview(template, locale);
   const rendered = renderDraftPreview(
     {
@@ -205,6 +212,24 @@ function TemplateOption({
       <CardHeader>
         <CardTitle className="text-base">{label.name}</CardTitle>
         <CardDescription>{label.description}</CardDescription>
+        {(template.conversion || style) && (
+          <p className="flex flex-wrap gap-1.5">
+            {template.conversion && (
+              <Badge variant="secondary">
+                {t("templateGoal", {
+                  goal: t(`conversionGoals.${template.conversion.goal}`),
+                })}
+              </Badge>
+            )}
+            {style && (
+              <Badge variant="outline">
+                {t("templateStyle", {
+                  style: t(`pagePresentation.styles.${style}.name`),
+                })}
+              </Badge>
+            )}
+          </p>
+        )}
       </CardHeader>
       <CardContent className="grid gap-2">
         <Dialog>
@@ -505,7 +530,7 @@ export function PageEditor({
       // nothing; `null` is an explicit return to the site's look.
       ...(samePagePresentation(
         values.page_presentation,
-        (draft.page_presentation ?? null) as PagePresentationV1 | null,
+        (draft.page_presentation ?? null) as PagePresentation | null,
       )
         ? {}
         : { page_presentation: values.page_presentation }),
@@ -636,7 +661,7 @@ export function PageEditor({
         appearance: savedAppearance,
         // The saved version's own look, like its blocks.
         pagePresentation: (preview.page_presentation ??
-          null) as PagePresentationV1 | null,
+          null) as PagePresentation | null,
         blocks: preview.blocks.map(toSiteBlock),
         designTokens,
       },
@@ -1514,21 +1539,21 @@ function draftValues(draft: PageDraft): DraftValues {
     blocks: editableBlocks(draft.blocks),
     media_asset_ids: draft.media_asset_ids,
     page_presentation: (draft.page_presentation ??
-      null) as PagePresentationV1 | null,
+      null) as PagePresentation | null,
   };
 }
 
 /** Key order is not meaning: the API may return keys in another order. */
 function samePagePresentation(
-  left: PagePresentationV1 | null,
-  right: PagePresentationV1 | null,
+  left: PagePresentation | null,
+  right: PagePresentation | null,
 ): boolean {
   if (left === null || right === null) return left === right;
   const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
   return [...keys].every(
     (key) =>
-      left[key as keyof PagePresentationV1] ===
-      right[key as keyof PagePresentationV1],
+      left[key as keyof PagePresentation] ===
+      right[key as keyof PagePresentation],
   );
 }
 

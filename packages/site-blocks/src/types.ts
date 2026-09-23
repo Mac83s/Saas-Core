@@ -110,6 +110,12 @@ export type HeroV3Data = HeroV2Data & {
   };
 };
 
+/** v6: the action may point at a section (`#anchor`) and a quieter second
+ *  action sits beside it. */
+export type HeroV6Data = HeroV3Data & {
+  secondaryAction?: { label: string; href: string };
+};
+
 export type RichTextV1Data = JsonObject & {
   text: string;
 };
@@ -244,6 +250,11 @@ export type ProductV1Data = JsonObject & {
   specs?: { label: string; value: string }[];
   uses?: { title: string; text?: string }[];
   action?: { label: string; href: string };
+};
+
+/** v2: actions may point at `#anchor`, plus a quieter second action. */
+export type ProductV2Data = ProductV1Data & {
+  secondaryAction?: { label: string; href: string };
 };
 
 export type FaqV1Data = JsonObject & {
