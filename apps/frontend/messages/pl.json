@@ -2043,7 +2043,7 @@
   },
   "Profile": {
     "title": "Wizytówka firmy",
-    "intro": "Twoja wizytówka jest podstawą obecności w sieci. Uzupełnij dane i opublikuj ją w katalogu, żeby klienci mogli Cię znaleźć.",
+    "intro": "Twoja wizytówka jest podstawą obecności w sieci. Uzupełnij dane i włącz ją w katalogu, jeśli chcesz, żeby klienci mogli Cię tam znaleźć.",
     "loading": "Wczytuję wizytówkę…",
     "loadFailed": "Nie udało się wczytać wizytówki.",
     "saveFailed": "Nie udało się zapisać zmiany.",
