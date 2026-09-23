@@ -86,7 +86,7 @@ magazyn 9–10 → pozostałe listy na DataTable.
   (plan 14:133).
 - **Site Studio:** edytor WYSIWYG na strukturze `core.rich_text` (etap 2b);
   prawdziwe zdjęcia produktu i portretów (dziś 4 ilustracje AI, recepty
-  używają ich wielokrotnie); `core:update` produktów o fazy 3a i 3b; własne
+  używają ich wielokrotnie); `core:update` produktów o fazę 3b; własne
   szablony (faza 4), AI (faza 8), Content Ops v2. Formularz kontaktu nie ma
   konfiguracji pól — telefon jest zawsze opcjonalny, więc prośba o
   oddzwonienie nie wymusi numeru. Styl `studio`/`product` chce nagłówków 800,
