@@ -1366,7 +1366,7 @@ def test_capabilities_describe_shape_and_limits_without_any_draft() -> None:
     assert hero["latest_version"] == max(hero["versions"])
     assert "article" in body["content_types"]["page_types"]
     assert "platform_blog" in body["content_types"]["site_purposes"]
-    assert {item["key"] for item in body["quotas"]} == {"storage.bytes", "sites.max"}
+    assert {item["key"] for item in body["quotas"]} == {"storage.bytes", "sites.max", "pages.max"}
     listed = next(
         item for item in body["sites"] if item["site_id"] == str(site.data["id"])
     )

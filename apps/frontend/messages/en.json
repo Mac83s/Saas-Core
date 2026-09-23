@@ -650,6 +650,7 @@
     "problem": "The site operation could not be completed.",
     "noAccess": "You do not have access to edit sites in the active organization.",
     "quotaExceeded": "The organization's site quota has been used.",
+    "pageLimitReached": "Your plan allows no more pages on this site. Remove a page you do not use or choose a higher plan.",
     "conflict": "The data changed in the meantime. Refresh the view and try again.",
     "contentEditor": "Controlled content blocks",
     "contentEditorDescription": "Edit the draft for {page}. Every successful save creates an immutable version.",

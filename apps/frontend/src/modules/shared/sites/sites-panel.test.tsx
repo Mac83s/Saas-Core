@@ -330,6 +330,41 @@ test("po odrzuceniu mutacji zachowuje treść i kieruje do płatności", async (
   ).not.toBeNull();
 });
 
+test("przy wyczerpanym limicie podstron mówi, co zrobić", async () => {
+  createSitePage.mockRejectedValueOnce(
+    new ApiProblemError({
+      type: "about:blank",
+      title: "Conflict",
+      status: 409,
+      code: "page_limit_reached",
+      detail: "Plan pozwala na 5 podstron na jednej stronie.",
+      correlation_id: null,
+    }),
+  );
+  render(
+    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+      <SitesPanel canManageBilling />
+    </NextIntlClientProvider>,
+  );
+
+  expect(await screen.findByText("Przychodnia")).not.toBeNull();
+  fireEvent.change(
+    screen.getByLabelText("Nazwa", { selector: "input#page-name" }),
+    { target: { value: "Szósta podstrona" } },
+  );
+  fireEvent.change(
+    screen.getByLabelText("Klucz podstrony", { selector: "input#page-key" }),
+    { target: { value: "szosta" } },
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Dodaj podstronę" }));
+
+  expect(
+    await screen.findByText(
+      "Plan nie pozwala na więcej podstron na tej stronie. Usuń nieużywaną podstronę albo wybierz wyższy plan.",
+    ),
+  ).not.toBeNull();
+});
+
 test("wypełnia klucz podstrony z nazwy i ustępuje ręcznej zmianie", async () => {
   render(
     <NextIntlClientProvider locale="pl" messages={polishMessages}>

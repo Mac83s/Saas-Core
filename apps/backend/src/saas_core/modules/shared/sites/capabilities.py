@@ -37,7 +37,7 @@ from .models import (
     Site,
     SitePurpose,
 )
-from .permissions import SITE_CONTENT_EDIT, SITES_ENABLED, SITES_MAX
+from .permissions import PAGES_MAX, SITE_CONTENT_EDIT, SITES_ENABLED, SITES_MAX
 
 #: The connector contract this deployment speaks. Bumped when a command or a
 #: payload changes shape in a way an older connector could not handle; a
@@ -51,7 +51,7 @@ CONTENT_CONTRACT_VERSION = 1
 MINIMUM_CONTENT_CONTRACT_VERSION = 1
 
 #: Quotas worth reporting: the ones a content operation can actually exhaust.
-REPORTED_QUOTAS = ("storage.bytes", SITES_MAX)
+REPORTED_QUOTAS = ("storage.bytes", SITES_MAX, PAGES_MAX)
 
 
 def read_content_capabilities() -> dict[str, Any]:

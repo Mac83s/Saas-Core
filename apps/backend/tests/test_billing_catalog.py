@@ -55,6 +55,8 @@ QUOTA_KEYS = {
     # The plan's monthly credit allowance is an ordinary quota, so it is
     # versioned with the plan and overridable per organization.
     "credits.monthly",
+    # Pages on one site (billing 0024): Profile 5, Site 15, Pro 50 for now.
+    "pages.max",
 }
 
 
@@ -89,6 +91,7 @@ def test_pilot_catalog_is_seeded_with_current_immutable_versions() -> None:
     assert starter.current_version.trial_days == 3
     assert starter.current_version.grace_period_days == 7
     assert starter.current_version.quotas["sites.max"] == 1
+    assert starter.current_version.quotas["pages.max"] == 15
     # Published as a new version rather than edited into the old one, because a
     # published version is immutable in the model and in the database.
     assert starter.current_version.quotas["credits.monthly"] == 200
@@ -98,6 +101,7 @@ def test_pilot_catalog_is_seeded_with_current_immutable_versions() -> None:
     assert pro.current_version.unit_amount_minor == 29_900
     assert pro.current_version.quotas["storage.bytes"] == 50 * 1024**3
     assert pro.current_version.quotas["credits.monthly"] == 1000
+    assert pro.current_version.quotas["pages.max"] == 50
     assert "custom_domain.enabled" in pro.current_version.feature_keys
     assert "seo.audit.enabled" not in pro.current_version.feature_keys
 

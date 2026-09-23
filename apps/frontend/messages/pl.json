@@ -650,6 +650,7 @@
     "problem": "Nie udało się wykonać operacji na site.",
     "noAccess": "Nie masz dostępu do edycji site w aktywnej organizacji.",
     "quotaExceeded": "Limit site'ów organizacji został wykorzystany.",
+    "pageLimitReached": "Plan nie pozwala na więcej podstron na tej stronie. Usuń nieużywaną podstronę albo wybierz wyższy plan.",
     "conflict": "Dane zmieniły się w międzyczasie. Odśwież widok i spróbuj ponownie.",
     "contentEditor": "Kontrolowane bloki treści",
     "contentEditorDescription": "Edytuj draft podstrony {page}. Każdy udany zapis tworzy niemutowalną wersję.",

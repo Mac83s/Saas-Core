@@ -428,6 +428,38 @@ def test_site_quota_blocks_another_site() -> None:
     assert Site.all_objects.filter(organization=organization).count() == 1
 
 
+def test_page_limit_refuses_a_page_beyond_the_plan_and_keeps_the_rest() -> None:
+    client, organization, _ = sites_client(slug="pages-quota")
+    EntitlementSnapshot.all_objects.filter(organization=organization).update(
+        quotas={"sites.max": 3, "pages.max": 2}
+    )
+    site = create_site(client)
+    home = create_page(client, site.data["id"], key="home", idempotency_key="p1")
+    offer = create_page(client, site.data["id"], key="offer", idempotency_key="p2")
+    contact = create_page(client, site.data["id"], key="contact", idempotency_key="p3")
+
+    assert (home.status_code, offer.status_code) == (201, 201)
+    assert contact.status_code == 409
+    assert contact.data["code"] == "page_limit_reached"
+    assert "2 podstron" in contact.data["detail"]
+    # A replay of a page that exists is not another page.
+    replay = create_page(client, site.data["id"], key="offer", idempotency_key="p2")
+    assert replay.status_code == 200
+    assert Page.all_objects.filter(organization=organization).count() == 2
+
+
+def test_a_plan_without_a_page_limit_does_not_limit_pages() -> None:
+    client, organization, _ = sites_client(slug="pages-unlimited")
+    site = create_site(client)
+
+    for number in range(4):
+        page = create_page(
+            client, site.data["id"], key=f"page-{number}", idempotency_key=f"page-{number}"
+        )
+        assert page.status_code == 201
+    assert Page.all_objects.filter(organization=organization).count() == 4
+
+
 def test_sites_require_permission_entitlement_and_active_tenant() -> None:
     viewer, _, _ = sites_client(slug="sites-viewer", role_key="viewer")
     disabled, _, _ = sites_client(slug="sites-disabled", feature_enabled=False)

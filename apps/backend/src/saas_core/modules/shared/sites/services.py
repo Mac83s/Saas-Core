@@ -35,6 +35,7 @@ from saas_core.modules.shared.billing.api import (
     FeatureOperation,
     authorize_entitled,
     consume_quota,
+    decide_quota,
 )
 from saas_core.modules.shared.media.api import (
     discard_approved_media_asset_objects,
@@ -76,7 +77,7 @@ from .models import (
     SiteRedirect,
     canonical_json_hash,
 )
-from .permissions import SITE_CONTENT_EDIT, SITE_PUBLISH, SITES_ENABLED, SITES_MAX
+from .permissions import PAGES_MAX, SITE_CONTENT_EDIT, SITE_PUBLISH, SITES_ENABLED, SITES_MAX
 from .rich_content import assert_unique_anchors, block_asset_ids
 
 SITE_CREATED = "sites.site.created"
@@ -133,6 +134,35 @@ class PageKeyConflict(APIException):
     status_code = 409
     default_detail = "Klucz podstrony jest już używany w tej stronie."
     default_code = "page_key_conflict"
+
+
+class PageLimitReached(APIException):
+    status_code = 409
+    default_code = "page_limit_reached"
+
+    def __init__(self, limit: int) -> None:
+        super().__init__(
+            detail=(
+                f"Plan pozwala na {limit} podstron na jednej stronie. Usuń podstronę "
+                "albo wybierz wyższy plan, żeby dodać kolejną."
+            ),
+            code=self.default_code,
+        )
+
+
+def _ensure_page_capacity(site: Site) -> None:
+    """Refuses a page the plan has no room for; pages already there stay.
+
+    ponytail: a snapshot without `pages.max` (a plan version older than billing
+    0024, the E2E fixture) has no page limit — the limit arrives with the plan
+    version that names it, not by refusing everyone else.
+    """
+    decision = decide_quota(PAGES_MAX)
+    if not decision.available:
+        return
+    pages = Page.all_objects.filter(organization_id=site.organization_id, site_id=site.id)
+    if pages.count() >= decision.value:
+        raise PageLimitReached(decision.value)
 
 
 class DraftVersionConflict(APIException):
@@ -536,6 +566,7 @@ def create_page(
         key=normalized_page_key,
     ).exists():
         raise PageKeyConflict
+    _ensure_page_capacity(site)
 
     actor = User.objects.get(pk=context.actor_id)
     page = Page.all_objects.create(
