@@ -67,7 +67,7 @@ test("limits initial thumbnail rendering and exposes the remaining catalogue", (
   );
   expect(screen.getAllByRole("article")).toHaveLength(12);
   fireEvent.click(
-    screen.getByRole("button", { name: "Show more layouts (84 remaining)" }),
+    screen.getByRole("button", { name: "Show more layouts (92 remaining)" }),
   );
   expect(screen.getAllByRole("article")).toHaveLength(24);
   fireEvent.change(screen.getByLabelText("Category"), {
@@ -142,6 +142,11 @@ test.each(["pl", "en"] as const)(
       >
         <SectionLibraryContent compact onAdd={onAdd} />
       </NextIntlClientProvider>,
+    );
+    // Ten families interleave, so the second FAQ layout is past the first page.
+    fireEvent.change(
+      screen.getByLabelText(locale === "pl" ? "Kategoria" : "Category"),
+      { target: { value: "core.faq" } },
     );
     const trigger = screen.getByRole("button", {
       name:
@@ -225,6 +230,8 @@ test.each([
   ["core.contact_form", 4],
   ["core.link_list", 6],
   ["core.separator", 8],
+  ["core.rich_text", 4],
+  ["core.quote", 1],
 ] as const)(
   "offers all %s layouts and copies editable data",
   async (type, count) => {
@@ -249,3 +256,29 @@ test.each([
     }
   },
 );
+
+test("puts a product's sample photo into its gallery, not into `image`", async () => {
+  vi.mocked(materializeTemplatePhoto).mockResolvedValueOnce({
+    asset_id: "019ff20d-a000-7000-8000-000000000123",
+  });
+  const onAdd = vi.fn();
+  render(
+    <NextIntlClientProvider locale="pl" messages={pl}>
+      <SectionLibraryContent onAdd={onAdd} />
+    </NextIntlClientProvider>,
+  );
+  fireEvent.change(screen.getByLabelText("Kategoria"), {
+    target: { value: "core.product" },
+  });
+  expect(screen.getAllByRole("article")).toHaveLength(1);
+  expect(screen.getByText(/Długość:/)).toBeDefined();
+  fireEvent.click(screen.getByRole("button", { name: /^Dodaj: / }));
+  await waitFor(() => expect(onAdd).toHaveBeenCalledOnce());
+  const block = onAdd.mock.calls[0][0];
+  expect(block.block_type).toBe("core.product");
+  expect(block.data.image).toBeUndefined();
+  expect(block.data.images[0].asset_id).toBe(
+    "019ff20d-a000-7000-8000-000000000123",
+  );
+  expect(block.data.images[0].alt.length).toBeGreaterThan(0);
+});

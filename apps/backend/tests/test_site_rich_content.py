@@ -773,8 +773,8 @@ def test_blueprint_slots_skip_quotes_blank_runs_and_captions():
     )
     slots = {slot["key"]: slot["max_length"] for slot in template_slots(template)}
     assert slots == {
-        # The heuristic keys on the field name; the block schema still caps it.
-        "/0/data/content/0/text": 2000,
+        # A heading's text keeps the heading's own cap, not the field name's.
+        "/0/data/content/0/text": 200,
         "/0/data/content/1/content/0/text": 2000,
         "/0/data/content/1/content/2/text": 2000,
         "/0/data/title": 200,

@@ -75,14 +75,17 @@ def _site(
 def template_slots(template: PageTemplate) -> list[dict[str, Any]]:
     slots: list[dict[str, Any]] = []
 
-    def visit(value: Any, path: str, field: str = "") -> None:
+    def visit(value: Any, path: str, field: str = "", limit: int | None = None) -> None:
         if isinstance(value, dict):
             # Quotes are attributed statements: automation must not put words
             # in anyone's mouth, neither in a quote block nor a quote node.
             if value.get("type") == "quote":
                 return
+            # A rich-text heading keeps the heading's own 200-character cap
+            # rather than the 2000 its field name suggests.
+            heading = value.get("type") == "heading"
             for key, child in value.items():
-                visit(child, path + "/" + key, key)
+                visit(child, path + "/" + key, key, 200 if heading else None)
         elif isinstance(value, list):
             for index, child in enumerate(value):
                 visit(child, path + "/" + str(index))
@@ -92,7 +95,7 @@ def template_slots(template: PageTemplate) -> list[dict[str, Any]]:
             slots.append({
                 "key": path,
                 "kind": "text",
-                "max_length": SLOT_MAX_LENGTH.get(field, 200),
+                "max_length": limit or SLOT_MAX_LENGTH.get(field, 200),
                 "default": value,
             })
 

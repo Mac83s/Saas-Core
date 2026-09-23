@@ -6,6 +6,9 @@ import serviceLandingV1 from "@saas-core/contracts/page-templates/core.service_l
 import companyV1 from "@saas-core/contracts/page-templates/core.company.v2.json";
 import profileV1 from "@saas-core/contracts/page-templates/core.profile.v2.json";
 import specialistLandingV1 from "@saas-core/contracts/page-templates/core.specialist_landing.v2.json";
+import productFirstImpression from "@saas-core/contracts/page-templates/core.product_first_impression.v1.json";
+import serviceGuide from "@saas-core/contracts/page-templates/core.service_guide.v1.json";
+import expertKnowledge from "@saas-core/contracts/page-templates/core.expert_knowledge.v1.json";
 
 import { InvalidPageTemplateError } from "./errors";
 import { setAtPath } from "./rich-text";
@@ -30,6 +33,9 @@ const recipes: readonly PageTemplate[] = [
   agricultureServices as unknown as PageTemplate,
   electronicsService as unknown as PageTemplate,
   businessStudio as unknown as PageTemplate,
+  productFirstImpression as unknown as PageTemplate,
+  serviceGuide as unknown as PageTemplate,
+  expertKnowledge as unknown as PageTemplate,
 ];
 
 /** Recipes are seed content, not a second content model: applying one produces

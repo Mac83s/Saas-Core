@@ -113,6 +113,28 @@ test("renderuje menu nawigacji z opublikowanego snapshotu", async () => {
   expect((await axe.run(rendered.container)).violations).toHaveLength(0);
 });
 
+test("stosuje wygląd tej strony z publikacji, a bez niego wygląd witryny", () => {
+  const full = render(
+    <PublicSiteRenderer
+      page={{
+        ...page,
+        page_presentation: {
+          schemaVersion: 1,
+          width: "full",
+          headingFont: "lora",
+        },
+      }}
+    />,
+  );
+  expect(full.container.querySelector(".site-theme")).toHaveClass(
+    "site-page--full",
+    "site-heading-font--lora",
+  );
+  full.unmount();
+  const plain = render(<PublicSiteRenderer page={page} />);
+  expect(plain.container.querySelector(".site-page--full")).toBeNull();
+});
+
 test("pomija menu, gdy publikacja go nie zawiera", () => {
   render(<PublicSiteRenderer page={{ ...page, navigation: [] }} />);
 

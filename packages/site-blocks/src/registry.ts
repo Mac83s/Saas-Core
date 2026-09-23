@@ -63,6 +63,62 @@ function validationIssues(
   });
 }
 
+/** A node array whose items are a `oneOf` of node shapes (rich text v2):
+ *  with `allErrors`, Ajv reports the failures of every branch, so an invalid
+ *  paragraph also "misses" a heading's level and a figure's image. Only the
+ *  branch the node's own `type` names speaks for it, so its errors are taken
+ *  from validating the node against that branch alone. A node of no known
+ *  type keeps just the `oneOf` error. Ajv's `schemaPath` cannot tell branches
+ *  apart (a `$ref` compiled once reports paths relative to its own schema),
+ *  hence the re-validation. Needs the validator's Ajv to run with `verbose`. */
+function ownBranchErrors(
+  ajv: Ajv2020,
+  rootId: string | undefined,
+  errors: readonly ErrorObject[],
+): ErrorObject[] {
+  let result = [...errors];
+  for (const union of errors) {
+    if (
+      union.keyword !== "oneOf" ||
+      !Array.isArray(union.schema) ||
+      !result.includes(union)
+    )
+      continue;
+    const at = union.instancePath;
+    const branches = (union.schema as { $ref?: string }[]).map((candidate) =>
+      typeof candidate.$ref === "string"
+        ? ajv.getSchema(
+            candidate.$ref.startsWith("#")
+              ? `${rootId ?? ""}${candidate.$ref}`
+              : candidate.$ref,
+          )
+        : ajv.compile(candidate),
+    );
+    const typeOf = (validator: ValidateFunction | undefined) =>
+      (validator?.schema as SchemaNode | undefined)?.properties?.type?.const;
+    // Only a union discriminated by `type` is narrowed; any other stays as is.
+    if (branches.some((validator) => typeof typeOf(validator) !== "string"))
+      continue;
+    const type = (union.data as { type?: unknown } | null)?.type;
+    const branch = branches.find((validator) => typeOf(validator) === type);
+    const own =
+      branch !== undefined && !branch(union.data)
+        ? ownBranchErrors(ajv, rootId, branch.errors ?? []).map((error) => ({
+            ...error,
+            instancePath: `${at}${error.instancePath}`,
+          }))
+        : [];
+    result = result.filter(
+      (error) =>
+        (error.instancePath !== at &&
+          !error.instancePath.startsWith(`${at}/`)) ||
+        (own.length === 0 && error === union),
+    );
+    result.push(...own);
+  }
+  return result;
+}
+
 /** Classes only for the values that are set; an empty envelope adds nothing,
  *  so legacy markup stays byte-identical. */
 function presentationClassName(
@@ -103,6 +159,7 @@ function assertLinearVersions(definition: BlockDefinition): void {
 
 type SchemaNode = {
   type?: string;
+  const?: unknown;
   properties?: Record<string, SchemaNode>;
   items?: SchemaNode;
 };
@@ -199,7 +256,8 @@ export function defineSiteBlockManifest(
 export function createSiteBlockRegistry(
   manifests: readonly SiteBlockManifest[],
 ): BlockRegistry {
-  const ajv = new Ajv2020({ allErrors: true, strict: true });
+  // `verbose` gives union errors their branches and data (ownBranchErrors).
+  const ajv = new Ajv2020({ allErrors: true, strict: true, verbose: true });
   const validateDecoration = ajv.compile(decorationSchema);
   const validatePresentation = ajv.compile(presentationSchema);
   const definitions = new Map<string, BlockDefinition>();
@@ -274,11 +332,16 @@ export function createSiteBlockRegistry(
       );
     }
     if (!validator(block.data)) {
+      const errors = ownBranchErrors(
+        ajv,
+        (validator.schema as { $id?: string }).$id,
+        validator.errors ?? [],
+      );
       throw new InvalidBlockDataError(
         block.block_type,
         block.schema_version,
-        validationDetails(validator.errors),
-        validationIssues(validator.errors),
+        validationDetails(errors),
+        validationIssues(errors),
       );
     }
   }

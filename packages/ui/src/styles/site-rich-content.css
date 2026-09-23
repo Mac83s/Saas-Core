@@ -376,12 +376,13 @@
 .site-theme .site-quote__monogram {
   display: grid;
   place-items: center;
-  width: min(100%, 16rem);
+  /* On a phone the initials stay a signature beside the words, not a poster. */
+  width: clamp(6rem, 20cqw, 16rem);
   aspect-ratio: 1;
   border-radius: 999px;
   background: color-mix(in srgb, var(--site-accent) 12%, var(--background));
   color: var(--site-accent);
-  font-size: clamp(3rem, 2rem + 5cqw, 5.5rem);
+  font-size: clamp(2.25rem, 1.5rem + 3.5cqw, 5.5rem);
   font-weight: 600;
   letter-spacing: -0.02em;
 }

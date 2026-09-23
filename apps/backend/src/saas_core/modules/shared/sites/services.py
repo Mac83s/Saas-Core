@@ -931,7 +931,11 @@ def save_draft(
     # inserted) are referenced even when the client did not list them. A
     # client that already lists them all keeps the same hash.
     normalized_media_asset_ids = tuple(
-        sorted({*media_asset_ids, *block_asset_ids(normalized_blocks)}, key=str)
+        sorted(
+            {*(UUID(str(asset_id)) for asset_id in media_asset_ids),
+             *block_asset_ids(normalized_blocks)},
+            key=str,
+        )
     )
     request_payload: dict[str, Any] = {
         "page_id": str(page_id),

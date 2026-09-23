@@ -167,3 +167,33 @@ Zapis przez change set dziedziczy `page_presentation`. Blueprint (ADR-046) nie
 tworzy slotów z przebiegów samych spacji, z cytatów (`core.quote` i węzłów
 `quote`) ani z podpisów; nowe pola `lead` i `tagline` są slotami tekstu.
 Automat nie wypełnia cytatów, cen, kwalifikacji ani wyników.
+
+## Stan wdrożenia w kodzie — 2026-09-23
+
+Gałąź `feat/site-studio-rich-content`. Zrealizowane fazy 1–2 planu; brak
+wdrożenia stosu i `core:update` produktów.
+
+- **Kontrakty:** `core.rich_text` v2, `core.feature_list` v4, `core.quote` v1,
+  `core.product` v1, koperty `section-presentation.v1` i
+  `page-presentation.v1`, recepta `page-template.v4` (manifest wskazuje v4 dla
+  wszystkich recept), katalog `section-templates.v5` (104 recepty: 96 z v4 bez
+  zmian i 8 nowych). Galeria produktu dopuszcza pustą tablicę, żeby powiązanie
+  zdjęcia mogło ją uzupełnić.
+- **Backend:** migracja `sites/0032_page_presentation` (dwa odwracalne
+  `AddField`), kontrole `sites.E007` i `sites.E008`, pola
+  `page_presentation_before/after` w szczegółach propozycji (tylko gdy
+  niepuste). Treść śródtytułu rich text jest slotem blueprintu o limicie 200.
+- **Adresy `#kotwica`** przyjmują wyłącznie przebiegi rich text. Przycisk
+  produktu, hero i `link_list` nadal dopuszczają tylko `/`, `https://`,
+  `mailto:` i `tel:`, dlatego recepty kierują zapytania na `mailto:` albo
+  formularz, a spis treści usługi jest sekcją rich text.
+- **Szerokość `wide`** to szerokość witryny + 20 rem (najwyżej cała strona).
+  Na stronie `contained` równa się `standard`. Recepty używają jej tylko dla
+  sekcji prowadzonych zdjęciem; sekcje tekstowe trzymają krawędź witryny.
+  Hero `banner` z `inner: full` na stronie pełnej szerokości ma zdjęcie od
+  krawędzi do krawędzi i tekst w linii headera.
+- **Walidacja w panelu** zawęża błędy unii węzłów do gałęzi wskazanej przez
+  `type` węzła, więc fokus trafia w istniejące pole.
+- **Dowód zgodności wstecznej:** osiem dotychczasowych recept renderuje się
+  bajt w bajt tak samo jak na `bf1a014`, a ich zrzuty 1440/390/3440 px są
+  identyczne co do piksela (Chromium, 24/24).

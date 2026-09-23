@@ -291,6 +291,9 @@ describe("page templates", () => {
       "core.agriculture_services",
       "core.electronics_service",
       "core.business_studio",
+      "core.product_first_impression",
+      "core.service_guide",
+      "core.expert_knowledge",
     ]);
 
     // Without the entitlement the recipe declares, nothing is offered.

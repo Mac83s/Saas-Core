@@ -9,7 +9,9 @@
 
 import { useLocale, useTranslations } from "next-intl";
 
+import { RichTextField } from "./rich-text-field";
 import { SectionDecorationFields } from "./section-decoration-fields";
+import { SectionPresentationFields } from "./section-presentation-fields";
 import { ImageCropUpload } from "../media/crop";
 import {
   useFieldArray,
@@ -22,15 +24,19 @@ import { ArrowDownIcon, ArrowUpIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { z } from "zod";
 
 import {
+  blockAssetIds,
   coreSiteBlockManifest,
   coreSectionTemplates,
   createSiteBlockRegistry,
+  ensureUniqueAnchors,
   InvalidBlockDataError,
+  richTextAnchors,
   type BlockFieldDefinition,
   type JsonObject,
   type JsonValue,
   type SiteBlock,
   type SectionDecorationV1,
+  type SectionPresentationV1,
 } from "@saas-core/site-blocks";
 import { Button } from "@saas-core/ui/components/button";
 import {
@@ -51,6 +57,7 @@ export type BlockFormValues = {
   block_type: string;
   data: JsonObject;
   decoration?: SectionDecorationV1;
+  presentation?: SectionPresentationV1;
 };
 
 /** Every block the library offers, in manifest order. A block without a
@@ -97,21 +104,36 @@ function readAt(data: JsonObject, path: readonly string[]): JsonValue {
 /** Empty strings are how a cleared input arrives from the DOM, but the contract
  *  has no notion of "present but blank": a hero with `text: ""` fails minLength
  *  where an absent `text` is simply optional. Dropping them here is what makes
- *  clearing an optional field mean removing it. */
-function pruneEmpty(value: JsonValue): JsonValue | undefined {
+ *  clearing an optional field mean removing it.
+ *
+ *  Rich-text node arrays (`verbatim`, below the dotted paths in `richPaths`)
+ *  are never trimmed: the space closing "Wstęp " before a bold run is
+ *  content. Only exactly-empty strings, arrays and objects go there. */
+function pruneEmpty(
+  value: JsonValue,
+  richPaths: readonly string[] = [],
+  at = "",
+  verbatim = false,
+): JsonValue | undefined {
   if (typeof value === "string") {
-    const trimmed = value.trim();
-    return trimmed === "" ? undefined : trimmed;
+    const kept = verbatim ? value : value.trim();
+    return kept === "" ? undefined : kept;
   }
   if (Array.isArray(value)) {
     const items = value
-      .map(pruneEmpty)
+      .map((item) => pruneEmpty(item, richPaths, at, verbatim))
       .filter((item): item is JsonValue => item !== undefined);
     return items.length === 0 ? undefined : items;
   }
   if (isObject(value)) {
     const entries = Object.entries(value).flatMap(([key, nested]) => {
-      const pruned = pruneEmpty(nested);
+      const path = at ? `${at}.${key}` : key;
+      const pruned = pruneEmpty(
+        nested,
+        richPaths,
+        path,
+        verbatim || richPaths.includes(path),
+      );
       return pruned === undefined ? [] : [[key, pruned] as const];
     });
     return entries.length === 0 ? undefined : Object.fromEntries(entries);
@@ -127,8 +149,7 @@ function refineAgainstBlockContract(
   block: BlockFormValues,
   context: z.RefinementCtx,
 ): void {
-  const option = blockOption(block.block_type);
-  if (option === undefined) return;
+  if (blockOption(block.block_type) === undefined) return;
   try {
     registry.validate(toSiteBlock(blockPayload(block)));
   } catch (error) {
@@ -136,41 +157,15 @@ function refineAgainstBlockContract(
     for (const issue of error.issues) {
       context.addIssue({
         code: "custom",
-        path: [
-          issue.scope === "decoration" ? "decoration" : "data",
-          ...issue.path,
-        ],
+        path: [issue.scope ?? "data", ...issue.path],
         message: MESSAGE_BY_KEYWORD[issue.keyword] ?? "invalid",
       });
     }
   }
-  // Not expressible per-property: an optional nested object is valid when it is
-  // absent, so half of a pair survives only because pruning removes it. The
-  // editor has to catch that before it silently disappears on save.
-  for (const field of option.fields) {
-    if (field.path.length < 2) continue;
-    const parent = field.path.slice(0, -1);
-    const siblings = option.fields.filter(
-      (candidate) =>
-        candidate.path.length === field.path.length &&
-        candidate.path.slice(0, -1).join("/") === parent.join("/"),
-    );
-    const filled = siblings.filter(
-      (candidate) =>
-        pruneEmpty(readAt(block.data, candidate.path)) !== undefined,
-    );
-    if (filled.length > 0 && filled.length < siblings.length) {
-      for (const missing of siblings.filter(
-        (candidate) => !filled.includes(candidate),
-      )) {
-        context.addIssue({
-          code: "custom",
-          path: ["data", ...missing.path],
-          message: "required",
-        });
-      }
-    }
-  }
+  // A half-filled pair (an image without its alt text, a link without its
+  // address) survives pruning as an object, so the schema's own `required`
+  // reports the missing half at its field. Members the schema leaves optional
+  // (a note's title, a quote source's address) stay optional.
 }
 
 export const blockFormSchema = z
@@ -182,6 +177,7 @@ export const blockFormSchema = z
     data: z.custom<JsonObject>((value) => isObject(value as JsonValue)),
     // The shared JSON Schema is checked by the same registry as the public renderer.
     decoration: z.custom<SectionDecorationV1>().optional(),
+    presentation: z.custom<SectionPresentationV1>().optional(),
   })
   .superRefine((block, context) => {
     refineAgainstBlockContract(block, context);
@@ -197,6 +193,7 @@ export function BlockFields<TValues extends FieldValues>({
   isLast,
   moveDown,
   moveUp,
+  onMediaUploaded,
   onRemove,
   type,
 }: {
@@ -207,6 +204,8 @@ export function BlockFields<TValues extends FieldValues>({
   isLast: boolean;
   moveDown: () => void;
   moveUp: () => void;
+  /** An image uploaded from inside a block: the owner refreshes `assets`. */
+  onMediaUploaded?: () => void;
   onRemove: () => void;
   type: string;
 }) {
@@ -217,15 +216,22 @@ export function BlockFields<TValues extends FieldValues>({
     control: form.control,
     name: `${prefix}.decoration` as Path<TValues>,
   }) as SectionDecorationV1 | undefined;
+  const presentation = useWatch({
+    control: form.control,
+    name: `${prefix}.presentation` as Path<TValues>,
+  }) as SectionPresentationV1 | undefined;
   const locale = useLocale() === "en" ? "en" : "pl";
   const layouts = coreSectionTemplates().filter(
     (template) => template.blockType === type,
   );
   const layoutPath = `${prefix}.data.layout` as Path<TValues>;
+  // A rich text without a layout is still exactly the v1 text and renders as
+  // before; opening the page must not pick a layout for it (the registered
+  // select would store whatever it shows).
+  const layoutOptional = type === "core.rich_text";
   const selectedLayout =
     useWatch({ control: form.control, name: layoutPath }) ??
-    layouts[0]?.layout ??
-    "classic";
+    (layoutOptional ? "" : (layouts[0]?.layout ?? "classic"));
   const selectedTemplate = layouts.find(
     (template) => template.layout === selectedLayout,
   );
@@ -275,6 +281,9 @@ export function BlockFields<TValues extends FieldValues>({
             {...form.register(layoutPath)}
             value={String(selectedLayout)}
           >
+            {layoutOptional && (
+              <option value="">{t("sectionLibrary.noLayout")}</option>
+            )}
             {layouts.map((template) => (
               <option key={template.id} value={template.layout}>
                 {template.labels[locale].name}
@@ -334,6 +343,23 @@ export function BlockFields<TValues extends FieldValues>({
           />
         </div>
       </details>
+      <details className="border-t pt-3">
+        <summary className="cursor-pointer py-1 text-sm font-medium">
+          {t("sectionPresentation.title")}
+        </summary>
+        <div className="pt-4">
+          <SectionPresentationFields
+            value={presentation}
+            onChange={(value) =>
+              form.setValue(
+                `${prefix}.presentation` as Path<TValues>,
+                value as never,
+                { shouldDirty: true, shouldValidate: true },
+              )
+            }
+          />
+        </div>
+      </details>
       <input
         type="hidden"
         {...form.register(`${prefix}.block_type` as Path<TValues>)}
@@ -349,6 +375,7 @@ export function BlockFields<TValues extends FieldValues>({
             field={field}
             form={form}
             key={field.path.join(".")}
+            onMediaUploaded={onMediaUploaded}
             pathPrefix={`${prefix}.data`}
           />
         ))}
@@ -382,18 +409,40 @@ function BlockField<TValues extends FieldValues>({
   blockIndex,
   field,
   form,
+  onMediaUploaded,
   pathPrefix,
 }: {
   assets?: readonly MediaAsset[];
   blockIndex: number;
   field: BlockFieldDefinition;
   form: UseFormReturn<TValues>;
+  onMediaUploaded?: () => void;
   pathPrefix: string;
 }) {
   const t = useTranslations("Sites");
   const name = fieldName(pathPrefix, field.path);
   const id = `block-${blockIndex}-${name.replace(/[^a-zA-Z0-9]+/g, "-")}`;
   const error = fieldErrorMessage(form, name);
+
+  if (field.kind === "richText") {
+    // The writing panel reads the surrounding form from context
+    // (FormProvider in the page and entry editors).
+    return (
+      <RichTextField
+        allowedNodes={
+          field.path.join(".") === "aside.content"
+            ? ["paragraph", "list"]
+            : undefined
+        }
+        label={t(field.labelKey)}
+        mediaOptions={assets
+          .filter((asset) => asset.state === "ready")
+          .map((asset) => ({ id: asset.id, label: asset.original_filename }))}
+        name={name}
+        onUploadImage={onMediaUploaded}
+      />
+    );
+  }
 
   if (field.kind === "list") {
     return (
@@ -548,17 +597,18 @@ function emptyFieldData(fields: readonly BlockFieldDefinition[]): JsonObject {
       target = nested;
     }
     const leaf = field.path[field.path.length - 1];
-    target[leaf] = field.kind === "list" ? [] : "";
+    target[leaf] = field.kind === "list" || field.kind === "richText" ? [] : "";
   }
   return data;
 }
 
 export function emptyBlock(type: string): BlockFormValues {
   const option = blockOption(type);
-  return {
-    block_type: type,
-    data: option === undefined ? {} : emptyFieldData(option.fields),
-  };
+  const data = option === undefined ? {} : emptyFieldData(option.fields);
+  // One empty paragraph, so the writer can start typing straight away.
+  if (type === "core.rich_text")
+    data.content = [{ type: "paragraph", content: [] }];
+  return { block_type: type, data };
 }
 
 /** Fills in the fields the catalogue declares but the stored data omits, so an
@@ -596,6 +646,7 @@ export function editableBlocks(
     schema_version: number;
     data: unknown;
     decoration?: unknown;
+    presentation?: unknown;
   }[],
 ): BlockFormValues[] {
   return blocks.map((block) => {
@@ -606,6 +657,9 @@ export function editableBlocks(
       ...(migrated.decoration
         ? { decoration: structuredClone(migrated.decoration) }
         : {}),
+      ...(migrated.presentation
+        ? { presentation: structuredClone(migrated.presentation) }
+        : {}),
       data:
         option === undefined
           ? migrated.data
@@ -614,48 +668,56 @@ export function editableBlocks(
   });
 }
 
-/** The assets the blocks themselves point at.
+/** The assets the blocks themselves point at, wherever they sit: a hero
+ *  photo, a product gallery, a figure inside rich text.
  *
  *  Collected on save rather than asked of the operator: a picture chosen in a
  *  block and then not listed as a reference would be an asset the page shows
  *  and nothing keeps alive. */
 export function mediaIdsInBlocks(blocks: readonly BlockFormValues[]): string[] {
-  const found = new Set<string>();
-  for (const block of blocks) {
-    for (const field of blockOption(block.block_type)?.fields ?? []) {
-      collectMedia(block.data, field, found);
-    }
-  }
-  return [...found];
+  return [...new Set(blocks.flatMap((block) => blockAssetIds(block.data)))];
 }
 
-function collectMedia(
-  data: JsonObject,
-  field: BlockFieldDefinition,
-  found: Set<string>,
-): void {
-  if (field.kind === "list") {
-    const rows = readAt(data, field.path);
-    if (!Array.isArray(rows)) return;
-    for (const row of rows) {
-      if (!isObject(row)) continue;
-      for (const nested of field.item ?? []) collectMedia(row, nested, found);
-    }
-    return;
-  }
-  if (field.kind !== "media") return;
-  const value = readAt(data, field.path);
-  if (typeof value === "string" && value !== "") found.add(value);
+/** Heading anchors are unique on a page (the API answers 400
+ *  `duplicate_rich_text_anchor`). Blocks entering the page — an inserted or
+ *  duplicated section — are renamed against the blocks already there, links
+ *  to the renamed anchors inside them included. Unchanged blocks come back
+ *  as they were. */
+export function withUniqueAnchors(
+  incoming: readonly BlockFormValues[],
+  existing: readonly BlockFormValues[],
+): BlockFormValues[] {
+  const asSite = (block: BlockFormValues): SiteBlock => ({
+    block_type: block.block_type,
+    schema_version: 0,
+    data: block.data,
+  });
+  return ensureUniqueAnchors(
+    incoming.map(asSite),
+    new Set(richTextAnchors(existing.map(asSite))),
+  ).map((site, index) =>
+    site.data === incoming[index].data
+      ? incoming[index]
+      : { ...incoming[index], data: site.data },
+  );
 }
 
 export function blockPayload(block: BlockFormValues) {
-  const pruned = pruneEmpty(block.data);
+  const pruned = pruneEmpty(
+    block.data,
+    (blockOption(block.block_type)?.fields ?? [])
+      .filter((field) => field.kind === "richText")
+      .map((field) => field.path.join(".")),
+  );
   return {
     block_type: block.block_type,
     schema_version: blockOption(block.block_type)?.latestVersion ?? 1,
     data: isObject(pruned) ? pruned : {},
     ...(block.decoration !== undefined
       ? { decoration: structuredClone(block.decoration) }
+      : {}),
+    ...(block.presentation !== undefined
+      ? { presentation: structuredClone(block.presentation) }
       : {}),
   };
 }
@@ -665,6 +727,7 @@ export function toSiteBlock(block: {
   schema_version: number;
   data: unknown;
   decoration?: unknown;
+  presentation?: unknown;
 }): SiteBlock {
   if (!isObject(block.data))
     throw new TypeError("Block data must be an object");
@@ -674,6 +737,13 @@ export function toSiteBlock(block: {
     data: block.data,
     ...(block.decoration != null
       ? { decoration: structuredClone(block.decoration) as SectionDecorationV1 }
+      : {}),
+    ...(block.presentation != null
+      ? {
+          presentation: structuredClone(
+            block.presentation,
+          ) as SectionPresentationV1,
+        }
       : {}),
   };
 }

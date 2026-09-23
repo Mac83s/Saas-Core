@@ -47,12 +47,14 @@ def block_asset_ids(blocks: Iterable[dict[str, Any]]) -> list[UUID]:
 
 
 def rich_text_anchors(blocks: Iterable[dict[str, Any]]) -> list[str]:
-    """Heading anchors of every `core.rich_text` v2 block, duplicates included."""
+    """Heading anchors of every structured `core.rich_text` block (v2 onwards;
+    v1 has no `content`), duplicates included. Same rule as `richTextAnchors`."""
     return [
         node["anchor"]
         for block in blocks
-        if block.get("block_type") == "core.rich_text" and block.get("schema_version") == 2
-        for node in block["data"].get("content", [])
+        if block.get("block_type") == "core.rich_text"
+        and isinstance(block["data"].get("content"), list)
+        for node in block["data"]["content"]
         if isinstance(node, dict) and node.get("type") == "heading"
     ]
 

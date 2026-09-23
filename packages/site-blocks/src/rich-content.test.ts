@@ -361,6 +361,41 @@ describe("core.rich_text v2", () => {
       ),
     ).toThrow(InvalidBlockDataError);
   });
+
+  it("reports only the issues of each node's own type", () => {
+    const issues = (block: SiteBlock) => {
+      try {
+        registry.validate(block);
+      } catch (error) {
+        if (!(error instanceof InvalidBlockDataError)) throw error;
+        return error.issues.map(
+          (issue) => `${issue.path.join(".")} ${issue.keyword}`,
+        );
+      }
+      return [];
+    };
+    // Without narrowing, the paragraph would also report a heading's missing
+    // level and anchor, a list's items and a figure's image.
+    expect(
+      issues(
+        richText({
+          content: [
+            { type: "paragraph", content: [{ text: "" }] },
+            { type: "heading", level: 2, anchor: "Bad", text: "x" },
+            { type: "embed", html: "x" },
+          ],
+          aside: { content: [{ type: "list", style: "bullet", items: [] }] },
+        }),
+      ).sort(),
+    ).toEqual([
+      "aside.content.0.items minItems",
+      "content.0.content.0.text minLength",
+      "content.1.anchor pattern",
+      "content.2 oneOf",
+    ]);
+    // Array-level issues are not node issues and stay.
+    expect(issues(richText({ content: [] }))).toEqual(["content minItems"]);
+  });
 });
 
 describe("section presentation envelope", () => {

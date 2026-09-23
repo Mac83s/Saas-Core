@@ -33,6 +33,28 @@
   --site-inner-width: 100cqw;
 }
 
+/* A banner opening set to `full` on a full-width page runs its photo from edge
+   to edge; its words still start where the site's content does, in line with
+   the header. (The class sits on the section, or on its decoration wrapper.) */
+.site-theme.site-page--full
+  :is(
+    .site-section--banner.site-presentation--inner-full,
+    .site-presentation--inner-full .site-section--banner
+  ) {
+  padding-inline: 0;
+}
+.site-theme.site-page--full
+  :is(
+    .site-section--banner.site-presentation--inner-full,
+    .site-presentation--inner-full .site-section--banner
+  )
+  .site-section__intro {
+  padding-inline: max(
+    clamp(1.25rem, 4cqw, 3.5rem),
+    calc((100cqw - var(--site-content-width, 72rem)) / 2)
+  );
+}
+
 /* Section `surface`: a colour scheme from the site palette. The element swaps
    the theme tokens, so everything drawn with them follows. Checked at WCAG AA
    on all three palettes: foreground on muted 14.6:1, accent on muted 5.4:1

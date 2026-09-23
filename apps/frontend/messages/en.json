@@ -806,7 +806,12 @@
       "contact": "Contact",
       "contact_form": "Contact form",
       "link_list": "Social media and links",
-      "separator": "Separators and spacing"
+      "separator": "Separators and spacing",
+      "rich_text": "Editorial text",
+      "quote": "Quotes",
+      "product": "Product presentations",
+      "contentLength": "Length: {range}",
+      "noLayout": "No layout – text only"
     },
     "appearance": {
       "title": "Site-wide appearance",
@@ -1100,6 +1105,88 @@
       "split": "Split into paragraphs",
       "pasted": "Pasted {count, plural, one {# element} other {# elements}}.",
       "imagesDropped": "Images from the clipboard were not imported — add them as an illustration."
+    },
+    "lead": "Lead",
+    "richTextContent": "Section content",
+    "asideTitle": "Fact panel title",
+    "asideContent": "Fact panel content",
+    "noteTitle": "Note title",
+    "noteText": "Note text",
+    "quoteText": "Quote text",
+    "quoteAuthor": "Speaker",
+    "quoteRole": "Speaker's role",
+    "quoteSourceLabel": "Source",
+    "quoteSourceHref": "Source address",
+    "quoteContext": "Context",
+    "productTagline": "Product tagline",
+    "productImages": "Product photos",
+    "imageCaption": "Photo caption",
+    "productSpecs": "Specifications",
+    "specLabel": "Specification",
+    "specValue": "Value",
+    "productUses": "Uses",
+    "useTitle": "Use",
+    "quoteBlock": "Quote",
+    "productBlock": "Product",
+    "duplicateAnchor": "Two headings on this page have the same anchor. Change one of them and save again.",
+    "invalidSectionPresentation": "The width or background of a section has a value that is not allowed. Reset that section to its default.",
+    "invalidPagePresentation": "This page's look has a value that is not allowed. Use the site's look and save again.",
+    "sectionPresentation": {
+      "title": "Section width and background",
+      "description": "Applies to this section only. Text keeps a comfortable reading width whatever the background.",
+      "fields": {
+        "inner": "Content width",
+        "surface": "Section background"
+      },
+      "options": {
+        "inner": {
+          "standard": "Standard (as the site)",
+          "narrow": "Narrow",
+          "wide": "Wide",
+          "full": "Full"
+        },
+        "surface": {
+          "default": "Page background",
+          "muted": "Muted",
+          "accent": "Accent colour",
+          "inverse": "Dark"
+        }
+      },
+      "hints": {
+        "inner": {
+          "standard": "Content at the width set for the whole site.",
+          "narrow": "A narrow column, comfortable for longer text.",
+          "wide": "Wider than the site; visible on a full-width page.",
+          "full": "Edge to edge on a full-width page."
+        },
+        "surface": {
+          "default": "The section sits on the ordinary page background.",
+          "muted": "A slightly darker background sets the section apart.",
+          "accent": "The site's accent colour with white text, for highlights.",
+          "inverse": "A dark background with light text, for strong emphasis."
+        }
+      },
+      "reset": "Reset to default"
+    },
+    "pagePresentation": {
+      "title": "This page's look",
+      "description": "Applies to this page only. The header, footer and menu stay shared across the whole site.",
+      "fields": {
+        "width": "Page width",
+        "headingFont": "Heading font",
+        "bodyFont": "Body font"
+      },
+      "hints": {
+        "width": "Full width stretches section backgrounds across the window; text keeps the site's width.",
+        "headingFont": "Titles and headings on this page.",
+        "bodyFont": "Paragraphs, lists and other text on this page."
+      },
+      "asSite": "As on the site",
+      "fullWidth": "Full width",
+      "reset": "Use the site's look",
+      "summaryHeadingFont": "Headings: {font}",
+      "summaryBodyFont": "Text: {font}",
+      "review": "Page look"
     }
   },
   "BillingSupport": {

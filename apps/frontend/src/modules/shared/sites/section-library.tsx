@@ -10,6 +10,7 @@ import {
   SmartphoneIcon,
 } from "lucide-react";
 import {
+  applySampleMedia,
   availableSectionTemplates,
   sectionIndustries,
   sectionTemplateBlock,
@@ -31,6 +32,20 @@ import { Field, FieldLabel } from "@saas-core/ui/components/field";
 import { materializeTemplatePhoto } from "@saas-core/api-client";
 import { sectionPreview } from "./template-media-preview";
 import { registry, editableBlocks, type BlockFormValues } from "./block-form";
+
+/** Library order and category filter: the families interleave in this order. */
+const BLOCK_TYPES = [
+  "hero",
+  "feature_list",
+  "faq",
+  "contact",
+  "contact_form",
+  "link_list",
+  "separator",
+  "rich_text",
+  "quote",
+  "product",
+] as const;
 
 const tokens = {
   schemaVersion: 1,
@@ -136,15 +151,9 @@ export function SectionLibraryContent({
     [industry, blockType, query, locale],
   );
   const ordered = useMemo(() => {
-    const groups = [
-      "core.hero",
-      "core.feature_list",
-      "core.faq",
-      "core.contact",
-      "core.contact_form",
-      "core.link_list",
-      "core.separator",
-    ].map((type) => templates.filter((item) => item.blockType === type));
+    const groups = BLOCK_TYPES.map((type) =>
+      templates.filter((item) => item.blockType === `core.${type}`),
+    );
     const mixed = Array.from(
       { length: Math.max(...groups.map((group) => group.length), 0) },
       (_, index) =>
@@ -181,9 +190,11 @@ export function SectionLibraryContent({
         receipts.current.get(photo.id)!,
       );
       if (!mounted.current) return;
-      seeded.data.image = { asset_id: result.asset_id, alt: photo.alt[locale] };
-      registry.validate(seeded);
-      onAdd(editableBlocks([seeded])[0]);
+      // The photo goes where the template says (a product's gallery, not
+      // only `image`).
+      const bound = applySampleMedia(seeded, template, result.asset_id, locale);
+      registry.validate(bound);
+      onAdd(editableBlocks([bound])[0]);
       setSelected(null);
     } catch {
       if (mounted.current) setError(true);
@@ -263,15 +274,7 @@ export function SectionLibraryContent({
               }}
             >
               <option value="">{t("allCategories")}</option>
-              {[
-                "hero",
-                "feature_list",
-                "faq",
-                "contact",
-                "contact_form",
-                "link_list",
-                "separator",
-              ].map((name) => (
+              {BLOCK_TYPES.map((name) => (
                 <option key={name} value={`core.${name}`}>
                   {t(name)}
                 </option>
@@ -359,6 +362,18 @@ export function SectionLibraryContent({
               <p className="line-clamp-2 flex-1 text-xs leading-relaxed text-muted-foreground">
                 {template.labels[locale].description}
               </p>
+              {template.contentProfiles?.length ? (
+                <p className="text-xs text-muted-foreground">
+                  {t("contentLength", {
+                    range: [
+                      ...new Set([
+                        template.contentProfiles[0],
+                        template.contentProfiles.at(-1),
+                      ]),
+                    ].join("–"),
+                  })}
+                </p>
+              ) : null}
               <div className="flex items-center justify-between gap-2 pt-1">
                 <span className="min-w-0 text-xs text-muted-foreground">
                   {template.kind === "default"

@@ -34,7 +34,7 @@
       },
       "presentation": {
         "schemaVersion": 1,
-        "inner": "wide"
+        "inner": "standard"
       }
     },
     {
@@ -279,7 +279,7 @@
       },
       "presentation": {
         "schemaVersion": 1,
-        "inner": "wide"
+        "inner": "standard"
       }
     },
     {
@@ -322,7 +322,7 @@
       },
       "presentation": {
         "schemaVersion": 1,
-        "inner": "wide",
+        "inner": "standard",
         "surface": "muted"
       }
     },
@@ -499,7 +499,7 @@
       },
       "presentation": {
         "schemaVersion": 1,
-        "inner": "wide"
+        "inner": "standard"
       }
     },
     {
@@ -547,7 +547,7 @@
       },
       "presentation": {
         "schemaVersion": 1,
-        "inner": "wide",
+        "inner": "standard",
         "surface": "inverse"
       }
     }
@@ -568,7 +568,7 @@
         },
         "presentation": {
           "schemaVersion": 1,
-          "inner": "wide"
+          "inner": "standard"
         }
       },
       {
@@ -813,7 +813,7 @@
         },
         "presentation": {
           "schemaVersion": 1,
-          "inner": "wide"
+          "inner": "standard"
         }
       },
       {
@@ -856,7 +856,7 @@
         },
         "presentation": {
           "schemaVersion": 1,
-          "inner": "wide",
+          "inner": "standard",
           "surface": "muted"
         }
       },
@@ -1033,7 +1033,7 @@
         },
         "presentation": {
           "schemaVersion": 1,
-          "inner": "wide"
+          "inner": "standard"
         }
       },
       {
@@ -1081,7 +1081,7 @@
         },
         "presentation": {
           "schemaVersion": 1,
-          "inner": "wide",
+          "inner": "standard",
           "surface": "inverse"
         }
       }

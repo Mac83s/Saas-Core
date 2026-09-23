@@ -7,7 +7,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useFieldArray, useForm, type SubmitHandler } from "react-hook-form";
+import {
+  FormProvider,
+  useFieldArray,
+  useForm,
+  type SubmitHandler,
+} from "react-hook-form";
 import { PlusIcon, RefreshCwIcon, SaveIcon } from "lucide-react";
 import { z } from "zod";
 
@@ -200,87 +205,94 @@ export function EntryEditor({
           </Button>
         )}
 
-        <form
-          className="space-y-5"
-          onSubmit={(event) => {
-            void form.handleSubmit(save)(event);
-          }}
-        >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-            <Field className="flex-1">
-              <FieldLabel htmlFor="entry-block-picker">
-                {t("addBlock")}
-              </FieldLabel>
-              <Combobox
-                isItemEqualToValue={(item, value) => item.type === value.type}
-                itemToStringLabel={(item) => t(item.labelKey)}
-                itemToStringValue={(item) => item.type}
-                items={blockOptions}
-                onValueChange={setSelectedBlock}
-                value={selectedBlock}
-              >
-                <ComboboxInput
-                  id="entry-block-picker"
-                  placeholder={t("searchBlocks")}
-                  triggerLabel={t("openOptions")}
-                />
-                <ComboboxContent>
-                  <ComboboxEmpty>{t("noBlocks")}</ComboboxEmpty>
-                  <ComboboxList>
-                    {blockOptions.map((option) => (
-                      <ComboboxItem key={option.type} value={option}>
-                        {t(option.labelKey)}
-                      </ComboboxItem>
-                    ))}
-                  </ComboboxList>
-                </ComboboxContent>
-              </Combobox>
-            </Field>
-            <Button
-              disabled={!selectedBlock}
-              onClick={() => {
-                if (!selectedBlock) return;
-                blocks.append(emptyBlock(selectedBlock.type));
-                setSelectedBlock(null);
-              }}
-              type="button"
-              variant="outline"
-            >
-              <PlusIcon aria-hidden="true" />
-              {t("add")}
-            </Button>
-          </div>
-
-          <div className="space-y-4">
-            {blocks.fields.length === 0 && !loading && (
-              <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-                {t("emptyBlocks")}
-              </p>
-            )}
-            {blocks.fields.map((field, index) => (
-              <BlockFields
-                assets={assets}
-                form={form}
-                index={index}
-                isFirst={index === 0}
-                isLast={index === blocks.fields.length - 1}
-                key={field.id}
-                moveDown={() => blocks.swap(index, index + 1)}
-                moveUp={() => blocks.swap(index, index - 1)}
-                onRemove={() => blocks.remove(index)}
-                type={field.block_type}
-              />
-            ))}
-          </div>
-
-          <Button
-            disabled={loading || form.formState.isSubmitting}
-            type="submit"
+        <FormProvider {...form}>
+          <form
+            className="space-y-5"
+            onSubmit={(event) => {
+              void form.handleSubmit(save)(event);
+            }}
           >
-            <SaveIcon aria-hidden="true" />
-            {form.formState.isSubmitting ? t("saving") : t("saveDraft")}
-          </Button>
-        </form>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+              <Field className="flex-1">
+                <FieldLabel htmlFor="entry-block-picker">
+                  {t("addBlock")}
+                </FieldLabel>
+                <Combobox
+                  isItemEqualToValue={(item, value) => item.type === value.type}
+                  itemToStringLabel={(item) => t(item.labelKey)}
+                  itemToStringValue={(item) => item.type}
+                  items={blockOptions}
+                  onValueChange={setSelectedBlock}
+                  value={selectedBlock}
+                >
+                  <ComboboxInput
+                    id="entry-block-picker"
+                    placeholder={t("searchBlocks")}
+                    triggerLabel={t("openOptions")}
+                  />
+                  <ComboboxContent>
+                    <ComboboxEmpty>{t("noBlocks")}</ComboboxEmpty>
+                    <ComboboxList>
+                      {blockOptions.map((option) => (
+                        <ComboboxItem key={option.type} value={option}>
+                          {t(option.labelKey)}
+                        </ComboboxItem>
+                      ))}
+                    </ComboboxList>
+                  </ComboboxContent>
+                </Combobox>
+              </Field>
+              <Button
+                disabled={!selectedBlock}
+                onClick={() => {
+                  if (!selectedBlock) return;
+                  blocks.append(emptyBlock(selectedBlock.type));
+                  setSelectedBlock(null);
+                }}
+                type="button"
+                variant="outline"
+              >
+                <PlusIcon aria-hidden="true" />
+                {t("add")}
+              </Button>
+            </div>
+
+            <div className="space-y-4">
+              {blocks.fields.length === 0 && !loading && (
+                <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+                  {t("emptyBlocks")}
+                </p>
+              )}
+              {blocks.fields.map((field, index) => (
+                <BlockFields
+                  assets={assets}
+                  form={form}
+                  index={index}
+                  isFirst={index === 0}
+                  isLast={index === blocks.fields.length - 1}
+                  key={field.id}
+                  moveDown={() => blocks.swap(index, index + 1)}
+                  moveUp={() => blocks.swap(index, index - 1)}
+                  onMediaUploaded={() =>
+                    void listMediaAssets()
+                      .then((media) => setAssets(media.items))
+                      .catch(() => {})
+                  }
+                  onRemove={() => blocks.remove(index)}
+                  type={field.block_type}
+                />
+              ))}
+            </div>
+
+            <Button
+              disabled={loading || form.formState.isSubmitting}
+              type="submit"
+            >
+              <SaveIcon aria-hidden="true" />
+              {form.formState.isSubmitting ? t("saving") : t("saveDraft")}
+            </Button>
+          </form>
+        </FormProvider>
       </CardContent>
     </Card>
   );
@@ -293,11 +305,13 @@ function asBlocks(blocks: readonly Record<string, unknown>[]): {
   schema_version: number;
   data: unknown;
   decoration?: unknown;
+  presentation?: unknown;
 }[] {
   return blocks.map((block) => ({
     block_type: String(block.block_type ?? ""),
     schema_version: Number(block.schema_version ?? 1),
     data: block.data,
     ...(block.decoration != null ? { decoration: block.decoration } : {}),
+    ...(block.presentation != null ? { presentation: block.presentation } : {}),
   }));
 }

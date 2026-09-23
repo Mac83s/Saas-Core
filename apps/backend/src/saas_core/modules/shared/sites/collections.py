@@ -434,7 +434,11 @@ def save_entry_draft(
     )
     # Nested images (figures, galleries) are referenced even when unlisted.
     normalized_media_ids = tuple(
-        sorted({*(media_asset_ids or []), *block_asset_ids(normalized_blocks)}, key=str)
+        sorted(
+            {*(UUID(str(asset_id)) for asset_id in media_asset_ids or []),
+             *block_asset_ids(normalized_blocks)},
+            key=str,
+        )
     )
     try:
         record_resource_references(

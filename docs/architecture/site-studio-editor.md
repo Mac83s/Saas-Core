@@ -257,3 +257,19 @@ ustawienia tła, ramki, ornamentów i ruchu. Zmiany korzystają z istniejącego
 stanu formularza, historii i zapisu. Biblioteka v4 dodaje osiem separatorów.
 Szczegóły kontraktu, pauzy, wersjonowania oraz ograniczeń AI i recept całych
 stron: [site-section-decoration.md](site-section-decoration.md).
+
+## Bogata treść i wygląd strony — 2026-09-23
+
+Pole `richText` otwiera w inspektorze panel pisania (`rich-text-field.tsx`):
+wstawianie akapitów, śródtytułów, list, cytatów, uwag i ilustracji, spis
+śródtytułów, przesuwanie i usuwanie węzłów, wklejanie z Google Docs/Worda
+normalizowane do dozwolonych węzłów. Formatowanie w polu tekstowym zapisuje
+się jako przebiegi JSON; pola z buforem zapisują zmianę po pauzie lub opuszczeniu
+pola, co daje jeden krok cofania. Płótno edytuje w miejscu każdy przebieg,
+śródtytuł i podpis pod dokładną ścieżką danych. Formularz strony jest w
+`FormProvider`, a normalizacja zapisu nie przycina spacji wewnątrz przebiegów.
+
+„Szerokość i tło sekcji” to druga koperta obok dekoracji. „Wygląd tej strony”
+(zakładka Wygląd, pod wyglądem witryny) należy do formularza draftu: cofanie,
+stan niezapisany i ochrona wyjścia obejmują go automatycznie, a zapis wysyła
+`page_presentation` tylko po zmianie. Kontrakt i zasady: [site-rich-content.md](site-rich-content.md).
