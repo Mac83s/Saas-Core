@@ -1,0 +1,1109 @@
+{
+  "id": "core.service_guide",
+  "version": 1,
+  "category": "service",
+  "industries": [],
+  "labels": {
+    "pl": {
+      "name": "Usługa — przewodnik",
+      "description": "Długa strona usługi z indeksem: dla kogo, zakres, etapy, przygotowanie, ograniczenia, FAQ i kontakt. Przykład: projekt wnętrz biurowych; wymień treści demonstracyjne przed publikacją."
+    },
+    "en": {
+      "name": "Service — guide",
+      "description": "A long service page with an index: who it is for, scope, stages, preparation, limitations, FAQ and contact. Example: office interior design; replace the demonstration content before publishing."
+    }
+  },
+  "requiredEntitlements": ["sites.enabled"],
+  "pagePresentation": {
+    "schemaVersion": 1,
+    "width": "full",
+    "headingFont": "dm-sans"
+  },
+  "blocks": [
+    {
+      "block_type": "core.hero",
+      "schema_version": 5,
+      "data": {
+        "title": "Projekt biura, w którym dobrze się pracuje",
+        "text": "Przewodnik po usłudze projektowania wnętrz biurowych: dla kogo jest, co obejmuje, jak przebiega i jak się do niej przygotować.",
+        "action": {
+          "label": "Umów konsultację",
+          "href": "mailto:kontakt@example.com"
+        },
+        "layout": "split"
+      },
+      "presentation": {
+        "schemaVersion": 1,
+        "inner": "wide"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 2,
+      "data": {
+        "layout": "column",
+        "title": "W tym przewodniku",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Strona jest długa, bo odpowiada na pytania, które zwykle padają przed rozpoczęciem projektu. Przejdź od razu do potrzebnej części:"
+              }
+            ]
+          },
+          {
+            "type": "list",
+            "style": "ordered",
+            "items": [
+              {
+                "content": [
+                  {
+                    "text": "Dla kogo jest ta usługa",
+                    "href": "#dla-kogo"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Co obejmuje projekt:"
+                  }
+                ],
+                "children": {
+                  "style": "bullet",
+                  "items": [
+                    {
+                      "content": [
+                        {
+                          "text": "analiza sposobu pracy",
+                          "href": "#analiza-sposobu-pracy"
+                        }
+                      ]
+                    },
+                    {
+                      "content": [
+                        {
+                          "text": "układ funkcjonalny",
+                          "href": "#uklad-funkcjonalny"
+                        }
+                      ]
+                    },
+                    {
+                      "content": [
+                        {
+                          "text": "dobór wyposażenia i materiałów",
+                          "href": "#dobor-wyposazenia"
+                        }
+                      ]
+                    },
+                    {
+                      "content": [
+                        {
+                          "text": "dokumentacja wykonawcza",
+                          "href": "#dokumentacja-wykonawcza"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              {
+                "content": [
+                  {
+                    "text": "Jak się przygotować",
+                    "href": "#przygotowanie"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Czego projekt nie obejmuje",
+                    "href": "#ograniczenia"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Dalej znajdziesz etapy współpracy, odpowiedzi na częste pytania i dane kontaktowe."
+              }
+            ]
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 1,
+        "inner": "narrow",
+        "surface": "muted"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 2,
+      "data": {
+        "layout": "column",
+        "content": [
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "dla-kogo",
+            "text": "Dla kogo jest ta usługa"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Projektujemy biura dla zespołów, które chcą, żeby przestrzeń wspierała ich codzienną pracę, a nie tylko dobrze wyglądała na zdjęciach. Najczęściej zgłaszają się do nas:"
+              }
+            ]
+          },
+          {
+            "type": "list",
+            "style": "bullet",
+            "items": [
+              {
+                "content": [
+                  {
+                    "text": "firmy, które przeprowadzają się do nowego biura i chcą zaplanować je od początku,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "zespoły, którym obecne biuro przestało pasować, bo zmieniła się liczba osób albo sposób pracy,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "właściciele, którzy chcą uporządkować przestrzeń bez generalnego remontu,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "zarządcy budynków przygotowujący powierzchnię dla najemcy."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Nie projektujemy mieszkań ani lokali gastronomicznych – te wymagają innego doświadczenia i innych przepisów. Chętnie wskażemy, kogo warto zapytać."
+              }
+            ]
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 1,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 2,
+      "data": {
+        "layout": "split_intro",
+        "title": "Co obejmuje projekt",
+        "lead": "Projekt powstaje w czterech częściach. Każdą możesz zamówić osobno, ale najlepiej działają razem.",
+        "content": [
+          {
+            "type": "heading",
+            "level": 3,
+            "anchor": "analiza-sposobu-pracy",
+            "text": "Analiza sposobu pracy"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Rozmawiamy z zespołem i sprawdzamy, jak wykorzystywane jest obecne biuro: gdzie ludzie pracują w skupieniu, gdzie się spotykają i czego im brakuje. Tu zapadają założenia dla całego projektu."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 3,
+            "anchor": "uklad-funkcjonalny",
+            "text": "Układ funkcjonalny"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Rozmieszczamy strefy pracy, spotkań i odpoczynku, ciągi komunikacyjne oraz miejsca do przechowywania. Otrzymujesz rzut w kilku wariantach i omawiamy je razem, zanim wybierzesz kierunek."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 3,
+            "anchor": "dobor-wyposazenia",
+            "text": "Dobór wyposażenia i materiałów"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Proponujemy meble, oświetlenie, wykończenia i rozwiązania akustyczne. Wskazujemy też, co można zachować z obecnego wyposażenia, żeby nie kupować rzeczy, które już masz."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 3,
+            "anchor": "dokumentacja-wykonawcza",
+            "text": "Dokumentacja wykonawcza"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Przygotowujemy rysunki i zestawienia, na podstawie których wykonawca może wycenić i przeprowadzić prace. Dokumentacja jest czytelna także dla osób, które nie brały udziału w projekcie."
+              }
+            ]
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 1,
+        "inner": "wide"
+      }
+    },
+    {
+      "block_type": "core.feature_list",
+      "schema_version": 4,
+      "data": {
+        "layout": "steps_notes",
+        "title": "Etapy współpracy",
+        "lead": "Od pierwszej rozmowy do przekazania dokumentacji. Przy każdym etapie opisujemy, co się dzieje i czego potrzebujemy od Ciebie.",
+        "items": [
+          {
+            "title": "Konsultacja",
+            "text": "Poznajemy potrzeby, budżet i termin. Oglądamy rzut albo samą przestrzeń."
+          },
+          {
+            "title": "Inwentaryzacja",
+            "text": "Sprawdzamy wymiary, instalacje i wyposażenie, które ma zostać."
+          },
+          {
+            "title": "Koncepcja",
+            "text": "Przedstawiamy układ funkcjonalny w wariantach i razem wybieramy kierunek."
+          },
+          {
+            "title": "Projekt szczegółowy",
+            "text": "Dobieramy wyposażenie, materiały i oświetlenie; omawiamy je na próbkach."
+          },
+          {
+            "title": "Dokumentacja",
+            "text": "Przekazujemy rysunki i zestawienia potrzebne wykonawcy."
+          },
+          {
+            "title": "Wsparcie przy realizacji",
+            "text": "Na życzenie odpowiadamy na pytania wykonawcy i sprawdzamy zgodność prac z projektem."
+          }
+        ],
+        "note": {
+          "title": "Czas trwania",
+          "text": "Długość etapów zależy od powierzchni i od tego, jak szybko zapadają decyzje po Twojej stronie. Harmonogram ustalamy po konsultacji i zapisujemy w propozycji."
+        }
+      },
+      "presentation": {
+        "schemaVersion": 1,
+        "inner": "wide",
+        "surface": "muted"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 2,
+      "data": {
+        "layout": "column",
+        "content": [
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "przygotowanie",
+            "text": "Jak się przygotować"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Pierwsza konsultacja jest najbardziej owocna, gdy mamy od czego zacząć. Nie musisz niczego porządkować – wystarczy zebrać to, co już jest pod ręką:"
+              }
+            ]
+          },
+          {
+            "type": "list",
+            "style": "ordered",
+            "items": [
+              {
+                "content": [
+                  {
+                    "text": "rzut lub plan biura – nawet odręczny szkic z wymiarami,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "liczbę osób pracujących w biurze dziś i przewidywaną w najbliższych latach,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "krótki opis tego, co w obecnym biurze przeszkadza, a co działa,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "informację o budżecie i terminie, w którym biuro ma być gotowe,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "zdjęcia obecnej przestrzeni i wyposażenia, które chcesz zachować."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "note",
+            "tone": "tip",
+            "title": "Wskazówka",
+            "content": [
+              {
+                "text": "Zapytaj zespół przed spotkaniem. Kilka zdań od osób, które pracują w biurze na co dzień, często mówi więcej niż najdokładniejszy rzut."
+              }
+            ]
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 1,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 2,
+      "data": {
+        "layout": "facts_panel",
+        "content": [
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "ograniczenia",
+            "text": "Czego projekt nie obejmuje"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Projektujemy wnętrza, ale nie prowadzimy prac budowlanych i nie sprzedajemy mebli. Dzięki temu nasze propozycje nie zależą od tego, co akurat jest w magazynie."
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Zmiany wymagające pozwoleń, projektów instalacji albo uzgodnień z zarządcą budynku wskazujemy w dokumentacji. Ich przygotowanie należy jednak do projektantów z odpowiednimi uprawnieniami – pomagamy skoordynować tę współpracę."
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Nie oceniamy stanu technicznego budynku. Jeśli podczas inwentaryzacji zauważymy coś niepokojącego, powiemy o tym i doradzimy, do kogo się zwrócić."
+              }
+            ]
+          }
+        ],
+        "aside": {
+          "title": "W skrócie",
+          "content": [
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "Poza zakresem:",
+                      "bold": true
+                    },
+                    {
+                      "text": " prace budowlane i sprzedaż mebli."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Projekty instalacji:",
+                      "bold": true
+                    },
+                    {
+                      "text": " przygotowują projektanci branżowi."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Uzgodnienia z zarządcą:",
+                      "bold": true
+                    },
+                    {
+                      "text": " wskazujemy, co wymaga zgody."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Wsparcie przy realizacji:",
+                      "bold": true
+                    },
+                    {
+                      "text": " na życzenie, ustalane osobno."
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "presentation": {
+        "schemaVersion": 1,
+        "inner": "wide"
+      }
+    },
+    {
+      "block_type": "core.faq",
+      "schema_version": 3,
+      "data": {
+        "layout": "accordion",
+        "title": "Częste pytania",
+        "items": [
+          {
+            "question": "Czy muszę mieć gotowy rzut biura?",
+            "answer": "Nie. Jeśli go nie masz, wykonamy inwentaryzację na miejscu w ramach projektu."
+          },
+          {
+            "question": "Czy mogę zamówić tylko część projektu?",
+            "answer": "Tak. Każdą z czterech części można zamówić osobno. Powiemy, jakich informacji z pozostałych części będziemy potrzebować."
+          },
+          {
+            "question": "Czy współpracujecie z naszym wykonawcą?",
+            "answer": "Tak. Dokumentację przygotowujemy tak, żeby mógł z niej korzystać dowolny wykonawca."
+          },
+          {
+            "question": "Jak wygląda wycena?",
+            "answer": "Wycenę przygotowujemy po konsultacji, gdy znamy powierzchnię i zakres. Otrzymujesz ją na piśmie razem z propozycją."
+          },
+          {
+            "question": "Czy projekt uwzględnia pracę hybrydową?",
+            "answer": "Tak, jeśli tak pracuje Twój zespół. Liczbę stanowisk i sal planujemy wtedy na podstawie tego, jak ludzie faktycznie korzystają z biura."
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 1,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.contact",
+      "schema_version": 2,
+      "data": {
+        "layout": "split",
+        "title": "Porozmawiajmy o Twoim biurze",
+        "text": "Napisz, jaką przestrzeń chcesz zaprojektować i na kiedy. Odpowiemy z propozycją terminu konsultacji.",
+        "email": "kontakt@example.com"
+      },
+      "presentation": {
+        "schemaVersion": 1,
+        "inner": "wide",
+        "surface": "inverse"
+      }
+    }
+  ],
+  "localizedBlocks": {
+    "en": [
+      {
+        "block_type": "core.hero",
+        "schema_version": 5,
+        "data": {
+          "title": "An office that is good to work in",
+          "text": "A guide to our office interior design service: who it is for, what it covers, how it runs and how to prepare for it.",
+          "action": {
+            "label": "Book a consultation",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "split"
+        },
+        "presentation": {
+          "schemaVersion": 1,
+          "inner": "wide"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 2,
+        "data": {
+          "layout": "column",
+          "title": "In this guide",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "This page is long because it answers the questions that usually come up before a project starts. Jump straight to the part you need:"
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "style": "ordered",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "Who this service is for",
+                      "href": "#who-it-is-for"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "What the design covers:"
+                    }
+                  ],
+                  "children": {
+                    "style": "bullet",
+                    "items": [
+                      {
+                        "content": [
+                          {
+                            "text": "how your team works",
+                            "href": "#how-your-team-works"
+                          }
+                        ]
+                      },
+                      {
+                        "content": [
+                          {
+                            "text": "the functional layout",
+                            "href": "#functional-layout"
+                          }
+                        ]
+                      },
+                      {
+                        "content": [
+                          {
+                            "text": "furniture and materials",
+                            "href": "#furniture-and-materials"
+                          }
+                        ]
+                      },
+                      {
+                        "content": [
+                          {
+                            "text": "construction drawings",
+                            "href": "#construction-drawings"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "content": [
+                    {
+                      "text": "How to prepare",
+                      "href": "#how-to-prepare"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "What the design does not cover",
+                      "href": "#limitations"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Further down you will find the stages of the project, answers to common questions and our contact details."
+                }
+              ]
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 1,
+          "inner": "narrow",
+          "surface": "muted"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 2,
+        "data": {
+          "layout": "column",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "who-it-is-for",
+              "text": "Who this service is for"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We design offices for teams who want the space to support their everyday work, not just look good in photos. The people who come to us are usually:"
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "companies moving into a new office and wanting to plan it from scratch,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "teams that have outgrown their current office, because headcount or ways of working have changed,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "owners who want to get their space in order without a full renovation,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "building managers preparing a floor for a new tenant."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We do not design homes or restaurants – they call for different experience and different regulations. We are happy to point you to someone who does."
+                }
+              ]
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 1,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 2,
+        "data": {
+          "layout": "split_intro",
+          "title": "What the design covers",
+          "lead": "The design comes in four parts. You can order each one on its own, but they work best together.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 3,
+              "anchor": "how-your-team-works",
+              "text": "How your team works"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We talk to your team and look at how the current office is used: where people do focused work, where they meet and what they are missing. This is where the brief for the whole project takes shape."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 3,
+              "anchor": "functional-layout",
+              "text": "The functional layout"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We place the areas for work, meetings and breaks, the circulation routes and the storage. You receive a floor plan in several versions, and we go through them together before you choose a direction."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 3,
+              "anchor": "furniture-and-materials",
+              "text": "Furniture and materials"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We propose furniture, lighting, finishes and acoustic solutions, and point out what can be kept from your current furniture so you do not buy things you already own."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 3,
+              "anchor": "construction-drawings",
+              "text": "Construction drawings"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We prepare the drawings and schedules a contractor needs to price and carry out the work. They are clear even to people who were not involved in the design."
+                }
+              ]
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 1,
+          "inner": "wide"
+        }
+      },
+      {
+        "block_type": "core.feature_list",
+        "schema_version": 4,
+        "data": {
+          "layout": "steps_notes",
+          "title": "Project stages",
+          "lead": "From the first conversation to handing over the drawings. For each stage we explain what happens and what we need from you.",
+          "items": [
+            {
+              "title": "Consultation",
+              "text": "We learn about your needs, budget and timing, and look at the floor plan or the space itself."
+            },
+            {
+              "title": "Survey",
+              "text": "We check dimensions, building services and the furniture that is staying."
+            },
+            {
+              "title": "Concept",
+              "text": "We present the functional layout in several versions and choose a direction together."
+            },
+            {
+              "title": "Detailed design",
+              "text": "We select furniture, materials and lighting and review them with samples."
+            },
+            {
+              "title": "Drawings",
+              "text": "We hand over the drawings and schedules the contractor needs."
+            },
+            {
+              "title": "Support during the works",
+              "text": "If you wish, we answer the contractor's questions and check the work against the design."
+            }
+          ],
+          "note": {
+            "title": "How long it takes",
+            "text": "The length of each stage depends on the floor area and on how quickly decisions are made on your side. We set the schedule after the consultation and put it in the proposal."
+          }
+        },
+        "presentation": {
+          "schemaVersion": 1,
+          "inner": "wide",
+          "surface": "muted"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 2,
+        "data": {
+          "layout": "column",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "how-to-prepare",
+              "text": "How to prepare"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "The first consultation is most useful when we have something to start from. You do not need to tidy anything up – just gather what you already have to hand:"
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "style": "ordered",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "a floor plan of the office – even a hand sketch with measurements,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "how many people work there today and how many you expect in the next few years,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "a short note on what gets in the way in the current office and what works,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "your budget and the date by which the office should be ready,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "photos of the current space and of any furniture you want to keep."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "note",
+              "tone": "tip",
+              "title": "Tip",
+              "content": [
+                {
+                  "text": "Ask your team before we meet. A few sentences from the people who use the office every day often say more than the most accurate floor plan."
+                }
+              ]
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 1,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 2,
+        "data": {
+          "layout": "facts_panel",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "limitations",
+              "text": "What the design does not cover"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We design interiors, but we do not carry out building work or sell furniture. That keeps our proposals independent of whatever happens to be in stock."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Changes that need permits, building services design or the landlord's approval are marked in the drawings. Preparing them, however, is a job for designers with the relevant qualifications – we help coordinate that work."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We do not assess the structural condition of the building. If we notice anything worrying during the survey, we will tell you and suggest who to contact."
+                }
+              ]
+            }
+          ],
+          "aside": {
+            "title": "At a glance",
+            "content": [
+              {
+                "type": "list",
+                "style": "bullet",
+                "items": [
+                  {
+                    "content": [
+                      {
+                        "text": "Out of scope:",
+                        "bold": true
+                      },
+                      {
+                        "text": " building work and furniture sales."
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "Building services:",
+                        "bold": true
+                      },
+                      {
+                        "text": " designed by specialist engineers."
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "Landlord approval:",
+                        "bold": true
+                      },
+                      {
+                        "text": " we flag what needs consent."
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "Support during the works:",
+                        "bold": true
+                      },
+                      {
+                        "text": " on request, agreed separately."
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "presentation": {
+          "schemaVersion": 1,
+          "inner": "wide"
+        }
+      },
+      {
+        "block_type": "core.faq",
+        "schema_version": 3,
+        "data": {
+          "layout": "accordion",
+          "title": "Common questions",
+          "items": [
+            {
+              "question": "Do I need a floor plan?",
+              "answer": "No. If you do not have one, we survey the space as part of the project."
+            },
+            {
+              "question": "Can I order just part of the design?",
+              "answer": "Yes. Each of the four parts can be ordered on its own. We will tell you what information we need from the others."
+            },
+            {
+              "question": "Will you work with our contractor?",
+              "answer": "Yes. The drawings are prepared so that any contractor can work from them."
+            },
+            {
+              "question": "How is the fee set?",
+              "answer": "We quote after the consultation, once we know the floor area and scope. You receive the quote in writing together with the proposal."
+            },
+            {
+              "question": "Does the design allow for hybrid working?",
+              "answer": "Yes, if that is how your team works. We then plan the number of desks and rooms around how people actually use the office."
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 1,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.contact",
+        "schema_version": 2,
+        "data": {
+          "layout": "split",
+          "title": "Let us talk about your office",
+          "text": "Tell us what space you want to design and by when. We will reply with a proposed date for the consultation.",
+          "email": "hello@example.com"
+        },
+        "presentation": {
+          "schemaVersion": 1,
+          "inner": "wide",
+          "surface": "inverse"
+        }
+      }
+    ]
+  },
+  "media": [
+    {
+      "id": "business",
+      "source": "assets/business-studio.png",
+      "filename": "business-studio.png",
+      "contentType": "image/png",
+      "sha256": "d913927c10daac2e3ceb7a2fcb28c00634dfe01961825509da104640e7f0fe43"
+    }
+  ],
+  "mediaBindings": [
+    {
+      "blockPosition": 0,
+      "mediaId": "business",
+      "alt": {
+        "pl": "Jasne biuro z dębowym stołem, laptopem i dwoma fotelami przy oknie",
+        "en": "A bright office with an oak table, a laptop and two armchairs by the window"
+      }
+    }
+  ]
+}

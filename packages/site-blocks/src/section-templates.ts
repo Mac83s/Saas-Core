@@ -1,4 +1,6 @@
-import catalog from "@saas-core/contracts/site-blocks/section-templates.v4.json";
+import catalog from "@saas-core/contracts/site-blocks/section-templates.v5.json";
+
+import { setAtPath } from "./rich-text";
 
 import type { BlockRegistry, JsonObject, SiteBlock } from "./types";
 
@@ -26,7 +28,18 @@ export interface SectionTemplate {
     requiredModules: readonly string[];
     media: string;
   };
-  sampleMedia?: { id: string; alt: Record<"pl" | "en", string> };
+  sampleMedia?: {
+    id: string;
+    alt: Record<"pl" | "en", string>;
+    /** v5: where `{asset_id, alt}` goes in the seed. Absent: `["image"]`. */
+    path?: readonly (string | number)[];
+  };
+  /** v5 ranking metadata. Preferences for the library, never restrictions. */
+  contentProfiles?: readonly ("S" | "M" | "L" | "XL")[];
+  readingPattern?: "linear" | "scan" | "reference" | "visual";
+  styleAffinities?: readonly string[];
+  supportedWidths?: readonly ("narrow" | "standard" | "wide" | "full")[];
+  targetSurface?: readonly ("page" | "entry")[];
   seed: Record<"pl" | "en", JsonObject>;
 }
 const templates = catalog.templates as unknown as readonly SectionTemplate[];
@@ -53,6 +66,24 @@ export function sectionTemplateBlock(
   };
   registry.validate(block);
   return block;
+}
+
+/** The section's sample photo in a copy of the block, at the template's
+ *  `sampleMedia.path`. A template without a sample photo returns the block. */
+export function applySampleMedia(
+  block: SiteBlock,
+  template: SectionTemplate,
+  assetId: string,
+  locale: CatalogLocale,
+): SiteBlock {
+  const sample = template.sampleMedia;
+  if (sample === undefined) return block;
+  const data = structuredClone(block.data);
+  setAtPath(data, sample.path ?? ["image"], {
+    asset_id: assetId,
+    alt: sample.alt[locale],
+  });
+  return { ...block, data };
 }
 
 /** Industry is a preference, never an entitlement. Universal choices remain. */

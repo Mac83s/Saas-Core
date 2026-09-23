@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "recipe": "page-template.v3.schema.json",
+  "recipe": "page-template.v4.schema.json",
   "templates": [
     {
       "id": "core.profile",
@@ -60,6 +60,27 @@
       "latestVersion": 1,
       "versions": {
         "1": "core.business_studio.v1.json"
+      }
+    },
+    {
+      "id": "core.product_first_impression",
+      "latestVersion": 1,
+      "versions": {
+        "1": "core.product_first_impression.v1.json"
+      }
+    },
+    {
+      "id": "core.service_guide",
+      "latestVersion": 1,
+      "versions": {
+        "1": "core.service_guide.v1.json"
+      }
+    },
+    {
+      "id": "core.expert_knowledge",
+      "latestVersion": 1,
+      "versions": {
+        "1": "core.expert_knowledge.v1.json"
       }
     }
   ],

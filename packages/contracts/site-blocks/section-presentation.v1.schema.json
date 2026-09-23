@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/site-blocks/section-presentation.v1.schema.json",
+  "title": "Shared section presentation v1",
+  "description": "Optional block envelope next to decoration. Sets how wide the section's content runs inside the page frame and which surface colours it uses. Closed enums only; the colours come from the site palette. Omit or clear the property to keep the legacy rendering.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion"],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "inner": {
+      "type": "string",
+      "enum": ["narrow", "standard", "wide", "full"]
+    },
+    "surface": {
+      "type": "string",
+      "enum": ["default", "muted", "accent", "inverse"]
+    }
+  }
+}

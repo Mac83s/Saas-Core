@@ -5,11 +5,57 @@ import { plainBlockText } from "./block-text";
 import type {
   BlockEditor,
   BlockImageRenderer,
+  BlockTextRenderer,
   FaqV1Data,
-  FeatureListV1Data,
+  FeatureListV4Data,
   HeroV3Data,
   JsonObject,
 } from "./types";
+
+/** feature_list v4 intro: the heading alone keeps its legacy markup; with a
+ *  lead both move into one intro, which takes the heading's grid cell. */
+export function featureListIntro(
+  data: FeatureListV4Data,
+  text: BlockTextRenderer,
+  editor?: BlockEditor,
+  withLead = true,
+): ReactElement | null {
+  const heading = data.title
+    ? h(
+        "h2",
+        editor ? { role: "presentation" } : null,
+        text(["title"], data.title),
+      )
+    : null;
+  if (!withLead || !data.lead) return heading;
+  return h(
+    "div",
+    { className: "site-section__intro" },
+    heading,
+    h("p", { className: "site-section__lead" }, text(["lead"], data.lead)),
+  );
+}
+
+/** feature_list v4 notes panel. Every layout renders it; none hides it. */
+export function featureListNote(
+  data: FeatureListV4Data,
+  text: BlockTextRenderer,
+  editor?: BlockEditor,
+): ReactElement | null {
+  if (!data.note) return null;
+  return h(
+    "aside",
+    { className: "site-section__note" },
+    data.note.title
+      ? h(
+          "h3",
+          editor ? { role: "presentation" } : null,
+          text(["note", "title"], data.note.title),
+        )
+      : null,
+    h("p", null, text(["note", "text"], data.note.text)),
+  );
+}
 
 /** Layout names are validated against the canonical schema before rendering. */
 export function renderSectionLayout(
@@ -22,7 +68,8 @@ export function renderSectionLayout(
   const layout = data.layout;
   if (
     typeof layout !== "string" ||
-    (layout === "classic" && !(type === "core.feature_list" && data.image))
+    (layout === "classic" &&
+      !(type === "core.feature_list" && (data.image || data.lead || data.note)))
   )
     return null;
   const props = {
@@ -131,7 +178,7 @@ export function renderSectionLayout(
     );
   }
   if (type === "core.feature_list") {
-    const offer = data as FeatureListV1Data;
+    const offer = data as FeatureListV4Data;
     const photo = offer.image
       ? h(
           "div",
@@ -146,18 +193,13 @@ export function renderSectionLayout(
               }),
         )
       : null;
-    const heading = offer.title
-      ? h(
-          "h2",
-          editor ? { role: "presentation" } : null,
-          text(["title"], offer.title),
-        )
-      : null;
+    // Built per layout: the editor adapter records every text it renders.
+    const note = featureListNote(offer, text, editor);
     if (layout === "specification" || layout === "coverage") {
       return h(
         "section",
         props,
-        heading,
+        featureListIntro(offer, text, editor),
         photo,
         h(
           "dl",
@@ -173,6 +215,7 @@ export function renderSectionLayout(
             ),
           ),
         ),
+        note,
       );
     }
     const ordered = [
@@ -181,41 +224,70 @@ export function renderSectionLayout(
       "service_flow",
       "numbered",
       "timeline",
+      "steps_notes",
     ].includes(layout);
-    return h(
-      "section",
-      props,
-      heading,
-      photo,
-      h(
-        ordered ? "ol" : "ul",
-        null,
-        offer.items.map((item, i) =>
+    const list = h(
+      ordered ? "ol" : "ul",
+      null,
+      offer.items.map((item, i) =>
+        h(
+          "li",
+          { key: i },
+          ordered
+            ? h(
+                "span",
+                { className: "site-section__step", "aria-hidden": true },
+                String(i + 1).padStart(2, "0"),
+              )
+            : null,
           h(
-            "li",
-            { key: i },
-            ordered
-              ? h(
-                  "span",
-                  { className: "site-section__step", "aria-hidden": true },
-                  String(i + 1).padStart(2, "0"),
-                )
-              : null,
+            "div",
+            null,
             h(
-              "div",
-              null,
-              h(
-                "h3",
-                editor ? { role: "presentation" } : null,
-                text(["items", String(i), "title"], item.title),
-              ),
-              item.text
-                ? h("p", null, text(["items", String(i), "text"], item.text))
-                : null,
+              "h3",
+              editor ? { role: "presentation" } : null,
+              text(["items", String(i), "title"], item.title),
             ),
+            item.text
+              ? h("p", null, text(["items", String(i), "text"], item.text))
+              : null,
           ),
         ),
       ),
+    );
+    if (layout === "benefits_commentary") {
+      // The lead leaves the intro and joins the note: one prominent
+      // commentary beside the benefits, read after them.
+      const heading = featureListIntro(offer, text, editor, false);
+      return h(
+        "section",
+        props,
+        heading,
+        photo,
+        list,
+        offer.lead || note
+          ? h(
+              "div",
+              { className: "site-section__commentary" },
+              offer.lead
+                ? h(
+                    "p",
+                    { className: "site-section__lead" },
+                    text(["lead"], offer.lead),
+                  )
+                : null,
+              note,
+            )
+          : null,
+      );
+    }
+    return h(
+      "section",
+      props,
+      featureListIntro(offer, text, editor),
+      photo,
+      list,
+      note,
     );
   }
   return null;

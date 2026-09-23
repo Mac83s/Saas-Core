@@ -40,6 +40,8 @@ test("site block manifest references valid canonical schemas", async () => {
       "core.entry_list",
       "core.contact_form",
       "core.separator",
+      "core.quote",
+      "core.product",
     ],
   );
 
@@ -61,6 +63,14 @@ test("site block manifest references valid canonical schemas", async () => {
 test("backward compatibility fixture matches hero v1", async () => {
   const fixture = await readJson("fixtures/core.hero.v1.json");
   const schema = await readJson("core.hero.v1.schema.json");
+  const validate = new Ajv2020({ strict: true }).compile(schema);
+
+  assert.equal(validate(fixture.data), true, JSON.stringify(validate.errors));
+});
+
+test("backward compatibility fixture matches rich text v1", async () => {
+  const fixture = await readJson("fixtures/core.rich_text.v1.json");
+  const schema = await readJson("core.rich_text.v1.schema.json");
   const validate = new Ajv2020({ strict: true }).compile(schema);
 
   assert.equal(validate(fixture.data), true, JSON.stringify(validate.errors));

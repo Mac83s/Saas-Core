@@ -1014,6 +1014,92 @@
       "short": "Short accent",
       "muted": "Muted",
       "accent": "Site accent"
+    },
+    "richText": {
+      "syntaxHint": "Bold: **text**, italic: *text*, link: [label](address). A backslash \\ before * [ ] ( ) makes them plain characters.",
+      "insertGroup": "Insert after the current element",
+      "insert": {
+        "paragraph": "Paragraph",
+        "heading2": "Heading H2",
+        "heading3": "Heading H3",
+        "heading4": "Heading H4",
+        "bulletList": "Bulleted list",
+        "orderedList": "Numbered list",
+        "quote": "Quote",
+        "note": "Note",
+        "figure": "Illustration"
+      },
+      "outline": "Headings outline",
+      "untitledHeading": "(heading without text)",
+      "empty": "The text is empty. Insert the first element.",
+      "removed": "Element removed.",
+      "nodeLegend": "{number}. {type}",
+      "types": {
+        "paragraph": "Paragraph",
+        "heading": "Heading",
+        "list": "List",
+        "quote": "Quote",
+        "note": "Note",
+        "figure": "Illustration"
+      },
+      "moveUp": "Move element up",
+      "moveDown": "Move element down",
+      "remove": "Remove element",
+      "paragraphText": "Paragraph text",
+      "headingLevel": "Heading level",
+      "levels": {
+        "h2": "H2 – chapter",
+        "h3": "H3 – section",
+        "h4": "H4 – minor division"
+      },
+      "headingText": "Heading text",
+      "anchor": "Anchor",
+      "anchorHint": "Link to this place on the page: {anchor}. Editing the heading text does not change it.",
+      "anchorInvalid": "An anchor starts with a letter and contains only lowercase letters, digits and hyphens (up to 64 characters).",
+      "anchorTaken": "This anchor is already used on this page.",
+      "listStyle": "List type",
+      "styles": {
+        "bullet": "Bulleted",
+        "ordered": "Numbered"
+      },
+      "listItems": "List items",
+      "listHint": "One item per line. A line indented by two spaces or a tab is a sub-item; start it with “1.” to number the sub-items.",
+      "quoteText": "Quote text",
+      "quoteAuthor": "Author",
+      "quoteSource": "Source",
+      "quoteHref": "Source address",
+      "noteTone": "Note type",
+      "tones": {
+        "info": "Information",
+        "tip": "Tip",
+        "warning": "Warning"
+      },
+      "noteTitle": "Note title",
+      "noteText": "Note text",
+      "figureImage": "Image",
+      "noImage": "No image",
+      "currentImage": "Current image",
+      "uploadImage": "Upload and crop an image",
+      "figureAlt": "Alternative text",
+      "figureAltHint": "Describes the image for people who cannot see it. Required when an image is chosen.",
+      "figureWidth": "Illustration width",
+      "widths": {
+        "column": "Text width",
+        "wide": "Wide"
+      },
+      "figureCaption": "Caption",
+      "formatting": "Formatting",
+      "bold": "Bold (Ctrl+B)",
+      "italic": "Italic (Ctrl+I)",
+      "link": "Link",
+      "linkUrl": "Link address",
+      "linkHint": "/page, https://…, mailto:, tel: or #anchor.",
+      "linkInvalid": "This address is not allowed. Use a /page, https://, mailto:, tel: or #anchor.",
+      "linkApply": "Insert link",
+      "linkCancel": "Cancel",
+      "split": "Split into paragraphs",
+      "pasted": "Pasted {count, plural, one {# element} other {# elements}}.",
+      "imagesDropped": "Images from the clipboard were not imported — add them as an illustration."
     }
   },
   "BillingSupport": {

@@ -53,6 +53,7 @@ from .models import (
     canonical_json_hash,
 )
 from .permissions import SITE_CONTENT_EDIT, SITES_ENABLED
+from .rich_content import assert_unique_anchors
 
 
 class ChangeSetMalformed(APIException):
@@ -380,6 +381,8 @@ def _plan_change_set(document: dict[str, Any], context: TenantContext) -> Change
         removals=removals,
         order=order,
     )
+    # Refused at preview already, not only when the draft is saved.
+    assert_unique_anchors(resulting)
     return ChangeSetPlan(
         target_kind=target["kind"],
         resource_id=resource,
@@ -496,10 +499,11 @@ def _resulting_blocks(
         if index not in removals:
             if index in replacements:
                 replacement = _stored(replacements[index])
-                # v1 connectors cannot describe decoration. Rewriting content
-                # must preserve the appearance a person already chose.
-                if "decoration" not in replacements[index] and "decoration" in blocks[index]:
-                    replacement["decoration"] = deepcopy(blocks[index]["decoration"])
+                # v1 connectors cannot describe decoration or presentation.
+                # Rewriting content must preserve the appearance a person chose.
+                for envelope in ("decoration", "presentation"):
+                    if envelope not in replacements[index] and envelope in blocks[index]:
+                        replacement[envelope] = deepcopy(blocks[index][envelope])
                 kept.append(replacement)
             else:
                 kept.append(blocks[index])
@@ -515,6 +519,7 @@ def _stored(block: dict[str, Any]) -> dict[str, Any]:
         "schema_version": block["schema_version"],
         "data": block["data"],
         **({"decoration": block["decoration"]} if "decoration" in block else {}),
+        **({"presentation": block["presentation"]} if "presentation" in block else {}),
     })
 
 

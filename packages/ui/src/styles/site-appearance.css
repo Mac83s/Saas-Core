@@ -3,13 +3,13 @@
   width: 100%;
 }
 .site-theme.site-width--narrow {
-  max-width: 56rem;
+  --site-content-width: 56rem;
 }
 .site-theme.site-width--standard {
-  max-width: 72rem;
+  --site-content-width: 72rem;
 }
 .site-theme.site-width--wide {
-  max-width: 96rem;
+  --site-content-width: 96rem;
 }
 .site-theme.site-font--system {
   font-family: system-ui, sans-serif;

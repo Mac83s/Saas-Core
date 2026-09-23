@@ -70,4 +70,10 @@ def check_content_contracts(**_kwargs: object) -> list[Error]:
         Path(settings.SITE_BLOCK_CONTRACTS_PATH) / "section-decoration.v1.schema.json"
     ).is_file():
         errors.append(Error("Brak kontraktu dekoracji sekcji.", id="sites.E006"))
+    for filename, message, code in (
+        ("section-presentation.v1.schema.json", "Brak kontraktu wyglądu sekcji.", "sites.E007"),
+        ("page-presentation.v1.schema.json", "Brak kontraktu wyglądu strony.", "sites.E008"),
+    ):
+        if not (Path(settings.SITE_BLOCK_CONTRACTS_PATH) / filename).is_file():
+            errors.append(Error(message, id=code))
     return errors

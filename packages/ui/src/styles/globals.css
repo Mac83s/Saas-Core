@@ -9,6 +9,8 @@
 @import "./site-contact-form.css";
 @import "./site-separator.css";
 @import "./site-section-decoration.css";
+@import "./site-page-presentation.css";
+@import "./site-rich-content.css";
 @source "../../../apps/**/*.{ts,tsx}";
 @source "../**/*.{ts,tsx}";
 
@@ -102,9 +104,11 @@
 
 .site-theme {
   --site-accent: oklch(0.45 0.12 250);
+  /* The site width; sections centre their content at it (site-typography). */
+  --site-content-width: 72rem;
   margin-inline: auto;
   min-height: 100vh;
-  max-width: 72rem;
+  max-width: var(--site-content-width);
   color: var(--foreground);
   background: var(--background);
   font-family: var(--font-sans);

@@ -1,0 +1,149 @@
+/* Page and section presentation: closed enums from the renderer, never tenant
+   CSS. Widths are measured in `cqw` of .site-theme, never `vw`, so the phone
+   canvas on a wide monitor still lays out like a phone. */
+
+/* A full-width page lifts the site's cap from .site-theme. Sections then
+   centre their content at the site width through their padding
+   (site-typography.css); header and footer keep a full-width background with
+   their links at the site width. */
+.site-theme.site-page--full {
+  max-width: none;
+}
+.site-theme.site-page--full :is(.site-header, .site-footer),
+.site-theme.site-page--full > .site-nav {
+  padding-inline: max(
+    1.5rem,
+    calc((100cqw - var(--site-content-width, 72rem)) / 2)
+  );
+}
+
+/* Section `inner`: the width its content runs at inside the page. On a
+   contained page `wide` and `full` cannot exceed the page, so they match
+   `standard`; `narrow` is a reading column on any page. */
+.site-presentation--inner-narrow {
+  --site-inner-width: 44rem;
+}
+.site-presentation--inner-standard {
+  --site-inner-width: var(--site-content-width, 72rem);
+}
+.site-presentation--inner-wide {
+  --site-inner-width: min(100cqw, var(--site-content-width, 72rem) + 20rem);
+}
+.site-presentation--inner-full {
+  --site-inner-width: 100cqw;
+}
+
+/* Section `surface`: a colour scheme from the site palette. The element swaps
+   the theme tokens, so everything drawn with them follows. Checked at WCAG AA
+   on all three palettes: foreground on muted 14.6:1, accent on muted 5.4:1
+   (emerald, the lowest), white on accent 6.0:1 (emerald), white on the inverse
+   surface 16:1. `default` changes nothing. */
+.site-theme .site-presentation--surface-muted {
+  --background: var(--muted);
+  background: var(--background);
+}
+.site-theme .site-presentation--surface-accent {
+  --background: var(--site-accent);
+  --foreground: #fff;
+  --muted-foreground: #fff;
+  --site-decoration-ink: #fff;
+  background: var(--background);
+  color: var(--foreground);
+}
+.site-theme .site-presentation--surface-inverse {
+  /* The theme's foreground (site-studio.css); a token cannot read its own
+     inherited value on the element that redefines it. */
+  --background: #17232b;
+  --foreground: #fff;
+  --muted-foreground: #d5dde1;
+  --site-decoration-ink: #fff;
+  background: var(--background);
+  color: var(--foreground);
+}
+/* On a coloured surface the accent turns white below the surface element
+   (the surface itself still reads the palette's accent). Actions invert: a
+   white button with the surface's colour as text, same contrast as before. */
+.site-theme
+  :is(.site-presentation--surface-accent, .site-presentation--surface-inverse)
+  > * {
+  --site-accent: var(--foreground);
+}
+.site-theme
+  :is(.site-presentation--surface-accent, .site-presentation--surface-inverse)
+  .site-section__action {
+  color: var(--background);
+}
+.site-buttons--outline
+  :is(.site-presentation--surface-accent, .site-presentation--surface-inverse)
+  .site-section__action {
+  color: var(--site-accent);
+}
+
+/* Page fonts. Same specificity as .site-font--* and later in the cascade, so
+   the page's body font wins over the site's. Headings take their own. */
+.site-theme.site-body-font--system {
+  font-family: system-ui, sans-serif;
+}
+.site-theme.site-body-font--arial {
+  font-family: Arial, Helvetica, sans-serif;
+}
+.site-theme.site-body-font--georgia {
+  font-family: Georgia, "Times New Roman", serif;
+}
+.site-theme.site-body-font--trebuchet {
+  font-family: "Trebuchet MS", Arial, sans-serif;
+}
+.site-theme.site-body-font--verdana {
+  font-family: Verdana, Geneva, sans-serif;
+}
+.site-theme.site-body-font--inter {
+  font-family: "Inter", system-ui, sans-serif;
+}
+.site-theme.site-body-font--manrope {
+  font-family: "Manrope", system-ui, sans-serif;
+}
+.site-theme.site-body-font--dm-sans {
+  font-family: "DM Sans", system-ui, sans-serif;
+}
+.site-theme.site-body-font--nunito {
+  font-family: "Nunito", system-ui, sans-serif;
+}
+.site-theme.site-body-font--lora {
+  font-family: "Lora", Georgia, serif;
+}
+.site-theme.site-body-font--playfair-display {
+  font-family: "Playfair Display", Georgia, serif;
+}
+.site-theme.site-heading-font--system :is(h1, h2, h3, h4) {
+  font-family: system-ui, sans-serif;
+}
+.site-theme.site-heading-font--arial :is(h1, h2, h3, h4) {
+  font-family: Arial, Helvetica, sans-serif;
+}
+.site-theme.site-heading-font--georgia :is(h1, h2, h3, h4) {
+  font-family: Georgia, "Times New Roman", serif;
+}
+.site-theme.site-heading-font--trebuchet :is(h1, h2, h3, h4) {
+  font-family: "Trebuchet MS", Arial, sans-serif;
+}
+.site-theme.site-heading-font--verdana :is(h1, h2, h3, h4) {
+  font-family: Verdana, Geneva, sans-serif;
+}
+.site-theme.site-heading-font--inter :is(h1, h2, h3, h4) {
+  font-family: "Inter", system-ui, sans-serif;
+}
+.site-theme.site-heading-font--manrope :is(h1, h2, h3, h4) {
+  font-family: "Manrope", system-ui, sans-serif;
+}
+.site-theme.site-heading-font--dm-sans :is(h1, h2, h3, h4) {
+  font-family: "DM Sans", system-ui, sans-serif;
+}
+.site-theme.site-heading-font--nunito :is(h1, h2, h3, h4) {
+  font-family: "Nunito", system-ui, sans-serif;
+}
+.site-theme.site-heading-font--lora :is(h1, h2, h3, h4) {
+  font-family: "Lora", Georgia, serif;
+}
+.site-theme.site-heading-font--playfair-display :is(h1, h2, h3, h4) {
+  font-family: "Playfair Display", Georgia, serif;
+}

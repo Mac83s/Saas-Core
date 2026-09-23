@@ -1,5 +1,11 @@
-import { createElement } from "react";
+import {
+  cloneElement,
+  createElement,
+  type FunctionComponent,
+  type ReactElement,
+} from "react";
 import decorationSchema from "@saas-core/contracts/site-blocks/section-decoration.v1.schema.json";
+import presentationSchema from "@saas-core/contracts/site-blocks/section-presentation.v1.schema.json";
 import { decorateSection } from "./section-decoration-renderer";
 
 import Ajv2020, {
@@ -15,10 +21,12 @@ import {
   type BlockValidationIssue,
 } from "./errors";
 import type {
+  BlockComponentProps,
   BlockDefinition,
   BlockFieldDefinition,
   BlockRegistry,
   JsonObject,
+  SectionPresentationV1,
   SiteBlock,
   SiteBlockManifest,
 } from "./types";
@@ -55,6 +63,24 @@ function validationIssues(
   });
 }
 
+/** Classes only for the values that are set; an empty envelope adds nothing,
+ *  so legacy markup stays byte-identical. */
+function presentationClassName(
+  presentation: SectionPresentationV1 | undefined,
+): string {
+  if (!presentation || (!presentation.inner && !presentation.surface))
+    return "";
+  return [
+    "site-presentation",
+    presentation.inner ? `site-presentation--inner-${presentation.inner}` : "",
+    presentation.surface
+      ? `site-presentation--surface-${presentation.surface}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 function assertLinearVersions(definition: BlockDefinition): void {
   const versions = definition.schemas.map(({ version }) => version);
   const expected = Array.from(
@@ -76,6 +102,7 @@ function assertLinearVersions(definition: BlockDefinition): void {
 }
 
 type SchemaNode = {
+  type?: string;
   properties?: Record<string, SchemaNode>;
   items?: SchemaNode;
 };
@@ -117,6 +144,12 @@ function assertFieldPath(
     for (const entry of field.item) {
       assertFieldPath(definition, entry, itemSchema);
     }
+  } else if (field.kind === "richText" && node.type !== "array") {
+    // The writing panel edits the whole node array; its union of node shapes
+    // is the schema's business, not the catalogue's.
+    throw new InvalidBlockManifestError(
+      `Pole ${field.path.join(".")} w ${definition.type} nie jest tablicą węzłów.`,
+    );
   } else if (field.item !== undefined) {
     throw new InvalidBlockManifestError(
       `Pole ${field.path.join(".")} w ${definition.type} opisuje wpisy, ale nie jest listą.`,
@@ -168,6 +201,7 @@ export function createSiteBlockRegistry(
 ): BlockRegistry {
   const ajv = new Ajv2020({ allErrors: true, strict: true });
   const validateDecoration = ajv.compile(decorationSchema);
+  const validatePresentation = ajv.compile(presentationSchema);
   const definitions = new Map<string, BlockDefinition>();
   const validators = new Map<string, Map<number, ValidateFunction>>();
 
@@ -216,6 +250,20 @@ export function createSiteBlockRegistry(
         })),
       );
     }
+    if (
+      block.presentation !== undefined &&
+      !validatePresentation(block.presentation)
+    ) {
+      throw new InvalidBlockDataError(
+        block.block_type,
+        block.schema_version,
+        validationDetails(validatePresentation.errors),
+        validationIssues(validatePresentation.errors).map((issue) => ({
+          ...issue,
+          scope: "presentation" as const,
+        })),
+      );
+    }
     const validator = validators
       .get(block.block_type)
       ?.get(block.schema_version);
@@ -256,6 +304,9 @@ export function createSiteBlockRegistry(
       ...(block.decoration
         ? { decoration: structuredClone(block.decoration) }
         : {}),
+      ...(block.presentation
+        ? { presentation: structuredClone(block.presentation) }
+        : {}),
     };
   }
 
@@ -266,19 +317,42 @@ export function createSiteBlockRegistry(
     render(block, key, editor, imageRenderer, formRenderer, options) {
       const migrated = migrate(block);
       const definition = definitionFor(migrated.block_type);
-      const content = createElement(definition.component, {
+      const effective = {
+        ...options,
+        preview: editor ? true : (options?.preview ?? true),
+      };
+      const props: BlockComponentProps = {
         data: migrated.data,
-        key,
+        options: effective,
         ...(editor ? { editor } : {}),
         ...(imageRenderer ? { imageRenderer } : {}),
         ...(formRenderer ? { formRenderer } : {}),
-      });
-      return decorateSection(
-        content,
+      };
+      const decorated = decorateSection(
+        createElement(definition.component, { ...props, key }),
         migrated.decoration,
-        { ...options, preview: editor ? true : (options?.preview ?? true) },
+        effective,
         key,
       );
+      const presentation = presentationClassName(migrated.presentation);
+      if (!presentation) return decorated;
+      // No wrapper of its own: the classes join the outermost element — the
+      // decoration layer when there is one, else the block's own root. Block
+      // components are plain functions without hooks, so calling one here
+      // yields exactly the element React would have rendered.
+      const root = (
+        decorated.type === definition.component
+          ? (definition.component as FunctionComponent<BlockComponentProps>)(
+              props,
+            )
+          : decorated
+      ) as ReactElement<{ className?: string }>;
+      return cloneElement(root, {
+        key,
+        className: [root.props.className, presentation]
+          .filter(Boolean)
+          .join(" "),
+      });
     },
   };
 }

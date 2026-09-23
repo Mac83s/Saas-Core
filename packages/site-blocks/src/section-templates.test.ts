@@ -1,9 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import Ajv2020 from "ajv/dist/2020.js";
-import catalog from "@saas-core/contracts/site-blocks/section-templates.v4.json";
-import previousCatalog from "@saas-core/contracts/site-blocks/section-templates.v3.json";
-import schema from "@saas-core/contracts/site-blocks/section-templates.v4.schema.json";
+import catalog from "@saas-core/contracts/site-blocks/section-templates.v5.json";
+import previousCatalog from "@saas-core/contracts/site-blocks/section-templates.v4.json";
+import olderCatalog from "@saas-core/contracts/site-blocks/section-templates.v3.json";
+import schema from "@saas-core/contracts/site-blocks/section-templates.v5.schema.json";
 import {
   availableSectionTemplates,
   coreSectionTemplates,
@@ -19,13 +20,79 @@ const context = { entitlements: ["sites.enabled"], modules: ["shared.sites"] };
 
 describe("section template contract", () => {
   it("keeps all historical recipes unchanged when extending the catalogue", () => {
-    for (const previous of previousCatalog.templates)
+    for (const previous of [
+      ...olderCatalog.templates,
+      ...previousCatalog.templates,
+    ])
       expect(
         coreSectionTemplates().find(
           (item) =>
             item.id === previous.id && item.version === previous.version,
         ),
       ).toEqual(previous);
+  });
+
+  it("adds exactly the v5 editorial sections to the 96 v4 recipes", () => {
+    expect(coreSectionTemplates()).toHaveLength(104);
+    const counts = new Map<string, [number, number]>();
+    for (const template of coreSectionTemplates()) {
+      const key = `${template.blockType.replace("core.", "")}@${template.schemaVersion}`;
+      const [defaults, industry] = counts.get(key) ?? [0, 0];
+      counts.set(
+        key,
+        template.kind === "default"
+          ? [defaults + 1, industry]
+          : [defaults, industry + 1],
+      );
+    }
+    expect(Object.fromEntries(counts)).toEqual({
+      "hero@5": [20, 6],
+      "feature_list@3": [20, 6],
+      "feature_list@4": [2, 0],
+      "faq@3": [20, 0],
+      "contact@2": [6, 0],
+      "link_list@1": [6, 0],
+      "contact_form@1": [4, 0],
+      "separator@1": [8, 0],
+      "rich_text@2": [4, 0],
+      "quote@1": [1, 0],
+      "product@1": [1, 0],
+    });
+    const added = coreSectionTemplates().filter(
+      (template) =>
+        !previousCatalog.templates.some((item) => item.id === template.id),
+    );
+    expect(
+      added.map(({ id, blockType, schemaVersion, layout }) => [
+        id,
+        blockType,
+        schemaVersion,
+        layout,
+      ]),
+    ).toEqual([
+      ["core.rich_text_column", "core.rich_text", 2, "column"],
+      ["core.rich_text_split_intro", "core.rich_text", 2, "split_intro"],
+      ["core.rich_text_facts_panel", "core.rich_text", 2, "facts_panel"],
+      ["core.rich_text_chapters", "core.rich_text", 2, "chapters"],
+      ["core.feature_list_steps_notes", "core.feature_list", 4, "steps_notes"],
+      [
+        "core.feature_list_benefits_commentary",
+        "core.feature_list",
+        4,
+        "benefits_commentary",
+      ],
+      ["core.quote_portrait", "core.quote", 1, "portrait"],
+      ["core.product_showcase", "core.product", 1, "showcase"],
+    ]);
+    for (const template of added) {
+      expect(template.kind).toBe("default");
+      expect(template.industries).toEqual([]);
+      expect(template.version).toBe(1);
+    }
+    expect(
+      added.find((template) => template.id === "core.product_showcase")
+        ?.sampleMedia,
+    ).toMatchObject({ id: "electronics", path: ["images", 0] });
   });
   it("validates the manifest and every localized seed against the canonical schemas", () => {
     const validate = new Ajv2020({ allErrors: true, strict: true }).compile(
@@ -57,9 +124,16 @@ describe("section template contract", () => {
 
   it("keeps universal layouts when filtering an industry, and checks capabilities first", () => {
     const all = availableSectionTemplates(registry, context);
-    for (const type of ["core.hero", "core.feature_list", "core.faq"]) {
+    for (const [type, version] of [
+      ["core.hero", 5],
+      ["core.feature_list", 3],
+      ["core.faq", 3],
+    ] as const) {
       const defaults = all.filter(
-        (item) => item.blockType === type && item.kind === "default",
+        (item) =>
+          item.blockType === type &&
+          item.schemaVersion === version &&
+          item.kind === "default",
       );
       expect(defaults).toHaveLength(20);
       expect(new Set(defaults.map((item) => item.layout)).size).toBe(20);
@@ -102,7 +176,7 @@ describe("section template contract", () => {
     };
     const before = structuredClone(original);
     const changed = replaceSectionLayout(original, template, registry);
-    expect(changed.schema_version).toBe(3);
+    expect(changed.schema_version).toBe(4);
     expect(changed.data).toEqual({ ...before.data, layout: "cards" });
     expect(original).toEqual(before);
     expect(() =>

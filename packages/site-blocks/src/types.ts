@@ -10,6 +10,7 @@ export interface SiteBlock<TData extends JsonObject = JsonObject> {
   readonly schema_version: number;
   readonly data: TData;
   readonly decoration?: SectionDecorationV1;
+  readonly presentation?: SectionPresentationV1;
 }
 
 /** Shared allowlisted presentation, separate from the versioned content data. */
@@ -21,6 +22,37 @@ export type SectionDecorationV1 = {
   placement?: "top_right" | "bottom_left" | "both";
   intensity?: "subtle" | "soft";
   motion?: "none" | "drift" | "breathe";
+};
+
+/** Second optional envelope, beside decoration: how wide the section's content
+ *  runs inside the page frame and which palette surface it sits on. Decoration
+ *  keeps ornaments; this carries no artwork. Absent means legacy rendering. */
+export type SectionPresentationV1 = {
+  schemaVersion: 1;
+  inner?: "narrow" | "standard" | "wide" | "full";
+  surface?: "default" | "muted" | "accent" | "inverse";
+};
+
+export type SiteFont =
+  | "system"
+  | "arial"
+  | "georgia"
+  | "trebuchet"
+  | "verdana"
+  | "inter"
+  | "manrope"
+  | "dm-sans"
+  | "nunito"
+  | "lora"
+  | "playfair-display";
+
+/** Stored with one page version. It never changes the header, footer,
+ *  navigation or any other page; absent fields inherit the site appearance. */
+export type PagePresentationV1 = {
+  schemaVersion: 1;
+  width?: "contained" | "full";
+  headingFont?: SiteFont;
+  bodyFont?: SiteFont;
 };
 
 export interface BlockRenderOptions {
@@ -56,10 +88,92 @@ export type RichTextV1Data = JsonObject & {
   text: string;
 };
 
+/** One inline run. Marks are flags, links an allowlisted href; never HTML. */
+export type RichTextSpan = {
+  text: string;
+  bold?: true;
+  italic?: true;
+  href?: string;
+};
+export type RichTextListItem = {
+  content: RichTextSpan[];
+  children?: {
+    style: "bullet" | "ordered";
+    items: { content: RichTextSpan[] }[];
+  };
+};
+export type RichTextNode =
+  | { type: "paragraph"; content: RichTextSpan[] }
+  | { type: "heading"; level: 2 | 3 | 4; anchor: string; text: string }
+  | {
+      type: "list";
+      style: "bullet" | "ordered";
+      items: RichTextListItem[];
+    }
+  | {
+      type: "quote";
+      content: RichTextSpan[];
+      author?: string;
+      source?: string;
+      href?: string;
+    }
+  | {
+      type: "note";
+      tone?: "info" | "tip" | "warning";
+      title?: string;
+      content: RichTextSpan[];
+    }
+  | {
+      type: "figure";
+      image: { asset_id: string; alt: string };
+      caption?: string;
+      width?: "column" | "wide";
+    };
+export type RichTextAsideNode = Extract<
+  RichTextNode,
+  { type: "paragraph" } | { type: "list" }
+>;
+
+export type RichTextV2Data = JsonObject & {
+  layout?: "column" | "split_intro" | "facts_panel" | "chapters";
+  title?: string;
+  lead?: string;
+  content: RichTextNode[];
+  aside?: { title?: string; content: RichTextAsideNode[] };
+};
+
 export type FeatureListV1Data = JsonObject & {
   image?: { asset_id: string; alt: string };
   title?: string;
   items: { title: string; text?: string }[];
+};
+
+export type FeatureListV4Data = FeatureListV1Data & {
+  layout?: string;
+  lead?: string;
+  note?: { title?: string; text: string };
+};
+
+export type QuoteV1Data = JsonObject & {
+  layout?: "portrait";
+  quote: string;
+  author?: string;
+  role?: string;
+  source?: { label: string; href?: string };
+  context?: string;
+  image?: { asset_id: string; alt: string };
+};
+
+/** No price, stock or cart: those need real commerce capabilities. */
+export type ProductV1Data = JsonObject & {
+  layout?: "showcase";
+  title: string;
+  tagline?: string;
+  text?: string;
+  images?: { asset_id: string; alt: string; caption?: string }[];
+  specs?: { label: string; value: string }[];
+  uses?: { title: string; text?: string }[];
+  action?: { label: string; href: string };
 };
 
 export type FaqV1Data = JsonObject & {
@@ -169,7 +283,10 @@ export type BlockCategory =
   | "footer"
   | "decorative";
 
-export type BlockFieldKind = "text" | "textarea" | "url" | "list" | "media";
+/** `richText` binds a whole structured node array (core.rich_text v2
+ *  `content`); the panel edits it with its own writing panel. */
+export type BlockFieldKind =
+  "text" | "textarea" | "url" | "list" | "media" | "richText";
 
 /** How one editable value inside a block is presented. Deliberately data, not a
  *  component: the same manifest is loaded by the public renderer, which must not
@@ -214,6 +331,9 @@ export type BlockImageRenderer = (image: {
 
 export interface BlockComponentProps {
   data: JsonObject;
+  /** Render options (publication vs preview, locale). Components use it for
+   *  things only a publication may emit, such as heading ids. */
+  options?: BlockRenderOptions;
   editor?: BlockEditor;
   imageRenderer?: BlockImageRenderer;
   formRenderer?: BlockFormRenderer;
@@ -238,6 +358,7 @@ export interface SiteBlockManifest {
 
 export interface DraftPreviewDocument {
   readonly appearance?: SiteAppearance | null;
+  readonly pagePresentation?: PagePresentationV1 | null;
   readonly kind: "draft-preview";
   readonly versionId: string;
   readonly blocks: readonly SiteBlock[];
@@ -268,6 +389,7 @@ export interface PaginationLabels {
 export interface PublishedPageDocument {
   readonly locale?: "pl" | "en";
   readonly appearance?: SiteAppearance | null;
+  readonly pagePresentation?: PagePresentationV1 | null;
   readonly kind: "publication";
   readonly publicationId: string;
   readonly snapshotHash: string;
@@ -306,17 +428,26 @@ export interface PageTemplate {
   }[];
   readonly id: string;
   readonly version: number;
-  readonly category: "profile" | "landing" | "company";
+  readonly category:
+    "profile" | "landing" | "company" | "product" | "service" | "article";
   readonly labels: Readonly<Record<"pl" | "en", PageTemplateLabel>>;
   readonly requiredEntitlements?: readonly string[];
   readonly media?: readonly ApprovedTemplateMedia[];
   readonly localizedBlocks?: { readonly en: readonly SiteBlock[] };
-  readonly mediaBindings?: readonly {
-    blockPosition: number;
-    mediaId: string;
-    alt: Readonly<Record<"pl" | "en", string>>;
-  }[];
+  readonly mediaBindings?: readonly TemplateMediaBinding[];
+  /** Recipe v4: copied into the imported page version. */
+  readonly pagePresentation?: PagePresentationV1;
   readonly blocks: readonly SiteBlock[];
+}
+
+/** Where an approved photo goes. `path` (recipe v4) addresses the image object
+ *  inside the block data; the last segment is a key of an existing object or an
+ *  index into an existing array no greater than its length. Absent: ["image"]. */
+export interface TemplateMediaBinding {
+  readonly blockPosition: number;
+  readonly mediaId: string;
+  readonly alt: Readonly<Record<"pl" | "en", string>>;
+  readonly path?: readonly (string | number)[];
 }
 
 export interface BlockRegistry {

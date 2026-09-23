@@ -6,7 +6,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field
 from functools import cache
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
@@ -15,7 +15,15 @@ from jsonschema.exceptions import SchemaError
 from rest_framework.exceptions import APIException, NotFound
 
 from .block_contracts import validate_site_block
-from .block_decoration import validate_decoration
+from .block_decoration import (
+    validate_decoration,
+    validate_page_presentation,
+    validate_presentation,
+)
+from .rich_content import assert_unique_anchors
+
+# Recipes carry no asset ids; blocks are validated with this one bound in.
+PLACEHOLDER_ASSET_ID = "00000000-0000-4000-8000-000000000000"
 
 
 class PageTemplateNotFound(NotFound):
@@ -57,16 +65,51 @@ class PageTemplate:
 
     localized_blocks: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     media_bindings: tuple[dict[str, Any], ...] = ()
+    page_presentation: dict[str, Any] | None = None
 
     def draft_blocks(self, locale: str = "pl") -> list[dict[str, Any]]:
         return deepcopy(self.localized_blocks.get(locale, list(self.blocks)))
 
     def bind_media(self, blocks: list[dict[str, Any]], assets: dict[str, str], locale: str) -> None:
-        for binding in self.media_bindings:
-            blocks[binding["blockPosition"]]["data"]["image"] = {
-                "asset_id": assets[binding["mediaId"]],
-                "alt": binding["alt"][locale],
-            }
+        bind_media(self.media_bindings, blocks, assets, locale)
+
+
+def bind_media(
+    bindings: tuple[dict[str, Any], ...],
+    blocks: list[dict[str, Any]],
+    assets: dict[str, str],
+    locale: str,
+) -> None:
+    for binding in bindings:
+        set_at_path(
+            blocks[binding["blockPosition"]]["data"],
+            binding.get("path", ["image"]),
+            {"asset_id": assets[binding["mediaId"]], "alt": binding["alt"][locale]},
+        )
+
+
+def set_at_path(data: dict[str, Any], path: list[Any], value: Any) -> None:
+    """Mirror of `setAtPath` in `@saas-core/site-blocks`: the parent must exist;
+    the last segment is a key of an object or an index into an array no greater
+    than its length (equal appends). Anything else is a recipe error."""
+    parent: Any = data
+    for segment in path[:-1]:
+        if not (
+            (isinstance(parent, list) and isinstance(segment, int) and segment < len(parent))
+            or (isinstance(parent, dict) and isinstance(segment, str) and segment in parent)
+        ):
+            raise ValueError(f"Ścieżka {path} nie istnieje.")
+        parent = cast(Any, parent)[segment]
+    last = path[-1]
+    if isinstance(parent, list) and isinstance(last, int) and last <= len(parent):
+        if last == len(parent):
+            parent.append(value)
+        else:
+            parent[last] = value
+    elif isinstance(parent, dict) and isinstance(last, str):
+        parent[last] = value
+    else:
+        raise ValueError(f"Ścieżka {path} nie wskazuje obiektu ani tablicy.")
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,13 +173,11 @@ def page_template_catalog() -> PageTemplateCatalog:
                         f"Recepta {template_id} v{version} nie zgadza się z manifestem"
                     )
                 blocks = tuple(recipe["blocks"])
+                page_presentation = recipe.get("pagePresentation")
+                validate_page_presentation(page_presentation)
                 for block in [*blocks, *recipe.get("localizedBlocks", {}).get("en", [])]:
                     validate_decoration(block.get("decoration"))
-                    validate_site_block(
-                        block_type=block["block_type"],
-                        schema_version=block["schema_version"],
-                        data=block["data"],
-                    )
+                    validate_presentation(block.get("presentation"))
                 media = _approved_media(
                     contract_directory=contract_directory,
                     recipe=recipe,
@@ -145,28 +186,30 @@ def page_template_catalog() -> PageTemplateCatalog:
                 if any(len(translated) != len(blocks) for translated in localized.values()):
                     raise ImproperlyConfigured("Localized template block counts differ")
                 bindings = tuple(recipe.get("mediaBindings", []))
-                positions: set[int] = set()
+                targets: set[tuple[Any, ...]] = set()
                 media_ids = {item.id for item in media}
                 for binding in bindings:
-                    position = binding["blockPosition"]
+                    target = (binding["blockPosition"], *binding.get("path", ["image"]))
                     if (
-                        position >= len(blocks)
-                        or position in positions
+                        binding["blockPosition"] >= len(blocks)
+                        or target in targets
                         or binding["mediaId"] not in media_ids
                     ):
                         raise ImproperlyConfigured("Invalid template media binding")
-                    positions.add(position)
-                    for variant in [list(blocks), *localized.values()]:
-                        candidate = deepcopy(variant[position])
-                        candidate["data"]["image"] = {
-                            "asset_id": "00000000-0000-4000-8000-000000000000",
-                            "alt": binding["alt"]["pl"],
-                        }
+                    targets.add(target)
+                # A block may need its image to be valid at all (a figure, a
+                # gallery), so every block is checked with placeholders bound.
+                placeholders = {item.id: PLACEHOLDER_ASSET_ID for item in media}
+                for locale, variant in {"pl": list(blocks), **localized}.items():
+                    candidate = deepcopy(variant)
+                    bind_media(bindings, candidate, placeholders, locale)
+                    for block in candidate:
                         validate_site_block(
-                            block_type=candidate["block_type"],
-                            schema_version=candidate["schema_version"],
-                            data=candidate["data"],
+                            block_type=block["block_type"],
+                            schema_version=block["schema_version"],
+                            data=block["data"],
                         )
+                    assert_unique_anchors(candidate)
                 templates[template_id][version] = PageTemplate(
                     id=template_id,
                     version=version,
@@ -177,6 +220,7 @@ def page_template_catalog() -> PageTemplateCatalog:
                     blocks=blocks,
                     localized_blocks=localized,
                     media_bindings=bindings,
+                    page_presentation=page_presentation,
                 )
     except (APIException, KeyError, TypeError, ValueError) as error:
         raise ImproperlyConfigured("Manifest szablonów stron jest nieprawidłowy") from error

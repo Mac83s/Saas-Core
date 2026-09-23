@@ -10251,6 +10251,12 @@ components:
         metadata_after:
           type: object
           additionalProperties: {}
+        page_presentation_before:
+          type: object
+          additionalProperties: {}
+        page_presentation_after:
+          type: object
+          additionalProperties: {}
         review_token:
           type: string
         review_expires_at:
@@ -10653,6 +10659,10 @@ components:
             type: string
             format: uuid
           maxItems: 100
+        page_presentation:
+          oneOf:
+          - {}
+          - type: 'null'
       required:
       - blocks
       - expected_version
@@ -12237,6 +12247,10 @@ components:
           oneOf:
           - {}
           - type: 'null'
+        presentation:
+          oneOf:
+          - {}
+          - type: 'null'
       required:
       - block_type
       - data
@@ -12255,6 +12269,10 @@ components:
           minimum: 1
         data: {}
         decoration:
+          oneOf:
+          - {}
+          - type: 'null'
+        presentation:
           oneOf:
           - {}
           - type: 'null'
@@ -12306,6 +12324,10 @@ components:
           items:
             type: string
             format: uuid
+        page_presentation:
+          oneOf:
+          - {}
+          - type: 'null'
       required:
       - blocks
       - content_hash
@@ -12313,6 +12335,7 @@ components:
       - draft_id
       - media_asset_ids
       - page_id
+      - page_presentation
       - version
     PageList:
       type: object
@@ -13207,6 +13230,11 @@ components:
           type: object
           additionalProperties: {}
         appearance:
+          type:
+          - object
+          - 'null'
+          additionalProperties: {}
+        page_presentation:
           type:
           - object
           - 'null'

@@ -6,9 +6,18 @@
 .site-theme.site-theme--preview {
   min-height: 0;
 }
+/* The gutter, or more: content centred at the section's inner width. `cqw`
+   is the width of .site-theme. On a contained page it never exceeds the site
+   width, so the second term is negative and the gutter is exactly what it
+   always was; on a full-width page it centres content at the site width. */
 .site-theme .site-block {
   min-width: 0;
-  padding-inline: clamp(1.25rem, 4cqw, 3.5rem);
+  padding-inline: max(
+    clamp(1.25rem, 4cqw, 3.5rem),
+    calc(
+      (100cqw - var(--site-inner-width, var(--site-content-width, 72rem))) / 2
+    )
+  );
   overflow-wrap: anywhere;
 }
 .site-theme .site-block :is(h1, h2, h3, p, li, dd, dt, summary) {

@@ -1,0 +1,462 @@
+/* Editorial sections: structured rich text, feature_list v4, quote and
+   product. The markup is fixed by the renderer; data never carries CSS.
+   Layout switches use container queries on .site-theme (never the viewport)
+   and keep DOM order, which is the reading order on a phone. */
+
+/* Intro and lead shared by the editorial sections. */
+.site-theme
+  :is(
+    .site-section--rich_text,
+    .site-section--feature_list,
+    .site-block--feature-list,
+    .site-section--product
+  )
+  .site-section__intro {
+  gap: 0.75rem;
+  align-content: start;
+}
+.site-theme .site-section__intro > h2 {
+  margin-bottom: 0;
+}
+.site-theme .site-section__lead {
+  max-width: 60ch;
+  color: var(--muted-foreground);
+  font-size: clamp(1.0625rem, 1rem + 0.4cqw, 1.25rem);
+  line-height: 1.6;
+}
+
+/* Reading column: its own measure, independent of the section's width. */
+.site-theme .site-prose {
+  --site-measure: 68ch;
+  min-width: 0;
+}
+.site-theme .site-prose > * + * {
+  margin-top: 1.25rem;
+}
+.site-theme .site-prose :is(p, li, blockquote, h2, h3, h4) {
+  max-width: var(--site-measure);
+}
+.site-theme .site-prose > :is(h2, h3, h4) {
+  margin-top: 2.5rem;
+  margin-bottom: 0;
+  scroll-margin-top: 1.5rem;
+  text-wrap: balance;
+}
+.site-theme .site-prose > :is(h2, h3, h4):first-child {
+  margin-top: 0;
+}
+.site-theme .site-prose > :is(h2, h3, h4) + * {
+  margin-top: 0.75rem;
+}
+.site-theme .site-prose h2 {
+  font-size: clamp(1.375rem, 1.15rem + 0.9cqw, 1.875rem);
+}
+.site-theme .site-prose h3 {
+  font-size: clamp(1.1875rem, 1.05rem + 0.5cqw, 1.4375rem);
+  font-weight: 600;
+}
+.site-theme .site-prose h4 {
+  font-size: 1.0625rem;
+  font-weight: 600;
+}
+.site-theme :is(.site-prose, .site-section__aside) :is(a, .site-prose__link) {
+  color: var(--site-accent);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.site-theme :is(.site-prose, .site-section__aside) a:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+/* Lists read as lists again: the section grid rule strips their markers. */
+.site-theme :is(.site-prose, .site-section__aside) :is(ul, ol) {
+  display: block;
+  padding-inline-start: 1.5rem;
+  list-style: disc;
+}
+.site-theme :is(.site-prose, .site-section__aside) ol {
+  list-style: decimal;
+}
+.site-theme :is(.site-prose, .site-section__aside) li :is(ul, ol) {
+  margin-top: 0.375rem;
+  list-style: circle;
+}
+.site-theme :is(.site-prose, .site-section__aside) li ol {
+  list-style: lower-alpha;
+}
+.site-theme :is(.site-prose, .site-section__aside) li + li {
+  margin-top: 0.375rem;
+}
+
+/* Quotes, notes and figures inside the text. */
+.site-theme .site-prose .site-quote {
+  margin-block: 2rem;
+  padding-inline-start: 1.25rem;
+  border-inline-start: 3px solid var(--site-accent);
+}
+.site-theme .site-prose .site-quote blockquote p {
+  font-size: clamp(1.125rem, 1.05rem + 0.4cqw, 1.3125rem);
+  font-style: italic;
+}
+.site-theme .site-quote figcaption {
+  margin-top: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.9375rem;
+}
+.site-theme .site-note {
+  --site-note-ink: var(--site-accent);
+  max-width: var(--site-measure, 68ch);
+  padding: 1rem 1.25rem;
+  border-inline-start: 4px solid var(--site-note-ink);
+  border-radius: var(--site-radius, 0.5rem);
+  background: color-mix(in srgb, var(--site-note-ink) 8%, var(--background));
+}
+.site-theme .site-note--tip {
+  --site-note-ink: #1f7a4d;
+}
+.site-theme .site-note--warning {
+  --site-note-ink: #a15c00;
+}
+.site-theme .site-note__title {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+.site-theme .site-figure--column {
+  max-width: var(--site-measure, 68ch);
+}
+.site-theme .site-figure img {
+  width: 100%;
+  height: auto;
+  border-radius: var(--site-radius, 0.75rem);
+}
+.site-theme .site-figure figcaption {
+  margin-top: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.9375rem;
+}
+
+/* Index of chapters and the facts panel. */
+.site-theme .site-section__toc ol {
+  gap: 0.25rem;
+  font-size: 0.9375rem;
+}
+.site-theme .site-section__toc :is(a, span) {
+  display: block;
+  padding: 0.375rem 0 0.375rem 0.75rem;
+  border-inline-start: 2px solid
+    color-mix(in srgb, currentColor 18%, transparent);
+  color: inherit;
+  text-decoration: none;
+}
+.site-theme .site-section__toc a:hover,
+.site-theme .site-section__toc a:focus-visible {
+  border-color: var(--site-accent);
+  text-decoration: underline;
+}
+.site-theme .site-section__aside {
+  align-self: start;
+  padding: clamp(1.25rem, 2.5cqw, 1.75rem);
+  border: 1px solid color-mix(in srgb, var(--site-accent) 20%, transparent);
+  border-radius: var(--site-radius, 0.75rem);
+  background: color-mix(in srgb, var(--site-accent) 6%, var(--background));
+}
+.site-theme .site-section__aside > * + * {
+  margin-top: 0.75rem;
+}
+.site-theme .site-section__aside > h3 {
+  font-size: 1.125rem;
+}
+
+/* Rich text layouts: one column until the page is wide enough. */
+.site-theme .site-section--rich_text {
+  display: grid;
+  gap: clamp(1.5rem, 3cqw, 2.5rem);
+  align-items: start;
+}
+.site-theme .site-section--rich_text.site-section--column {
+  grid-template-columns: minmax(0, 46rem);
+  justify-content: center;
+}
+@container (min-width: 48rem) {
+  .site-theme .site-section--rich_text.site-section--split_intro {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+    column-gap: clamp(2rem, 5cqw, 4rem);
+  }
+  .site-theme .site-section--split_intro > .site-section__aside {
+    grid-column: 2;
+  }
+  .site-theme
+    .site-section--rich_text.site-section--facts_panel:has(
+      > .site-section__aside
+    ) {
+    grid-template-columns: minmax(0, 2fr) minmax(15rem, 1fr);
+    column-gap: clamp(2rem, 4cqw, 3.5rem);
+  }
+  .site-theme .site-section--facts_panel > .site-section__intro {
+    grid-column: 1 / -1;
+  }
+  .site-theme .site-section--facts_panel > .site-section__aside {
+    position: sticky;
+    top: 1rem;
+  }
+  .site-theme
+    .site-section--rich_text.site-section--chapters:has(> .site-section__toc) {
+    grid-template-columns: minmax(11rem, 1fr) minmax(0, 3fr);
+    column-gap: clamp(2rem, 4cqw, 3.5rem);
+  }
+  .site-theme .site-section--chapters > .site-section__intro {
+    grid-column: 1 / -1;
+  }
+  .site-theme .site-section--chapters > .site-section__toc {
+    position: sticky;
+    top: 1rem;
+  }
+  .site-theme
+    .site-section--chapters:has(> .site-section__toc)
+    > :is(.site-prose, .site-section__aside) {
+    grid-column: 2;
+  }
+}
+
+/* feature_list v4: lead and note in every layout. */
+.site-theme .site-section__note {
+  max-width: 68ch;
+  margin-top: 1.5rem;
+  padding: 1.25rem 1.5rem;
+  border-inline-start: 4px solid var(--site-accent);
+  border-radius: var(--site-radius, 0.5rem);
+  background: color-mix(in srgb, var(--site-accent) 6%, var(--background));
+}
+.site-theme .site-section__note > h3 {
+  margin-bottom: 0.375rem;
+}
+.site-theme
+  :is(.site-block--feature-list, .site-section--feature_list)
+  > .site-section__intro {
+  margin-bottom: 1.5rem;
+}
+.site-theme .site-section--feature_list > .site-section__note {
+  grid-column: 1 / -1;
+}
+.site-theme .site-section--steps_notes li {
+  display: grid;
+  grid-template-columns: 2.5rem minmax(0, 1fr);
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+}
+.site-theme .site-section--benefits_commentary ul li {
+  position: relative;
+  padding-inline-start: 1.75rem;
+}
+.site-theme .site-section--benefits_commentary ul li::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0.45em;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 999px;
+  background: var(--site-accent);
+}
+.site-theme .site-section__commentary {
+  align-self: start;
+  margin-top: 1.5rem;
+  padding: clamp(1.5rem, 3cqw, 2.5rem);
+  border-radius: var(--site-radius, 0.75rem);
+  background: color-mix(in srgb, var(--site-accent) 8%, var(--background));
+}
+.site-theme .site-section__commentary > .site-section__lead {
+  color: inherit;
+  font-size: clamp(1.25rem, 1.1rem + 0.8cqw, 1.625rem);
+  line-height: 1.45;
+}
+.site-theme .site-section__commentary > .site-section__note {
+  margin-top: 1rem;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+@container (min-width: 48rem) {
+  .site-theme
+    .site-section--feature_list:has(.site-section__photo)
+    > .site-section__intro {
+    grid-column: 1 / -1;
+  }
+  .site-theme
+    .site-section--feature_list.site-section--steps_notes:has(
+      > .site-section__note
+    ) {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(15rem, 1fr);
+    column-gap: clamp(2rem, 4cqw, 3.5rem);
+    align-items: start;
+  }
+  .site-theme
+    .site-section--steps_notes:has(> .site-section__note)
+    > :not(ol, .site-section__note) {
+    grid-column: 1 / -1;
+  }
+  .site-theme .site-section--steps_notes > .site-section__note {
+    grid-column: 2;
+    position: sticky;
+    top: 1rem;
+    margin-top: 0;
+  }
+  .site-theme
+    .site-section--feature_list.site-section--benefits_commentary:has(
+      > .site-section__commentary
+    ) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: clamp(2rem, 4cqw, 3.5rem);
+    align-items: start;
+  }
+  .site-theme
+    .site-section--benefits_commentary:has(> .site-section__commentary)
+    > :not(ul, .site-section__commentary) {
+    grid-column: 1 / -1;
+  }
+  .site-theme .site-section--benefits_commentary > .site-section__commentary {
+    margin-top: 0;
+  }
+}
+
+/* core.quote: a large typographic quote, or a portrait beside it. */
+.site-theme .site-section--quote {
+  display: grid;
+  gap: 1.5rem;
+  align-items: center;
+}
+.site-theme .site-section--quote.site-section--typographic {
+  justify-items: center;
+  text-align: center;
+}
+.site-theme .site-quote--large blockquote::before {
+  content: "\201C" / "";
+  display: block;
+  color: var(--site-accent);
+  font-size: 4rem;
+  line-height: 0.8;
+}
+.site-theme .site-quote--large blockquote p {
+  max-width: 32ch;
+  font-size: clamp(1.5rem, 1.1rem + 2cqw, 2.5rem);
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+.site-theme .site-section--typographic .site-quote--large blockquote p {
+  margin-inline: auto;
+}
+.site-theme .site-quote--large figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  margin-top: 1.25rem;
+}
+.site-theme .site-section--typographic .site-quote--large figcaption {
+  justify-content: center;
+}
+.site-theme .site-quote__author {
+  color: var(--foreground);
+  font-weight: 600;
+}
+.site-theme .site-quote__context {
+  max-width: 60ch;
+  color: var(--muted-foreground);
+}
+.site-theme .site-quote__portrait img {
+  width: 100%;
+  aspect-ratio: 4 / 5;
+  max-height: 28rem;
+  object-fit: cover;
+  border-radius: var(--site-radius, 0.75rem);
+}
+.site-theme .site-quote__monogram {
+  display: grid;
+  place-items: center;
+  width: min(100%, 16rem);
+  aspect-ratio: 1;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--site-accent) 12%, var(--background));
+  color: var(--site-accent);
+  font-size: clamp(3rem, 2rem + 5cqw, 5.5rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+@container (min-width: 48rem) {
+  .site-theme .site-section--quote.site-section--portrait {
+    grid-template-columns: minmax(12rem, 2fr) minmax(0, 3fr);
+    column-gap: clamp(2rem, 5cqw, 4rem);
+  }
+  .site-theme .site-section--portrait > .site-quote__context {
+    grid-column: 2;
+  }
+}
+
+/* core.product showcase: gallery beside the details. */
+.site-theme .site-section--product {
+  display: grid;
+  gap: clamp(1.5rem, 3cqw, 2.5rem);
+  align-items: start;
+}
+.site-theme .site-product__gallery {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+.site-theme .site-product__gallery img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--site-radius, 0.75rem);
+}
+.site-theme .site-product__strip {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 8rem), 1fr));
+  gap: 0.75rem;
+}
+.site-theme .site-product__gallery figcaption {
+  margin-top: 0.375rem;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+.site-theme .site-product__details {
+  display: grid;
+  gap: 1.5rem;
+  min-width: 0;
+}
+.site-theme .site-product__text > * + * {
+  margin-top: 1rem;
+}
+.site-theme .site-product__specs > div {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: 1rem;
+  padding-block: 0.625rem;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+}
+.site-theme .site-product__specs dt {
+  font-weight: 600;
+}
+.site-theme .site-product__specs dd {
+  margin: 0;
+}
+.site-theme .site-product__uses {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: 1rem;
+}
+.site-theme .site-product__uses li {
+  padding: 1rem 1.25rem;
+  border: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+  border-radius: var(--site-radius, 0.75rem);
+}
+@container (min-width: 48rem) {
+  .site-theme .site-section--product:has(> .site-product__gallery) {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    column-gap: clamp(2rem, 4cqw, 3.5rem);
+  }
+  .site-theme .site-section--product > .site-section__intro {
+    grid-column: 1 / -1;
+  }
+}

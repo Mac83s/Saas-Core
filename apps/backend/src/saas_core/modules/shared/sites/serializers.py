@@ -147,6 +147,7 @@ class PublicSitePageSerializer(serializers.Serializer[dict[str, Any]]):
     social_description = serializers.CharField()
     design_tokens = serializers.DictField()
     appearance = serializers.DictField(allow_null=True, required=False)
+    page_presentation = serializers.DictField(allow_null=True, required=False)
     blocks = serializers.ListField(child=serializers.DictField())
     navigation = PublicNavigationLinkSerializer(many=True)
     breadcrumbs = serializers.ListField(child=serializers.DictField())
@@ -456,6 +457,8 @@ class ContentProposalDetailSerializer(ContentProposalSerializer):
     blocks_after = serializers.ListField(child=serializers.DictField())
     metadata_before = serializers.DictField()
     metadata_after = serializers.DictField()
+    page_presentation_before = serializers.DictField(required=False)
+    page_presentation_after = serializers.DictField(required=False)
     review_token = serializers.CharField()
     review_expires_at = serializers.DateTimeField()
 
@@ -532,6 +535,7 @@ class PageBlockInputSerializer(serializers.Serializer[dict[str, Any]]):
     schema_version = serializers.IntegerField(min_value=1)
     data = serializers.JSONField()  # type: ignore[assignment]
     decoration = serializers.JSONField(required=False, allow_null=True)
+    presentation = serializers.JSONField(required=False, allow_null=True)
 
     def validate_data(self, value: Any) -> dict[str, Any]:
         if not isinstance(value, dict):
@@ -548,6 +552,8 @@ class DraftSaveSerializer(serializers.Serializer[dict[str, Any]]):
         default=list,
         max_length=100,
     )
+    # Absent keeps the current draft's value; null clears it (see save_draft).
+    page_presentation = serializers.JSONField(required=False, allow_null=True)
 
     def validate_blocks(self, value: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if len(value) > 200:
@@ -577,6 +583,7 @@ class PageBlockSerializer(serializers.Serializer[dict[str, Any]]):
     schema_version = serializers.IntegerField()
     data = serializers.JSONField()  # type: ignore[assignment]
     decoration = serializers.JSONField(required=False, allow_null=True)
+    presentation = serializers.JSONField(required=False, allow_null=True)
 
 
 class PageDraftSerializer(serializers.Serializer[dict[str, Any]]):
@@ -587,6 +594,7 @@ class PageDraftSerializer(serializers.Serializer[dict[str, Any]]):
     created_at = serializers.DateTimeField(allow_null=True)
     blocks = PageBlockSerializer(many=True)
     media_asset_ids = serializers.ListField(child=serializers.UUIDField())
+    page_presentation = serializers.JSONField(allow_null=True)
 
 
 class PageTranslationSaveSerializer(serializers.Serializer[dict[str, Any]]):

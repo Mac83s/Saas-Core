@@ -621,6 +621,7 @@ def _draft_payload(draft: PageDraft) -> dict[str, Any]:
         "created_at": draft.version.created_at if draft.version is not None else None,
         "blocks": [_block_summary(block) for block in draft.blocks],
         "media_asset_ids": list(draft.media_asset_ids),
+        "page_presentation": draft.version.presentation if draft.version is not None else None,
     }
 
 

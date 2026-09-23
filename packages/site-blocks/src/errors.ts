@@ -19,7 +19,7 @@ export class UnknownBlockVersionError extends SiteBlockError {
  *  `/action/href` — so a form can attach the message to its own field instead
  *  of showing one opaque error for the whole block. */
 export interface BlockValidationIssue {
-  readonly scope?: "decoration";
+  readonly scope?: "decoration" | "presentation";
   readonly path: readonly string[];
   readonly message: string;
   readonly keyword: string;

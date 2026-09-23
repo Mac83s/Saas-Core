@@ -43,7 +43,13 @@ from saas_core.modules.shared.media.api import (
 from saas_core.observability import correlation_id
 
 from .block_contracts import validate_site_block
-from .block_decoration import normalize_block, stored_block_payload, validate_decoration
+from .block_decoration import (
+    normalize_block,
+    stored_block_payload,
+    validate_decoration,
+    validate_page_presentation,
+    validate_presentation,
+)
 from .localization import (
     SiteLocalizationReport,
     build_localization_report,
@@ -71,6 +77,7 @@ from .models import (
     canonical_json_hash,
 )
 from .permissions import SITE_CONTENT_EDIT, SITE_PUBLISH, SITES_ENABLED, SITES_MAX
+from .rich_content import assert_unique_anchors, block_asset_ids
 
 SITE_CREATED = "sites.site.created"
 PAGE_CREATED = "sites.page.created"
@@ -97,6 +104,10 @@ MEDIA_ASSET_RESOURCE_TYPE = "shared.media.asset"
 PAGE_VERSION_REFERENCE_OWNER = "sites.page_version"
 PUBLICATION_REFERENCE_OWNER = "sites.publication"
 PUBLICATION_SNAPSHOT_SCHEMA_VERSION = 1
+# `save_draft(page_presentation=UNSET)` keeps the current draft's page
+# presentation; None clears it. Older clients, change sets and blueprints
+# never send the field, so they must not reset what a person chose.
+UNSET: Any = object()
 DEFAULT_DESIGN_TOKENS = {
     "schemaVersion": 1,
     "palette": "neutral",
@@ -621,8 +632,10 @@ def get_draft_preview(*, page_id: UUID, version_id: UUID) -> PageDraft:
             page_version_id=version.id,
         ).order_by("position")
     )
+    validate_page_presentation(version.presentation)
     for block in blocks:
         validate_decoration(block.decoration)
+        validate_presentation(block.presentation)
         validate_site_block(
             block_type=block.block_type,
             schema_version=block.schema_version,
@@ -900,21 +913,26 @@ def save_draft(
     media_asset_ids: list[UUID],
     idempotency_key: str,
     request_context: dict[str, Any] | None = None,
+    page_presentation: dict[str, Any] | None = UNSET,
 ) -> MutationResult[PageVersion]:
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
     normalized_key = _idempotency_key(idempotency_key)
     normalized_blocks = [normalize_block(block) for block in blocks]
-    normalized_media_asset_ids = tuple(sorted(set(media_asset_ids), key=str))
     for block in normalized_blocks:
         validate_site_block(
             block_type=block["block_type"],
             schema_version=block["schema_version"],
             data=block["data"],
         )
-    content_hash = canonical_json_hash({
-        "blocks": normalized_blocks,
-        "media_asset_ids": [str(asset_id) for asset_id in normalized_media_asset_ids],
-    })
+    assert_unique_anchors(normalized_blocks)
+    if page_presentation is not UNSET:
+        validate_page_presentation(page_presentation)
+    # Images nested in block data (figures, galleries, blocks a change set
+    # inserted) are referenced even when the client did not list them. A
+    # client that already lists them all keeps the same hash.
+    normalized_media_asset_ids = tuple(
+        sorted({*media_asset_ids, *block_asset_ids(normalized_blocks)}, key=str)
+    )
     request_payload: dict[str, Any] = {
         "page_id": str(page_id),
         "expected_version": expected_version,
@@ -923,6 +941,8 @@ def save_draft(
     }
     if request_context is not None:
         request_payload["context"] = request_context
+    if page_presentation is not UNSET:
+        request_payload["page_presentation"] = page_presentation
     request_hash = canonical_json_hash(request_payload)
     existing = PageVersion.all_objects.filter(
         organization_id=context.organization_id,
@@ -965,6 +985,21 @@ def save_draft(
         return MutationResult(_same_request(existing, request_hash), False)
     if page.version != expected_version:
         raise DraftVersionConflict
+    if page_presentation is UNSET:
+        page_presentation = (
+            PageVersion.all_objects.filter(
+                pk=page.current_draft_id, organization_id=context.organization_id
+            )
+            .values_list("presentation", flat=True)
+            .first()
+            if page.current_draft_id is not None
+            else None
+        )
+    content_hash = canonical_json_hash({
+        "blocks": normalized_blocks,
+        "media_asset_ids": [str(asset_id) for asset_id in normalized_media_asset_ids],
+        **({"page_presentation": page_presentation} if page_presentation is not None else {}),
+    })
 
     actor = User.objects.get(pk=context.actor_id)
     version = PageVersion.all_objects.create(
@@ -976,6 +1011,7 @@ def save_draft(
         request_hash=request_hash,
         content_hash=content_hash,
         created_by_credential=context.credential_id if _is_automation(context) else None,
+        presentation=page_presentation,
     )
     PageBlock.all_objects.bulk_create([
         PageBlock(
@@ -986,6 +1022,7 @@ def save_draft(
             schema_version=block["schema_version"],
             data=block["data"],
             decoration=block.get("decoration"),
+            presentation=block.get("presentation"),
         )
         for position, block in enumerate(normalized_blocks)
     ])
@@ -1104,6 +1141,12 @@ def import_page_template(
             media_asset_ids=[item.asset.id for item in materializations],
             idempotency_key=idempotency_key,
             request_context=request_context,
+            # A recipe without its own page presentation keeps the current one.
+            **(
+                {"page_presentation": template.page_presentation}
+                if template.page_presentation is not None
+                else {}
+            ),
         )
         if result.created:
             context = require_tenant_context()
@@ -1602,9 +1645,12 @@ def publish_site(*, site_id: UUID, idempotency_key: str) -> SitePublication:
             page_version_id__in=version_ids,
         ).order_by("page_version_id", "position")
     )
+    for page in pages:
+        validate_page_presentation(page.current_draft.presentation if page.current_draft else None)
     blocks_by_version: dict[UUID, list[PageBlock]] = {}
     for block in blocks:
         validate_decoration(block.decoration)
+        validate_presentation(block.presentation)
         validate_site_block(
             block_type=block.block_type,
             schema_version=block.schema_version,
@@ -2171,6 +2217,12 @@ def _publication_snapshot(
                     for block in blocks_by_version.get(_current_version_id(page), [])
                 ],
                 "media_asset_ids": [str(asset_id) for asset_id in page_media_ids.get(page.id, ())],
+                # Optional like `appearance`: snapshots without it keep their meaning.
+                **(
+                    {"page_presentation": page.current_draft.presentation}
+                    if page.current_draft and page.current_draft.presentation is not None
+                    else {}
+                ),
                 "locales": [
                     {
                         "locale": locale.locale,

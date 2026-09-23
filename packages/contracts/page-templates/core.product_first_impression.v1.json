@@ -1,0 +1,414 @@
+{
+  "id": "core.product_first_impression",
+  "version": 1,
+  "category": "product",
+  "industries": [],
+  "labels": {
+    "pl": {
+      "name": "Produkt — pierwsze wrażenie",
+      "description": "Krótka strona produktu: duże zdjęcie, obietnica oparta na właściwościach, trzy zastosowania, parametry i formularz zapytania. Bez ceny i koszyka; wymień treści demonstracyjne przed publikacją."
+    },
+    "en": {
+      "name": "Product — first impression",
+      "description": "A short product page: a large photo, a promise grounded in stated properties, three uses, the specifications and an inquiry form. No price or cart; replace the demonstration content before publishing."
+    }
+  },
+  "requiredEntitlements": ["sites.enabled"],
+  "pagePresentation": {
+    "schemaVersion": 1,
+    "width": "full",
+    "headingFont": "manrope"
+  },
+  "blocks": [
+    {
+      "block_type": "core.hero",
+      "schema_version": 5,
+      "data": {
+        "title": "Moduł sterujący, który łatwo wbudować",
+        "text": "Kompaktowa płytka z wejściami, wyjściami i pełną dokumentacją. Dla konstruktorów, warsztatów i zespołów, które budują własne urządzenia.",
+        "action": {
+          "label": "Zapytaj o moduł",
+          "href": "mailto:kontakt@example.com"
+        },
+        "layout": "banner"
+      },
+      "presentation": {
+        "schemaVersion": 1,
+        "inner": "full"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 2,
+      "data": {
+        "layout": "split_intro",
+        "title": "Co obiecujemy – i na czym to opieramy",
+        "lead": "Nie podajemy wyników, których nie możesz sprawdzić. To, co mówimy o module, wynika wprost z jego budowy i dokumentacji.",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Łatwo go wbudować.",
+                "bold": true
+              },
+              {
+                "text": " Ma cztery otwory na standardowe dystanse M3, a wszystkie złącza są wyprowadzone na jedną krawędź płytki, więc obudowa potrzebuje tylko jednego wycięcia."
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Łatwo go podłączyć.",
+                "bold": true
+              },
+              {
+                "text": " Komunikuje się przez USB-C i UART, a opis każdego wyprowadzenia znajdziesz w instrukcji dołączonej do modułu."
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Łatwo go serwisować.",
+                "bold": true
+              },
+              {
+                "text": " Schemat połączeń jest dostępny od pierwszego dnia, więc diagnozę i naprawę może przeprowadzić Twój zespół albo dowolny serwis."
+              }
+            ]
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 1,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.feature_list",
+      "schema_version": 4,
+      "data": {
+        "layout": "benefits_commentary",
+        "title": "Trzy typowe zastosowania",
+        "lead": "Moduł nie jest urządzeniem do wszystkiego. Najlepiej sprawdza się tam, gdzie potrzebujesz kilku wejść i wyjść w niewielkiej obudowie.",
+        "items": [
+          {
+            "title": "Prototypy i krótkie serie",
+            "text": "Złożysz działający egzemplarz bez projektowania własnej płytki od zera, a przy kolejnych sztukach użyjesz tej samej dokumentacji."
+          },
+          {
+            "title": "Modernizacja maszyn",
+            "text": "Zastąpisz zużyte sterowanie w urządzeniu, które mechanicznie wciąż jest sprawne, bez wymiany całej maszyny."
+          },
+          {
+            "title": "Stanowiska testowe i szkoleniowe",
+            "text": "Czytelny układ złączy ułatwia pokazywanie, jak działa sterowanie, i szybkie zmiany konfiguracji między ćwiczeniami."
+          }
+        ],
+        "note": {
+          "title": "Przed wyborem",
+          "text": "Jeśli Twój projekt wymaga certyfikacji, pracy w trudnych warunkach albo wielu kanałów, opisz go w zapytaniu. Powiemy uczciwie, czy ten moduł jest właściwym wyborem."
+        }
+      },
+      "decoration": {
+        "schemaVersion": 1,
+        "background": "grid",
+        "ornament": "rings",
+        "placement": "top_right",
+        "intensity": "subtle"
+      },
+      "presentation": {
+        "schemaVersion": 1,
+        "inner": "wide",
+        "surface": "muted"
+      }
+    },
+    {
+      "block_type": "core.product",
+      "schema_version": 1,
+      "data": {
+        "layout": "showcase",
+        "title": "Moduł sterujący – szczegóły",
+        "tagline": "Wszystkie parametry w jednym miejscu, z dokumentacją od pierwszego dnia.",
+        "text": "Parametry poniżej opisują przykładową konfigurację modułu. Jeśli potrzebujesz innego zasilania lub innej liczby wyjść, zapytaj o wariant dopasowany do Twojego projektu.",
+        "images": [],
+        "specs": [
+          {
+            "label": "Format",
+            "value": "płytka drukowana 100 × 70 mm"
+          },
+          {
+            "label": "Zasilanie",
+            "value": "12 V DC"
+          },
+          {
+            "label": "Wejścia cyfrowe",
+            "value": "8"
+          },
+          {
+            "label": "Wyjścia",
+            "value": "4 przekaźnikowe"
+          },
+          {
+            "label": "Komunikacja",
+            "value": "USB-C, UART"
+          },
+          {
+            "label": "Złącza",
+            "value": "wyprowadzone na jedną krawędź płytki"
+          },
+          {
+            "label": "Montaż",
+            "value": "4 otwory na dystanse M3"
+          },
+          {
+            "label": "Dokumentacja",
+            "value": "schemat połączeń i instrukcja w PDF"
+          }
+        ],
+        "action": {
+          "label": "Zapytaj o moduł",
+          "href": "mailto:kontakt@example.com"
+        }
+      },
+      "presentation": {
+        "schemaVersion": 1,
+        "inner": "wide",
+        "surface": "inverse"
+      }
+    },
+    {
+      "block_type": "core.contact_form",
+      "schema_version": 1,
+      "data": {
+        "layout": "card",
+        "locale": "pl",
+        "title": "Zapytaj o moduł",
+        "text": "Napisz, do czego chcesz wykorzystać moduł i ilu egzemplarzy potrzebujesz. Odpowiemy z informacją o konfiguracji i możliwym terminie.",
+        "submit_label": "Wyślij zapytanie",
+        "success_message": "Dziękujemy! Zapytanie zostało zapisane. Odpowiemy e-mailem.",
+        "privacy_label": "Informacje o prywatności"
+      },
+      "presentation": {
+        "schemaVersion": 1,
+        "inner": "standard",
+        "surface": "muted"
+      }
+    }
+  ],
+  "localizedBlocks": {
+    "en": [
+      {
+        "block_type": "core.hero",
+        "schema_version": 5,
+        "data": {
+          "title": "A control board that is easy to build in",
+          "text": "A compact board with inputs, outputs and complete documentation. For designers, workshops and teams building their own devices.",
+          "action": {
+            "label": "Ask about the board",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "banner"
+        },
+        "presentation": {
+          "schemaVersion": 1,
+          "inner": "full"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 2,
+        "data": {
+          "layout": "split_intro",
+          "title": "What we promise – and what it rests on",
+          "lead": "We do not quote results you cannot check. Everything we say about the board follows directly from how it is built and documented.",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Easy to build in.",
+                  "bold": true
+                },
+                {
+                  "text": " It has four holes for standard M3 standoffs, and every connector sits along one edge of the board, so the enclosure needs just one cut-out."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Easy to connect.",
+                  "bold": true
+                },
+                {
+                  "text": " It talks over USB-C and UART, and the manual that comes with it describes every pin."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Easy to service.",
+                  "bold": true
+                },
+                {
+                  "text": " The wiring diagram is available from day one, so your own team or any repair shop can diagnose and fix it."
+                }
+              ]
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 1,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.feature_list",
+        "schema_version": 4,
+        "data": {
+          "layout": "benefits_commentary",
+          "title": "Three typical uses",
+          "lead": "The board is not meant to do everything. It works best where you need a handful of inputs and outputs in a small enclosure.",
+          "items": [
+            {
+              "title": "Prototypes and short runs",
+              "text": "Put together a working unit without designing your own board from scratch, and reuse the same documentation for every unit that follows."
+            },
+            {
+              "title": "Machine upgrades",
+              "text": "Replace worn-out controls in equipment that is still mechanically sound, without replacing the whole machine."
+            },
+            {
+              "title": "Test and training benches",
+              "text": "A clear connector layout makes it easy to show how the controls work and to change the set-up between exercises."
+            }
+          ],
+          "note": {
+            "title": "Before you choose",
+            "text": "If your project needs certification, harsh operating conditions or many channels, describe it in your inquiry. We will tell you honestly whether this board is the right choice."
+          }
+        },
+        "decoration": {
+          "schemaVersion": 1,
+          "background": "grid",
+          "ornament": "rings",
+          "placement": "top_right",
+          "intensity": "subtle"
+        },
+        "presentation": {
+          "schemaVersion": 1,
+          "inner": "wide",
+          "surface": "muted"
+        }
+      },
+      {
+        "block_type": "core.product",
+        "schema_version": 1,
+        "data": {
+          "layout": "showcase",
+          "title": "Control board – the details",
+          "tagline": "Every parameter in one place, with documentation from day one.",
+          "text": "The parameters below describe an example configuration of the board. If you need a different power supply or number of outputs, ask about a variant that fits your project.",
+          "images": [],
+          "specs": [
+            {
+              "label": "Format",
+              "value": "100 × 70 mm printed circuit board"
+            },
+            {
+              "label": "Power supply",
+              "value": "12 V DC"
+            },
+            {
+              "label": "Digital inputs",
+              "value": "8"
+            },
+            {
+              "label": "Outputs",
+              "value": "4 relay outputs"
+            },
+            {
+              "label": "Interfaces",
+              "value": "USB-C, UART"
+            },
+            {
+              "label": "Connectors",
+              "value": "all along one edge of the board"
+            },
+            {
+              "label": "Mounting",
+              "value": "4 holes for M3 standoffs"
+            },
+            {
+              "label": "Documentation",
+              "value": "wiring diagram and PDF manual"
+            }
+          ],
+          "action": {
+            "label": "Ask about the board",
+            "href": "mailto:hello@example.com"
+          }
+        },
+        "presentation": {
+          "schemaVersion": 1,
+          "inner": "wide",
+          "surface": "inverse"
+        }
+      },
+      {
+        "block_type": "core.contact_form",
+        "schema_version": 1,
+        "data": {
+          "layout": "card",
+          "locale": "en",
+          "title": "Ask about the board",
+          "text": "Tell us what you want to use the board for and how many units you need. We will reply with details of the configuration and possible timing.",
+          "submit_label": "Send inquiry",
+          "success_message": "Thank you! Your inquiry has been saved. We will reply by email.",
+          "privacy_label": "Privacy information"
+        },
+        "presentation": {
+          "schemaVersion": 1,
+          "inner": "standard",
+          "surface": "muted"
+        }
+      }
+    ]
+  },
+  "media": [
+    {
+      "id": "electronics",
+      "source": "assets/electronics-workshop.png",
+      "filename": "electronics-workshop.png",
+      "contentType": "image/png",
+      "sha256": "4c2d226103ee37783e586345b7c3dac12088e47210c079b6be1b54666a1c6eb8"
+    }
+  ],
+  "mediaBindings": [
+    {
+      "blockPosition": 0,
+      "mediaId": "electronics",
+      "alt": {
+        "pl": "Płytka drukowana na niebieskiej macie warsztatowej obok miernika i oscyloskopu",
+        "en": "A circuit board on a blue workbench mat next to a multimeter and an oscilloscope"
+      }
+    },
+    {
+      "blockPosition": 3,
+      "mediaId": "electronics",
+      "alt": {
+        "pl": "Płytka drukowana na niebieskiej macie warsztatowej obok miernika i oscyloskopu",
+        "en": "A circuit board on a blue workbench mat next to a multimeter and an oscilloscope"
+      },
+      "path": ["images", 0]
+    }
+  ]
+}
