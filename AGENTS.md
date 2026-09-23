@@ -8,7 +8,10 @@
 - mapa fal: `Plan/Wdrozenie/00-MAPA-WDROZENIA.md`;
 - fala produktowa (po bazie): `Plan/Wdrozenie/10A-W9.5-Customer-Experience-Commerce-i-AI.md`;
 - równoległa gałąź kontraktowa publikacji: `Plan/Wdrozenie/10B-W9.6-Publication-Platform-i-SeoContentRank.md`;
-- punkt wznowienia następnej sesji: `docs/development/HANDOFF.md`;
+- stan bieżący (krótki, aktualizowany w miejscu, bez historii):
+  `docs/development/HANDOFF.md`;
+- żywe plany, ich fazy i odpowiedzi właściciela: memex (`desk/plans`, projekt
+  `saas-core`); `Plan/Wdrozenie/` to baza i historia fal;
 - decyzje techniczne: `docs/adr/`;
 - wykonywalne kontrakty: `docs/architecture/`.
 
@@ -104,7 +107,9 @@ repozytorium założone jako kopia Saas-Core, z Saas-Core jako `upstream`.
 Implementuj wyłącznie aktywny etap i jego konieczne fundamenty. Bazą pozostaje
 plan 13 (P0-P3). To, co wspólne dla produktów, należy do `shared`, nie do
 skopiowania między wertykałami. Po znaczącym etapie
-aktualizuj checklistę, `docs/development/HANDOFF.md` oraz Memex. Nie oznaczaj
+zapisz fazę planu w memeksie (z dowodem) i zaktualizuj stan w
+`docs/development/HANDOFF.md` — zmieniasz jego sekcje, nie dopisujesz dziennika;
+historia żyje w git i w worklogach memeksu. Nie oznaczaj
 bramki jako ukończonej bez testu lub jednoznacznego artefaktu będącego dowodem;
 jeśli część zakresu zostaje otwarta, napisz wprost która i dlaczego.
 
