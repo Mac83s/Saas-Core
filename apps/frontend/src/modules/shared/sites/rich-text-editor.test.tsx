@@ -177,7 +177,9 @@ test("full screen moves the same editor into a dialog and back", async () => {
   );
   await screen.findByRole("textbox", { name: "Treść sekcji" });
   fireEvent.click(
-    screen.getByRole("button", { name: "Pisz na pełnym ekranie" }),
+    screen.getByRole("button", {
+      name: "Pisz na pełnym ekranie: Treść sekcji",
+    }),
   );
   const dialog = await screen.findByRole("dialog", { name: "Treść sekcji" });
   // One editor, now in the dialog; the panel only says where it went.

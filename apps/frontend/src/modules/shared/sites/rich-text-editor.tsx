@@ -550,6 +550,9 @@ function PathEditor({
           {label}
         </FieldLabel>
         <Button
+          // A section can hold two texts (content and aside): the name says
+          // which one opens.
+          aria-label={`${t("editor.fullScreen")}: ${label}`}
           disabled={!editor}
           onClick={() => setFullScreen(true)}
           size="sm"
