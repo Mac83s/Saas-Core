@@ -50,6 +50,7 @@ rejestr z `Plan/SaaS-Core-06-Rejestr-Decyzji.md`.
 | [ADR-052](ADR-052-Wizyty-Gospodarstwa-W-Rejestrze-Rolnika.md) | wizyty gospodarstwa w rejestrze rolnika | Proposed |
 | [ADR-053](ADR-053-Wizytowka-Zawsze-I-Katalog-Publiczny.md) | wizytówka powstaje zawsze, katalog publiczny obok witryn | Accepted |
 | [ADR-054](ADR-054-Listy-Panelu-Na-Wspolnym-DataTable.md) | listy panelu klienta na wspólnym DataTable | Accepted |
+| [ADR-055](ADR-055-Magazyn-Uniwersalny-Dla-Firm.md) | magazyn uniwersalny dla firm: dokumenty, miejsca, rezerwacje | Accepted |
 
 Każda zmiana decyzji tworzy nowy ADR. Całkowicie zastąpiony dokument otrzymuje
 status `Superseded`; przy częściowym zastąpieniu nowy ADR wskazuje dokładny

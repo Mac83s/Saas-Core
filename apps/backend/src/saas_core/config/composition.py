@@ -109,6 +109,30 @@ class CatalogCategory:
 
 
 @dataclass(frozen=True, slots=True)
+class InventoryCategoryTemplate:
+    """A warehouse category every organization of the type starts with."""
+
+    key: str
+    label: dict[str, str]
+
+
+@dataclass(frozen=True, slots=True)
+class InventoryItemTemplate:
+    """A standard stock item every organization of the type has (ADR-055)."""
+
+    key: str
+    name: dict[str, str]
+    category: str
+    unit: str
+
+
+@dataclass(frozen=True, slots=True)
+class InventoryTemplate:
+    categories: tuple[InventoryCategoryTemplate, ...]
+    default_items: tuple[InventoryItemTemplate, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class OrganizationType:
     """A kind of organization the product composes (ADR-050).
 
@@ -126,6 +150,29 @@ class OrganizationType:
     service_templates: tuple[ServiceTemplate, ...] = ()
     #: None uses the core dictionary; an explicit empty tuple disables categories.
     catalog_categories: tuple[CatalogCategory, ...] | None = None
+    #: None gives the warehouse core's categories and no standard items.
+    inventory: InventoryTemplate | None = None
+
+
+def _inventory_template(raw: dict[str, Any]) -> InventoryTemplate:
+    def labels(value: dict[str, Any]) -> dict[str, str]:
+        return {str(k): str(v) for k, v in value.items()}
+
+    return InventoryTemplate(
+        categories=tuple(
+            InventoryCategoryTemplate(key=str(category["key"]), label=labels(category["label"]))
+            for category in raw["categories"]
+        ),
+        default_items=tuple(
+            InventoryItemTemplate(
+                key=str(item["key"]),
+                name=labels(item["name"]),
+                category=str(item["category"]),
+                unit=str(item["unit"]),
+            )
+            for item in raw.get("defaultItems") or ()
+        ),
+    )
 
 
 def organization_types_from(
@@ -188,6 +235,7 @@ def organization_types_from(
                     if "catalogCategories" in raw
                     else None
                 ),
+                inventory=_inventory_template(raw["inventory"]) if "inventory" in raw else None,
             )
         )
     return tuple(types)

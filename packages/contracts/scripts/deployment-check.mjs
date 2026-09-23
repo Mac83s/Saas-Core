@@ -82,6 +82,14 @@ export const effectiveOrganizationTypes = (profile, modules) => {
       ...(type.catalogCategories !== undefined
         ? { catalogCategories: type.catalogCategories }
         : {}),
+      ...(type.inventory !== undefined
+        ? {
+            inventory: {
+              categories: type.inventory.categories,
+              defaultItems: type.inventory.defaultItems ?? [],
+            },
+          }
+        : {}),
       roles: (type.roles ?? []).map((role) => ({
         key: role.key,
         label: role.label,
@@ -161,6 +169,35 @@ const assertTypeRoles = (
   }
 };
 
+// ADR-055: a type's warehouse starts with the categories and standard items
+// its product declares; both must belong to a type that has the warehouse.
+const assertInventory = (type, profileName) => {
+  if (!type.modules.includes("shared.inventory")) {
+    throw new Error(
+      `Profil ${profileName}: typ ${type.key} deklaruje magazyn bez shared.inventory`,
+    );
+  }
+  const categories = type.inventory.categories.map((category) => category.key);
+  if (new Set(categories).size !== categories.length) {
+    throw new Error(
+      `Profil ${profileName}: typ ${type.key} powtarza klucz kategorii magazynu`,
+    );
+  }
+  const items = type.inventory.defaultItems ?? [];
+  if (new Set(items.map((item) => item.key)).size !== items.length) {
+    throw new Error(
+      `Profil ${profileName}: typ ${type.key} powtarza klucz pozycji standardowej`,
+    );
+  }
+  for (const item of items) {
+    if (!categories.includes(item.category)) {
+      throw new Error(
+        `Profil ${profileName}: pozycja ${item.key} typu ${type.key} wskazuje kategorię ${item.category}, której typ nie deklaruje`,
+      );
+    }
+  }
+};
+
 const assertOrganizationTypes = (profile, profileName) => {
   const composed = new Set(profile.modules);
   const plans = new Set(profile.billing?.planKeys ?? []);
@@ -185,6 +222,9 @@ const assertOrganizationTypes = (profile, profileName) => {
       throw new Error(
         `Profil ${profileName}: typ ${type.key} deklaruje kategorie bez shared.profiles`,
       );
+    }
+    if (type.inventory) {
+      assertInventory(type, profileName);
     }
     for (const moduleId of type.modules) {
       if (!composed.has(moduleId)) {

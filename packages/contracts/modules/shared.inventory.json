@@ -6,13 +6,13 @@
   "backend": {
     "djangoApp": "saas_core.modules.shared.inventory",
     "urlPrefix": "/api/v1/inventory",
-    "permissions": ["inventory.read", "inventory.manage"],
+    "permissions": ["inventory.read", "inventory.use", "inventory.manage"],
     "roleGrants": {
       "viewer": ["inventory.read"],
-      "staff": ["inventory.read"],
-      "manager": ["inventory.read", "inventory.manage"],
-      "admin": ["inventory.read", "inventory.manage"],
-      "owner": ["inventory.read", "inventory.manage"]
+      "staff": ["inventory.read", "inventory.use"],
+      "manager": ["inventory.read", "inventory.use", "inventory.manage"],
+      "admin": ["inventory.read", "inventory.use", "inventory.manage"],
+      "owner": ["inventory.read", "inventory.use", "inventory.manage"]
     },
     "entitlements": ["inventory.enabled"],
     "eventSchemas": [],

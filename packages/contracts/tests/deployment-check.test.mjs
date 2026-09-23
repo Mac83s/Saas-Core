@@ -413,7 +413,7 @@ test("moduł nadaje rolom tylko własne uprawnienia i montuje tylko własny kod 
 });
 
 // A profile with shared.billing and two organization types, for ADR-050.
-const typedProfileRoot = async (organizationTypes) => {
+const typedProfileRoot = async (organizationTypes, extraModules = []) => {
   const root = await mkdtemp(path.join(tmpdir(), "saas-core-org-types-"));
   await cp(
     path.join(repositoryRoot, "packages/contracts"),
@@ -432,7 +432,12 @@ const typedProfileRoot = async (organizationTypes) => {
   );
   await writeFile(
     path.join(root, "deployments/typed/deployment.json"),
-    JSON.stringify({ ...business, id: "typed", organizationTypes }),
+    JSON.stringify({
+      ...business,
+      id: "typed",
+      modules: [...business.modules, ...extraModules],
+      organizationTypes,
+    }),
   );
   return root;
 };
@@ -539,6 +544,79 @@ test("role typu: owner i admin, uprawnienia modułów typu, owner z całym rdzen
     ),
     /company\.owner musi mieć organization\.members\.manage/,
   );
+});
+
+test("magazyn typu: kategorie i pozycje standardowe produktu (ADR-055)", async () => {
+  const block = { key: "block", label: { pl: "Klocek", en: "Block" } };
+  const item = {
+    key: "block",
+    name: { pl: "Klocek", en: "Block" },
+    category: "block",
+    unit: "piece",
+  };
+  const company = {
+    key: "company",
+    label: { pl: "Firma", en: "Company" },
+    modules: ["shared.billing", "shared.inventory"],
+    planKeys: ["profile"],
+    selfSignup: true,
+    inventory: { categories: [block], defaultItems: [item] },
+  };
+  const result = await validateDeployment(
+    "typed",
+    await typedProfileRoot([company], ["shared.inventory"]),
+  );
+  assert.deepEqual(
+    effectiveOrganizationTypes(result.profile, result.modules)[0].inventory,
+    { categories: [block], defaultItems: [item] },
+  );
+  // Without the field nothing is written, so existing artifacts keep their hash.
+  const { inventory: _omitted, ...plain } = company;
+  assert.equal(
+    "inventory" in
+      effectiveOrganizationTypes({ organizationTypes: [plain] }, [])[0],
+    false,
+  );
+  for (const [patch, pattern] of [
+    [{ modules: ["shared.billing"] }, /magazyn bez shared.inventory/],
+    [
+      { inventory: { categories: [block, block], defaultItems: [] } },
+      /powtarza klucz kategorii magazynu/,
+    ],
+    [
+      { inventory: { categories: [block], defaultItems: [item, item] } },
+      /powtarza klucz pozycji standardowej/,
+    ],
+    [
+      {
+        inventory: {
+          categories: [block],
+          defaultItems: [{ ...item, category: "drug" }],
+        },
+      },
+      /kategorię drug/,
+    ],
+    [
+      {
+        inventory: {
+          categories: [block],
+          defaultItems: [{ ...item, unit: "box" }],
+        },
+      },
+      /inventory/,
+    ],
+  ]) {
+    await assert.rejects(
+      validateDeployment(
+        "typed",
+        await typedProfileRoot(
+          [{ ...company, ...patch }],
+          ["shared.inventory"],
+        ),
+      ),
+      pattern,
+    );
+  }
 });
 
 test("kategorie katalogu należą do typu i wymagają modułu profili", async () => {

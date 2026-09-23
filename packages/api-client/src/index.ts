@@ -2572,8 +2572,20 @@ export async function updateFarmAnimal(
 export type InventoryItem = components["schemas"]["InventoryItem"];
 export type InventoryBalance = components["schemas"]["InventoryBalance"];
 export type InventoryMovement = components["schemas"]["InventoryMovement"];
+export type InventoryCategory = components["schemas"]["InventoryCategory"];
+export type StockDocument = components["schemas"]["StockDocument"];
 
-/** Katalog materiałów firmy; leki są w nim kategorią. */
+/** Kategorie firmy; zestaw startowy deklaruje produkt (ADR-055). */
+export async function listInventoryCategories(): Promise<InventoryCategory[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/inventory/categories/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Katalog towarów firmy: jedna pozycja to jeden SKU. */
 export async function listInventoryItems(
   filters: { category?: string; search?: string } = {},
 ): Promise<InventoryItem[]> {
@@ -2629,7 +2641,7 @@ export async function listInventoryBalances(
 
 export async function receiveInventory(
   input: components["schemas"]["InventoryReceiptInput"],
-): Promise<InventoryMovement> {
+): Promise<StockDocument> {
   const csrfToken = await getCsrfToken();
   const { data, error, response } = await client.POST(
     "/api/v1/inventory/receipts/",
@@ -2646,7 +2658,7 @@ export async function receiveInventory(
 /** Wydanie pracownikowi: pakiet, z którym wyjeżdża w teren. */
 export async function issueInventory(
   input: components["schemas"]["InventoryIssueInput"],
-): Promise<InventoryMovement> {
+): Promise<StockDocument> {
   const csrfToken = await getCsrfToken();
   const { data, error, response } = await client.POST(
     "/api/v1/inventory/issues/",
