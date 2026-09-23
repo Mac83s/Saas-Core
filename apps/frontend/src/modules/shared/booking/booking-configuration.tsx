@@ -10,6 +10,7 @@ import {
   ApiProblemError,
   configureBookingSchedule,
   createBookingCatalogItem,
+  setBookingServiceMaterials,
   type BookingCatalog,
 } from "@saas-core/api-client";
 import { Button } from "@saas-core/ui/components/button";
@@ -25,6 +26,14 @@ import { Label } from "@saas-core/ui/components/label";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
 import { typeText, type OrganizationTypeInfo } from "#lib/organization-types";
+
+import {
+  draftsOf,
+  materialsInput,
+  MaterialsEditor,
+  useWarehouse,
+  type MaterialDraft,
+} from "./materials-editor";
 
 const catalogSchema = z.object({
   kind: z.enum(["location", "staff", "service", "resource"]),
@@ -47,11 +56,14 @@ export function BookingConfiguration({
   catalog,
   onChanged,
   serviceTemplates = [],
+  canUseInventory = false,
 }: {
   catalog?: BookingCatalog;
   onChanged: () => Promise<void>;
   /** Ready-made services of the organization's type (ADR-050). */
   serviceTemplates?: OrganizationTypeInfo["serviceTemplates"];
+  /** Products from the warehouse can be attached to a service (ADR-055). */
+  canUseInventory?: boolean;
 }) {
   const t = useTranslations("BookingConfiguration");
   const locale = useLocale();
@@ -285,6 +297,100 @@ export function BookingConfiguration({
           </form>
         </CardContent>
       </Card>
+      {canUseInventory && catalog?.services.length ? (
+        <ServiceMaterials catalog={catalog} onChanged={onChanged} />
+      ) : null}
     </div>
+  );
+}
+
+/** What each visit of a service takes from the warehouse, by default. */
+function ServiceMaterials({
+  catalog,
+  onChanged,
+}: {
+  catalog: BookingCatalog;
+  onChanged: () => Promise<void>;
+}) {
+  const t = useTranslations("BookingMaterials");
+  const warehouse = useWarehouse(true);
+  const [serviceId, setServiceId] = useState(catalog.services[0]?.id ?? "");
+  const service = catalog.services.find((one) => one.id === serviceId);
+  const [drafts, setDrafts] = useState<MaterialDraft[]>(() =>
+    draftsOf(service?.materials),
+  );
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ ok: boolean; text: string }>();
+
+  async function save() {
+    setBusy(true);
+    setMessage(undefined);
+    try {
+      await setBookingServiceMaterials(serviceId, materialsInput(drafts));
+      await onChanged();
+      setMessage({ ok: true, text: t("saved") });
+    } catch (error) {
+      setMessage({
+        ok: false,
+        text: error instanceof ApiProblemError ? error.message : t("failed"),
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="lg:col-span-2">
+      <CardHeader>
+        <CardTitle>{t("serviceTitle")}</CardTitle>
+        <CardDescription>{t("serviceDescription")}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="max-w-sm">
+          <Label htmlFor="service-materials-service">{t("service")}</Label>
+          <NativeSelect
+            id="service-materials-service"
+            onChange={(event) => {
+              const next = catalog.services.find(
+                (one) => one.id === event.target.value,
+              );
+              setServiceId(event.target.value);
+              setDrafts(draftsOf(next?.materials));
+              setMessage(undefined);
+            }}
+            value={serviceId}
+          >
+            {catalog.services.map((one) => (
+              <option key={one.id} value={one.id}>
+                {one.name}
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
+        <MaterialsEditor
+          drafts={drafts}
+          idPrefix="service-materials"
+          onChange={setDrafts}
+          warehouse={warehouse}
+        />
+        <div className="flex flex-wrap items-center gap-3">
+          <Button disabled={busy || !serviceId} onClick={() => void save()}>
+            {t("save")}
+          </Button>
+          {message ? (
+            <p
+              className={
+                message.ok
+                  ? "text-sm text-success-foreground"
+                  : "text-sm text-destructive"
+              }
+              role={message.ok ? "status" : "alert"}
+            >
+              {message.text}
+            </p>
+          ) : null}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

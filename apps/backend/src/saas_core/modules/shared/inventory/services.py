@@ -887,20 +887,28 @@ def available(organization_id: UUID, item_id: UUID, location_id: UUID) -> Decima
 def consume(
     *,
     organization_id: UUID,
-    holder_id: UUID,
     source: str,
     source_reference: str,
     lines: Iterable[tuple[UUID, Decimal]],
+    holder_id: UUID | None = None,
+    location_id: UUID | None = None,
+    actor_id: UUID | None = None,
+    kind: str = DocumentKind.RW,
 ) -> StockDocument | None:
-    """Zużycie przy pracy: jeden dokument RW na źródło, z zapasu osoby.
+    """Zużycie przy pracy: jeden dokument na źródło i rodzaj.
 
-    Brak pokrycia nie zatrzymuje pracy — stan schodzi poniżej zera (decyzja z
-    21.09). Powtórka tego samego źródła zwraca istniejący dokument: wpis
-    zapisany dwa razy to jeden klocek.
+    Z zapasu osoby (`holder_id`, praca w terenie) albo z miejsca
+    (`location_id`, np. wizyta w salonie). RW to zużycie na koszt firmy, WZ —
+    towar wydany klientowi przy wizycie. Brak pokrycia nie zatrzymuje pracy —
+    stan schodzi poniżej zera (decyzja z 21.09); blokuje tylko sprzedaż w
+    sklepie, która tędy nie idzie. Powtórka tego samego źródła zwraca
+    istniejący dokument: wpis zapisany dwa razy to jeden klocek.
     """
+    if kind not in (DocumentKind.RW, DocumentKind.WZ):
+        raise ValueError(f"Zużycie wystawia RW albo WZ, nie {kind}.")
     existing = StockDocument.all_objects.filter(
         organization_id=organization_id,
-        kind=DocumentKind.RW,
+        kind=kind,
         source=source,
         source_reference=source_reference,
         corrects__isnull=True,
@@ -915,19 +923,44 @@ def consume(
     ]
     if not rows:
         return None
+    actor = actor_id or holder_id
+    if actor is None:
+        raise ValueError("Zużycie potrzebuje osoby, która je wystawia.")
+    if location_id is not None:
+        location = _get(StockLocation, organization_id, location_id)
+    elif holder_id is not None:
+        location = person_location(organization_id, holder_id)
+    else:
+        location = default_warehouse(organization_id)
     ensure_catalog(organization_id)
     document = StockDocument.all_objects.create(
         organization_id=organization_id,
-        kind=DocumentKind.RW,
+        kind=kind,
         document_date=timezone.localdate(),
-        source_location=person_location(organization_id, holder_id),
+        source_location=location,
         source=source,
         source_reference=source_reference,
-        created_by_id=holder_id,
+        created_by_id=actor,
     )
     _write_lines(document, rows)
-    _post(document, actor_id=holder_id, allow_negative=True)
+    _post(document, actor_id=actor, allow_negative=True)
     return document
+
+
+def describe_items(organization_id: UUID, item_ids: Iterable[UUID]) -> dict[UUID, dict[str, Any]]:
+    """Co moduł może pokazać o pozycji bez importu modeli: nazwa, jednostka,
+    cena sprzedaży. Nieznanych i ukrytych pozycji w wyniku nie ma."""
+    return {
+        item.id: {
+            "name": item.name,
+            "unit": item.unit,
+            "sale_price_net_minor": item.sale_price_net_minor,
+            "currency": item.currency,
+        }
+        for item in InventoryItem.all_objects.filter(
+            organization_id=organization_id, id__in=list(item_ids), active=True
+        )
+    }
 
 
 @transaction.atomic

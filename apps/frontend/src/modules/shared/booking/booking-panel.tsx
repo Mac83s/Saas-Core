@@ -58,10 +58,13 @@ const focusRing =
  */
 export function BookingPanel({
   canManage = true,
+  canUseInventory = false,
   timeZone,
 }: {
   /** booking.appointment.manage: plan, move and cancel appointments. */
   canManage?: boolean;
+  /** inventory.use: pick the products a visit takes (ADR-055). */
+  canUseInventory?: boolean;
   /** The organization's zone: days and times are the business's own. */
   timeZone?: string;
 } = {}) {
@@ -541,6 +544,7 @@ export function BookingPanel({
       <AppointmentDialog
         appointment={selected}
         canManage={canManage}
+        canUseInventory={canUseInventory}
         catalog={catalog}
         onChanged={(appointment) => {
           setSelected(appointment);
@@ -553,6 +557,7 @@ export function BookingPanel({
       />
       {catalog ? (
         <NewAppointmentDialog
+          canUseInventory={canUseInventory}
           catalog={catalog}
           day={cursor}
           onCreated={(appointment) => {

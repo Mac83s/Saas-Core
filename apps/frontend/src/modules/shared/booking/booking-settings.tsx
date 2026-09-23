@@ -31,11 +31,14 @@ type Row = { id: string; name: string; detail?: string };
 export function BookingSettings({
   organizationType,
   canManageBilling,
+  canUseInventory = false,
 }: {
   /** Chooses the service templates offered (ADR-050). */
   organizationType?: string;
   /** The owner is sent to the plan when booking is not in it. */
   canManageBilling: boolean;
+  /** Services can carry products from the warehouse (ADR-055). */
+  canUseInventory?: boolean;
 }) {
   const t = useTranslations("Settings");
   const [catalog, setCatalog] = useState<BookingCatalog>();
@@ -163,6 +166,7 @@ export function BookingSettings({
         </CardContent>
       </Card>
       <BookingConfiguration
+        canUseInventory={canUseInventory}
         catalog={catalog}
         onChanged={load}
         serviceTemplates={

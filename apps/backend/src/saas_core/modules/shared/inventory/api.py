@@ -1,6 +1,6 @@
 """Publiczne wejście magazynu dla innych modułów (ADR-049, ADR-055).
 
-Moduł zużywa towar przez `consume` (jeden dokument RW na źródło), cofa go przez
+Moduł zużywa towar przez `consume` (jeden dokument RW albo WZ na źródło), cofa go przez
 `cancel_source`, odkłada przez `reserve` / `release_reservations`, a stan czyta
 przez `holder_stock` i `available`. Modeli nie importuje — to, co magazyn uważa
 za stan, zostaje jego sprawą. Bramkę uprawnień sprawdza wołający.
@@ -16,6 +16,7 @@ from .services import (
     cancel_source,
     consume,
     default_warehouse,
+    describe_items,
     holder_stock,
     person_location,
     release_reservations,
@@ -32,6 +33,7 @@ __all__ = [
     "cancel_source",
     "consume",
     "default_warehouse",
+    "describe_items",
     "holder_stock",
     "person_location",
     "release_reservations",

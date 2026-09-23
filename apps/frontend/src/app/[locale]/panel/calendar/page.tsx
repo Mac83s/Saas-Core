@@ -12,6 +12,10 @@ export default async function CalendarPage() {
         canManage={allows(panelAccess(organization), {
           permission: "booking.appointment.manage",
         })}
+        canUseInventory={allows(panelAccess(organization), {
+          module: "shared.inventory",
+          permission: "inventory.use",
+        })}
         timeZone={organization?.timezone}
       />
     </main>

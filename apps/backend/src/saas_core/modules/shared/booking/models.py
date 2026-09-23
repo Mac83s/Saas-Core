@@ -103,6 +103,11 @@ class Service(TenantScopedModel):
     buffer_before_minutes = models.PositiveSmallIntegerField(default=0)
     buffer_after_minutes = models.PositiveSmallIntegerField(default=0)
     minimum_notice_minutes = models.PositiveIntegerField(default=60)
+    #: Produkty z magazynu, które wizyta tej usługi zabiera (ADR-055):
+    #: `[{"item_id", "quantity", "mode": "consume" | "sale"}]`. Magazyn nie
+    #: jest zależnością rezerwacji, więc bez kluczy obcych — sprawdza je
+    #: `materials.py`, gdy moduł magazynu jest w profilu.
+    materials = models.JSONField(default=list, blank=True)
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -272,6 +277,9 @@ class Appointment(TenantScopedModel):
     occupied_until = models.DateTimeField()
     timezone = models.CharField(max_length=64)
     service_name = models.CharField(max_length=160)
+    #: Produkty tej wizyty: kopia z usługi albo wpisane ręcznie, z nazwą i
+    #: ceną z chwili zapisu. Stan jest zarezerwowany do zakończenia wizyty.
+    materials = models.JSONField(default=list, blank=True)
     status = models.CharField(
         max_length=16, choices=AppointmentStatus, default=AppointmentStatus.CONFIRMED
     )

@@ -29,6 +29,7 @@ from .serializers import (
     CatalogCreateSerializer,
     CatalogSerializer,
     CustomerAnonymizedSerializer,
+    MaterialsInputSerializer,
     RescheduleSerializer,
     ScheduleCreateSerializer,
     SlotListSerializer,
@@ -40,12 +41,15 @@ from .services import (
     BOOKING_MANAGE,
     anonymize_customer,
     cancel_appointment,
+    complete_appointment,
     configure_schedule,
     create_appointment,
     create_catalog_item,
     list_appointments,
     list_catalog,
     reschedule_appointment,
+    set_appointment_materials,
+    set_service_materials,
     update_staff,
 )
 
@@ -63,7 +67,9 @@ def _idem(request: Request) -> str:
     return value
 
 
-def _appointment_payload(value: Any, token: str | None = None) -> dict[str, Any]:
+def _appointment_payload(
+    value: Any, token: str | None = None, *, public: bool = False
+) -> dict[str, Any]:
     return {
         "id": value.id,
         "starts_at": value.starts_at,
@@ -77,8 +83,18 @@ def _appointment_payload(value: Any, token: str | None = None) -> dict[str, Any]
         "staff_membership_id": value.staff.membership_id,
         "location_name": value.location.name,
         "resource_name": value.resource.name if value.resource else None,
+        # The customer sees their visit, not the company's stock sheet.
+        **({} if public else {"materials": value.materials}),
         **({"self_service_token": token} if token else {}),
     }
+
+
+def _materials(raw: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Validated lines as plain JSON: they enter the idempotency hash."""
+    return [
+        {"item_id": str(line["item_id"]), "quantity": str(line["quantity"]), "mode": line["mode"]}
+        for line in raw
+    ]
 
 
 def _catalog_payload(value: dict[str, list[Any]], *, public: bool = False) -> dict[str, Any]:
@@ -106,6 +122,8 @@ def _catalog_payload(value: dict[str, list[Any]], *, public: bool = False) -> di
                 "public_slug": x.public_slug,
                 "duration_minutes": x.duration_minutes,
                 "appointment_kind": x.appointment_kind,
+                # What a visit takes from the warehouse is the company's business.
+                **({} if public else {"materials": x.materials}),
             }
             for x in value["services"]
             if x.active
@@ -264,6 +282,8 @@ class AppointmentListCreateView(APIView):
         s.is_valid(raise_exception=True)
         data = dict(s.validated_data)
         customer = data.pop("customer")
+        if "materials" in data:
+            data["materials"] = _materials(data["materials"])
         result = create_appointment(
             **data,
             customer_data=customer,
@@ -320,6 +340,71 @@ class AppointmentCancelView(APIView):
                 )
             )
         )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class AppointmentCompleteView(APIView):
+    """Wizyta się odbyła: produkty schodzą z magazynu (RW, WZ)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        parameters=[IDEMPOTENCY],
+        request=None,
+        responses={200: AppointmentSerializer},
+    )
+    def post(self, request: Request, appointment_id: UUID) -> Response:
+        context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
+        return Response(
+            _appointment_payload(
+                complete_appointment(
+                    appointment_id=appointment_id,
+                    idempotency_key=_idem(request),
+                    principal_ref=str(context.actor_id),
+                )
+            )
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class AppointmentMaterialsView(APIView):
+    """Produkty jednej wizyty; rezerwacja stanu idzie za nimi."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        request=MaterialsInputSerializer,
+        responses={200: AppointmentSerializer},
+    )
+    def put(self, request: Request, appointment_id: UUID) -> Response:
+        s = MaterialsInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        value = set_appointment_materials(
+            appointment_id=appointment_id, materials=_materials(s.validated_data["materials"])
+        )
+        return Response(_appointment_payload(value))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class ServiceMaterialsView(APIView):
+    """Produkty, które zabiera każda wizyta tej usługi."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        request=MaterialsInputSerializer,
+        responses={200: MaterialsInputSerializer},
+    )
+    def put(self, request: Request, service_id: UUID) -> Response:
+        s = MaterialsInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        service = set_service_materials(
+            service_id=service_id, materials=_materials(s.validated_data["materials"])
+        )
+        return Response({"materials": service.materials})
 
 
 class CustomerAnonymizeView(AppointmentCancelView):
@@ -430,7 +515,7 @@ class PublicBookingCreateView(APIView):
                 idempotency_key=_idem(request),
                 principal_ref="public",
             )
-            payload = _appointment_payload(result.appointment, result.token)
+            payload = _appointment_payload(result.appointment, result.token, public=True)
         return Response(payload, status=201 if result.created else 200)
 
 
@@ -463,7 +548,7 @@ class SelfServiceAppointmentView(APIView):
             )
             if not value:
                 raise NotFound("Rezerwacja nie istnieje.")
-            return Response(_appointment_payload(value))
+            return Response(_appointment_payload(value, public=True))
 
 
 class SelfServiceRescheduleView(SelfServiceAppointmentView):
@@ -485,7 +570,7 @@ class SelfServiceRescheduleView(SelfServiceAppointmentView):
                 principal_ref=route.token_digest,
                 **s.validated_data,
             )
-            payload = _appointment_payload(value)
+            payload = _appointment_payload(value, public=True)
         return Response(payload)
 
 
@@ -505,5 +590,5 @@ class SelfServiceCancelView(SelfServiceAppointmentView):
                 idempotency_key=_idem(request),
                 principal_ref=route.token_digest,
             )
-            payload = _appointment_payload(value)
+            payload = _appointment_payload(value, public=True)
         return Response(payload)
