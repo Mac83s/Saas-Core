@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:e9208b703cce1fd27bc77d160199e94c3bcb0fee66369127125e49f5eef76014",
+  "profileHash": "sha256:052be5e7fd821d16bc693619f575b763ad00bb00c34c42277ca430e2d4df7223",
   "schemaVersion": 1,
   "deployment": "vps-dev",
   "product": {
@@ -30,7 +30,8 @@
         "shared.media",
         "shared.profiles",
         "shared.booking",
-        "shared.seo"
+        "shared.seo",
+        "shared.inventory"
       ],
       "planKeys": [
         "profile",
@@ -395,6 +396,66 @@
         "translationNamespaces": [
           "seoAudits",
           "seoGsc"
+        ]
+      }
+    },
+    {
+      "id": "shared.inventory",
+      "version": 1,
+      "layer": "shared",
+      "dependsOn": [
+        "core.identity",
+        "core.organizations",
+        "shared.billing"
+      ],
+      "backend": {
+        "djangoApp": "saas_core.modules.shared.inventory",
+        "urlPrefix": "/api/v1/inventory",
+        "permissions": [
+          "inventory.read",
+          "inventory.use",
+          "inventory.manage"
+        ],
+        "roleGrants": {
+          "viewer": [
+            "inventory.read"
+          ],
+          "staff": [
+            "inventory.read",
+            "inventory.use"
+          ],
+          "manager": [
+            "inventory.read",
+            "inventory.use",
+            "inventory.manage"
+          ],
+          "admin": [
+            "inventory.read",
+            "inventory.use",
+            "inventory.manage"
+          ],
+          "owner": [
+            "inventory.read",
+            "inventory.use",
+            "inventory.manage"
+          ]
+        },
+        "entitlements": [
+          "inventory.enabled"
+        ],
+        "eventSchemas": [],
+        "publicTables": [],
+        "platformTables": []
+      },
+      "frontend": {
+        "routes": [
+          "/panel/inventory"
+        ],
+        "navigation": [
+          "inventory"
+        ],
+        "translationNamespaces": [
+          "Inventory"
         ]
       }
     }

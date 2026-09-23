@@ -35,6 +35,7 @@ test("profil business składa wszystkie moduły Shared bez verticala", async () 
     "shared.profiles",
     "shared.booking",
     "shared.seo",
+    "shared.inventory",
   ]);
   assert.ok(
     result.modules.every((id) => /^(core|shared)\./.test(id)),
@@ -413,7 +414,7 @@ test("moduł nadaje rolom tylko własne uprawnienia i montuje tylko własny kod 
 });
 
 // A profile with shared.billing and two organization types, for ADR-050.
-const typedProfileRoot = async (organizationTypes, extraModules = []) => {
+const typedProfileRoot = async (organizationTypes) => {
   const root = await mkdtemp(path.join(tmpdir(), "saas-core-org-types-"));
   await cp(
     path.join(repositoryRoot, "packages/contracts"),
@@ -435,7 +436,6 @@ const typedProfileRoot = async (organizationTypes, extraModules = []) => {
     JSON.stringify({
       ...business,
       id: "typed",
-      modules: [...business.modules, ...extraModules],
       organizationTypes,
     }),
   );
@@ -564,7 +564,7 @@ test("magazyn typu: kategorie i pozycje standardowe produktu (ADR-055)", async (
   };
   const result = await validateDeployment(
     "typed",
-    await typedProfileRoot([company], ["shared.inventory"]),
+    await typedProfileRoot([company]),
   );
   assert.deepEqual(
     effectiveOrganizationTypes(result.profile, result.modules)[0].inventory,
@@ -609,10 +609,7 @@ test("magazyn typu: kategorie i pozycje standardowe produktu (ADR-055)", async (
     await assert.rejects(
       validateDeployment(
         "typed",
-        await typedProfileRoot(
-          [{ ...company, ...patch }],
-          ["shared.inventory"],
-        ),
+        await typedProfileRoot([{ ...company, ...patch }]),
       ),
       pattern,
     );
