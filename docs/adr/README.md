@@ -38,6 +38,18 @@ rejestr z `Plan/SaaS-Core-06-Rejestr-Decyzji.md`.
 | [ADR-040](ADR-040-VAT-Ceny-Netto-i-Zakres-Customer-Portalu.md) | VAT przez Stripe Tax, ceny netto i zakres Customer Portalu | Accepted |
 | [ADR-041](ADR-041-Izolacja-Tabel-Czytanych-Przed-Poznaniem-Tenanta.md) | Izolacja tabel czytanych przed poznaniem tenanta: drzwi i tabele platformowe | Accepted |
 | [ADR-042](ADR-042-Usuniecie-Tenanta-i-Prawo-do-Bycia-Zapomnianym.md) | Usunięcie tenanta jest usunięciem; jedna nazwana furtka w append-only | Accepted |
+| [ADR-043](ADR-043-Integracja-SaaS-Core-SCR-i-SSA.md) | integracja SaaS Core, SeoContentRank i SEOSiteAudit | Accepted |
+| [ADR-044](ADR-044-Baza-Zmiany-Tresci-i-Waznosc-Podgladu.md) | baza zmiany treści i ważność podglądu | Accepted |
+| [ADR-045](ADR-045-Zlecenie-Audytu-SSA-i-Rozliczenie-Kredytow.md) | zlecenie audytu SSA i rozliczenie kredytów | Accepted |
+| [ADR-046](ADR-046-Strona-z-Briefu-Przez-Kontrolowane-Pola-Szablonu.md) | strona z briefu przez kontrolowane pola szablonu | Accepted |
+| [ADR-047](ADR-047-Delegowane-GSC-i-Zamkniecie-Prywatnych-Danych-Przed-Erasure.md) | delegowane GSC i zamknięcie prywatnych danych przed erasure | Accepted |
+| [ADR-048](ADR-048-Strony-Marketingowe-Produktow-Jako-Dedykowane-Strony-Nextjs.md) | strony marketingowe produktów jako dedykowane strony Next.js | Accepted |
+| [ADR-049](ADR-049-Produkty-W-Osobnych-Repozytoriach-Z-Rdzeniem-Saas-Core.md) | produkty w osobnych repozytoriach z rdzeniem Saas-Core | Accepted |
+| [ADR-050](ADR-050-Typy-Organizacji-Definiowane-Przez-Produkt.md) | typy organizacji definiowane przez produkt | Proposed |
+| [ADR-051](ADR-051-Rejestr-Gospodarstw-I-Zwierzat.md) | rejestr gospodarstw i zwierząt z kopiami firm i synchronizacją | Proposed |
+| [ADR-052](ADR-052-Wizyty-Gospodarstwa-W-Rejestrze-Rolnika.md) | wizyty gospodarstwa w rejestrze rolnika | Proposed |
+| [ADR-053](ADR-053-Wizytowka-Zawsze-I-Katalog-Publiczny.md) | wizytówka powstaje zawsze, katalog publiczny obok witryn | Proposed |
+| [ADR-054](ADR-054-Listy-Panelu-Na-Wspolnym-DataTable.md) | listy panelu klienta na wspólnym DataTable | Accepted |
 
 Każda zmiana decyzji tworzy nowy ADR. Całkowicie zastąpiony dokument otrzymuje
 status `Superseded`; przy częściowym zastąpieniu nowy ADR wskazuje dokładny

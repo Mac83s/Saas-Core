@@ -71,6 +71,9 @@ wskazujący nieistniejący skill albo nieistniejącą ścieżkę psuje walidacj�
   `Select` dla małego zamkniętego zbioru, `Combobox` dla zbioru dużego lub
   filtrowalnego, `Autocomplete` gdy dozwolony jest własny tekst;
 - formularze używają React Hook Form + Zod, a błędy serwera mają Problem Details;
+- każda lista w panelu klienta to `DataTable` z `@saas-core/ui` (ADR-054):
+  na telefonie wiersze są kartami, długie listy stronicuje API. Nie rysuj
+  własnej `<table>` ani listy kart;
 - zachowuj semantykę, klawiaturę i focus komponentów; testuj axe oraz PL/EN;
 - nie kopiuj wariantów shadcn do aplikacji. Rozszerzaj wspólny komponent lub
   kompozycję w `packages/ui`.

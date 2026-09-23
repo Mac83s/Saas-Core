@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ComponentProps } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
-import { EllipsisIcon, UserPlusIcon } from "lucide-react";
+import { UserPlusIcon } from "lucide-react";
 import { z } from "zod";
 
 import {
@@ -43,12 +43,11 @@ import {
   DialogTrigger,
 } from "@saas-core/ui/components/dialog";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@saas-core/ui/components/dropdown-menu";
+  DataTable,
+  RowActions,
+  type ColumnDef,
+  type RowAction,
+} from "@saas-core/ui/components/data-table";
 import {
   Field,
   FieldDescription,
@@ -60,6 +59,7 @@ import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
 import { useRouter } from "#i18n/navigation";
+import { useDataTableLabels } from "#lib/data-table-labels";
 import { RolesCard, useRoleDescription, useRoleLabel } from "./roles-card";
 
 // The API decides; these only keep the screen from offering a 403.
@@ -87,13 +87,7 @@ type Row = {
   badge: ComponentProps<typeof Badge>["variant"];
   /** Since when a member is in, or until when an invitation holds. */
   note: string;
-  items: MenuItem[];
-};
-type MenuItem = {
-  label: string;
-  onSelect: (trigger: HTMLElement | null) => void;
-  destructive?: boolean;
-  separated?: boolean;
+  items: RowAction[];
 };
 
 function memberName(member: MembershipSummary): string {
@@ -116,6 +110,7 @@ export function TeamPanel({
   const t = useTranslations("TeamPage");
   const org = useTranslations("Organizations");
   const common = useTranslations("Common");
+  const tableLabels = useDataTableLabels();
   const format = useFormatter();
   const router = useRouter();
   const permissions = new Set(organization?.permissions);
@@ -217,7 +212,7 @@ export function TeamPanel({
     ...members.map((member): Row => {
       const name = memberName(member);
       const self = member.user_id === userId;
-      const items: MenuItem[] = [];
+      const items: RowAction[] = [];
       if (!self && manages(member.role))
         items.push(
           {
@@ -259,7 +254,7 @@ export function TeamPanel({
     ...invitations.map((invitation): Row => {
       const { email, role } = invitation;
       const expired = invitation.status === "expired";
-      const items: MenuItem[] = [];
+      const items: RowAction[] = [];
       if (manages(role)) {
         if (expired)
           items.push({
@@ -292,6 +287,56 @@ export function TeamPanel({
         items,
       };
     }),
+  ];
+
+  const columns: ColumnDef<Row, unknown>[] = [
+    {
+      id: "person",
+      accessorKey: "name",
+      header: t("person"),
+      meta: { primary: true },
+      cell: ({ row: { original: row } }) => (
+        <>
+          <p className="font-medium wrap-anywhere">
+            {row.name}
+            {row.self ? (
+              <span className="font-normal text-muted-foreground">
+                {" "}
+                ({t("you")})
+              </span>
+            ) : null}
+          </p>
+          {row.email ? (
+            <p className="text-muted-foreground wrap-anywhere">{row.email}</p>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      id: "role",
+      header: t("roleAndStatus"),
+      enableSorting: false,
+      cell: ({ row: { original: row } }) => (
+        <>
+          <p>{roleLabel(row.role)}</p>
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground max-md:justify-end">
+            <Badge variant={row.badge}>{row.status}</Badge>
+            {row.note}
+          </p>
+        </>
+      ),
+    },
+    {
+      id: "actions",
+      header: t("actions"),
+      meta: { actions: true },
+      cell: ({ row: { original: row } }) => (
+        <RowActions
+          items={row.items}
+          label={t("actionsFor", { name: row.name })}
+        />
+      ),
+    },
   ];
 
   function problemText(error: unknown): string {
@@ -471,70 +516,19 @@ export function TeamPanel({
                 {t("retry")}
               </Button>
             </div>
-          ) : !team ? (
-            <div aria-busy="true" className="space-y-2">
-              <span className="sr-only">{common("loading")}</span>
-              {[0, 1, 2].map((row) => (
-                <div
-                  className="h-14 animate-pulse rounded-lg bg-muted"
-                  key={row}
-                />
-              ))}
-            </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <caption className="sr-only">{t("tableCaption")}</caption>
-                <thead className="border-b text-xs text-muted-foreground">
-                  <tr>
-                    <th className="py-2 pr-3 font-medium" scope="col">
-                      {t("person")}
-                    </th>
-                    <th className="py-2 pr-3 font-medium" scope="col">
-                      {t("roleAndStatus")}
-                    </th>
-                    <th className="w-11 py-2" scope="col">
-                      <span className="sr-only">{t("actions")}</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {rows.map((row) => (
-                    <tr key={row.key}>
-                      <td className="py-3 pr-3 align-top">
-                        <p className="font-medium wrap-anywhere">
-                          {row.name}
-                          {row.self ? (
-                            <span className="font-normal text-muted-foreground">
-                              {" "}
-                              ({t("you")})
-                            </span>
-                          ) : null}
-                        </p>
-                        {row.email ? (
-                          <p className="text-muted-foreground wrap-anywhere">
-                            {row.email}
-                          </p>
-                        ) : null}
-                      </td>
-                      <td className="py-3 pr-3 align-top">
-                        <p>{roleLabel(row.role)}</p>
-                        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                          <Badge variant={row.badge}>{row.status}</Badge>
-                          {row.note}
-                        </p>
-                      </td>
-                      <td className="py-1.5 text-right align-top">
-                        <RowMenu
-                          items={row.items}
-                          label={t("actionsFor", { name: row.name })}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              caption={t("tableCaption")}
+              columns={columns}
+              data={rows}
+              getRowId={(row) => row.key}
+              labels={tableLabels}
+              loading={!team}
+              searchText={(row) =>
+                [row.name, row.email, roleLabel(row.role), row.status].join(" ")
+              }
+              searchable={rows.length > 10}
+            />
           )}
           {team && canInvite && members.length <= 1 && !invitations.length ? (
             <p className="text-muted-foreground">{t("alone")}</p>
@@ -645,35 +639,5 @@ export function TeamPanel({
         </DialogContent>
       </Dialog>
     </>
-  );
-}
-
-/** A row's changes, behind one 44 px button so the table stays readable. */
-function RowMenu({ label, items }: { label: string; items: MenuItem[] }) {
-  const trigger = useRef<HTMLButtonElement>(null);
-  if (items.length === 0) return null;
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        ref={trigger}
-        render={<Button aria-label={label} size="icon" variant="ghost" />}
-      >
-        <EllipsisIcon aria-hidden="true" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {items.flatMap((item) => [
-          ...(item.separated
-            ? [<DropdownMenuSeparator key={`${item.label}-separator`} />]
-            : []),
-          <DropdownMenuItem
-            className={item.destructive ? "text-destructive" : undefined}
-            key={item.label}
-            onClick={() => item.onSelect(trigger.current)}
-          >
-            {item.label}
-          </DropdownMenuItem>,
-        ])}
-      </DropdownMenuContent>
-    </DropdownMenu>
   );
 }

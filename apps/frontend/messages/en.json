@@ -69,6 +69,15 @@
     "polish": "Polski",
     "english": "English"
   },
+  "DataTable": {
+    "search": "Search",
+    "empty": "No results",
+    "loading": "Loading…",
+    "pagination": "List pages",
+    "previousPage": "Previous page",
+    "nextPage": "Next page",
+    "pageOf": "Page {page} of {pages}"
+  },
   "Panel": {
     "account": "Account panel",
     "greeting": "Welcome",
