@@ -43,6 +43,46 @@ zmian oraz 8 nowych (cztery układy `core.rich_text` v2, dwa
 `sampleMedia.path` i metadane dopasowania; szczegóły w
 [site-rich-content.md](site-rich-content.md).
 
+## Szablony nastawione na konwersję
+
+Decyzja właściciela z 2026-09-23: każda nowa recepta sekcji i strony powstaje
+pod konwersję. Dotychczasowe szablony nie są wzorcem jakości — nie
+rozbudowujemy ich i nie naśladujemy. Ich wersje pozostają czytelne dla stron,
+które już z nich powstały; nowe recepty zastępują je w bibliotece.
+
+Kryteria odbioru każdej nowej recepty:
+
+1. **Jeden cel strony.** Recepta wskazuje główne działanie (formularz
+   zapytania, telefon, rezerwacja, e-mail). Przyciski nazywają efekt
+   („Umów bezpłatną wycenę”, „Sprawdź termin”), nie mechanizm („Wyślij”).
+2. **Pierwszy ekran sprzedaje** — na 390 i 1440 px: dla kogo i co zyskuje,
+   jedno zdanie uzupełnienia, główne działanie oraz zdjęcie lub sygnał
+   zaufania. Bez „Witamy na naszej stronie”.
+3. **Ścieżka decyzji:** potrzeba → oferta i korzyści → dowody → jak to
+   przebiega / co stanie się po kontakcie → obiekcje (FAQ, ograniczenia,
+   widełki cen) → końcowe wezwanie. Główne działanie wraca w punktach
+   decyzji; najwyżej jedno cichsze działanie pomocnicze, nigdy dwa
+   konkurujące przyciski w jednej sekcji.
+4. **Dowody bez zmyślania.** Seedy nie zawierają wymyślonych opinii, ocen,
+   logotypów klientów, statystyk, cen ani certyfikatów. Mają wyraźne miejsca
+   `[Uzupełnij: …]` na prawdziwy materiał właściciela. Automat nie pisze
+   cytatów ani dowodów.
+5. **Niski próg kontaktu:** krótki formularz (imię, kontakt, wiadomość),
+   informacja, co stanie się po wysłaniu i jak szybko, bez zakładania konta.
+6. **Bez ciemnych wzorców:** bez liczników czasu, sztucznej rzadkości i
+   zaznaczonych z góry zgód.
+7. **Telefon i szybkość:** działanie osiągalne na pierwszym ekranie telefonu,
+   pola dotyku 44 px, zdjęcie otwierające w budżecie LCP.
+8. **Metadane:** sekcja deklaruje etap ścieżki (uwaga, zainteresowanie,
+   dowód, obiekcja, działanie) i to, czy niesie główne działanie; recepta
+   strony — główne działanie i kolejność etapów. Pola wejdą w następną wersję
+   katalogu i recepty (faza 3 planu rich content).
+
+Każda recepta przechodzi przegląd z listą powyżej i zrzutami 390/1440 px,
+zanim trafi do katalogu. Zdjęcia do nowych recept generuje właściciel
+(Gemini/ChatGPT); do tego czasu recepty używają zatwierdzonych ilustracji z
+`packages/contracts/page-templates/assets` albo zastępczych.
+
 ## Macierz docelowych wariantów domyślnych
 
 Poniższe listy są specyfikacją kierunków projektowych, a nie listą gotowych
