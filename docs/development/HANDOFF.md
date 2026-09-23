@@ -20,6 +20,9 @@ Dowody: UI **60/60** (w tym 7 nowych testów `DataTable`), frontend **335/335**,
 `saas-core-panel-i-katalog-listy-wizytowka-historia-wyszukiwarka` (faza 1) oraz
 `magazyn-materia-o-w-od-pakietu-korektora-do-kare` (magazyn v2 na tym standardzie).
 
+**Wdrożone tego samego dnia** we wszystkich trzech frontendach; raport:
+[2026-09-23-data-table](../operations/releases/2026-09-23-data-table.md).
+
 ## 2026-09-21 — czytelne listy wyboru w ciemnym motywie, wdrożone
 
 `ddfb091` nadaje opcjom i grupom `NativeSelect` nieprzezroczyste tło i kolor
