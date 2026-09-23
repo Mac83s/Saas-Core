@@ -56,6 +56,15 @@ memex_work(action: "worklog", text: "<summary>", project: "<project>",
 Observable results in `changes`, commands and test output in `evidence`. Never
 reasoning, never a narrative of what you tried. One call for the whole session.
 
+### 3b — Has the project's gate moved?
+
+Read `projects/<name>/process.md` (current gate, its expected outcomes). If this
+session produced observable evidence for that gate — a merged increment, a
+deployment, a measured result — record it with `memex_work(action: "process",
+text: "<commit, path or measurement>")`. Pass `advance: true` only when every
+expected outcome of the gate holds. A project that ships while its process
+still says `destylacja` tells every reader the wrong story.
+
 ## 4 — The changelog: merge into today's entry
 
 ```

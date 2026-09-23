@@ -164,6 +164,10 @@ what past sessions learned. Read `.claude/skills/memex/SKILL.md` (or
 2. `memex_remember(action: "retire", superseded_by: …)` when it no longer does.
 3. Never leave a stale decision recorded — it is injected into every future pack as current.
 
+**The human answers a design question or settles a choice**
+1. In the same turn, not at the end of the session: the choice goes to `memex_remember` (record, or update the decision it refines).
+2. The plan it belongs to gets the answer too — decisions, open questions, phases in `desk/plans/`. The plan lives in the vault; a repo handoff holds only the current state and names the plan.
+
 **The human tells you how they want to be worked with** (a language, a format, a standing correction)
 1. `memex_remember(action: "prefer", what: "<the rule, one line>")` — it reaches their sessions only.
 2. A preference is about one person; a rule the whole project must follow is a decision, above.
