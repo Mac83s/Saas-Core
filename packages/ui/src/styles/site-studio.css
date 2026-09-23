@@ -321,3 +321,78 @@
     transition: none;
   }
 }
+
+/* Rich text editor (ADR-056): the text reads like a document, not a form.
+   Preflight strips list markers and heading sizes, so they are set here. */
+.rich-text-editor__content {
+  min-height: 10rem;
+  max-height: 32rem;
+  overflow-y: auto;
+  border: 1px solid var(--input);
+  border-radius: 0.5rem;
+  padding: 0.75rem 0.875rem;
+  background: var(--background);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  outline: none;
+}
+.rich-text-editor__content:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring) 50%, transparent);
+}
+.rich-text-editor__content > * + * {
+  margin-top: 0.625rem;
+}
+.rich-text-editor__content :is(h2, h3, h4) {
+  font-weight: 650;
+  line-height: 1.25;
+}
+.rich-text-editor__content h2 {
+  margin-top: 1.25rem;
+  font-size: 1.375rem;
+}
+.rich-text-editor__content h3 {
+  margin-top: 1rem;
+  font-size: 1.15rem;
+}
+.rich-text-editor__content h4 {
+  font-size: 1rem;
+}
+.rich-text-editor__content :is(ul, ol) {
+  padding-inline-start: 1.5rem;
+}
+.rich-text-editor__content ul {
+  list-style: disc;
+}
+.rich-text-editor__content ul ul {
+  list-style: circle;
+}
+.rich-text-editor__content ol {
+  list-style: decimal;
+}
+.rich-text-editor__content li + li,
+.rich-text-editor__content li > :is(ul, ol) {
+  margin-top: 0.25rem;
+}
+.rich-text-editor__content a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+.rich-text-editor__content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+.rich-text-editor__anchor {
+  margin-inline-start: 0.5rem;
+  color: var(--muted-foreground);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  font-weight: 500;
+  user-select: none;
+}

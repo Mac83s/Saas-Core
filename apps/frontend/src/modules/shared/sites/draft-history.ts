@@ -1,7 +1,15 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { createContext, useEffect, useState, useRef } from "react";
 import type { FieldValues, UseFormReturn } from "react-hook-form";
+
+/** Undo and redo of the page's draft, for a control inside the form that
+ *  handles its own keys (the rich text editor): Ctrl+Z there is the page's
+ *  undo, not a second history. Absent outside the page editor. */
+export const DraftHistoryContext = createContext<{
+  undo: () => void;
+  redo: () => void;
+} | null>(null);
 
 /** Session-local history. Server loads/saves form a new undo boundary. */
 export function useDraftHistory<T extends FieldValues>(form: UseFormReturn<T>) {

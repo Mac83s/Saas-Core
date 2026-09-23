@@ -94,7 +94,7 @@ type Insertion = (typeof INSERTIONS)[number][0];
 
 /** Every heading and section anchor in `value`, duplicates included: they
  *  share one namespace on the page. */
-function collectAnchors(value: unknown, found: string[] = []): string[] {
+export function collectAnchors(value: unknown, found: string[] = []): string[] {
   if (Array.isArray(value))
     value.forEach((item) => collectAnchors(item, found));
   else if (value !== null && typeof value === "object") {
@@ -122,7 +122,7 @@ function firstError(node: unknown): string | undefined {
   return undefined;
 }
 
-function useErrorText(path: string) {
+export function useErrorText(path: string) {
   const t = useTranslations("Sites");
   const { control } = useFormContext();
   const { errors } = useFormState({ control, name: path });

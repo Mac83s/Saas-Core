@@ -13,6 +13,8 @@ import { BulletList, ListItem, OrderedList } from "@tiptap/extension-list";
 import { Paragraph } from "@tiptap/extension-paragraph";
 import { Text } from "@tiptap/extension-text";
 
+import type { RichTextNode } from "@saas-core/site-blocks";
+
 import { isRichTextHref } from "./rich-text-markup";
 
 /** A contract field kept on the node. The DOM carries it as `data-*` only so
@@ -81,12 +83,18 @@ const Figure = Node.create({
   renderHTML: ({ HTMLAttributes }) => ["figure", HTMLAttributes],
 });
 
-export function richTextExtensions(): AnyExtension[] {
+export type RichTextNodeType = RichTextNode["type"];
+
+/** `allowed` narrows the blocks, as the aside does (paragraphs and lists):
+ *  pasted headings then arrive as paragraphs. */
+export function richTextExtensions(
+  allowed?: readonly RichTextNodeType[],
+): AnyExtension[] {
+  const has = (type: RichTextNodeType) => !allowed || allowed.includes(type);
   return [
     Document,
     Paragraph,
     Text,
-    RichHeading,
     Bold,
     Italic,
     Link.configure({
@@ -96,12 +104,11 @@ export function richTextExtensions(): AnyExtension[] {
       HTMLAttributes: { rel: null, target: null, class: null },
       isAllowedUri: (url) => isRichTextHref(url),
     }),
-    BulletList,
-    OrderedList,
-    RichListItem,
-    Quote,
-    Note,
-    Figure,
+    ...(has("heading") ? [RichHeading] : []),
+    ...(has("list") ? [BulletList, OrderedList, RichListItem] : []),
+    ...(has("quote") ? [Quote] : []),
+    ...(has("note") ? [Note] : []),
+    ...(has("figure") ? [Figure] : []),
   ];
 }
 

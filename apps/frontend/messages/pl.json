@@ -1303,7 +1303,19 @@
       "linkCancel": "Anuluj",
       "split": "Podziel na akapity",
       "pasted": "Wklejono {count, plural, one {# element} few {# elementy} many {# elementów} other {# elementu}}.",
-      "imagesDropped": "Obrazy ze schowka nie zostały zaimportowane — dodaj je jako ilustrację."
+      "imagesDropped": "Obrazy ze schowka nie zostały zaimportowane — dodaj je jako ilustrację.",
+      "editor": {
+        "placeholder": "Zacznij pisać…",
+        "hint": "Pisz jak w edytorze tekstu. Ctrl+B pogrubienie, Ctrl+I kursywa, Ctrl+K link, Ctrl+Alt+2–4 śródtytuły; w liście Tab i Shift+Tab zmieniają poziom.",
+        "blockStyle": "Styl akapitu",
+        "paragraph": "Tekst",
+        "link": "Link (Ctrl+K)",
+        "linkRemove": "Usuń link",
+        "indent": "Podpunkt (Tab)",
+        "outdent": "Poziom wyżej (Shift+Tab)",
+        "pagePlace": "Miejsce na tej stronie",
+        "pagePlaceNone": "— wybierz —"
+      }
     },
     "lead": "Wstęp",
     "richTextContent": "Treść sekcji",

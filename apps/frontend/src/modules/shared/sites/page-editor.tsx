@@ -113,7 +113,7 @@ import { mutationKey, type MutationReceipt } from "./idempotency";
 import { renderPrivateMedia } from "./private-media-preview";
 import { SectionCanvas, type SectionCanvasHandle } from "./section-canvas";
 import { PlaceholderBanner, unfilledBySection } from "./placeholder-banner";
-import { useDraftHistory } from "./draft-history";
+import { DraftHistoryContext, useDraftHistory } from "./draft-history";
 import { pageTemplatePreview } from "./template-media-preview";
 import { SectionLibrary, SectionLibraryContent } from "./section-library";
 import {
@@ -764,325 +764,331 @@ export function PageEditor({
       <Card className="studio-editor-main">
         <CardContent className="studio-editor-content">
           <FormProvider {...draftForm}>
-            <form
-              className="studio-editor-form"
-              onSubmit={(event) => {
-                void draftForm.handleSubmit(handleSaveDraft, (errors) => {
-                  const first = Object.keys(errors.blocks ?? {}).find((key) =>
-                    /^\d+$/.test(key),
-                  );
-                  if (first !== undefined) {
-                    setSelectedSection(Number(first));
-                    setInspectorRequest((request) => request + 1);
-                    setProblem(t("studio.validationError"));
-                  }
-                })(event);
-              }}
-            >
-              {draftConflict && (
-                <div
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4"
-                  role="alert"
-                >
-                  <p className="text-sm text-destructive">
-                    {t("draftConflict")}
-                  </p>
-                  <Button
-                    autoFocus
-                    onClick={() => void reloadDraft()}
-                    type="button"
-                    variant="outline"
-                  >
-                    <RefreshCwIcon aria-hidden="true" />
-                    {t("loadServerVersion")}
-                  </Button>
-                </div>
-              )}
-
-              <fieldset
-                disabled={loading || draftForm.formState.isSubmitting}
-                className="studio-editor-fieldset"
+            <DraftHistoryContext value={history}>
+              <form
+                className="studio-editor-form"
+                onSubmit={(event) => {
+                  void draftForm.handleSubmit(handleSaveDraft, (errors) => {
+                    const first = Object.keys(errors.blocks ?? {}).find((key) =>
+                      /^\d+$/.test(key),
+                    );
+                    if (first !== undefined) {
+                      setSelectedSection(Number(first));
+                      setInspectorRequest((request) => request + 1);
+                      setProblem(t("studio.validationError"));
+                    }
+                  })(event);
+                }}
               >
-                <div className="studio-toolbar">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    aria-pressed={visual}
-                    onClick={() => setVisual(true)}
+                {draftConflict && (
+                  <div
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4"
+                    role="alert"
                   >
-                    {t("studio.visual")}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    aria-pressed={!visual}
-                    onClick={() => setVisual(false)}
-                  >
-                    {t("studio.forms")}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={!history.canUndo}
-                    onClick={history.undo}
-                  >
-                    {t("studio.undo")}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={!history.canRedo}
-                    onClick={history.redo}
-                  >
-                    {t("studio.redo")}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setMediaOpen(true)}
-                  >
-                    {t("media")}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setMetadataOpen(true)}
-                  >
-                    {t("studio.pageSettings")}
-                  </Button>
-                  <div className="studio-save-actions">
-                    <Button disabled={loading || draftConflict} type="submit">
-                      <SaveIcon aria-hidden="true" />
-                      {t("studio.save")}
-                    </Button>
+                    <p className="text-sm text-destructive">
+                      {t("draftConflict")}
+                    </p>
                     <Button
-                      disabled={loading || !draft?.draft_id}
-                      onClick={() => void showPreview()}
+                      autoFocus
+                      onClick={() => void reloadDraft()}
                       type="button"
                       variant="outline"
-                      aria-label={t("preview")}
-                      title={t("preview")}
                     >
-                      <EyeIcon aria-hidden="true" />
-                      <span className="hidden sm:inline">{t("preview")}</span>
+                      <RefreshCwIcon aria-hidden="true" />
+                      {t("loadServerVersion")}
                     </Button>
-                    <Badge variant="outline">
-                      {t("versionValue", { version: draft?.version ?? 0 })}
-                    </Badge>
                   </div>
-                </div>
-                <PlaceholderBanner
-                  blocks={liveBlocks}
-                  counts={unfilled}
-                  onChoose={(index) => {
-                    if (canvas.current) canvas.current.choose(index);
-                    else {
-                      setVisual(true);
-                      setSelectedSection(index);
-                    }
-                  }}
-                />
-                <div
-                  className={`studio-editing-body ${visual ? "" : "studio-form-list"}`}
+                )}
+
+                <fieldset
+                  disabled={loading || draftForm.formState.isSubmitting}
+                  className="studio-editor-fieldset"
                 >
-                  {!visual && (
-                    <>
-                      {appearanceControls && (
+                  <div className="studio-toolbar">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      aria-pressed={visual}
+                      onClick={() => setVisual(true)}
+                    >
+                      {t("studio.visual")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      aria-pressed={!visual}
+                      onClick={() => setVisual(false)}
+                    >
+                      {t("studio.forms")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={!history.canUndo}
+                      onClick={history.undo}
+                    >
+                      {t("studio.undo")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={!history.canRedo}
+                      onClick={history.redo}
+                    >
+                      {t("studio.redo")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setMediaOpen(true)}
+                    >
+                      {t("media")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setMetadataOpen(true)}
+                    >
+                      {t("studio.pageSettings")}
+                    </Button>
+                    <div className="studio-save-actions">
+                      <Button disabled={loading || draftConflict} type="submit">
+                        <SaveIcon aria-hidden="true" />
+                        {t("studio.save")}
+                      </Button>
+                      <Button
+                        disabled={loading || !draft?.draft_id}
+                        onClick={() => void showPreview()}
+                        type="button"
+                        variant="outline"
+                        aria-label={t("preview")}
+                        title={t("preview")}
+                      >
+                        <EyeIcon aria-hidden="true" />
+                        <span className="hidden sm:inline">{t("preview")}</span>
+                      </Button>
+                      <Badge variant="outline">
+                        {t("versionValue", { version: draft?.version ?? 0 })}
+                      </Badge>
+                    </div>
+                  </div>
+                  <PlaceholderBanner
+                    blocks={liveBlocks}
+                    counts={unfilled}
+                    onChoose={(index) => {
+                      if (canvas.current) canvas.current.choose(index);
+                      else {
+                        setVisual(true);
+                        setSelectedSection(index);
+                      }
+                    }}
+                  />
+                  <div
+                    className={`studio-editing-body ${visual ? "" : "studio-form-list"}`}
+                  >
+                    {!visual && (
+                      <>
+                        {appearanceControls && (
+                          <details className="rounded-lg border p-3">
+                            <summary className="cursor-pointer font-semibold">
+                              {t("appearance.title")}
+                            </summary>
+                            {appearanceControls}
+                          </details>
+                        )}
                         <details className="rounded-lg border p-3">
                           <summary className="cursor-pointer font-semibold">
-                            {t("appearance.title")}
+                            {t("pagePresentation.title")}
                           </summary>
-                          {appearanceControls}
+                          <div className="pt-3">{pageLook}</div>
                         </details>
-                      )}
-                      <details className="rounded-lg border p-3">
-                        <summary className="cursor-pointer font-semibold">
-                          {t("pagePresentation.title")}
-                        </summary>
-                        <div className="pt-3">{pageLook}</div>
-                      </details>
-                      <SectionLibrary
-                        onBusyChange={setLoading}
-                        onAdd={(block) =>
-                          addSection(block, blocks.fields.length)
-                        }
-                      />
-                      {blockPicker(false)}
-                    </>
-                  )}
+                        <SectionLibrary
+                          onBusyChange={setLoading}
+                          onAdd={(block) =>
+                            addSection(block, blocks.fields.length)
+                          }
+                        />
+                        {blockPicker(false)}
+                      </>
+                    )}
 
-                  {visual && draft ? (
-                    <SectionCanvas
-                      ref={canvas}
-                      unfilled={unfilled}
-                      inspectorRequest={inspectorRequest}
-                      appearance={appearance}
-                      navigation={navigation}
-                      pagePresentation={pagePresentation}
-                      appearanceControls={
-                        <div className="space-y-6">
-                          {appearanceControls}
-                          {pageLook}
-                        </div>
-                      }
-                      templates={
-                        <div className="space-y-4">
-                          <p className="text-sm text-muted-foreground">
-                            {t("startFromTemplateDescription")}
-                          </p>
-                          <ul className="grid gap-4">
-                            {pageTemplates.map((template) => (
-                              <li key={template.id}>
-                                <TemplateOption
-                                  closeLabel={common("close")}
-                                  loading={loading}
-                                  locale={templateLocale}
-                                  onApply={() => {
-                                    if (blocks.fields.length)
-                                      setReplacementTemplate(template);
-                                    else void applyTemplate(template);
-                                  }}
-                                  previewLabel={t("previewTemplate")}
-                                  previewTitle={t("previewNamedTemplate", {
-                                    name: template.labels[templateLocale].name,
-                                  })}
-                                  template={template}
-                                  thumbnailLabel={t("templateThumbnail", {
-                                    name: template.labels[templateLocale].name,
-                                  })}
-                                  useLabel={t("useNamedTemplate", {
-                                    name: template.labels[templateLocale].name,
-                                  })}
-                                />
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      }
-                      emptyState={
-                        <div className="studio-empty-page">
-                          <h2>{t("startFromTemplate")}</h2>
-                          <p>{t("studio.emptyCanvas")}</p>
-                        </div>
-                      }
-                      library={
-                        <>
-                          <details className="rounded-lg border p-3">
-                            <summary className="cursor-pointer text-sm font-medium">
-                              {t("studio.emptyBlock")}
-                            </summary>
-                            <div className="pt-3">{blockPicker(true)}</div>
-                          </details>
-                          <SectionLibraryContent
-                            onBusyChange={setLoading}
-                            compact
-                            onAdd={(block) =>
-                              addSection(block, activeSection + 1)
-                            }
-                          />
-                        </>
-                      }
-                      blocks={liveBlocks}
-                      onTextChange={(index, path, value) => {
-                        if (loading || draftForm.formState.isSubmitting) return;
-                        draftForm.setValue(
-                          `blocks.${index}.data.${path.join(".")}`,
-                          value,
-                          { shouldDirty: true, shouldValidate: true },
-                        );
-                        if (
-                          !blockFormSchema.safeParse(
-                            draftForm.getValues(`blocks.${index}`),
-                          ).success
-                        ) {
-                          requestAnimationFrame(() =>
-                            draftForm.setFocus(
-                              `blocks.${index}.data.${path.join(".")}`,
-                            ),
-                          );
+                    {visual && draft ? (
+                      <SectionCanvas
+                        ref={canvas}
+                        unfilled={unfilled}
+                        inspectorRequest={inspectorRequest}
+                        appearance={appearance}
+                        navigation={navigation}
+                        pagePresentation={pagePresentation}
+                        appearanceControls={
+                          <div className="space-y-6">
+                            {appearanceControls}
+                            {pageLook}
+                          </div>
                         }
-                      }}
-                      blockIds={blocks.fields.map((field) => field.id)}
-                      disabled={loading || draftForm.formState.isSubmitting}
-                      onMove={(from, to) => {
-                        blocks.move(from, to);
-                        setSelectedSection(to);
-                      }}
-                      selected={activeSection}
-                      onSelect={setSelectedSection}
-                      inspector={
-                        blocks.fields.length > 0 ? (
+                        templates={
+                          <div className="space-y-4">
+                            <p className="text-sm text-muted-foreground">
+                              {t("startFromTemplateDescription")}
+                            </p>
+                            <ul className="grid gap-4">
+                              {pageTemplates.map((template) => (
+                                <li key={template.id}>
+                                  <TemplateOption
+                                    closeLabel={common("close")}
+                                    loading={loading}
+                                    locale={templateLocale}
+                                    onApply={() => {
+                                      if (blocks.fields.length)
+                                        setReplacementTemplate(template);
+                                      else void applyTemplate(template);
+                                    }}
+                                    previewLabel={t("previewTemplate")}
+                                    previewTitle={t("previewNamedTemplate", {
+                                      name: template.labels[templateLocale]
+                                        .name,
+                                    })}
+                                    template={template}
+                                    thumbnailLabel={t("templateThumbnail", {
+                                      name: template.labels[templateLocale]
+                                        .name,
+                                    })}
+                                    useLabel={t("useNamedTemplate", {
+                                      name: template.labels[templateLocale]
+                                        .name,
+                                    })}
+                                  />
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        }
+                        emptyState={
+                          <div className="studio-empty-page">
+                            <h2>{t("startFromTemplate")}</h2>
+                            <p>{t("studio.emptyCanvas")}</p>
+                          </div>
+                        }
+                        library={
                           <>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() => {
-                                const current = draftForm.getValues("blocks");
-                                // The copy's headings get anchors of their own.
-                                const [copy] = withUniqueAnchors(
-                                  [structuredClone(current[activeSection])],
-                                  current,
-                                );
-                                blocks.insert(activeSection + 1, copy);
-                                setSelectedSection(activeSection + 1);
-                              }}
-                            >
-                              {t("studio.duplicate")}
-                            </Button>
-                            <SectionLibrary
+                            <details className="rounded-lg border p-3">
+                              <summary className="cursor-pointer text-sm font-medium">
+                                {t("studio.emptyBlock")}
+                              </summary>
+                              <div className="pt-3">{blockPicker(true)}</div>
+                            </details>
+                            <SectionLibraryContent
                               onBusyChange={setLoading}
-                              triggerLabel={t("studio.insertAfter")}
+                              compact
                               onAdd={(block) =>
                                 addSection(block, activeSection + 1)
                               }
                             />
-                            <BlockFields
-                              assets={assets}
-                              form={draftForm}
-                              index={activeSection}
-                              key={blocks.fields[activeSection].id}
-                              type={blocks.fields[activeSection].block_type}
-                              isFirst={activeSection === 0}
-                              isLast={
-                                activeSection === blocks.fields.length - 1
-                              }
-                              onMediaUploaded={refreshAssets}
-                              moveUp={() => {
-                                blocks.swap(activeSection, activeSection - 1);
-                                setSelectedSection(activeSection - 1);
-                              }}
-                              moveDown={() => {
-                                blocks.swap(activeSection, activeSection + 1);
-                                setSelectedSection(activeSection + 1);
-                              }}
-                              onRemove={() => blocks.remove(activeSection)}
-                            />
                           </>
-                        ) : null
-                      }
-                    />
-                  ) : (
-                    <>
-                      {blocks.fields.map((field, index) => (
-                        <BlockFields
-                          assets={assets}
-                          form={draftForm}
-                          index={index}
-                          key={field.id}
-                          moveDown={() => blocks.swap(index, index + 1)}
-                          moveUp={() => blocks.swap(index, index - 1)}
-                          onMediaUploaded={refreshAssets}
-                          onRemove={() => blocks.remove(index)}
-                          type={field.block_type}
-                          isFirst={index === 0}
-                          isLast={index === blocks.fields.length - 1}
-                        />
-                      ))}
-                    </>
-                  )}
-                </div>
-              </fieldset>
-            </form>
+                        }
+                        blocks={liveBlocks}
+                        onTextChange={(index, path, value) => {
+                          if (loading || draftForm.formState.isSubmitting)
+                            return;
+                          draftForm.setValue(
+                            `blocks.${index}.data.${path.join(".")}`,
+                            value,
+                            { shouldDirty: true, shouldValidate: true },
+                          );
+                          if (
+                            !blockFormSchema.safeParse(
+                              draftForm.getValues(`blocks.${index}`),
+                            ).success
+                          ) {
+                            requestAnimationFrame(() =>
+                              draftForm.setFocus(
+                                `blocks.${index}.data.${path.join(".")}`,
+                              ),
+                            );
+                          }
+                        }}
+                        blockIds={blocks.fields.map((field) => field.id)}
+                        disabled={loading || draftForm.formState.isSubmitting}
+                        onMove={(from, to) => {
+                          blocks.move(from, to);
+                          setSelectedSection(to);
+                        }}
+                        selected={activeSection}
+                        onSelect={setSelectedSection}
+                        inspector={
+                          blocks.fields.length > 0 ? (
+                            <>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  const current = draftForm.getValues("blocks");
+                                  // The copy's headings get anchors of their own.
+                                  const [copy] = withUniqueAnchors(
+                                    [structuredClone(current[activeSection])],
+                                    current,
+                                  );
+                                  blocks.insert(activeSection + 1, copy);
+                                  setSelectedSection(activeSection + 1);
+                                }}
+                              >
+                                {t("studio.duplicate")}
+                              </Button>
+                              <SectionLibrary
+                                onBusyChange={setLoading}
+                                triggerLabel={t("studio.insertAfter")}
+                                onAdd={(block) =>
+                                  addSection(block, activeSection + 1)
+                                }
+                              />
+                              <BlockFields
+                                assets={assets}
+                                form={draftForm}
+                                index={activeSection}
+                                key={blocks.fields[activeSection].id}
+                                type={blocks.fields[activeSection].block_type}
+                                isFirst={activeSection === 0}
+                                isLast={
+                                  activeSection === blocks.fields.length - 1
+                                }
+                                onMediaUploaded={refreshAssets}
+                                moveUp={() => {
+                                  blocks.swap(activeSection, activeSection - 1);
+                                  setSelectedSection(activeSection - 1);
+                                }}
+                                moveDown={() => {
+                                  blocks.swap(activeSection, activeSection + 1);
+                                  setSelectedSection(activeSection + 1);
+                                }}
+                                onRemove={() => blocks.remove(activeSection)}
+                              />
+                            </>
+                          ) : null
+                        }
+                      />
+                    ) : (
+                      <>
+                        {blocks.fields.map((field, index) => (
+                          <BlockFields
+                            assets={assets}
+                            form={draftForm}
+                            index={index}
+                            key={field.id}
+                            moveDown={() => blocks.swap(index, index + 1)}
+                            moveUp={() => blocks.swap(index, index - 1)}
+                            onMediaUploaded={refreshAssets}
+                            onRemove={() => blocks.remove(index)}
+                            type={field.block_type}
+                            isFirst={index === 0}
+                            isLast={index === blocks.fields.length - 1}
+                          />
+                        ))}
+                      </>
+                    )}
+                  </div>
+                </fieldset>
+              </form>
+            </DraftHistoryContext>
           </FormProvider>
         </CardContent>
       </Card>

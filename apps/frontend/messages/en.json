@@ -1303,7 +1303,19 @@
       "linkCancel": "Cancel",
       "split": "Split into paragraphs",
       "pasted": "Pasted {count, plural, one {# element} other {# elements}}.",
-      "imagesDropped": "Images from the clipboard were not imported — add them as an illustration."
+      "imagesDropped": "Images from the clipboard were not imported — add them as an illustration.",
+      "editor": {
+        "placeholder": "Start writing…",
+        "hint": "Write as in a word processor. Ctrl+B bold, Ctrl+I italic, Ctrl+K link, Ctrl+Alt+2–4 headings; in a list, Tab and Shift+Tab change the level.",
+        "blockStyle": "Paragraph style",
+        "paragraph": "Text",
+        "link": "Link (Ctrl+K)",
+        "linkRemove": "Remove link",
+        "indent": "Sub-item (Tab)",
+        "outdent": "Level up (Shift+Tab)",
+        "pagePlace": "Place on this page",
+        "pagePlaceNone": "— choose —"
+      }
     },
     "lead": "Lead",
     "richTextContent": "Section content",
