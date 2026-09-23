@@ -28,8 +28,8 @@ ekranie”, obok płótna, które pokazuje prawdziwy układ sekcji.
    (`rich-text-schema.ts`): śródtytuł 2–4 bez znaczników z atrybutem
    kotwicy, pozycja listy = jeden akapit i najwyżej jedna podlista, cytat i
    uwaga = jeden przebieg tekstu z polami, ilustracja = węzeł atomowy.
-   Czego schemat nie pomieści, tego edytor nie wytworzy — wklejony HTML jest
-   parsowany tym samym schematem.
+   Czego schemat nie pomieści, tego edytor nie wytworzy — wklejony spoza
+   edytora HTML przechodzi przez normalizator schowka do węzłów kontraktu.
 3. **Zapisywany jest wyłącznie JSON kontraktu.** Konwersja JSON ⇄ dokument
    edytora to czyste funkcje (`rich-text-doc.ts`); przejście przez edytor
    zachowuje każdą treść dostarczaną z produktem (seedy katalogu i recepty
@@ -38,13 +38,15 @@ ekranie”, obok płótna, które pokazuje prawdziwy układ sekcji.
    limit dzielą się). Puste akapity, śródtytuły i pozycje list, które
    dopiero powstają, nie trafiają do zapisu; karty (cytat, uwaga,
    ilustracja) zostają zawsze.
-4. **Kotwica śródtytułu powstaje raz** — z pierwszego tekstu, unikalna — i
-   nie zmienia się przy edycji tekstu; kotwice sekcji i śródtytułów dalej
+4. **Kotwica śródtytułu powstaje raz** — gdy tekst się ustali, z całego
+   tekstu, unikalna — i nie zmienia się przy dalszej edycji; kotwice sekcji i śródtytułów dalej
    dzielą jedną przestrzeń nazw strony (serwer odrzuca powtórzenie).
 5. **Jedna historia cofania.** Edytor nie ma własnego stosu: zatwierdza
    zmiany do formularza strony (RHF) po pauzie i przy wyjściu z pola, a
    Ctrl/Cmd+Z w edytorze wywołuje „Cofnij” strony. Zmiana wartości z
    zewnątrz (cofnięcie, płótno, import szablonu) ładuje edytor od nowa.
+   Poza edytorem strony (wpisy bloga) historii strony nie ma, więc edytor
+   trzyma własną.
 6. **Limity kontraktu** (160 węzłów, 64 przebiegi, 200 znaków śródtytułu,
    40/20 pozycji listy) są komunikatami walidacji formularza, nie cichym
    ucinaniem tekstu.
@@ -57,8 +59,9 @@ ekranie”, obok płótna, które pokazuje prawdziwy układ sekcji.
   bogatej treści.
 - Interakcje `contentEditable` (pisanie, skróty, wklejanie, cofanie) testujemy
   w przeglądarce (Playwright); jsdom sprawdza konwersję, schemat i logikę.
-- Panel pisania ze składnią `**` znika, gdy edytor obejmie wszystkie węzły;
-  do tego czasu działa bez zmian.
+- Panel pisania ze składnią `**` (`rich-text-field.tsx`, `rich-text-markup.ts`)
+  został usunięty razem z etapem 2b; z modułu składni zostały tylko
+  kanoniczne przebiegi (`rich-text-spans.ts`).
 - `InlineText` na płótnie zostaje przy natywnych polach (pojedyncze
   przebiegi, śródtytuły, podpisy).
 

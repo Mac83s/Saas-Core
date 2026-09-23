@@ -9,7 +9,7 @@ import {
 import { NextIntlClientProvider } from "next-intl";
 import type { ReactNode } from "react";
 import { FormProvider, useForm } from "react-hook-form";
-import { beforeAll, expect, test } from "vitest";
+import { expect, test } from "vitest";
 
 import type { RichTextNode } from "@saas-core/site-blocks";
 
@@ -18,16 +18,6 @@ import { RichTextEditor } from "./rich-text-editor";
 
 // Typing, shortcuts, links and undo run in a browser (contentEditable needs
 // layout); jsdom checks what the editor loads, reloads and offers.
-beforeAll(() => {
-  Range.prototype.getClientRects = () =>
-    ({
-      length: 0,
-      item: () => null,
-      [Symbol.iterator]: [][Symbol.iterator],
-    }) as unknown as DOMRectList;
-  Range.prototype.getBoundingClientRect = () => new DOMRect();
-  document.elementFromPoint = () => null;
-});
 
 const content: RichTextNode[] = [
   {
@@ -177,4 +167,32 @@ test("quotes, notes and figures are cards with their fields", async () => {
     "[Uzupełnij: kwota]",
   );
   expect(screen.getByText("Zostało 1 miejsce do uzupełnienia.")).not.toBeNull();
+});
+
+test("full screen moves the same editor into a dialog and back", async () => {
+  render(
+    <Harness>
+      <RichTextEditor label="Treść sekcji" name="blocks.0.data.content" />
+    </Harness>,
+  );
+  await screen.findByRole("textbox", { name: "Treść sekcji" });
+  fireEvent.click(
+    screen.getByRole("button", { name: "Pisz na pełnym ekranie" }),
+  );
+  const dialog = await screen.findByRole("dialog", { name: "Treść sekcji" });
+  // One editor, now in the dialog; the panel only says where it went.
+  expect(
+    within(dialog).getByRole("textbox", { name: "Treść sekcji" }),
+  ).toHaveTextContent("Plan pracy");
+  expect(screen.getAllByRole("textbox", { name: "Treść sekcji" })).toHaveLength(
+    1,
+  );
+  expect(
+    screen.getByText("Tekst jest otwarty na pełnym ekranie."),
+  ).not.toBeNull();
+  fireEvent.click(within(dialog).getByRole("button", { name: "Gotowe" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(
+    screen.getByRole("textbox", { name: "Treść sekcji" }),
+  ).toHaveTextContent("Plan pracy");
 });

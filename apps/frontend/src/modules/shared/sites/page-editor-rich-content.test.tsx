@@ -166,10 +166,15 @@ function savedInput(call = 0): DraftSaveInput {
   return savePageDraft.mock.calls[call]?.[1] as DraftSaveInput;
 }
 
-test("a legacy text opens unchanged, splits into paragraphs and keeps spaces around bold words", async () => {
+test("a legacy text opens unchanged in the editor and splits into paragraphs on request", async () => {
   renderEditor();
-  const paragraph = await screen.findByLabelText("Treść akapitu");
-  expect(paragraph).toHaveValue(legacyText);
+  const text = await screen.findByRole(
+    "textbox",
+    { name: "Treść sekcji" },
+    // The editor loads on demand (next/dynamic); the first import is slow.
+    { timeout: 10_000 },
+  );
+  await waitFor(() => expect(text.textContent).toBe(legacyText));
 
   // Saved untouched, the v1 text becomes one paragraph of the latest version
   // (v3 only adds optional fields), every character kept.
@@ -186,26 +191,28 @@ test("a legacy text opens unchanged, splits into paragraphs and keeps spaces aro
   ]);
   expect(savedInput()).not.toHaveProperty("page_presentation");
 
+  // The old blank lines become real paragraphs with one click.
   fireEvent.click(screen.getByRole("button", { name: "Podziel na akapity" }));
-  const [first] = screen.getAllByLabelText("Treść akapitu");
-  fireEvent.change(first, { target: { value: "Wstęp **ważny** tekst" } });
-  fireEvent.blur(first);
+  // Saving reloads the draft, so the text is looked up again.
+  await waitFor(() =>
+    expect(
+      screen
+        .getByRole("textbox", { name: "Treść sekcji" })
+        .querySelectorAll("p"),
+    ).toHaveLength(2),
+  );
   save();
   await waitFor(() => expect(savePageDraft).toHaveBeenCalledTimes(2));
   expect(savedInput(1).blocks[0].data).toEqual({
     content: [
-      {
-        type: "paragraph",
-        content: [
-          { text: "Wstęp " },
-          { text: "ważny", bold: true },
-          { text: " tekst" },
-        ],
-      },
+      { type: "paragraph", content: [{ text: "Pierwszy akapit." }] },
       { type: "paragraph", content: [{ text: "Drugi akapit." }] },
     ],
   });
-});
+  expect(
+    screen.queryByRole("button", { name: "Podziel na akapity" }),
+  ).toBeNull();
+}, 45_000);
 
 test("an illustration inside the text is referenced when the page is saved", async () => {
   mockDraft(
@@ -228,7 +235,14 @@ test("an illustration inside the text is referenced when the page is saved", asy
     ]),
   );
   renderEditor();
-  await screen.findByLabelText("Treść akapitu");
+  const text = await screen.findByRole(
+    "textbox",
+    { name: "Treść sekcji" },
+    // The editor loads on demand (next/dynamic); the first import is slow.
+    { timeout: 10_000 },
+  );
+  // The figure is a card in the text, with its fields.
+  expect(await within(text).findByDisplayValue("Pastwisko")).not.toBeNull();
   save();
   await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
   expect(savedInput().media_asset_ids).toEqual([figureAsset]);
@@ -324,7 +338,7 @@ test("this page's look reaches the canvas, is saved only when changed, and reset
   save();
   await waitFor(() => expect(savePageDraft).toHaveBeenCalledTimes(3));
   expect(savedInput(2).page_presentation).toBeNull();
-});
+}, 45_000);
 
 test("inserting the same chapters layout twice keeps heading anchors unique on the page", async () => {
   mockDraft(draftWith([]));

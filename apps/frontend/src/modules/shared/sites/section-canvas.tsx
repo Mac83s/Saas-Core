@@ -48,6 +48,18 @@ import {
 /** Lets the page editor pick a section exactly as the outline does. */
 export type SectionCanvasHandle = { choose: (index: number) => void };
 
+/** The site's look on this page: palette, fonts, width and page style — the
+ *  canvas root, and the full-screen writer that uses its fonts. */
+export function pageLookClassName(
+  appearance: SiteAppearance | undefined,
+  pagePresentation: PagePresentationV1 | PagePresentationV2 | null | undefined,
+): string {
+  const site = appearance
+    ? `${designTokenClassName(appearance.designTokens)} ${siteAppearanceClassName(appearance)}`
+    : "site-theme site-theme--neutral site-theme--sans site-theme--radius-medium site-theme--comfortable";
+  return `${site} ${pagePresentationClassName(pagePresentation)}`;
+}
+
 export function SectionCanvas({
   ref,
   unfilled,
@@ -287,7 +299,7 @@ export function SectionCanvas({
             aria-label={t("studio.canvas")}
             data-testid="live-canvas"
             data-viewport={viewport}
-            className={`${appearance ? `${designTokenClassName(appearance.designTokens)} ${siteAppearanceClassName(appearance)}` : "site-theme site-theme--neutral site-theme--sans site-theme--radius-medium site-theme--comfortable"} ${pagePresentationClassName(pagePresentation)} studio-page site-canvas--${viewport}`}
+            className={`${pageLookClassName(appearance, pagePresentation)} studio-page site-canvas--${viewport}`}
             style={{
               width:
                 viewport === "desktop"

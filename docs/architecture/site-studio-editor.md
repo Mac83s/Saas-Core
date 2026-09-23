@@ -260,14 +260,16 @@ stron: [site-section-decoration.md](site-section-decoration.md).
 
 ## Bogata treść i wygląd strony — 2026-09-23
 
-Pole `richText` otwiera w inspektorze panel pisania (`rich-text-field.tsx`):
-wstawianie akapitów, śródtytułów, list, cytatów, uwag i ilustracji, spis
-śródtytułów, przesuwanie i usuwanie węzłów, wklejanie z Google Docs/Worda
-normalizowane do dozwolonych węzłów. Formatowanie w polu tekstowym zapisuje
-się jako przebiegi JSON; pola z buforem zapisują zmianę po pauzie lub opuszczeniu
-pola, co daje jeden krok cofania. Płótno edytuje w miejscu każdy przebieg,
-śródtytuł i podpis pod dokładną ścieżką danych. Formularz strony jest w
-`FormProvider`, a normalizacja zapisu nie przycina spacji wewnątrz przebiegów.
+Pole `richText` otwiera w inspektorze edytor WYSIWYG (`rich-text-editor.tsx`,
+ADR-056, od etapu 2b): akapity, śródtytuły, listy, cytaty, uwagi i
+ilustracje pisze się jak w edytorze tekstu, także na pełnym ekranie, a
+wklejanie z Google Docs/Worda jest normalizowane do dozwolonych węzłów.
+Zapisywany jest JSON węzłów: edytor oddaje całą tablicę po pauzie lub przy
+wyjściu z pola, co daje jeden krok cofania, a Ctrl/Cmd+Z w edytorze to
+cofanie strony. Płótno edytuje w miejscu każdy przebieg, śródtytuł i podpis
+pod dokładną ścieżką danych. Formularz strony jest w `FormProvider`, a
+normalizacja zapisu nie przycina spacji wewnątrz przebiegów. Szczegóły:
+[site-rich-content.md](site-rich-content.md#edytor).
 
 „Szerokość i tło sekcji” to druga koperta obok dekoracji. „Wygląd tej strony”
 (zakładka Wygląd, pod wyglądem witryny) należy do formularza draftu: cofanie,

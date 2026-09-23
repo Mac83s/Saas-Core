@@ -1319,7 +1319,11 @@
         "insertNote": "Insert note",
         "insertFigure": "Insert illustration",
         "todos": "{count, plural, one {# place left to fill in.} other {# places left to fill in.}}",
-        "nextTodo": "Go to the next one (F8)"
+        "nextTodo": "Go to the next one (F8)",
+        "fullScreen": "Write full screen",
+        "done": "Done",
+        "inFullScreen": "The text is open full screen.",
+        "legacy": "This text comes from the previous editor: one paragraph with blank lines."
       }
     },
     "lead": "Lead",

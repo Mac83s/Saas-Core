@@ -111,9 +111,14 @@ import {
 } from "./block-form";
 import { mutationKey, type MutationReceipt } from "./idempotency";
 import { renderPrivateMedia } from "./private-media-preview";
-import { SectionCanvas, type SectionCanvasHandle } from "./section-canvas";
+import {
+  pageLookClassName,
+  SectionCanvas,
+  type SectionCanvasHandle,
+} from "./section-canvas";
 import { PlaceholderBanner, unfilledBySection } from "./placeholder-banner";
-import { DraftHistoryContext, useDraftHistory } from "./draft-history";
+import { useDraftHistory } from "./draft-history";
+import { PageEditorContext } from "./page-editor-context";
 import { pageTemplatePreview } from "./template-media-preview";
 import { SectionLibrary, SectionLibraryContent } from "./section-library";
 import {
@@ -764,7 +769,13 @@ export function PageEditor({
       <Card className="studio-editor-main">
         <CardContent className="studio-editor-content">
           <FormProvider {...draftForm}>
-            <DraftHistoryContext value={history}>
+            <PageEditorContext
+              value={{
+                undo: history.undo,
+                redo: history.redo,
+                look: pageLookClassName(appearance, pagePresentation),
+              }}
+            >
               <form
                 className="studio-editor-form"
                 onSubmit={(event) => {
@@ -1088,7 +1099,7 @@ export function PageEditor({
                   </div>
                 </fieldset>
               </form>
-            </DraftHistoryContext>
+            </PageEditorContext>
           </FormProvider>
         </CardContent>
       </Card>

@@ -141,27 +141,52 @@ być poprawne bez zdjęcia.
 
 ## Edytor
 
-Pole katalogu `kind: "richText"` wskazuje całą tablicę `content`. Inspektor
-pokazuje panel pisania: pasek wstawiania (akapit, śródtytuł, lista, lista
-numerowana, cytat, uwaga, ilustracja), spis śródtytułów prowadzący do pola,
-przesuwanie i usuwanie węzłów. Przebiegi akapitu edytuje się w zwykłym polu
-tekstowym przez minimalny zapis `**pogrubienie**`, `*kursywa*`,
-`[etykieta](adres)` z ucieczką `\`; przyciski B/I/link i skróty Ctrl/Cmd+B/I
-opakowują zaznaczenie. To reprezentacja w polu edycji — zapisywany jest JSON
-przebiegów. Lista to jedno pole: wiersz to pozycja, wcięcie to podpozycja.
-Wklejenie z dokumentu normalizuje HTML (p, h1–h6, ul/ol/li, blockquote,
-strong/b, em/i, a z dozwolonym adresem) do dozwolonych węzłów; zwykły tekst
-dzieli po pustych liniach. Obrazy z schowka nie są importowane.
+Pole katalogu `kind: "richText"` wskazuje całą tablicę `content` (albo
+`aside.content`). Od etapu 2b inspektor pokazuje edytor WYSIWYG
+([ADR-056](../adr/ADR-056-Edytor-Tekstu-WYSIWYG-Na-Kontrakcie-Rich-Text.md),
+`rich-text-editor.tsx`): pisze się jak w edytorze tekstu, a zapisywany jest
+nadal wyłącznie JSON węzłów.
 
-Płótno edytuje w miejscu teksty przebiegów, śródtytułów i podpisów tym samym
+- **Schemat edytora = kontrakt** (`rich-text-schema.ts`): akapit z
+  pogrubieniem, kursywą i linkiem; śródtytuł H2–H4 bez znaczników; listy
+  punktowane i numerowane do dwóch poziomów (trzeciego Tab nie tworzy);
+  cytat, uwaga i ilustracja jako karty w tekście — własny tekst karty
+  edytuje się w miejscu, pola (autor, źródło, adres, rodzaj, tytuł, obraz,
+  tekst alternatywny, szerokość, podpis) są zwykłymi polami, a puste pole
+  usuwa opcjonalny atrybut. Ramka boczna dopuszcza tylko akapity i listy.
+- **Konwersja** JSON ⇄ dokument edytora to czyste funkcje
+  (`rich-text-doc.ts`); test przepuszcza przez edytor każdą treść
+  dostarczaną z produktem (seedy katalogu i recepty) i wymaga identycznego
+  wyniku. Puste akapity, śródtytuły i pozycje list, które dopiero powstają,
+  nie trafiają do zapisu.
+- **Zapis i cofanie**: edytor zapisuje całą tablicę do formularza strony po
+  700 ms bez pisania i przy wyjściu z pola — jeden krok historii. Ctrl/Cmd+Z
+  w edytorze to „Cofnij” strony (`PageEditorContext`); zmiana wartości z
+  zewnątrz (cofnięcie, płótno, szablon) ładuje edytor od nowa. Poza
+  edytorem strony (wpisy bloga) edytor ma własną historię.
+- **Kotwica śródtytułu** powstaje, gdy tekst się ustali (z całego tekstu,
+  unikalna wśród kotwic sekcji i śródtytułów strony), i potem się nie
+  zmienia; widać ją jako `#kotwica` obok śródtytułu. Kopia dostaje nową.
+- **Link** (Ctrl/Cmd+K): okno przyjmuje tylko adresy kontraktu i podpowiada
+  kotwice tej strony; w śródtytule znaczników nie ma, więc link i
+  pogrubienie są tam wyłączone.
+- **Wklejanie** spoza edytora przechodzi przez normalizator schowka
+  (`rich-text-paste.ts`: Word, Google Docs — tylko dozwolone węzły i
+  znaczniki, H1 jako H2, trzeci poziom listy dołączony do drugiego, obrazy
+  pominięte z komunikatem); kopia wewnątrz edytora zachowuje karty i kotwice.
+- **Miejsca `[Uzupełnij: …]`** są podświetlone i policzone; F8 albo przycisk
+  przy liczniku zaznacza następne, więc pisanie je zastępuje.
+- **Tekst z v1** (jeden akapit z pustymi liniami) pokazuje przycisk „Podziel
+  na akapity”.
+- **Pełny ekran**: „Pisz na pełnym ekranie” przenosi ten sam edytor do
+  okna w krojach i kolorach strony (spokojna kolumna, pasek przyklejony u
+  góry); „Gotowe” wraca do panelu.
+- Kod edytora ładuje się dynamicznie tylko przy polu bogatej treści; strona
+  publiczna i `@saas-core/site-blocks` go nie znają.
+
+Płótno edytuje w miejscu pojedyncze przebiegi, śródtytuły i podpisy tym samym
 `InlineText` i tą samą historią RHF. Normalizacja zapisu nie przycina spacji
 wewnątrz przebiegów.
-
-Etap 2b zastępuje panel ze składnią `**` edytorem WYSIWYG (TipTap) na tym
-samym kontrakcie — [ADR-056](../adr/ADR-056-Edytor-Tekstu-WYSIWYG-Na-Kontrakcie-Rich-Text.md):
-schemat edytora = węzły `core.rich_text`, zapis wyłącznie JSON, jedna
-historia cofania, pisanie w panelu bocznym i na pełnym ekranie. Do czasu
-objęcia wszystkich węzłów panel działa jak wyżej.
 
 ## Automatyzacja treści
 

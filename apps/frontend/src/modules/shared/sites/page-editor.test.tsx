@@ -338,6 +338,9 @@ test.each([
     fireEvent.keyDown(document, { key: "Escape" });
     await waitFor(() => expect(trigger).toHaveFocus());
   },
+  // Every offered recipe renders a scaled preview: nine since phase 3b,
+  // slow under a full test run on the dev VPS.
+  45_000,
 );
 
 test("nie wysyła sekcji FAQ bez ani jednego wpisu", async () => {

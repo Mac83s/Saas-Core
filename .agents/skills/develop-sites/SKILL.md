@@ -113,6 +113,13 @@ Review each new template against the checklist with screenshots at 390 and
   completion, malware scan, normalization, variants, quota, audit. There is no
   trusted-file shortcut. Object storage does not roll back with PostgreSQL, so
   a failed import compensates by deleting only what that attempt created.
+- **The rich text editor's schema is the contract** (ADR-056). A new node,
+  mark or limit in `core.rich_text` also goes into `rich-text-schema.ts` and
+  `rich-text-doc.ts`; the round-trip test pushes every shipped seed and recipe
+  through the editor and must get it back unchanged. The editor writes to the
+  page form and Ctrl+Z is the page's undo (`PageEditorContext`) — do not add a
+  second history. jsdom cannot type into `contentEditable`: typing, shortcuts,
+  paste and undo are checked in a browser, jsdom checks loading and the UI.
 - **A contract directory read at runtime must be in the image**, with an env var
   and a Django system check. `PAGE_TEMPLATE_CONTRACTS_PATH` once resolved to a
   path that existed in a checkout and not in the container: 361 green tests, and

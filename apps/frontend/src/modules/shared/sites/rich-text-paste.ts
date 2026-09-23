@@ -12,7 +12,7 @@ import {
   type RichTextSpan,
 } from "@saas-core/site-blocks";
 
-import { isRichTextHref, normalizeSpans } from "./rich-text-markup";
+import { isRichTextHref, normalizeSpans } from "./rich-text-spans";
 
 const MAX_NODES = 160;
 const MAX_HEADING = 200;

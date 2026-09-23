@@ -454,3 +454,37 @@
   font-weight: 500;
   user-select: none;
 }
+/* Full-screen writing: the page's fonts, a calm reading column, no box. */
+.rich-text-editor--full-screen {
+  min-height: 100%;
+}
+.rich-text-editor--full-screen .rich-text-editor__content {
+  min-height: 60vh;
+  max-height: none;
+  overflow: visible;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 1.0625rem;
+  line-height: 1.7;
+}
+.rich-text-editor--full-screen .rich-text-editor__content h2 {
+  font-size: 1.75rem;
+}
+.rich-text-editor--full-screen .rich-text-editor__content h3 {
+  font-size: 1.35rem;
+}
+.rich-text-editor--full-screen .rich-text-editor__content h4 {
+  font-size: 1.125rem;
+}
+.rich-text-editor--full-screen .rich-text-editor__toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding-block: 0.5rem;
+  background: var(--background);
+}
+.rich-text-editor--full-screen .rich-text-card__fields {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+}

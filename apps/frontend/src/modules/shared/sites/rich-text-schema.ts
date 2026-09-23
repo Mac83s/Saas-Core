@@ -15,7 +15,7 @@ import { Text } from "@tiptap/extension-text";
 
 import type { RichTextNode } from "@saas-core/site-blocks";
 
-import { isRichTextHref } from "./rich-text-markup";
+import { isRichTextHref } from "./rich-text-spans";
 
 /** A contract field kept on the node. The DOM carries it as `data-*` only so
  *  that copy and paste inside the editor keeps it; it is never published. */

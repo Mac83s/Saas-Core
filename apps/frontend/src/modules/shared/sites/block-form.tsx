@@ -7,9 +7,9 @@
  *  panel, the future drag-and-drop canvas and the AI generator agree on what a
  *  block is — a second copy would drift the moment a block gains a field. */
 
+import dynamic from "next/dynamic";
 import { useLocale, useTranslations } from "next-intl";
 
-import { RichTextField } from "./rich-text-field";
 import { SectionDecorationFields } from "./section-decoration-fields";
 import { SectionPresentationFields } from "./section-presentation-fields";
 import { ImageCropUpload } from "../media/crop";
@@ -51,6 +51,13 @@ import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { Textarea } from "@saas-core/ui/components/textarea";
 
 import type { MediaAsset } from "@saas-core/api-client";
+
+/** The WYSIWYG editor (ADR-056) loads only where a section has rich text:
+ *  ProseMirror stays out of the rest of the panel. */
+const RichTextEditor = dynamic(
+  () => import("./rich-text-editor").then((module) => module.RichTextEditor),
+  { ssr: false },
+);
 
 export const registry = createSiteBlockRegistry([coreSiteBlockManifest]);
 
@@ -429,10 +436,10 @@ function BlockField<TValues extends FieldValues>({
   const error = fieldErrorMessage(form, name);
 
   if (field.kind === "richText") {
-    // The writing panel reads the surrounding form from context
-    // (FormProvider in the page and entry editors).
+    // The editor reads the surrounding form from context (FormProvider in
+    // the page and entry editors).
     return (
-      <RichTextField
+      <RichTextEditor
         allowedNodes={
           field.path.join(".") === "aside.content"
             ? ["paragraph", "list"]

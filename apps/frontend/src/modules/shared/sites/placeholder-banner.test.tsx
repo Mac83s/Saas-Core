@@ -233,11 +233,24 @@ test.each([
         messages.Sites.richTextBlock,
       ),
     );
-    for (const paragraph of within(inspector).getAllByLabelText(
-      messages.Sites.richText.paragraphText,
-    )) {
-      fireEvent.change(paragraph, { target: { value: "Prawdziwa treść." } });
-      fireEvent.blur(paragraph);
+    // The text's runs are written in place on the canvas.
+    const canvas = screen.getByTestId("live-canvas");
+    const editRun = messages.Sites.studio.editText.replace(
+      "{field}",
+      messages.Sites.richTextContent,
+    );
+    for (const index of [0, 1]) {
+      fireEvent.click(
+        within(canvas).getAllByRole("button", { name: editRun })[index]!,
+      );
+      const input = within(canvas).getByRole("textbox", { name: editRun });
+      fireEvent.change(input, { target: { value: "Prawdziwa treść." } });
+      fireEvent.keyDown(input, { key: "Enter", ctrlKey: true });
+      await waitFor(() =>
+        expect(
+          within(canvas).queryByRole("textbox", { name: editRun }),
+        ).toBeNull(),
+      );
     }
     await waitFor(() => expect(screen.queryByText(two)).toBeNull());
     expect(
@@ -245,6 +258,9 @@ test.each([
     ).toBeNull();
     expect(outline.queryByTitle(names.firstBadge)).toBeNull();
   },
+  // Renders the page editor and the rich text editor it loads on demand:
+  // under a full test run on the dev VPS this takes far longer than alone.
+  45_000,
 );
 
 test("more than three sections to finish fold into a list that opens on demand", async () => {

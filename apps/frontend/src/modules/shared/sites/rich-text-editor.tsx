@@ -22,6 +22,7 @@ import {
   LinkIcon,
   ListIcon,
   ListOrderedIcon,
+  Maximize2Icon,
   OutdentIcon,
   QuoteIcon,
 } from "lucide-react";
@@ -34,7 +35,7 @@ import {
   useState,
   type MouseEvent,
 } from "react";
-import { useFormContext, useWatch } from "react-hook-form";
+import { get, useFormContext, useFormState, useWatch } from "react-hook-form";
 
 import { richTextAnchorSlug, type RichTextNode } from "@saas-core/site-blocks";
 import { Button } from "@saas-core/ui/components/button";
@@ -60,21 +61,69 @@ import {
   ToolbarToggle,
 } from "@saas-core/ui/components/toolbar";
 
-import { DraftHistoryContext } from "./draft-history";
 import {
   RichTextMediaContext,
   withCardViews,
   type RichTextMediaOption,
 } from "./rich-text-cards";
+import { PageEditorContext } from "./page-editor-context";
 import { fromEditorDoc, toEditorDoc } from "./rich-text-doc";
-import { collectAnchors, useErrorText } from "./rich-text-field";
-import { isRichTextHref } from "./rich-text-markup";
+import {
+  hasBlankLines,
+  isRichTextHref,
+  splitParagraph,
+} from "./rich-text-spans";
 import { htmlToRichNodes, plainTextToRichNodes } from "./rich-text-paste";
 import { richTextExtensions, type RichTextNodeType } from "./rich-text-schema";
 
 const IDLE_COMMIT_MS = 700;
+
 const SETTLE = "richTextSettle";
 const LEVELS = [2, 3, 4] as const;
+
+/** Every heading and section anchor in `value`, duplicates included: they
+ *  share one namespace on the page. */
+function collectAnchors(value: unknown, found: string[] = []): string[] {
+  if (Array.isArray(value))
+    value.forEach((item) => collectAnchors(item, found));
+  else if (value !== null && typeof value === "object") {
+    const node = value as Record<string, unknown>;
+    if (node.type === "heading" && typeof node.anchor === "string")
+      found.push(node.anchor);
+    const section = node.presentation as { anchor?: unknown } | undefined;
+    if (typeof section?.anchor === "string") found.push(section.anchor);
+    Object.values(node).forEach((item) => collectAnchors(item, found));
+  }
+  return found;
+}
+
+/** The first message under an RHF error subtree (schema issues land on the
+ *  deepest path, e.g. `content.2.content.0.text`). `ref` is a DOM node. */
+function firstError(node: unknown): string | undefined {
+  if (node === null || typeof node !== "object") return undefined;
+  const message = (node as { message?: unknown }).message;
+  if (typeof message === "string" && message) return message;
+  for (const [key, child] of Object.entries(node)) {
+    if (key === "ref") continue;
+    const found = firstError(child);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+function useErrorText(path: string) {
+  const t = useTranslations("Sites");
+  const { control } = useFormContext();
+  const { errors } = useFormState({ control, name: path });
+  /** `deep: false` reads only the error on the path itself. */
+  return (subPath: string, deep = true) => {
+    const node: unknown = get(errors, subPath ? `${path}.${subPath}` : path);
+    const key = deep
+      ? firstError(node)
+      : ((node as { message?: string } | undefined)?.message ?? undefined);
+    return key === undefined ? undefined : t.has(key) ? t(key) : t("invalid");
+  };
+}
 
 /** How many lists hold the caret: the contract allows two levels. */
 function listDepth(editor: Editor): number {
@@ -230,13 +279,17 @@ function PathEditor({
   onUploadImage,
 }: RichTextEditorProps) {
   const t = useTranslations("Sites.richText");
+  const common = useTranslations("Common");
   const id = useId();
   const { control, getValues, setValue } = useFormContext();
   const stored = JSON.stringify(
     (useWatch({ control, name }) as RichTextNode[] | undefined) ?? [],
   );
   const error = useErrorText(name)("");
-  const history = useContext(DraftHistoryContext);
+  const page = useContext(PageEditorContext);
+  // The page's history; outside the page editor there is none to join.
+  const history = page;
+  const [fullScreen, setFullScreen] = useState(false);
   const [linking, setLinking] = useState(false);
   const [status, setStatus] = useState("");
   // For the paste handler, which ProseMirror calls with its view only.
@@ -296,6 +349,26 @@ function PathEditor({
     return true;
   }
 
+  /** Text migrated from v1 is one paragraph holding the old blank lines;
+   *  one click makes them real paragraphs (runs keep their marks). */
+  const legacy = (JSON.parse(stored) as RichTextNode[]).some(
+    (node) =>
+      node.type === "paragraph" &&
+      hasBlankLines(node.content.map((run) => run.text).join("")),
+  );
+  function splitLegacy() {
+    if (editor && timer.current !== undefined) commit(editor);
+    const nodes = (JSON.parse(written.current) as RichTextNode[]).flatMap(
+      (node) =>
+        node.type === "paragraph" &&
+        hasBlankLines(node.content.map((run) => run.text).join(""))
+          ? splitParagraph(node)
+          : [node],
+    );
+    // The editor reloads from the new value like after any outside change.
+    setValue(name, nodes, { shouldDirty: true, shouldValidate: true });
+  }
+
   /** Anything pasted from outside the editor goes through the clipboard
    *  normalizer (Word, Google Docs): only the contract's nodes and marks,
    *  never styles or images. A copy inside the editor stays ProseMirror's. */
@@ -346,7 +419,6 @@ function PathEditor({
       }),
       AnchorHints,
       Todos,
-      // Outside the page editor there is no page history to join.
       ...(history ? [] : [UndoRedo]),
       Extension.create({
         name: "richTextKeys",
@@ -440,14 +512,10 @@ function PathEditor({
     [editor],
   );
 
-  return (
-    <Field className="rich-text-editor" data-invalid={Boolean(error)}>
-      {/* The text is a contentEditable element, which a label cannot target:
-          it takes its name from aria-labelledby, a click focuses it. */}
-      <FieldLabel id={`${id}-label`} onClick={() => editor?.commands.focus()}>
-        {label}
-      </FieldLabel>
-      <FieldDescription id={`${id}-hint`}>{t("editor.hint")}</FieldDescription>
+  // Rendered in the side panel or, while writing on the full screen, in the
+  // dialog: the same editor moves, nothing is copied.
+  const workspace = (
+    <>
       <EditorToolbar
         allows={allows}
         disabled={disabled}
@@ -469,6 +537,83 @@ function PathEditor({
       >
         {status}
       </p>
+    </>
+  );
+
+  return (
+    <Field className="rich-text-editor" data-invalid={Boolean(error)}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {/* The text is a contentEditable element, which a label cannot
+            target: it takes its name from aria-labelledby, a click focuses
+            it. */}
+        <FieldLabel id={`${id}-label`} onClick={() => editor?.commands.focus()}>
+          {label}
+        </FieldLabel>
+        <Button
+          disabled={!editor}
+          onClick={() => setFullScreen(true)}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          <Maximize2Icon aria-hidden />
+          {t("editor.fullScreen")}
+        </Button>
+      </div>
+      <FieldDescription id={`${id}-hint`}>{t("editor.hint")}</FieldDescription>
+      {legacy && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed p-2 text-sm">
+          <span>{t("editor.legacy")}</span>
+          <Button
+            onClick={splitLegacy}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            {t("split")}
+          </Button>
+        </div>
+      )}
+      {fullScreen ? (
+        <p className="text-sm text-muted-foreground">
+          {t("editor.inFullScreen")}
+        </p>
+      ) : (
+        workspace
+      )}
+      {fullScreen && (
+        <Dialog
+          onOpenChange={(open) => {
+            if (!open) setFullScreen(false);
+          }}
+          open
+        >
+          <DialogContent
+            className="grid-rows-[auto_minmax(0,1fr)] gap-0"
+            closeLabel={common("close")}
+            fullScreen
+            initialFocus={() => editor?.view.dom ?? true}
+            showCloseButton={false}
+          >
+            <div className="flex items-center justify-between gap-3 border-b px-4 py-2">
+              <DialogTitle>{label}</DialogTitle>
+              <Button onClick={() => setFullScreen(false)} type="button">
+                {t("editor.done")}
+              </Button>
+            </div>
+            <div className="overflow-y-auto">
+              {/* The page's fonts and colours: writing looks like the page. */}
+              <div
+                className={`rich-text-editor--full-screen ${page?.look ?? "site-theme"}`}
+              >
+                <div className="mx-auto grid max-w-3xl gap-3 px-4 py-6">
+                  {workspace}
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
       {editor && linking && (
         <LinkDialog
           editor={editor}
@@ -522,7 +667,7 @@ function EditorToolbar({
   const keep = { onMouseDown: (event: MouseEvent) => event.preventDefault() };
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="rich-text-editor__toolbar flex flex-wrap items-center gap-2">
       {allows("heading") && (
         <div className="w-48 shrink-0">
           <NativeSelect

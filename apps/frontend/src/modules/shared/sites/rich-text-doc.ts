@@ -17,7 +17,7 @@ import {
   type RichTextSpan,
 } from "@saas-core/site-blocks";
 
-import { normalizeSpans } from "./rich-text-markup";
+import { normalizeSpans } from "./rich-text-spans";
 
 type ListStyle = "bullet" | "ordered";
 

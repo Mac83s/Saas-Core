@@ -1319,7 +1319,11 @@
         "insertNote": "Wstaw uwagę",
         "insertFigure": "Wstaw ilustrację",
         "todos": "{count, plural, one {Zostało # miejsce do uzupełnienia.} few {Zostały # miejsca do uzupełnienia.} many {Zostało # miejsc do uzupełnienia.} other {Zostało # miejsca do uzupełnienia.}}",
-        "nextTodo": "Przejdź do następnego (F8)"
+        "nextTodo": "Przejdź do następnego (F8)",
+        "fullScreen": "Pisz na pełnym ekranie",
+        "done": "Gotowe",
+        "inFullScreen": "Tekst jest otwarty na pełnym ekranie.",
+        "legacy": "Ten tekst pochodzi z poprzedniej wersji edytora: to jeden akapit z pustymi liniami."
       }
     },
     "lead": "Wstęp",
