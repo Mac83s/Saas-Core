@@ -4,8 +4,10 @@ export * from "./errors";
 export { coreSiteBlockManifest } from "./core-manifest";
 export {
   availablePageTemplates,
+  bindTemplateMedia,
   corePageTemplates,
   pageTemplateBlocks,
+  templatePreviewAssetId,
 } from "./page-templates";
 export { createSiteBlockRegistry, defineSiteBlockManifest } from "./registry";
 export {
@@ -21,11 +23,13 @@ export {
   sectionIndustries,
   sectionTemplateBlock,
   availableSectionTemplates,
+  applySampleMedia,
   replaceSectionLayout,
 } from "./section-templates";
 export type { SectionTemplate, CatalogLocale } from "./section-templates";
 
 export {
+  pagePresentationClassName,
   parseSiteAppearance,
   siteAppearanceClassName,
   siteGoogleFonts,
@@ -40,3 +44,11 @@ export {
 export { sectionDecorationPresets } from "./section-decoration-presets";
 export type { SectionDecorationPreset } from "./section-decoration-presets";
 export type { SeparatorV1Data } from "./separator-block";
+export {
+  blockAssetIds,
+  ensureUniqueAnchors,
+  isRichTextAnchor,
+  richTextAnchors,
+  richTextAnchorSlug,
+  setAtPath,
+} from "./rich-text";

@@ -3643,6 +3643,12 @@ export interface components {
             metadata_after: {
                 [key: string]: unknown;
             };
+            page_presentation_before?: {
+                [key: string]: unknown;
+            };
+            page_presentation_after?: {
+                [key: string]: unknown;
+            };
             review_token: string;
             /** Format: date-time */
             review_expires_at: string;
@@ -3789,6 +3795,7 @@ export interface components {
             expected_version: number;
             blocks: components["schemas"]["PageBlockInput"][];
             media_asset_ids?: string[];
+            page_presentation?: unknown | null;
         };
         /**
          * @description * `queued` - Oczekuje
@@ -4469,12 +4476,14 @@ export interface components {
             schema_version: number;
             data: unknown;
             decoration?: unknown | null;
+            presentation?: unknown | null;
         };
         PageBlockInput: {
             block_type: string;
             schema_version: number;
             data: unknown;
             decoration?: unknown | null;
+            presentation?: unknown | null;
         };
         PageCreate: {
             name: string;
@@ -4491,6 +4500,7 @@ export interface components {
             created_at: string | null;
             blocks: components["schemas"]["PageBlock"][];
             media_asset_ids: string[];
+            page_presentation: unknown | null;
         };
         PageList: {
             items: components["schemas"]["PageSummary"][];
@@ -4857,6 +4867,9 @@ export interface components {
                 [key: string]: unknown;
             };
             appearance?: {
+                [key: string]: unknown;
+            } | null;
+            page_presentation?: {
                 [key: string]: unknown;
             } | null;
             blocks: {

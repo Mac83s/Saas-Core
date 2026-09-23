@@ -227,9 +227,11 @@ describe("site block registry", () => {
       block.catalog === undefined ? [] : [block.catalog.category],
     );
 
+    // The nine ADR-031 sections plus the editorial quote (about) and the
+    // product presentation (offer), which join existing categories.
     expect(
       categories.filter((category) => category !== "contact"),
-    ).toHaveLength(9);
+    ).toHaveLength(11);
     expect(
       coreSiteBlockManifest.blocks.find(
         (block) => block.type === "core.link_list",
@@ -289,6 +291,9 @@ describe("page templates", () => {
       "core.agriculture_services",
       "core.electronics_service",
       "core.business_studio",
+      "core.product_first_impression",
+      "core.service_guide",
+      "core.expert_knowledge",
     ]);
 
     // Without the entitlement the recipe declares, nothing is offered.

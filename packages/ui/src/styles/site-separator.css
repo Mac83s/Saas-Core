@@ -9,7 +9,12 @@
   block-size: var(--site-separator-size, clamp(3rem, 6cqw, 6rem));
   min-inline-size: 0;
   padding-block: 0;
-  padding-inline: clamp(1.25rem, 4cqw, 3.5rem);
+  padding-inline: max(
+    clamp(1.25rem, 4cqw, 3.5rem),
+    calc(
+      (100cqw - var(--site-inner-width, var(--site-content-width, 72rem))) / 2
+    )
+  );
   color: var(
     --site-separator-color,
     color-mix(in srgb, var(--foreground, #17212b) 28%, transparent)

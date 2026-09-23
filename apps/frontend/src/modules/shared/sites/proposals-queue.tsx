@@ -22,6 +22,7 @@ import {
   CardTitle,
 } from "@saas-core/ui/components/card";
 
+import { PagePresentationSummary } from "./page-presentation-fields";
 import { sitesErrorMessage } from "./problem";
 
 type SourceClaim = { kind: string; reference: string; observed_at: string };
@@ -43,9 +44,21 @@ function ProposalDiff({ detail }: { detail: ContentProposalDetail }) {
   const t = useTranslations("Sites");
   const before = detail.blocks_before as unknown as Block[];
   const after = detail.blocks_after as unknown as Block[];
+  // The API names the page's own look only when one side has it.
+  const lookChanged =
+    detail.page_presentation_before !== undefined ||
+    detail.page_presentation_after !== undefined;
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
+      {lookChanged && (
+        <p className="text-sm sm:col-span-2">
+          <span className="font-medium">{t("pagePresentation.review")}: </span>
+          <PagePresentationSummary value={detail.page_presentation_before} />
+          {" → "}
+          <PagePresentationSummary value={detail.page_presentation_after} />
+        </p>
+      )}
       {(
         [
           ["proposalBefore", before, detail.metadata_before],

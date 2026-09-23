@@ -1,0 +1,1406 @@
+{
+  "id": "core.expert_knowledge",
+  "version": 1,
+  "category": "article",
+  "industries": [],
+  "labels": {
+    "pl": {
+      "name": "Ekspert i wiedza",
+      "description": "Strona eksperta z długim artykułem: otwarcie, podejście, poradnik z rozdziałami, cytat, zakres pomocy, materiały i kontakt. Przykład: doradztwo w wypasie rotacyjnym; wymień treści demonstracyjne przed publikacją."
+    },
+    "en": {
+      "name": "Expert and knowledge",
+      "description": "An expert page built around a long article: opening, approach, a guide in chapters, a quote, scope of help, materials and contact. Example: rotational grazing advice; replace the demonstration content before publishing."
+    }
+  },
+  "requiredEntitlements": ["sites.enabled"],
+  "pagePresentation": {
+    "schemaVersion": 1,
+    "width": "contained",
+    "headingFont": "lora"
+  },
+  "blocks": [
+    {
+      "block_type": "core.hero",
+      "schema_version": 5,
+      "data": {
+        "title": "Wypas rotacyjny zaplanowany dla Twoich pastwisk",
+        "text": "Doradztwo agronomiczne dla gospodarstw, które chcą lepiej wykorzystać użytki zielone. Pomagam zaplanować kwatery, rytm wypasu i proste notatki, dzięki którym po sezonie ocenisz efekty.",
+        "action": {
+          "label": "Umów rozmowę",
+          "href": "mailto:kontakt@example.com"
+        },
+        "layout": "editorial"
+      },
+      "presentation": {
+        "schemaVersion": 1,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 2,
+      "data": {
+        "layout": "split_intro",
+        "title": "Jak pracuję",
+        "lead": "Plan wypasu musi pasować do gospodarstwa, a nie do podręcznika. Dlatego zaczynam od tego, co już masz.",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Pierwszą wizytę poświęcam na obejście pastwisk, rozmowę o stadzie i przegląd tego, jak dziś wygląda wypas. Interesuje mnie, gdzie jest woda, jak biegną ogrodzenia i które fragmenty pastwiska zwierzęta omijają."
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Na tej podstawie przygotowuję plan podziału na kwatery i propozycję rytmu wypasu. Omawiamy go razem i poprawiamy, zanim cokolwiek zmienisz w terenie. W trakcie sezonu możemy spotkać się ponownie, żeby sprawdzić, jak plan działa w praktyce."
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Rekomendacje opieram na obserwacji Twoich pastwisk i na Twoich notatkach. Jeśli czegoś nie da się ocenić po jednej wizycie, mówię o tym wprost."
+              }
+            ]
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 1,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 2,
+      "data": {
+        "layout": "chapters",
+        "title": "Jak zaplanować wypas rotacyjny – praktyczny przewodnik",
+        "lead": "Wypas rotacyjny polega na dzieleniu pastwiska na kwatery i przenoszeniu stada, zanim zwierzęta zjedzą ruń zbyt nisko. Ten przewodnik pokazuje, od czego zacząć i jak uniknąć najczęstszych błędów pierwszego sezonu.",
+        "content": [
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "czym-jest-wypas-rotacyjny",
+            "text": "Czym jest wypas rotacyjny"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "W wypasie ciągłym zwierzęta mają dostęp do całego pastwiska przez cały sezon. Wybierają najsmaczniejsze rośliny, wracają do nich, zanim zdążą odrosnąć, a mniej atrakcyjne fragmenty zarastają. W wypasie rotacyjnym pastwisko dzieli się na mniejsze kwatery, a stado przechodzi z jednej do drugiej według planu."
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Kluczowe jest to, co dzieje się "
+              },
+              {
+                "text": "po",
+                "bold": true
+              },
+              {
+                "text": " wyjściu zwierząt: kwatera odpoczywa, a ruń ma czas, żeby odrosnąć. Od długości tego odpoczynku i od momentu zmiany kwatery zależy, ile paszy pastwisko da w kolejnych tygodniach."
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Rotacja nie jest jedną metodą, tylko rodziną podejść. Jedne gospodarstwa przenoszą stado co kilka dni, inne codziennie; jedne mają kilka stałych kwater, inne wydzielają świeży pas pastwiska przesuwanym ogrodzeniem. Wspólne jest jedno: to Ty decydujesz, gdzie zwierzęta pasą się dziś, a gdzie ruń odpoczywa."
+              }
+            ]
+          },
+          {
+            "type": "note",
+            "tone": "info",
+            "title": "Nie tylko dla dużych gospodarstw",
+            "content": [
+              {
+                "text": "Rotację można wprowadzić także na kilku hektarach i przy niewielkim stadzie. Mniejsza skala często ułatwia start, bo łatwiej obserwować każdą kwaterę."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "zanim-podzielisz-pastwisko",
+            "text": "Zanim podzielisz pastwisko"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Plan zaczyna się od inwentaryzacji, a nie od ogrodzenia. Warto spisać, co już jest na miejscu, i zaznaczyć to na prostej mapie – wystarczy wydruk zdjęcia satelitarnego albo szkic na kartce."
+              }
+            ]
+          },
+          {
+            "type": "list",
+            "style": "ordered",
+            "items": [
+              {
+                "content": [
+                  {
+                    "text": "Powierzchnia i kształt działek, z zaznaczeniem fragmentów podmokłych, zacienionych i stromych."
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Źródła wody – studnie, poidła, cieki – oraz odległość od nich do najdalszych miejsc pastwiska."
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Istniejące ogrodzenia i bramy, w tym te, które da się łatwo przestawić."
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Wielkość i skład stada w sezonie: liczba zwierząt, ich wiek i grupy, które trzeba prowadzić osobno."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Ta lista odpowiada na pytanie, ile kwater da się realnie obsłużyć. Lepiej zacząć od kilku dobrze zaplanowanych kwater niż od kilkunastu, do których trudno doprowadzić wodę."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 3,
+            "anchor": "ocena-runi",
+            "text": "Ocena runi na start"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Przejdź pastwisko wiosną i zapisz, jak wygląda ruń w różnych miejscach: gdzie jest gęsta, gdzie przerzedzona, gdzie przeważają chwasty, a gdzie zwierzęta w ogóle nie chcą wchodzić. Te notatki staną się punktem odniesienia na koniec sezonu i pozwolą ocenić, czy rotacja coś zmieniła."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "podzial-na-kwatery",
+            "text": "Podział na kwatery"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Liczba i wielkość kwater zależą od tego, jak szybko odrasta ruń w Twoich warunkach i jak długo stado ma przebywać w jednej kwaterze. Zasada ogólna jest prosta: im krótszy pobyt w kwaterze i dłuższy odpoczynek po nim, tym równiej zwierzęta wyjadają ruń."
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Przy wyznaczaniu granic pomyśl też o codziennej pracy: jak przepędzisz stado z jednej kwatery do drugiej, gdzie podjedziesz z beczkowozem i czy jedna osoba poradzi sobie z przestawieniem ogrodzenia. Plan, który do każdej zmiany kwatery wymaga trzech osób, rzadko przetrwa pierwszy miesiąc."
+              }
+            ]
+          },
+          {
+            "type": "list",
+            "style": "bullet",
+            "items": [
+              {
+                "content": [
+                  {
+                    "text": "Kwatery o podobnej wydajności ułatwiają planowanie – łącz fragmenty o podobnej runi, a nie tylko o podobnej powierzchni."
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Każda kwatera potrzebuje dostępu do wody, na przykład przez:"
+                  }
+                ],
+                "children": {
+                  "style": "bullet",
+                  "items": [
+                    {
+                      "content": [
+                        {
+                          "text": "stałe poidło na granicy kilku kwater,"
+                        }
+                      ]
+                    },
+                    {
+                      "content": [
+                        {
+                          "text": "przenośny zbiornik przestawiany razem ze stadem,"
+                        }
+                      ]
+                    },
+                    {
+                      "content": [
+                        {
+                          "text": "korytarz prowadzący do wspólnego źródła wody."
+                        }
+                      ]
+                    }
+                  ]
+                }
+              },
+              {
+                "content": [
+                  {
+                    "text": "Ogrodzenia wewnętrzne mogą być tymczasowe: pastuch elektryczny pozwala zmieniać podział w trakcie sezonu."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "figure",
+            "caption": "Wypas w jednej z kwater. Budynki i poidła warto uwzględnić na mapie, zanim wytyczysz granice.",
+            "width": "wide"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Na początek wystarczy podział, który da się zmienić. Pierwszy sezon pokaże, które granice kwater mają sens, a które trzeba przesunąć – dlatego ogrodzenia stałe lepiej stawiać dopiero po nim."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "kiedy-przenosic-stado",
+            "text": "Kiedy przenosić stado"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Najważniejsza decyzja w wypasie rotacyjnym to moment zmiany kwatery. Zamiast trzymać się kalendarza, lepiej obserwować ruń i zwierzęta."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 3,
+            "anchor": "sygnaly-do-zmiany-kwatery",
+            "text": "Sygnały do zmiany kwatery"
+          },
+          {
+            "type": "list",
+            "style": "bullet",
+            "items": [
+              {
+                "content": [
+                  {
+                    "text": "ruń została wyjedzona do wysokości, którą przyjąłeś jako próg zejścia,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "zwierzęta zaczynają wybierać resztki i częściej podchodzą do ogrodzenia,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "kwatera, do której mają przejść, odrosła wystarczająco od poprzedniego wypasu."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Progi wysokości runi warto ustalić dla własnych pastwisk i zapisać je w planie. Zależą od gatunków traw, gleby i przebiegu pogody, więc tabela z innego gospodarstwa będzie co najwyżej punktem wyjścia."
+              }
+            ]
+          },
+          {
+            "type": "quote",
+            "content": [
+              {
+                "text": "Plan wypasu to nie rozkład jazdy. To lista pytań, które co kilka dni zadajesz sobie, idąc przez pastwisko."
+              }
+            ],
+            "author": "Doradca agronomiczny, przykładowa wypowiedź"
+          },
+          {
+            "type": "heading",
+            "level": 3,
+            "anchor": "okres-odpoczynku",
+            "text": "Okres odpoczynku"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Kwatera potrzebuje czasu na odrost. Wiosną, gdy trawa rośnie szybko, odpoczynek może być krótszy; latem, w czasie suszy, trzeba go wydłużyć. Jeśli wszystkie kwatery są wyjedzone, a żadna nie odrosła, to sygnał, żeby zmniejszyć obsadę albo sięgnąć po paszę zapasową, zamiast wracać na niedojrzałą ruń."
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Dobrą praktyką jest przejście przez wszystkie kwatery raz w tygodniu i zapisanie, w jakiej kolejności będą gotowe do wypasu. Taki krótki przegląd pozwala zauważyć spowolnienie odrostu, zanim zabraknie paszy, i zaplanować zmianę obsady albo dokarmianie z kilkudniowym wyprzedzeniem."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "najczestsze-bledy",
+            "text": "Najczęstsze błędy pierwszego sezonu"
+          },
+          {
+            "type": "list",
+            "style": "ordered",
+            "items": [
+              {
+                "content": [
+                  {
+                    "text": "Zbyt wiele kwater na start.",
+                    "bold": true
+                  },
+                  {
+                    "text": " Każda wymaga wody i ogrodzenia, więc ich nadmiar szybko staje się obciążeniem."
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Sztywny kalendarz.",
+                    "bold": true
+                  },
+                  {
+                    "text": " Zmiana kwatery co określoną liczbę dni pomija tempo odrostu, które zmienia się w ciągu sezonu."
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Powrót na nieodrośniętą ruń.",
+                    "bold": true
+                  },
+                  {
+                    "text": " Skraca odpoczynek kolejnym kwaterom i osłabia pastwisko na resztę roku."
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Brak notatek.",
+                    "bold": true
+                  },
+                  {
+                    "text": " Bez zapisów trudno po sezonie ocenić, co zadziałało, a co nie."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "note",
+            "tone": "warning",
+            "title": "Najpierw woda",
+            "content": [
+              {
+                "text": "Ograniczony dostęp do wody potrafi przekreślić nawet dobrze narysowany plan. Sprawdź go przed wytyczeniem kwater, a nie po."
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Żaden z tych błędów nie przekreśla sezonu. Wystarczy go zauważyć i zapisać, co zmienisz – plan wypasu poprawia się z roku na rok, a nie od razu."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "jak-prowadzic-notatki",
+            "text": "Jak prowadzić notatki"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Notatki nie muszą być rozbudowane. Wystarczy zeszyt albo arkusz, do którego wracasz przy każdej zmianie kwatery."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 3,
+            "anchor": "co-zapisywac",
+            "text": "Co zapisywać przy zmianie kwatery"
+          },
+          {
+            "type": "list",
+            "style": "bullet",
+            "items": [
+              {
+                "content": [
+                  {
+                    "text": "datę oraz numer kwatery, z której stado wychodzi, i tej, do której wchodzi,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "liczbę zwierząt w grupie,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "krótką ocenę runi przy wejściu i przy wyjściu – wysokość, gęstość, udział chwastów,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "uwagi o pogodzie, wodzie i zachowaniu zwierząt."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Po sezonie takie zapisy pokazują, które kwatery odrastają najszybciej, gdzie brakowało paszy i jak zmieniał się rytm wypasu. To najlepszy materiał do rozmowy o planie na kolejny rok – także z doradcą. Jeśli zapisy wskazują na stale słabszą kwaterę, wróć do "
+              },
+              {
+                "text": "podziału na kwatery",
+                "href": "#podzial-na-kwatery"
+              },
+              {
+                "text": " i sprawdź, czy nie łączy fragmentów o bardzo różnej runi."
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Chcesz zacząć od gotowego wzoru? Skorzystaj z "
+              },
+              {
+                "text": "arkusza obserwacji wypasu",
+                "href": "/materialy/arkusz-wypasu"
+              },
+              {
+                "text": " albo "
+              },
+              {
+                "text": "napisz do mnie",
+                "href": "mailto:kontakt@example.com"
+              },
+              {
+                "text": "."
+              }
+            ]
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 1,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.quote",
+      "schema_version": 1,
+      "data": {
+        "layout": "portrait",
+        "quote": "Najwięcej uczę się od gospodarzy, którzy prowadzą notatki. Po jednym sezonie widać w nich rzeczy, których nie pokaże żadna pojedyncza wizyta.",
+        "author": "Doradca agronomiczny",
+        "role": "przykładowa wypowiedź",
+        "context": "O tym, dlaczego plan wypasu powstaje razem z gospodarstwem, a nie przy biurku."
+      },
+      "decoration": {
+        "schemaVersion": 1,
+        "ornament": "botanical",
+        "placement": "bottom_left",
+        "intensity": "subtle"
+      },
+      "presentation": {
+        "schemaVersion": 1,
+        "inner": "narrow",
+        "surface": "accent"
+      }
+    },
+    {
+      "block_type": "core.feature_list",
+      "schema_version": 4,
+      "data": {
+        "layout": "benefits_commentary",
+        "title": "W czym mogę pomóc",
+        "lead": "Zakres doradztwa dopasowuję do gospodarstwa. Najczęściej obejmuje jeden lub kilka z poniższych obszarów.",
+        "items": [
+          {
+            "title": "Plan kwater",
+            "text": "Podział pastwisk na kwatery z uwzględnieniem wody, ogrodzeń i ukształtowania terenu."
+          },
+          {
+            "title": "Rytm wypasu",
+            "text": "Zasady zmiany kwatery i progi wysokości runi ustalone dla Twoich pastwisk."
+          },
+          {
+            "title": "Woda i ogrodzenia",
+            "text": "Propozycja rozmieszczenia poideł i ogrodzeń tymczasowych, zaczynając od najprostszych rozwiązań."
+          },
+          {
+            "title": "Notatki i ocena sezonu",
+            "text": "Wzór arkusza obserwacji i wspólne omówienie zapisów po zakończeniu sezonu."
+          },
+          {
+            "title": "Wizyta kontrolna",
+            "text": "Obejście pastwisk w trakcie sezonu i korekta planu tam, gdzie tego wymaga."
+          }
+        ],
+        "note": {
+          "title": "Czego nie obejmuje doradztwo",
+          "text": "Nie zajmuję się leczeniem ani żywieniem zwierząt. W tych sprawach warto skonsultować się z lekarzem weterynarii lub specjalistą od żywienia – chętnie uwzględnię ich zalecenia w planie."
+        }
+      },
+      "presentation": {
+        "schemaVersion": 1,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 2,
+      "data": {
+        "layout": "column",
+        "title": "Materiały",
+        "lead": "Wzory i krótkie opracowania, z których możesz skorzystać jeszcze przed pierwszą rozmową.",
+        "content": [
+          {
+            "type": "list",
+            "style": "bullet",
+            "items": [
+              {
+                "content": [
+                  {
+                    "text": "Arkusz obserwacji wypasu",
+                    "href": "/materialy/arkusz-wypasu"
+                  },
+                  {
+                    "text": " – prosty wzór do zapisywania zmian kwater i oceny runi."
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Lista kontrolna przed sezonem",
+                    "href": "/materialy/lista-przed-sezonem"
+                  },
+                  {
+                    "text": " – co sprawdzić na pastwisku, zanim wypuścisz stado."
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Jak przygotować mapę pastwiska",
+                    "href": "/materialy/mapa-pastwiska"
+                  },
+                  {
+                    "text": " – krótka instrukcja krok po kroku."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Masz pytanie do któregoś z materiałów? "
+              },
+              {
+                "text": "Napisz",
+                "href": "mailto:kontakt@example.com"
+              },
+              {
+                "text": " – odpowiem albo omówimy je podczas rozmowy."
+              }
+            ]
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 1,
+        "inner": "standard",
+        "surface": "muted"
+      }
+    },
+    {
+      "block_type": "core.contact_form",
+      "schema_version": 1,
+      "data": {
+        "layout": "split",
+        "locale": "pl",
+        "title": "Porozmawiajmy o Twoich pastwiskach",
+        "text": "Opisz krótko gospodarstwo: powierzchnię pastwisk, wielkość stada i to, co chcesz zmienić. Odpowiem, od czego możemy zacząć.",
+        "submit_label": "Wyślij wiadomość",
+        "success_message": "Dziękuję! Wiadomość została zapisana. Odpowiem e-mailem.",
+        "privacy_label": "Informacje o prywatności"
+      },
+      "presentation": {
+        "schemaVersion": 1,
+        "inner": "standard"
+      }
+    }
+  ],
+  "localizedBlocks": {
+    "en": [
+      {
+        "block_type": "core.hero",
+        "schema_version": 5,
+        "data": {
+          "title": "Rotational grazing planned around your pastures",
+          "text": "Agronomy advice for farms that want to make better use of their grassland. I help you plan paddocks, a grazing rhythm and simple records, so you can judge the results at the end of the season.",
+          "action": {
+            "label": "Book a call",
+            "href": "mailto:hello@example.com"
+          },
+          "layout": "editorial"
+        },
+        "presentation": {
+          "schemaVersion": 1,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 2,
+        "data": {
+          "layout": "split_intro",
+          "title": "How I work",
+          "lead": "A grazing plan has to fit the farm, not the textbook. So I start from what you already have.",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "I spend the first visit walking the pastures, talking about the herd and looking at how grazing works today. I want to know where the water is, where the fences run and which parts of the pasture the animals avoid."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "From that I draw up a paddock layout and a proposed grazing rhythm. We go through it together and adjust it before you change anything on the ground. During the season we can meet again to see how the plan works in practice."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "My recommendations rest on what I see on your pastures and on your own records. If something cannot be judged from a single visit, I say so."
+                }
+              ]
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 1,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 2,
+        "data": {
+          "layout": "chapters",
+          "title": "How to plan rotational grazing: a practical guide",
+          "lead": "Rotational grazing means dividing a pasture into paddocks and moving the herd on before the animals graze the sward too short. This guide shows where to begin and how to avoid the most common mistakes of a first season.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "what-is-rotational-grazing",
+              "text": "What rotational grazing is"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Under continuous grazing, animals have the whole pasture to themselves all season. They pick the tastiest plants, come back to them before they can regrow, and the less appealing patches get overgrown. Under rotational grazing the pasture is split into smaller paddocks, and the herd moves from one to the next according to a plan."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "What matters most is what happens "
+                },
+                {
+                  "text": "after",
+                  "bold": true
+                },
+                {
+                  "text": " the animals leave: the paddock rests and the sward has time to grow back. The length of that rest, and the moment you move the herd, decide how much grass the pasture will give over the following weeks."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Rotation is not a single method but a family of approaches. Some farms move the herd every few days, others daily; some have a handful of fixed paddocks, others give the herd a fresh strip with a movable fence. What they share is this: you decide where the animals graze today and where the grass rests."
+                }
+              ]
+            },
+            {
+              "type": "note",
+              "tone": "info",
+              "title": "Not just for large farms",
+              "content": [
+                {
+                  "text": "Rotation works on a few hectares and with a small herd too. A smaller scale often makes the start easier, because each paddock is easier to watch."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "before-you-divide",
+              "text": "Before you divide the pasture"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "A plan starts with an inventory, not with fencing. Write down what is already there and mark it on a simple map – a printed satellite image or a sketch on paper is enough."
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "style": "ordered",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "The area and shape of each field, with wet, shaded and steep patches marked."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Water sources – wells, troughs, streams – and how far they are from the furthest corners of the pasture."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Existing fences and gates, including any that are easy to move."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "The size and make-up of the herd during the season: numbers, ages and any groups that need to be kept apart."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "This list tells you how many paddocks you can realistically manage. It is better to start with a few well-planned paddocks than with a dozen that are hard to get water to."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 3,
+              "anchor": "assessing-the-sward",
+              "text": "Assessing the sward at the start"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Walk the pasture in spring and note what the sward looks like in different places: where it is dense, where it is thin, where weeds dominate and where the animals will not go at all. These notes become your reference point at the end of the season and show whether rotation has changed anything."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "dividing-into-paddocks",
+              "text": "Dividing the pasture into paddocks"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "How many paddocks you need, and how large, depends on how fast the sward regrows in your conditions and how long the herd should stay in each one. The general rule is simple: the shorter the stay and the longer the rest that follows, the more evenly the animals graze."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "When you draw the boundaries, think about the daily work as well: how you will move the herd from one paddock to the next, where you can bring a water bowser and whether one person can shift the fence alone. A plan that needs three people for every move rarely survives the first month."
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "Paddocks with a similar yield are easier to plan – group patches with similar grass, not just a similar area."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Every paddock needs access to water, for example through:"
+                    }
+                  ],
+                  "children": {
+                    "style": "bullet",
+                    "items": [
+                      {
+                        "content": [
+                          {
+                            "text": "a fixed trough on the boundary between several paddocks,"
+                          }
+                        ]
+                      },
+                      {
+                        "content": [
+                          {
+                            "text": "a mobile tank that moves with the herd,"
+                          }
+                        ]
+                      },
+                      {
+                        "content": [
+                          {
+                            "text": "a lane leading to a shared water source."
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Internal fences can be temporary: an electric fence lets you change the layout during the season."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "figure",
+              "caption": "Grazing in one of the paddocks. Buildings and troughs belong on the map before you set any boundaries.",
+              "width": "wide"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "To begin with, a layout you can change is all you need. The first season will show which boundaries make sense and which need to move – which is why permanent fencing is best left until afterwards."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "when-to-move-the-herd",
+              "text": "When to move the herd"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "The most important decision in rotational grazing is when to move to the next paddock. Rather than following the calendar, watch the sward and the animals."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 3,
+              "anchor": "signs-it-is-time-to-move",
+              "text": "Signs it is time to move"
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "the sward has been grazed down to the height you set as your exit point,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "the animals are picking at leftovers and hanging around the fence more often,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "the next paddock has regrown enough since it was last grazed."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Set sward height thresholds for your own pastures and write them into the plan. They depend on grass species, soil and the weather, so a table from another farm is a starting point at best."
+                }
+              ]
+            },
+            {
+              "type": "quote",
+              "content": [
+                {
+                  "text": "A grazing plan is not a timetable. It is a list of questions you ask yourself every few days as you walk the pasture."
+                }
+              ],
+              "author": "Agronomy adviser, example statement"
+            },
+            {
+              "type": "heading",
+              "level": 3,
+              "anchor": "rest-period",
+              "text": "The rest period"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "A paddock needs time to regrow. In spring, when grass grows fast, the rest can be shorter; in a summer drought it has to be longer. If every paddock has been grazed and none has recovered, that is the signal to reduce stocking or turn to reserve feed rather than go back onto immature grass."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "A good habit is to walk every paddock once a week and note the order in which they will be ready to graze. This quick check shows regrowth slowing before feed runs short, and gives you a few days' notice to adjust stocking or start supplementary feeding."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "common-mistakes",
+              "text": "Common first-season mistakes"
+            },
+            {
+              "type": "list",
+              "style": "ordered",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "Too many paddocks at the start.",
+                      "bold": true
+                    },
+                    {
+                      "text": " Each one needs water and fencing, so too many quickly become a burden."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "A rigid calendar.",
+                      "bold": true
+                    },
+                    {
+                      "text": " Moving every fixed number of days ignores the regrowth rate, which changes through the season."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Going back too soon.",
+                      "bold": true
+                    },
+                    {
+                      "text": " It shortens the rest for the paddocks that follow and weakens the pasture for the rest of the year."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "No records.",
+                      "bold": true
+                    },
+                    {
+                      "text": " Without notes it is hard to tell after the season what worked and what did not."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "note",
+              "tone": "warning",
+              "title": "Water first",
+              "content": [
+                {
+                  "text": "Poor access to water can undo even a well-drawn plan. Check it before you lay out the paddocks, not after."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "None of these mistakes ruins a season. Notice it, write down what you will change, and the plan gets better year by year rather than all at once."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "keeping-records",
+              "text": "How to keep records"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Records do not need to be elaborate. A notebook or a spreadsheet you come back to every time you move the herd is enough."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 3,
+              "anchor": "what-to-record",
+              "text": "What to record at each move"
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "the date and the numbers of the paddock the herd leaves and the one it enters,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "how many animals are in the group,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "a quick assessment of the sward on the way in and on the way out – height, density, weeds,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "notes on the weather, the water and how the animals behave."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "After the season these notes show which paddocks regrow fastest, where feed ran short and how the grazing rhythm changed. They are the best material for planning next year – including with an adviser. If the records point to a paddock that is always weaker, go back to "
+                },
+                {
+                  "text": "dividing the pasture",
+                  "href": "#dividing-into-paddocks"
+                },
+                {
+                  "text": " and check whether it combines patches with very different grass."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Want to start from a ready-made template? Use the "
+                },
+                {
+                  "text": "grazing record sheet",
+                  "href": "/materials/grazing-record-sheet"
+                },
+                {
+                  "text": " or "
+                },
+                {
+                  "text": "get in touch",
+                  "href": "mailto:hello@example.com"
+                },
+                {
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 1,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.quote",
+        "schema_version": 1,
+        "data": {
+          "layout": "portrait",
+          "quote": "I learn the most from farmers who keep records. After one season they show things no single visit ever could.",
+          "author": "Agronomy adviser",
+          "role": "example statement",
+          "context": "On why a grazing plan is made together with the farm, not at a desk."
+        },
+        "decoration": {
+          "schemaVersion": 1,
+          "ornament": "botanical",
+          "placement": "bottom_left",
+          "intensity": "subtle"
+        },
+        "presentation": {
+          "schemaVersion": 1,
+          "inner": "narrow",
+          "surface": "accent"
+        }
+      },
+      {
+        "block_type": "core.feature_list",
+        "schema_version": 4,
+        "data": {
+          "layout": "benefits_commentary",
+          "title": "How I can help",
+          "lead": "I tailor the advice to each farm. It usually covers one or more of the areas below.",
+          "items": [
+            {
+              "title": "Paddock layout",
+              "text": "Dividing the pastures into paddocks around water, fencing and the lie of the land."
+            },
+            {
+              "title": "Grazing rhythm",
+              "text": "Rules for moving the herd and sward height thresholds set for your own pastures."
+            },
+            {
+              "title": "Water and fencing",
+              "text": "Where to put troughs and temporary fences, starting with the simplest options."
+            },
+            {
+              "title": "Records and season review",
+              "text": "A record sheet template and a joint review of your notes once the season is over."
+            },
+            {
+              "title": "Mid-season visit",
+              "text": "A walk round the pastures during the season and adjustments to the plan where needed."
+            }
+          ],
+          "note": {
+            "title": "What the advice does not cover",
+            "text": "I do not deal with animal health or nutrition. For those, talk to a vet or a nutrition specialist – I am glad to build their recommendations into the plan."
+          }
+        },
+        "presentation": {
+          "schemaVersion": 1,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 2,
+        "data": {
+          "layout": "column",
+          "title": "Materials",
+          "lead": "Templates and short guides you can use even before our first conversation.",
+          "content": [
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "Grazing record sheet",
+                      "href": "/materials/grazing-record-sheet"
+                    },
+                    {
+                      "text": " – a simple template for logging paddock moves and sward assessments."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Pre-season checklist",
+                      "href": "/materials/pre-season-checklist"
+                    },
+                    {
+                      "text": " – what to check on the pasture before turning the herd out."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "How to map your pasture",
+                      "href": "/materials/pasture-map"
+                    },
+                    {
+                      "text": " – a short step-by-step guide."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Have a question about any of these? "
+                },
+                {
+                  "text": "Email me",
+                  "href": "mailto:hello@example.com"
+                },
+                {
+                  "text": " – I will answer, or we can go through it when we talk."
+                }
+              ]
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 1,
+          "inner": "standard",
+          "surface": "muted"
+        }
+      },
+      {
+        "block_type": "core.contact_form",
+        "schema_version": 1,
+        "data": {
+          "layout": "split",
+          "locale": "en",
+          "title": "Let us talk about your pastures",
+          "text": "Briefly describe your farm: the pasture area, the size of the herd and what you would like to change. I will reply with where we could start.",
+          "submit_label": "Send message",
+          "success_message": "Thank you! Your message has been saved. I will reply by email.",
+          "privacy_label": "Privacy information"
+        },
+        "presentation": {
+          "schemaVersion": 1,
+          "inner": "standard"
+        }
+      }
+    ]
+  },
+  "media": [
+    {
+      "id": "agriculture",
+      "source": "assets/agriculture-farm.png",
+      "filename": "agriculture-farm.png",
+      "contentType": "image/png",
+      "sha256": "8f06eb2669e06dea7ac6092ed451b2c519d866c85134372af13c9911e023e9fb"
+    }
+  ],
+  "mediaBindings": [
+    {
+      "blockPosition": 0,
+      "mediaId": "agriculture",
+      "alt": {
+        "pl": "Krowy na pastwisku przy gospodarstwie o wschodzie słońca",
+        "en": "Cows grazing a pasture near a farm at sunrise"
+      }
+    },
+    {
+      "blockPosition": 2,
+      "mediaId": "agriculture",
+      "alt": {
+        "pl": "Trzy krowy pasą się na zielonej kwaterze, w tle drewniana obora i mgła nad doliną",
+        "en": "Three cows grazing a green paddock, with a timber barn and mist over the valley behind"
+      },
+      "path": ["content", 15, "image"]
+    }
+  ]
+}

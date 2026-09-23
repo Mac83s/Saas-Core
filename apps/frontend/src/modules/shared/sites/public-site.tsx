@@ -10,6 +10,7 @@ import {
   parseSiteAppearance,
   type DesignTokensV1,
   type IndexPagination,
+  type PagePresentationV1,
   type SiteBlock,
 } from "@saas-core/site-blocks";
 
@@ -124,6 +125,9 @@ export function PublicSiteRenderer({ page }: { page: PublicSitePage }) {
       appearance: page.appearance
         ? parseSiteAppearance(page.appearance)
         : undefined,
+      // Null for entries, blog indexes and tag pages: they have no own look.
+      pagePresentation: (page.page_presentation ??
+        null) as PagePresentationV1 | null,
       navigation: page.navigation,
       // The visitor is reading one language; the menu's accessible name has to
       // be in it too, not in the panel's language.

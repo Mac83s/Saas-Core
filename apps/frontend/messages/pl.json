@@ -978,7 +978,12 @@
       "contact": "Kontakt",
       "contact_form": "Formularz kontaktowy",
       "link_list": "Social media i linki",
-      "separator": "Separatory i odstępy"
+      "separator": "Separatory i odstępy",
+      "rich_text": "Treści redakcyjne",
+      "quote": "Cytaty",
+      "product": "Prezentacje produktu",
+      "contentLength": "Długość: {range}",
+      "noLayout": "Bez układu – sam tekst"
     },
     "appearance": {
       "title": "Wygląd całej witryny",
@@ -1186,6 +1191,174 @@
       "short": "Krótki akcent",
       "muted": "Stonowany",
       "accent": "Akcent witryny"
+    },
+    "richText": {
+      "syntaxHint": "Pogrubienie: **tekst**, kursywa: *tekst*, link: [etykieta](adres). Ukośnik \\ przed * [ ] ( ) wyłącza ich znaczenie.",
+      "insertGroup": "Wstaw po bieżącym elemencie",
+      "insert": {
+        "paragraph": "Akapit",
+        "heading2": "Śródtytuł H2",
+        "heading3": "Śródtytuł H3",
+        "heading4": "Śródtytuł H4",
+        "bulletList": "Lista punktowana",
+        "orderedList": "Lista numerowana",
+        "quote": "Cytat",
+        "note": "Uwaga",
+        "figure": "Ilustracja"
+      },
+      "outline": "Spis śródtytułów",
+      "untitledHeading": "(śródtytuł bez tekstu)",
+      "empty": "Tekst jest pusty. Wstaw pierwszy element.",
+      "removed": "Usunięto element.",
+      "nodeLegend": "{number}. {type}",
+      "types": {
+        "paragraph": "Akapit",
+        "heading": "Śródtytuł",
+        "list": "Lista",
+        "quote": "Cytat",
+        "note": "Uwaga",
+        "figure": "Ilustracja"
+      },
+      "moveUp": "Przesuń element wyżej",
+      "moveDown": "Przesuń element niżej",
+      "remove": "Usuń element",
+      "paragraphText": "Treść akapitu",
+      "headingLevel": "Poziom śródtytułu",
+      "levels": {
+        "h2": "H2 – rozdział",
+        "h3": "H3 – podrozdział",
+        "h4": "H4 – drobny podział"
+      },
+      "headingText": "Tekst śródtytułu",
+      "anchor": "Kotwica",
+      "anchorHint": "Link do tego miejsca strony: {anchor}. Zmiana tekstu śródtytułu jej nie zmienia.",
+      "anchorInvalid": "Kotwica zaczyna się literą i zawiera tylko małe litery, cyfry i myślniki (do 64 znaków).",
+      "anchorTaken": "Ta kotwica jest już użyta na tej stronie.",
+      "listStyle": "Rodzaj listy",
+      "styles": {
+        "bullet": "Punktowana",
+        "ordered": "Numerowana"
+      },
+      "listItems": "Pozycje listy",
+      "listHint": "Jedna pozycja w wierszu. Wiersz wcięty dwiema spacjami lub tabulatorem to podpozycja; zacznij go od „1.”, żeby podpozycje były numerowane.",
+      "quoteText": "Treść cytatu",
+      "quoteAuthor": "Autor",
+      "quoteSource": "Źródło",
+      "quoteHref": "Adres źródła",
+      "noteTone": "Rodzaj uwagi",
+      "tones": {
+        "info": "Informacja",
+        "tip": "Wskazówka",
+        "warning": "Ostrzeżenie"
+      },
+      "noteTitle": "Tytuł uwagi",
+      "noteText": "Treść uwagi",
+      "figureImage": "Obraz",
+      "noImage": "Bez obrazu",
+      "currentImage": "Obecny obraz",
+      "uploadImage": "Wgraj i wykadruj obraz",
+      "figureAlt": "Tekst alternatywny",
+      "figureAltHint": "Opis obrazu dla osób, które go nie widzą. Wymagany, gdy wybrano obraz.",
+      "figureWidth": "Szerokość ilustracji",
+      "widths": {
+        "column": "Szerokość tekstu",
+        "wide": "Szeroka"
+      },
+      "figureCaption": "Podpis",
+      "formatting": "Formatowanie",
+      "bold": "Pogrubienie (Ctrl+B)",
+      "italic": "Kursywa (Ctrl+I)",
+      "link": "Link",
+      "linkUrl": "Adres linku",
+      "linkHint": "/podstrona, https://…, mailto:, tel: albo #kotwica.",
+      "linkInvalid": "Ten adres nie jest dozwolony. Użyj /podstrony, https://, mailto:, tel: albo #kotwicy.",
+      "linkApply": "Wstaw link",
+      "linkCancel": "Anuluj",
+      "split": "Podziel na akapity",
+      "pasted": "Wklejono {count, plural, one {# element} few {# elementy} many {# elementów} other {# elementu}}.",
+      "imagesDropped": "Obrazy ze schowka nie zostały zaimportowane — dodaj je jako ilustrację."
+    },
+    "lead": "Wstęp",
+    "richTextContent": "Treść sekcji",
+    "asideTitle": "Tytuł panelu faktów",
+    "asideContent": "Treść panelu faktów",
+    "noteTitle": "Tytuł uwagi",
+    "noteText": "Treść uwagi",
+    "quoteText": "Treść cytatu",
+    "quoteAuthor": "Autor wypowiedzi",
+    "quoteRole": "Rola lub funkcja autora",
+    "quoteSourceLabel": "Źródło",
+    "quoteSourceHref": "Adres źródła",
+    "quoteContext": "Kontekst wypowiedzi",
+    "productTagline": "Hasło produktu",
+    "productImages": "Zdjęcia produktu",
+    "imageCaption": "Podpis zdjęcia",
+    "productSpecs": "Parametry",
+    "specLabel": "Nazwa parametru",
+    "specValue": "Wartość",
+    "productUses": "Zastosowania",
+    "useTitle": "Zastosowanie",
+    "quoteBlock": "Cytat",
+    "productBlock": "Produkt",
+    "duplicateAnchor": "Dwa śródtytuły na tej stronie mają ten sam identyfikator (kotwicę). Zmień jeden z nich i zapisz ponownie.",
+    "invalidSectionPresentation": "Szerokość lub tło jednej z sekcji ma niedozwoloną wartość. Przywróć domyślne ustawienia tej sekcji.",
+    "invalidPagePresentation": "Wygląd tej strony ma niedozwoloną wartość. Przywróć wygląd witryny i zapisz ponownie.",
+    "sectionPresentation": {
+      "title": "Szerokość i tło sekcji",
+      "description": "Dotyczy tylko tej sekcji. Tekst zachowuje wygodną szerokość czytania niezależnie od tła.",
+      "fields": {
+        "inner": "Szerokość treści",
+        "surface": "Tło sekcji"
+      },
+      "options": {
+        "inner": {
+          "standard": "Standardowa (jak witryna)",
+          "narrow": "Wąska",
+          "wide": "Szeroka",
+          "full": "Pełna"
+        },
+        "surface": {
+          "default": "Tło strony",
+          "muted": "Stonowane",
+          "accent": "Kolor akcentu",
+          "inverse": "Ciemne"
+        }
+      },
+      "hints": {
+        "inner": {
+          "standard": "Treść w szerokości ustawionej dla całej witryny.",
+          "narrow": "Wąska kolumna, wygodna przy dłuższym tekście.",
+          "wide": "Szerzej niż witryna; widać to na stronie o pełnej szerokości.",
+          "full": "Od krawędzi do krawędzi strony o pełnej szerokości."
+        },
+        "surface": {
+          "default": "Sekcja leży na zwykłym tle strony.",
+          "muted": "Delikatnie przyciemnione tło oddziela sekcję od sąsiednich.",
+          "accent": "Tło w kolorze akcentu witryny z białym tekstem, do wyróżnień.",
+          "inverse": "Ciemne tło z jasnym tekstem, do mocnych akcentów."
+        }
+      },
+      "reset": "Przywróć domyślne"
+    },
+    "pagePresentation": {
+      "title": "Wygląd tej strony",
+      "description": "Dotyczy tylko tej podstrony. Nagłówek, stopka i menu pozostają wspólne dla całej witryny.",
+      "fields": {
+        "width": "Szerokość strony",
+        "headingFont": "Font nagłówków",
+        "bodyFont": "Font tekstu"
+      },
+      "hints": {
+        "width": "Pełna szerokość rozciąga tła sekcji na całe okno; tekst zachowuje szerokość witryny.",
+        "headingFont": "Tytuły i śródtytuły na tej stronie.",
+        "bodyFont": "Akapity, listy i pozostały tekst na tej stronie."
+      },
+      "asSite": "Jak w witrynie",
+      "fullWidth": "Pełna szerokość",
+      "reset": "Przywróć wygląd witryny",
+      "summaryHeadingFont": "Nagłówki: {font}",
+      "summaryBodyFont": "Tekst: {font}",
+      "review": "Wygląd strony"
     }
   },
   "BillingSupport": {

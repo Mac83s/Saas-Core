@@ -5,6 +5,7 @@ import { renderPrivateMedia } from "./private-media-preview";
 import { useTranslations } from "next-intl";
 import {
   designTokenClassName,
+  pagePresentationClassName,
   siteAppearanceClassName,
   renderSiteHeader,
   renderNavigation,
@@ -13,6 +14,7 @@ import {
   renderSiteFooter,
   type SiteAppearance,
   type BlockFieldDefinition,
+  type PagePresentationV1,
 } from "@saas-core/site-blocks";
 import { InlineText } from "@saas-core/ui/components/inline-text";
 import { ReorderList } from "@saas-core/ui/components/reorder-list";
@@ -45,6 +47,7 @@ export function SectionCanvas({
   templates,
   emptyState,
   appearance,
+  pagePresentation,
   navigation = [],
   blockIds,
   onMove,
@@ -65,6 +68,8 @@ export function SectionCanvas({
   templates?: ReactNode;
   emptyState?: ReactNode;
   appearance?: SiteAppearance;
+  /** This page's own look: full width and fonts on the canvas root. */
+  pagePresentation?: PagePresentationV1 | null;
   navigation?: readonly NavigationLink[];
 }) {
   const t = useTranslations("Sites");
@@ -191,11 +196,7 @@ export function SectionCanvas({
                           {sectionLabel(index)}
                         </span>
                         <span className="block truncate font-medium">
-                          {String(
-                            block.data.title ||
-                              block.data.heading ||
-                              sectionLabel(index),
-                          )}
+                          {outlineTitle(block) || sectionLabel(index)}
                         </span>
                       </span>
                     </button>
@@ -263,7 +264,7 @@ export function SectionCanvas({
             aria-label={t("studio.canvas")}
             data-testid="live-canvas"
             data-viewport={viewport}
-            className={`${appearance ? `${designTokenClassName(appearance.designTokens)} ${siteAppearanceClassName(appearance)}` : "site-theme site-theme--neutral site-theme--sans site-theme--radius-medium site-theme--comfortable"} studio-page site-canvas--${viewport}`}
+            className={`${appearance ? `${designTokenClassName(appearance.designTokens)} ${siteAppearanceClassName(appearance)}` : "site-theme site-theme--neutral site-theme--sans site-theme--radius-medium site-theme--comfortable"} ${pagePresentationClassName(pagePresentation)} studio-page site-canvas--${viewport}`}
             style={{
               width:
                 viewport === "desktop"
@@ -323,14 +324,14 @@ export function SectionCanvas({
                                 value={value}
                                 disabled={disabled}
                                 label={t("studio.editText", {
-                                  field: t(definition.labelKey),
+                                  field: t(definition.field.labelKey),
                                 })}
                                 instructions={t(
-                                  definition.kind === "textarea"
+                                  definition.multiline
                                     ? "studio.inlineMultilineHint"
                                     : "studio.inlineHint",
                                 )}
-                                multiline={definition.kind === "textarea"}
+                                multiline={definition.multiline}
                                 onCommit={(next) =>
                                   onTextChange(index, path, next)
                                 }
@@ -452,11 +453,24 @@ export function SectionCanvas({
   );
 }
 
-/** Only text fields from the manifest may become inline controls. */
+/** Texts inside a rich-text node that are one line: a heading, a note's
+ *  title, a quote's author and source, a figure's caption. */
+const RICH_TEXT_LINES = new Set([
+  "text",
+  "title",
+  "author",
+  "source",
+  "caption",
+]);
+
+/** Only text fields from the manifest may become inline controls. Inside a
+ *  rich-text field that is every run of text (a paragraph's, a list item's,
+ *  a quote's or a note's — edited as plain text, multiline) and the
+ *  one-line texts above; the edit is written at its exact data path. */
 function inlineField(
   fields: readonly BlockFieldDefinition[],
   path: readonly string[],
-): BlockFieldDefinition | undefined {
+): { field: BlockFieldDefinition; multiline: boolean } | undefined {
   const field = fields.find((candidate) =>
     candidate.path.every((part, index) => path[index] === part),
   );
@@ -464,8 +478,27 @@ function inlineField(
   const rest = path.slice(field.path.length);
   if (field.kind === "list" && /^\d+$/.test(rest[0] ?? ""))
     return inlineField(field.item ?? [], rest.slice(1));
+  if (field.kind === "richText" && /^\d+$/.test(rest[0] ?? "")) {
+    const inside = rest.slice(1);
+    const run = inside.length > 1 && inside[inside.length - 1] === "text";
+    if (run || (inside.length === 1 && RICH_TEXT_LINES.has(inside[0])))
+      return { field, multiline: run };
+    return undefined;
+  }
   return rest.length === 0 &&
     (field.kind === "text" || field.kind === "textarea")
-    ? field
+    ? { field, multiline: field.kind === "textarea" }
     : undefined;
+}
+
+/** The outline names a section by its own words where it has some. */
+function outlineTitle(block: BlockFormValues): string {
+  const { title, heading, author, quote } = block.data;
+  for (const candidate of [title, heading, author])
+    if (typeof candidate === "string" && candidate.trim()) return candidate;
+  if (typeof quote === "string" && quote.trim()) {
+    const words = quote.trim().split(/\s+/);
+    return words.length > 6 ? `${words.slice(0, 6).join(" ")}…` : quote.trim();
+  }
+  return "";
 }

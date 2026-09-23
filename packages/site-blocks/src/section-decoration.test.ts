@@ -47,13 +47,36 @@ describe("shared section decoration contract", () => {
         types.add(block.block_type);
       }
     }
-    // These legacy blocks do not have section-layout recipes yet, but their
-    // envelope must support the same decoration controls.
+    // These blocks have no section-layout recipe (or not in this shape), but
+    // their envelope must support the same decoration controls.
     const remaining: SiteBlock[] = [
       {
         block_type: "core.rich_text",
         schema_version: 1,
         data: { text: "Useful information" },
+      },
+      {
+        block_type: "core.rich_text",
+        schema_version: 2,
+        data: {
+          content: [
+            { type: "heading", level: 2, anchor: "plan", text: "Plan" },
+            { type: "paragraph", content: [{ text: "Details", bold: true }] },
+          ],
+        },
+      },
+      {
+        block_type: "core.quote",
+        schema_version: 1,
+        data: { quote: "Measure twice.", author: "Sample author" },
+      },
+      {
+        block_type: "core.product",
+        schema_version: 1,
+        data: {
+          title: "Sample product",
+          specs: [{ label: "Mass", value: "1 kg" }],
+        },
       },
       {
         block_type: "core.testimonials",

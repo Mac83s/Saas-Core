@@ -220,6 +220,8 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
             "design_tokens", DEFAULT_PUBLIC_DESIGN_TOKENS
         ),
         "appearance": publication_snapshot.get("appearance"),
+        # Only site pages carry one; entries, indexes and archives inherit.
+        "page_presentation": page.page.get("page_presentation"),
         "blocks": page.page["blocks"],
         "navigation": _navigation_links(publication_snapshot, page.locale),
         # Derived from the menu, never stored: a stored trail is wrong the

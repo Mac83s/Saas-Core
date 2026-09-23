@@ -36,6 +36,14 @@
     "contract-version-below-one.json": {
       "by": "envelope",
       "why": "A version the server cannot map to a contract stops the change set instead of defaulting."
+    },
+    "script-link-in-rich-text.json": {
+      "by": "block_schema",
+      "why": "Structured text still carries links, and a link is where script gets in. Only a path, https, mailto, tel or an in-page anchor passes; javascript: and protocol-relative addresses fail the canonical block schema."
+    },
+    "unknown-rich-text-node.json": {
+      "by": "block_schema",
+      "why": "Rich text is a closed list of node types. An embed, a raw HTML node or anything else the renderer does not know is refused rather than skipped, so nothing unreviewed reaches a published page."
     }
   }
 }

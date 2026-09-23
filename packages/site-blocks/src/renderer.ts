@@ -3,7 +3,11 @@ import { createElement, type ReactElement } from "react";
 import Ajv2020, { type ErrorObject } from "ajv/dist/2020.js";
 import designTokensSchema from "@saas-core/contracts/site-blocks/design-tokens.v1.schema.json";
 
-import { siteAppearanceClassName, type SiteAppearance } from "./appearance";
+import {
+  pagePresentationClassName,
+  siteAppearanceClassName,
+  type SiteAppearance,
+} from "./appearance";
 import {
   renderSiteHeader,
   renderSiteFooter,
@@ -16,6 +20,7 @@ import type {
   PublishedFormRenderer,
   BlockRenderOptions,
   DesignTokensV1,
+  PagePresentationV1,
   DraftPreviewDocument,
   NavigationLink,
   IndexPagination,
@@ -179,6 +184,7 @@ function renderDocument(
   appearance?: SiteAppearance | null,
   formRenderer?: PublishedFormRenderer,
   options?: BlockRenderOptions,
+  pagePresentation?: PagePresentationV1 | null,
 ): ReactElement {
   const menu = renderNavigation(navigation, navigationLabel);
   const content = createElement(
@@ -187,6 +193,7 @@ function renderDocument(
       className: [
         designTokenClassName(appearance?.designTokens ?? tokens),
         appearance ? siteAppearanceClassName(appearance) : "",
+        pagePresentationClassName(pagePresentation),
         contentElement === "div" ? "site-theme--preview" : "",
       ]
         .filter(Boolean)
@@ -250,6 +257,9 @@ export function renderDraftPreview(
     DEFAULT_PAGINATION_LABELS,
     imageRenderer,
     document.appearance,
+    undefined,
+    undefined,
+    document.pagePresentation,
   );
 }
 
@@ -278,5 +288,6 @@ export function renderPublishedPage(
     document.appearance,
     formRenderer,
     { preview: false, locale: document.locale ?? "pl" },
+    document.pagePresentation,
   );
 }

@@ -14,18 +14,20 @@
     },
     {
       "type": "core.rich_text",
-      "latestVersion": 1,
+      "latestVersion": 2,
       "schemas": {
-        "1": "core.rich_text.v1.schema.json"
+        "1": "core.rich_text.v1.schema.json",
+        "2": "core.rich_text.v2.schema.json"
       }
     },
     {
       "type": "core.feature_list",
-      "latestVersion": 3,
+      "latestVersion": 4,
       "schemas": {
         "1": "core.feature_list.v1.schema.json",
         "2": "core.feature_list.v2.schema.json",
-        "3": "core.feature_list.v3.schema.json"
+        "3": "core.feature_list.v3.schema.json",
+        "4": "core.feature_list.v4.schema.json"
       }
     },
     {
@@ -99,6 +101,20 @@
       "latestVersion": 1,
       "schemas": {
         "1": "core.separator.v1.schema.json"
+      }
+    },
+    {
+      "type": "core.quote",
+      "latestVersion": 1,
+      "schemas": {
+        "1": "core.quote.v1.schema.json"
+      }
+    },
+    {
+      "type": "core.product",
+      "latestVersion": 1,
+      "schemas": {
+        "1": "core.product.v1.schema.json"
       }
     }
   ],

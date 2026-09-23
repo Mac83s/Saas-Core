@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/site-blocks/page-presentation.v1.schema.json",
+  "title": "Page presentation v1",
+  "description": "Optional presentation stored with one page version. Applies only inside that page: header, footer, navigation and the site-wide appearance stay shared. A missing value inherits the site appearance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion"],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "width": {
+      "type": "string",
+      "enum": ["contained", "full"]
+    },
+    "headingFont": {
+      "type": "string",
+      "enum": [
+        "system",
+        "arial",
+        "georgia",
+        "trebuchet",
+        "verdana",
+        "inter",
+        "manrope",
+        "dm-sans",
+        "nunito",
+        "lora",
+        "playfair-display"
+      ]
+    },
+    "bodyFont": {
+      "type": "string",
+      "enum": [
+        "system",
+        "arial",
+        "georgia",
+        "trebuchet",
+        "verdana",
+        "inter",
+        "manrope",
+        "dm-sans",
+        "nunito",
+        "lora",
+        "playfair-display"
+      ]
+    }
+  }
+}

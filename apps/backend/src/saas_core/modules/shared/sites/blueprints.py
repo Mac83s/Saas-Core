@@ -30,7 +30,10 @@ from .services import (
     import_page_template,
 )
 
-TEXT_FIELDS = frozenset({"title", "text", "question", "answer", "label", "subtitle"})
+TEXT_FIELDS = frozenset({
+    "title", "text", "question", "answer", "label", "subtitle", "lead", "tagline",
+})
+SLOT_MAX_LENGTH = {"text": 2000, "answer": 2000, "lead": 1200}
 
 
 class BlueprintRefused(APIException):
@@ -72,23 +75,32 @@ def _site(
 def template_slots(template: PageTemplate) -> list[dict[str, Any]]:
     slots: list[dict[str, Any]] = []
 
-    def visit(value: Any, path: str, field: str = "") -> None:
+    def visit(value: Any, path: str, field: str = "", limit: int | None = None) -> None:
         if isinstance(value, dict):
+            # Quotes are attributed statements: automation must not put words
+            # in anyone's mouth, neither in a quote block nor a quote node.
+            if value.get("type") == "quote":
+                return
+            # A rich-text heading keeps the heading's own 200-character cap
+            # rather than the 2000 its field name suggests.
+            heading = value.get("type") == "heading"
             for key, child in value.items():
-                visit(child, path + "/" + key, key)
+                visit(child, path + "/" + key, key, 200 if heading else None)
         elif isinstance(value, list):
             for index, child in enumerate(value):
                 visit(child, path + "/" + str(index))
-        elif isinstance(value, str) and field in TEXT_FIELDS:
+        # A run of spaces between two marked runs can never be refilled
+        # (render_slots refuses blank values), so it is not offered at all.
+        elif isinstance(value, str) and field in TEXT_FIELDS and value.strip():
             slots.append({
                 "key": path,
                 "kind": "text",
-                "max_length": 2000 if field in {"text", "answer"} else 200,
+                "max_length": limit or SLOT_MAX_LENGTH.get(field, 200),
                 "default": value,
             })
 
     for index, block in enumerate(template.blocks):
-        if block["block_type"] in {"core.pricing", "core.legal"}:
+        if block["block_type"] in {"core.pricing", "core.legal", "core.quote"}:
             continue
         visit(block["data"], f"/{index}/data")
     return slots

@@ -8,8 +8,18 @@ import faqV3Schema from "@saas-core/contracts/site-blocks/core.faq.v3.schema.jso
 import heroV4Schema from "@saas-core/contracts/site-blocks/core.hero.v4.schema.json";
 import featureListV2Schema from "@saas-core/contracts/site-blocks/core.feature_list.v2.schema.json";
 import faqV2Schema from "@saas-core/contracts/site-blocks/core.faq.v2.schema.json";
+import featureListV4Schema from "@saas-core/contracts/site-blocks/core.feature_list.v4.schema.json";
+import richTextV2Schema from "@saas-core/contracts/site-blocks/core.rich_text.v2.schema.json";
+import quoteV1Schema from "@saas-core/contracts/site-blocks/core.quote.v1.schema.json";
+import productV1Schema from "@saas-core/contracts/site-blocks/core.product.v1.schema.json";
 import { plainBlockText } from "./block-text";
-import { renderSectionLayout } from "./section-layouts";
+import { ProductBlock, QuoteBlock } from "./editorial-blocks";
+import { migrateRichTextV1ToV2, RichTextBlock } from "./rich-text-block";
+import {
+  featureListIntro,
+  featureListNote,
+  renderSectionLayout,
+} from "./section-layouts";
 import { ContactSection, LinkListSection } from "./contact-link-sections";
 import { createElement } from "react";
 
@@ -34,14 +44,13 @@ import type {
   ContactV1Data,
   EntryListV1Data,
   FaqV1Data,
-  FeatureListV1Data,
+  FeatureListV4Data,
   FooterV1Data,
   HeroV1Data,
   HeroV2Data,
   HeroV3Data,
   JsonObject,
   PricingV1Data,
-  RichTextV1Data,
   SiteBlockManifest,
   TestimonialsV1Data,
 } from "./types";
@@ -103,19 +112,6 @@ function HeroBlock({ data, editor, imageRenderer }: BlockComponentProps) {
   );
 }
 
-function RichTextBlock({ data, editor }: BlockComponentProps) {
-  const text = editor?.text ?? plainBlockText;
-  const richText = data as RichTextV1Data;
-  return createElement(
-    "section",
-    {
-      className: "site-block site-block--rich-text",
-      "data-block-type": "core.rich_text",
-    },
-    createElement("p", null, text(["text"], richText.text)),
-  );
-}
-
 function FeatureListBlock({
   data,
   editor,
@@ -129,20 +125,14 @@ function FeatureListBlock({
     imageRenderer,
   );
   if (variant) return variant;
-  const featureList = data as FeatureListV1Data;
+  const featureList = data as FeatureListV4Data;
   return createElement(
     "section",
     {
       className: "site-block site-block--feature-list",
       "data-block-type": "core.feature_list",
     },
-    featureList.title
-      ? createElement(
-          "h2",
-          editor ? { role: "presentation" } : null,
-          text(["title"], featureList.title),
-        )
-      : null,
+    featureListIntro(featureList, text, editor),
     createElement(
       "ul",
       null,
@@ -165,6 +155,7 @@ function FeatureListBlock({
         ),
       ),
     ),
+    featureListNote(featureList, text, editor),
   );
 }
 
@@ -551,31 +542,55 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
     },
     {
       type: "core.rich_text",
-      latestVersion: 1,
-      schemas: [{ version: 1, schema: richTextV1Schema }],
-      migrators: {},
+      latestVersion: 2,
+      schemas: [
+        { version: 1, schema: richTextV1Schema },
+        { version: 2, schema: richTextV2Schema },
+      ],
+      migrators: { 1: migrateRichTextV1ToV2 },
       component: RichTextBlock,
       catalog: {
         category: "about",
         labelKey: "richTextBlock",
-        fields: [{ path: ["text"], kind: "textarea", labelKey: "text" }],
+        fields: [
+          { path: ["title"], kind: "text", labelKey: "heading" },
+          { path: ["lead"], kind: "textarea", labelKey: "lead" },
+          {
+            path: ["content"],
+            kind: "richText",
+            labelKey: "richTextContent",
+          },
+          { path: ["aside", "title"], kind: "text", labelKey: "asideTitle" },
+          {
+            path: ["aside", "content"],
+            kind: "richText",
+            labelKey: "asideContent",
+          },
+        ],
       },
     },
     {
       type: "core.feature_list",
-      latestVersion: 3,
+      latestVersion: 4,
       schemas: [
         { version: 1, schema: featureListV1Schema },
         { version: 2, schema: featureListV2Schema },
         { version: 3, schema: featureListV3Schema },
+        { version: 4, schema: featureListV4Schema },
       ],
-      migrators: { 1: (data) => ({ ...data }), 2: (data) => ({ ...data }) },
+      migrators: {
+        1: (data) => ({ ...data }),
+        2: (data) => ({ ...data }),
+        // v4 only adds optional fields (lead, note) and two layouts.
+        3: (data) => ({ ...data }),
+      },
       component: FeatureListBlock,
       catalog: {
         category: "offer",
         labelKey: "featureListBlock",
         fields: [
           { path: ["title"], kind: "text", labelKey: "heading" },
+          { path: ["lead"], kind: "textarea", labelKey: "lead" },
           {
             path: ["image", "asset_id"],
             kind: "media",
@@ -593,6 +608,8 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
               { path: ["text"], kind: "textarea", labelKey: "text" },
             ],
           },
+          { path: ["note", "title"], kind: "text", labelKey: "noteTitle" },
+          { path: ["note", "text"], kind: "textarea", labelKey: "noteText" },
         ],
       },
     },
@@ -818,6 +835,92 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
               { path: ["href"], kind: "url", labelKey: "linkHref" },
             ],
           },
+        ],
+      },
+    },
+    {
+      type: "core.quote",
+      latestVersion: 1,
+      schemas: [{ version: 1, schema: quoteV1Schema }],
+      migrators: {},
+      component: QuoteBlock,
+      catalog: {
+        category: "about",
+        labelKey: "quoteBlock",
+        fields: [
+          { path: ["quote"], kind: "textarea", labelKey: "quoteText" },
+          { path: ["author"], kind: "text", labelKey: "quoteAuthor" },
+          { path: ["role"], kind: "text", labelKey: "quoteRole" },
+          {
+            path: ["source", "label"],
+            kind: "text",
+            labelKey: "quoteSourceLabel",
+          },
+          {
+            path: ["source", "href"],
+            kind: "url",
+            labelKey: "quoteSourceHref",
+          },
+          { path: ["context"], kind: "textarea", labelKey: "quoteContext" },
+          {
+            path: ["image", "asset_id"],
+            kind: "media",
+            labelKey: "imageAsset",
+            // Portret mówcy: pionowy kadr obok cytatu.
+            aspect: [4, 5],
+          },
+          { path: ["image", "alt"], kind: "text", labelKey: "imageAlt" },
+        ],
+      },
+    },
+    {
+      type: "core.product",
+      latestVersion: 1,
+      schemas: [{ version: 1, schema: productV1Schema }],
+      migrators: {},
+      component: ProductBlock,
+      catalog: {
+        category: "offer",
+        labelKey: "productBlock",
+        fields: [
+          { path: ["title"], kind: "text", labelKey: "heading" },
+          { path: ["tagline"], kind: "text", labelKey: "productTagline" },
+          { path: ["text"], kind: "textarea", labelKey: "text" },
+          {
+            path: ["images"],
+            kind: "list",
+            labelKey: "productImages",
+            item: [
+              {
+                path: ["asset_id"],
+                kind: "media",
+                labelKey: "imageAsset",
+                aspect: [4, 3],
+              },
+              { path: ["alt"], kind: "text", labelKey: "imageAlt" },
+              { path: ["caption"], kind: "text", labelKey: "imageCaption" },
+            ],
+          },
+          {
+            path: ["specs"],
+            kind: "list",
+            labelKey: "productSpecs",
+            item: [
+              { path: ["label"], kind: "text", labelKey: "specLabel" },
+              { path: ["value"], kind: "text", labelKey: "specValue" },
+            ],
+          },
+          {
+            path: ["uses"],
+            kind: "list",
+            labelKey: "productUses",
+            item: [
+              { path: ["title"], kind: "text", labelKey: "useTitle" },
+              { path: ["text"], kind: "textarea", labelKey: "text" },
+            ],
+          },
+          { path: ["action", "label"], kind: "text", labelKey: "actionLabel" },
+          { path: ["action", "href"], kind: "url", labelKey: "actionHref" },
         ],
       },
     },

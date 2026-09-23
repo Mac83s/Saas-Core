@@ -32,7 +32,7 @@ from saas_core.modules.shared.billing.api import FeatureOperation, authorize_ent
 from saas_core.observability import correlation_id
 
 from .block_contracts import validate_site_block
-from .block_decoration import normalize_block, validate_decoration
+from .block_decoration import normalize_block, validate_decoration, validate_presentation
 from .localization import entry_path
 from .models import (
     ContentCollection,
@@ -49,6 +49,7 @@ from .models import (
     canonical_json_hash,
 )
 from .permissions import SITE_CONTENT_EDIT, SITE_PUBLISH, SITES_ENABLED
+from .rich_content import assert_unique_anchors, block_asset_ids
 from .services import (
     DRAFTABLE_POLICIES,
     MEDIA_ASSET_RESOURCE_TYPE,
@@ -385,6 +386,7 @@ def save_entry_draft(
             schema_version=block["schema_version"],
             data=block["data"],
         )
+    assert_unique_anchors(normalized_blocks)
     request_hash = canonical_json_hash({
         "entry_id": str(entry_id),
         "expected_version": expected_version,
@@ -430,7 +432,14 @@ def save_entry_draft(
             context.credential_id if _is_automation(context) else None
         ),
     )
-    normalized_media_ids = tuple(sorted(set(media_asset_ids or []), key=str))
+    # Nested images (figures, galleries) are referenced even when unlisted.
+    normalized_media_ids = tuple(
+        sorted(
+            {*(UUID(str(asset_id)) for asset_id in media_asset_ids or []),
+             *block_asset_ids(normalized_blocks)},
+            key=str,
+        )
+    )
     try:
         record_resource_references(
             context=context,
@@ -508,6 +517,7 @@ def publish_entry(
     )
     for block in entry.current_draft.blocks:
         validate_decoration(block.get("decoration"))
+        validate_presentation(block.get("presentation"))
     snapshot = {
         "schema_version": ENTRY_SNAPSHOT_SCHEMA_VERSION,
         "entry_id": str(entry.id),

@@ -67,6 +67,39 @@ read from `packages/contracts/content-operations/`, and the contract versions.
 A capabilities response that disagrees with the contract it describes is worse
 than none, because the client believes it.
 
+## Section and page templates are built to convert
+
+Owner decision, 2026-09-23: every new section template and page recipe is
+designed for conversion — a visitor should know within one screen what they
+get and what to do next. The templates that existed before are **not** a
+quality reference; do not extend or imitate them. Their versions stay loadable
+for pages already built on them, and new recipes replace them in the library.
+The acceptance checklist is in `docs/architecture/site-section-catalog.md`
+("Szablony nastawione na konwersję"); in short:
+
+- **One goal per page.** A recipe names its primary action (inquiry form,
+  call, booking, e-mail) and every button says the outcome ("Umów bezpłatną
+  wycenę"), not the mechanism ("Wyślij").
+- **First screen sells**, at 390 px as much as at 1440 px: who it is for and
+  what they get, one supporting sentence, the primary action, a trust cue or
+  photo. Never "Witamy na naszej stronie".
+- **Decision path:** need → offer and benefits → proof → how it works / what
+  happens next → objections (FAQ, limits, price range) → final call to action.
+  The primary action returns at each decision point; one quieter secondary
+  action at most, never two competing buttons in one section.
+- **Proof is never invented.** Seeds carry no made-up reviews, ratings,
+  client logos, statistics, prices or certificates. They carry clearly marked
+  slots (`[Uzupełnij: …]`) the owner fills with real material. The same holds
+  for automation (blueprints never write quotes or proof).
+- **Low friction:** short forms (name, contact, message), say what happens
+  after sending and how soon, no account required.
+- **No dark patterns:** no countdowns, fake scarcity, pre-ticked consent.
+- **Mobile and speed** are part of conversion: the action is reachable on the
+  first phone screen, tap targets 44 px, the hero image fits the LCP budget.
+
+Review each new template against the checklist with screenshots at 390 and
+1440 px before it enters the catalogue.
+
 ## Traps
 
 - **Reading media before setting the tenant.** `media_mediaasset` forces RLS, so

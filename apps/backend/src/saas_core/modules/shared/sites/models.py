@@ -736,6 +736,8 @@ class PageVersion(TenantScopedModel):
     # "was this written by a human". A plain id, not a foreign key: the API key
     # lives in another module and this column only has to distinguish, not join.
     created_by_credential = models.UUIDField(null=True, blank=True)
+    # Page-local presentation (page-presentation.v1); NULL inherits the site's.
+    presentation = models.JSONField(null=True, blank=True, default=None)
     created_at = models.DateTimeField(auto_now_add=True)
 
     all_objects = models.Manager()
@@ -792,6 +794,7 @@ class PageBlock(TenantScopedModel):
     schema_version = models.PositiveIntegerField()
     data = models.JSONField(default=dict)
     decoration = models.JSONField(null=True, blank=True, default=None)
+    presentation = models.JSONField(null=True, blank=True, default=None)
     created_at = models.DateTimeField(auto_now_add=True)
 
     all_objects = models.Manager()

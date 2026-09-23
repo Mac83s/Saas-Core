@@ -306,7 +306,7 @@ test.each([
     });
     const templateGrid = thumbnailElement.closest("ul");
     expect(templateGrid).not.toBeNull();
-    expect(within(templateGrid!).getAllByRole("img")).toHaveLength(8);
+    expect(within(templateGrid!).getAllByRole("img")).toHaveLength(11);
 
     const trigger = screen.getAllByRole("button", {
       name: previewButton,
@@ -622,7 +622,7 @@ test("biblioteka filtruje branżę, zachowuje bazę i zapisuje wybraną sekcję"
   await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
   expect(savePageDraft.mock.calls[0]?.[1].blocks[1]).toMatchObject({
     block_type: "core.feature_list",
-    schema_version: 3,
+    schema_version: 4,
     data: {
       layout: "care_path",
       items: [
@@ -652,6 +652,10 @@ test("biblioteka EN pokazuje opis, dostępny podgląd i angielską treść", asy
   renderEditor("en", englishMessages, vi.fn().mockResolvedValue(undefined));
   await screen.findByLabelText("Heading");
   fireEvent.click(screen.getByRole("button", { name: "Section library" }));
+  // Editorial, quote and product families now share the first dozen cards.
+  fireEvent.click(
+    await screen.findByRole("button", { name: /^Show more layouts/ }),
+  );
   fireEvent.click(
     await screen.findByRole("button", { name: "Preview: Expandable FAQ" }),
   );
@@ -1030,7 +1034,7 @@ test.each([
       within(rail).getAllByRole("button", {
         name: locale === "pl" ? /^Użyj szablonu / : /^Use /,
       }),
-    ).toHaveLength(8);
+    ).toHaveLength(11);
     fireEvent.click(design);
     expect(design).toHaveAttribute("aria-pressed", "true");
     expect(within(rail).getByText("Appearance controls fixture")).toBeDefined();

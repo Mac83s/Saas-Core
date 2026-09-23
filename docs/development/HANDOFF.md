@@ -16,7 +16,7 @@ i git; zamknięte pozycje z dawnego dziennika zostały pominięte.
 | --- | --- | --- |
 | `saas-core-panel-i-katalog-listy-wizytowka-historia-wyszukiwarka` | standard list panelu, wizytówka, historia zmian, limit podstron, wyszukiwarka katalogu | faza 1 (DataTable) i 2 (przełącznik wizytówki) zrobione; dalej historia zmian, `pages.max`, Meilisearch |
 | `magazyn-materia-o-w-od-pakietu-korektora-do-kare` | uniwersalny magazyn firm (`shared.inventory` v2): dokumenty, miejsca, rezerwacje, rezerwacje stanu przy wizytach, przyszły sklep | projekt v2 przyjęty 23.09; implementacja po fazach 2–4 planu panelu |
-| `saas-core-site-studio-templates`, `saas-core-site-studio-rich-content-and-full-width` | Site Studio: szablony, warianty, bogata treść | wg planów |
+| `saas-core-site-studio-templates`, `saas-core-site-studio-rich-content-and-full-width` | Site Studio: szablony, warianty, bogata treść | bogata treść, pełna szerokość, wygląd strony i 3 strony demonstracyjne scalone i wdrożone na saas 23.09 (`docs/architecture/site-rich-content.md`, raport `2026-09-23-rich-content`); dalej faza 3 — szablony nastawione na konwersję, potem edytor WYSIWYG |
 | `domkna-c-saas-core-po-audycie-realna-kompozycja-` | baza P0–P3 po audycie | treść w `Plan/Wdrozenie/13-…` |
 
 Kolejność przyjęta 23.09: faza panelu 3 → 4 → magazyn 4–8 → wyszukiwarka →
@@ -29,7 +29,8 @@ magazyn 9–10 → pozostałe listy na DataTable.
   `--env-file .env.<produkt>` i `compose.<produkt>.yaml`.
 - Kod działający na VPS i raporty wydań: `docs/operations/releases/`
   (ostatnie: 2026-09-23 DataTable, 2026-09-23 przełącznik wizytówki i strona
-  wizytówki w katalogu).
+  wizytówki w katalogu, 2026-09-23 bogata treść Site Studio — tylko saas;
+  HoofCare i MedPlano bez tej zmiany do `core:update`).
 - Płatności we wszystkich trzech: `BILLING_PROVIDER=simulated`.
 - E-mail: Saas-Core wysyła przez Resend SMTP; HoofCare i MedPlano zapisują
   pocztę do plików (`.runtime-<produkt>/emails`) — raporty dla rolników i
@@ -76,9 +77,14 @@ magazyn 9–10 → pozostałe listy na DataTable.
 - **Strony marketingowe:** brak bloga i stron prawnych; formularz kontaktowy
   czeka na klucze (`contact/page.tsx:21`); SCR dla stron marketingowych
   (plan 14:133).
-- **Site Studio:** 20 wariantów pozostałych rodzin sekcji, własne szablony
-  (faza 4), recepty z dekoracjami (nowy schemat), AI (faza 8), Content Ops v2.
-  Realne doręczenie zapytań ze strony przez SMTP nieudowodnione.
+- **Site Studio:** szablony pod konwersję (reguły w skillu `develop-sites`),
+  edytor WYSIWYG na strukturze `core.rich_text` v2, prawdziwe zdjęcia
+  produktu i portretów (dziś 4 ilustracje AI), `core:update` HoofCare/MedPlano
+  z migracją `sites/0032`, własne szablony (faza 4), AI (faza 8), Content Ops
+  v2. Realne doręczenie zapytań ze strony przez SMTP nieudowodnione. Import
+  szablonu ze zdjęciem zwraca 500, gdy ClamAV nie zdąży w 30 s (obciążony host)
+  — powinien być błąd „spróbuj ponownie”; publiczne zdjęcia bez wariantów
+  responsywnych (oryginały PNG ~2 MB).
 - **Listy na DataTable:** tylko zespół; własne tabele nadal w `farms-panel`,
   `animals-panel`, `farm-detail`, `inventory-panel`, `seo/audits-panel`,
   `seo/gsc-panel`.

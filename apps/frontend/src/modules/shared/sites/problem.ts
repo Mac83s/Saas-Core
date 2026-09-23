@@ -38,6 +38,12 @@ export function sitesErrorMessage(error: unknown, t: Translate): string {
       return t("scheduleNotPending");
     case "domain_quarantined":
       return t("subdomainReason_quarantined");
+    case "duplicate_rich_text_anchor":
+      return t("duplicateAnchor");
+    case "invalid_section_presentation":
+      return t("invalidSectionPresentation");
+    case "invalid_page_presentation":
+      return t("invalidPagePresentation");
     default:
       return typeof error.problem.detail === "string"
         ? error.problem.detail

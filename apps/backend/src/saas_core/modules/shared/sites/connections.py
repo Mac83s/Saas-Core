@@ -149,18 +149,26 @@ def read_proposal(*, proposal_id: UUID) -> dict[str, Any]:
             number__in=[proposal.version, proposal.version - 1],
         )
     }
+    before = versions.get(proposal.version - 1)
+    after = versions.get(proposal.version)
     result = {
         **_proposal_payload(proposal),
-        "blocks_before": _blocks(context, proposal, versions.get(proposal.version - 1)),
-        "blocks_after": _blocks(context, proposal, versions.get(proposal.version)),
+        "blocks_before": _blocks(context, proposal, before),
+        "blocks_after": _blocks(context, proposal, after),
         "metadata_before": proposal.metadata_before,
         "metadata_after": proposal.metadata_after,
     }
+    # Page presentation is part of what gets accepted, like decoration.
+    for key, version in (("page_presentation_before", before), ("page_presentation_after", after)):
+        if _page_presentation(version) is not None:
+            result[key] = _page_presentation(version)
     result["review_token"] = signing.dumps(
         {
             "organization_id": str(context.organization_id),
             "actor_id": str(context.actor_id),
-            "digest": _review_digest(proposal, result["blocks_after"]),
+            "digest": _review_digest(
+                proposal, result["blocks_after"], _page_presentation(after)
+            ),
         },
         salt=REVIEW_SALT,
     )
@@ -170,7 +178,16 @@ def read_proposal(*, proposal_id: UUID) -> dict[str, Any]:
     return result
 
 
-def _review_digest(proposal: ContentProposal, blocks_after: Any) -> str:
+def _page_presentation(version: Any) -> dict[str, Any] | None:
+    # Entry versions have no page presentation (their own contract, later).
+    return getattr(version, "presentation", None)
+
+
+def _review_digest(
+    proposal: ContentProposal,
+    blocks_after: Any,
+    page_presentation_after: dict[str, Any] | None = None,
+) -> str:
     return canonical_json_hash({
         "proposal_id": str(proposal.id),
         "resource_id": str(proposal.resource_id),
@@ -180,6 +197,11 @@ def _review_digest(proposal: ContentProposal, blocks_after: Any) -> str:
         "metadata_after": proposal.metadata_after,
         "metadata_pending": proposal.metadata_pending,
         "blocks_after": blocks_after,
+        **(
+            {"page_presentation_after": page_presentation_after}
+            if page_presentation_after is not None
+            else {}
+        ),
     })
 
 
@@ -370,7 +392,11 @@ def accept_proposal(*, proposal_id: UUID, review_token: str) -> dict[str, Any]:
     expected = {
         "organization_id": str(context.organization_id),
         "actor_id": str(context.actor_id),
-        "digest": _review_digest(proposal, _blocks(context, proposal, resource.current_draft)),
+        "digest": _review_digest(
+            proposal,
+            _blocks(context, proposal, resource.current_draft),
+            _page_presentation(resource.current_draft),
+        ),
     }
     if reviewed != expected:
         raise ProposalReviewMismatch
@@ -446,6 +472,7 @@ def discard_proposal(*, proposal_id: UUID) -> dict[str, Any]:
             blocks=blocks,
             media_asset_ids=list(media),
             idempotency_key=f"proposal-reject-{proposal.id}",
+            page_presentation=_page_presentation(previous),
         )
         restored_version = saved.value.number
     else:

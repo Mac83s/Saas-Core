@@ -1,0 +1,232 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/page-templates/page-template.v4.schema.json",
+  "title": "SaaS Core page template recipe v4",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "version", "category", "labels", "blocks"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "category": {
+      "enum": ["profile", "landing", "company", "product", "service", "article"]
+    },
+    "labels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pl", "en"],
+      "properties": {
+        "pl": {
+          "$ref": "#/$defs/label"
+        },
+        "en": {
+          "$ref": "#/$defs/label"
+        }
+      }
+    },
+    "pagePresentation": {
+      "type": "object"
+    },
+    "requiredEntitlements": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_.]*$"
+      }
+    },
+    "media": {
+      "type": "array",
+      "maxItems": 10,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/approvedMedia"
+      }
+    },
+    "blocks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "items": {
+        "$ref": "#/$defs/block"
+      }
+    },
+    "industries": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": ["medicine", "agriculture", "electronics"]
+      }
+    },
+    "sectionRefs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["position", "id", "version"],
+        "properties": {
+          "position": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      }
+    },
+    "localizedBlocks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["en"],
+      "properties": {
+        "en": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "items": {
+            "$ref": "#/$defs/block"
+          }
+        }
+      }
+    },
+    "mediaBindings": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["blockPosition", "mediaId", "alt"],
+        "properties": {
+          "blockPosition": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "mediaId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "alt": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["pl", "en"],
+            "properties": {
+              "pl": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "en": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              }
+            }
+          },
+          "path": {
+            "description": "Where the bound image object {asset_id, alt} goes inside the block's data. The last segment is a key of an existing object, or an index into an existing array that is at most its length. Absent means [\"image\"] (v3 behaviour).",
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 12,
+            "items": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64
+                },
+                {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "approvedMedia": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "source", "filename", "contentType", "sha256"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "source": {
+          "type": "string",
+          "pattern": "^assets/[a-zA-Z0-9][a-zA-Z0-9._/-]*\\.(?:jpg|jpeg|png|webp)$"
+        },
+        "filename": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "contentType": {
+          "enum": ["image/jpeg", "image/png", "image/webp"]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "label": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "description"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        }
+      }
+    },
+    "block": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["block_type", "schema_version", "data"],
+      "properties": {
+        "block_type": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)+$"
+        },
+        "schema_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "data": {
+          "type": "object"
+        },
+        "decoration": {
+          "type": "object"
+        },
+        "presentation": {
+          "type": "object"
+        }
+      }
+    }
+  },
+  "description": "Superset of v3, so every historical recipe stays valid. Adds page-local presentation, block decoration and presentation envelopes, and media bindings addressed by a JSON path. Envelope objects are validated by their own contracts (section-decoration, section-presentation, page-presentation)."
+}
