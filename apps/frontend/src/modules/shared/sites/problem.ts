@@ -10,6 +10,8 @@ export function sitesErrorMessage(error: unknown, t: Translate): string {
       return t("noAccess");
     case "quota_exceeded":
       return t("quotaExceeded");
+    case "page_limit_reached":
+      return t("pageLimitReached");
     case "site_publication_not_ready":
       return t("notReady");
     case "draft_version_conflict":
