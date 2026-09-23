@@ -805,6 +805,7 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
     "ENUM_NAME_OVERRIDES": {
         "LocaleEnum": ["pl", "en"],
+        "StockDocumentKindEnum": "saas_core.modules.shared.inventory.models.DocumentKind",
     },
 }
 

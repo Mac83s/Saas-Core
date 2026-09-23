@@ -261,6 +261,93 @@
                 }
               }
             }
+          },
+          "inventory": {
+            "description": "Magazyn dla tego typu (ADR-055): kategorie startowe i pozycje standardowe zakładane każdej firmie. Brak pola daje zestaw rdzenia i brak pozycji standardowych.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["categories"],
+            "properties": {
+              "categories": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["key", "label"],
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]*$",
+                      "maxLength": 64
+                    },
+                    "label": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["pl", "en"],
+                      "properties": {
+                        "pl": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "en": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "defaultItems": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["key", "name", "category", "unit"],
+                  "properties": {
+                    "key": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]*$",
+                      "maxLength": 64
+                    },
+                    "name": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": ["pl", "en"],
+                      "properties": {
+                        "pl": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "en": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      }
+                    },
+                    "category": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]*$",
+                      "maxLength": 64
+                    },
+                    "unit": {
+                      "type": "string",
+                      "enum": [
+                        "piece",
+                        "pack",
+                        "ml",
+                        "l",
+                        "g",
+                        "kg",
+                        "m",
+                        "hour"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }

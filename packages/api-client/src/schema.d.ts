@@ -887,7 +887,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Korekta stanu: jedyna droga do poprawki, zawsze z powodem. */
+        /** @description Skrót: korekta stanu z powodem — nadwyżka PW, ubytek RW. */
         post: operations["inventory_adjustment_create"];
         delete?: never;
         options?: never;
@@ -902,10 +902,112 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Stany: magazynu firmy, wskazanej osoby albo własne (`mine=true`). */
+        /** @description Stany jednego miejsca; bez parametrów — magazyn główny. */
         get: operations["inventory_balance_list"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/categories/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Kategorie firmy; zestaw startowy deklaruje produkt. */
+        get: operations["inventory_category_list"];
+        put?: never;
+        /** @description Kategorie firmy; zestaw startowy deklaruje produkt. */
+        post: operations["inventory_category_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/categories/{category_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["inventory_category_delete"];
+        options?: never;
+        head?: never;
+        patch: operations["inventory_category_update"];
+        trace?: never;
+    };
+    "/api/v1/inventory/documents/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Dokumenty magazynowe: PZ, WZ, RW, PW, MM, INW. */
+        get: operations["inventory_document_list"];
+        put?: never;
+        /** @description Dokumenty magazynowe: PZ, WZ, RW, PW, MM, INW. */
+        post: operations["inventory_document_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/documents/{document_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["inventory_document_read"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["inventory_document_update"];
+        trace?: never;
+    };
+    "/api/v1/inventory/documents/{document_id}/correct/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Korekta: nowy dokument, który cofa ruchy zatwierdzonego. */
+        post: operations["inventory_document_correct"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/documents/{document_id}/post/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Zatwierdzenie: wiersze stają się ruchami, dokument dostaje numer. */
+        post: operations["inventory_document_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -921,7 +1023,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Wydanie pracownikowi — pakiet, z którym wyjeżdża w teren. */
+        /** @description Skrót: wydanie osobie — pakiet, z którym wyjeżdża w teren (MM). */
         post: operations["inventory_issue_create"];
         delete?: never;
         options?: never;
@@ -936,10 +1038,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Katalog materiałów firmy; leki są w nim kategorią. */
+        /** @description Katalog towarów firmy: jedna pozycja to jeden SKU. */
         get: operations["inventory_item_list"];
         put?: never;
-        /** @description Katalog materiałów firmy; leki są w nim kategorią. */
+        /** @description Katalog towarów firmy: jedna pozycja to jeden SKU. */
         post: operations["inventory_item_create"];
         delete?: never;
         options?: never;
@@ -961,6 +1063,40 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["inventory_item_update"];
+        trace?: never;
+    };
+    "/api/v1/inventory/locations/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Magazyny firmy i zapasy osób. */
+        get: operations["inventory_location_list"];
+        put?: never;
+        /** @description Magazyny firmy i zapasy osób. */
+        post: operations["inventory_location_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/locations/{location_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["inventory_location_update"];
         trace?: never;
     };
     "/api/v1/inventory/movements/": {
@@ -988,7 +1124,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Przyjęcie do magazynu firmy, z ceną z faktury. */
+        /** @description Skrót: przyjęcie do magazynu głównego z ceną z faktury (PZ). */
         post: operations["inventory_receipt_create"];
         delete?: never;
         options?: never;
@@ -1005,12 +1141,44 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Zwrot niewykorzystanego materiału do magazynu firmy. */
+        /** @description Skrót: zwrot niewykorzystanego towaru do magazynu głównego (MM). */
         post: operations["inventory_return_create"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/suppliers/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["inventory_supplier_list"];
+        put?: never;
+        post: operations["inventory_supplier_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/inventory/suppliers/{supplier_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["inventory_supplier_update"];
         trace?: never;
     };
     "/api/v1/invitations/accept/": {
@@ -3345,15 +3513,6 @@ export interface components {
             /** Format: date-time */
             published_at: string | null;
         };
-        /**
-         * @description * `block` - Klocek
-         *     * `dressing` - Opatrunek
-         *     * `medicine` - Lek
-         *     * `tool` - Narzędzie
-         *     * `other` - Inne
-         * @enum {string}
-         */
-        CategoryEnum: "block" | "dressing" | "medicine" | "tool" | "other";
         ChangeSetApply: {
             change_set: {
                 [key: string]: unknown;
@@ -4175,21 +4334,36 @@ export interface components {
             quantity: string;
             note: string;
         };
-        /** @description Ile czego leży w jednym miejscu; `holder_id` puste to magazyn firmy. */
+        /** @description Ile czego leży w jednym miejscu; dostępne = stan − zarezerwowane. */
         InventoryBalance: {
             /** Format: uuid */
             item_id: string;
             item_name: string;
-            category: string;
+            sku: string;
+            category?: string | null;
+            category_name?: string | null;
             unit: string;
+            /** Format: uuid */
+            location_id: string;
+            location_name: string;
             /** Format: uuid */
             holder_id: string | null;
             /** Format: decimal */
             quantity: string;
             /** Format: decimal */
+            reserved: string;
+            readonly available: string;
+            /** Format: decimal */
             minimum_quantity: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        InventoryCategory: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly key: string;
+            name: string;
+            readonly system: boolean;
         };
         InventoryIssueInput: {
             /** Format: uuid */
@@ -4204,21 +4378,33 @@ export interface components {
             /** Format: uuid */
             readonly id: string;
             name: string;
-            category: components["schemas"]["CategoryEnum"];
+            sku?: string;
+            ean?: string;
+            /** Format: uuid */
+            readonly category_id: string | null;
+            readonly category: string | null;
+            readonly category_name: string | null;
             unit: components["schemas"]["UnitEnum"];
             /** Format: decimal */
             minimum_quantity: string;
             readonly average_cost_minor: number;
+            sale_price_net_minor?: number | null;
+            vat_rate: components["schemas"]["VatRateEnum"];
             readonly currency: string;
-            active?: boolean;
-            notes?: string;
+            readonly system_key: string;
+            active: boolean;
+            notes: string;
         };
         InventoryItemInput: {
             name: string;
-            category?: components["schemas"]["CategoryEnum"];
+            sku?: string;
+            ean?: string;
+            category?: string | null;
             unit?: components["schemas"]["UnitEnum"];
             /** Format: decimal */
             minimum_quantity?: string;
+            sale_price_net_minor?: number | null;
+            vat_rate?: components["schemas"]["VatRateEnum"];
             active?: boolean;
             notes?: string;
         };
@@ -4228,27 +4414,19 @@ export interface components {
             /** Format: uuid */
             item_id: string;
             item_name: string;
-            kind: components["schemas"]["InventoryMovementKindEnum"];
+            /** Format: uuid */
+            location_id: string;
+            location_name: string;
+            /** Format: uuid */
+            document_id: string;
+            document_number: string;
+            kind: components["schemas"]["StockDocumentKindEnum"];
             /** Format: decimal */
             quantity: string;
-            /** Format: uuid */
-            holder_id: string | null;
             unit_cost_minor: number;
-            source: string;
-            source_reference: string;
-            note: string;
             /** Format: date-time */
             created_at: string;
         };
-        /**
-         * @description * `receipt` - Przyjęcie
-         *     * `issue` - Wydanie pracownikowi
-         *     * `return` - Zwrot do magazynu
-         *     * `consumption` - Zużycie przy pracy
-         *     * `adjustment` - Korekta stanu
-         * @enum {string}
-         */
-        InventoryMovementKindEnum: "receipt" | "issue" | "return" | "consumption" | "adjustment";
         InventoryReceiptInput: {
             /** Format: uuid */
             item_id: string;
@@ -4658,12 +4836,23 @@ export interface components {
             notes?: string;
             active?: boolean;
         };
+        PatchedInventoryCategory: {
+            /** Format: uuid */
+            readonly id?: string;
+            readonly key?: string;
+            name?: string;
+            readonly system?: boolean;
+        };
         PatchedInventoryItemInput: {
             name?: string;
-            category?: components["schemas"]["CategoryEnum"];
+            sku?: string;
+            ean?: string;
+            category?: string | null;
             unit?: components["schemas"]["UnitEnum"];
             /** Format: decimal */
             minimum_quantity?: string;
+            sale_price_net_minor?: number | null;
+            vat_rate?: components["schemas"]["VatRateEnum"];
             active?: boolean;
             notes?: string;
         };
@@ -4688,6 +4877,41 @@ export interface components {
             active?: boolean;
             /** Format: uuid */
             membership_id?: string | null;
+        };
+        PatchedStockDocumentInput: {
+            kind?: components["schemas"]["StockDocumentKindEnum"];
+            /** Format: date */
+            document_date?: string;
+            /** Format: uuid */
+            source_location_id?: string | null;
+            /** Format: uuid */
+            target_location_id?: string | null;
+            /** Format: uuid */
+            supplier_id?: string | null;
+            counterparty?: string;
+            note?: string;
+            lines?: components["schemas"]["StockDocumentLineInput"][];
+        };
+        PatchedStockLocation: {
+            /** Format: uuid */
+            readonly id?: string;
+            readonly kind?: components["schemas"]["StockLocationKindEnum"];
+            name?: string;
+            /** Format: uuid */
+            readonly holder_id?: string | null;
+            readonly holder_name?: string | null;
+            readonly is_default?: boolean;
+            active?: boolean;
+        };
+        PatchedSupplier: {
+            /** Format: uuid */
+            readonly id?: string;
+            name?: string;
+            tax_id?: string;
+            email?: string;
+            phone?: string;
+            notes?: string;
+            active?: boolean;
         };
         /** @description What a person may change about themselves from the panel. */
         PatchedUserUpdate: {
@@ -5264,6 +5488,99 @@ export interface components {
          * @enum {string}
          */
         StepEnum: "address" | "details" | "review";
+        StockDocument: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["StockDocumentKindEnum"];
+            status: components["schemas"]["StockDocumentStatusEnum"];
+            number: string;
+            /** Format: date */
+            document_date: string;
+            /** Format: uuid */
+            source_location_id: string | null;
+            /** Format: uuid */
+            target_location_id: string | null;
+            /** Format: uuid */
+            supplier_id: string | null;
+            counterparty: string;
+            /** Format: uuid */
+            corrects_id: string | null;
+            source: string;
+            source_reference: string;
+            note: string;
+            /** Format: uuid */
+            created_by_id: string;
+            /** Format: date-time */
+            posted_at: string | null;
+            lines: components["schemas"]["StockDocumentLine"][];
+        };
+        StockDocumentCorrection: {
+            note?: string;
+        };
+        StockDocumentInput: {
+            kind: components["schemas"]["StockDocumentKindEnum"];
+            /** Format: date */
+            document_date?: string;
+            /** Format: uuid */
+            source_location_id?: string | null;
+            /** Format: uuid */
+            target_location_id?: string | null;
+            /** Format: uuid */
+            supplier_id?: string | null;
+            counterparty?: string;
+            note?: string;
+            lines?: components["schemas"]["StockDocumentLineInput"][];
+        };
+        /**
+         * @description * `PZ` - Przyjęcie zewnętrzne
+         *     * `WZ` - Wydanie zewnętrzne
+         *     * `RW` - Rozchód wewnętrzny
+         *     * `PW` - Przychód wewnętrzny
+         *     * `MM` - Przesunięcie międzymagazynowe
+         *     * `INW` - Inwentaryzacja
+         * @enum {string}
+         */
+        StockDocumentKindEnum: "PZ" | "WZ" | "RW" | "PW" | "MM" | "INW";
+        StockDocumentLine: {
+            /** Format: uuid */
+            item_id: string;
+            item_name: string;
+            /** Format: decimal */
+            quantity: string;
+            unit_price_minor: number | null;
+            note: string;
+        };
+        StockDocumentLineInput: {
+            /** Format: uuid */
+            item_id: string;
+            /** Format: decimal */
+            quantity: string;
+            unit_price_minor?: number | null;
+            note?: string;
+        };
+        /**
+         * @description * `draft` - Szkic
+         *     * `posted` - Zatwierdzony
+         * @enum {string}
+         */
+        StockDocumentStatusEnum: "draft" | "posted";
+        StockLocation: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly kind: components["schemas"]["StockLocationKindEnum"];
+            name: string;
+            /** Format: uuid */
+            readonly holder_id: string | null;
+            readonly holder_name: string | null;
+            readonly is_default: boolean;
+            active?: boolean;
+        };
+        /**
+         * @description * `warehouse` - Magazyn
+         *     * `person` - Zapas osoby
+         * @enum {string}
+         */
+        StockLocationKindEnum: "warehouse" | "person";
         StripeWebhookReceipt: {
             received: boolean;
         };
@@ -5281,6 +5598,16 @@ export interface components {
          * @enum {string}
          */
         SubjectKindEnum: "organization" | "person";
+        Supplier: {
+            /** Format: uuid */
+            readonly id: string;
+            name: string;
+            tax_id?: string;
+            email?: string;
+            phone?: string;
+            notes?: string;
+            active?: boolean;
+        };
         SupportHealth: {
             queued_messages: number;
             dead_messages: number;
@@ -5348,11 +5675,14 @@ export interface components {
          * @description * `piece` - Sztuka
          *     * `pack` - Opakowanie
          *     * `ml` - Mililitr
+         *     * `l` - Litr
          *     * `g` - Gram
+         *     * `kg` - Kilogram
          *     * `m` - Metr
+         *     * `hour` - Godzina
          * @enum {string}
          */
-        UnitEnum: "piece" | "pack" | "ml" | "g" | "m";
+        UnitEnum: "piece" | "pack" | "ml" | "l" | "g" | "kg" | "m" | "hour";
         UserSummary: {
             /** Format: uuid */
             id: string;
@@ -5364,6 +5694,15 @@ export interface components {
             locale: string;
             timezone: string;
         };
+        /**
+         * @description * `23` - 23%
+         *     * `8` - 8%
+         *     * `5` - 5%
+         *     * `0` - 0%
+         *     * `zw` - zw.
+         * @enum {string}
+         */
+        VatRateEnum: "23" | "8" | "5" | "0" | "zw";
         VerificationConfirm: {
             token: string;
         };
@@ -7885,7 +8224,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InventoryMovement"];
+                    "application/json": components["schemas"]["StockDocument"];
                 };
             };
             400: {
@@ -7912,6 +8251,14 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
         };
     };
     inventory_balance_list: {
@@ -7919,6 +8266,8 @@ export interface operations {
             query?: {
                 /** @description Zapas jednej osoby. */
                 holder_id?: string;
+                /** @description Jedno miejsce składowania. */
+                location_id?: string;
                 /** @description Mój zapas na dziś. */
                 mine?: boolean;
             };
@@ -7960,29 +8309,31 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
         };
     };
-    inventory_issue_create: {
+    inventory_category_list: {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["InventoryIssueInput"];
-                "application/x-www-form-urlencoded": components["schemas"]["InventoryIssueInput"];
-                "multipart/form-data": components["schemas"]["InventoryIssueInput"];
-            };
-        };
+        requestBody?: never;
         responses: {
-            201: {
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InventoryMovement"];
+                    "application/json": components["schemas"]["InventoryCategory"][];
                 };
             };
             400: {
@@ -8009,14 +8360,584 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_category_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InventoryCategory"];
+                "application/x-www-form-urlencoded": components["schemas"]["InventoryCategory"];
+                "multipart/form-data": components["schemas"]["InventoryCategory"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryCategory"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_category_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                category_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_category_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                category_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedInventoryCategory"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedInventoryCategory"];
+                "multipart/form-data": components["schemas"]["PatchedInventoryCategory"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryCategory"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_document_list: {
+        parameters: {
+            query?: {
+                /** @description Rodzaj dokumentu. */
+                kind?: string;
+                /** @description draft albo posted. */
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockDocument"][];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_document_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StockDocumentInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["StockDocumentInput"];
+                "multipart/form-data": components["schemas"]["StockDocumentInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockDocument"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_document_read: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockDocument"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_document_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedStockDocumentInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedStockDocumentInput"];
+                "multipart/form-data": components["schemas"]["PatchedStockDocumentInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockDocument"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_document_correct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["StockDocumentCorrection"];
+                "application/x-www-form-urlencoded": components["schemas"]["StockDocumentCorrection"];
+                "multipart/form-data": components["schemas"]["StockDocumentCorrection"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockDocument"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_document_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockDocument"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_issue_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InventoryIssueInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["InventoryIssueInput"];
+                "multipart/form-data": components["schemas"]["InventoryIssueInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockDocument"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
         };
     };
     inventory_item_list: {
         parameters: {
             query?: {
-                /** @description Zawęź do kategorii. */
+                /** @description Id albo klucz kategorii. */
                 category?: string;
-                /** @description Szukaj po nazwie. */
+                /** @description Nazwa, SKU albo EAN. */
                 q?: string;
             };
             header?: never;
@@ -8050,6 +8971,14 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8099,6 +9028,14 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8157,6 +9094,181 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_location_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockLocation"][];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_location_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StockLocation"];
+                "application/x-www-form-urlencoded": components["schemas"]["StockLocation"];
+                "multipart/form-data": components["schemas"]["StockLocation"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockLocation"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_location_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                location_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedStockLocation"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedStockLocation"];
+                "multipart/form-data": components["schemas"]["PatchedStockLocation"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StockLocation"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
         };
     };
     inventory_movement_list: {
@@ -8164,6 +9276,8 @@ export interface operations {
             query?: {
                 /** @description Historia jednej pozycji. */
                 item_id?: string;
+                /** @description Historia jednego miejsca. */
+                location_id?: string;
             };
             header?: never;
             path?: never;
@@ -8203,6 +9317,14 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
         };
     };
     inventory_receipt_create: {
@@ -8225,7 +9347,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InventoryMovement"];
+                    "application/json": components["schemas"]["StockDocument"];
                 };
             };
             400: {
@@ -8245,6 +9367,14 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8274,7 +9404,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["InventoryMovement"];
+                    "application/json": components["schemas"]["StockDocument"];
                 };
             };
             400: {
@@ -8294,6 +9424,181 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_supplier_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Supplier"][];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_supplier_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Supplier"];
+                "application/x-www-form-urlencoded": components["schemas"]["Supplier"];
+                "multipart/form-data": components["schemas"]["Supplier"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Supplier"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_supplier_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                supplier_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedSupplier"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedSupplier"];
+                "multipart/form-data": components["schemas"]["PatchedSupplier"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Supplier"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

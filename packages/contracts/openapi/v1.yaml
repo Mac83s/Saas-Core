@@ -2269,7 +2269,7 @@ paths:
   /api/v1/inventory/adjustments/:
     post:
       operationId: inventory_adjustment_create
-      description: 'Korekta stanu: jedyna droga do poprawki, zawsze z powodem.'
+      description: 'Skrót: korekta stanu z powodem — nadwyżka PW, ubytek RW.'
       tags:
       - inventory
       requestBody:
@@ -2291,7 +2291,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/InventoryMovement'
+                $ref: '#/components/schemas/StockDocument'
           description: ''
         '400':
           content:
@@ -2311,16 +2311,27 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/inventory/balances/:
     get:
       operationId: inventory_balance_list
-      description: 'Stany: magazynu firmy, wskazanej osoby albo własne (`mine=true`).'
+      description: Stany jednego miejsca; bez parametrów — magazyn główny.
       parameters:
       - in: query
         name: holder_id
         schema:
           type: string
         description: Zapas jednej osoby.
+      - in: query
+        name: location_id
+        schema:
+          type: string
+        description: Jedno miejsce składowania.
       - in: query
         name: mine
         schema:
@@ -2357,10 +2368,508 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/inventory/categories/:
+    get:
+      operationId: inventory_category_list
+      description: Kategorie firmy; zestaw startowy deklaruje produkt.
+      tags:
+      - inventory
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InventoryCategory'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: inventory_category_create
+      description: Kategorie firmy; zestaw startowy deklaruje produkt.
+      tags:
+      - inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryCategory'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/InventoryCategory'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/InventoryCategory'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryCategory'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/inventory/categories/{category_id}/:
+    patch:
+      operationId: inventory_category_update
+      parameters:
+      - in: path
+        name: category_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedInventoryCategory'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedInventoryCategory'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedInventoryCategory'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventoryCategory'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    delete:
+      operationId: inventory_category_delete
+      parameters:
+      - in: path
+        name: category_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - inventory
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/inventory/documents/:
+    get:
+      operationId: inventory_document_list
+      description: 'Dokumenty magazynowe: PZ, WZ, RW, PW, MM, INW.'
+      parameters:
+      - in: query
+        name: kind
+        schema:
+          type: string
+        description: Rodzaj dokumentu.
+      - in: query
+        name: status
+        schema:
+          type: string
+        description: draft albo posted.
+      tags:
+      - inventory
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StockDocument'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: inventory_document_create
+      description: 'Dokumenty magazynowe: PZ, WZ, RW, PW, MM, INW.'
+      tags:
+      - inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockDocumentInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StockDocumentInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StockDocumentInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockDocument'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/inventory/documents/{document_id}/:
+    get:
+      operationId: inventory_document_read
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - inventory
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockDocument'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    patch:
+      operationId: inventory_document_update
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedStockDocumentInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedStockDocumentInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedStockDocumentInput'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockDocument'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/inventory/documents/{document_id}/correct/:
+    post:
+      operationId: inventory_document_correct
+      description: 'Korekta: nowy dokument, który cofa ruchy zatwierdzonego.'
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockDocumentCorrection'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StockDocumentCorrection'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StockDocumentCorrection'
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockDocument'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/inventory/documents/{document_id}/post/:
+    post:
+      operationId: inventory_document_post
+      description: 'Zatwierdzenie: wiersze stają się ruchami, dokument dostaje numer.'
+      parameters:
+      - in: path
+        name: document_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - inventory
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockDocument'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/inventory/issues/:
     post:
       operationId: inventory_issue_create
-      description: Wydanie pracownikowi — pakiet, z którym wyjeżdża w teren.
+      description: 'Skrót: wydanie osobie — pakiet, z którym wyjeżdża w teren (MM).'
       tags:
       - inventory
       requestBody:
@@ -2382,7 +2891,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/InventoryMovement'
+                $ref: '#/components/schemas/StockDocument'
           description: ''
         '400':
           content:
@@ -2402,21 +2911,27 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/inventory/items/:
     get:
       operationId: inventory_item_list
-      description: Katalog materiałów firmy; leki są w nim kategorią.
+      description: 'Katalog towarów firmy: jedna pozycja to jeden SKU.'
       parameters:
       - in: query
         name: category
         schema:
           type: string
-        description: Zawęź do kategorii.
+        description: Id albo klucz kategorii.
       - in: query
         name: q
         schema:
           type: string
-        description: Szukaj po nazwie.
+        description: Nazwa, SKU albo EAN.
       tags:
       - inventory
       security:
@@ -2448,9 +2963,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
     post:
       operationId: inventory_item_create
-      description: Katalog materiałów firmy; leki są w nim kategorią.
+      description: 'Katalog towarów firmy: jedna pozycja to jeden SKU.'
       tags:
       - inventory
       requestBody:
@@ -2487,6 +3008,12 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
           content:
             application/json:
               schema:
@@ -2542,6 +3069,159 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/inventory/locations/:
+    get:
+      operationId: inventory_location_list
+      description: Magazyny firmy i zapasy osób.
+      tags:
+      - inventory
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StockLocation'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: inventory_location_create
+      description: Magazyny firmy i zapasy osób.
+      tags:
+      - inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockLocation'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StockLocation'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StockLocation'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockLocation'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/inventory/locations/{location_id}/:
+    patch:
+      operationId: inventory_location_update
+      parameters:
+      - in: path
+        name: location_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedStockLocation'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedStockLocation'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedStockLocation'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockLocation'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/inventory/movements/:
     get:
       operationId: inventory_movement_list
@@ -2551,6 +3231,11 @@ paths:
         schema:
           type: string
         description: Historia jednej pozycji.
+      - in: query
+        name: location_id
+        schema:
+          type: string
+        description: Historia jednego miejsca.
       tags:
       - inventory
       security:
@@ -2582,10 +3267,16 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/inventory/receipts/:
     post:
       operationId: inventory_receipt_create
-      description: Przyjęcie do magazynu firmy, z ceną z faktury.
+      description: 'Skrót: przyjęcie do magazynu głównego z ceną z faktury (PZ).'
       tags:
       - inventory
       requestBody:
@@ -2607,7 +3298,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/InventoryMovement'
+                $ref: '#/components/schemas/StockDocument'
           description: ''
         '400':
           content:
@@ -2622,6 +3313,12 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
           content:
             application/json:
               schema:
@@ -2630,7 +3327,7 @@ paths:
   /api/v1/inventory/returns/:
     post:
       operationId: inventory_return_create
-      description: Zwrot niewykorzystanego materiału do magazynu firmy.
+      description: 'Skrót: zwrot niewykorzystanego towaru do magazynu głównego (MM).'
       tags:
       - inventory
       requestBody:
@@ -2652,7 +3349,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/InventoryMovement'
+                $ref: '#/components/schemas/StockDocument'
           description: ''
         '400':
           content:
@@ -2667,6 +3364,157 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/inventory/suppliers/:
+    get:
+      operationId: inventory_supplier_list
+      tags:
+      - inventory
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Supplier'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: inventory_supplier_create
+      tags:
+      - inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Supplier'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/Supplier'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Supplier'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Supplier'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/inventory/suppliers/{supplier_id}/:
+    patch:
+      operationId: inventory_supplier_update
+      parameters:
+      - in: path
+        name: supplier_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - inventory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSupplier'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSupplier'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSupplier'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Supplier'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
           content:
             application/json:
               schema:
@@ -9639,20 +10487,6 @@ components:
       - published_at
       - site_url
       - slug
-    CategoryEnum:
-      enum:
-      - block
-      - dressing
-      - medicine
-      - tool
-      - other
-      type: string
-      description: |-
-        * `block` - Klocek
-        * `dressing` - Opatrunek
-        * `medicine` - Lek
-        * `tool` - Narzędzie
-        * `other` - Inne
     ChangeSetApply:
       type: object
       properties:
@@ -11652,7 +12486,7 @@ components:
         quantity:
           type: string
           format: decimal
-          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
         note:
           type: string
           maxLength: 240
@@ -11662,16 +12496,29 @@ components:
       - quantity
     InventoryBalance:
       type: object
-      description: Ile czego leży w jednym miejscu; `holder_id` puste to magazyn firmy.
+      description: Ile czego leży w jednym miejscu; dostępne = stan − zarezerwowane.
       properties:
         item_id:
           type: string
           format: uuid
         item_name:
           type: string
-        category:
+        sku:
           type: string
+        category:
+          type:
+          - string
+          - 'null'
+        category_name:
+          type:
+          - string
+          - 'null'
         unit:
+          type: string
+        location_id:
+          type: string
+          format: uuid
+        location_name:
           type: string
         holder_id:
           type:
@@ -11681,23 +12528,55 @@ components:
         quantity:
           type: string
           format: decimal
-          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+        reserved:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+        available:
+          type: string
+          readOnly: true
         minimum_quantity:
           type: string
           format: decimal
-          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
         updated_at:
           type: string
           format: date-time
       required:
-      - category
+      - available
       - holder_id
       - item_id
       - item_name
+      - location_id
+      - location_name
       - minimum_quantity
       - quantity
+      - reserved
+      - sku
       - unit
       - updated_at
+    InventoryCategory:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        key:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          maxLength: 120
+        system:
+          type: boolean
+          readOnly: true
+      required:
+      - id
+      - key
+      - name
+      - system
     InventoryIssueInput:
       type: object
       properties:
@@ -11710,7 +12589,7 @@ components:
         quantity:
           type: string
           format: decimal
-          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
         note:
           type: string
           maxLength: 240
@@ -11728,18 +12607,47 @@ components:
         name:
           type: string
           maxLength: 120
+        sku:
+          type: string
+          maxLength: 64
+        ean:
+          type: string
+          maxLength: 14
+        category_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          readOnly: true
         category:
-          $ref: '#/components/schemas/CategoryEnum'
+          type:
+          - string
+          - 'null'
+          readOnly: true
+        category_name:
+          type:
+          - string
+          - 'null'
+          readOnly: true
         unit:
           $ref: '#/components/schemas/UnitEnum'
         minimum_quantity:
           type: string
           format: decimal
-          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
         average_cost_minor:
           type: integer
           readOnly: true
+        sale_price_net_minor:
+          type:
+          - integer
+          - 'null'
+        vat_rate:
+          $ref: '#/components/schemas/VatRateEnum'
         currency:
+          type: string
+          readOnly: true
+        system_key:
           type: string
           readOnly: true
         active:
@@ -11747,27 +12655,48 @@ components:
         notes:
           type: string
       required:
+      - active
       - average_cost_minor
       - category
+      - category_id
+      - category_name
       - currency
       - id
       - minimum_quantity
       - name
+      - notes
+      - system_key
       - unit
+      - vat_rate
     InventoryItemInput:
       type: object
       properties:
         name:
           type: string
           maxLength: 120
+        sku:
+          type: string
+          maxLength: 64
+        ean:
+          type: string
+          maxLength: 14
         category:
-          $ref: '#/components/schemas/CategoryEnum'
+          type:
+          - string
+          - 'null'
         unit:
           $ref: '#/components/schemas/UnitEnum'
         minimum_quantity:
           type: string
           format: decimal
-          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+        sale_price_net_minor:
+          type:
+          - integer
+          - 'null'
+          minimum: 0
+        vat_rate:
+          $ref: '#/components/schemas/VatRateEnum'
         active:
           type: boolean
         notes:
@@ -11785,54 +12714,39 @@ components:
           format: uuid
         item_name:
           type: string
+        location_id:
+          type: string
+          format: uuid
+        location_name:
+          type: string
+        document_id:
+          type: string
+          format: uuid
+        document_number:
+          type: string
         kind:
-          $ref: '#/components/schemas/InventoryMovementKindEnum'
+          $ref: '#/components/schemas/StockDocumentKindEnum'
         quantity:
           type: string
           format: decimal
-          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
-        holder_id:
-          type:
-          - string
-          - 'null'
-          format: uuid
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
         unit_cost_minor:
           type: integer
-        source:
-          type: string
-        source_reference:
-          type: string
-        note:
-          type: string
         created_at:
           type: string
           format: date-time
       required:
       - created_at
-      - holder_id
+      - document_id
+      - document_number
       - id
       - item_id
       - item_name
       - kind
-      - note
+      - location_id
+      - location_name
       - quantity
-      - source
-      - source_reference
       - unit_cost_minor
-    InventoryMovementKindEnum:
-      enum:
-      - receipt
-      - issue
-      - return
-      - consumption
-      - adjustment
-      type: string
-      description: |-
-        * `receipt` - Przyjęcie
-        * `issue` - Wydanie pracownikowi
-        * `return` - Zwrot do magazynu
-        * `consumption` - Zużycie przy pracy
-        * `adjustment` - Korekta stanu
     InventoryReceiptInput:
       type: object
       properties:
@@ -11842,7 +12756,7 @@ components:
         quantity:
           type: string
           format: decimal
-          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
         unit_cost_minor:
           type: integer
           minimum: 0
@@ -12851,20 +13765,51 @@ components:
           type: string
         active:
           type: boolean
+    PatchedInventoryCategory:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        key:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          maxLength: 120
+        system:
+          type: boolean
+          readOnly: true
     PatchedInventoryItemInput:
       type: object
       properties:
         name:
           type: string
           maxLength: 120
+        sku:
+          type: string
+          maxLength: 64
+        ean:
+          type: string
+          maxLength: 14
         category:
-          $ref: '#/components/schemas/CategoryEnum'
+          type:
+          - string
+          - 'null'
         unit:
           $ref: '#/components/schemas/UnitEnum'
         minimum_quantity:
           type: string
           format: decimal
-          pattern: ^-?\d{0,10}(?:\.\d{0,2})?$
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+        sale_price_net_minor:
+          type:
+          - integer
+          - 'null'
+          minimum: 0
+        vat_rate:
+          $ref: '#/components/schemas/VatRateEnum'
         active:
           type: boolean
         notes:
@@ -12922,6 +13867,95 @@ components:
           - string
           - 'null'
           format: uuid
+    PatchedStockDocumentInput:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/StockDocumentKindEnum'
+        document_date:
+          type: string
+          format: date
+        source_location_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        target_location_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        supplier_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        counterparty:
+          type: string
+          maxLength: 160
+        note:
+          type: string
+          maxLength: 240
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockDocumentLineInput'
+    PatchedStockLocation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/StockLocationKindEnum'
+          readOnly: true
+        name:
+          type: string
+          maxLength: 120
+        holder_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          readOnly: true
+        holder_name:
+          type:
+          - string
+          - 'null'
+          readOnly: true
+        is_default:
+          type: boolean
+          readOnly: true
+        active:
+          type: boolean
+    PatchedSupplier:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 160
+        tax_id:
+          type: string
+          maxLength: 20
+        email:
+          oneOf:
+          - type: string
+            format: email
+          - type: string
+            maxLength: 0
+        phone:
+          type: string
+          maxLength: 40
+        notes:
+          type: string
+        active:
+          type: boolean
     PatchedUserUpdate:
       type: object
       description: What a person may change about themselves from the panel.
@@ -14292,6 +15326,233 @@ components:
         * `address` - address
         * `details` - details
         * `review` - review
+    StockDocument:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: '#/components/schemas/StockDocumentKindEnum'
+        status:
+          $ref: '#/components/schemas/StockDocumentStatusEnum'
+        number:
+          type: string
+        document_date:
+          type: string
+          format: date
+        source_location_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        target_location_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        supplier_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        counterparty:
+          type: string
+        corrects_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        source:
+          type: string
+        source_reference:
+          type: string
+        note:
+          type: string
+        created_by_id:
+          type: string
+          format: uuid
+        posted_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockDocumentLine'
+      required:
+      - corrects_id
+      - counterparty
+      - created_by_id
+      - document_date
+      - id
+      - kind
+      - lines
+      - note
+      - number
+      - posted_at
+      - source
+      - source_location_id
+      - source_reference
+      - status
+      - supplier_id
+      - target_location_id
+    StockDocumentCorrection:
+      type: object
+      properties:
+        note:
+          type: string
+          maxLength: 240
+    StockDocumentInput:
+      type: object
+      properties:
+        kind:
+          $ref: '#/components/schemas/StockDocumentKindEnum'
+        document_date:
+          type: string
+          format: date
+        source_location_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        target_location_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        supplier_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        counterparty:
+          type: string
+          maxLength: 160
+        note:
+          type: string
+          maxLength: 240
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockDocumentLineInput'
+      required:
+      - kind
+    StockDocumentKindEnum:
+      enum:
+      - PZ
+      - WZ
+      - RW
+      - PW
+      - MM
+      - INW
+      type: string
+      description: |-
+        * `PZ` - Przyjęcie zewnętrzne
+        * `WZ` - Wydanie zewnętrzne
+        * `RW` - Rozchód wewnętrzny
+        * `PW` - Przychód wewnętrzny
+        * `MM` - Przesunięcie międzymagazynowe
+        * `INW` - Inwentaryzacja
+    StockDocumentLine:
+      type: object
+      properties:
+        item_id:
+          type: string
+          format: uuid
+        item_name:
+          type: string
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+        unit_price_minor:
+          type:
+          - integer
+          - 'null'
+        note:
+          type: string
+      required:
+      - item_id
+      - item_name
+      - note
+      - quantity
+      - unit_price_minor
+    StockDocumentLineInput:
+      type: object
+      properties:
+        item_id:
+          type: string
+          format: uuid
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+        unit_price_minor:
+          type:
+          - integer
+          - 'null'
+          minimum: 0
+        note:
+          type: string
+          maxLength: 240
+      required:
+      - item_id
+      - quantity
+    StockDocumentStatusEnum:
+      enum:
+      - draft
+      - posted
+      type: string
+      description: |-
+        * `draft` - Szkic
+        * `posted` - Zatwierdzony
+    StockLocation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          allOf:
+          - $ref: '#/components/schemas/StockLocationKindEnum'
+          readOnly: true
+        name:
+          type: string
+          maxLength: 120
+        holder_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          readOnly: true
+        holder_name:
+          type:
+          - string
+          - 'null'
+          readOnly: true
+        is_default:
+          type: boolean
+          readOnly: true
+        active:
+          type: boolean
+      required:
+      - holder_id
+      - holder_name
+      - id
+      - is_default
+      - kind
+      - name
+    StockLocationKindEnum:
+      enum:
+      - warehouse
+      - person
+      type: string
+      description: |-
+        * `warehouse` - Magazyn
+        * `person` - Zapas osoby
     StripeWebhookReceipt:
       type: object
       properties:
@@ -14329,6 +15590,35 @@ components:
       description: |-
         * `organization` - Organizacja
         * `person` - Osoba
+    Supplier:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 160
+        tax_id:
+          type: string
+          maxLength: 20
+        email:
+          oneOf:
+          - type: string
+            format: email
+          - type: string
+            maxLength: 0
+        phone:
+          type: string
+          maxLength: 40
+        notes:
+          type: string
+        active:
+          type: boolean
+      required:
+      - id
+      - name
     SupportHealth:
       type: object
       properties:
@@ -14485,15 +15775,21 @@ components:
       - piece
       - pack
       - ml
+      - l
       - g
+      - kg
       - m
+      - hour
       type: string
       description: |-
         * `piece` - Sztuka
         * `pack` - Opakowanie
         * `ml` - Mililitr
+        * `l` - Litr
         * `g` - Gram
+        * `kg` - Kilogram
         * `m` - Metr
+        * `hour` - Godzina
     UserSummary:
       type: object
       properties:
@@ -14521,6 +15817,20 @@ components:
       - locale
       - status
       - timezone
+    VatRateEnum:
+      enum:
+      - '23'
+      - '8'
+      - '5'
+      - '0'
+      - zw
+      type: string
+      description: |-
+        * `23` - 23%
+        * `8` - 8%
+        * `5` - 5%
+        * `0` - 0%
+        * `zw` - zw.
     VerificationConfirm:
       type: object
       properties:

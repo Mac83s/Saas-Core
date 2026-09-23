@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:b6b1a224f3d94aaa816df116401379468b9e381c6099aede5a4975690177a914",
+  "profileHash": "sha256:8741acb63a8270e7ebc9091d6cf9152065e180906cac9642efe294d3762661b1",
   "schemaVersion": 1,
   "deployment": "agro",
   "product": {
@@ -471,6 +471,7 @@
         "urlPrefix": "/api/v1/inventory",
         "permissions": [
           "inventory.read",
+          "inventory.use",
           "inventory.manage"
         ],
         "roleGrants": {
@@ -478,18 +479,22 @@
             "inventory.read"
           ],
           "staff": [
-            "inventory.read"
+            "inventory.read",
+            "inventory.use"
           ],
           "manager": [
             "inventory.read",
+            "inventory.use",
             "inventory.manage"
           ],
           "admin": [
             "inventory.read",
+            "inventory.use",
             "inventory.manage"
           ],
           "owner": [
             "inventory.read",
+            "inventory.use",
             "inventory.manage"
           ]
         },
