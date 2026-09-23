@@ -522,6 +522,12 @@ class OrganizationAuditEntry(models.Model):
     target_id = models.UUIDField(null=True, blank=True)
     metadata = models.JSONField(default=dict)
     correlation_id = models.UUIDField(null=True, blank=True)
+    #: The tenant context's principal kind: `membership` is the panel,
+    #: `api_key` an integration, anything else a process acting for the
+    #: organization. Empty on rows written before 2026-09-23.
+    channel = models.CharField(max_length=32, blank=True, default="")
+    #: Which credential acted, when one did (an API key).
+    credential_id = models.UUIDField(null=True, blank=True)
     occurred_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

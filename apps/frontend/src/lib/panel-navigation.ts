@@ -78,6 +78,11 @@ export const PANEL_SECTIONS = {
       labelKey: "sectionCompany",
       permission: "organization.settings.manage",
     },
+    {
+      href: "/panel/settings/history",
+      labelKey: "sectionHistory",
+      permission: "organization.settings.manage",
+    },
     { href: "/panel/settings/account", labelKey: "sectionAccount" },
     {
       href: "/panel/settings/services",

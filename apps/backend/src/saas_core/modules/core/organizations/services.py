@@ -13,7 +13,7 @@ from rest_framework.exceptions import APIException, NotFound, ValidationError
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.identity.sessions import rotate_managed_session
 
-from .audit import record_audit
+from .audit import audit_snapshot, field_changes, record_audit
 from .authorization import authorize
 from .context import set_local_organization_id
 from .middleware import ACTIVE_ORGANIZATION_SESSION_KEY
@@ -200,6 +200,7 @@ def update_current_organization(*, changes: dict[str, Any]) -> OrganizationAcces
     organization = Organization.objects.select_for_update().get(pk=context.organization_id)
     if organization.version != expected_version:
         raise OrganizationVersionConflict
+    before = audit_snapshot(organization, changes)
     for field, value in changes.items():
         setattr(organization, field, value)
     organization.version += 1
@@ -212,7 +213,10 @@ def update_current_organization(*, changes: dict[str, Any]) -> OrganizationAcces
         actor=membership.user,
         target_type="organization",
         target_id=organization.id,
-        metadata={"fields": changed_fields},
+        metadata={
+            "fields": changed_fields,
+            "changes": field_changes(before, audit_snapshot(organization, changes)),
+        },
     )
     return OrganizationAccess(organization, membership, active=True)
 

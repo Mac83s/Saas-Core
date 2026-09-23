@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     CurrentOrganizationView,
+    HistoryView,
     InvitationListCreateView,
     InvitationRevokeView,
     MembershipLeaveView,
@@ -26,6 +27,7 @@ urlpatterns = [
         InvitationRevokeView.as_view(),
         name="organization-invitation-revoke",
     ),
+    path("current/history/", HistoryView.as_view(), name="organization-history"),
     path("current/roles/", RoleListCreateView.as_view(), name="organization-roles"),
     path(
         "current/roles/<slug:role_key>/",

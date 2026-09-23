@@ -16,6 +16,7 @@ from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 from .authorization import authorize
 from .context import context_from_membership
 from .custom_roles import create_role, delete_role, list_roles, update_role
+from .history import history_item, list_history
 from .lifecycle import (
     accept_invitation,
     create_invitation,
@@ -31,6 +32,8 @@ from .permissions import ORGANIZATION_READ
 from .serializers import (
     ActiveOrganizationResultSerializer,
     ActiveOrganizationSerializer,
+    HistoryPageSerializer,
+    HistoryQuerySerializer,
     InvitationAcceptSerializer,
     InvitationCreateSerializer,
     InvitationSummarySerializer,
@@ -428,3 +431,27 @@ class RoleDetailView(ProtectedOrganizationView):
     def delete(self, request: Request, role_key: str) -> Response:
         delete_role(request=cast(HttpRequest, request), key=role_key)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class HistoryView(ProtectedOrganizationView):
+    """The organization's history of changes, newest first (owner, admin)."""
+
+    @extend_schema(
+        parameters=[HistoryQuerySerializer],
+        responses={200: HistoryPageSerializer, 403: ProblemDetailsSerializer},
+    )
+    def get(self, request: Request) -> Response:
+        query = HistoryQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        page = list_history(
+            page=query.validated_data["page"],
+            page_size=query.validated_data["page_size"],
+            action=query.validated_data["action"],
+        )
+        return Response({
+            "total": page.total,
+            "page": query.validated_data["page"],
+            "page_size": query.validated_data["page_size"],
+            "actions": page.actions,
+            "items": [history_item(entry) for entry in page.entries],
+        })
