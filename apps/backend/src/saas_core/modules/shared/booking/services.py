@@ -9,7 +9,7 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
-from django.db import DatabaseError, IntegrityError, OperationalError, transaction
+from django.db import DatabaseError, IntegrityError, OperationalError, connection, transaction
 from django.utils import timezone, translation
 from django.utils.formats import date_format
 from rest_framework.exceptions import APIException, NotFound, ValidationError
@@ -314,6 +314,14 @@ def create_appointment(
         "walk_in_minutes": walk_in_minutes,
         **({"materials": materials} if materials is not None else {}),
     })
+    with connection.cursor() as cursor:
+        # One key at a time: a retry sent while the first request still runs
+        # waits for it and finds its booking, instead of losing the first
+        # person to it, booking the next one and failing on the key's index.
+        cursor.execute(
+            "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+            [f"booking-create:{context.organization_id}:{principal_ref}:{idempotency_key}"],
+        )
     existing = (
         BookingMutation.all_objects.filter(
             organization_id=context.organization_id,
@@ -358,8 +366,9 @@ def create_appointment(
         resource = Resource.all_objects.filter(pk=required[0], active=True).first()
     if required and (
         (resource is not None and resource.id not in required)
-        # Nobody named: the pick below takes a required resource along.
-        or (resource is None and staff is not None)
+        # Nobody named: the pick below takes a required resource along, but
+        # never instead of one the caller named and that is gone.
+        or (resource is None and (staff is not None or resource_id))
     ):
         raise SlotUnavailable
     organization = Organization.objects.get(pk=context.organization_id)

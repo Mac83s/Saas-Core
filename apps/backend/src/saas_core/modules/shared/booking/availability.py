@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 from uuid import UUID
@@ -315,6 +315,7 @@ def _rule_on(rule: AvailabilityRule, day: date) -> bool:
 
 def _day_slots(schedule: _Schedule, day: date) -> Iterator[AvailableSlot]:
     """Free starts of one local day, rule by rule; lazy, so a caller may stop early."""
+    schedule = _within_day(schedule, day)
     for rule in schedule.rules:
         if not _rule_on(rule, day):
             continue
@@ -322,16 +323,47 @@ def _day_slots(schedule: _Schedule, day: date) -> Iterator[AvailableSlot]:
         if not rule_ends:
             continue
         rule_end = max(rule_ends)
+        # Every start of the rule scans the person's visits: only theirs, then.
+        own = replace(
+            schedule,
+            staff_allocations=[
+                row for row in schedule.staff_allocations if row[0] == rule.staff_id
+            ],
+        )
         for local_start in _valid_instants(day, rule.local_start, schedule.zone):
             candidate = local_start
             while candidate + schedule.duration <= rule_end:
                 if candidate >= schedule.earliest:
                     for resource_id in schedule.resource_ids:
-                        if _is_free(schedule, rule.staff_id, resource_id, candidate):
+                        if _is_free(own, rule.staff_id, resource_id, candidate):
                             yield AvailableSlot(
                                 candidate, candidate + schedule.duration, rule.staff_id, resource_id
                             )
                 candidate += _GRID
+
+
+def _within_day(schedule: _Schedule, day: date) -> _Schedule:
+    """The window's time off and visits one local day's starts can run into.
+
+    Every candidate scans these lists; scanning the whole window's for each day
+    made a booked-out month cost days times its bookings per start.
+    """
+    starts = datetime.combine(day, time.min, schedule.zone) - schedule.before
+    ends = datetime.combine(day + timedelta(days=1), time.min, schedule.zone) + schedule.after
+    return replace(
+        schedule,
+        time_off=[row for row in schedule.time_off if row[2] < ends and row[3] > starts],
+        staff_allocations=[
+            row
+            for row in schedule.staff_allocations
+            if row[1].lower < ends and row[1].upper > starts
+        ],
+        resource_allocations=[
+            row
+            for row in schedule.resource_allocations
+            if row[1].lower < ends and row[1].upper > starts
+        ],
+    )
 
 
 def _covers(schedule: _Schedule, rule: AvailabilityRule, day: date, starts_at: datetime) -> bool:

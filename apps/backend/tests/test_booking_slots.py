@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import threading
 from collections import Counter
 from collections.abc import Iterable
@@ -12,14 +13,15 @@ from zoneinfo import ZoneInfo
 
 import psycopg
 import pytest
-from django.db import OperationalError, close_old_connections
+from django.db import OperationalError, close_old_connections, connection
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.test import APIClient
 
 from saas_core.modules.core.identity.models import User, UserStatus
 from saas_core.modules.core.organizations.models import Membership, Role, RoleScope
 from saas_core.modules.core.organizations.permissions import SYSTEM_ROLE_PERMISSIONS
-from saas_core.modules.shared.booking import services
+from saas_core.modules.shared.booking import availability, services
 from saas_core.modules.shared.booking.availability import (
     available_days,
     available_slots,
@@ -32,6 +34,7 @@ from saas_core.modules.shared.booking.models import (
     AvailabilityRule,
     Location,
     PublicBookingRoute,
+    Resource,
     Service,
     ServiceLocation,
     ServiceStaff,
@@ -178,12 +181,12 @@ def test_nobody_named_gets_the_least_busy_person_that_day_then_week_then_id(
     today = timezone.localdate()
     monday = today + timedelta(days=14 - today.weekday())
     wednesday = monday + timedelta(days=2)
-    book(member, configured, at(monday, 8), "pon-1", staff=second)
-    book(member, configured, at(monday, 10), "pon-2", staff=second)
-    # Nobody works on Wednesday yet: the week decides.
-    assert book(member, configured, at(wednesday, 12), "sr-1").staff_id == first.id
-    # First works on Wednesday now: the day decides, though second has the busier week.
-    assert book(member, configured, at(wednesday, 14), "sr-2").staff_id == second.id
+    book(member, configured, at(monday, 8), "pon-1", staff=first)
+    book(member, configured, at(monday, 10), "pon-2", staff=first)
+    # Nobody works on Wednesday yet: the week decides, over the lower id.
+    assert book(member, configured, at(wednesday, 12), "sr-1").staff_id == second.id
+    # Second works on Wednesday now: the day decides, though first has the busier week.
+    assert book(member, configured, at(wednesday, 14), "sr-2").staff_id == first.id
     # A new week and nobody booked in it: the id decides.
     assert book(member, configured, at(monday + timedelta(days=7), 12), "pon-3").staff_id == (
         first.id
@@ -288,6 +291,135 @@ def test_two_bookings_for_anybody_at_one_start_race_to_different_people(
     with tenant(member):
         staff = list(Appointment.objects.values_list("staff_id", flat=True))
     assert len(staff) == len(set(staff)) == outcomes.count("created")
+
+
+def test_one_key_sent_twice_at_once_books_once_and_answers_both(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A double click, or a retry after a timeout, while the first request still runs.
+
+    Both used to miss each other's booking: the second lost the first person,
+    took the next one and died on the idempotency key's unique index — a 500
+    for a booking that exists.
+    """
+    _no_delivery(monkeypatch)
+    member = membership("sloty-klucz")
+    configured = team(member, people=2, hours=(time(8), time(16)), duration=60)
+    starts_at = at(timezone.localdate() + timedelta(days=7), 9)
+    both_looked = threading.Barrier(2, timeout=5)
+    free_at = services.free_at
+
+    def free_at_then_wait(**kwargs: Any) -> Any:
+        found = free_at(**kwargs)
+        # The second request queues on the key and never looks: the first goes on alone.
+        with contextlib.suppress(threading.BrokenBarrierError):
+            both_looked.wait()
+        return found
+
+    monkeypatch.setattr(services, "free_at", free_at_then_wait)
+
+    def attempt(_: int) -> tuple[Any, bool]:
+        close_old_connections()
+        try:
+            with public_booking_context(member.organization_id):
+                created = create_appointment(
+                    service_id=configured["service"].id,
+                    location_id=configured["location"].id,
+                    resource_id=None,
+                    starts_at=starts_at,
+                    customer_data={"display_name": "Anna", "email": "anna@example.test"},
+                    idempotency_key="podwojny-klik",
+                    principal_ref="public",
+                )
+            return created.appointment.id, created.created
+        finally:
+            close_old_connections()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(attempt, (1, 2)))
+    assert results[0][0] == results[1][0]
+    assert sorted(created for _, created in results) == [False, True]
+    with tenant(member):
+        assert Appointment.objects.count() == 1
+
+
+def test_a_start_is_checked_against_that_persons_visits_that_day_only(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The window's bookings are loaded once, and every candidate of every day
+    used to scan all of them: a booked-out month made the day picker crawl."""
+    _no_delivery(monkeypatch)
+    member = membership("sloty-okno")
+    configured = team(member, people=2, hours=(time(8), time(10)), duration=60)
+    start = timezone.localdate() + timedelta(days=7)
+    window = [start, start + timedelta(days=1)]
+    for number, day in enumerate(window):
+        for person in configured["staff"]:
+            book(member, configured, at(day, 8), f"okno-{number}-{person.public_slug}", person)
+    seen: list[int] = []
+    is_free = availability._is_free
+
+    def counting(schedule: Any, *args: Any) -> bool:
+        seen.append(len(schedule.staff_allocations))
+        return is_free(schedule, *args)
+
+    monkeypatch.setattr(availability, "_is_free", counting)
+    with tenant(member):
+        days = available_days(
+            service_id=configured["service"].id,
+            location_id=configured["location"].id,
+            from_date=window[0],
+            to_date=window[-1],
+        )
+    assert days == window  # 09:00 is still free every day
+    assert seen and max(seen) == 1
+
+
+def test_a_named_resource_that_is_gone_is_refused_when_nobody_is_named(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The pick used to drop it and take whichever room was free instead."""
+    _no_delivery(monkeypatch)
+    member = membership("sloty-zasob")
+    configured = catalog(member)
+    with tenant(member):
+        Resource.all_objects.filter(pk=configured["resource"].id).update(active=False)
+        with pytest.raises(SlotUnavailable):
+            create_appointment(
+                service_id=configured["service"].id,
+                location_id=configured["location"].id,
+                resource_id=configured["resource"].id,
+                starts_at=at(configured["date"], 9),
+                customer_data={"display_name": "Jan", "email": "jan@example.test"},
+                idempotency_key="zasob",
+                principal_ref=str(member.user_id),
+            )
+        assert not Appointment.objects.exists()
+
+
+def test_more_people_to_choose_from_cost_no_more_queries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _no_delivery(monkeypatch)
+    counts = []
+    for people in (1, 6):
+        member = membership(f"sloty-zapytania-{people}")
+        configured = team(member, people=people, hours=(time(8), time(16)), duration=60)
+        day = timezone.localdate() + timedelta(days=7)
+        query = {"service_id": configured["service"].id, "location_id": configured["location"].id}
+        # Warm whatever a first booking of an organization sets up once. Keys
+        # differ per organization: the test database ignores RLS, so a shared
+        # e-mail would find the other organization's customer.
+        book(member, configured, at(day, 8), f"rozgrzewka-{people}")
+        with tenant(member):
+            with CaptureQueriesContext(connection) as days:
+                available_days(**query, from_date=day, to_date=day + timedelta(days=13))
+            with CaptureQueriesContext(connection) as times:
+                available_times(**query, day=day)
+        with CaptureQueriesContext(connection) as pick:
+            book(member, configured, at(day, 9), f"dobor-{people}")
+        counts.append((len(days), len(times), len(pick)))
+    assert counts[0] == counts[1]
 
 
 def _fall_back_sunday() -> date:
