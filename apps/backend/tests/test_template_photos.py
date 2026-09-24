@@ -197,3 +197,31 @@ def test_localized_page_import_binds_real_photos_and_compensates_failed_import(m
     response = serve_public_media(host=domain.hostname, asset_id=asset.id)
     assert response.status_code == 200
     assert response.content == storage.objects[asset.object_key][0]
+
+
+def test_a_busy_scanner_is_a_retryable_503_that_stores_nothing(media_runtime, monkeypatch):
+    """A loaded host used to turn a slow scan into a 500 on template import;
+    the visitor gets "try again", and the retry with the same key succeeds."""
+    from saas_core.modules.shared.media.scanner import MalwareScannerUnavailable
+
+    storage, scanner = media_runtime
+    client, org, _ = sites_client(slug="photo-busy", role_key="owner")
+    enable_storage(org)
+
+    class BusyScanner:
+        def scan(self, *args, **kwargs):
+            raise MalwareScannerUnavailable("Skaner plików jest niedostępny.")
+
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.services.get_malware_scanner", lambda: BusyScanner()
+    )
+    busy = photo_request(client, key="busy-photo")
+    assert busy.status_code == 503, busy.data
+    assert busy.data["code"] == "media_scanner_unavailable"
+    assert not MediaAsset.all_objects.filter(organization=org).exists()
+    assert not storage.objects
+
+    monkeypatch.setattr(
+        "saas_core.modules.shared.media.services.get_malware_scanner", lambda: scanner
+    )
+    assert photo_request(client, key="busy-photo").status_code == 200

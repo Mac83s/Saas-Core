@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections import Counter
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
@@ -836,6 +838,46 @@ PERSON_ONLY_PAGE_TYPES = frozenset({PageType.LEGAL})
 #: Blocks that carry commitments to a customer's customers rather than prose.
 PERSON_ONLY_BLOCK_TYPES = frozenset({"core.pricing"})
 
+#: Attributed statements: an automation carries them over unchanged or drops
+#: them, but never writes words into anyone's mouth (catalogue rule 4, docs/
+#: architecture/site-section-catalog.md). Pricing blocks everything; these
+#: only the change, so a page with a quote stays open to automation.
+STATEMENT_BLOCK_TYPES = frozenset({"core.quote", "core.testimonials"})
+
+
+def _statements(blocks: Iterable[Any]) -> Counter[str]:
+    found: Counter[str] = Counter()
+    for block in blocks:
+        if not isinstance(block, dict) or not isinstance(block.get("data"), dict):
+            continue
+        data = block["data"]
+        if block.get("block_type") in STATEMENT_BLOCK_TYPES:
+            found[canonical_json_hash(data)] += 1
+        content = data.get("content")
+        for node in content if isinstance(content, list) else []:
+            if isinstance(node, dict) and node.get("type") == "quote":
+                found[canonical_json_hash(node)] += 1
+    return found
+
+
+def assert_person_blocks(
+    context: TenantContext,
+    blocks: list[dict[str, Any]],
+    previous: Callable[[], Iterable[Any]],
+) -> None:
+    """One check for every way blocks are written — page and entry drafts, and
+    the change sets routed through them. `previous` is read only for an
+    automation: the blocks of the draft being replaced."""
+    if not _is_automation(context):
+        return
+    if any(
+        isinstance(block, dict) and block.get("block_type") in PERSON_ONLY_BLOCK_TYPES
+        for block in blocks
+    ):
+        assert_person_required(context, "Cennik")
+    if _statements(blocks) - _statements(previous()):
+        assert_person_required(context, "Cytaty i opinie")
+
 
 def assert_person_required(context: TenantContext, what: str) -> None:
     """Refuses an automation outright, with the reason in the message.
@@ -1005,11 +1047,15 @@ def save_draft(
         context,
         payload_bytes=len(json.dumps(blocks, ensure_ascii=False, separators=(",", ":"))),
     )
-    if any(
-        isinstance(block, dict) and block.get("block_type") in PERSON_ONLY_BLOCK_TYPES
-        for block in blocks
-    ):
-        assert_person_required(context, "Cennik")
+    assert_person_blocks(
+        context,
+        blocks,
+        lambda: PageBlock.all_objects.filter(
+            organization_id=context.organization_id, page_version_id=page.current_draft_id
+        )
+        .order_by("position")
+        .values("block_type", "data"),
+    )
     existing = PageVersion.all_objects.filter(
         organization_id=context.organization_id,
         page_id=page.id,

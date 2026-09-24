@@ -440,6 +440,31 @@ test("every offered page declares its conversion path", async () => {
   }
 });
 
+test("offered pages carry no invented statements: every quote is the owner's to fill in", async () => {
+  const { templates } = await loadTemplates();
+  const placeholder = /^\[(Uzupełnij|Fill in): /;
+  for (const { recipe } of offered(templates))
+    for (const [locale, blocks] of variants(recipe))
+      blocks.forEach((block, position) => {
+        const where = `${recipe.id} v${recipe.version} ${locale} #${position}`;
+        const statements = [];
+        if (block.block_type === "core.quote")
+          statements.push(block.data.quote);
+        if (block.block_type === "core.testimonials")
+          statements.push(...block.data.items.map((item) => item.quote));
+        for (const node of block.data.content ?? [])
+          if (node.type === "quote")
+            statements.push(node.content.map((run) => run.text).join(""));
+        for (const statement of statements)
+          assert.match(statement, placeholder, where);
+        assert.doesNotMatch(
+          JSON.stringify(block.data),
+          /przykładowa wypowiedź|example statement/i,
+          where,
+        );
+      });
+});
+
 test("composed page recipes pin section versions and materialize their exact seed data", async () => {
   const { templates } = await loadTemplates();
   const catalogs = await Promise.all(

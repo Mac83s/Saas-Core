@@ -15,7 +15,8 @@ from saas_core.modules.shared.notifications.api_key_middleware import IsSessionO
 
 from .blueprints import import_blueprint, read_blueprint_catalog, read_blueprint_receipt
 
-ERRORS = {code: ProblemDetailsSerializer for code in (400, 401, 403, 404, 409, 422, 429)}
+# 503: a template photo met a busy malware scanner; nothing was stored, retry.
+ERRORS = {code: ProblemDetailsSerializer for code in (400, 401, 403, 404, 409, 422, 429, 503)}
 
 
 class BlueprintSlotSerializer(serializers.Serializer[Any]):

@@ -1,0 +1,1189 @@
+{
+  "id": "core.technical_b2b",
+  "version": 2,
+  "category": "product",
+  "industries": [],
+  "labels": {
+    "pl": {
+      "name": "Produkt techniczny / B2B",
+      "description": "Strona produktu technicznego, która prowadzi do rozmowy z inżynierem: zastosowanie, parametry, dokumentacja, wdrożenie, ograniczenia, pytania, telefon i formularz. Przykład: rejestrator temperatury dla chłodni; wymień treści demonstracyjne przed publikacją."
+    },
+    "en": {
+      "name": "Technical product / B2B",
+      "description": "A technical product page that leads to a call with an engineer: application, specifications, documentation, implementation, limitations, questions, phone and a form. Example: a temperature logger for cold stores; replace the demonstration content before publishing."
+    }
+  },
+  "requiredEntitlements": ["sites.enabled"],
+  "pagePresentation": {
+    "schemaVersion": 2,
+    "width": "full",
+    "style": "technical"
+  },
+  "conversion": {
+    "goal": "call",
+    "stages": [
+      "attention",
+      "interest",
+      "interest",
+      "proof",
+      "objection",
+      "objection",
+      "objection",
+      "action",
+      "action"
+    ]
+  },
+  "blocks": [
+    {
+      "block_type": "core.hero",
+      "schema_version": 6,
+      "data": {
+        "title": "Rejestrator temperatury dla chłodni i magazynów",
+        "text": "Ciągły zapis temperatury w kilku punktach, alarm po przekroczeniu progu i eksport danych do raportu. Dla działów utrzymania ruchu i jakości, które chcą mieć pomiary pod kontrolą bez ręcznych odczytów.",
+        "action": {
+          "label": "Zadzwoń i omów swoją instalację",
+          "href": "tel:+48000000000"
+        },
+        "secondaryAction": {
+          "label": "Wolisz napisać? Opisz instalację",
+          "href": "#kontakt"
+        },
+        "layout": "split"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "wide"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 3,
+      "data": {
+        "layout": "two_parts",
+        "eyebrow": "Zastosowanie",
+        "title": "Gdzie rejestrator się sprawdza",
+        "lead": "Rejestrator zbiera pomiary z kilku sond, pilnuje progów i przechowuje historię. Zanim zapytasz o ofertę, sprawdź, czy to rozwiązanie dla Ciebie.",
+        "content": [
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "zastosowania",
+            "text": "Sprawdzi się, gdy…"
+          },
+          {
+            "type": "list",
+            "style": "bullet",
+            "items": [
+              {
+                "content": [
+                  {
+                    "text": "monitorujesz temperaturę w chłodniach, mroźniach lub magazynach,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "potrzebujesz historii pomiarów do raportu dla działu jakości lub klienta,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "chcesz dostać alarm, zanim towar się przegrzeje, a nie po fakcie,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "masz system nadrzędny (SCADA, BMS) i chcesz przekazywać do niego dane."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "inne-rozwiazanie",
+            "text": "Wybierz inne rozwiązanie, gdy…"
+          },
+          {
+            "type": "list",
+            "style": "bullet",
+            "items": [
+              {
+                "content": [
+                  {
+                    "text": "chcesz sterować agregatem – rejestrator mierzy i alarmuje, ale nie steruje chłodzeniem,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "mierzysz w strefie zagrożonej wybuchem – ta wersja nie jest do tego przeznaczona,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "potrzebujesz tylko jednego punktu pomiarowego bez historii – wystarczy prostszy termometr z alarmem."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.feature_list",
+      "schema_version": 4,
+      "data": {
+        "layout": "specification",
+        "title": "Parametry techniczne",
+        "lead": "Liczbę kanałów, typ sond i interfejsy dobieramy do instalacji podczas rozmowy technicznej.",
+        "items": [
+          {
+            "title": "Kanały pomiarowe",
+            "text": "[Uzupełnij: kanały pomiarowe, np. 4 wejścia na sondy Pt1000]"
+          },
+          {
+            "title": "Zakres pomiaru",
+            "text": "[Uzupełnij: zakres pomiaru, np. od −40 do +85 °C z sondą standardową]"
+          },
+          {
+            "title": "Dokładność",
+            "text": "[Uzupełnij: dokładność toru pomiarowego według karty katalogowej]"
+          },
+          {
+            "title": "Interwał zapisu",
+            "text": "[Uzupełnij: interwał zapisu, np. ustawiany od 10 s do 60 min]"
+          },
+          {
+            "title": "Pamięć",
+            "text": "[Uzupełnij: pamięć, np. wewnętrzna, nieulotna; eksport do CSV]"
+          },
+          {
+            "title": "Komunikacja",
+            "text": "[Uzupełnij: komunikacja, np. Ethernet (Modbus TCP, panel WWW), RS-485 (Modbus RTU)]"
+          },
+          {
+            "title": "Alarmy",
+            "text": "[Uzupełnij: alarmy, np. wyjście przekaźnikowe i powiadomienie e-mail po przekroczeniu progu]"
+          },
+          {
+            "title": "Zasilanie",
+            "text": "[Uzupełnij: zasilanie, np. 24 V DC]"
+          },
+          {
+            "title": "Montaż",
+            "text": "[Uzupełnij: montaż, np. na szynie DIN w szafie sterowniczej]"
+          },
+          {
+            "title": "Stopień ochrony",
+            "text": "[Uzupełnij: stopień ochrony IP obudowy i sond potwierdzony badaniem]"
+          },
+          {
+            "title": "Wzorcowanie",
+            "text": "[Uzupełnij: czy dostarczasz świadectwo wzorcowania i z jakiego laboratorium]"
+          }
+        ],
+        "note": {
+          "title": "Karta katalogowa",
+          "text": "Pełne dane, rysunki wymiarowe i mapę rejestrów Modbus znajdziesz w dokumentacji poniżej."
+        }
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "surface": "muted",
+        "anchor": "parametry"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 3,
+      "data": {
+        "layout": "resources",
+        "eyebrow": "Dokumentacja",
+        "title": "Dokumentacja do pobrania",
+        "lead": "Materiały dla projektanta, instalatora i działu jakości. Przejrzyj je przed rozmową albo przekaż zespołowi.",
+        "content": [
+          {
+            "type": "list",
+            "style": "bullet",
+            "items": [
+              {
+                "content": [
+                  {
+                    "text": "Karta katalogowa",
+                    "bold": true,
+                    "href": "/dokumentacja/karta-katalogowa/"
+                  },
+                  {
+                    "text": " – parametry, rysunki wymiarowe i schemat podłączeń."
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Instrukcja montażu i konfiguracji",
+                    "bold": true,
+                    "href": "/dokumentacja/instrukcja/"
+                  },
+                  {
+                    "text": " – montaż na szynie DIN, podłączenie sond, ustawienie progów alarmów."
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Mapa rejestrów Modbus",
+                    "bold": true,
+                    "href": "/dokumentacja/modbus/"
+                  },
+                  {
+                    "text": " – adresy pomiarów, alarmów i ustawień do integracji z systemem nadrzędnym."
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Przykładowy raport",
+                    "bold": true,
+                    "href": "/dokumentacja/przykladowy-raport/"
+                  },
+                  {
+                    "text": " – jak wyglądają dane wyeksportowane do CSV."
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Deklaracje i świadectwa",
+                    "bold": true,
+                    "href": "/dokumentacja/deklaracje/"
+                  },
+                  {
+                    "text": " – [Uzupełnij: deklaracje zgodności i świadectwa, które produkt faktycznie posiada]."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Brakuje dokumentu, którego wymaga Twój dział jakości? "
+              },
+              {
+                "text": "Napisz, czego potrzebujesz",
+                "href": "#kontakt"
+              },
+              {
+                "text": "."
+              }
+            ]
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 3,
+      "data": {
+        "layout": "howto",
+        "eyebrow": "Wdrożenie",
+        "title": "Jak przebiega wdrożenie",
+        "lead": "Od pierwszej rozmowy do działających alarmów. Każdy krok ustalamy z Twoim działem technicznym.",
+        "content": [
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "kroki-wdrozenia",
+            "text": "Krok po kroku"
+          },
+          {
+            "type": "list",
+            "style": "ordered",
+            "items": [
+              {
+                "content": [
+                  {
+                    "text": "Rozmowa techniczna.",
+                    "bold": true
+                  },
+                  {
+                    "text": " Omawiamy liczbę punktów pomiarowych, odległości do szafy, sieć i system nadrzędny."
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Dobór konfiguracji.",
+                    "bold": true
+                  },
+                  {
+                    "text": " Proponujemy liczbę rejestratorów, typ i długość sond oraz sposób powiadamiania. Otrzymujesz ofertę na piśmie."
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Montaż.",
+                    "bold": true
+                  },
+                  {
+                    "text": " Rejestrator montuje się na szynie DIN, a sondy podłącza według instrukcji – może to zrobić elektryk z Twojego zespołu."
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Progi i powiadomienia.",
+                    "bold": true
+                  },
+                  {
+                    "text": " Ustawiamy interwał zapisu, progi alarmów i adresatów powiadomień razem z osobą odpowiedzialną za chłodnię."
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Test i przekazanie.",
+                    "bold": true
+                  },
+                  {
+                    "text": " Sprawdzamy alarmy w praktyce i przekazujemy protokół konfiguracji."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "lista-kontrolna",
+            "text": "Przygotuj przed rozmową"
+          },
+          {
+            "type": "list",
+            "style": "bullet",
+            "items": [
+              {
+                "content": [
+                  {
+                    "text": "liczbę komór i punktów pomiarowych,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "odległość od punktów pomiarowych do szafy sterowniczej,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "dostępną sieć Ethernet albo magistralę RS-485,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "system nadrzędny, do którego mają trafiać dane,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "wymagania działu jakości dotyczące raportów."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "note",
+            "tone": "info",
+            "title": "Co dalej",
+            "content": [
+              {
+                "text": "Po rozmowie dostajesz ofertę na piśmie: konfigurację, termin dostawy i zakres uruchomienia. Decyzję podejmujesz, kiedy wszystko jest jasne."
+              }
+            ]
+          }
+        ],
+        "action": {
+          "label": "Zadzwoń, żeby zaplanować wdrożenie",
+          "href": "tel:+48000000000"
+        }
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 3,
+      "data": {
+        "layout": "numbered_sections",
+        "eyebrow": "Ograniczenia",
+        "title": "Co warto wiedzieć przed zamówieniem",
+        "lead": "Mówimy o ograniczeniach na początku, żeby nie wyszły dopiero przy odbiorze.",
+        "content": [
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "nie-steruje",
+            "text": "Rejestrator mierzy, ale nie steruje"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Rejestrator zapisuje pomiary i zgłasza przekroczenia progów. Nie steruje agregatem ani wentylacją – wyjście przekaźnikowe służy do sygnalizacji alarmu, a nie do regulacji."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "praca-bez-sieci",
+            "text": "Bez sieci alarm działa tylko na miejscu"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Gdy sieć jest niedostępna, rejestrator dalej zapisuje pomiary, a wyjście przekaźnikowe sygnalizuje alarm na miejscu. Powiadomienie e-mail wyjdzie dopiero po przywróceniu połączenia."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "wzorcowanie",
+            "text": "Wzorcowanie i wymagania prawne"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Jeśli przepisy Twojej branży wymagają przyrządu ze świadectwem wzorcowania, sprawdź to przed zamówieniem. [Uzupełnij: jakie świadectwa wzorcowania dostarczasz i jak często zalecasz ponowne wzorcowanie]."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "dlugosc-przewodow",
+            "text": "Długość przewodów sond"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Przewody sond mają ograniczoną długość. Przy dużych odległościach lepiej dodać drugi rejestrator bliżej punktów pomiarowych. [Uzupełnij: maksymalna długość przewodu sondy według karty katalogowej]."
+              }
+            ]
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.faq",
+      "schema_version": 3,
+      "data": {
+        "layout": "split",
+        "title": "Pytania działów technicznych",
+        "items": [
+          {
+            "question": "Czy rejestrator połączy się z naszym systemem SCADA lub BMS?",
+            "answer": "Jeśli system obsługuje Modbus TCP lub Modbus RTU – tak. Adresy rejestrów znajdziesz w dokumentacji, a podczas rozmowy technicznej sprawdzimy, czy niczego nie brakuje."
+          },
+          {
+            "question": "Czy możemy zamontować go sami?",
+            "answer": "Montaż na szynie DIN i podłączenie sond opisuje instrukcja, więc może go wykonać elektryk z Twojego zespołu. [Uzupełnij: czy oferujesz też montaż lub uruchomienie na miejscu]."
+          },
+          {
+            "question": "Co się dzieje z danymi po zaniku zasilania?",
+            "answer": "Zapisane pomiary zostają w pamięci nieulotnej. [Uzupełnij: czy rejestrator ma podtrzymanie zasilania i jak długo rejestruje bez zasilania zewnętrznego]."
+          },
+          {
+            "question": "Ile kosztuje wdrożenie?",
+            "answer": "Koszt zależy od liczby punktów pomiarowych, sond i zakresu uruchomienia. [Uzupełnij: cena rejestratora albo widełki dla typowej instalacji]."
+          },
+          {
+            "question": "Jaki jest czas dostawy?",
+            "answer": "[Uzupełnij: typowy czas dostawy i czy rejestratory są dostępne od ręki]."
+          },
+          {
+            "question": "Jak wygląda gwarancja i serwis?",
+            "answer": "[Uzupełnij: okres gwarancji, sposób zgłaszania usterek i dostępność części zamiennych]."
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.contact",
+      "schema_version": 2,
+      "data": {
+        "layout": "band",
+        "title": "Porozmawiaj z inżynierem",
+        "text": "Konfigurację najłatwiej dobrać w rozmowie. Przygotuj listę punktów pomiarowych – resztę ustalimy razem.",
+        "phone": "+48 000 000 000",
+        "hours": "[Uzupełnij: godziny pracy działu technicznego]",
+        "action": {
+          "label": "Zadzwoń do inżyniera",
+          "href": "tel:+48000000000"
+        }
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "surface": "inverse"
+      }
+    },
+    {
+      "block_type": "core.contact_form",
+      "schema_version": 1,
+      "data": {
+        "layout": "split",
+        "locale": "pl",
+        "title": "Wolisz opisać instalację na piśmie?",
+        "text": "Napisz, ile punktów chcesz mierzyć, w jakich warunkach i do jakiego systemu mają trafiać dane. Inżynier odpowie [Uzupełnij: w jakim czasie, np. w ciągu jednego dnia roboczego] z propozycją konfiguracji – a jeśli zostawisz numer, oddzwoni, gdy będzie potrzebował szczegółów.",
+        "submit_label": "Poproś o dobór konfiguracji",
+        "success_message": "Dziękujemy! Zapytanie trafiło do działu technicznego. Odpowiemy e-mailem albo telefonicznie.",
+        "privacy_label": "Informacje o prywatności"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "anchor": "kontakt"
+      }
+    }
+  ],
+  "localizedBlocks": {
+    "en": [
+      {
+        "block_type": "core.hero",
+        "schema_version": 6,
+        "data": {
+          "title": "Temperature logger for cold stores and warehouses",
+          "text": "Continuous temperature logging at several points, an alarm when a threshold is crossed and data export for your reports. For maintenance and quality teams who want their readings under control without manual checks.",
+          "action": {
+            "label": "Call to discuss your installation",
+            "href": "tel:+48000000000"
+          },
+          "secondaryAction": {
+            "label": "Prefer to write? Describe your installation",
+            "href": "#contact"
+          },
+          "layout": "split"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "wide"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {
+          "layout": "two_parts",
+          "eyebrow": "Application",
+          "title": "Where the logger fits",
+          "lead": "The logger collects readings from several probes, watches your thresholds and keeps the history. Before you ask for a quote, check that it is the right tool for the job.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "applications",
+              "text": "A good fit when…"
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "you monitor temperature in cold rooms, freezers or warehouses,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "you need a reading history for your quality team or a customer,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "you want an alarm before the goods warm up, not after the fact,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "you run a supervisory system (SCADA, BMS) and want to feed data into it."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "other-solution",
+              "text": "Choose something else when…"
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "you want to control the refrigeration unit – the logger measures and alarms, but does not control cooling,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "you measure in an explosive atmosphere – this version is not designed for it,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "you need a single measuring point with no history – a simpler thermometer with an alarm will do."
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.feature_list",
+        "schema_version": 4,
+        "data": {
+          "layout": "specification",
+          "title": "Technical specifications",
+          "lead": "We match the number of channels, probe types and interfaces to your installation during the technical call.",
+          "items": [
+            {
+              "title": "Measuring channels",
+              "text": "[Fill in: measuring channels, e.g. 4 inputs for Pt1000 probes]"
+            },
+            {
+              "title": "Measuring range",
+              "text": "[Fill in: measuring range, e.g. −40 to +85 °C with the standard probe]"
+            },
+            {
+              "title": "Accuracy",
+              "text": "[Fill in: measuring accuracy as stated in the datasheet]"
+            },
+            {
+              "title": "Logging interval",
+              "text": "[Fill in: logging interval, e.g. adjustable from 10 s to 60 min]"
+            },
+            {
+              "title": "Memory",
+              "text": "[Fill in: memory, e.g. internal, non-volatile; CSV export]"
+            },
+            {
+              "title": "Interfaces",
+              "text": "[Fill in: interfaces, e.g. Ethernet (Modbus TCP, web panel), RS-485 (Modbus RTU)]"
+            },
+            {
+              "title": "Alarms",
+              "text": "[Fill in: alarms, e.g. relay output and email notification when a threshold is crossed]"
+            },
+            {
+              "title": "Power supply",
+              "text": "[Fill in: power supply, e.g. 24 V DC]"
+            },
+            {
+              "title": "Mounting",
+              "text": "[Fill in: mounting, e.g. DIN rail in a control cabinet]"
+            },
+            {
+              "title": "Ingress protection",
+              "text": "[Fill in: IP rating of the enclosure and probes, confirmed by testing]"
+            },
+            {
+              "title": "Calibration",
+              "text": "[Fill in: whether you supply a calibration certificate and from which laboratory]"
+            }
+          ],
+          "note": {
+            "title": "Datasheet",
+            "text": "Full data, dimensional drawings and the Modbus register map are in the documentation below."
+          }
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "surface": "muted",
+          "anchor": "specifications"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {
+          "layout": "resources",
+          "eyebrow": "Documentation",
+          "title": "Documentation to download",
+          "lead": "Material for the designer, the installer and the quality team. Look through it before the call or pass it on to your team.",
+          "content": [
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "Datasheet",
+                      "bold": true,
+                      "href": "/documentation/datasheet/"
+                    },
+                    {
+                      "text": " – specifications, dimensional drawings and the wiring diagram."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Installation and configuration manual",
+                      "bold": true,
+                      "href": "/documentation/manual/"
+                    },
+                    {
+                      "text": " – DIN rail mounting, probe wiring, alarm thresholds."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Modbus register map",
+                      "bold": true,
+                      "href": "/documentation/modbus/"
+                    },
+                    {
+                      "text": " – addresses of readings, alarms and settings for integration with your supervisory system."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Sample report",
+                      "bold": true,
+                      "href": "/documentation/sample-report/"
+                    },
+                    {
+                      "text": " – what the data exported to CSV looks like."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Declarations and certificates",
+                      "bold": true,
+                      "href": "/documentation/declarations/"
+                    },
+                    {
+                      "text": " – [Fill in: the declarations of conformity and certificates the product actually has]."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Missing a document your quality team needs? "
+                },
+                {
+                  "text": "Tell us what you need",
+                  "href": "#contact"
+                },
+                {
+                  "text": "."
+                }
+              ]
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {
+          "layout": "howto",
+          "eyebrow": "Implementation",
+          "title": "How implementation works",
+          "lead": "From the first call to working alarms. We agree every step with your technical team.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "implementation-steps",
+              "text": "Step by step"
+            },
+            {
+              "type": "list",
+              "style": "ordered",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "Technical call.",
+                      "bold": true
+                    },
+                    {
+                      "text": " We go through the number of measuring points, cable runs to the cabinet, the network and your supervisory system."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Configuration.",
+                      "bold": true
+                    },
+                    {
+                      "text": " We propose the number of loggers, probe types and lengths, and how notifications are sent. You receive a written quote."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Installation.",
+                      "bold": true
+                    },
+                    {
+                      "text": " The logger mounts on a DIN rail and the probes are wired by the manual – an electrician from your team can do it."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Thresholds and notifications.",
+                      "bold": true
+                    },
+                    {
+                      "text": " We set the logging interval, alarm thresholds and who gets notified, together with the person responsible for the cold store."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Test and handover.",
+                      "bold": true
+                    },
+                    {
+                      "text": " We test the alarms in practice and hand over a configuration record."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "checklist",
+              "text": "Have this ready for the call"
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "the number of rooms and measuring points,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "the distance from the measuring points to the control cabinet,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "the available Ethernet network or RS-485 bus,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "the supervisory system the data should go to,"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "your quality team's reporting requirements."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "note",
+              "tone": "info",
+              "title": "What happens next",
+              "content": [
+                {
+                  "text": "After the call you receive a written quote: the configuration, the delivery date and the commissioning scope. You decide once everything is clear."
+                }
+              ]
+            }
+          ],
+          "action": {
+            "label": "Call to plan the implementation",
+            "href": "tel:+48000000000"
+          }
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {
+          "layout": "numbered_sections",
+          "eyebrow": "Limitations",
+          "title": "What to know before you order",
+          "lead": "We state the limitations up front, so they do not surface at handover.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "no-control",
+              "text": "The logger measures, it does not control"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "The logger records readings and reports threshold breaches. It does not control the refrigeration unit or ventilation – the relay output signals an alarm, it does not regulate anything."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "offline-operation",
+              "text": "Without a network, the alarm is local only"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "When the network is down, the logger keeps recording and the relay output signals the alarm on site. The email notification goes out once the connection is back."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "calibration",
+              "text": "Calibration and legal requirements"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "If the rules in your sector require an instrument with a calibration certificate, check this before you order. [Fill in: which calibration certificates you supply and how often you recommend recalibration]."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "probe-cables",
+              "text": "Probe cable length"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Probe cables have a limited length. Over long distances it is better to add a second logger closer to the measuring points. [Fill in: the maximum probe cable length from the datasheet]."
+                }
+              ]
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.faq",
+        "schema_version": 3,
+        "data": {
+          "layout": "split",
+          "title": "Questions from technical teams",
+          "items": [
+            {
+              "question": "Will the logger connect to our SCADA or BMS?",
+              "answer": "If your system supports Modbus TCP or Modbus RTU – yes. The register addresses are in the documentation, and during the technical call we will check that nothing is missing."
+            },
+            {
+              "question": "Can we install it ourselves?",
+              "answer": "The manual covers DIN rail mounting and probe wiring, so an electrician from your team can do it. [Fill in: whether you also offer on-site installation or commissioning]."
+            },
+            {
+              "question": "What happens to the data after a power cut?",
+              "answer": "Recorded readings stay in non-volatile memory. [Fill in: whether the logger has a backup supply and how long it keeps logging without external power]."
+            },
+            {
+              "question": "How much does implementation cost?",
+              "answer": "The cost depends on the number of measuring points, the probes and the commissioning scope. [Fill in: the logger price or a range for a typical installation]."
+            },
+            {
+              "question": "What is the lead time?",
+              "answer": "[Fill in: your usual lead time and whether loggers are available from stock]."
+            },
+            {
+              "question": "What about warranty and service?",
+              "answer": "[Fill in: the warranty period, how faults are reported and spare part availability]."
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.contact",
+        "schema_version": 2,
+        "data": {
+          "layout": "band",
+          "title": "Talk to an engineer",
+          "text": "A configuration is easiest to choose in conversation. Have your list of measuring points ready – we will work out the rest together.",
+          "phone": "+48 000 000 000",
+          "hours": "[Fill in: technical team opening hours]",
+          "action": {
+            "label": "Call an engineer",
+            "href": "tel:+48000000000"
+          }
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "surface": "inverse"
+        }
+      },
+      {
+        "block_type": "core.contact_form",
+        "schema_version": 1,
+        "data": {
+          "layout": "split",
+          "locale": "en",
+          "title": "Prefer to describe your installation in writing?",
+          "text": "Tell us how many points you want to measure, under what conditions and which system the data should go to. An engineer will reply [Fill in: how soon, e.g. within one working day] with a proposed configuration – and if you leave a number, they will call back when they need details.",
+          "submit_label": "Request a configuration",
+          "success_message": "Thank you! Your inquiry has reached our technical team. We will reply by email or phone.",
+          "privacy_label": "Privacy information"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "anchor": "contact"
+        }
+      }
+    ]
+  },
+  "media": [
+    {
+      "id": "electronics",
+      "source": "assets/electronics-workshop.png",
+      "filename": "electronics-workshop.png",
+      "contentType": "image/png",
+      "sha256": "4c2d226103ee37783e586345b7c3dac12088e47210c079b6be1b54666a1c6eb8"
+    }
+  ],
+  "mediaBindings": [
+    {
+      "blockPosition": 0,
+      "mediaId": "electronics",
+      "alt": {
+        "pl": "Płytka elektroniki na niebieskiej macie warsztatowej, w tle oscyloskop i multimetr",
+        "en": "An electronics board on a blue workbench mat, with an oscilloscope and a multimeter behind it"
+      }
+    }
+  ]
+}

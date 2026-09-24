@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from typing import Any
 from uuid import UUID
 
@@ -35,6 +36,12 @@ TEXT_FIELDS = frozenset({
     "title", "text", "question", "answer", "label", "subtitle", "lead", "tagline", "eyebrow",
 })
 SLOT_MAX_LENGTH = {"text": 2000, "answer": 2000, "lead": 1200, "eyebrow": 80}
+# A place for the owner's own facts and proof (docs/architecture/
+# site-section-catalog.md, rule 4): a price, a qualification, a result, a
+# customer's words. A generator never fills it.
+OWNER_FACT = re.compile(r"\[(?:Uzupełnij|Fill in):")
+# Attributed statements: automation does not put words in anyone's mouth.
+STATEMENT_BLOCKS = frozenset({"core.quote", "core.testimonials"})
 
 
 class BlueprintRefused(APIException):
@@ -121,7 +128,12 @@ def template_slots(template: PageTemplate) -> list[dict[str, Any]]:
                 visit(child, path + "/" + str(index), schema, items)
         # A run of spaces between two marked runs can never be refilled
         # (render_slots refuses blank values), so it is not offered at all.
-        elif isinstance(value, str) and field in TEXT_FIELDS and value.strip():
+        elif (
+            isinstance(value, str)
+            and field in TEXT_FIELDS
+            and value.strip()
+            and not OWNER_FACT.search(value)
+        ):
             cap = SLOT_MAX_LENGTH.get(field, 200)
             schema_cap = node.get("maxLength") if isinstance(node, dict) else None
             slots.append({
@@ -132,7 +144,7 @@ def template_slots(template: PageTemplate) -> list[dict[str, Any]]:
             })
 
     for index, block in enumerate(template.blocks):
-        if block["block_type"] in {"core.pricing", "core.legal", "core.quote"}:
+        if block["block_type"] in {"core.pricing", "core.legal"} | STATEMENT_BLOCKS:
             continue
         validator = contracts.get(block["block_type"], {}).get(block["schema_version"])
         raw = validator.schema if validator is not None else None

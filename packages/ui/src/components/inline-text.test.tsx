@@ -43,3 +43,10 @@ test("Escape cancels while multiline Enter and IME Enter do not submit", () => {
   fireEvent.blur(screen.getByRole("textbox"));
   expect(commit.mock.calls).toEqual([["入力"]]);
 });
+test("the canvas button looks like the published text: case and underline carry over", () => {
+  render(<InlineText {...props} onCommit={vi.fn()} />);
+  const button = screen.getByRole("button");
+  // Neither is inherited by a button (an inline-block) on its own.
+  expect(button.style.textTransform).toBe("inherit");
+  expect(button.style.textDecoration).toBe("inherit");
+});

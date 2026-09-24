@@ -296,6 +296,8 @@ class PageTemplateImportView(APIView):
             403: ProblemDetailsSerializer,
             404: ProblemDetailsSerializer,
             409: ProblemDetailsSerializer,
+            # The photo scanner was busy: nothing was imported, retry.
+            503: ProblemDetailsSerializer,
         },
     )
     def post(self, request: Request, page_id: UUID) -> Response:
