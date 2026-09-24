@@ -119,8 +119,13 @@ def tenant_task_context(
 def _active_membership(
     *, organization_id: Any, membership_id: Any, actor_id: Any
 ) -> Membership | None:
+    # Only the membership row: a plain FOR UPDATE would also lock the joined
+    # organization row for the whole task, and every request that inserts a
+    # row referencing the organization (a foreign-key KEY SHARE, checked at
+    # COMMIT) would queue behind it — with a media task holding the org and
+    # waiting for an asset the request holds, that was a deadlock (24.09).
     return (
-        Membership.objects.select_for_update()
+        Membership.objects.select_for_update(of=("self",))
         .select_related("organization", "role")
         .filter(
             pk=membership_id,
