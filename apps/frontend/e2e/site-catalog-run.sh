@@ -27,6 +27,27 @@ prepare() {
   SITES_E2E_PASSWORD=$SITE_CATALOG_PASSWORD docker exec -e SITES_E2E_PASSWORD \
     "$backend" python manage.py sites_e2e_fixture prepare \
     --email "$SITE_CATALOG_EMAIL" --slug "$SITE_CATALOG_SLUG"
+  # The fixture's 10 MB of storage holds about four recipe photos; every
+  # recipe import copies its own, so the harness account gets 200 MB.
+  docker exec -i -e SITE_CATALOG_SLUG "$backend" \
+    python manage.py shell --no-imports <<'PY'
+import os
+from django.db import transaction
+from saas_core.modules.core.organizations.context import set_local_organization_id
+from saas_core.modules.core.organizations.models import Organization
+from saas_core.modules.core.organizations.pre_tenant import PRE_TENANT_DB
+from saas_core.modules.shared.billing.models import EntitlementSnapshot
+
+slug = os.environ["SITE_CATALOG_SLUG"]
+assert slug.startswith("w6-e2e-"), slug
+organization = Organization.objects.using(PRE_TENANT_DB).get(slug=slug)
+with transaction.atomic():
+    set_local_organization_id(organization.id)
+    snapshot = EntitlementSnapshot.all_objects.get(organization_id=organization.id)
+    snapshot.quotas["storage.bytes"] = 200_000_000
+    snapshot.save(update_fields=["quotas"])
+print("site-catalog storage quota: 200 MB")
+PY
 }
 
 cleanup() {
