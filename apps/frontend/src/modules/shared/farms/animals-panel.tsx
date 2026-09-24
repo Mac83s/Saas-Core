@@ -87,6 +87,7 @@ type NewAnimal = {
  */
 export function AnimalsPanel({ access }: { access: PanelAccess }) {
   const t = useTranslations("Animals");
+  const farmsText = useTranslations("Farms");
   const common = useTranslations("Common");
   const labels = useDataTableLabels();
   // A farm's row in the register leads here with that farm already chosen.
@@ -366,6 +367,8 @@ export function AnimalsPanel({ access }: { access: PanelAccess }) {
         ) : null
       }
       description={t("description")}
+      // The same register as the farms, seen by animal.
+      eyebrow={farmsText("eyebrow")}
       title={t("title")}
     >
       {!canRead ? (

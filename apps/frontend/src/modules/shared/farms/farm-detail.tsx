@@ -303,18 +303,22 @@ export function FarmDetail({
       header: t("status"),
       cell: ({ row: { original: animal } }) =>
         canManage ? (
-          <NativeSelect
-            aria-label={`${t("status")}: ${animal.national_id}`}
-            className="sm:w-44"
-            onChange={(event) => void changeStatus(animal, event.target.value)}
-            value={animal.status}
-          >
-            {STATUSES.map((status) => (
-              <option key={status} value={status}>
-                {t(`status_${status}`)}
-              </option>
-            ))}
-          </NativeSelect>
+          // The select fills its box; the box sets the width.
+          <div className="sm:w-44">
+            <NativeSelect
+              aria-label={`${t("status")}: ${animal.national_id}`}
+              onChange={(event) =>
+                void changeStatus(animal, event.target.value)
+              }
+              value={animal.status}
+            >
+              {STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {t(`status_${status}`)}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
         ) : (
           <Badge variant="secondary">{t(`status_${animal.status}`)}</Badge>
         ),
