@@ -251,7 +251,8 @@ def _ai_media_ids(page: PublicPage) -> list[str]:
     was marked get the badge too. The operator switch hides the list; the XMP
     inside the files stays either way.
     """
-    if not badge_visible():
+    asset_ids = page.page.get("media_asset_ids") or []
+    if not asset_ids or not badge_visible():
         return []
     # media_mediaasset forces RLS: the tenant the host named goes first.
     with transaction.atomic():
@@ -259,7 +260,7 @@ def _ai_media_ids(page: PublicPage) -> list[str]:
         return sorted(
             ai_generated_asset_ids(
                 organization_id=page.publication.organization_id,
-                asset_ids=page.page.get("media_asset_ids", []),
+                asset_ids=asset_ids,
             )
         )
 
@@ -500,6 +501,10 @@ class _IndexPublication:
     @property
     def id(self) -> Any:
         return self.collection.id
+
+    @property
+    def organization_id(self) -> Any:
+        return self.collection.organization_id
 
     @property
     def snapshot(self) -> dict[str, Any]:

@@ -26,6 +26,7 @@ from saas_core.modules.shared.sites.models import AiBadgeSwitch
 from test_site_rich_content import public_home, publish_home
 from test_sites_api import create_media_asset, create_page, create_site, csrf_value, sites_client
 from test_sites_collections import (
+    _tagged_entry,
     _verified_platform_domain,
     create_collection,
     create_entry,
@@ -126,6 +127,22 @@ def test_entry_payload_lists_ai_images() -> None:
 
     assert found.status_code == 200, found.data
     assert found.data["ai_media_ids"] == [str(asset.id)]
+
+
+def test_blog_index_and_tag_archive_render_with_the_badge_visible() -> None:
+    # Pages nobody published stand in for a publication; the badge must not
+    # ask them for more than they carry.
+    client, _, _ = sites_client(slug="ai-badge-index", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    _tagged_entry(client, collection.data["id"], "jeden", ["Porady"])
+    _tagged_entry(client, collection.data["id"], "dwa", ["Porady"])
+    platform = _verified_platform_domain(site.data["id"])
+
+    for path in ("/blog/", "/blog/tag/porady/"):
+        found = APIClient().get("/api/v1/public/site/", {"path": path}, HTTP_HOST=platform.hostname)
+        assert found.status_code == 200, (path, found.content[:200])
+        assert found.data["ai_media_ids"] == []
 
 
 def test_only_an_active_staff_operator_with_mfa_flips_the_switch() -> None:

@@ -2002,6 +2002,13 @@ def rollback_site(
         return existing
     if site.current_publication_id == source.id:
         raise SitePublicationAlreadyCurrent
+    # A snapshot from before the guard may carry AI media in an evidence slot.
+    assert_real_media_slots(
+        organization_id=context.organization_id,
+        blocks=[
+            block for page in source.snapshot.get("pages", []) for block in page.get("blocks", [])
+        ],
+    )
 
     previous = (
         Publication.all_objects.filter(

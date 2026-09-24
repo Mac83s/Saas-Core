@@ -20,6 +20,7 @@ from test_sites_api import (
     create_site,
     csrf_value,
     publish_site_request,
+    rollback_site_request,
     save_translation,
     sites_client,
 )
@@ -190,3 +191,33 @@ def test_entry_draft_and_publication_refuse_ai_media_in_evidence_slots(slot) -> 
     published = publish(client, entry.data["id"], idempotency_key="entry-publish")
     assert published.status_code == 422, published.data
     assert published.data["code"] == REFUSED
+
+
+def test_rollback_refuses_a_snapshot_whose_portrait_is_now_marked_ai(page_surface) -> None:
+    client, org, owner, site, page = page_surface
+    url = f"/api/v1/sites/pages/{page}/draft/"
+    old_portrait = create_media_asset(org, owner)
+    assert put_draft(client, url, [quote(old_portrait)], "v1").status_code == 201
+    translated = save_translation(
+        client,
+        page,
+        "pl",
+        expected_version=0,
+        slug="o-nas",
+        title="O nas",
+        description="Kim jesteśmy",
+        idempotency_key="t",
+    )
+    assert translated.status_code in (200, 201), translated.data
+    first = publish_site_request(client, site, idempotency_key="publish-1")
+    assert first.status_code == 201, first.data
+    new_portrait = create_media_asset(org, owner)
+    assert put_draft(client, url, [quote(new_portrait)], "v2", version=1).status_code == 201
+    assert publish_site_request(client, site, idempotency_key="publish-2").status_code == 201
+    # A template photo marked by migration 0008 after P1 was published.
+    generated(old_portrait)
+
+    refused = rollback_site_request(client, site, first.data["id"], idempotency_key="rollback")
+
+    assert refused.status_code == 422, refused.data
+    assert refused.data["code"] == REFUSED
