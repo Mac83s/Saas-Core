@@ -118,8 +118,7 @@ magazyn 9–10 → pozostałe listy na DataTable.
 ## Otwarte — produkty
 
 - HoofCare: `docs/product/HANDOFF.md` w repo HoofCare (etap 5 sprzedaży
-  zwierząt, magazyn v2, tryb offline, publikacja rezerwacji publicznej do
-  kartoteki rolnika — decyzja właściciela).
+  zwierząt, magazyn v2, tryb offline).
 - MedPlano: bez własnych rozszerzeń — dostaje wyłącznie aktualizacje rdzenia
   (decyzja właściciela 23.09).
 
@@ -129,7 +128,8 @@ magazyn 9–10 → pozostałe listy na DataTable.
   digestu i SHA w planie 14.
 - Plany firmowe są wspólne dla wszystkich produktów — do potwierdzenia przez
   właściciela, czy tak zostaje.
-- ADR-050, 051 i 052 mają status „proponowana”, choć są wdrożone.
+- ADR-050 i 051 mają status „proponowana”, choć są wdrożone (ADR-052
+  przyjęta 24.09).
 
 ## Praca na tym VPS
 
