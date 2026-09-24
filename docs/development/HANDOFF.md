@@ -14,19 +14,24 @@ i git; zamknięte pozycje z dawnego dziennika zostały pominięte.
 
 | Plan | O czym | Gdzie jesteśmy |
 | --- | --- | --- |
-| `saas-core-panel-i-katalog-listy-wizytowka-historia-wyszukiwarka` | standard list panelu, szablon strony panelu, wizytówka, historia zmian, limit podstron, wyszukiwarka katalogu | fazy 1–4 i 7 zrobione (DataTable, przełącznik wizytówki, historia zmian, limit podstron; 24.09 szablon strony panelu, ADR-057, w trzech aplikacjach); faza 6 częściowo; dalej magazyn faza 7, potem Meilisearch |
-| `magazyn-materia-o-w-od-pakietu-korektora-do-kare` | uniwersalny magazyn firm (`shared.inventory` v2, ADR-055): dokumenty, miejsca, rezerwacje, rezerwacje stanu przy wizytach, przyszły sklep | fazy 4, 5, 6 i 8 zrobione 23–24.09 (rdzeń v2, HoofCare przepięty, panel na DataTable, włączony wszędzie, produkty przy wizycie); dalej przygotowanie do wizyty i alert małego stanu w HoofCare |
+| `saas-core-panel-i-katalog-listy-wizytowka-historia-wyszukiwarka` | standard list panelu, szablon strony panelu, wizytówka, historia zmian, limit podstron, wyszukiwarka katalogu | fazy 1–4 i 7 zrobione (DataTable, przełącznik wizytówki, historia zmian, limit podstron; 24.09 szablon strony panelu, ADR-057, w trzech aplikacjach); faza 6 częściowo; dalej wyszukiwarka (Meilisearch) po fazie 9 magazynu |
+| `magazyn-materia-o-w-od-pakietu-korektora-do-kare` | uniwersalny magazyn firm (`shared.inventory` v2, ADR-055): dokumenty, miejsca, rezerwacje, rezerwacje stanu przy wizytach, przyszły sklep | fazy 1–8 zrobione 23–24.09 (rdzeń v2, HoofCare przepięty, panel na DataTable, włączony wszędzie, produkty przy wizycie; 24.09 wieczorem przygotowanie do wizyty i mały stan w terenie w HoofCare, raport `2026-09-24-inventory-phase7`); dalej faza 9 — partie, ważność, karencja leków (decyzja 24.09) |
 | `saas-core-site-studio-templates`, `saas-core-site-studio-rich-content-and-full-width` | Site Studio: szablony, warianty, bogata treść | bogata treść, pełna szerokość, wygląd strony i 3 strony demonstracyjne scalone i wdrożone 23.09 (saas, a wieczorem też HoofCare i MedPlano) (`docs/architecture/site-rich-content.md`, raport `2026-09-23-rich-content`); faza 3a (20 układów redakcyjnych pod konwersję, `core.rich_text` v3, katalog v6, ostrzeżenie o miejscach `[Uzupełnij: …]`) i 3b (8 stylów strony, kotwice sekcji i przyciski „do formularza”, 9 recept stron v5 z celem i ścieżką konwersji, 8 dawnych szablonów wycofanych z galerii) scalone 23.09; etap 2b — edytor WYSIWYG (TipTap, ADR-056) w panelu i na pełnym ekranie, panel ze składnią `**` usunięty — scalony i wdrożony na saas 24.09 (raport `2026-09-24-wysiwyg-editor`); formularz kontaktu v2 (4 warianty wymaganych pól, m.in. „Oddzwonimy” z wymaganym telefonem, egzekwowane przez serwer) wdrożony na saas 24.09 (raport `2026-09-24-contact-form-v2`); faza 4 (paczki F4-P0…P5, 24 sekcje, 3 strony, 6 dodatków branżowych): F4-P0a (katalog v7, najnowsza wersja sekcji w bibliotece, harness zrzutów) i F4-P0b (bez zmyślonych faktów w receptach, strażnik cytatów dla automatu, 503 przy zajętym skanerze, Manrope 800) wdrożone na saas 24.09 (raport `2026-09-24-phase4-p0`); dalej F4-P1 (listy, Poradnik, sekcje gabinetu i gospodarstwa). Generator obrazów AI (OpenAI GPT Image 2.5, decyzja memex z 24.09) w budowie na gałęzi `feat/image-generation`, bez klucza API i testów na żywo |
 | `domkna-c-saas-core-po-audycie-realna-kompozycja-` | baza P0–P3 po audycie | treść w `Plan/Wdrozenie/13-…` |
 
-Kolejność przyjęta 23.09: faza panelu 3 → 4 → magazyn 4–8 → wyszukiwarka →
-magazyn 9–10 → pozostałe listy na DataTable.
+Kolejność przyjęta 23.09, zmieniona 24.09: faza panelu 3 → 4 → magazyn 4–8 →
+magazyn 9 → wyszukiwarka → magazyn 10 → pozostałe listy na DataTable.
 
 ## Wdrożenie (dev VPS goldentrd, instancje to development do ok. połowy października)
 
 - `saas.goldenstar.cloud` (profil `vps-dev`), `hoofcare.goldenstar.cloud`,
   `medplano.goldenstar.cloud` — osobne stacki compose; produkty przez
   `--env-file .env.<produkt>` i `compose.<produkt>.yaml`.
+- Jeden skaner plików na hoście (decyzja 24.09): `saas-core-clamav-1` jest
+  podpięty do sieci `<produkt>_scanner` z aliasem `clamav`; produkty nie mają
+  własnych kopii. Odtworzenie tego kontenera zrywa podpięcie — workery
+  produktów nie wstaną, dopóki `docker network connect --alias clamav
+  <produkt>_scanner saas-core-clamav-1` nie zostanie powtórzone.
 - Kod działający na VPS i raporty wydań: `docs/operations/releases/`
   (ostatnie z 23.09: DataTable, przełącznik wizytówki i strona wizytówki w
   katalogu, bogata treść Site Studio, historia zmian, limit podstron, układy
@@ -159,7 +164,9 @@ magazyn 9–10 → pozostałe listy na DataTable.
 - **Magazyn v2 (ADR-055):** włączony we wszystkich profilach i planach;
   wizyty rezerwują i zdejmują produkty zawsze z magazynu głównego (bez zapasu
   osoby i innych magazynów); zakończonej wizyty nie cofa się w kalendarzu; brak
-  wydruku dokumentów (PDF później), partii, alertów i raportów.
+  wydruku dokumentów (PDF później), partii, alertów i raportów. Moduł może
+  wyłączyć produkty kalendarza dla swoich rodzajów wizyt
+  (`appointmentKindsWithOwnMaterials`, robi to HoofCare).
 - **Wyszukiwarka panelu** z makiety — brak API i UI; **warianty kolorów
   produktów** (5 od właściciela) — brak.
 - **Integracja SEO na instancjach (plan 14:74-91, 205):** osiem przepływów na
