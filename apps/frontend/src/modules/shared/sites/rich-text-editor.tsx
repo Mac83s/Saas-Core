@@ -524,17 +524,23 @@ function PathEditor({
   // still in the page with focus, and before the next editor's effect.
   useLayoutEffect(() => {
     if (!editor) return;
+    let frame = 0;
     const taken = handover.get(name);
     if (taken) {
       handover.delete(name);
-      editor.commands.focus(
-        Math.min(taken.caret, editor.state.doc.content.size),
-      );
+      const caret = Math.min(taken.caret, editor.state.doc.content.size);
+      editor.commands.focus(caret);
+      // The page editor is a dialog: a frame after the old text left the
+      // page it takes focus back to itself. The caret returns after that.
+      frame = requestAnimationFrame(() => {
+        if (!editor.isDestroyed) editor.commands.focus(caret);
+      });
       // Restores what the previous editor showed, once, when it hands over.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       if (taken.fullScreen) setFullScreen(true);
     }
     return () => {
+      cancelAnimationFrame(frame);
       if (!editor.isDestroyed && editor.view.hasFocus())
         handover.set(name, {
           caret: editor.state.selection.from,
