@@ -69,6 +69,7 @@ import { PanelPage } from "#components/panel/panel-page";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import type { PanelAccess } from "#lib/panel-navigation";
 import { AnimalCard } from "./animal-card";
+import { AnimalEditDialog } from "./animal-edit-dialog";
 import { FarmForm } from "./farm-form";
 import { FarmVisits, ScheduleConsent } from "./farm-visits";
 import { FarmNoAccess, FarmNotice, focusRing } from "./farms-panel";
@@ -123,6 +124,7 @@ export function FarmDetail({
   const [adding, setAdding] = useState(false);
   const [reloads, setReloads] = useState(0);
   const [opened, setOpened] = useState<FarmAnimal>();
+  const [editingAnimal, setEditingAnimal] = useState<FarmAnimal>();
   // The row that opened the card gets focus back when it closes.
   const [returnTo, setReturnTo] = useState<HTMLElement | null>(null);
   const labels = useDataTableLabels();
@@ -335,7 +337,7 @@ export function FarmDetail({
         </span>
       ),
     },
-    ...(access
+    ...(access || canManage
       ? [
           {
             id: "actions",
@@ -344,15 +346,33 @@ export function FarmDetail({
             cell: ({ row: { original: animal } }) => (
               <RowActions
                 items={[
-                  {
-                    label: t("openAnimal"),
-                    icon: <EyeIcon aria-hidden="true" />,
-                    inline: true,
-                    onSelect: (trigger) => {
-                      setReturnTo(trigger);
-                      setOpened(animal);
-                    },
-                  },
+                  ...(access
+                    ? [
+                        {
+                          label: t("openAnimal"),
+                          icon: <EyeIcon aria-hidden="true" />,
+                          inline: true,
+                          onSelect: (trigger: HTMLElement | null) => {
+                            setReturnTo(trigger);
+                            setOpened(animal);
+                          },
+                        },
+                      ]
+                    : []),
+                  // Editing is always in sight where it is allowed (ADR-057).
+                  ...(canManage
+                    ? [
+                        {
+                          label: t("editAnimal"),
+                          icon: <PencilIcon aria-hidden="true" />,
+                          inline: true,
+                          onSelect: (trigger: HTMLElement | null) => {
+                            setReturnTo(trigger);
+                            setEditingAnimal(animal);
+                          },
+                        },
+                      ]
+                    : []),
                 ]}
                 label={t("actionsFor", { name: animal.national_id })}
               />
@@ -672,6 +692,19 @@ export function FarmDetail({
           </p>
         ) : null}
       </>
+      {editingAnimal ? (
+        <AnimalEditDialog
+          animal={editingAnimal}
+          key={editingAnimal.id}
+          onClose={() => setEditingAnimal(undefined)}
+          onSaved={(saved) => {
+            setEditingAnimal(undefined);
+            setNotice(t("animalSaved", { tag: saved.national_id }));
+            refresh();
+          }}
+          returnTo={returnTo}
+        />
+      ) : null}
       {opened && access ? (
         <AnimalCard
           access={access}

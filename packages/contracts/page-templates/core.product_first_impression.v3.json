@@ -1,0 +1,590 @@
+{
+  "id": "core.product_first_impression",
+  "version": 3,
+  "category": "product",
+  "industries": [],
+  "labels": {
+    "pl": {
+      "name": "Produkt — pierwsze wrażenie",
+      "description": "Krótka strona produktu, która prowadzi do zapytania: duże zdjęcie, obietnica oparta na właściwościach, zastosowania, parametry, miejsce na prawdziwe opinie, odpowiedzi na wątpliwości i formularz. Bez ceny i koszyka; wymień treści demonstracyjne przed publikacją."
+    },
+    "en": {
+      "name": "Product — first impression",
+      "description": "A short product page that leads to an inquiry: a large photo, a promise grounded in stated properties, uses, specifications, room for real reviews, answers to doubts and a form. No price or cart; replace the demonstration content before publishing."
+    }
+  },
+  "requiredEntitlements": ["sites.enabled"],
+  "pagePresentation": {
+    "schemaVersion": 2,
+    "width": "full",
+    "style": "product"
+  },
+  "conversion": {
+    "goal": "inquiry",
+    "stages": [
+      "attention",
+      "interest",
+      "interest",
+      "interest",
+      "proof",
+      "objection",
+      "action"
+    ]
+  },
+  "blocks": [
+    {
+      "block_type": "core.hero",
+      "schema_version": 6,
+      "data": {
+        "title": "Moduł sterujący, który łatwo wbudować we własne urządzenie",
+        "text": "Kompaktowa płytka z wejściami, wyjściami i pełną dokumentacją – dla konstruktorów, warsztatów i zespołów, które budują własne urządzenia. Napisz, co budujesz, a odpowiemy, czy moduł do tego pasuje.",
+        "action": {
+          "label": "Sprawdź, czy pasuje do Twojego projektu",
+          "href": "#kontakt"
+        },
+        "secondaryAction": {
+          "label": "Zobacz parametry",
+          "href": "#szczegoly"
+        },
+        "layout": "banner"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "full"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 3,
+      "data": {
+        "layout": "split_intro",
+        "eyebrow": "Dlaczego ten moduł",
+        "title": "Co obiecujemy – i na czym to opieramy",
+        "lead": "Nie podajemy wyników, których nie możesz sprawdzić. To, co mówimy o module, wynika wprost z jego budowy i dokumentacji.",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Łatwo go wbudować.",
+                "bold": true
+              },
+              {
+                "text": " Ma cztery otwory na standardowe dystanse M3, a wszystkie złącza są wyprowadzone na jedną krawędź płytki, więc obudowa potrzebuje tylko jednego wycięcia."
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Łatwo go podłączyć.",
+                "bold": true
+              },
+              {
+                "text": " Komunikuje się przez USB-C i UART, a opis każdego wyprowadzenia znajdziesz w instrukcji dołączonej do modułu."
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Łatwo go serwisować.",
+                "bold": true
+              },
+              {
+                "text": " Schemat połączeń jest dostępny od pierwszego dnia, więc diagnozę i naprawę może przeprowadzić Twój zespół albo dowolny serwis."
+              }
+            ]
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.feature_list",
+      "schema_version": 4,
+      "data": {
+        "layout": "benefits_commentary",
+        "title": "Trzy typowe zastosowania",
+        "lead": "Moduł nie jest urządzeniem do wszystkiego. Najlepiej sprawdza się tam, gdzie potrzebujesz kilku wejść i wyjść w niewielkiej obudowie.",
+        "items": [
+          {
+            "title": "Prototypy i krótkie serie",
+            "text": "Złożysz działający egzemplarz bez projektowania własnej płytki od zera, a przy kolejnych sztukach użyjesz tej samej dokumentacji."
+          },
+          {
+            "title": "Modernizacja maszyn",
+            "text": "Zastąpisz zużyte sterowanie w urządzeniu, które mechanicznie wciąż jest sprawne, bez wymiany całej maszyny."
+          },
+          {
+            "title": "Stanowiska testowe i szkoleniowe",
+            "text": "Czytelny układ złączy ułatwia pokazywanie, jak działa sterowanie, i szybkie zmiany konfiguracji między ćwiczeniami."
+          }
+        ],
+        "note": {
+          "title": "Przed wyborem",
+          "text": "Jeśli Twój projekt wymaga certyfikacji, pracy w trudnych warunkach albo wielu kanałów, opisz go w zapytaniu. Powiemy uczciwie, czy ten moduł jest właściwym wyborem."
+        }
+      },
+      "decoration": {
+        "schemaVersion": 1,
+        "background": "grid",
+        "ornament": "rings",
+        "placement": "top_right",
+        "intensity": "subtle"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "wide",
+        "surface": "muted"
+      }
+    },
+    {
+      "block_type": "core.product",
+      "schema_version": 2,
+      "data": {
+        "layout": "showcase",
+        "title": "Moduł sterujący – szczegóły",
+        "tagline": "Wszystkie parametry w jednym miejscu, z dokumentacją od pierwszego dnia.",
+        "text": "Najważniejsze parametry w jednym miejscu. Jeśli potrzebujesz innej konfiguracji, zapytaj o wariant dopasowany do Twojego projektu.",
+        "images": [],
+        "specs": [
+          {
+            "label": "Format",
+            "value": "[Uzupełnij: format, np. płytka drukowana 100 × 70 mm]"
+          },
+          {
+            "label": "Zasilanie",
+            "value": "[Uzupełnij: zasilanie, np. 12 V DC]"
+          },
+          {
+            "label": "Wejścia cyfrowe",
+            "value": "[Uzupełnij: wejścia cyfrowe, np. 8]"
+          },
+          {
+            "label": "Wyjścia",
+            "value": "[Uzupełnij: wyjścia, np. 4 przekaźnikowe]"
+          },
+          {
+            "label": "Komunikacja",
+            "value": "[Uzupełnij: komunikacja, np. USB-C, UART]"
+          },
+          {
+            "label": "Złącza",
+            "value": "[Uzupełnij: złącza, np. wyprowadzone na jedną krawędź płytki]"
+          },
+          {
+            "label": "Montaż",
+            "value": "[Uzupełnij: montaż, np. 4 otwory na dystanse M3]"
+          },
+          {
+            "label": "Dokumentacja",
+            "value": "[Uzupełnij: dokumentacja, np. schemat połączeń i instrukcja w PDF]"
+          }
+        ],
+        "action": {
+          "label": "Zapytaj o wariant dla swojego projektu",
+          "href": "#kontakt"
+        }
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "wide",
+        "surface": "inverse",
+        "anchor": "szczegoly"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 3,
+      "data": {
+        "layout": "margin_quote",
+        "eyebrow": "Z pracowni klientów",
+        "title": "Jak moduł sprawdza się w praktyce",
+        "lead": "Najlepiej opowiedzą o tym konstruktorzy, którzy już go wbudowali.",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Moduł trafia najczęściej do [Uzupełnij: typowe projekty klientów, np. prototypów maszyn pakujących albo stanowisk testowych]. Oto, co mówią o nim sami użytkownicy."
+              }
+            ]
+          },
+          {
+            "type": "quote",
+            "content": [
+              {
+                "text": "[Uzupełnij: prawdziwa opinia klienta w jednym–dwóch zdaniach – do czego użył modułu i co mu to ułatwiło]"
+              }
+            ],
+            "author": "[Uzupełnij: imię, firma lub pracownia – za zgodą klienta]"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Realizacje:",
+                "bold": true
+              },
+              {
+                "text": " [Uzupełnij: dwa–trzy krótkie opisy projektów z modułem, publikowane za zgodą klientów]."
+              }
+            ]
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.faq",
+      "schema_version": 3,
+      "data": {
+        "layout": "split",
+        "title": "Zanim zapytasz",
+        "items": [
+          {
+            "question": "Czy moduł ma inne warianty zasilania lub wyjść?",
+            "answer": "Opisana konfiguracja to przykład. Jeśli potrzebujesz innego zasilania albo innej liczby wyjść, opisz projekt w zapytaniu – odpowiemy, czy taki wariant jest możliwy."
+          },
+          {
+            "question": "Czy poradzę sobie z podłączeniem sam?",
+            "answer": "Opis każdego wyprowadzenia znajdziesz w instrukcji, a schemat połączeń udostępniamy od pierwszego dnia. Jeśli coś będzie niejasne, zapytaj – odpowiemy konkretnie."
+          },
+          {
+            "question": "Czy moduł ma certyfikaty?",
+            "answer": "[Uzupełnij: oznaczenia i deklaracje, które moduł faktycznie posiada]. Jeśli Twoje urządzenie wymaga certyfikacji, napisz o tym w zapytaniu – powiemy uczciwie, czy ten moduł jest właściwym wyborem."
+          },
+          {
+            "question": "Ile kosztuje i kiedy go dostanę?",
+            "answer": "Cena zależy od liczby sztuk i wariantu. [Uzupełnij: cena lub widełki cen oraz typowy czas wysyłki]."
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.contact_form",
+      "schema_version": 1,
+      "data": {
+        "layout": "card",
+        "locale": "pl",
+        "title": "Sprawdź, czy moduł pasuje do Twojego projektu",
+        "text": "Napisz w kilku zdaniach, co budujesz i ilu egzemplarzy potrzebujesz. Odpowiemy e-mailem [Uzupełnij: w jakim czasie, np. w ciągu jednego dnia roboczego] z propozycją konfiguracji. Zapytanie do niczego nie zobowiązuje.",
+        "submit_label": "Poproś o propozycję konfiguracji",
+        "success_message": "Dziękujemy! Zapytanie dotarło. Odpowiemy e-mailem z propozycją konfiguracji.",
+        "privacy_label": "Informacje o prywatności"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "surface": "muted",
+        "anchor": "kontakt"
+      }
+    }
+  ],
+  "localizedBlocks": {
+    "en": [
+      {
+        "block_type": "core.hero",
+        "schema_version": 6,
+        "data": {
+          "title": "A control board that is easy to build into your own device",
+          "text": "A compact board with inputs, outputs and complete documentation – for designers, workshops and teams building their own devices. Tell us what you are building and we will tell you whether the board fits.",
+          "action": {
+            "label": "Check if it fits your project",
+            "href": "#contact"
+          },
+          "secondaryAction": {
+            "label": "See the specifications",
+            "href": "#details"
+          },
+          "layout": "banner"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "full"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {
+          "layout": "split_intro",
+          "eyebrow": "Why this board",
+          "title": "What we promise – and what it rests on",
+          "lead": "We do not quote results you cannot check. Everything we say about the board follows directly from how it is built and documented.",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Easy to build in.",
+                  "bold": true
+                },
+                {
+                  "text": " It has four holes for standard M3 standoffs, and every connector sits along one edge of the board, so the enclosure needs just one cut-out."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Easy to connect.",
+                  "bold": true
+                },
+                {
+                  "text": " It talks over USB-C and UART, and the manual that comes with it describes every pin."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Easy to service.",
+                  "bold": true
+                },
+                {
+                  "text": " The wiring diagram is available from day one, so your own team or any repair shop can diagnose and fix it."
+                }
+              ]
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.feature_list",
+        "schema_version": 4,
+        "data": {
+          "layout": "benefits_commentary",
+          "title": "Three typical uses",
+          "lead": "The board is not meant to do everything. It works best where you need a handful of inputs and outputs in a small enclosure.",
+          "items": [
+            {
+              "title": "Prototypes and short runs",
+              "text": "Put together a working unit without designing your own board from scratch, and reuse the same documentation for every unit that follows."
+            },
+            {
+              "title": "Machine upgrades",
+              "text": "Replace worn-out controls in equipment that is still mechanically sound, without replacing the whole machine."
+            },
+            {
+              "title": "Test and training benches",
+              "text": "A clear connector layout makes it easy to show how the controls work and to change the set-up between exercises."
+            }
+          ],
+          "note": {
+            "title": "Before you choose",
+            "text": "If your project needs certification, harsh operating conditions or many channels, describe it in your inquiry. We will tell you honestly whether this board is the right choice."
+          }
+        },
+        "decoration": {
+          "schemaVersion": 1,
+          "background": "grid",
+          "ornament": "rings",
+          "placement": "top_right",
+          "intensity": "subtle"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "wide",
+          "surface": "muted"
+        }
+      },
+      {
+        "block_type": "core.product",
+        "schema_version": 2,
+        "data": {
+          "layout": "showcase",
+          "title": "Control board – the details",
+          "tagline": "Every parameter in one place, with documentation from day one.",
+          "text": "The key parameters in one place. If you need a different configuration, ask about a variant that fits your project.",
+          "images": [],
+          "specs": [
+            {
+              "label": "Format",
+              "value": "[Fill in: format, e.g. 100 × 70 mm printed circuit board]"
+            },
+            {
+              "label": "Power supply",
+              "value": "[Fill in: power supply, e.g. 12 V DC]"
+            },
+            {
+              "label": "Digital inputs",
+              "value": "[Fill in: digital inputs, e.g. 8]"
+            },
+            {
+              "label": "Outputs",
+              "value": "[Fill in: outputs, e.g. 4 relay outputs]"
+            },
+            {
+              "label": "Interfaces",
+              "value": "[Fill in: interfaces, e.g. USB-C, UART]"
+            },
+            {
+              "label": "Connectors",
+              "value": "[Fill in: connectors, e.g. all along one edge of the board]"
+            },
+            {
+              "label": "Mounting",
+              "value": "[Fill in: mounting, e.g. 4 holes for M3 standoffs]"
+            },
+            {
+              "label": "Documentation",
+              "value": "[Fill in: documentation, e.g. wiring diagram and PDF manual]"
+            }
+          ],
+          "action": {
+            "label": "Ask about a variant for your project",
+            "href": "#contact"
+          }
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "wide",
+          "surface": "inverse",
+          "anchor": "details"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {
+          "layout": "margin_quote",
+          "eyebrow": "From our customers' workshops",
+          "title": "How the board works out in practice",
+          "lead": "The designers who have already built it in say it best.",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "The board most often ends up in [Fill in: typical customer projects, e.g. packaging machine prototypes or test benches]. Here is what the people using it say."
+                }
+              ]
+            },
+            {
+              "type": "quote",
+              "content": [
+                {
+                  "text": "[Fill in: a real customer review in one or two sentences – what they used the board for and what it made easier]"
+                }
+              ],
+              "author": "[Fill in: name, company or workshop – with the customer's consent]"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Projects:",
+                  "bold": true
+                },
+                {
+                  "text": " [Fill in: two or three short descriptions of projects built with the board, published with the customers' consent]."
+                }
+              ]
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.faq",
+        "schema_version": 3,
+        "data": {
+          "layout": "split",
+          "title": "Before you ask",
+          "items": [
+            {
+              "question": "Are other power or output options available?",
+              "answer": "The configuration shown is an example. If you need a different power supply or number of outputs, describe your project in your inquiry and we will tell you whether that variant is possible."
+            },
+            {
+              "question": "Can I wire it up on my own?",
+              "answer": "The manual describes every pin, and the wiring diagram is available from day one. If anything is unclear, ask – you will get a specific answer."
+            },
+            {
+              "question": "Is the board certified?",
+              "answer": "[Fill in: the markings and declarations the board actually has]. If your device needs certification, say so in your inquiry – we will tell you honestly whether this board is the right choice."
+            },
+            {
+              "question": "How much does it cost and when will I get it?",
+              "answer": "The price depends on the quantity and the variant. [Fill in: the price or price range and your usual shipping time]."
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.contact_form",
+        "schema_version": 1,
+        "data": {
+          "layout": "card",
+          "locale": "en",
+          "title": "Check whether the board fits your project",
+          "text": "Tell us in a few sentences what you are building and how many units you need. We will reply by email [Fill in: how soon, e.g. within one working day] with a suggested configuration. Asking commits you to nothing.",
+          "submit_label": "Get a configuration proposal",
+          "success_message": "Thank you! Your inquiry has arrived. We will reply by email with a suggested configuration.",
+          "privacy_label": "Privacy information"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "surface": "muted",
+          "anchor": "contact"
+        }
+      }
+    ]
+  },
+  "media": [
+    {
+      "id": "electronics",
+      "source": "assets/electronics-workshop.png",
+      "filename": "electronics-workshop.png",
+      "contentType": "image/png",
+      "sha256": "4c2d226103ee37783e586345b7c3dac12088e47210c079b6be1b54666a1c6eb8"
+    }
+  ],
+  "mediaBindings": [
+    {
+      "blockPosition": 0,
+      "mediaId": "electronics",
+      "alt": {
+        "pl": "Zielona płytka drukowana na niebieskiej macie warsztatowej, obok śrubokręt, pinceta i sondy miernika",
+        "en": "A green circuit board on a blue workbench mat, next to a screwdriver, tweezers and multimeter probes"
+      }
+    },
+    {
+      "blockPosition": 3,
+      "mediaId": "electronics",
+      "alt": {
+        "pl": "Zielona płytka drukowana na niebieskiej macie warsztatowej, obok śrubokręt, pinceta i sondy miernika",
+        "en": "A green circuit board on a blue workbench mat, next to a screwdriver, tweezers and multimeter probes"
+      },
+      "path": ["images", 0]
+    }
+  ]
+}

@@ -35,6 +35,7 @@ class TemplatePhotoView(APIView):
             403: ProblemDetailsSerializer,
             404: ProblemDetailsSerializer,
             409: ProblemDetailsSerializer,
+            503: ProblemDetailsSerializer,
         },
     )
     def post(self, request: Request, photo_id: str) -> Response:

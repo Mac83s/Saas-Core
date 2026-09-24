@@ -91,6 +91,9 @@ export function InlineText({
             // A button does not inherit it by default, so an uppercase label
             // or eyebrow would read differently here than when published.
             textTransform: "inherit",
+            // Nor is an underline drawn through it (an inline-block): the
+            // premium style's second action lost its underline on the canvas.
+            textDecoration: "inherit",
             overflowWrap: "anywhere",
           }}
           onClick={() => {

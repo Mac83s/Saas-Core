@@ -24,7 +24,8 @@
 @font-face {
   font-family: "Manrope";
   font-style: normal;
-  font-weight: 400 700;
+  /* The variable file covers 200–800; studio and product headings use 800. */
+  font-weight: 400 800;
   font-display: swap;
   src: url(./fonts/manrope-latin-ext.woff2) format("woff2");
   unicode-range:
@@ -35,7 +36,8 @@
 @font-face {
   font-family: "Manrope";
   font-style: normal;
-  font-weight: 400 700;
+  /* The variable file covers 200–800; studio and product headings use 800. */
+  font-weight: 400 800;
   font-display: swap;
   src: url(./fonts/manrope-latin.woff2) format("woff2");
   unicode-range:

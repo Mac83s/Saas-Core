@@ -669,6 +669,7 @@
     "problem": "Nie udało się wykonać operacji na site.",
     "noAccess": "Nie masz dostępu do edycji site w aktywnej organizacji.",
     "quotaExceeded": "Limit site'ów organizacji został wykorzystany.",
+    "scannerBusy": "Skaner zdjęć jest chwilowo zajęty. Nic nie zostało zmienione — spróbuj ponownie za chwilę.",
     "pageLimitReached": "Plan nie pozwala na więcej podstron na tej stronie. Usuń nieużywaną podstronę albo wybierz wyższy plan.",
     "conflict": "Dane zmieniły się w międzyczasie. Odśwież widok i spróbuj ponownie.",
     "contentEditor": "Kontrolowane bloki treści",
@@ -995,9 +996,11 @@
       "mobileBehavior": "Na wąskich ekranach kolumny układają się pionowo. Wszystkie elementy pozostają dostępne.",
       "layout": "Układ sekcji",
       "preservesContent": "Zmiana układu zachowuje Twoją treść.",
+      "hiddenFields": "Ten układ nie pokazuje: {fields}. Treść zostaje zapisana i wróci po zmianie układu.",
       "samplePhotos": "Zdjęcia i treści są demonstracyjne — możesz je wymienić po wstawieniu.",
       "preparingPhoto": "Przygotowuję zdjęcie w Twojej bibliotece…",
       "photoError": "Nie udało się przygotować zdjęcia. Sekcja nie została dodana; spróbuj ponownie.",
+      "scannerBusy": "Skaner zdjęć jest chwilowo zajęty. Sekcja nie została dodana — spróbuj ponownie za chwilę.",
       "showMore": "Pokaż kolejne układy (pozostało: {remaining})",
       "search": "Szukaj układu",
       "searchPlaceholder": "Nazwa lub zastosowanie…",
@@ -2383,7 +2386,9 @@
     "call": "Zadzwoń: {phone}",
     "animalsOfFarm": "Zwierzęta tego gospodarstwa",
     "openAnimal": "Karta zwierzęcia",
-    "farm": "Gospodarstwo"
+    "farm": "Gospodarstwo",
+    "editAnimal": "Edytuj zwierzę",
+    "animalSaved": "Zapisano zwierzę: {tag}."
   },
   "Animals": {
     "title": "Zwierzęta",
@@ -2454,7 +2459,10 @@
     "actions": "Działania",
     "actionsFor": "Działania: {tag}",
     "openCard": "Karta zwierzęcia",
-    "openFarm": "Przejdź do gospodarstwa"
+    "openFarm": "Przejdź do gospodarstwa",
+    "edit": "Edytuj zwierzę",
+    "saveChanges": "Zapisz zmiany",
+    "saved": "Zapisano: {tag}."
   },
   "StaffAccounts": {
     "title": "Konta pracowników kalendarza",

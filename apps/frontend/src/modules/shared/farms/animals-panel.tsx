@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
-import { EyeIcon, PlusIcon, WarehouseIcon } from "lucide-react";
+import { EyeIcon, PencilIcon, PlusIcon, WarehouseIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
 import {
@@ -60,6 +60,7 @@ import { Link } from "#i18n/navigation";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import { allows, type PanelAccess } from "#lib/panel-navigation";
 import { ANIMAL_STATUSES, AnimalCard } from "./animal-card";
+import { AnimalEditDialog } from "./animal-edit-dialog";
 import { farmProblem } from "./problem";
 
 // The API decides; these only keep the screen from offering a 403.
@@ -106,6 +107,8 @@ export function AnimalsPanel({ access }: { access: PanelAccess }) {
   const [version, setVersion] = useState(0);
   const [adding, setAdding] = useState(false);
   const [opened, setOpened] = useState<FarmAnimal>();
+  const [editing, setEditing] = useState<FarmAnimal>();
+  const [notice, setNotice] = useState("");
   // The row that opened the card gets focus back when it closes.
   const [returnTo, setReturnTo] = useState<HTMLElement | null>(null);
 
@@ -299,6 +302,20 @@ export function AnimalsPanel({ access }: { access: PanelAccess }) {
               inline: true,
               onSelect: (trigger) => open(animal, trigger),
             },
+            // Editing is always in sight where it is allowed (ADR-057).
+            ...(canManage
+              ? [
+                  {
+                    label: t("edit"),
+                    icon: <PencilIcon aria-hidden="true" />,
+                    inline: true,
+                    onSelect: (trigger: HTMLElement | null) => {
+                      setReturnTo(trigger);
+                      setEditing(animal);
+                    },
+                  },
+                ]
+              : []),
             {
               label: t("openFarm"),
               icon: <WarehouseIcon aria-hidden="true" />,
@@ -369,6 +386,7 @@ export function AnimalsPanel({ access }: { access: PanelAccess }) {
       description={t("description")}
       // The same register as the farms, seen by animal.
       eyebrow={farmsText("eyebrow")}
+      notice={notice}
       title={t("title")}
     >
       {!canRead ? (
@@ -420,6 +438,20 @@ export function AnimalsPanel({ access }: { access: PanelAccess }) {
           </p>
         </div>
       )}
+
+      {editing ? (
+        <AnimalEditDialog
+          animal={editing}
+          key={editing.id}
+          onClose={() => setEditing(undefined)}
+          onSaved={(saved) => {
+            setEditing(undefined);
+            setNotice(t("saved", { tag: saved.national_id }));
+            setVersion((value) => value + 1);
+          }}
+          returnTo={returnTo}
+        />
+      ) : null}
 
       {opened ? (
         <AnimalCard

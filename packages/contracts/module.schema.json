@@ -105,6 +105,15 @@
             "minLength": 1
           }
         },
+        "appointmentKindsWithOwnMaterials": {
+          "description": "Of this module's appointmentKinds, those whose materials the module accounts for itself (e.g. per animal in field work): booking neither takes products for them nor settles them at completion (ADR-055).",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
         "middleware": {
           "description": "Middleware classes of this module, mounted after the tenant middleware only where the module is composed (ADR-049). Must live in the module's own app.",
           "type": "array",

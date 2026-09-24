@@ -3327,6 +3327,7 @@ export interface components {
             location_name: string;
             resource_name: string | null;
             materials?: components["schemas"]["MaterialLine"][];
+            takes_materials?: boolean;
             self_service_token?: string | null;
         };
         AppointmentCreate: {
@@ -5423,6 +5424,7 @@ export interface components {
             duration_minutes: number;
             appointment_kind: string;
             materials?: components["schemas"]["MaterialInput"][];
+            takes_materials?: boolean;
         };
         SessionSummary: {
             /** Format: uuid */
@@ -12918,6 +12920,14 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
         };
     };
     sites_blueprint_draft_create: {
@@ -13002,6 +13012,14 @@ export interface operations {
                 };
             };
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13902,6 +13920,14 @@ export interface operations {
                 };
             };
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -15553,6 +15579,14 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
         };
     };
     sites_page_translations_list: {
@@ -16076,6 +16110,14 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

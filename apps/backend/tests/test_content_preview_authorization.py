@@ -14,8 +14,8 @@ from django.utils import timezone
 
 from saas_core.modules.shared.notifications.models import ApiKey, ApiKeyCredentialRoute
 from saas_core.modules.shared.sites.models import ContentAutomationGrant
-from test_content_operations_api import _change_set, _preview
-from test_sites_api import create_page, create_site, save_draft, sites_client
+from test_content_operations_api import _apply, _change_set, _preview
+from test_sites_api import create_page, create_site, csrf_value, save_draft, sites_client
 from test_sites_collections import create_collection, create_entry, save_entry_draft
 from test_sites_operations import _api_key_client
 
@@ -250,3 +250,244 @@ def test_collection_grant_only_previews_entries_of_its_real_site(surface: Any) -
     )
     response = post_preview(client, document)
     assert response.status_code == 404, response.content
+
+
+# `allowed_link_hosts`: a link is a recommendation made in the customer's name.
+
+OWN_HOST = "sklep.example.test"
+
+
+def linking(surface: Any, hosts: list[str]) -> Client:
+    """A drafting connector on an automated page of a site with its own domain."""
+    from saas_core.modules.shared.sites.models import Domain, Page
+
+    _, organization, owner, document = surface
+    client, key = connector(surface, scope="content:draft")
+    grant = grant_for(surface, key, allowed_link_hosts=hosts)
+    grant.mode = "draft_write"
+    grant.save(update_fields=["mode"])
+    Page.all_objects.filter(pk=document["target"]["page_id"]).update(automation_policy="automated")
+    Domain.all_objects.create(
+        organization=organization,
+        site_id=document["target"]["site_id"],
+        hostname=OWN_HOST,
+        kind="custom",
+        status="verified",
+        verification_name=f"_saas-core.{OWN_HOST}",
+        verification_token="token",
+        created_by=owner,
+        idempotency_key="own-domain",
+        request_hash="0" * 64,
+    )
+    return client
+
+
+def with_block(surface: Any, block: dict[str, Any]) -> dict[str, Any]:
+    person, _, _, document = surface
+    document["commands"] = [{"command": "block.insert", "position": 0, "block": block}]
+    document["base"] = person.get("/api/v1/sites/content-base/", document["target"]).json()["base"]
+    return document
+
+
+def cta(href: str) -> dict[str, Any]:
+    # hero v1 still accepts `//host`, so the envelope alone does not stop it.
+    return {
+        "type": "core.hero",
+        "schema_version": 1,
+        "data": {"heading": "Oferta", "ctaLabel": "Zobacz", "ctaHref": href},
+    }
+
+
+@pytest.mark.parametrize(
+    ("href", "allowed"),
+    [
+        ("https://evil.test/oferta", False),
+        ("https://partner.test/oferta", True),
+        ("https://PARTNER.test:8443/oferta", True),
+        ("https://sub.partner.test/", False),
+        ("/kontakt/", True),
+        (f"https://{OWN_HOST}/kontakt/", True),
+        ("mailto:biuro@evil.test", True),
+        ("tel:+48123456789", True),
+        ("//evil.test/oferta", False),
+        ("/\\evil.test/oferta", False),
+        ("https://partner.test@evil.test/", False),
+        ("https:///evil.test/", False),
+    ],
+)
+def test_an_automation_links_only_to_its_own_site_and_the_granted_hosts(
+    surface: Any, href: str, allowed: bool
+) -> None:
+    client = linking(surface, ["partner.test"])
+    response = post_preview(client, with_block(surface, cta(href)))
+    if allowed:
+        assert response.status_code == 200, response.content
+    else:
+        assert response.status_code == 403, response.content
+        assert response.json()["code"] == "automation_link_host_forbidden"
+        assert "blocks[0].data.ctaHref" in response.json()["detail"]
+
+
+def test_an_empty_host_list_means_internal_links_only(surface: Any) -> None:
+    client = linking(surface, [])
+    nested = {
+        "type": "core.rich_text",
+        "schema_version": 2,
+        "data": {
+            "content": [
+                {
+                    "type": "paragraph",
+                    "content": [
+                        {"text": "Zobacz "},
+                        {"text": "partnera", "href": "https://partner.test/"},
+                    ],
+                }
+            ]
+        },
+    }
+    response = post_preview(client, with_block(surface, nested))
+    assert response.status_code == 403, response.content
+    assert "blocks[0].data.content[0].content[1].href" in response.json()["detail"]
+    assert post_preview(client, with_block(surface, cta(f"https://{OWN_HOST}/"))).status_code == 200
+
+
+def test_apply_refuses_the_link_before_anything_is_written(surface: Any) -> None:
+    from saas_core.modules.shared.sites.models import ContentProposal, PageVersion
+
+    client = linking(surface, [])
+    document = with_block(surface, cta("https://evil.test/"))
+    response = client.post(
+        "/api/v1/sites/changes/apply/", {"change_set": document}, content_type="application/json"
+    )
+    assert response.status_code == 403, response.content
+    assert response.json()["code"] == "automation_link_host_forbidden"
+    page_id = document["target"]["page_id"]
+    assert PageVersion.all_objects.filter(page_id=page_id).count() == 1
+    assert not ContentProposal.all_objects.filter(resource_id=page_id).exists()
+
+
+def test_a_person_links_anywhere(surface: Any) -> None:
+    person, _, _, _ = surface
+    document = with_block(surface, cta("https://evil.test/"))
+    assert _preview(person, document).status_code == 200
+    response = _apply(person, document)
+    assert response.status_code == 201, response.content
+
+
+def test_a_link_a_person_already_placed_survives_an_automated_rewrite(surface: Any) -> None:
+    """Rewriting the copy around somebody's link is not a new recommendation."""
+    person, _, _, document = surface
+    hero = cta("https://evil.test/")["data"]
+    saved = person.put(
+        f"/api/v1/sites/pages/{document['target']['page_id']}/draft/",
+        {
+            "expected_version": 1,
+            "blocks": [{"block_type": "core.hero", "schema_version": 1, "data": hero}],
+            "media_asset_ids": [],
+        },
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(person),
+        HTTP_IDEMPOTENCY_KEY="person-link",
+    )
+    assert saved.status_code == 201, saved.content
+    client = linking(surface, [])
+    replaced = cta("https://evil.test/")
+    replaced["data"]["heading"] = "Nowy nagłówek"
+    document["commands"] = [{"command": "block.replace", "position": 0, "block": replaced}]
+    document["base"] = person.get("/api/v1/sites/content-base/", document["target"]).json()["base"]
+    assert post_preview(client, document).status_code == 200
+
+
+def test_an_entry_draft_written_directly_by_a_key_is_held_to_the_same_hosts(
+    surface: Any,
+) -> None:
+    from saas_core.modules.shared.sites.models import ContentCollection
+
+    person, organization, owner, document = surface
+    collection = create_collection(person, document["target"]["site_id"]).data["id"]
+    entry = create_entry(person, collection, slug="linki", idempotency_key="link-entry").data["id"]
+    ContentCollection.all_objects.filter(pk=collection).update(automation_policy="automated")
+    client, key = connector(surface, scope="content:draft")
+    ContentAutomationGrant.all_objects.create(
+        organization=organization,
+        credential_id=key.id,
+        collection_id=collection,
+        mode="draft_write",
+        allowed_link_hosts=["partner.test"],
+        created_by=owner,
+    )
+
+    def put(href: str, marker: str) -> Any:
+        return client.put(
+            f"/api/v1/sites/entries/{entry}/draft/",
+            {
+                "expected_version": 0,
+                "blocks": [
+                    {"block_type": "core.hero", "schema_version": 1, "data": cta(href)["data"]}
+                ],
+            },
+            content_type="application/json",
+            HTTP_IDEMPOTENCY_KEY=marker,
+        )
+
+    refused = put("https://evil.test/", "entry-evil")
+    assert refused.status_code == 403, refused.content
+    assert refused.json()["code"] == "automation_link_host_forbidden"
+    assert put("https://partner.test/", "entry-partner").status_code == 201
+
+
+@pytest.mark.parametrize(
+    ("path", "allowed"),
+    [("/blog/wpis/", True), ("//3627732462/oferta", False), ("//evil/", False)],
+)
+def test_an_entry_list_path_is_a_link_too(surface: Any, path: str, allowed: bool) -> None:
+    """`items[].path` renders as an href, and its pattern accepts `//<digits>`,
+    which a browser opens as an IPv4 address (216.58.214.206 here)."""
+    client = linking(surface, [])
+    listing = {
+        "type": "core.entry_list",
+        "schema_version": 1,
+        "data": {"items": [{"title": "Oferta", "path": path}]},
+    }
+    response = post_preview(client, with_block(surface, listing))
+    if allowed:
+        assert response.status_code == 200, response.content
+    else:
+        assert response.status_code == 403, response.content
+        assert response.json()["code"] == "automation_link_host_forbidden"
+        assert "blocks[0].data.items[0].path" in response.json()["detail"]
+
+
+def test_every_link_field_in_the_block_schemas_is_walked() -> None:
+    """A field whose pattern accepts a path or a URL is rendered as a link; one
+    the walker does not name would slip past the host check unnoticed."""
+    import json
+    import re
+    from pathlib import Path
+
+    from django.conf import settings
+
+    from saas_core.modules.shared.sites.rich_content import is_link_field
+
+    def link_like(pattern: Any) -> bool:
+        return isinstance(pattern, str) and any(
+            re.search(pattern, sample) for sample in ("/a", "https://a.test")
+        )
+
+    def keys(value: Any) -> Any:
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if isinstance(child, dict) and link_like(child.get("pattern")):
+                    yield key
+                yield from keys(child)
+        elif isinstance(value, list):
+            for child in value:
+                yield from keys(child)
+
+    found = {
+        key
+        for path in Path(settings.SITE_BLOCK_CONTRACTS_PATH).glob("core.*.schema.json")
+        for key in keys(json.loads(path.read_text(encoding="utf-8")))
+    }
+    assert {"href", "ctaHref", "privacy_href", "path"} <= found
+    assert {key for key in found if not is_link_field(key)} == set()

@@ -46,7 +46,12 @@ from .permissions import (
     STORAGE_BYTES,
     STORAGE_ENABLED,
 )
-from .scanner import MalwareScanner, MalwareVerdict, get_malware_scanner
+from .scanner import (
+    MalwareScanner,
+    MalwareScannerUnavailable,
+    MalwareVerdict,
+    get_malware_scanner,
+)
 from .storage import (
     ObjectNotFoundError,
     ObjectStorage,
@@ -115,6 +120,15 @@ class MediaUploadMetadataMismatch(APIException):
     status_code = 409
     default_detail = "Rozmiar albo typ obiektu nie zgadza się z rozpoczętym uploadem."
     default_code = "media_upload_metadata_mismatch"
+
+
+class MediaScannerUnavailable(APIException):
+    """The scanner did not answer in time (a loaded host): nothing was stored,
+    and the same request can simply be sent again."""
+
+    status_code = 503
+    default_detail = "Skaner plików jest chwilowo zajęty. Spróbuj ponownie za chwilę."
+    default_code = "media_scanner_unavailable"
 
 
 class ApprovedMediaMaterializationFailed(APIException):
@@ -388,10 +402,12 @@ def materialize_approved_media_asset(
         )
         if processed is None or processed.state != MediaAssetState.READY:
             raise ApprovedMediaMaterializationFailed
-    except Exception:
+    except Exception as error:
         for object_key in cleanup_keys:
             with suppress(ObjectStorageError):
                 object_storage.delete(object_key=object_key)
+        if isinstance(error, MalwareScannerUnavailable):
+            raise MediaScannerUnavailable from error
         raise
     return ApprovedMediaMaterialization(asset=processed, created=True)
 

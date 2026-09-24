@@ -29,6 +29,7 @@ from saas_core.modules.core.organizations.models import (
     WorkspaceKind,
 )
 from saas_core.modules.shared.notifications.models import ApiKey
+from saas_core.modules.shared.sites.domains import InvalidHostname, normalize_hostname
 from saas_core.modules.shared.sites.models import (
     AutomationGrantMode,
     ContentAutomationGrant,
@@ -96,6 +97,7 @@ class Command(BaseCommand):
             else None
         )
         window_start, window_end = self._window(options.get("window"))
+        link_hosts = self._link_hosts(options["allow_link_host"])
 
         if mode == AutomationGrantMode.AUTONOMOUS:
             # ADR-035 §4: autonomy is bounded by the grant's fields, not by its
@@ -123,7 +125,7 @@ class Command(BaseCommand):
                 "max_payload_bytes": options["max_payload_bytes"],
                 "window_start": window_start,
                 "window_end": window_end,
-                "allowed_link_hosts": list(options["allow_link_host"]),
+                "allowed_link_hosts": link_hosts,
                 "revoked_at": None,
                 "created_by": operator,
             },
@@ -188,6 +190,13 @@ class Command(BaseCommand):
             )
         except ValueError as error:
             raise CommandError("Okno musi mieć postać HH:MM-HH:MM.") from error
+
+    def _link_hosts(self, raw: list[str]) -> list[str]:
+        # A URL or a typo here would be stored and then silently match nothing.
+        try:
+            return sorted({normalize_hostname(str(host).strip()) for host in raw})
+        except InvalidHostname as error:
+            raise CommandError(f"--allow-link-host: {error}") from error
 
     def _uuid(self, raw: Any, what: str) -> UUID:
         try:

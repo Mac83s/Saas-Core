@@ -6490,6 +6490,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
     post:
       operationId: sites_blueprint_draft_create
       parameters:
@@ -6565,6 +6571,12 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '503':
           content:
             application/json:
               schema:
@@ -7432,6 +7444,12 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '503':
           content:
             application/json:
               schema:
@@ -9054,6 +9072,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/pages/{page_id}/translations/:
     get:
       operationId: sites_page_translations_list
@@ -9563,6 +9587,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
 components:
   schemas:
     ActionEnum:
@@ -9938,6 +9968,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MaterialLine'
+        takes_materials:
+          type: boolean
         self_service_token:
           type:
           - string
@@ -15151,6 +15183,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MaterialInput'
+        takes_materials:
+          type: boolean
       required:
       - appointment_kind
       - duration_minutes

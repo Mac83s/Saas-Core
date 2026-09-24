@@ -123,6 +123,8 @@ class AppointmentSerializer(serializers.Serializer[dict[str, Any]]):
     resource_name = serializers.CharField(allow_null=True)
     #: Tylko w panelu firmy; klient w self-service tego nie dostaje.
     materials = MaterialLineSerializer(many=True, required=False)
+    #: False, gdy materiał tej wizyty rozlicza jej moduł (ADR-055) albo nie ma magazynu.
+    takes_materials = serializers.BooleanField(required=False)
     self_service_token = serializers.CharField(required=False, allow_null=True)
 
 
@@ -212,6 +214,8 @@ class PublicServiceSerializer(serializers.Serializer[dict[str, Any]]):
 class ServiceSerializer(PublicServiceSerializer):
     #: Produkty z magazynu, które wizyta tej usługi zabiera.
     materials = MaterialInputSerializer(many=True, required=False)
+    #: False, gdy materiał tej usługi rozlicza jej moduł (ADR-055) albo nie ma magazynu.
+    takes_materials = serializers.BooleanField(required=False)
 
 
 class ResourceSerializer(serializers.Serializer[dict[str, Any]]):

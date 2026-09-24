@@ -244,6 +244,23 @@ def test_middleware_rejects_membership_with_cross_tenant_custom_role() -> None:
     assert ACTIVE_ORGANIZATION_SESSION_KEY not in client.session
 
 
+def test_a_task_locks_its_membership_but_not_the_organization_row() -> None:
+    """A task holds its transaction for its whole body; locking the joined
+    organization row with it made every request that references the
+    organization (a foreign key checked at COMMIT) wait on the task, and a
+    media task waiting for an asset such a request held deadlocked (24.09)."""
+    from django.test.utils import CaptureQueriesContext
+
+    membership = create_membership()
+    with activate_tenant_context(context_for(membership)):
+        contract = issue_tenant_task_contract(causation_id="lock-test")
+    with CaptureQueriesContext(connection) as queries, tenant_task_context(contract):
+        pass
+    locks = [q["sql"] for q in queries.captured_queries if "FOR UPDATE" in q["sql"]]
+    assert len(locks) == 1
+    assert locks[0].endswith('FOR UPDATE OF "organizations_membership"'), locks[0]
+
+
 def test_signed_task_contract_revalidates_membership_and_restores_context() -> None:
     membership = create_membership()
     request_correlation_id = str(uuid7())

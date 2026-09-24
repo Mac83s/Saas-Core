@@ -2977,3 +2977,102 @@ def test_the_short_list_of_person_only_operations_holds_against_any_grant() -> N
                 media_asset_ids=[],
                 idempotency_key="po-legal-draft",
             )
+
+
+def test_automation_writes_no_price_list_into_an_entry_and_no_words_into_quotes() -> None:
+    """One guard for every way blocks are written (catalogue rule 4): an entry
+    is no side door for a price list, and an automation may carry a quote
+    over or drop it, but never write a new one or change its words."""
+    from django.test import override_settings
+
+    from saas_core.modules.core.organizations.context import activate_tenant_context
+    from saas_core.modules.shared.sites.collections import (
+        save_entry_draft as write_entry,
+    )
+    from saas_core.modules.shared.sites.services import PersonRequired
+
+    client, organization, user = sites_client(slug="statements", role_key="owner")
+    site = create_site(client)
+    collection = create_collection(client, site.data["id"])
+    client.put(
+        f"/api/v1/sites/collections/{collection.data['id']}/policy/",
+        {"automation_policy": "automated"},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+    entry = create_entry(client, collection.data["id"], slug="wpis", idempotency_key="st-entry")
+    quote = {
+        "block_type": "core.quote",
+        "schema_version": 1,
+        "data": {"quote": "Słowa właściciela.", "author": "Anna"},
+    }
+    text = {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {"content": [{"type": "paragraph", "content": [{"text": "Wstęp."}]}]},
+    }
+    written = client.put(
+        f"/api/v1/sites/entries/{entry.data['id']}/draft/",
+        {"expected_version": 0, "blocks": [quote, text], "media_asset_ids": []},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+        HTTP_IDEMPOTENCY_KEY="st-person",
+    )
+    assert written.status_code in (200, 201), written.data
+    credential_id = uuid7()
+    _grant(
+        organization.id,
+        credential_id,
+        user.id,
+        collection_id=collection.data["id"],
+        mode="autonomous",
+        expires_at=timezone.now() + timedelta(days=7),
+        max_changes_per_day=100,
+        max_payload_bytes=1_000_000,
+    )
+    edited = {
+        **text,
+        "data": {"content": [{"type": "paragraph", "content": [{"text": "Nowy wstęp."}]}]},
+    }
+    pricing = {
+        "block_type": "core.pricing",
+        "schema_version": 1,
+        "data": {"title": "Cennik", "items": [{"name": "Usługa", "price": "100 zł"}]},
+    }
+    with override_settings(SITES_AUTONOMOUS_PILOT_ONLY=False), activate_tenant_context(
+        _automation(organization.id, user.id, credential_id)
+    ):
+        for key, blocks in [
+            ("st-pricing", [quote, edited, pricing]),
+            ("st-new-quote", [quote, edited, {**quote, "data": {"quote": "Cudze słowa."}}]),
+            ("st-changed", [{**quote, "data": {**quote["data"], "quote": "Inne słowa."}}]),
+            (
+                "st-node",
+                [
+                    quote,
+                    {
+                        **text,
+                        "data": {
+                            "content": [
+                                {"type": "quote", "content": [{"text": "Zmyślone."}]},
+                            ]
+                        },
+                    },
+                ],
+            ),
+        ]:
+            with pytest.raises(PersonRequired):
+                write_entry(
+                    entry_id=entry.data["id"],
+                    expected_version=1,
+                    blocks=blocks,
+                    idempotency_key=key,
+                )
+        # The quote carried over unchanged, the prose rewritten: allowed.
+        version, created = write_entry(
+            entry_id=entry.data["id"],
+            expected_version=1,
+            blocks=[quote, edited],
+            idempotency_key="st-carry",
+        )
+        assert created and version.number == 2

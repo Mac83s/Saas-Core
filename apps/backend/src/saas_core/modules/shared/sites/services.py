@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections import Counter
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
@@ -51,6 +53,7 @@ from .block_decoration import (
     validate_page_presentation,
     validate_presentation,
 )
+from .domains import InvalidHostname, link_host, normalize_hostname
 from .localization import (
     SiteLocalizationReport,
     build_localization_report,
@@ -62,6 +65,8 @@ from .models import (
     ContentAutomationGrant,
     ContentCollection,
     ContentEntryVersion,
+    Domain,
+    DomainStatus,
     NavigationItem,
     Page,
     PageAutomationPolicy,
@@ -78,7 +83,7 @@ from .models import (
     canonical_json_hash,
 )
 from .permissions import PAGES_MAX, SITE_CONTENT_EDIT, SITE_PUBLISH, SITES_ENABLED, SITES_MAX
-from .rich_content import assert_unique_anchors, block_asset_ids
+from .rich_content import assert_unique_anchors, block_asset_ids, block_links
 
 SITE_CREATED = "sites.site.created"
 PAGE_CREATED = "sites.page.created"
@@ -277,6 +282,12 @@ class AutomationChangeLimitReached(APIException):
     status_code = 429
     default_detail = "Dzienny limit zmian tego grantu został wyczerpany."
     default_code = "automation_change_limit_reached"
+
+
+class AutomationLinkHostForbidden(APIException):
+    status_code = 403
+    default_detail = "Grant nie pozwala linkować do tego hosta."
+    default_code = "automation_link_host_forbidden"
 
 
 class PersonRequired(APIException):
@@ -819,6 +830,63 @@ def _assert_grant_permits(
             raise AutomationChangeLimitReached
 
 
+def assert_links_within_grant(
+    context: TenantContext,
+    *,
+    site_id: UUID,
+    blocks: Any,
+    base_blocks: Any,
+    collection_id: UUID | None = None,
+) -> None:
+    """Refuses an automation's link to a host its grant does not name.
+
+    A link is a recommendation made in the customer's name, so an automation
+    links only to this site's own hostnames and to the grant's
+    `allowed_link_hosts`, compared exactly after IDNA normalization: a listed
+    host does not bring its subdomains. An empty list means internal links only.
+
+    Only links the change introduces are checked. One already in the draft it
+    replaces was put there by somebody else, and rewriting the paragraph around
+    it is not a new recommendation.
+    """
+    if not _is_automation(context):
+        return
+    introduced = block_links(blocks)
+    if not introduced:
+        return
+    kept = block_links(base_blocks)
+    leaving = {
+        href: host
+        for href in introduced
+        if href not in kept and (host := link_host(href)) is not None
+    }
+    if not leaving:
+        return
+    grant = assert_within_grant(context, site_id=site_id, collection_id=collection_id)
+    own = Domain.all_objects.filter(
+        organization_id=context.organization_id, site_id=site_id
+    ).exclude(status=DomainStatus.RELEASED)
+    allowed = _hostnames(list(own.values_list("hostname", flat=True)))
+    allowed |= _hostnames(grant.allowed_link_hosts if grant else [])
+    for href, host in leaving.items():
+        if host not in allowed:
+            raise AutomationLinkHostForbidden(
+                detail=f"{introduced[href]}: grant nie pozwala linkować do {host}."
+            )
+
+
+def _hostnames(values: Any) -> set[str]:
+    # A stored value that is not a list of hostnames names nothing, so it
+    # allows nothing.
+    found = set()
+    for value in values if isinstance(values, list) else []:
+        try:
+            found.add(normalize_hostname(str(value)))
+        except InvalidHostname:
+            continue
+    return found
+
+
 #: Policies under which an automation may write a draft. `PROPOSED` allows the
 #: draft and nothing further: turning it into what visitors see stays a
 #: person's act, which is the whole point of the setting.
@@ -835,6 +903,73 @@ PERSON_ONLY_PAGE_TYPES = frozenset({PageType.LEGAL})
 
 #: Blocks that carry commitments to a customer's customers rather than prose.
 PERSON_ONLY_BLOCK_TYPES = frozenset({"core.pricing"})
+
+
+def _statements(blocks: Iterable[Any]) -> Counter[str]:
+    """The words of every attributed statement, fingerprinted: a quote block's
+    quote and attribution, each testimonial, each quote node in rich text.
+    Anything else in those blocks (a layout, a title, a bound photo) is not
+    somebody's words."""
+    found: Counter[str] = Counter()
+
+    def add(words: dict[str, Any]) -> None:
+        found[canonical_json_hash({key: value for key, value in words.items() if value})] += 1
+
+    for block in blocks:
+        if not isinstance(block, dict) or not isinstance(block.get("data"), dict):
+            continue
+        data = block["data"]
+        if block.get("block_type") == "core.quote":
+            add({key: data.get(key) for key in ("quote", "author", "role", "context", "source")})
+        if block.get("block_type") == "core.testimonials":
+            for item in data.get("items") or []:
+                if isinstance(item, dict):
+                    add({key: item.get(key) for key in ("quote", "author", "role")})
+        content = data.get("content")
+        for node in content if isinstance(content, list) else []:
+            if isinstance(node, dict) and node.get("type") == "quote":
+                add({key: node.get(key) for key in ("content", "author", "source")})
+    return found
+
+
+def _catalogue_statements() -> Counter[str]:
+    """Statements that ship in the page recipes (in the offered ones only
+    [Uzupełnij: …] slots): a blueprint importing a recipe carries them in,
+    which is the catalogue speaking, not the automation."""
+    from .page_templates import page_template_catalog
+
+    found: Counter[str] = Counter()
+    for versions in page_template_catalog().templates.values():
+        for template in versions.values():
+            for blocks in (template.blocks, *template.localized_blocks.values()):
+                for key in _statements(blocks):
+                    found[key] = len(blocks) + 1  # as many as a page may hold
+    return found
+
+
+def assert_person_blocks(
+    context: TenantContext,
+    blocks: list[dict[str, Any]],
+    previous: Callable[[], Iterable[Any]],
+) -> None:
+    """One check for every way blocks are written — page and entry drafts, and
+    the change sets routed through them. `previous` is read only for an
+    automation: the blocks of the draft being replaced.
+
+    Pricing blocks an automation outright. Attributed statements only when
+    their words are new: an automation may carry them over unchanged, drop
+    them or import them with a recipe, but never put words into anyone's
+    mouth (catalogue rule 4, docs/architecture/site-section-catalog.md), so
+    a page with a quote stays open to it."""
+    if not _is_automation(context):
+        return
+    if any(
+        isinstance(block, dict) and block.get("block_type") in PERSON_ONLY_BLOCK_TYPES
+        for block in blocks
+    ):
+        assert_person_required(context, "Cennik")
+    if _statements(blocks) - _statements(previous()) - _catalogue_statements():
+        assert_person_required(context, "Cytaty i opinie")
 
 
 def assert_person_required(context: TenantContext, what: str) -> None:
@@ -1005,11 +1140,24 @@ def save_draft(
         context,
         payload_bytes=len(json.dumps(blocks, ensure_ascii=False, separators=(",", ":"))),
     )
-    if any(
-        isinstance(block, dict) and block.get("block_type") in PERSON_ONLY_BLOCK_TYPES
-        for block in blocks
-    ):
-        assert_person_required(context, "Cennik")
+    assert_person_blocks(
+        context,
+        blocks,
+        lambda: PageBlock.all_objects.filter(
+            organization_id=context.organization_id, page_version_id=page.current_draft_id
+        )
+        .order_by("position")
+        .values("block_type", "data"),
+    )
+    assert_links_within_grant(
+        context,
+        site_id=page.site_id,
+        blocks=normalized_blocks,
+        base_blocks=PageBlock.all_objects.filter(
+            organization_id=context.organization_id,
+            page_version_id=page.current_draft_id,
+        ).values("data"),
+    )
     existing = PageVersion.all_objects.filter(
         organization_id=context.organization_id,
         page_id=page.id,

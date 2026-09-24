@@ -29,7 +29,10 @@ import {
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { Input } from "@saas-core/ui/components/input";
 import { Field, FieldLabel } from "@saas-core/ui/components/field";
-import { materializeTemplatePhoto } from "@saas-core/api-client";
+import {
+  ApiProblemError,
+  materializeTemplatePhoto,
+} from "@saas-core/api-client";
 import { sectionPreview } from "./template-media-preview";
 import { registry, editableBlocks, type BlockFormValues } from "./block-form";
 
@@ -116,7 +119,9 @@ export function SectionLibraryContent({
   const id = useId();
   const locale = useLocale() === "en" ? "en" : "pl";
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<false | "photoError" | "scannerBusy">(
+    false,
+  );
   const [limit, setLimit] = useState(12);
   const pending = useRef(false);
   const receipts = useRef(new Map<string, string>());
@@ -196,8 +201,14 @@ export function SectionLibraryContent({
       registry.validate(bound);
       onAdd(editableBlocks([bound])[0]);
       setSelected(null);
-    } catch {
-      if (mounted.current) setError(true);
+    } catch (failure) {
+      if (mounted.current)
+        setError(
+          failure instanceof ApiProblemError &&
+            failure.problem.code === "media_scanner_unavailable"
+            ? "scannerBusy"
+            : "photoError",
+        );
     } finally {
       pending.current = false;
       if (mounted.current) {
@@ -231,7 +242,7 @@ export function SectionLibraryContent({
           role="alert"
           className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
         >
-          {t("photoError")}
+          {t(error)}
         </p>
       )}
     </>

@@ -1,0 +1,594 @@
+{
+  "id": "core.premium_service",
+  "version": 2,
+  "category": "service",
+  "industries": [],
+  "labels": {
+    "pl": {
+      "name": "Usługa premium",
+      "description": "Strona usługi premium, która prowadzi do zapytania: szerokie zdjęcie na otwarcie, podejście, zakres współpracy, wybrane realizacje, podpisana deklaracja, odpowiedzi przed rozmową i formularz. Przykład: projekt wnętrza biura; wymień treści demonstracyjne przed publikacją."
+    },
+    "en": {
+      "name": "Premium service",
+      "description": "A premium service page that leads to an enquiry: a wide opening photograph, the approach, the scope of work, selected projects, a signed statement, answers before the first call and a form. Example: office interior design; replace the demonstration content before publishing."
+    }
+  },
+  "requiredEntitlements": ["sites.enabled"],
+  "pagePresentation": {
+    "schemaVersion": 2,
+    "width": "full",
+    "style": "premium"
+  },
+  "conversion": {
+    "goal": "inquiry",
+    "stages": [
+      "attention",
+      "interest",
+      "interest",
+      "proof",
+      "proof",
+      "objection",
+      "action"
+    ]
+  },
+  "blocks": [
+    {
+      "block_type": "core.hero",
+      "schema_version": 6,
+      "data": {
+        "title": "Biuro zaprojektowane wokół tego, jak pracuje Twój zespół",
+        "text": "Projektujemy biura, pracownie i gabinety dla firm, którym zależy, żeby przestrzeń pomagała w pracy, a nie tylko dobrze wyglądała na zdjęciach. Jedna osoba prowadzi projekt od pierwszej rozmowy do odbioru.",
+        "action": {
+          "label": "Umów rozmowę o projekcie",
+          "href": "#kontakt"
+        },
+        "secondaryAction": {
+          "label": "Zobacz, jak pracujemy",
+          "href": "#podejscie"
+        },
+        "layout": "banner"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "full"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 3,
+      "data": {
+        "layout": "lead_statement",
+        "eyebrow": "Podejście",
+        "lead": "Dobre biuro zaczyna się od tego, jak pracują ludzie, a nie od katalogu mebli.",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Zanim powstanie pierwszy szkic, spędzamy czas w Waszej obecnej przestrzeni i rozmawiamy z osobami, które będą z niej korzystać. Pytamy, gdzie się skupiają, gdzie rozmawiają i co dziś przeszkadza im najbardziej."
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Dopiero na tej podstawie proponujemy układ, materiały i światło. Każdą decyzję uzasadniamy, a koszty pokazujemy, zanim cokolwiek zostanie zamówione. Projekt ma działać w poniedziałek rano, nie tylko na wizualizacji."
+              }
+            ]
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "anchor": "podejscie"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 3,
+      "data": {
+        "layout": "alternating_chapters",
+        "eyebrow": "Zakres",
+        "title": "Co obejmuje współpraca",
+        "lead": "Prowadzimy projekt w całości albo w wybranych etapach. Zakres ustalamy na piśmie, zanim zaczniemy.",
+        "content": [
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "rozpoznanie",
+            "text": "Rozpoznanie"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Oglądamy i mierzymy przestrzeń, rozmawiamy z zespołem. Spisujemy potrzeby, ograniczenia budynku i budżet, w którym się poruszamy."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "koncepcja",
+            "text": "Koncepcja"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Pokazujemy układ pomieszczeń, strefy pracy i kierunek materiałów. Omawiamy go razem i poprawiamy, aż będzie pasował do sposobu, w jaki pracujecie."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "projekt-wykonawczy",
+            "text": "Projekt wykonawczy"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Przygotowujemy rysunki, zestawienia materiałów i mebli oraz opis dla wykonawców. Z tym dokumentem każda ekipa wie, co ma zrobić."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "nadzor-i-odbior",
+            "text": "Nadzór i odbiór"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Na budowie pilnujemy zgodności z projektem i odpowiadamy na pytania wykonawców. Kończymy wspólnym odbiorem i listą poprawek. [Uzupełnij: czy nadzór jest w cenie projektu, czy wyceniany osobno]."
+              }
+            ]
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "surface": "muted"
+      }
+    },
+    {
+      "block_type": "core.feature_list",
+      "schema_version": 4,
+      "data": {
+        "title": "Wybrane realizacje",
+        "lead": "Każdą realizację opisujemy za zgodą klienta: co było do zrobienia, jakie przyjęliśmy założenia i jak przestrzeń działa dziś.",
+        "items": [
+          {
+            "title": "[Uzupełnij: nazwa projektu, np. biuro zespołu projektowego]",
+            "text": "[Uzupełnij: zakres prac, powierzchnia i to, co zmieniło się dla zespołu – za zgodą klienta]."
+          },
+          {
+            "title": "[Uzupełnij: nazwa projektu, np. pracownia z salą spotkań]",
+            "text": "[Uzupełnij: od czego zaczął klient, co zaproponowaliście i jak przestrzeń działa dziś]."
+          },
+          {
+            "title": "[Uzupełnij: nazwa projektu, np. gabinet przyjęć]",
+            "text": "[Uzupełnij: najważniejsze założenie projektu i to, jak zostało zrealizowane]."
+          }
+        ],
+        "note": {
+          "title": "Chcesz zobaczyć więcej?",
+          "text": "Pełne opisy i zdjęcia realizacji pokazujemy podczas pierwszej rozmowy. Część projektów możemy prezentować wyłącznie za zgodą klientów."
+        },
+        "layout": "tiles"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "wide"
+      }
+    },
+    {
+      "block_type": "core.quote",
+      "schema_version": 1,
+      "data": {
+        "layout": "portrait",
+        "quote": "[Uzupełnij: zasada Twojej pracowni w jednym zdaniu, Twoimi słowami]",
+        "author": "[Uzupełnij: imię i nazwisko]",
+        "role": "[Uzupełnij: rola, np. architektka wnętrz, założycielka pracowni]",
+        "context": "[Uzupełnij: jedno zdanie o tym, skąd ta zasada]."
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "narrow",
+        "surface": "inverse"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 3,
+      "data": {
+        "layout": "numbered_sections",
+        "eyebrow": "Dobrze wiedzieć",
+        "title": "Odpowiedzi przed pierwszą rozmową",
+        "content": [
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "od-czego-zalezy-koszt",
+            "text": "Od czego zależy koszt"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Od powierzchni, zakresu i tego, czy prowadzimy także nadzór. [Uzupełnij: widełki ceny albo sposób wyceny, np. stawka za metr kwadratowy]. Wycenę dostajesz na piśmie po pierwszej rozmowie, przed podpisaniem umowy."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "ile-to-trwa",
+            "text": "Ile to trwa"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "[Uzupełnij: orientacyjny czas od pierwszej rozmowy do projektu wykonawczego]. Harmonogram ustalamy na starcie i od razu mówimy, jeśli coś może go przesunąć."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "gdzie-pracujemy",
+            "text": "Gdzie pracujemy"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "[Uzupełnij: miasto lub region]. Przy projektach poza nim ustalamy liczbę wizyt na miejscu i koszt dojazdu, zanim zaczniemy."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "pierwsza-rozmowa",
+            "text": "Co daje pierwsza rozmowa"
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Poznajemy przestrzeń i Wasze potrzeby, a Ty dowiadujesz się, jak poprowadzilibyśmy projekt i od czego zależy jego koszt. [Uzupełnij: czy pierwsza rozmowa jest bezpłatna]. Rozmowa do niczego nie zobowiązuje."
+              }
+            ]
+          }
+        ],
+        "action": {
+          "label": "Zapytaj o termin i wycenę",
+          "href": "#kontakt"
+        }
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "surface": "muted"
+      }
+    },
+    {
+      "block_type": "core.contact_form",
+      "schema_version": 1,
+      "data": {
+        "layout": "split",
+        "locale": "pl",
+        "title": "Opowiedz nam o swojej przestrzeni",
+        "text": "Napisz, jakie to wnętrze, ile osób będzie w nim pracować i kiedy chcecie się wprowadzić. Odpowiemy [Uzupełnij: kiedy, np. w ciągu dwóch dni roboczych] i zaproponujemy termin pierwszej rozmowy. Wiadomość do niczego nie zobowiązuje.",
+        "submit_label": "Umów rozmowę o projekcie",
+        "success_message": "Dziękujemy! Wiadomość dotarła. Odpowiemy e-mailem i zaproponujemy termin rozmowy.",
+        "privacy_label": "Informacje o prywatności"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "anchor": "kontakt"
+      }
+    }
+  ],
+  "localizedBlocks": {
+    "en": [
+      {
+        "block_type": "core.hero",
+        "schema_version": 6,
+        "data": {
+          "title": "An office designed around the way your team works",
+          "text": "We design offices, studios and consulting rooms for companies that want their space to help the work, not just look good in photos. One person leads the project from the first conversation to handover.",
+          "action": {
+            "label": "Book a project call",
+            "href": "#contact"
+          },
+          "secondaryAction": {
+            "label": "See how we work",
+            "href": "#approach"
+          },
+          "layout": "banner"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "full"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {
+          "layout": "lead_statement",
+          "eyebrow": "Approach",
+          "lead": "A good office starts with how people work, not with a furniture catalogue.",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Before the first sketch, we spend time in your current space and talk to the people who will use the new one. We ask where they focus, where they meet and what gets in their way most today."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Only then do we propose a layout, materials and lighting. We explain every decision and show the costs before anything is ordered. The design has to work on a Monday morning, not just in a rendering."
+                }
+              ]
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "anchor": "approach"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {
+          "layout": "alternating_chapters",
+          "eyebrow": "Scope",
+          "title": "What working with us covers",
+          "lead": "We run the whole project or selected stages. We agree the scope in writing before we start.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "discovery",
+              "text": "Discovery"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We walk and measure the space and talk to the team. We write down the needs, the constraints of the building and the budget we are working within."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "concept",
+              "text": "Concept"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We present the layout, the work zones and the direction for materials. We go through it together and refine it until it fits the way you work."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "detailed-design",
+              "text": "Detailed design"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We prepare drawings, schedules of materials and furniture, and a brief for contractors. With this document every crew knows exactly what to do."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "site-supervision",
+              "text": "Site supervision and handover"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "On site we make sure the work follows the design and answer the contractors’ questions. We finish with a joint handover and a snagging list. [Fill in: whether supervision is included or quoted separately]."
+                }
+              ]
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "surface": "muted"
+        }
+      },
+      {
+        "block_type": "core.feature_list",
+        "schema_version": 4,
+        "data": {
+          "title": "Selected projects",
+          "lead": "We describe every project with the client’s consent: what needed doing, what we set out to achieve and how the space works today.",
+          "items": [
+            {
+              "title": "[Fill in: project name, e.g. office for a design team]",
+              "text": "[Fill in: scope, floor area and what changed for the team – with the client’s consent]."
+            },
+            {
+              "title": "[Fill in: project name, e.g. studio with a meeting room]",
+              "text": "[Fill in: where the client started, what you proposed and how the space works today]."
+            },
+            {
+              "title": "[Fill in: project name, e.g. reception and consulting room]",
+              "text": "[Fill in: the key idea behind the design and how it was carried out]."
+            }
+          ],
+          "note": {
+            "title": "Want to see more?",
+            "text": "We share full write-ups and photographs during the first conversation. Some projects can only be shown with the client’s consent."
+          },
+          "layout": "tiles"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "wide"
+        }
+      },
+      {
+        "block_type": "core.quote",
+        "schema_version": 1,
+        "data": {
+          "layout": "portrait",
+          "quote": "[Fill in: your studio's principle in one sentence, in your own words]",
+          "author": "[Fill in: full name]",
+          "role": "[Fill in: role, e.g. interior architect, studio founder]",
+          "context": "[Fill in: one sentence on where this principle comes from]."
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "narrow",
+          "surface": "inverse"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {
+          "layout": "numbered_sections",
+          "eyebrow": "Good to know",
+          "title": "Answers before the first conversation",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "what-drives-the-cost",
+              "text": "What drives the cost"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Floor area, scope and whether we also supervise the work on site. [Fill in: price range or how you quote, e.g. a rate per square metre]. You get the quote in writing after the first conversation, before any contract is signed."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "how-long-it-takes",
+              "text": "How long it takes"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "[Fill in: typical time from the first conversation to the detailed design]. We set the schedule at the start and tell you straight away if anything might shift it."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "where-we-work",
+              "text": "Where we work"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "[Fill in: city or region]. For projects further afield we agree the number of site visits and travel costs before we start."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "first-conversation",
+              "text": "What the first conversation gives you"
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We get to know the space and your needs, and you learn how we would run the project and what its cost depends on. [Fill in: whether the first conversation is free]. It comes with no obligation."
+                }
+              ]
+            }
+          ],
+          "action": {
+            "label": "Ask about dates and a quote",
+            "href": "#contact"
+          }
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "surface": "muted"
+        }
+      },
+      {
+        "block_type": "core.contact_form",
+        "schema_version": 1,
+        "data": {
+          "layout": "split",
+          "locale": "en",
+          "title": "Tell us about your space",
+          "text": "Tell us what kind of space it is, how many people will work there and when you want to move in. We will reply [Fill in: when, e.g. within two working days] and suggest a date for the first conversation. Your message comes with no obligation.",
+          "submit_label": "Book a project call",
+          "success_message": "Thank you! Your message has arrived. We will reply by email and suggest a date for the conversation.",
+          "privacy_label": "Privacy information"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "anchor": "contact"
+        }
+      }
+    ]
+  },
+  "media": [
+    {
+      "id": "business",
+      "source": "assets/business-studio.png",
+      "filename": "business-studio.png",
+      "contentType": "image/png",
+      "sha256": "d913927c10daac2e3ceb7a2fcb28c00634dfe01961825509da104640e7f0fe43"
+    }
+  ],
+  "mediaBindings": [
+    {
+      "blockPosition": 0,
+      "mediaId": "business",
+      "alt": {
+        "pl": "Jasne biuro z dębowym stołem, laptopem i dwoma fotelami przy wysokich oknach",
+        "en": "A bright office with an oak table, a laptop and two armchairs by tall windows"
+      },
+      "path": ["image"]
+    }
+  ]
+}

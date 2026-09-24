@@ -1,7 +1,8 @@
 # Katalog sekcji Site Studio
 
-Status: pierwszy przekrój implementacji, 2026-09-19. Plan wykonawczy:
-`memex: desk/plans/saas-core-site-studio-templates.md`.
+Status: katalog v7 (faza 4 planu memex
+`saas-core-site-studio-rich-content-and-full-width`, paczka F4-P0a,
+2026-09-24). Plan wyjściowy: `memex: desk/plans/saas-core-site-studio-templates.md`.
 
 ## Kontrakt i zgodność
 
@@ -44,6 +45,27 @@ zmian oraz 8 nowych (cztery układy `core.rich_text` v2, dwa
 `core.feature_list` v4, `core.quote` i `core.product`). v5 dodaje opcjonalne
 `sampleMedia.path` i metadane dopasowania; szczegóły w
 [site-rich-content.md](site-rich-content.md).
+
+Od 2026-09-24 runtime czyta `section-templates.v7.json` (128 wpisów): v6
+bez zmian oraz wersje 2 ośmiu układów z fazy 2, na najnowszych schematach
+swoich bloków, z `conversion` i bez zmyślonych wypowiedzi i parametrów
+(miejsca `[Uzupełnij: …]`). Katalog jest dopisywany: wpis raz wydany nie
+zmienia się, nowa treść to nowa wersja tego samego id. Biblioteka i
+przełącznik układu w edytorze biorą `offeredSectionTemplates()` — najnowszą
+wersję każdego id (dziś 120 kart); starsze wersje zostają dla historii i
+testów. Schemat v7 pozwala na listę zdjęć przykładowych z osobnymi ścieżkami
+(pierwsze użycie: galerie) i identyfikatory z `sample-media.v1.json` zamiast
+stałej listy; proporcje obejmują 1:1, 4:5 i 16:9. Decyzja właściciela (2a,
+24.09): chowamy tylko karty zastąpione nowszą wersją, o dawnych rodzinach
+decydujemy przy raporcie fazy 4.
+
+Zmiana układu w edytorze nie usuwa treści. Gdy wybrany układ nie pokazuje
+wypełnionego pola, które pokazuje inny układ tego bloku, pod przełącznikiem
+pojawia się jego nazwa („Ten układ nie pokazuje: …”) — `hiddenFields()` w
+`@saas-core/site-blocks` renderuje blok z rejestrującym `editor.text` i
+`imageRenderer`. Każda wartość `layout` najnowszych schematów ma regułę CSS
+`--<layout>` albo jest na liście układów rysowanych strukturą bloku
+(`layout-css.test.ts`); backend waliduje seedy wszystkich wersji katalogu.
 
 ## Szablony nastawione na konwersję
 

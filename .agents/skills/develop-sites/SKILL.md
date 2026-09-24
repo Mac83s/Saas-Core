@@ -56,6 +56,21 @@ fail closed. `autonomous` means no per-change approval — it is still bounded b
 resource scope, limits, windows, command and link allowlists, the kill switch
 and the content policy, which can only narrow a grant.
 
+The link allowlist is `assert_links_within_grant` in `services.py`: an
+automation may link only to the site's own hostnames (its non-released
+`Domain` rows) and the grant's `allowed_link_hosts`, exact match after IDNA
+normalization, no implied subdomains; an empty list means internal links only.
+Paths, in-page anchors, `mailto:` and `tel:` have no host and pass. It runs in
+the change-set plan (so preview refuses too, before anything is written) and in
+`save_draft`/`save_entry_draft`, because a key also writes entry drafts
+directly. Hosts are read the way a browser reads them (`link_host` in
+`domains.py`: `//host`, `/\host`, userinfo, extra slashes). Links already in
+the draft being changed are exempt — they are the person's, not the
+automation's. Every block link field must be named `href`/`…Href`/`…_href`,
+the one exception being `core.entry_list` `items[].path` (`is_link_field` names
+it); a test holds every schema field whose pattern accepts a path or an
+`https://` URL to that rule. A person's session is never limited.
+
 The contract has **no command that changes a published address**, and it will
 not get one. `translation.update` carries `title`, `description`,
 `social_title`, `social_description` — no `slug`. Moving a URL costs the

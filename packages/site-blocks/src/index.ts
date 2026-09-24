@@ -22,6 +22,7 @@ export {
 export type * from "./types";
 export {
   coreSectionTemplates,
+  offeredSectionTemplates,
   sectionIndustries,
   sectionTemplateBlock,
   availableSectionTemplates,
@@ -29,6 +30,7 @@ export {
   replaceSectionLayout,
 } from "./section-templates";
 export type { SectionTemplate, CatalogLocale } from "./section-templates";
+export { hiddenFields, type HiddenField } from "./hidden-fields";
 
 export {
   pagePresentationClassName,

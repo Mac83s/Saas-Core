@@ -7,6 +7,7 @@
  *  panel, the future drag-and-drop canvas and the AI generator agree on what a
  *  block is — a second copy would drift the moment a block gains a field. */
 
+import { useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useLocale, useTranslations } from "next-intl";
 
@@ -26,10 +27,11 @@ import { z } from "zod";
 import {
   blockAssetIds,
   coreSiteBlockManifest,
-  coreSectionTemplates,
   createSiteBlockRegistry,
   ensureUniqueAnchors,
+  hiddenFields,
   InvalidBlockDataError,
+  offeredSectionTemplates,
   richTextAnchors,
   type BlockFieldDefinition,
   type JsonObject,
@@ -231,8 +233,32 @@ export function BlockFields<TValues extends FieldValues>({
     name: `${prefix}.presentation` as Path<TValues>,
   }) as SectionPresentation | undefined;
   const locale = useLocale() === "en" ? "en" : "pl";
-  const layouts = coreSectionTemplates().filter(
-    (template) => template.blockType === type,
+  // One option per layout: an industry template may reuse a universal one.
+  const layouts = offeredSectionTemplates().filter(
+    (template, position, all) =>
+      template.blockType === type &&
+      all.findIndex(
+        (other) => other.blockType === type && other.layout === template.layout,
+      ) === position,
+  );
+  const data = useWatch({
+    control: form.control,
+    name: `${prefix}.data` as Path<TValues>,
+  }) as JsonObject | undefined;
+  const hidden = useMemo(
+    () =>
+      data
+        ? hiddenFields(
+            {
+              block_type: type,
+              schema_version:
+                registry.definitions.get(type)?.latestVersion ?? 1,
+              data,
+            },
+            registry,
+          )
+        : [],
+    [data, type],
   );
   const layoutPath = `${prefix}.data.layout` as Path<TValues>;
   // A rich text without a layout is still exactly the v1 text and renders as
@@ -304,6 +330,19 @@ export function BlockFields<TValues extends FieldValues>({
             <p className="text-sm text-muted-foreground">
               {selectedTemplate.labels[locale].description}{" "}
               {t("sectionLibrary.preservesContent")}
+            </p>
+          )}
+          {hidden.length > 0 && (
+            <p className="text-sm" role="status">
+              {t("sectionLibrary.hiddenFields", {
+                fields: hidden
+                  .map(({ field, parent }) =>
+                    parent
+                      ? `${t(parent.labelKey)}: ${t(field.labelKey)}`
+                      : t(field.labelKey),
+                  )
+                  .join(", "),
+              })}
             </p>
           )}
         </Field>

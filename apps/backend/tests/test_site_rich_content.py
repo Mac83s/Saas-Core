@@ -816,7 +816,7 @@ def test_existing_recipes_keep_their_blueprint_slots():
         ), template_id
 
 
-def test_blueprint_slots_skip_quotes_blank_runs_and_captions():
+def test_blueprint_slots_skip_quotes_blank_runs_captions_and_owner_facts():
     template = PageTemplate(
         id="core.slots_test",
         version=1,
@@ -850,6 +850,22 @@ def test_blueprint_slots_skip_quotes_blank_runs_and_captions():
                 "schema_version": 1,
                 "data": {"title": "Produkt", "tagline": "Hasło", "text": "Opis"},
             },
+            {
+                "block_type": "core.testimonials",
+                "schema_version": 1,
+                "data": {"title": "Opinie", "items": [{"quote": "Słowa", "author": "Ktoś"}]},
+            },
+            {
+                "block_type": "core.faq",
+                "schema_version": 3,
+                "data": {
+                    "title": "Pytania",
+                    "items": [
+                        {"question": "Ile to kosztuje?", "answer": "[Uzupełnij: cena lub widełki]"},
+                        {"question": "How long?", "answer": "[Fill in: the usual time]"},
+                    ],
+                },
+            },
         ),
     )
     slots = {slot["key"]: slot["max_length"] for slot in template_slots(template)}
@@ -863,6 +879,11 @@ def test_blueprint_slots_skip_quotes_blank_runs_and_captions():
         "/2/data/title": 160,
         "/2/data/tagline": 200,
         "/2/data/text": 2000,
+        # Testimonials are skipped whole; an answer that is the owner's fact
+        # is not a slot, its question still is.
+        "/4/data/title": 120,
+        "/4/data/items/0/question": 200,
+        "/4/data/items/1/question": 200,
     }
 
 

@@ -8,7 +8,10 @@ import {
 import axe from "axe-core";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, expect, test, vi } from "vitest";
-import { materializeTemplatePhoto } from "@saas-core/api-client";
+import {
+  ApiProblemError,
+  materializeTemplatePhoto,
+} from "@saas-core/api-client";
 import en from "../../../../messages/en.json";
 import pl from "../../../../messages/pl.json";
 import { SectionLibraryContent } from "./section-library";
@@ -58,6 +61,30 @@ test.each(["pl", "en"] as const)(
     expect(onBusyChange.mock.calls.at(-1)).toEqual([false]);
   },
 );
+
+test("a busy photo scanner says so, and the section can be added again", async () => {
+  vi.mocked(materializeTemplatePhoto).mockRejectedValueOnce(
+    new ApiProblemError({
+      type: "about:blank",
+      title: "Busy",
+      status: 503,
+      code: "media_scanner_unavailable",
+      detail: "Server detail",
+      correlation_id: null,
+    }),
+  );
+  render(
+    <NextIntlClientProvider locale="pl" messages={pl}>
+      <SectionLibraryContent onAdd={vi.fn()} />
+    </NextIntlClientProvider>,
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "Dodaj: Klasyczne wprowadzenie" }),
+  );
+  expect((await screen.findByRole("alert")).textContent).toBe(
+    pl.Sites.sectionLibrary.scannerBusy,
+  );
+});
 
 test("limits initial thumbnail rendering and exposes the remaining catalogue", () => {
   render(

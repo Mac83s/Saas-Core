@@ -1,4 +1,4 @@
-import catalog from "@saas-core/contracts/site-blocks/section-templates.v6.json";
+import catalog from "@saas-core/contracts/site-blocks/section-templates.v7.json";
 
 import { setAtPath } from "./rich-text";
 
@@ -33,6 +33,9 @@ export interface SectionTemplate {
     requiredModules: readonly string[];
     media: string;
   };
+  /** v7 also allows a list of photos, each with its own path; no template
+   *  uses it yet — the loader and the library learn it with the first
+   *  gallery (phase 4, P3). */
   sampleMedia?: {
     id: string;
     alt: Record<"pl" | "en", string>;
@@ -51,11 +54,28 @@ export interface SectionTemplate {
   seed: Record<"pl" | "en", JsonObject>;
 }
 const templates = catalog.templates as unknown as readonly SectionTemplate[];
+const newest = new Map<string, SectionTemplate>();
+for (const template of templates)
+  if ((newest.get(template.id)?.version ?? 0) < template.version)
+    newest.set(template.id, template);
+// A newer version takes the place of the first one: the library keeps its
+// order when a template is revised.
+const offered = [...new Set(templates.map((template) => template.id))].map(
+  (id) => newest.get(id)!,
+);
 export type CatalogLocale = "pl" | "en";
 
-/** Versioned seed content only. Published blocks never consult this catalog. */
+/** Versioned seed content only. Published blocks never consult this catalog.
+ *  Every version of every template, including ones a newer version replaced. */
 export function coreSectionTemplates(): readonly SectionTemplate[] {
   return templates;
+}
+
+/** What the library and the layout switch offer: the newest version of each
+ *  template, where the template first appeared. Older versions stay in the
+ *  catalogue for history and tests. */
+export function offeredSectionTemplates(): readonly SectionTemplate[] {
+  return offered;
 }
 
 export function sectionIndustries() {
@@ -104,7 +124,7 @@ export function availableSectionTemplates(
     blockType?: string;
   },
 ): readonly SectionTemplate[] {
-  return templates.filter((template) => {
+  return offered.filter((template) => {
     if (context.blockType && template.blockType !== context.blockType)
       return false;
     if (
