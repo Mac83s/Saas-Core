@@ -13,6 +13,8 @@ const api = vi.hoisted(() => ({
   configureBookingSchedule: vi.fn(),
   createBookingCatalogItem: vi.fn(),
   getBookingCatalog: vi.fn(),
+  listInventoryItems: vi.fn(),
+  listInventoryBalances: vi.fn(),
 }));
 
 vi.mock("@saas-core/api-client", async (original) => ({
@@ -213,4 +215,34 @@ test("błąd wczytywania daje ponowienie", async () => {
 
   expect(await listed("Konsultacja")).toBeInTheDocument();
   expect(api.getBookingCatalog).toHaveBeenCalledTimes(2);
+});
+
+test("usługa, której materiał rozlicza jej moduł, nie ma produktów z magazynu", async () => {
+  api.listInventoryItems.mockResolvedValue([]);
+  api.listInventoryBalances.mockResolvedValue([]);
+  api.getBookingCatalog.mockResolvedValue({
+    ...CATALOG,
+    services: [
+      // Like HoofCare's herd visit: material goes per cow, never from here.
+      { ...CATALOG.services[0], takes_materials: false },
+      {
+        ...CATALOG.services[0],
+        id: "33333333-3333-4333-8333-444444444444",
+        name: "Masaż",
+        public_slug: "masaz",
+        takes_materials: true,
+      },
+    ],
+  });
+  render(
+    <NextIntlClientProvider locale="pl" messages={messages}>
+      <BookingSettings canManageBilling canUseInventory />
+    </NextIntlClientProvider>,
+  );
+  const products = await screen.findByLabelText("Usługa", {
+    selector: "#service-materials-service",
+  });
+  expect(
+    Array.from((products as HTMLSelectElement).options).map((o) => o.text),
+  ).toEqual(["Masaż"]);
 });

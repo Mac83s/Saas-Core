@@ -398,9 +398,22 @@ test("moduł nadaje rolom tylko własne uprawnienia i montuje tylko własny kod 
     /nie należy do saas_core\.modules\.core\.health/,
   );
 
+  // Own material only for a visit kind the module itself adds (ADR-055).
+  await assert.rejects(
+    validateDeployment(
+      "only-health",
+      await singleModuleRoot({
+        appointmentKinds: { "health.visit": "Wizyta" },
+        appointmentKindsWithOwnMaterials: ["health.other"],
+      }),
+    ),
+    /własne materiały dla nieznanego typu wizyty health\.other/,
+  );
+
   const own = await singleModuleRoot({
     roleGrants: { owner: ["health.read"] },
     appointmentKinds: { "health.visit": "Wizyta" },
+    appointmentKindsWithOwnMaterials: ["health.visit"],
     middleware: ["saas_core.modules.core.health.middleware.Own"],
     beatSchedule: {
       "health-own": {

@@ -429,9 +429,10 @@ function NewAppointmentForm({
   const warehouse = useWarehouse(canUseInventory);
   // The service's products until somebody edits them; then exactly what they typed.
   const [edited, setEdited] = useState<MaterialDraft[]>();
-  const drafts =
-    edited ??
-    draftsOf(catalog.services.find((one) => one.id === serviceId)?.materials);
+  const chosen = catalog.services.find((one) => one.id === serviceId);
+  // Its module takes the material itself (ADR-055): the calendar offers none.
+  const takesMaterials = canUseInventory && chosen?.takes_materials !== false;
+  const drafts = edited ?? draftsOf(chosen?.materials);
   const slots = search.slots?.filter(
     (slot) => !staffId || slot.staff_id === staffId,
   );
@@ -469,7 +470,9 @@ function NewAppointmentForm({
               phone: values.phone.trim(),
               locale: locale === "en" ? "en" : "pl",
             },
-            ...(edited ? { materials: materialsInput(edited) } : {}),
+            ...(edited && takesMaterials
+              ? { materials: materialsInput(edited) }
+              : {}),
           },
           idempotencyKey,
         ),
@@ -623,7 +626,7 @@ function NewAppointmentForm({
         </div>
         <FieldDescription>{t("contactHint")}</FieldDescription>
       </FieldSet>
-      {canUseInventory ? (
+      {takesMaterials ? (
         <FieldSet>
           <FieldLegend>{materials("title")}</FieldLegend>
           <FieldDescription>{materials("newDescription")}</FieldDescription>
@@ -745,7 +748,8 @@ function AppointmentDetails({
           </Fragment>
         ))}
       </dl>
-      {appointment.materials?.length || (canUseInventory && canManage) ? (
+      {appointment.takes_materials !== false &&
+      (appointment.materials?.length || (canUseInventory && canManage)) ? (
         <VisitMaterials
           appointment={appointment}
           editable={

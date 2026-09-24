@@ -79,6 +79,21 @@ każdym z nich. Moduł jest domyślnie włączony we wszystkich produktach.
 - Rdzeń dostał akcję „Zakończ wizytę” w kalendarzu panelu — wcześniej kończył
   wizyty tylko HoofCare.
 
+### Uzupełnienie 2026-09-24: rodzaje wizyt z własnym materiałem
+
+Decyzja właściciela (faza 7 planu magazynu, odpowiedź 4A): wizyty HoofCare nie
+biorą produktów przez kalendarz. Korektor zdejmuje materiał przy każdej krowie
+ze swojego zapasu (RW `hoofcare.entry`), a zakończenie wizyty w kalendarzu
+zdjęłoby go drugi raz — z magazynu głównego.
+
+- Deskryptor modułu dostaje opcjonalne `backend.appointmentKindsWithOwnMaterials`
+  — podzbiór jego `appointmentKinds`; kompozycja odmawia rodzaju, którego moduł
+  nie dodaje. Rdzeń składa je w `settings.APPOINTMENT_KINDS_OWN_MATERIALS`.
+- `booking.materials.takes_materials(kind)`: dla takich rodzajów usługa i wizyta
+  odmawiają produktów (400), wizyta nie kopiuje ich z usługi, a zakończenie ich
+  nie rozlicza (nawet wpisanych wcześniej). API panelu mówi to flagą
+  `takes_materials` przy usłudze i wizycie; panel chowa wtedy edytor produktów.
+
 ## Konsekwencje
 
 - Dziesięć tabel tenantowych z wymuszonym RLS (ADR-039): pozycja, kategoria,

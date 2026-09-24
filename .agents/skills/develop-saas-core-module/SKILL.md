@@ -85,7 +85,7 @@ verifies both directions.
    the layout owns the width. The page's actions go in its header, the list's
    filters in the table's `toolbar` (`DataTableSearch`, `DataTableFilter`),
    and the row's everyday actions are `RowActions` items with `inline` and an
-   icon. A page of a section is its own address plus an entry in
+   icon — "Edit" always, wherever the record can be edited. A page of a section is its own address plus an entry in
    `PANEL_SECTIONS` (`apps/frontend/src/lib/panel-navigation.ts`), which the
    menu unfolds — never tabs inside the page.
 

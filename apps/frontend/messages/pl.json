@@ -2381,7 +2381,9 @@
     "call": "Zadzwoń: {phone}",
     "animalsOfFarm": "Zwierzęta tego gospodarstwa",
     "openAnimal": "Karta zwierzęcia",
-    "farm": "Gospodarstwo"
+    "farm": "Gospodarstwo",
+    "editAnimal": "Edytuj zwierzę",
+    "animalSaved": "Zapisano zwierzę: {tag}."
   },
   "Animals": {
     "title": "Zwierzęta",
@@ -2452,7 +2454,10 @@
     "actions": "Działania",
     "actionsFor": "Działania: {tag}",
     "openCard": "Karta zwierzęcia",
-    "openFarm": "Przejdź do gospodarstwa"
+    "openFarm": "Przejdź do gospodarstwa",
+    "edit": "Edytuj zwierzę",
+    "saveChanges": "Zapisz zmiany",
+    "saved": "Zapisano: {tag}."
   },
   "StaffAccounts": {
     "title": "Konta pracowników kalendarza",

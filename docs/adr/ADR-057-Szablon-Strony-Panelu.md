@@ -29,8 +29,8 @@ zawijały się w dwa rzędy.
 
 1. **Szerokość należy do układu, nie do strony.** `panel/layout.tsx` ma jeden
    `<main>` (`PanelMain`): domyślnie 80 rem (`max-w-7xl`) z odstępami jak
-   dotąd; przełącznik w nagłówku panelu (`WidthToggle`, od 1536 px — niżej nie
-   ma czego rozszerzać) rozciąga go na całą szerokość. Wybór zapisuje cookie
+   dotąd; przełącznik w nagłówku panelu, obok przycisku menu (`WidthToggle`,
+   od 1536 px — niżej nie ma czego rozszerzać) rozciąga go na całą szerokość. Wybór zapisuje cookie
    `panel-width`, które czyta serwer — pierwszy render ma właściwą szerokość,
    bez mignięcia. Strona nie ustawia własnej szerokości ani `<main>`.
 2. **Strona to `PanelPage`** (`apps/frontend/src/components/panel/panel-page.tsx`):
@@ -67,6 +67,8 @@ zawijały się w dwa rzędy.
    osobnymi przyciskami w wierszu, reszta pod „…”. Na telefonie karta ma
    miejsce na jeden przycisk, więc wszystko jest w „…”. Działanie może być
    linkiem (`link: <Link href>`) — zostaje wtedy linkiem, nie udaje przycisku.
+   **„Edytuj” jest zawsze widoczne**, gdy edycja rekordu jest możliwa
+   (uzupełnienie właściciela po odbiorze 24.09) — nigdy tylko pod „…”.
    `DataTable` przyjmuje `emptyAction` — wyjście z pustej listy (wyczyść
    wyszukiwanie, dodaj pierwszą pozycję).
 

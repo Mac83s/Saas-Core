@@ -3255,6 +3255,7 @@ export interface components {
             location_name: string;
             resource_name: string | null;
             materials?: components["schemas"]["MaterialLine"][];
+            takes_materials?: boolean;
             self_service_token?: string | null;
         };
         AppointmentCreate: {
@@ -5309,6 +5310,7 @@ export interface components {
             duration_minutes: number;
             appointment_kind: string;
             materials?: components["schemas"]["MaterialInput"][];
+            takes_materials?: boolean;
         };
         SessionSummary: {
             /** Format: uuid */

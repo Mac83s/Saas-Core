@@ -19,6 +19,7 @@ from rest_framework.views import APIView
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 from saas_core.modules.shared.billing.authorization import authorize_entitled
 
+from . import materials as stock
 from .availability import available_slots
 from .models import Location, PublicBookingRoute, Resource, SelfServiceRoute, Service, StaffMember
 from .security import public_booking_context, token_digest
@@ -84,7 +85,14 @@ def _appointment_payload(
         "location_name": value.location.name,
         "resource_name": value.resource.name if value.resource else None,
         # The customer sees their visit, not the company's stock sheet.
-        **({} if public else {"materials": value.materials}),
+        **(
+            {}
+            if public
+            else {
+                "materials": value.materials,
+                "takes_materials": stock.takes_materials(value.service.appointment_kind),
+            }
+        ),
         **({"self_service_token": token} if token else {}),
     }
 
@@ -123,7 +131,15 @@ def _catalog_payload(value: dict[str, list[Any]], *, public: bool = False) -> di
                 "duration_minutes": x.duration_minutes,
                 "appointment_kind": x.appointment_kind,
                 # What a visit takes from the warehouse is the company's business.
-                **({} if public else {"materials": x.materials}),
+                **(
+                    {}
+                    if public
+                    else {
+                        "materials": x.materials,
+                        # A module that takes its own material (HoofCare) has none here.
+                        "takes_materials": stock.takes_materials(x.appointment_kind),
+                    }
+                ),
             }
             for x in value["services"]
             if x.active
