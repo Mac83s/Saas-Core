@@ -68,7 +68,9 @@ mediów; nieznany wynik płatnego wywołania nie uruchamia kolejnego).
    http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia`
    (dla PNG jako chunk iTXt `XML:com.adobe.xmp`). Oryginał od dostawcy z jego
    manifestem C2PA zostaje prywatnie pod `source_object_key` jako kopia dowodowa
-   i znika przy tombstone oraz erasure. Nie zapisujemy danych twórcy. Warstwą w
+   i znika przy tombstone oraz erasure; jego bajty liczą się do
+   `storage.bytes` razem z plikiem przetworzonym i wariantami. Nie zapisujemy
+   danych twórcy. Warstwą w
    pikselach jest SynthID dostawcy; jego przetrwanie po naszej normalizacji
    sprawdza pilot IG-0. Znacznik maszynowy jest zawsze — przełącznik z pkt 7
    go nie dotyczy.
@@ -153,20 +155,27 @@ Wyniki dostawcy:
 
 - odmowa moderacji → `refused`, zwolnienie kredytów, audyt z kategoriami, bez
   ponowienia; klient dostaje ogólny komunikat po polsku;
-- 429 limitu tempa, 502, 503, błąd połączenia przed wysłaniem → powrót do
+- 429 limitu tempa, 503, błąd połączenia przed wysłaniem → powrót do
   `queued` z `next_attempt_at` (backoff), ponowną wysyłkę robi zadanie
   uzgadniające, najwyżej 3 próby; bez Celery autoretry, bo dzierżawa blokowałaby
   ponowienie;
-- 429 `insufficient_quota` (twardy limit wydatków) → `failed` i blokada
-  dostawcy na godzinę: oferta pokazuje `available=false` wszystkim tenantom;
-- timeout odczytu, 500 i 504 po wysłaniu, dzierżawa wygasła w `running` →
-  `failed` z `provider_result_unknown`, bez drugiego płatnego wywołania;
+- `insufficient_quota` albo `billing_hard_limit_reached` (twardy limit
+  wydatków; OpenAI zwraca go jako 400 albo 429) → `failed` i blokada dostawcy
+  na godzinę: oferta pokazuje `available=false` wszystkim tenantom;
+- timeout odczytu, 500, 502 i 504 po wysłaniu, dzierżawa wygasła w `running` →
+  `failed` z `provider_result_unknown`, bez drugiego płatnego wywołania (502
+  odpowiada brzeg po awarii źródła, które mogło już wygenerować i obciążyć);
+- błąd storage albo bazy przy zapisie wyniku → `failed` z
+  `ingest_storage_error`, z kosztem i `provider_request_id` zapisanymi do
+  uzgodnienia z fakturą;
 - sukces → `stage_generated_media_asset` pod kontekstem członkostwa (zapis
   obiektu, rezerwa storage, audyt `media.asset.upload_initiated`, bez kolejki
   mediów), stan `ingesting`, a następnie **jedna** ścieżka przetwarzania: ten sam
   worker wywołuje `process_media_asset` (skan, normalizacja z XMP, warianty).
-  Niedostępny ClamAV zostawia `ingesting` z backoffem; dostawca nie jest
-  wywoływany drugi raz. `READY` → `succeeded`, obciążenie kredytów, audyt;
+  Niedostępny ClamAV zostawia `ingesting` z backoffem i przedłuża rezerwę
+  storage zasobu; dostawca nie jest wywoływany drugi raz. Rezerwa, która mimo
+  to wygasła albo została zwolniona, kończy zasób jako `REJECTED` z usunięciem
+  zapisanych plików, a zlecenie jako `failed` — bez doby ponowień. `READY` → `succeeded`, obciążenie kredytów, audyt;
   `REJECTED` → `failed` i zwolnienie kredytów (koszt dostawcy ponosimy my).
 
 Zadanie uzgadniające (`beatSchedule` modułu, co 60 s, na kolejce `ai`) iteruje

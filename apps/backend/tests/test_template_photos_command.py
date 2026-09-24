@@ -96,6 +96,24 @@ def test_a_session_writes_candidates_run_record_and_contact_sheet(
     assert "api_key" not in json.dumps(run).lower()
 
 
+def test_a_rerun_into_the_same_session_appends_and_never_pays_twice(
+    tmp_path: Path, contracts: Path, requests_sent: list[ImageRequest]
+) -> None:
+    out = tmp_path / "session"
+    generate_session(out, contracts)
+    first = (out / f"{SHOT}-1.jpg").read_bytes()
+
+    call_command(
+        "generate_template_photos", out=out, contracts_dir=contracts, only=SHOT, candidates=3
+    )
+
+    run = json.loads((out / "run.json").read_text(encoding="utf-8"))
+    assert len(requests_sent) == 3
+    assert [entry["provider_request_id"] for entry in run["files"]] == ["req_1", "req_2", "req_3"]
+    assert (out / f"{SHOT}-1.jpg").read_bytes() == first
+    assert f'<img src="{SHOT}-1.jpg"' in (out / "index.html").read_text(encoding="utf-8")
+
+
 def test_an_anchor_is_sent_as_a_reference(
     tmp_path: Path, contracts: Path, requests_sent: list[ImageRequest]
 ) -> None:

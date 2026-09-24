@@ -5,6 +5,8 @@ from .credits import commit_credits, operation_cost, release_credits, reserve_cr
 from .decisions import FeatureOperation, decide_feature, decide_quota
 from .quotas import (
     QuotaExceeded,
+    QuotaReservationConflict,
+    QuotaReservationExpired,
     QuotaUnavailable,
     adjust_quota_reservation,
     commit_quota,
@@ -20,6 +22,8 @@ __all__ = [
     "EntitlementRequired",
     "FeatureOperation",
     "QuotaExceeded",
+    "QuotaReservationConflict",
+    "QuotaReservationExpired",
     "QuotaUnavailable",
     "adjust_quota_reservation",
     "authorize_entitled",

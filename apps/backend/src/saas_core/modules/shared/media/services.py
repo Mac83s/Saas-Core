@@ -29,6 +29,9 @@ from saas_core.modules.core.organizations.tasks import issue_tenant_task_contrac
 from saas_core.modules.shared.billing.api import (
     FeatureOperation,
     QuotaExceeded,
+    QuotaReservationConflict,
+    QuotaReservationExpired,
+    QuotaUnavailable,
     adjust_quota_reservation,
     authorize_entitled,
     commit_quota,
@@ -739,12 +742,28 @@ def process_media_asset(
         content_type=processed.content_type,
     )
     stored_size = len(processed.content) + variant_size
+    if asset.ai_origin != AiOrigin.NONE:
+        # The provider original stays as evidence (ADR-059 pkt 6), so it is
+        # stored bytes like any other; tombstone releases it with the rest.
+        stored_size += len(raw_content)
     try:
         adjust_quota_reservation(asset.quota_reservation_key, amount=stored_size)
-    except QuotaExceeded:
+    except (
+        QuotaExceeded,
+        QuotaReservationConflict,
+        QuotaReservationExpired,
+        QuotaUnavailable,
+    ) as error:
+        # A hold that expired or was swept while the scanner was down, or an
+        # organization that lost access meanwhile, ends the asset here: the
+        # files just written would otherwise outlive any row that names them.
         return _reject_media_asset(
             asset,
-            code="media_quota_exceeded",
+            code=(
+                "media_quota_exceeded"
+                if isinstance(error, QuotaExceeded)
+                else "media_quota_unavailable"
+            ),
             storage=object_storage,
             scanned_at=checked_at,
             extra_object_keys=[*variant_keys, processed_object_key],
@@ -796,6 +815,25 @@ def process_media_asset(
         },
     )
     return asset
+
+
+def extend_media_processing_hold(*, asset_id: UUID) -> None:
+    """Keep an uploaded asset's storage hold alive while its scan waits.
+
+    The caller retries processing later (the scanner was unavailable); without
+    this the hold expires under it and the processed files have nowhere to go.
+    """
+    context = require_tenant_context()
+    asset = MediaAsset.all_objects.filter(
+        pk=asset_id, organization_id=context.organization_id
+    ).first()
+    if asset is None or asset.state != MediaAssetState.UPLOADED:
+        return
+    extend_quota_reservation(
+        asset.quota_reservation_key,
+        expires_at=timezone.now()
+        + timedelta(seconds=settings.MEDIA_PROCESSING_RESERVATION_TTL_SECONDS),
+    )
 
 
 def ai_generated_asset_ids(*, organization_id: UUID, asset_ids: Iterable[str]) -> set[str]:

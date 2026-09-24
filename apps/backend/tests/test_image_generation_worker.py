@@ -16,7 +16,11 @@ from django.db import connection
 from django.utils import timezone
 
 from saas_core.modules.core.organizations.models import Membership, MembershipStatus
-from saas_core.modules.shared.billing.models import CreditLedgerEntry, CreditReservation
+from saas_core.modules.shared.billing.models import (
+    CreditLedgerEntry,
+    CreditReservation,
+    QuotaReservation,
+)
 from saas_core.modules.shared.image_generation.models import ImageGenerationJob, JobState
 from saas_core.modules.shared.image_generation.provider import (
     GeneratedImage,
@@ -24,10 +28,14 @@ from saas_core.modules.shared.image_generation.provider import (
     ProviderError,
 )
 from saas_core.modules.shared.image_generation.services import PROVIDER_BLOCKED, WORKER_SEEN
-from saas_core.modules.shared.image_generation.tasks import reconcile_image_generation_jobs
+from saas_core.modules.shared.image_generation.tasks import (
+    reconcile_image_generation_jobs,
+    run_image_generation_job,
+)
 from saas_core.modules.shared.image_generation.worker import run_job
 from saas_core.modules.shared.media.models import MediaAsset, MediaAssetState
 from saas_core.modules.shared.media.scanner import MalwareVerdict
+from saas_core.modules.shared.media.storage import ObjectStorageError
 from test_image_generation_api import PROMPT, generation_client, post
 from test_media_api import MemoryStorage, UnavailableScanner, VerdictScanner, encoded_image
 
@@ -326,3 +334,122 @@ def test_erasure_removes_the_jobs_and_lists_every_object_including_the_original(
     )
     assert not ImageGenerationJob.all_objects.filter(organization_id=job.organization_id).exists()
     assert expected <= set(receipt.pending_object_keys)
+
+
+def hold(asset: MediaAsset) -> QuotaReservation:
+    return QuotaReservation.all_objects.get(idempotency_key=asset.quota_reservation_key)
+
+
+def test_the_kept_provider_original_counts_against_storage(
+    job: ImageGenerationJob, media: Any
+) -> None:
+    job = run(job, FakeProvider(image()))
+    asset = MediaAsset.all_objects.get(pk=job.media_asset_id)
+    stored = sum(len(content) for content, _ in media["storage"].objects.values())
+    assert asset.stored_size == stored
+    assert len(media["storage"].objects[asset.source_object_key][0]) == len(JPEG)
+    assert hold(asset).amount == stored
+
+
+def test_a_scanner_outage_keeps_the_storage_hold_alive(job: ImageGenerationJob, media: Any) -> None:
+    media["scanner"] = UnavailableScanner()
+    job = run(job, FakeProvider(image()))
+    asset = MediaAsset.all_objects.get(pk=job.media_asset_id)
+    QuotaReservation.all_objects.filter(pk=hold(asset).pk).update(
+        expires_at=timezone.now() + timedelta(minutes=1)
+    )
+    due(job)
+    job = run(job, FakeProvider(image()))
+    assert job.state == JobState.INGESTING
+    assert hold(asset).expires_at > timezone.now() + timedelta(minutes=30)
+
+
+@pytest.mark.parametrize("lost", ["expired", "released"])
+def test_a_lost_storage_hold_rejects_the_asset_and_ends_the_job(
+    job: ImageGenerationJob, media: Any, lost: str
+) -> None:
+    media["scanner"] = UnavailableScanner()
+    provider = FakeProvider(image())
+    job = run(job, provider)
+    asset = MediaAsset.all_objects.get(pk=job.media_asset_id)
+    if lost == "expired":
+        QuotaReservation.all_objects.filter(pk=hold(asset).pk).update(
+            expires_at=timezone.now() - timedelta(seconds=1)
+        )
+    else:
+        # What the expiry sweep leaves behind.
+        QuotaReservation.all_objects.filter(pk=hold(asset).pk).update(state="released")
+    media["scanner"] = VerdictScanner(MalwareVerdict.CLEAN)
+    due(job)
+    job = run(job, provider)
+    assert (job.state, job.error_code) == (JobState.FAILED, "media_quota_unavailable")
+    asset.refresh_from_db()
+    assert asset.state == MediaAssetState.REJECTED
+    # Nothing written for it outlives the row: no processed file, no variants.
+    assert media["storage"].objects == {}
+    assert credits(job) == "released"
+    assert len(provider.requests) == 1
+
+
+def test_a_storage_error_after_a_paid_call_is_recorded_not_left_unknown(
+    job: ImageGenerationJob, media: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def broken_put(**_: Any) -> None:
+        raise ObjectStorageError("synthetic outage")
+
+    monkeypatch.setattr(media["storage"], "put", broken_put)
+    job = run(job, FakeProvider(image()))
+    assert (job.state, job.error_code) == (JobState.FAILED, "ingest_storage_error")
+    assert job.cost_usd_micros == 41_000 and job.provider_request_id == "req_synthetic"
+    assert job.lease_token is None
+    assert credits(job) == "released"
+
+
+def test_store_locks_the_organization_before_the_storage_usage_row(
+    job: ImageGenerationJob, media: Any
+) -> None:
+    from django.test.utils import CaptureQueriesContext
+
+    provider = FakeProvider(image())
+    marker: list[int] = []
+    with CaptureQueriesContext(connection) as captured:
+        provider.during_call = lambda: marker.append(len(captured.captured_queries))
+        run(job, provider)
+    after_call = [query["sql"] for query in captured.captured_queries[marker[0] :]]
+
+    def first(fragment: str) -> int:
+        return next(
+            index for index, sql in enumerate(after_call) if fragment in sql and "FOR UPDATE" in sql
+        )
+
+    assert first('FROM "organizations_organization"') < first('FROM "billing_quotausage"')
+
+
+def test_finish_releases_the_headroom_before_settling_credits(
+    job: ImageGenerationJob, media: Any
+) -> None:
+    from django.test.utils import CaptureQueriesContext
+
+    with CaptureQueriesContext(connection) as captured:
+        run(job, FakeProvider(ProviderError("moderation_blocked", "refused")))
+    sql = [query["sql"] for query in captured.captured_queries]
+
+    def first(fragment: str) -> int:
+        return next(i for i, q in enumerate(sql) if fragment in q and "FOR UPDATE" in q)
+
+    assert first('FROM "billing_quotausage"') < first('FROM "billing_creditbalance"')
+
+
+def test_starting_a_job_refreshes_the_worker_heartbeat(
+    job: ImageGenerationJob, media: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        "saas_core.modules.shared.image_generation.tasks.run_job", lambda *args: None
+    )
+    cache.delete(WORKER_SEEN)
+    run_image_generation_job.run(str(job.organization_id), str(job.id))
+    assert cache.get(WORKER_SEEN)
+
+
+def test_an_unconsumed_reconcile_tick_expires() -> None:
+    assert reconcile_image_generation_jobs._get_exec_options()["expires"] == 120

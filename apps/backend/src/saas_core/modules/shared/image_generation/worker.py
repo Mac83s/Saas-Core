@@ -42,6 +42,7 @@ from saas_core.modules.shared.billing.api import (
 from saas_core.modules.shared.media.api import (
     MEDIA_MANAGE,
     MalwareScannerUnavailable,
+    extend_media_processing_hold,
     process_media_asset,
     stage_generated_media_asset,
 )
@@ -126,13 +127,14 @@ def _leased(organization_id: UUID, job: ImageGenerationJob) -> ImageGenerationJo
 
 def _finish(job: ImageGenerationJob, state: str, error_code: str = "") -> None:
     with activate_tenant_context(_settlement_context(job)):
+        # Usage row before credit balance: the order request_generation takes.
+        with suppress(ObjectDoesNotExist):  # a no-op once released
+            release_quota(_headroom_key(job))
         if job.credit_reservation_key:
             if state == JobState.SUCCEEDED:
                 commit_credits(job.credit_reservation_key)
             else:
                 release_credits(job.credit_reservation_key)
-        with suppress(ObjectDoesNotExist):  # a no-op once released
-            release_quota(_headroom_key(job))
         job.state = state
         job.error_code = error_code
         if state != JobState.REFUSED:
@@ -252,33 +254,52 @@ def _record_provider_error(
 def _store(
     organization_id: UUID, job: ImageGenerationJob, image: image_provider.GeneratedImage
 ) -> bool:
-    with transaction.atomic():
-        set_local_organization_id(organization_id)
-        current = _leased(organization_id, job)
-        if current is None:
-            return False
-        current.cost_usd_micros = image.cost_usd_micros
-        current.provider_request_id = image.provider_request_id[:120]
-        context = _membership_context(current)
-        try:
-            if context is None:
-                raise APIException
-            with activate_tenant_context(context):
-                release_quota(_headroom_key(current))
-                asset = stage_generated_media_asset(
-                    source_key=f"imagegen:{current.id}",
-                    filename=f"ai-{current.id}.jpg",
-                    content_type="image/jpeg",
-                    content=image.content,
-                )
-        except APIException:
-            # The member left or storage is full: the provider cost is ours.
-            _finish(current, JobState.FAILED, "ingest_refused")
-            return False
-        current.media_asset_id = asset.id
-        current.state = JobState.INGESTING
-        current.save()
+    try:
+        with transaction.atomic():
+            set_local_organization_id(organization_id)
+            current = _leased(organization_id, job)
+            if current is None:
+                return False
+            _record_cost(current, image)
+            # Organization before the storage usage row, the order
+            # request_generation and media uploads take; the reverse deadlocks.
+            Organization.objects.select_for_update().get(pk=organization_id)
+            context = _membership_context(current)
+            try:
+                if context is None:
+                    raise APIException
+                with activate_tenant_context(context):
+                    release_quota(_headroom_key(current))
+                    asset = stage_generated_media_asset(
+                        source_key=f"imagegen:{current.id}",
+                        filename=f"ai-{current.id}.jpg",
+                        content_type="image/jpeg",
+                        content=image.content,
+                    )
+            except APIException:
+                # The member left or storage is full: the provider cost is ours.
+                _finish(current, JobState.FAILED, "ingest_refused")
+                return False
+            current.media_asset_id = asset.id
+            current.state = JobState.INGESTING
+            current.save()
+    except Exception:
+        # Storage or the database failed after a paid call. The result is
+        # known, so it is recorded as such, with its cost, not left to expire
+        # into provider_result_unknown.
+        with transaction.atomic():
+            set_local_organization_id(organization_id)
+            current = _leased(organization_id, job)
+            if current is not None:
+                _record_cost(current, image)
+                _finish(current, JobState.FAILED, "ingest_storage_error")
+        return False
     return True
+
+
+def _record_cost(job: ImageGenerationJob, image: image_provider.GeneratedImage) -> None:
+    job.cost_usd_micros = image.cost_usd_micros
+    job.provider_request_id = image.provider_request_id[:120]
 
 
 def _ingest(organization_id: UUID, job: ImageGenerationJob) -> None:
@@ -305,10 +326,22 @@ def _ingest(organization_id: UUID, job: ImageGenerationJob) -> None:
             current = _leased(organization_id, job)
             if current is None:
                 return
+            if current.media_asset_id is not None:
+                # An outage alone must not expire the asset's storage hold.
+                with activate_tenant_context(_settlement_context(current)):
+                    extend_media_processing_hold(asset_id=current.media_asset_id)
             current.lease_token = None
             current.lease_until = None
             current.next_attempt_at = timezone.now() + _backoff(current.attempts)
             current.save()
+    except APIException:
+        # Anything else processing refuses would repeat on every claim for a
+        # day (scan, Pillow, uploads each time); the job ends here instead.
+        with transaction.atomic():
+            set_local_organization_id(organization_id)
+            current = _leased(organization_id, job)
+            if current is not None:
+                _finish(current, JobState.FAILED, "ingest_refused")
 
 
 @transaction.atomic

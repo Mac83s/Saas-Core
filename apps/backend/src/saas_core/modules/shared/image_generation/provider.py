@@ -41,8 +41,9 @@ class ProviderError(Exception):
     """What went wrong, as a code for the record and a kind for the caller's decision.
 
     - refused: moderation said no; never retried, credits released;
-    - retryable: the request provably did not run (429 rate limit, 502/503, a
-      connection that failed before the request was written);
+    - retryable: the request provably did not run (429 rate limit, 503, a
+      connection that failed before the request was written); a 502 is not
+      proof, since the edge answers it after an upstream that may have billed;
     - unknown: the request may have run and been paid for; never sent again;
     - quota: the spending limit is exhausted; the offer becomes unavailable;
     - config: no key, or the key was rejected;
@@ -216,9 +217,10 @@ def _http_error(error: urllib.error.HTTPError) -> ProviderError:
         error.close()
     if status == 400 and code in REFUSAL_CODES:
         return ProviderError(code, "refused")
-    if status == 429 and (code in QUOTA_CODES or error_type in QUOTA_CODES):
+    # The hard spend limit arrives as 400 billing_hard_limit_reached, not 429.
+    if 400 <= status < 500 and (code in QUOTA_CODES or error_type in QUOTA_CODES):
         return ProviderError(code or error_type, "quota")
-    if status in {429, 502, 503}:
+    if status in {429, 503}:
         return ProviderError(f"openai_http_{status}", "retryable")
     if status in {401, 403}:
         return ProviderError(f"openai_http_{status}", "config")

@@ -126,6 +126,12 @@ class Command(BaseCommand):
             "createdAt": datetime.now(UTC).isoformat(timespec="seconds"),
             "files": [],
         }
+        if (out / "run.json").is_file():
+            # A rerun into the same session appends: what was already bought
+            # stays in the cost total, the records and the contact sheet.
+            run = _read_json(out / "run.json")
+            if run.get("model") != model:
+                raise CommandError(f"{out} to sesja modelu {run.get('model')}; podaj inny --out.")
         try:
             self._candidates(out, contracts, shots_file, shots, run, candidates, quality, model)
         finally:
@@ -156,6 +162,9 @@ class Command(BaseCommand):
             )
             for number in range(1, candidates + 1):
                 name = f"{shot['id']}-{number}.jpg"
+                if (out / name).is_file():
+                    self.stdout.write(f"{name}: już jest, pomijam")
+                    continue
                 entry: dict[str, Any] = {"shot": shot["id"], "candidate": number}
                 started = time.monotonic()
                 try:

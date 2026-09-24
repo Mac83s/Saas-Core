@@ -153,13 +153,16 @@ def test_references_switch_to_edits_with_data_uris() -> None:
         (http_error(400, "content_policy_violation"), "refused"),
         (http_error(429, "insufficient_quota", "insufficient_quota"), "quota"),
         (http_error(429, "", "billing_hard_limit_reached"), "quota"),
+        # The project spend limit: 400, not 429, and still the cost ceiling.
+        (http_error(400, "billing_hard_limit_reached", "invalid_request_error"), "quota"),
         (http_error(429, "rate_limit_exceeded", "requests"), "retryable"),
-        (http_error(502), "retryable"),
         (http_error(503), "retryable"),
         (urllib.error.URLError(ConnectionRefusedError()), "retryable"),
         (TimeoutError(), "unknown"),
         (ConnectionResetError(), "unknown"),
         (http_error(500), "unknown"),
+        # The edge answers 502 after an upstream that may have billed the image.
+        (http_error(502), "unknown"),
         (http_error(504), "unknown"),
         (http_error(401), "config"),
         (http_error(403), "config"),

@@ -18,16 +18,23 @@ INGEST_TIMEOUT = timedelta(hours=24)
 REFUSED_PROMPT_RETENTION = timedelta(days=30)
 
 
+WORKER_SEEN_TTL = 300
+
+
 @shared_task(queue="ai")  # type: ignore[untyped-decorator]
 def run_image_generation_job(organization_id: str, job_id: str) -> None:
+    # A busy worker is alive too: reconcile ticks queue behind the paid calls.
+    cache.set(WORKER_SEEN, 1, WORKER_SEEN_TTL)
     run_job(UUID(organization_id), UUID(job_id))
 
 
-@shared_task(queue="ai")  # type: ignore[untyped-decorator]
+# A tick nobody consumed within two minutes is dropped, not piled up for a
+# worker-ai that is absent or down.
+@shared_task(queue="ai", expires=120)  # type: ignore[untyped-decorator]
 def reconcile_image_generation_jobs() -> int:
     # The heartbeat: this task runs only where a worker consumes `ai`, and the
     # offer is unavailable without it (a product with no worker-ai stays dark).
-    cache.set(WORKER_SEEN, 1, 300)
+    cache.set(WORKER_SEEN, 1, WORKER_SEEN_TTL)
     count = 0
     for organization_id in billing_organization_ids():
         with transaction.atomic():
