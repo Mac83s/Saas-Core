@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:91a4815be2581a9eecb0d0fa8cd3f8274e45455764ec3ba1b74124708940fcb6",
+  "profileHash": "sha256:52456d1a3984e24a9843e56212f47be384b674693769d343f682d16792e52c8e",
   "schemaVersion": 1,
   "deployment": "vps-dev",
   "product": {
@@ -299,17 +299,40 @@
       ],
       "backend": {
         "djangoApp": "saas_core.modules.shared.image_generation",
-        "urlPrefix": null,
-        "permissions": [],
-        "entitlements": [],
+        "urlPrefix": "/api/v1/image-generation",
+        "permissions": [
+          "image_generation.run"
+        ],
+        "roleGrants": {
+          "manager": [
+            "image_generation.run"
+          ],
+          "admin": [
+            "image_generation.run"
+          ],
+          "owner": [
+            "image_generation.run"
+          ]
+        },
+        "entitlements": [
+          "image_generation.enabled"
+        ],
         "eventSchemas": [],
         "publicTables": [],
-        "platformTables": []
+        "platformTables": [],
+        "beatSchedule": {
+          "image-generation-reconcile": {
+            "task": "saas_core.modules.shared.image_generation.tasks.reconcile_image_generation_jobs",
+            "schedule": 60
+          }
+        }
       },
       "frontend": {
         "routes": [],
         "navigation": [],
-        "translationNamespaces": []
+        "translationNamespaces": [
+          "imageGeneration"
+        ]
       }
     },
     {

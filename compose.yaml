@@ -383,6 +383,49 @@ services:
           cpus: "1.0"
           memory: 512m
 
+  # ADR-059: the paid image calls (up to 150 s each) run on their own queue so
+  # they never hold up media scanning on `worker`. Without this consumer the
+  # reconcile heartbeat is missing and the offer says available=false.
+  # ponytail: concurrency 2 is the OpenAI rate limiter; a Redis token bucket
+  # comes with more than one worker-ai or one OpenAI organization shared by products.
+  worker-ai:
+    <<: *backend-service
+    environment:
+      <<: *backend-environment
+      LOG_SERVICE: worker-ai
+    command:
+      - sh
+      - -c
+      - >-
+        python manage.py check_database_role &&
+        python manage.py check_malware_scanner &&
+        exec celery -A saas_core.config.celery worker --loglevel=INFO -Q ai
+        --concurrency=2 --hostname=worker-ai@%h --max-tasks-per-child=200
+    depends_on:
+      clamav:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_grace_period: 45s
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "celery -A saas_core.config.celery inspect ping --destination worker-ai@$$HOSTNAME --timeout 5 | grep --quiet pong",
+        ]
+      interval: 15s
+      timeout: 8s
+      start_period: 20s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 768m
+
   scheduler:
     <<: *backend-service
     environment:

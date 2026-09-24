@@ -2361,6 +2361,135 @@ paths:
               schema:
                 $ref: '#/components/schemas/Health'
           description: ''
+  /api/v1/image-generation/jobs/:
+    post:
+      operationId: image_generation_jobs_create
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: Klucz bezpiecznego ponowienia zlecenia w zakresie organizacji
+          i użytkownika.
+        required: true
+      tags:
+      - image-generation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImageGenerationRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ImageGenerationRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ImageGenerationRequest'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageGenerationJob'
+          description: ''
+        '202':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageGenerationJob'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '402':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/image-generation/jobs/{job_id}/:
+    get:
+      operationId: image_generation_jobs_retrieve
+      parameters:
+      - in: path
+        name: job_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - image-generation
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageGenerationJob'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/image-generation/offer/:
+    get:
+      operationId: image_generation_offer
+      tags:
+      - image-generation
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImageGenerationOffer'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/inventory/adjustments/:
     post:
       operationId: inventory_adjustment_create
@@ -12605,6 +12734,115 @@ components:
       - page
       - page_size
       - total
+    ImageGenerationAspectEnum:
+      enum:
+      - '16:9'
+      - '4:3'
+      - '3:2'
+      type: string
+      description: |-
+        * `16:9` - 16:9
+        * `4:3` - 4:3
+        * `3:2` - 3:2
+    ImageGenerationJob:
+      type: object
+      description: 'Never the prompt: it is the customer''s text and is not echoed
+        back.'
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        state:
+          allOf:
+          - $ref: '#/components/schemas/ImageGenerationJobStateEnum'
+          readOnly: true
+        aspect:
+          type: string
+          readOnly: true
+        width:
+          type: integer
+          readOnly: true
+        height:
+          type: integer
+          readOnly: true
+        media_asset_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          readOnly: true
+        error_code:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        finished_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          readOnly: true
+      required:
+      - aspect
+      - created_at
+      - error_code
+      - finished_at
+      - height
+      - id
+      - media_asset_id
+      - state
+      - width
+    ImageGenerationJobStateEnum:
+      enum:
+      - queued
+      - running
+      - ingesting
+      - succeeded
+      - refused
+      - failed
+      type: string
+      description: |-
+        * `queued` - Queued
+        * `running` - Running
+        * `ingesting` - Ingesting
+        * `succeeded` - Succeeded
+        * `refused` - Refused
+        * `failed` - Failed
+    ImageGenerationOffer:
+      type: object
+      properties:
+        available:
+          type: boolean
+        credit_cost:
+          type: integer
+          minimum: 0
+        aspects:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImageGenerationAspectEnum'
+      required:
+      - aspects
+      - available
+      - credit_cost
+    ImageGenerationRequest:
+      type: object
+      properties:
+        prompt:
+          type: string
+          maxLength: 1000
+          minLength: 3
+        aspect:
+          $ref: '#/components/schemas/ImageGenerationAspectEnum'
+        expected_cost:
+          type: integer
+          minimum: 0
+      required:
+      - aspect
+      - expected_cost
+      - prompt
     InventoryAdjustInput:
       type: object
       properties:

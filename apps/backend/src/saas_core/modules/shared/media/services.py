@@ -320,6 +320,86 @@ def materialize_approved_media_asset(
         else MEDIA_TEMPLATE_IMPORT
     )
     context = authorize_entitled(permission, STORAGE_ENABLED)
+    object_storage = storage or get_object_storage()
+    asset, created = _stage_approved_bytes(
+        context=context,
+        source_key=source_key,
+        filename=filename,
+        content_type=content_type,
+        content=content,
+        ai_origin=ai_origin,
+        storage=object_storage,
+        enqueue_processing=True,
+    )
+    if not created:
+        if asset.state != MediaAssetState.READY:
+            raise MediaIdempotencyConflict
+        return ApprovedMediaMaterialization(asset=asset, created=False)
+    cleanup_keys = (
+        asset.object_key,
+        _processed_object_key(asset),
+        _variant_object_key(asset, "thumbnail"),
+        _variant_object_key(asset, "preview"),
+    )
+    try:
+        processed = process_media_asset(
+            asset_id=asset.id,
+            storage=object_storage,
+            scanner=scanner,
+        )
+        if processed is None or processed.state != MediaAssetState.READY:
+            raise ApprovedMediaMaterializationFailed
+    except Exception as error:
+        for object_key in cleanup_keys:
+            with suppress(ObjectStorageError):
+                object_storage.delete(object_key=object_key)
+        if isinstance(error, MalwareScannerUnavailable):
+            raise MediaScannerUnavailable from error
+        raise
+    return ApprovedMediaMaterialization(asset=processed, created=True)
+
+
+@transaction.atomic
+def stage_generated_media_asset(
+    *,
+    source_key: str,
+    filename: str,
+    content_type: str,
+    content: bytes,
+    storage: ObjectStorage | None = None,
+) -> MediaAsset:
+    """Store the provider's bytes as an uploaded AI asset, without processing it.
+
+    The caller (the image-generation worker) runs `process_media_asset` itself in
+    a later transaction, so there is one processing path and the Organization
+    lock is held only here. The same source key returns the same asset.
+    """
+    context = authorize_entitled(MEDIA_MANAGE, STORAGE_ENABLED)
+    asset, _created = _stage_approved_bytes(
+        context=context,
+        source_key=source_key,
+        filename=filename,
+        content_type=content_type,
+        content=content,
+        ai_origin=AiOrigin.GENERATED,
+        storage=storage or get_object_storage(),
+        enqueue_processing=False,
+    )
+    return asset
+
+
+def _stage_approved_bytes(
+    *,
+    context: TenantContext,
+    source_key: str,
+    filename: str,
+    content_type: str,
+    content: bytes,
+    ai_origin: str,
+    storage: ObjectStorage,
+    enqueue_processing: bool,
+) -> tuple[MediaAsset, bool]:
+    """Create, store and complete a server-held asset; the caller's transaction."""
     normalized_source_key = _idempotency_key(source_key)
     normalized_name = _safe_filename(filename)
     normalized_type = content_type.strip().lower()
@@ -350,13 +430,9 @@ def materialize_approved_media_asset(
     if existing is not None:
         # Provenance is compared beside the hash, not inside it, so assets
         # materialized before ai_origin existed still match their re-import.
-        if (
-            existing.request_hash != request_hash
-            or existing.ai_origin != origin
-            or existing.state != MediaAssetState.READY
-        ):
+        if existing.request_hash != request_hash or existing.ai_origin != origin:
             raise MediaIdempotencyConflict
-        return ApprovedMediaMaterialization(asset=existing, created=False)
+        return existing, False
 
     quota_identity = f"{context.organization_id}:{normalized_source_key}"
     quota_key = f"approved-media:{hashlib.sha256(quota_identity.encode()).hexdigest()}"
@@ -395,37 +471,21 @@ def materialize_approved_media_asset(
             "expected_size": len(content),
         },
     )
-
-    object_storage = storage or get_object_storage()
     original_key = asset.object_key
-    cleanup_keys = (
-        original_key,
-        _processed_object_key(asset),
-        _variant_object_key(asset, "thumbnail"),
-        _variant_object_key(asset, "preview"),
-    )
     try:
-        object_storage.put(
-            object_key=original_key,
-            content=content,
-            content_type=normalized_type,
-        )
-        _complete_media_upload(context=context, asset_id=asset.id, storage=object_storage)
-        processed = process_media_asset(
+        storage.put(object_key=original_key, content=content, content_type=normalized_type)
+        asset = _complete_media_upload(
+            context=context,
             asset_id=asset.id,
-            storage=object_storage,
-            scanner=scanner,
+            storage=storage,
+            enqueue_processing=enqueue_processing,
         )
-        if processed is None or processed.state != MediaAssetState.READY:
-            raise ApprovedMediaMaterializationFailed
-    except Exception as error:
-        for object_key in cleanup_keys:
-            with suppress(ObjectStorageError):
-                object_storage.delete(object_key=object_key)
-        if isinstance(error, MalwareScannerUnavailable):
-            raise MediaScannerUnavailable from error
+    except Exception:
+        # Object storage does not roll back with PostgreSQL.
+        with suppress(ObjectStorageError):
+            storage.delete(object_key=original_key)
         raise
-    return ApprovedMediaMaterialization(asset=processed, created=True)
+    return asset, True
 
 
 def discard_approved_media_asset_objects(

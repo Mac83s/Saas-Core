@@ -89,6 +89,7 @@ def test_core_only_registers_no_route_of_a_module_it_does_not_have() -> None:
         "api/v1/media/",
         "api/v1/notifications/",
         "api/v1/booking/",
+        "api/v1/image-generation/",
         "api/v1/public/site/",
         "internal/caddy/domains/authorize/",
     ):
@@ -98,8 +99,20 @@ def test_core_only_registers_no_route_of_a_module_it_does_not_have() -> None:
 def test_business_registers_the_routes_core_only_refuses() -> None:
     prefixes = route_prefixes(profile_modules("business"))
 
-    for present in ("api/v1/billing/", "api/v1/sites/", "api/v1/booking/"):
+    for present in (
+        "api/v1/billing/",
+        "api/v1/sites/",
+        "api/v1/booking/",
+        "api/v1/image-generation/",
+    ):
         assert present in prefixes
+
+
+def test_image_generation_is_scheduled_only_where_it_is_composed() -> None:
+    assert "image-generation-reconcile" in beat_schedule_for(
+        tuple(profile_modules("business")), CATALOG
+    )
+    assert beat_schedule_for(tuple(profile_modules("core-only")), CATALOG) == {}
 
 
 #: The verticals this repository carries. Saas-Core has none — a product is its
@@ -231,9 +244,12 @@ def test_core_only_schedules_no_work_for_modules_it_does_not_have() -> None:
 
 
 def test_the_running_deployment_schedules_only_its_own_modules() -> None:
+    # The owner is the module whose Django app holds the task: a descriptor id
+    # may spell the app with a hyphen (shared.image-generation).
+    apps = {str(descriptor.django_app): module_id for module_id, descriptor in CATALOG.items()}
     for name, entry in settings.CELERY_BEAT_SCHEDULE.items():
-        owner = str(entry["task"]).removeprefix("saas_core.modules.")
-        module_id = ".".join(owner.split(".")[:2])
+        task = str(entry["task"])
+        module_id = next(module for app, module in apps.items() if task.startswith(f"{app}."))
         assert module_id in settings.ACTIVE_MODULES, f"{name} należy do nieaktywnego {module_id}"
 
 
@@ -248,8 +264,7 @@ def test_installed_apps_are_the_composition_rather_than_a_second_list() -> None:
 
 def test_module_middleware_is_mounted_only_where_its_module_is() -> None:
     api_key = (
-        "saas_core.modules.shared.notifications.api_key_middleware."
-        "ApiKeyTenantContextMiddleware"
+        "saas_core.modules.shared.notifications.api_key_middleware.ApiKeyTenantContextMiddleware"
     )
     base = import_module("saas_core.config.settings.base")
 

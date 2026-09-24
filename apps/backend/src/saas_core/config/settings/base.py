@@ -806,6 +806,10 @@ SPECTACULAR_SETTINGS = {
     "ENUM_NAME_OVERRIDES": {
         "LocaleEnum": ["pl", "en"],
         "StockDocumentKindEnum": "saas_core.modules.shared.inventory.models.DocumentKind",
+        # A second `state` enum (image jobs) must not rename the SEO one.
+        "StateEnum": "saas_core.modules.shared.seo.models.AuditOrderState",
+        "ImageGenerationJobStateEnum": "saas_core.modules.shared.image_generation.models.JobState",
+        "ImageGenerationAspectEnum": ["16:9", "4:3", "3:2"],
     },
 }
 

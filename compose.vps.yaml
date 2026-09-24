@@ -91,6 +91,11 @@ services:
     secrets:
       - email_host_password
 
+  worker-ai:
+    environment: *vps-backend-environment
+    secrets:
+      - email_host_password
+
   scheduler:
     environment: *vps-backend-environment
     secrets:

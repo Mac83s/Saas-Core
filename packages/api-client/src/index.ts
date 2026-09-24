@@ -58,6 +58,56 @@ export async function requestSeoAudit(
   return data;
 }
 
+export type ImageGenerationOffer =
+  components["schemas"]["ImageGenerationOffer"];
+export type ImageGenerationJob = components["schemas"]["ImageGenerationJob"];
+export type ImageGenerationInput =
+  components["schemas"]["ImageGenerationRequest"];
+
+export async function getImageGenerationOffer(): Promise<ImageGenerationOffer> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/image-generation/offer/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function requestImageGeneration(
+  input: ImageGenerationInput,
+  idempotencyKey: string,
+): Promise<ImageGenerationJob> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/image-generation/jobs/",
+    {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function getImageGenerationJob(
+  jobId: string,
+  signal?: AbortSignal,
+): Promise<ImageGenerationJob> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/image-generation/jobs/{job_id}/",
+    {
+      params: { path: { job_id: jobId } },
+      credentials: "same-origin",
+      cache: "no-store",
+      signal,
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 export type HealthStatus = components["schemas"]["Health"];
 export type UserSummary = components["schemas"]["UserSummary"];
 export type SessionSummary = components["schemas"]["SessionSummary"];
