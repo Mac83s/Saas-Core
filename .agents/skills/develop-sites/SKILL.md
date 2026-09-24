@@ -66,8 +66,10 @@ the change-set plan (so preview refuses too, before anything is written) and in
 directly. Hosts are read the way a browser reads them (`link_host` in
 `domains.py`: `//host`, `/\host`, userinfo, extra slashes). Links already in
 the draft being changed are exempt — they are the person's, not the
-automation's. Every block link field must be named `href`/`…Href`/`…_href`;
-a test holds the schemas to it. A person's session is never limited.
+automation's. Every block link field must be named `href`/`…Href`/`…_href`,
+the one exception being `core.entry_list` `items[].path` (`is_link_field` names
+it); a test holds every schema field whose pattern accepts a path or an
+`https://` URL to that rule. A person's session is never limited.
 
 The contract has **no command that changes a published address**, and it will
 not get one. `translation.update` carries `title`, `description`,
