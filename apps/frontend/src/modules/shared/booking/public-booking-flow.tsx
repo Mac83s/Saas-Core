@@ -153,7 +153,12 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
           publicSlug,
           {
             ...booking,
-            customer: { display_name, email, phone: "", locale: "pl" },
+            customer: {
+              display_name,
+              email,
+              phone: "",
+              locale: locale === "en" ? "en" : "pl",
+            },
           },
           crypto.randomUUID(),
         );

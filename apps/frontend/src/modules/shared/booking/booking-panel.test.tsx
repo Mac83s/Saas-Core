@@ -781,7 +781,8 @@ test("public booking picks a day, then a time, and names nobody", async () => {
       display_name: "Anna Nowak",
       email: "anna@example.test",
       phone: "",
-      locale: "pl",
+      // The page's language, so an English customer gets English mail.
+      locale: "en",
     },
   });
 });
