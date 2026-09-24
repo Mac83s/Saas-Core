@@ -20,8 +20,10 @@
 # - configures mail for Resend SMTP but keeps the file backend (.runtime/emails)
 #   until the sending domain is verified (SAAS_CORE_EMAIL_BACKEND switches it).
 #
-# Interpolation comes from `.env` (DEPLOYMENT=vps-dev), secrets from
-# .runtime/secrets. Both are ignored by git. On a Linux host the secret files
+# Interpolation comes from `.env` (DEPLOYMENT=vps-dev, and
+# COMPOSE_PROFILES=image-generation to run worker-ai), secrets from
+# .runtime/secrets, where image_generation_openai_api_key must exist even
+# empty (`install -m 0644 /dev/null .runtime/secrets/image_generation_openai_api_key`). Both are ignored by git. On a Linux host the secret files
 # must be 0644 inside the 0700 directory: Compose bind-mounts them with the
 # host's mode and the services run as a non-root user, so the 0600 that
 # runtime-secrets.mjs writes is unreadable in the containers (Docker Desktop on

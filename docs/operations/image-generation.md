@@ -23,35 +23,74 @@ Wszystkie cztery warunki, nie mniej:
    nie w repo); pilot IG-0 pokazał, że SynthID przeżywa normalizację (inaczej
    najpierw podpis C2PA z IG-3).
 
+## Zanim wdrożysz tę gałąź na stos (każdy stos, także bez klucza)
+
+Plik klucza montują `backend` i `worker-ai`, więc musi istnieć przed
+`up`, także pusty (pusty = funkcja wyłączona). Brak pliku: Compose nie tworzy
+kontenera `backend` („bind source path does not exist”). Na hoście Linux prawa
+`0644` w katalogu `0700` — usługi działają jako `app` (uid 10001), a `0600`
+roota jest dla nich nieczytelne i settings padają przy starcie:
+
+```
+# vps-dev: .runtime/secrets; HoofCare: .runtime-hoofcare/secrets; MedPlano: .runtime-medplano/secrets
+f=.runtime/secrets/image_generation_openai_api_key
+test -f "$f" || install -m 0644 /dev/null "$f"   # nie zeruje istniejącego klucza
+```
+
+Staging: plik w `/opt/saas-core/secrets`; deploy sprawdza, że jest.
+
+`worker-ai` jest w `compose.yaml` za profilem `image-generation`: stos bez
+profilu nie ma go wcale. Włącza go `COMPOSE_PROFILES=image-generation` w pliku
+env stosu (`.env` na vps-dev, `.env.<produkt>` produktu); staging nazywa usługę
+wprost w skryptach deployu.
+
 ## Instalacja i rotacja klucza
 
 1. Klucz z projektu OpenAI danego produktu zapisz do
-   `${SAAS_CORE_SECRETS_DIR}/image_generation_openai_api_key` (prawa `0600`,
-   bez historii powłoki; szczegóły w [secrets.md](secrets.md)).
-2. Odtwórz usługi, które go czytają:
-   `docker compose up -d --force-recreate backend worker-ai`.
+   `${SAAS_CORE_SECRETS_DIR}/image_generation_openai_api_key` (na Linuksie
+   prawa `0644`, patrz wyżej; bez historii powłoki; szczegóły w
+   [secrets.md](secrets.md)).
+2. Odtwórz usługi, które go czytają, **z plikami overlayu danego stosu** (samo
+   `docker compose up` bierze tylko `compose.yaml`: na vps-dev backend traci
+   `ALLOWED_HOSTS` i odpowiada 400, w katalogu produktu trafia w projekt
+   `saas-core`):
+   - vps-dev: `docker compose -f compose.yaml -f compose.vps.yaml up -d
+     --force-recreate backend worker-ai`;
+   - produkt: `docker compose --env-file .env.<produkt> -f compose.yaml -f
+     compose.<produkt>.yaml up -d --force-recreate backend worker-ai`.
 3. W ciągu minuty zadanie uzgadniające zostawia ślad życia workera; oferta
    (`GET /api/v1/image-generation/offer/`) zaczyna mówić `available: true`.
 
 Rotacja: nowy klucz w tym samym projekcie OpenAI, podmiana pliku, ten sam
-recreate, dopiero potem unieważnienie starego klucza w OpenAI. Zlecenia w toku
-nie giną: wywołanie przerwane restartem kończy się `provider_result_unknown`
-bez obciążenia klienta i bez drugiego płatnego wywołania.
+recreate, dopiero potem unieważnienie starego klucza w OpenAI. `worker-ai` ma
+`stop_grace_period: 200s` (timeout dostawcy 150 s plus zapis), więc recreate
+czeka, aż wywołania w toku się skończą. Gdyby jednak coś je przerwało, zlecenie
+kończy się `provider_result_unknown` bez obciążenia klienta i bez drugiego
+płatnego wywołania.
 
 ## `worker-ai`
 
 Osobna usługa (`-Q ai --concurrency=2`), żeby wywołania do 150 s nie blokowały
-skanowania mediów. Musi istnieć w overlayu każdego produktu, który ma moduł
-`shared.image-generation` (HoofCare `compose.hoofcare.yaml`, MedPlano
-`compose.medplano.yaml`) z obrazem tego produktu, tak jak `worker`. Dopóki go
-nie ma, brak śladu życia trzyma ofertę na `available=false` — funkcja jest
-wyłączona, nie zepsuta.
+skanowania mediów. Produkt, który ma moduł `shared.image-generation`, po
+`core:update` **musi** dopisać ją do swojego overlayu (HoofCare
+`compose.hoofcare.yaml`, MedPlano `compose.medplano.yaml`) z obrazem, env i
+sekretami tego produktu, tak jak `worker`, i dopiero wtedy włączyć profil
+`image-generation`. Kolejność ma znaczenie: z profilem, a bez wpisu w overlayu,
+`worker-ai` dziedziczy obraz `saas-core-backend:local` — `--build` nadpisze nim
+obraz stosu Saas-Core (ostatni build wygrywa), a bez `--build` worker ruszy na
+obrazie vps-dev i padnie na niezgodności artefaktu. Bez profilu usługi nie ma
+wcale, brak śladu życia trzyma ofertę na `available=false` — funkcja jest
+wtedy wyłączona, nie zepsuta.
+
+Ślad życia odświeża zarówno zadanie uzgadniające, jak i start każdego
+zlecenia, więc zajęty worker nie gasi oferty. Tyknięcie uzgadniające, którego
+nikt nie odebrał w 2 minuty, wygasa w kolejce, zamiast czekać na worker.
 
 ## Blokada dostawcy (`provider_blocked`)
 
 Klucz cache `image_generation:provider_blocked` ustawia worker na godzinę, gdy
-OpenAI odpowie `429 insufficient_quota` (limit wydatków) albo odrzuci klucz
-(`401`/`403`). Oferta jest wtedy niedostępna dla wszystkich organizacji tego
+OpenAI odpowie `insufficient_quota` albo `billing_hard_limit_reached` (limit
+wydatków; przychodzi jako 400 albo 429) albo odrzuci klucz (`401`/`403`). Oferta jest wtedy niedostępna dla wszystkich organizacji tego
 deploymentu. Znika sama po TTL albo ręcznie, po usunięciu przyczyny:
 
 ```
@@ -82,7 +121,19 @@ następne zlecenie od razu ustawi blokadę ponownie.
 - miesięczny limit prób `image_generation.monthly` liczy każdą próbę, także
   odrzuconą (`409 quota_exceeded`);
 - przed zleceniem rezerwujemy 3 MiB `storage.bytes`, więc pełny dysk odmawia,
-  zanim zapłacimy dostawcy.
+  zanim zapłacimy dostawcy. Gotowy obraz liczy się do `storage.bytes` razem z
+  zachowanym oryginałem dostawcy (kopia dowodowa).
+
+## ClamAV niedostępny
+
+Zlecenie zostaje w `ingesting` z backoffem (do 10 min), a rezerwa storage
+zasobu jest przedłużana przy każdej próbie. Gdy rezerwa mimo to przepadnie
+(zwolniona, wygasła, organizacja straciła dostęp), zasób kończy jako
+`rejected` z usuniętymi plikami, a zlecenie jako `failed`
+(`media_quota_unavailable`) bez obciążenia klienta — nie ma doby ponowień.
+Błąd storage albo bazy przy zapisie wyniku kończy zlecenie jako
+`ingest_storage_error` z kosztem i `provider_request_id` do uzgodnienia z
+fakturą OpenAI.
 
 ## Odznaka „AI” (przełącznik operatora)
 
@@ -96,4 +147,6 @@ python manage.py set_ai_badge --show
 ```
 
 Każda zmiana to nowy wiersz z autorem i powodem. Znacznik XMP w plikach zostaje
-zawsze, niezależnie od przełącznika.
+zawsze, niezależnie od przełącznika. Panel czyta stan przełącznika z oferty
+(`badge_visible`): przy wyłączonej odznace nie obiecuje klientowi oznaczenia na
+stronie i nie rysuje odznaki w podglądzie.

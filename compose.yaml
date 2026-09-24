@@ -39,7 +39,6 @@ x-backend-environment: &backend-environment
   SEO_GSC_REDIRECT_URI: ${SEO_GSC_REDIRECT_URI:-}
   SEO_SSA_SERVICE_KEY_FILE: /run/secrets/seo_ssa_service_key
   SEO_SSA_CALLBACK_SECRET_FILE: /run/secrets/seo_ssa_callback_secret
-  IMAGE_GENERATION_OPENAI_API_KEY_FILE: /run/secrets/image_generation_openai_api_key
   IMAGE_GENERATION_BASE_URL: ${IMAGE_GENERATION_BASE_URL:-https://api.openai.com/v1}
   IMAGE_GENERATION_MODEL: ${IMAGE_GENERATION_MODEL:-gpt-image-2.5-flare-2026-09-08}
   IMAGE_GENERATION_TEMPLATE_MODEL: ${IMAGE_GENERATION_TEMPLATE_MODEL:-gpt-image-2.5-sunburst-2026-09-08}
@@ -86,7 +85,6 @@ x-backend-service: &backend-service
     - stripe_webhook_secret
     - seo_ssa_service_key
     - seo_ssa_callback_secret
-    - image_generation_openai_api_key
   volumes:
     - ${SAAS_CORE_LOGS_DIR:-.runtime/logs}:/var/log/saas-core
   networks:
@@ -293,7 +291,6 @@ services:
       - stripe_webhook_secret
       - seo_ssa_service_key
       - seo_ssa_callback_secret
-      - image_generation_openai_api_key
     depends_on:
       database-bootstrap:
         condition: service_completed_successfully
@@ -307,6 +304,21 @@ services:
       <<: *backend-environment
       LOG_SERVICE: backend
       PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus
+      # Only the API (the offer) and worker-ai (the call) read the image key,
+      # so a missing or unreadable file cannot take migrate, worker or the
+      # scheduler down with it.
+      IMAGE_GENERATION_OPENAI_API_KEY_FILE: /run/secrets/image_generation_openai_api_key
+    secrets:
+      - django_secret_key
+      - postgres_app_password
+      - postgres_identity_password
+      - object_storage_access_key_id
+      - object_storage_secret_access_key
+      - stripe_secret_key
+      - stripe_webhook_secret
+      - seo_ssa_service_key
+      - seo_ssa_callback_secret
+      - image_generation_openai_api_key
     networks:
       - app
       - data
@@ -386,13 +398,29 @@ services:
   # ADR-059: the paid image calls (up to 150 s each) run on their own queue so
   # they never hold up media scanning on `worker`. Without this consumer the
   # reconcile heartbeat is missing and the offer says available=false.
+  # Opt-in (COMPOSE_PROFILES=image-generation, or naming the service): a stack
+  # whose overlay does not give it the product image and env has none, rather
+  # than one built from the wrong profile under the shared image tag.
   # ponytail: concurrency 2 is the OpenAI rate limiter; a Redis token bucket
   # comes with more than one worker-ai or one OpenAI organization shared by products.
   worker-ai:
     <<: *backend-service
+    profiles: [image-generation]
     environment:
       <<: *backend-environment
       LOG_SERVICE: worker-ai
+      IMAGE_GENERATION_OPENAI_API_KEY_FILE: /run/secrets/image_generation_openai_api_key
+    secrets:
+      - django_secret_key
+      - postgres_app_password
+      - postgres_identity_password
+      - object_storage_access_key_id
+      - object_storage_secret_access_key
+      - stripe_secret_key
+      - stripe_webhook_secret
+      - seo_ssa_service_key
+      - seo_ssa_callback_secret
+      - image_generation_openai_api_key
     command:
       - sh
       - -c
@@ -409,7 +437,9 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
-    stop_grace_period: 45s
+    # Warm shutdown lets a paid call finish: 150 s provider timeout plus ingest.
+    # Shorter, and every recreate during a call pays OpenAI for a lost image.
+    stop_grace_period: 200s
     healthcheck:
       test:
         [

@@ -15,6 +15,10 @@ checkoutem i z prawami `0600`:
   stagingowego bucketa mediów;
 - `object_storage_secret_access_key` — odpowiadający sekret S3, udostępniany
   wyłącznie procesom backendu;
+- `image_generation_openai_api_key` — klucz projektu OpenAI generatora obrazów
+  (ADR-059), udostępniany wyłącznie `backend` i `worker-ai`. Plik musi
+  istnieć, także pusty (pusty = funkcja wyłączona); brak pliku zatrzymuje
+  deploy, bo Compose odmawia montażu nieistniejącego źródła;
 - późniejsze integracje dodają osobny plik na każdy sekret i przyznają go tylko
   usługom, które go potrzebują.
 

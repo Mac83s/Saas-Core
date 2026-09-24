@@ -89,14 +89,24 @@ magazyn 9–10 → pozostałe listy na DataTable.
   zlecenie z `Idempotency-Key`, odczyt bez promptu), `worker.py` na wzór SEO
   (dzierżawa, dostawca poza transakcją, ponowienia przez beat, blokada
   dostawcy 1 h, jedna ścieżka mediów przez `stage_generated_media_asset`),
-  usługa `worker-ai` (`-Q ai`) w compose, vps i staging, przycisk „Wygeneruj
-  obraz AI” w Site Studio (16:9, 4:3, figura 3:2; nie w slotach dowodowych),
-  runbook `docs/operations/image-generation.md`. Otwarte: dowód na
+  usługa `worker-ai` (`-Q ai`, profil Compose `image-generation`,
+  `stop_grace_period` 200 s) w compose, vps i skryptach deployu/rollbacku
+  stagingu, przycisk „Wygeneruj obraz AI” w Site Studio (16:9, 4:3, figura
+  3:2; nie w slotach dowodowych), runbook `docs/operations/image-generation.md`.
+  **Kroki wdrożenia (blokujące) na każdym stosie:** plik
+  `image_generation_openai_api_key` musi istnieć, także pusty, `0644`
+  (`test -f F || install -m 0644 /dev/null F` w `.runtime/secrets`,
+  `.runtime-hoofcare/secrets`, `.runtime-medplano/secrets`) — bez niego
+  Compose nie tworzy kontenera `backend`; `COMPOSE_PROFILES=image-generation`
+  w pliku env stosu uruchamia `worker-ai`. HoofCare i MedPlano po
+  `core:update`: najpierw wpis `worker-ai` w overlayu produktu (obraz, env,
+  sekrety jak `worker`), dopiero potem profil — inaczej `worker-ai` buduje się
+  pod tagiem `saas-core-backend:local` stosu Saas-Core. Otwarte: dowód na
   uruchomionym stacku (RLS trzema odczytami, job do `succeeded` z kluczem,
   odznaka po hoście, erasure obiektów, grep logów) — nie robiony, bo host
-  jest przeciążony i nie ma klucza; `worker-ai` w overlayach HoofCare i
-  MedPlano po `core:update`; przed klientami: klucz, Tier ≥ 2, limit wydatków
-  w projekcie OpenAI, przegląd prawnika (projekt ToS/AUP/DPA w planie memeksu).
+  jest przeciążony i nie ma klucza; przed klientami: klucz, Tier ≥ 2, limit
+  wydatków w projekcie OpenAI, przegląd prawnika (projekt ToS/AUP/DPA w planie
+  memeksu).
 - **P3 (plan 13:406-442):** powiązanie profilu osoby z witryną, konto klienta
   (`Customer.user`, „moje wizyty”), role specjalista/recepcja,
   `PolicyAcknowledgement`, skill tożsamości.
