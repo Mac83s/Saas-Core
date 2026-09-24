@@ -93,9 +93,10 @@
     },
     {
       "type": "core.contact_form",
-      "latestVersion": 1,
+      "latestVersion": 2,
       "schemas": {
-        "1": "core.contact_form.v1.schema.json"
+        "1": "core.contact_form.v1.schema.json",
+        "2": "core.contact_form.v2.schema.json"
       }
     },
     {

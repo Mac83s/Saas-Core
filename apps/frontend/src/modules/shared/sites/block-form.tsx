@@ -502,6 +502,18 @@ function BlockField<TValues extends FieldValues>({
           />
         ) : null}
       </div>
+    ) : field.kind === "choice" ? (
+      <NativeSelect
+        aria-invalid={Boolean(error)}
+        id={id}
+        {...form.register(name as never)}
+      >
+        {field.options?.map((option) => (
+          <option key={option} value={option}>
+            {t(`${field.labelKey}Options.${option}`)}
+          </option>
+        ))}
+      </NativeSelect>
     ) : field.kind === "textarea" ? (
       <Textarea
         aria-invalid={Boolean(error)}
@@ -608,7 +620,13 @@ function emptyFieldData(fields: readonly BlockFieldDefinition[]): JsonObject {
       target = nested;
     }
     const leaf = field.path[field.path.length - 1];
-    target[leaf] = field.kind === "list" || field.kind === "richText" ? [] : "";
+    // A choice starts at its first option, which is also what absent means.
+    target[leaf] =
+      field.kind === "list" || field.kind === "richText"
+        ? []
+        : field.kind === "choice"
+          ? (field.options?.[0] ?? "")
+          : "";
   }
   return data;
 }

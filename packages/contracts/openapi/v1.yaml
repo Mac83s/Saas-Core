@@ -15137,15 +15137,20 @@ components:
           type: string
           maxLength: 120
         email:
-          type: string
-          format: email
-          maxLength: 254
+          oneOf:
+          - type: string
+            format: email
+            default: ''
+            maxLength: 254
+          - type: string
+            maxLength: 0
         phone:
           type: string
           default: ''
           maxLength: 32
         message:
           type: string
+          default: ''
           maxLength: 5000
         website:
           type: string
@@ -15153,8 +15158,6 @@ components:
           maxLength: 200
       required:
       - block_position
-      - email
-      - message
       - name
       - path
       - publication_id

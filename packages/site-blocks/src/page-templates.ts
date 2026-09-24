@@ -11,7 +11,7 @@ import serviceGuide from "@saas-core/contracts/page-templates/core.service_guide
 import expertKnowledge from "@saas-core/contracts/page-templates/core.expert_knowledge.v2.json";
 import productFullStory from "@saas-core/contracts/page-templates/core.product_full_story.v1.json";
 import technicalB2b from "@saas-core/contracts/page-templates/core.technical_b2b.v1.json";
-import serviceFocused from "@saas-core/contracts/page-templates/core.service_focused.v1.json";
+import serviceFocused from "@saas-core/contracts/page-templates/core.service_focused.v2.json";
 import premiumService from "@saas-core/contracts/page-templates/core.premium_service.v1.json";
 import studioManifesto from "@saas-core/contracts/page-templates/core.studio_manifesto.v1.json";
 import caseStudy from "@saas-core/contracts/page-templates/core.case_study.v1.json";

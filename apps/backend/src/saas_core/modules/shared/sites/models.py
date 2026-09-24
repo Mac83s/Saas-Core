@@ -1769,9 +1769,11 @@ class SiteInquiry(TenantScopedModel):
     page_path = models.CharField(max_length=500)
     block_position = models.PositiveIntegerField()
     name = models.CharField(max_length=120)
-    email = models.EmailField(max_length=254)
+    # What a form requires depends on its variant: a call-back request may
+    # come without an e-mail or a message (core.contact_form v2).
+    email = models.EmailField(max_length=254, blank=True)
     phone = models.CharField(max_length=32, blank=True)
-    message = models.TextField(max_length=5000)
+    message = models.TextField(max_length=5000, blank=True)
     notification_message = models.ForeignKey(
         "notifications.NotificationMessage", on_delete=models.PROTECT, null=True, blank=True
     )

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { MailIcon, RefreshCwIcon } from "lucide-react";
+import { MailIcon, PhoneIcon, RefreshCwIcon } from "lucide-react";
 
 import {
   ApiProblemError,
@@ -349,10 +349,14 @@ function SiteInbox({ siteId }: { siteId: string }) {
                 </p>
               </header>
               <dl className="grid gap-3 text-sm">
-                <div>
-                  <dt className="text-muted-foreground">{t("email")}</dt>
-                  <dd className="break-all">{selected.email}</dd>
-                </div>
+                {/* A call-back form may arrive without an e-mail or a
+                    message; only what the visitor gave is shown. */}
+                {selected.email ? (
+                  <div>
+                    <dt className="text-muted-foreground">{t("email")}</dt>
+                    <dd className="break-all">{selected.email}</dd>
+                  </div>
+                ) : null}
                 {selected.phone ? (
                   <div>
                     <dt className="text-muted-foreground">{t("phone")}</dt>
@@ -368,12 +372,14 @@ function SiteInbox({ siteId }: { siteId: string }) {
                   <dd>{t(emailStatusKey(selected.email_status))}</dd>
                 </div>
               </dl>
-              <div className="space-y-2 border-t pt-4">
-                <h4 className="font-medium">{t("message")}</h4>
-                <p className="whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]">
-                  {selected.message}
-                </p>
-              </div>
+              {selected.message ? (
+                <div className="space-y-2 border-t pt-4">
+                  <h4 className="font-medium">{t("message")}</h4>
+                  <p className="whitespace-pre-wrap break-words text-sm leading-relaxed [overflow-wrap:anywhere]">
+                    {selected.message}
+                  </p>
+                </div>
+              ) : null}
               {readFailure === selected.id ? (
                 <p role="alert" className="text-sm text-destructive">
                   {t("readError")}
@@ -389,18 +395,33 @@ function SiteInbox({ siteId }: { siteId: string }) {
                   {t(reading === selected.id ? "markingRead" : "markRead")}
                 </Button>
               ) : null}
-              <div className="space-y-2 border-t pt-4">
-                <a
-                  className={buttonVariants()}
-                  href={`mailto:${encodeURIComponent(selected.email)}`}
-                >
-                  <MailIcon aria-hidden="true" />
-                  {t("reply")}
-                </a>
-                <p className="text-xs text-muted-foreground">
-                  {t("replyHint")}
-                </p>
-              </div>
+              {selected.email ? (
+                <div className="space-y-2 border-t pt-4">
+                  <a
+                    className={buttonVariants()}
+                    href={`mailto:${encodeURIComponent(selected.email)}`}
+                  >
+                    <MailIcon aria-hidden="true" />
+                    {t("reply")}
+                  </a>
+                  <p className="text-xs text-muted-foreground">
+                    {t("replyHint")}
+                  </p>
+                </div>
+              ) : selected.phone ? (
+                <div className="space-y-2 border-t pt-4">
+                  <a
+                    className={buttonVariants()}
+                    href={`tel:${selected.phone.replace(/[^\d+]/g, "")}`}
+                  >
+                    <PhoneIcon aria-hidden="true" />
+                    {t("call")}
+                  </a>
+                  <p className="text-xs text-muted-foreground">
+                    {t("callHint")}
+                  </p>
+                </div>
+              ) : null}
             </article>
           ) : (
             <p className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">

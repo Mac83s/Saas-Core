@@ -123,7 +123,8 @@ describe("site block registry", () => {
   it("rejects a catalogue field the block schema does not declare", () => {
     const withBadPath = (
       path: readonly string[],
-      kind: "text" | "list" = "text",
+      kind: "text" | "list" | "choice" = "text",
+      options?: readonly string[],
     ) =>
       defineSiteBlockManifest({
         moduleId: "vertical.example",
@@ -148,7 +149,7 @@ describe("site block registry", () => {
             catalog: {
               category: "about",
               labelKey: "notice",
-              fields: [{ path, kind, labelKey: "text" }],
+              fields: [{ path, kind, labelKey: "text", options }],
             },
           },
         ],
@@ -159,6 +160,10 @@ describe("site block registry", () => {
     expect(() => withBadPath(["headline"])).toThrow(InvalidBlockManifestError);
     // `text` is a string, so it cannot back a repeatable list.
     expect(() => withBadPath(["text"], "list")).toThrow(
+      InvalidBlockManifestError,
+    );
+    // A select may offer only what the contract's enum allows.
+    expect(() => withBadPath(["text"], "choice", ["a", "b"])).toThrow(
       InvalidBlockManifestError,
     );
     expect(() => withBadPath(["text"])).not.toThrow();

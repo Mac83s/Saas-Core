@@ -299,3 +299,28 @@ test("cofnięcie uprawnień podczas odczytu usuwa treść z widoku", async () =>
   expect(screen.queryByText(first.message)).toBeNull();
   expect(screen.queryByRole("list", { name: "Lista zapytań" })).toBeNull();
 });
+
+test("prośba o telefon bez e-maila i wiadomości daje przycisk „Zadzwoń”", async () => {
+  const callback = { ...first, email: "", message: "" };
+  listSiteInquiries.mockResolvedValue({ items: [callback], next_cursor: null });
+  markSiteInquiryRead.mockResolvedValue({
+    ...callback,
+    read_at: "2026-09-21T13:00:00Z",
+  });
+  renderInbox();
+  fireEvent.click(
+    await screen.findByRole("button", { name: /Example Visitor/ }),
+  );
+  const detail = await screen.findByRole("article", {
+    name: "Example Visitor",
+  });
+  expect(within(detail).queryByText("E-mail")).toBeNull();
+  expect(within(detail).queryByText("Treść wiadomości")).toBeNull();
+  expect(
+    within(detail).queryByRole("link", { name: "Odpowiedz e-mailem" }),
+  ).toBeNull();
+  expect(within(detail).getByRole("link", { name: "Zadzwoń" })).toHaveAttribute(
+    "href",
+    "tel:+48000000000",
+  );
+});

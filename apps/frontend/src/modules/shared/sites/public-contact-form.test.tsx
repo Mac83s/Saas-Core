@@ -223,3 +223,65 @@ test("blokuje powtórny submit w trakcie wysyłania i wysyła opcjonalny telefon
     ),
   );
 });
+
+test("formularz „Oddzwonimy” wymaga tylko imienia i poprawnego telefonu", async () => {
+  const result = render(
+    <PublicContactForm
+      blockPosition={2}
+      contact="callback"
+      locale="pl"
+      path="/kontakt/"
+      publicationId={publicationId}
+    />,
+  );
+  expect(screen.getAllByRole("textbox")).toHaveLength(4);
+  // The phone comes before the e-mail; the rest is marked optional.
+  const phone = screen.getByRole("textbox", { name: "Telefon" });
+  const email = screen.getByRole("textbox", {
+    name: "Adres e-mail (opcjonalnie)",
+  });
+  expect(
+    phone.compareDocumentPosition(email) & Node.DOCUMENT_POSITION_FOLLOWING,
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("textbox", { name: "Wiadomość (opcjonalnie)" }),
+  ).not.toBeRequired();
+  expect(phone).toBeRequired();
+
+  fireEvent.change(screen.getByRole("textbox", { name: "Imię i nazwisko" }), {
+    target: { value: "Example Visitor" },
+  });
+  send();
+  await waitFor(() => expect(phone).toHaveAttribute("aria-invalid", "true"));
+  fireEvent.change(phone, { target: { value: "zadzwoń" } });
+  send();
+  expect(
+    await screen.findByText("Podaj poprawny numer telefonu."),
+  ).not.toBeNull();
+  expect(submitPublicSiteInquiry).not.toHaveBeenCalled();
+
+  fireEvent.change(phone, { target: { value: "+48 600 000 000" } });
+  send();
+  await waitFor(() => expect(submitPublicSiteInquiry).toHaveBeenCalledTimes(1));
+  expect(submitPublicSiteInquiry.mock.calls[0][0]).toMatchObject({
+    name: "Example Visitor",
+    email: "",
+    phone: "+48 600 000 000",
+    message: "",
+  });
+  expect((await axe.run(result.container)).violations).toHaveLength(0);
+});
+
+test("formularz „Tylko e-mail” nie ma pola telefonu", () => {
+  render(
+    <PublicContactForm
+      blockPosition={2}
+      contact="email_only"
+      locale="en"
+      path="/kontakt/"
+      publicationId={publicationId}
+    />,
+  );
+  expect(screen.queryByRole("textbox", { name: /Phone/ })).toBeNull();
+  expect(screen.getByRole("textbox", { name: "Email address" })).toBeRequired();
+});

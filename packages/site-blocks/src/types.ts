@@ -296,10 +296,17 @@ export type ContactFormV1Data = JsonObject & {
   image?: { asset_id: string; alt: string };
 };
 
+/** Which contact details the form asks for (v2). Absent means `email`. */
+export type ContactFormMode = "email" | "callback" | "full" | "email_only";
+export type ContactFieldRule = "required" | "optional" | "hidden";
+export type ContactFormV2Data = ContactFormV1Data & {
+  contact?: ContactFormMode;
+};
+
 /** Runtime-only form adapter. A published snapshot never contains executable code. */
-export type BlockFormRenderer = (data: ContactFormV1Data) => ReactNode;
+export type BlockFormRenderer = (data: ContactFormV2Data) => ReactNode;
 export type PublishedFormRenderer = (
-  data: ContactFormV1Data,
+  data: ContactFormV2Data,
   blockPosition: number,
 ) => ReactNode;
 
@@ -367,7 +374,7 @@ export type BlockCategory =
 /** `richText` binds a whole structured node array (core.rich_text v2
  *  `content`); the panel edits it with its own writing panel. */
 export type BlockFieldKind =
-  "text" | "textarea" | "url" | "list" | "media" | "richText";
+  "text" | "textarea" | "url" | "list" | "media" | "richText" | "choice";
 
 /** How one editable value inside a block is presented. Deliberately data, not a
  *  component: the same manifest is loaded by the public renderer, which must not
@@ -387,6 +394,9 @@ export interface BlockFieldDefinition {
   readonly aspect?: readonly [number, number];
   /** Present exactly when `kind` is `"list"`: the shape of a single entry. */
   readonly item?: readonly BlockFieldDefinition[];
+  /** Present exactly when `kind` is `"choice"`: the allowed values; the first
+   *  is what an absent value means. Labels live in the panel's messages. */
+  readonly options?: readonly string[];
 }
 
 export interface BlockCatalogEntry {

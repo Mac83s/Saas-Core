@@ -110,9 +110,10 @@
     },
     {
       "id": "core.service_focused",
-      "latestVersion": 1,
+      "latestVersion": 2,
       "versions": {
-        "1": "core.service_focused.v1.json"
+        "1": "core.service_focused.v1.json",
+        "2": "core.service_focused.v2.json"
       }
     },
     {

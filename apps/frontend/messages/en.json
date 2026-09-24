@@ -1137,6 +1137,13 @@
     "contactHours": "Contact hours",
     "linkItems": "Links",
     "linkDescription": "Link description",
+    "contactMode": "What the form asks for",
+    "contactModeOptions": {
+      "email": "Write to us — email and message, phone optional",
+      "callback": "We'll call back — only the phone is required",
+      "full": "Full contact — email, phone and message",
+      "email_only": "Email only — no phone field"
+    },
     "submitLabel": "Submit button text",
     "successMessage": "Submission confirmation",
     "privacyLabel": "Privacy link text",
@@ -2658,6 +2665,8 @@
     "message": "Message",
     "reply": "Reply by email",
     "replyHint": "Opens your email app. You send the reply yourself.",
+    "call": "Call back",
+    "callHint": "The sender asked for a call and gave no email address.",
     "emailStatus": "Email notification to the owner",
     "emailQueued": "Queued",
     "emailProcessing": "Sending",

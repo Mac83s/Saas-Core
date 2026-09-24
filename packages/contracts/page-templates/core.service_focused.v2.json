@@ -1,0 +1,996 @@
+{
+  "id": "core.service_focused",
+  "version": 2,
+  "category": "service",
+  "industries": [],
+  "labels": {
+    "pl": {
+      "name": "Jedna usługa — konkret",
+      "description": "Strona jednej usługi, która prowadzi do telefonu: potrzeba klienta, zakres w skrócie, dla kogo jest usługa, przebieg wizyty, przygotowanie, pytania i prośba o oddzwonienie. Przykład: korekcja racic z dojazdem do gospodarstwa; wymień treści demonstracyjne przed publikacją."
+    },
+    "en": {
+      "name": "One service, to the point",
+      "description": "A single-service page that leads to a phone call: the customer’s need, the scope at a glance, who it is for, how a visit works, preparation, questions and a call-back request. Example: on-farm hoof trimming; replace the demonstration content before publishing."
+    }
+  },
+  "requiredEntitlements": ["sites.enabled"],
+  "pagePresentation": {
+    "schemaVersion": 2,
+    "width": "full",
+    "style": "organic"
+  },
+  "conversion": {
+    "goal": "call",
+    "stages": [
+      "attention",
+      "interest",
+      "interest",
+      "interest",
+      "objection",
+      "objection",
+      "action"
+    ]
+  },
+  "blocks": [
+    {
+      "block_type": "core.hero",
+      "schema_version": 6,
+      "data": {
+        "title": "Korekcja racic w Twojej oborze, bez wywożenia stada",
+        "text": "Dla hodowców bydła mlecznego i mięsnego. Przyjeżdżamy z poskromem, pracujemy na miejscu i po wizycie zostawiamy krótki zapis dla każdej sztuki. Dojeżdżamy do gospodarstw w okolicy: [Uzupełnij: powiaty lub promień dojazdu].",
+        "action": {
+          "label": "Zadzwoń i ustal termin",
+          "href": "tel:+48000000000"
+        },
+        "secondaryAction": {
+          "label": "Poproś o oddzwonienie",
+          "href": "#kontakt"
+        },
+        "layout": "split"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "wide"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 3,
+      "data": {
+        "layout": "summary_box",
+        "eyebrow": "Zakres usługi",
+        "title": "Co dostajesz w ramach jednej wizyty",
+        "lead": "Jedna usługa wykonana porządnie od początku do końca – bez pakietów, w których trudno się połapać.",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Oglądamy racice każdego zwierzęcia, które wskażesz, korygujemy je i opatrujemy miejsca, które tego wymagają. Jeśli zauważymy coś, co trzeba leczyć, mówimy wprost, kiedy potrzebny jest lekarz weterynarii."
+              }
+            ]
+          },
+          {
+            "type": "list",
+            "style": "bullet",
+            "items": [
+              {
+                "content": [
+                  {
+                    "text": "ocena racic i korekcja u wskazanych zwierząt,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "opatrzenie zmian, które tego wymagają,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "krótki zapis dla każdej sztuki: co zrobiliśmy i na co zwrócić uwagę,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "propozycja terminu kolejnej wizyty dopasowana do stada,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "[Uzupełnij: co jeszcze obejmuje wizyta, np. opatrunki lub klocki ortopedyczne]."
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "aside": {
+          "title": "W skrócie",
+          "content": [
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "Dla kogo:",
+                      "bold": true
+                    },
+                    {
+                      "text": " gospodarstwa z bydłem mlecznym i mięsnym."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Gdzie:",
+                      "bold": true
+                    },
+                    {
+                      "text": " w Twojej oborze albo przy wybiegu."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Ile trwa:",
+                      "bold": true
+                    },
+                    {
+                      "text": " [Uzupełnij: orientacyjny czas pracy przy stadzie danej wielkości]."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Koszt:",
+                      "bold": true
+                    },
+                    {
+                      "text": " [Uzupełnij: widełki ceny za sztukę albo zasady wyceny i koszt dojazdu]."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Po wizycie:",
+                      "bold": true
+                    },
+                    {
+                      "text": " zapis dla każdej sztuki i termin kolejnej wizyty."
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "surface": "muted"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 3,
+      "data": {
+        "layout": "two_parts",
+        "eyebrow": "Czy to dla Ciebie?",
+        "title": "Zanim zadzwonisz, sprawdź, czy się dogadamy",
+        "lead": "Wolimy powiedzieć od razu, z czym przyjedziemy, a z czym lepiej zwrócić się do kogoś innego.",
+        "content": [
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "dla-kogo",
+            "text": "Zadzwoń, jeśli…"
+          },
+          {
+            "type": "list",
+            "style": "bullet",
+            "items": [
+              {
+                "content": [
+                  {
+                    "text": "chcesz, żeby korekcja odbywała się na miejscu, bez przewożenia zwierząt,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "wolisz stały rytm wizyt niż wzywanie pomocy dopiero wtedy, gdy krowa kuleje,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "zależy Ci na zapisie, z którego po kolejnych wizytach wyczytasz, co dzieje się w stadzie,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "chcesz rozmawiać z osobą, która przyjedzie do Twojego stada, a nie z infolinią."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "dla-kogo-nie",
+            "text": "Lepiej zadzwoń do kogoś innego, jeśli…"
+          },
+          {
+            "type": "list",
+            "style": "bullet",
+            "items": [
+              {
+                "content": [
+                  {
+                    "text": "zwierzę wymaga pilnego leczenia – wtedy pierwszy telefon kieruj do lekarza weterynarii,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "gospodarstwo leży poza obszarem, w którym pracujemy: [Uzupełnij: obszar dojazdu],"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "[Uzupełnij: czego nie robisz, np. korekcji u innych gatunków zwierząt]."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "decoration": {
+        "schemaVersion": 1,
+        "ornament": "botanical",
+        "placement": "bottom_left",
+        "intensity": "subtle"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.feature_list",
+      "schema_version": 4,
+      "data": {
+        "title": "Jak przebiega wizyta",
+        "lead": "Od telefonu do zapisu po wizycie. Przy każdym kroku piszemy, czego potrzebujemy od Ciebie.",
+        "items": [
+          {
+            "title": "Telefon i termin",
+            "text": "Ustalamy, ile zwierząt obejrzymy, gdzie stanie poskrom i który dzień pasuje do rytmu pracy w gospodarstwie."
+          },
+          {
+            "title": "Przyjazd i ustawienie sprzętu",
+            "text": "Przyjeżdżamy o umówionej porze i ustawiamy poskrom tam, dokąd łatwo doprowadzić zwierzęta. Potrzebujemy równego podłoża i kogoś, kto zna stado."
+          },
+          {
+            "title": "Korekcja sztuka po sztuce",
+            "text": "Pracujemy spokojnie, bez pośpiechu. Jeśli zauważymy coś, co wymaga leczenia, od razu Ci to pokażemy."
+          },
+          {
+            "title": "Omówienie przed wyjazdem",
+            "text": "Mówimy, co zauważyliśmy w stadzie, i proponujemy termin kolejnej wizyty."
+          },
+          {
+            "title": "Zapis po wizycie",
+            "text": "Dostajesz krótki zapis dla każdej sztuki: [Uzupełnij: w jakiej formie go przekazujesz, np. wydruk, e-mail lub wiadomość]."
+          }
+        ],
+        "note": {
+          "title": "Co się dzieje po telefonie",
+          "text": "Termin proponujemy [Uzupełnij: jak szybko, np. jeszcze w trakcie rozmowy]. Jeśli coś się zmieni, dzwonimy wcześniej, a nie w dniu wizyty."
+        },
+        "layout": "steps_notes"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "surface": "muted"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 3,
+      "data": {
+        "layout": "howto",
+        "eyebrow": "Przygotowanie",
+        "title": "Jak przygotować gospodarstwo do wizyty",
+        "lead": "Kilka prostych rzeczy sprawi, że wizyta pójdzie sprawnie, a zwierzęta spędzą w poskromie jak najmniej czasu.",
+        "content": [
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "krok-po-kroku",
+            "text": "Krok po kroku"
+          },
+          {
+            "type": "list",
+            "style": "ordered",
+            "items": [
+              {
+                "content": [
+                  {
+                    "text": "Spisz zwierzęta do korekcji.",
+                    "bold": true
+                  },
+                  {
+                    "text": " Numery kolczyków albo lista sztuk, które kuleją lub dawno nie miały korekcji. Nie musi być elegancko – ważne, żeby była pod ręką."
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Przygotuj miejsce na poskrom.",
+                    "bold": true
+                  },
+                  {
+                    "text": " Wystarczy równe, utwardzone podłoże i przejście, którym łatwo doprowadzić zwierzęta. [Uzupełnij: czy potrzebujesz dostępu do prądu lub wody]."
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Zapewnij pomoc przy zwierzętach.",
+                    "bold": true
+                  },
+                  {
+                    "text": " Przyda się osoba, która zna stado i pomoże spokojnie podprowadzać kolejne sztuki."
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Zapisz, co Cię niepokoi.",
+                    "bold": true
+                  },
+                  {
+                    "text": " Kulawizny, które wracają, zmiany na racicach, spadek apetytu – powiedz o nich na początku wizyty."
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "note",
+            "tone": "tip",
+            "title": "Nie wszystko gotowe?",
+            "content": [
+              {
+                "text": "Nic nie szkodzi. Zadzwoń i opisz, jak wygląda miejsce – podpowiemy, jak to rozwiązać."
+              }
+            ]
+          },
+          {
+            "type": "heading",
+            "level": 2,
+            "anchor": "lista-kontrolna",
+            "text": "Lista kontrolna na dzień wizyty"
+          },
+          {
+            "type": "list",
+            "style": "bullet",
+            "items": [
+              {
+                "content": [
+                  {
+                    "text": "lista zwierząt do korekcji,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "miejsce na poskrom i dojazd dla naszego samochodu,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "osoba do pomocy przy zwierzętach,"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "[Uzupełnij: co jeszcze warto przygotować w gospodarstwie]."
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "action": {
+          "label": "Ustal termin wizyty",
+          "href": "tel:+48000000000"
+        }
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.faq",
+      "schema_version": 3,
+      "data": {
+        "title": "Pytania przed pierwszą wizytą",
+        "items": [
+          {
+            "question": "Ile kosztuje wizyta?",
+            "answer": "[Uzupełnij: widełki ceny za sztukę i zasady liczenia dojazdu]. Cenę potwierdzamy przez telefon, zanim przyjedziemy – bez niespodzianek na miejscu."
+          },
+          {
+            "question": "Jak szybko możecie przyjechać?",
+            "answer": "[Uzupełnij: zwykły czas oczekiwania na termin]. Jeśli sprawa jest pilna, powiedz o tym od razu – sprawdzimy, czy da się przyjechać wcześniej."
+          },
+          {
+            "question": "Czy zwierzęta trzeba gdzieś przewozić?",
+            "answer": "Nie. Pracujemy w Twoim gospodarstwie, w oborze albo przy wybiegu. Potrzebujemy tylko miejsca na poskrom."
+          },
+          {
+            "question": "Co, jeśli zauważycie chorobę racic?",
+            "answer": "Pokażemy Ci, co widzimy, i powiemy, co o tym sądzimy. Leczenie, które należy do lekarza weterynarii, zostawiamy lekarzowi – możemy przekazać mu nasz zapis."
+          },
+          {
+            "question": "Czy mogę umówić stałe wizyty?",
+            "answer": "Tak. Po pierwszej wizycie proponujemy rytm kolejnych, dopasowany do stada. [Uzupełnij: jak przypominasz o terminach]."
+          }
+        ],
+        "layout": "accordion"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.contact_form",
+      "schema_version": 2,
+      "data": {
+        "layout": "card",
+        "locale": "pl",
+        "title": "Nie możesz teraz rozmawiać? Oddzwonimy",
+        "text": "Zostaw imię i numer telefonu. Oddzwonimy [Uzupełnij: kiedy, np. tego samego dnia roboczego] i ustalimy termin wizyty. Jeśli chcesz, dopisz kilka słów o stadzie: ile zwierząt obejrzymy i gdzie jest gospodarstwo. Niczego nie zakładasz i do niczego się nie zobowiązujesz.",
+        "contact": "callback",
+        "submit_label": "Poproś o oddzwonienie",
+        "success_message": "Dziękujemy! Zgłoszenie dotarło. Oddzwonimy, żeby ustalić termin wizyty.",
+        "privacy_label": "Informacje o prywatności"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "surface": "muted",
+        "anchor": "kontakt"
+      }
+    }
+  ],
+  "localizedBlocks": {
+    "en": [
+      {
+        "block_type": "core.hero",
+        "schema_version": 6,
+        "data": {
+          "title": "Hoof trimming in your own barn, without moving the herd",
+          "text": "For dairy and beef farms. We bring a trimming crush, work on site and leave a short record for every animal after the visit. We cover farms in: [Fill in: counties or travel radius].",
+          "action": {
+            "label": "Call to book a visit",
+            "href": "tel:+48000000000"
+          },
+          "secondaryAction": {
+            "label": "Ask for a call-back",
+            "href": "#contact"
+          },
+          "layout": "split"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "wide"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {
+          "layout": "summary_box",
+          "eyebrow": "What is included",
+          "title": "What you get from a single visit",
+          "lead": "One service done properly from start to finish – no bundles that are hard to make sense of.",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "We check the hooves of every animal you point out, trim them and treat the spots that need it. If we notice something that needs medical treatment, we tell you plainly when to call the vet."
+                }
+              ]
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "hoof check and trimming for the animals you choose"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "treatment of lesions that need it"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "a short record for every animal: what we did and what to watch"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "a suggested date for the next visit that suits the herd"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "[Fill in: anything else the visit includes, e.g. dressings or hoof blocks]"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "aside": {
+            "title": "At a glance",
+            "content": [
+              {
+                "type": "list",
+                "style": "bullet",
+                "items": [
+                  {
+                    "content": [
+                      {
+                        "text": "Who it is for:",
+                        "bold": true
+                      },
+                      {
+                        "text": " dairy and beef cattle farms."
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "Where:",
+                        "bold": true
+                      },
+                      {
+                        "text": " in your barn or by the yard."
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "How long:",
+                        "bold": true
+                      },
+                      {
+                        "text": " [Fill in: typical working time for a herd of a given size]."
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "Cost:",
+                        "bold": true
+                      },
+                      {
+                        "text": " [Fill in: price range per animal or how you quote, plus travel]."
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "Afterwards:",
+                        "bold": true
+                      },
+                      {
+                        "text": " a record for every animal and the next visit date."
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "surface": "muted"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {
+          "layout": "two_parts",
+          "eyebrow": "Is this for you?",
+          "title": "Before you call, see whether we are the right fit",
+          "lead": "We would rather say upfront what we come for – and when you are better off calling someone else.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "who-its-for",
+              "text": "Call us if you…"
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "want trimming done on site, without moving animals"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "prefer a regular schedule to calling for help only once a cow is lame"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "want a record that, visit after visit, shows what is happening in the herd"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "want to talk to the person who will actually work with your herd, not a call centre"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "who-its-not-for",
+              "text": "Better call someone else if…"
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "an animal needs urgent treatment – then your first call should go to the vet"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "your farm is outside the area we cover: [Fill in: travel area]"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "[Fill in: what you do not do, e.g. trimming for other species]"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "decoration": {
+          "schemaVersion": 1,
+          "ornament": "botanical",
+          "placement": "bottom_left",
+          "intensity": "subtle"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.feature_list",
+        "schema_version": 4,
+        "data": {
+          "title": "How a visit works",
+          "lead": "From the phone call to the record after the visit. At every step we say what we need from you.",
+          "items": [
+            {
+              "title": "Phone call and date",
+              "text": "We agree how many animals to check, where the crush will stand and which day fits the rhythm of work on the farm."
+            },
+            {
+              "title": "Arrival and setting up",
+              "text": "We arrive at the agreed time and set up the crush where animals are easy to bring in. We need level ground and someone who knows the herd."
+            },
+            {
+              "title": "Trimming, one animal at a time",
+              "text": "We work calmly and without rushing. If we notice something that needs treatment, we show you straight away."
+            },
+            {
+              "title": "Debrief before we leave",
+              "text": "We tell you what we noticed in the herd and suggest a date for the next visit."
+            },
+            {
+              "title": "Record after the visit",
+              "text": "You get a short record for every animal: [Fill in: how you hand it over, e.g. printout, email or message]."
+            }
+          ],
+          "note": {
+            "title": "What happens after you call",
+            "text": "We suggest a date [Fill in: how quickly, e.g. while we are still on the phone]. If anything changes, we call ahead, not on the day of the visit."
+          },
+          "layout": "steps_notes"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "surface": "muted"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {
+          "layout": "howto",
+          "eyebrow": "Preparation",
+          "title": "How to get the farm ready for the visit",
+          "lead": "A few simple things make the visit go smoothly and keep animals in the crush for as short a time as possible.",
+          "content": [
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "step-by-step",
+              "text": "Step by step"
+            },
+            {
+              "type": "list",
+              "style": "ordered",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "List the animals to trim.",
+                      "bold": true
+                    },
+                    {
+                      "text": " Ear tag numbers or a list of animals that are lame or have not been trimmed for a while. It does not have to be neat – just to hand."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Prepare a spot for the crush.",
+                      "bold": true
+                    },
+                    {
+                      "text": " All you need is level, firm ground and a passage that makes it easy to bring animals in. [Fill in: whether you need power or water]."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Arrange help with the animals.",
+                      "bold": true
+                    },
+                    {
+                      "text": " Someone who knows the herd and can calmly bring the next animal in makes a real difference."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Note down what worries you.",
+                      "bold": true
+                    },
+                    {
+                      "text": " Lameness that keeps coming back, changes on the hooves, loss of appetite – mention them at the start of the visit."
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "note",
+              "tone": "tip",
+              "title": "Not everything ready?",
+              "content": [
+                {
+                  "text": "No problem. Call us and describe the place – we will suggest how to handle it."
+                }
+              ]
+            },
+            {
+              "type": "heading",
+              "level": 2,
+              "anchor": "checklist",
+              "text": "Checklist for the day of the visit"
+            },
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "a list of animals to trim"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "a spot for the crush and access for our vehicle"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "someone to help with the animals"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "[Fill in: anything else worth preparing on the farm]"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "action": {
+            "label": "Book a visit",
+            "href": "tel:+48000000000"
+          }
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.faq",
+        "schema_version": 3,
+        "data": {
+          "title": "Questions before the first visit",
+          "items": [
+            {
+              "question": "How much does a visit cost?",
+              "answer": "[Fill in: price range per animal and how travel is charged]. We confirm the price on the phone before we come – no surprises on the day."
+            },
+            {
+              "question": "How soon can you come?",
+              "answer": "[Fill in: usual waiting time for a date]. If it is urgent, say so straight away – we will check whether we can come sooner."
+            },
+            {
+              "question": "Do the animals need to be moved anywhere?",
+              "answer": "No. We work on your farm, in the barn or by the yard. All we need is a spot for the crush."
+            },
+            {
+              "question": "What if you notice hoof disease?",
+              "answer": "We show you what we see and tell you what we think. Treatment that belongs to the vet stays with the vet – we can pass on our record."
+            },
+            {
+              "question": "Can I book regular visits?",
+              "answer": "Yes. After the first visit we suggest a schedule that suits the herd. [Fill in: how you remind customers of upcoming dates]."
+            }
+          ],
+          "layout": "accordion"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.contact_form",
+        "schema_version": 2,
+        "data": {
+          "layout": "card",
+          "locale": "en",
+          "title": "Busy right now? We will call you back",
+          "text": "Leave your name and phone number. We will call you back [Fill in: when, e.g. the same working day] to agree a date. If you like, add a few words about the herd: how many animals and where the farm is. No account and no commitment.",
+          "contact": "callback",
+          "submit_label": "Request a call-back",
+          "success_message": "Thank you! Your request has arrived. We will call you back to agree a date.",
+          "privacy_label": "Privacy information"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "surface": "muted",
+          "anchor": "contact"
+        }
+      }
+    ]
+  },
+  "media": [
+    {
+      "id": "agriculture",
+      "source": "assets/agriculture-farm.png",
+      "filename": "agriculture-farm.png",
+      "contentType": "image/png",
+      "sha256": "8f06eb2669e06dea7ac6092ed451b2c519d866c85134372af13c9911e023e9fb"
+    }
+  ],
+  "mediaBindings": [
+    {
+      "blockPosition": 0,
+      "mediaId": "agriculture",
+      "alt": {
+        "pl": "Krowy pasą się na zielonym pastwisku o wschodzie słońca, w tle drewniana obora i góry",
+        "en": "Cows grazing a green pasture at sunrise, with a timber barn and mountains behind"
+      },
+      "path": ["image"]
+    }
+  ]
+}

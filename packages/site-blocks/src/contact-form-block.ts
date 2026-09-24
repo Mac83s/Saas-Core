@@ -1,6 +1,69 @@
 import { createElement } from "react";
 import { plainBlockText } from "./block-text";
-import type { BlockComponentProps, ContactFormV1Data } from "./types";
+import type {
+  BlockComponentProps,
+  ContactFieldRule,
+  ContactFormMode,
+  ContactFormV2Data,
+} from "./types";
+
+/** What each variant asks for (owner's decision of 24.09). The server
+ *  applies the same table to the published block when a message arrives;
+ *  the name is always required. */
+export const CONTACT_FORM_FIELDS: Readonly<
+  Record<
+    ContactFormMode,
+    {
+      email: ContactFieldRule;
+      phone: ContactFieldRule;
+      message: ContactFieldRule;
+    }
+  >
+> = {
+  email: { email: "required", phone: "optional", message: "required" },
+  callback: { email: "optional", phone: "required", message: "optional" },
+  full: { email: "required", phone: "required", message: "required" },
+  email_only: { email: "required", phone: "hidden", message: "required" },
+};
+
+/** The fields a form shows, in order: a call-back form asks for the phone
+ *  before the e-mail. */
+export function contactFormFields(
+  data: Pick<ContactFormV2Data, "contact">,
+): { field: "name" | "email" | "phone" | "message"; rule: ContactFieldRule }[] {
+  const mode = data.contact ?? "email";
+  const rules = CONTACT_FORM_FIELDS[mode];
+  const contact: ("email" | "phone")[] =
+    mode === "callback" ? ["phone", "email"] : ["email", "phone"];
+  return [
+    { field: "name" as const, rule: "required" as const },
+    ...contact.map((field) => ({ field, rule: rules[field] })),
+    { field: "message" as const, rule: rules.message },
+  ].filter(({ rule }) => rule !== "hidden");
+}
+
+const LABELS = {
+  pl: {
+    name: "Imię",
+    email: "E-mail",
+    phone: "Telefon",
+    message: "Wiadomość",
+    optional: "(opcjonalnie)",
+  },
+  en: {
+    name: "Name",
+    email: "Email",
+    phone: "Phone",
+    message: "Message",
+    optional: "(optional)",
+  },
+} as const;
+const KINDS = {
+  name: "text",
+  email: "email",
+  phone: "tel",
+  message: "textarea",
+} as const;
 
 /** The catalogue/editor show a disabled fieldset; only a publication supplies
  * the application form adapter with its immutable publication and position. */
@@ -10,22 +73,14 @@ export function ContactFormSection({
   imageRenderer,
   formRenderer,
 }: BlockComponentProps) {
-  const form = data as ContactFormV1Data;
+  const form = data as ContactFormV2Data;
   const text = editor?.text ?? plainBlockText;
   const en = form.locale === "en";
-  const fields = en
-    ? [
-        ["Name", "text"],
-        ["Email", "email"],
-        ["Phone (optional)", "tel"],
-        ["Message", "textarea"],
-      ]
-    : [
-        ["Imię", "text"],
-        ["E-mail", "email"],
-        ["Telefon (opcjonalnie)", "tel"],
-        ["Wiadomość", "textarea"],
-      ];
+  const labels = LABELS[en ? "en" : "pl"];
+  const fields = contactFormFields(form).map(({ field, rule }) => [
+    rule === "optional" ? `${labels[field]} ${labels.optional}` : labels[field],
+    KINDS[field],
+  ]);
   const preview = createElement(
     "div",
     { className: "site-contact-form" },

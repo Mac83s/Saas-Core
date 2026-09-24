@@ -1,8 +1,13 @@
+import re
 from typing import Any, cast
 
 from rest_framework import serializers
 
 from saas_core.modules.shared.notifications.models import DeliveryStatus
+
+# Mirrors `validPhone` in public-contact-form.tsx: phone characters only and
+# 6-15 digits (E.164 allows 15).
+PHONE_RE = re.compile(r"\+?[\d\s()./-]+")
 
 
 class SiteInquirySubmitSerializer(serializers.Serializer[dict[str, Any]]):
@@ -10,9 +15,11 @@ class SiteInquirySubmitSerializer(serializers.Serializer[dict[str, Any]]):
     path = serializers.CharField(max_length=500)
     block_position = serializers.IntegerField(min_value=0, max_value=1000)
     name = serializers.CharField(max_length=120)
-    email = serializers.EmailField(max_length=254)
+    # Which of these the form requires depends on the published block
+    # (`contact`); submit_site_inquiry checks it.
+    email = serializers.EmailField(max_length=254, required=False, allow_blank=True, default="")
     phone = serializers.CharField(max_length=32, required=False, allow_blank=True, default="")
-    message = serializers.CharField(max_length=5000)
+    message = serializers.CharField(max_length=5000, required=False, allow_blank=True, default="")
     website = serializers.CharField(max_length=200, required=False, allow_blank=True, default="")
 
     def to_internal_value(self, data: Any) -> dict[str, Any]:
@@ -23,6 +30,13 @@ class SiteInquirySubmitSerializer(serializers.Serializer[dict[str, Any]]):
     def validate_path(self, value: str) -> str:
         if not value.startswith("/") or value.startswith("//") or any(c in value for c in "?#\\"):
             raise serializers.ValidationError("Nieprawidłowa ścieżka strony.")
+        return value
+
+    def validate_phone(self, value: str) -> str:
+        if value and not (
+            PHONE_RE.fullmatch(value) and 6 <= sum(c.isdigit() for c in value) <= 15
+        ):
+            raise serializers.ValidationError("Podaj poprawny numer telefonu.")
         return value
 
     def validate_website(self, value: str) -> str:

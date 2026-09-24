@@ -5424,10 +5424,10 @@ export interface components {
             path: string;
             block_position: number;
             name: string;
-            /** Format: email */
-            email: string;
+            email?: string;
             /** @default  */
             phone: string;
+            /** @default  */
             message: string;
             /** @default  */
             website: string;

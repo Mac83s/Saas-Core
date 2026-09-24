@@ -162,6 +162,7 @@ function assertLinearVersions(definition: BlockDefinition): void {
 type SchemaNode = {
   type?: string;
   const?: unknown;
+  enum?: readonly unknown[];
   properties?: Record<string, SchemaNode>;
   items?: SchemaNode;
 };
@@ -208,6 +209,15 @@ function assertFieldPath(
     // is the schema's business, not the catalogue's.
     throw new InvalidBlockManifestError(
       `Pole ${field.path.join(".")} w ${definition.type} nie jest tablicą węzłów.`,
+    );
+  } else if (
+    field.kind === "choice" &&
+    JSON.stringify(field.options) !== JSON.stringify(node.enum)
+  ) {
+    // The select offers exactly what the contract allows, in its order (the
+    // first is what absent means).
+    throw new InvalidBlockManifestError(
+      `Opcje pola ${field.path.join(".")} w ${definition.type} różnią się od schematu.`,
     );
   } else if (field.item !== undefined) {
     throw new InvalidBlockManifestError(

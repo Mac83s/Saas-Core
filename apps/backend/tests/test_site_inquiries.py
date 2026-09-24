@@ -51,7 +51,9 @@ def isolate_cache_and_delivery(monkeypatch):
 
 
 @pytest.fixture
-def published_form():
+def published_form(request):
+    # A v1 form by default; `indirect` parametrization publishes a v2 variant.
+    form = getattr(request, "param", {"schema_version": 1, "data": {"title": "Napisz do nas"}})
     client, organization, owner = sites_client(slug="inquiry-owner", role_key="owner")
     EntitlementSnapshot.all_objects.filter(organization=organization).update(
         features={"sites.enabled": True, "notifications.enabled": True}
@@ -64,11 +66,7 @@ def published_form():
             "expected_version": 0,
             "blocks": [
                 {"block_type": "core.hero", "schema_version": 1, "data": {"heading": "Hi"}},
-                {
-                    "block_type": "core.contact_form",
-                    "schema_version": 1,
-                    "data": {"title": "Napisz do nas"},
-                },
+                {"block_type": "core.contact_form", **form},
             ],
             "media_asset_ids": [],
         },
@@ -180,6 +178,10 @@ def test_public_origin_denied_before_private_reads(published_form, origin):
         {"recipient_email": "intruder@example.test"},
         {"website": "bot filled this"},
         {"email": "invalid"},
+        {"email": ""},
+        {"message": " "},
+        {"phone": "zadzwoń"},
+        {"phone": "12-34"},
         {"name": ""},
         {"message": "x" * 5001},
         {"path": "//evil.test/"},
@@ -190,6 +192,41 @@ def test_public_payload_validation(published_form, overrides):
     _, _, _, site, host = published_form
     assert submit(site, host, **overrides).status_code == 400
     assert not SiteInquiry.all_objects.exists()
+
+
+@pytest.mark.parametrize(
+    "published_form",
+    [{"schema_version": 2, "data": {"title": "Oddzwonimy", "contact": "callback"}}],
+    indirect=True,
+)
+def test_callback_form_requires_only_a_phone(published_form):
+    _, _, _, site, host = published_form
+    missing = submit(site, host, key="no-phone", phone="", email="", message="")
+    assert missing.status_code == 400
+    assert "phone" in str(missing.data)
+    accepted = submit(site, host, key="phone-only", email="", message="")
+    assert accepted.status_code == 201, accepted.data
+    inquiry = SiteInquiry.all_objects.get(id=accepted.data["reference"])
+    assert (inquiry.email, inquiry.phone, inquiry.message) == ("", "+48123456789", "")
+    _, html = render_template(
+        key="sites.inquiry_received",
+        version=1,
+        locale="pl",
+        context=inquiry.notification_message.context,
+    )
+    assert "E-mail: —" in html
+
+
+@pytest.mark.parametrize(
+    "published_form",
+    [{"schema_version": 2, "data": {"title": "Napisz", "contact": "email_only"}}],
+    indirect=True,
+)
+def test_email_only_form_keeps_no_phone(published_form):
+    _, _, _, site, host = published_form
+    accepted = submit(site, host)
+    assert accepted.status_code == 201, accepted.data
+    assert SiteInquiry.all_objects.get(id=accepted.data["reference"]).phone == ""
 
 
 @pytest.mark.parametrize(

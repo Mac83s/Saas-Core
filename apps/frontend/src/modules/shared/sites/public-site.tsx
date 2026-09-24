@@ -155,6 +155,7 @@ export function PublicSiteRenderer({ page }: { page: PublicSitePage }) {
         path={new URL(page.canonical_url).pathname}
         blockPosition={blockPosition}
         locale={page.locale === "en" ? "en" : "pl"}
+        contact={form.contact}
         submitLabel={form.submit_label}
         successMessage={form.success_message}
       />

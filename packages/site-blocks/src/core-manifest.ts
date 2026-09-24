@@ -1,6 +1,7 @@
 import separatorV1Schema from "@saas-core/contracts/site-blocks/core.separator.v1.schema.json";
 import { SeparatorBlock } from "./separator-block";
 import contactFormV1Schema from "@saas-core/contracts/site-blocks/core.contact_form.v1.schema.json";
+import contactFormV2Schema from "@saas-core/contracts/site-blocks/core.contact_form.v2.schema.json";
 import { ContactFormSection } from "./contact-form-block";
 import heroV5Schema from "@saas-core/contracts/site-blocks/core.hero.v5.schema.json";
 import featureListV3Schema from "@saas-core/contracts/site-blocks/core.feature_list.v3.schema.json";
@@ -742,9 +743,13 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
     },
     {
       type: "core.contact_form",
-      latestVersion: 1,
-      schemas: [{ version: 1, schema: contactFormV1Schema }],
-      migrators: {},
+      latestVersion: 2,
+      schemas: [
+        { version: 1, schema: contactFormV1Schema },
+        { version: 2, schema: contactFormV2Schema },
+      ],
+      // v2 only adds `contact`; absent, the form behaves exactly as v1.
+      migrators: { 1: (data) => ({ ...data }) },
       component: ContactFormSection,
       catalog: {
         category: "contact",
@@ -752,6 +757,12 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
         fields: [
           { path: ["title"], kind: "text", labelKey: "heading" },
           { path: ["text"], kind: "textarea", labelKey: "text" },
+          {
+            path: ["contact"],
+            kind: "choice",
+            labelKey: "contactMode",
+            options: ["email", "callback", "full", "email_only"],
+          },
           { path: ["submit_label"], kind: "text", labelKey: "submitLabel" },
           {
             path: ["success_message"],

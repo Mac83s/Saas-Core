@@ -1,9 +1,21 @@
 # Zapytania z publicznej strony
 
-`core.contact_form` jest blokiem o stałym zestawie pól: imię, e-mail, opcjonalny
-telefon i wiadomość. Cztery układy zmieniają kompozycję, nie schemat zgłoszenia.
-Edytowalne są wprowadzenie, zdjęcie, etykieta przycisku, potwierdzenie oraz link
-do informacji o prywatności. Podgląd biblioteki i edytora ma wyłączone pola i nie
+`core.contact_form` ma stały zestaw pól — imię, e-mail, telefon, wiadomość —
+a wariant `contact` (od v2) mówi, które są wymagane (decyzja właściciela z
+24.09; tabela `CONTACT_FORM_FIELDS` w `@saas-core/site-blocks`, lustro w
+`inquiries.py`):
+
+| `contact` | Nazwa w panelu | E-mail | Telefon | Wiadomość |
+| --- | --- | --- | --- | --- |
+| `email` (brak = v1) | Napisz do nas | wymagany | opcjonalny | wymagana |
+| `callback` | Oddzwonimy | opcjonalny | wymagany, pierwszy | opcjonalna |
+| `full` | Pełny kontakt | wymagany | wymagany | wymagana |
+| `email_only` | Tylko e-mail | wymagany | brak pola | wymagana |
+
+Imię jest zawsze wymagane, a każdy wariant wymaga co najmniej jednej drogi
+odpowiedzi. Zgody (checkbox) nie ma. Cztery układy zmieniają kompozycję, nie
+schemat zgłoszenia. Edytowalne są wprowadzenie, wariant, zdjęcie, etykieta
+przycisku, potwierdzenie oraz link do informacji o prywatności. Podgląd biblioteki i edytora ma wyłączone pola i nie
 zawiera aktywnego formularza. Dopiero renderer publikacji podłącza komponent
 wysyłający z identyfikatorem publikacji, ścieżką i pozycją bloku.
 
@@ -22,6 +34,14 @@ zakresu. Po rozwiązaniu hosta transakcja ustawia `SET LOCAL app.organization_id
 przed odczytem prywatnych danych. Tabela `sites_siteinquiry` ma wymuszone RLS,
 a trigger pilnuje zgodności organizacji i witryny w powiązaniach z publikacją
 i powiadomieniem. Audyt zawiera identyfikatory, nie treść zgłoszenia.
+
+Serwer stosuje reguły wariantu z bloku w opublikowanym snapshocie, nie z
+przeglądarki: brak wymaganego pola to 400 z błędem pola, a telefon wysłany do
+formularza bez pola telefonu jest pomijany przy zapisie. Telefon, jeśli podany, to znaki
+telefonu (`+`, cyfry, spacje, `()./-`) i 6–15 cyfr — ta sama reguła w
+przeglądarce i w serializerze. Zapytanie „Oddzwonimy” bez e-maila ma w skrzynce
+przycisk „Zadzwoń” zamiast odpowiedzi e-mailem, a w powiadomieniu puste pola
+jako „—”.
 
 Granice wejścia: nazwa 120 znaków, e-mail 254, telefon 32, wiadomość 5000,
 całe żądanie 64 KiB. Dodatkowe pole honeypot ma pozostać puste. Limity

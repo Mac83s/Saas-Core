@@ -1137,6 +1137,13 @@
     "contactHours": "Godziny kontaktu",
     "linkItems": "Linki",
     "linkDescription": "Opis linku",
+    "contactMode": "Czego formularz wymaga",
+    "contactModeOptions": {
+      "email": "Napisz do nas — e-mail i wiadomość, telefon opcjonalny",
+      "callback": "Oddzwonimy — wymagany tylko telefon",
+      "full": "Pełny kontakt — e-mail, telefon i wiadomość",
+      "email_only": "Tylko e-mail — bez pola telefonu"
+    },
     "submitLabel": "Tekst przycisku wysyłania",
     "successMessage": "Potwierdzenie przyjęcia wiadomości",
     "privacyLabel": "Tekst linku o prywatności",
@@ -2658,6 +2665,8 @@
     "message": "Treść wiadomości",
     "reply": "Odpowiedz e-mailem",
     "replyHint": "Otwiera Twoją pocztę. Odpowiedź wysyłasz samodzielnie.",
+    "call": "Zadzwoń",
+    "callHint": "Nadawca prosi o telefon i nie podał adresu e-mail.",
     "emailStatus": "Powiadomienie e-mail dla właściciela",
     "emailQueued": "W kolejce",
     "emailProcessing": "Wysyłanie",

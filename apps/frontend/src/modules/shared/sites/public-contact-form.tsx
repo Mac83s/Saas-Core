@@ -9,6 +9,10 @@ import {
   ApiProblemError,
   submitPublicSiteInquiry,
 } from "@saas-core/api-client";
+import {
+  contactFormFields,
+  type ContactFormMode,
+} from "@saas-core/site-blocks";
 import { Button } from "@saas-core/ui/components/button";
 import { Field, FieldError, FieldLabel } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
@@ -20,10 +24,12 @@ const COPY = {
   pl: {
     name: "Imię i nazwisko",
     email: "Adres e-mail",
-    phone: "Telefon (opcjonalnie)",
+    phone: "Telefon",
     message: "Wiadomość",
+    optional: "(opcjonalnie)",
     required: "Uzupełnij to pole.",
     invalidEmail: "Podaj poprawny adres e-mail.",
+    invalidPhone: "Podaj poprawny numer telefonu.",
     tooLong: "Skróć treść tego pola.",
     submit: "Wyślij wiadomość",
     submitting: "Wysyłanie…",
@@ -42,10 +48,12 @@ const COPY = {
   en: {
     name: "Full name",
     email: "Email address",
-    phone: "Phone (optional)",
+    phone: "Phone",
     message: "Message",
+    optional: "(optional)",
     required: "Complete this field.",
     invalidEmail: "Enter a valid email address.",
+    invalidPhone: "Enter a valid phone number.",
     tooLong: "Shorten this field.",
     submit: "Send message",
     submitting: "Sending…",
@@ -63,6 +71,13 @@ const COPY = {
   },
 } as const;
 
+// The server applies the same check (inquiry_serializers.py).
+const PHONE = /^\+?[\d\s().\/-]+$/;
+const validPhone = (value: string) =>
+  PHONE.test(value) && /^(\D*\d){6,15}\D*$/.test(value);
+
+const MAX = { name: 120, email: 254, phone: 32, message: 5000 } as const;
+
 type Values = {
   name: string;
   email: string;
@@ -76,6 +91,7 @@ export function PublicContactForm({
   blockPosition,
   publicationId,
   locale,
+  contact,
   submitLabel,
   successMessage,
 }: {
@@ -83,30 +99,37 @@ export function PublicContactForm({
   blockPosition: number;
   publicationId: string;
   locale: "pl" | "en";
+  /** What the block's variant asks for; the server checks the same rules. */
+  contact?: ContactFormMode;
   submitLabel?: string;
   successMessage?: string;
 }) {
   const copy = COPY[locale];
   const id = useId();
-  const schema = useMemo(
-    () =>
-      z.object({
-        name: z.string().trim().min(1, copy.required).max(120, copy.tooLong),
-        email: z
-          .string()
-          .trim()
-          .email(copy.invalidEmail)
-          .max(254, copy.tooLong),
-        phone: z.string().trim().max(32, copy.tooLong),
-        message: z
-          .string()
-          .trim()
-          .min(1, copy.required)
-          .max(5000, copy.tooLong),
-        website: z.string().max(200, copy.tooLong),
-      }),
-    [copy],
-  );
+  const fields = useMemo(() => contactFormFields({ contact }), [contact]);
+  const schema = useMemo(() => {
+    const required = (field: keyof typeof MAX) =>
+      fields.some(
+        (entry) => entry.field === field && entry.rule === "required",
+      );
+    const text = (field: keyof typeof MAX) => {
+      const value = z.string().trim().max(MAX[field], copy.tooLong);
+      return required(field) ? value.min(1, copy.required) : value;
+    };
+    return z.object({
+      name: text("name"),
+      email: text("email").refine(
+        (value) => !value || z.email().safeParse(value).success,
+        copy.invalidEmail,
+      ),
+      phone: text("phone").refine(
+        (value) => !value || validPhone(value),
+        copy.invalidPhone,
+      ),
+      message: text("message"),
+      website: z.string().max(200, copy.tooLong),
+    });
+  }, [copy, fields]);
   const { register, handleSubmit, formState } = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: { name: "", email: "", phone: "", message: "", website: "" },
@@ -185,78 +208,58 @@ export function PublicContactForm({
             className="site-contact-form__fields min-w-0"
             disabled={submitting}
           >
-            {(["name", "email", "phone"] as const).map((field) => (
-              <Field
-                className="site-contact-form__field"
-                key={field}
-                data-invalid={Boolean(formState.errors[field])}
-              >
-                <FieldLabel htmlFor={`${id}-${field}`}>
-                  {copy[field]}
-                </FieldLabel>
-                <Input
-                  {...register(field)}
-                  aria-describedby={
-                    formState.errors[field] ? `${id}-${field}-error` : undefined
-                  }
-                  aria-invalid={Boolean(formState.errors[field])}
-                  autoComplete={
-                    field === "name"
-                      ? "name"
-                      : field === "email"
-                        ? "email"
-                        : "tel"
-                  }
-                  className="site-contact-input"
-                  id={`${id}-${field}`}
-                  maxLength={
-                    field === "name" ? 120 : field === "email" ? 254 : 32
-                  }
-                  required={field !== "phone"}
-                  type={
-                    field === "email"
-                      ? "email"
-                      : field === "phone"
-                        ? "tel"
-                        : "text"
-                  }
-                />
-                {formState.errors[field] ? (
-                  <FieldError
-                    className="site-contact-form__error"
-                    id={`${id}-${field}-error`}
-                  >
-                    {formState.errors[field]?.message}
-                  </FieldError>
-                ) : null}
-              </Field>
-            ))}
-            <Field
-              className="site-contact-form__field"
-              data-invalid={Boolean(formState.errors.message)}
-            >
-              <FieldLabel htmlFor={`${id}-message`}>{copy.message}</FieldLabel>
-              <Textarea
-                {...register("message")}
-                aria-describedby={
-                  formState.errors.message ? `${id}-message-error` : undefined
-                }
-                aria-invalid={Boolean(formState.errors.message)}
-                className="site-contact-input min-h-32"
-                id={`${id}-message`}
-                maxLength={5000}
-                required
-                rows={5}
-              />
-              {formState.errors.message ? (
-                <FieldError
-                  className="site-contact-form__error"
-                  id={`${id}-message-error`}
+            {fields.map(({ field, rule }) => {
+              const error = formState.errors[field];
+              const common = {
+                ...register(field),
+                "aria-describedby": error ? `${id}-${field}-error` : undefined,
+                "aria-invalid": Boolean(error),
+                id: `${id}-${field}`,
+                maxLength: MAX[field],
+                required: rule === "required",
+              };
+              return (
+                <Field
+                  className="site-contact-form__field"
+                  key={field}
+                  data-invalid={Boolean(error)}
                 >
-                  {formState.errors.message.message}
-                </FieldError>
-              ) : null}
-            </Field>
+                  <FieldLabel htmlFor={`${id}-${field}`}>
+                    {rule === "optional"
+                      ? `${copy[field]} ${copy.optional}`
+                      : copy[field]}
+                  </FieldLabel>
+                  {field === "message" ? (
+                    <Textarea
+                      {...common}
+                      className="site-contact-input min-h-32"
+                      rows={5}
+                    />
+                  ) : (
+                    <Input
+                      {...common}
+                      autoComplete={field === "phone" ? "tel" : field}
+                      className="site-contact-input"
+                      type={
+                        field === "email"
+                          ? "email"
+                          : field === "phone"
+                            ? "tel"
+                            : "text"
+                      }
+                    />
+                  )}
+                  {error ? (
+                    <FieldError
+                      className="site-contact-form__error"
+                      id={`${id}-${field}-error`}
+                    >
+                      {error.message}
+                    </FieldError>
+                  ) : null}
+                </Field>
+              );
+            })}
             <div aria-hidden="true" hidden>
               <label htmlFor={`${id}-website`}>Website</label>
               <input

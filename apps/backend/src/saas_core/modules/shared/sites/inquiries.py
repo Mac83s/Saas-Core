@@ -8,7 +8,7 @@ from uuid import UUID, uuid7
 
 from django.db import transaction
 from django.utils import timezone
-from rest_framework.exceptions import APIException, NotFound, PermissionDenied
+from rest_framework.exceptions import APIException, NotFound, PermissionDenied, ValidationError
 
 from saas_core.modules.core.identity.models import User, UserStatus
 from saas_core.modules.core.organizations.audit import record_audit
@@ -29,6 +29,32 @@ from .publication_routing import PublicSiteMoved, PublicSiteNotFound, resolve_pu
 from .services import SiteNotFound, _idempotency_key, assert_person_required
 
 INQUIRY_SUBMIT = "sites.inquiry.submit"
+
+# Mirror of CONTACT_FORM_FIELDS in @saas-core/site-blocks (contact-form-block.ts):
+# what each `contact` variant of core.contact_form requires. The name is always
+# required by the serializer; a block without `contact` (v1) is "email".
+CONTACT_FORM_FIELDS: dict[str, dict[str, str]] = {
+    "email": {"email": "required", "phone": "optional", "message": "required"},
+    "callback": {"email": "optional", "phone": "required", "message": "optional"},
+    "full": {"email": "required", "phone": "required", "message": "required"},
+    "email_only": {"email": "required", "phone": "hidden", "message": "required"},
+}
+
+
+def apply_contact_rules(block: dict[str, Any], data: dict[str, Any]) -> dict[str, Any]:
+    """The published block, not the visitor's browser, decides what is required."""
+    block_data = block.get("data")
+    mode = block_data.get("contact", "email") if isinstance(block_data, dict) else "email"
+    rules = CONTACT_FORM_FIELDS.get(mode, CONTACT_FORM_FIELDS["email"])
+    missing = {
+        field: ["To pole jest wymagane."]
+        for field, rule in rules.items()
+        if rule == "required" and not data[field]
+    }
+    if missing:
+        raise ValidationError(missing)
+    # A form without a phone field cannot have sent one.
+    return {**data, **{field: "" for field, rule in rules.items() if rule == "hidden"}}
 
 
 class InquiryOriginDenied(PermissionDenied):
@@ -126,6 +152,7 @@ def submit_site_inquiry(
         position = data["block_position"]
         if position >= len(blocks) or blocks[position].get("block_type") != "core.contact_form":
             raise PublicSiteNotFound
+        data = apply_contact_rules(blocks[position], data)
         inquiry_id = uuid7()
         notification = None
         if decide_feature("notifications.enabled").allowed:
@@ -150,9 +177,10 @@ def submit_site_inquiry(
                     template_context={
                         "site_name": site.name,
                         "name": data["name"],
-                        "email": data["email"],
-                        "phone": data["phone"],
-                        "message": data["message"],
+                        # A call-back request may leave these empty.
+                        "email": data["email"] or "—",
+                        "phone": data["phone"] or "—",
+                        "message": data["message"] or "—",
                         "reference": str(inquiry_id),
                     },
                     idempotency_key=f"site-inquiry:{inquiry_id}",
