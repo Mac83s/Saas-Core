@@ -102,9 +102,10 @@ export function BookingPanel({
     let current = true;
     Promise.all([
       getBookingCatalog(),
-      // ponytail: the API has no date window and returns the first 500
-      // appointments by start time, so past 500 in history the newest drop
-      // out. Needs from/to on GET /booking/appointments/ (the service has it).
+      // ponytail: this takes the first 500 appointments by start time, so
+      // past 500 in history the newest drop out. The API takes from/to now;
+      // asking for the visible range waits on the empty state below, which
+      // must know that the calendar is empty, not only this week.
       listBookingAppointments(mine ? { mine } : {}),
     ])
       .then(([nextCatalog, nextAppointments]) => {

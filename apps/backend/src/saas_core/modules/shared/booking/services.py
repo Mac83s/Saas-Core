@@ -252,9 +252,11 @@ def list_appointments(
     starts_from: datetime | None = None,
     starts_until: datetime | None = None,
     appointment_kinds: frozenset[str] | set[str] | None = None,
+    staff_id: UUID | None = None,
     mine: bool = False,
 ) -> list[Appointment]:
     """`mine`: only the calendar entries linked to the caller's membership;
+    `staff_id`: only the visits this person leads;
     `appointment_kinds`: only services of these kinds (a vertical's own visits);
     `starts_until` is exclusive, so one day is `[midnight, next midnight)`."""
     # A read: it keeps working when the plan has lapsed to read-only.
@@ -266,6 +268,8 @@ def list_appointments(
         query = query.filter(starts_at__lt=starts_until)
     if appointment_kinds is not None:
         query = query.filter(service__appointment_kind__in=appointment_kinds)
+    if staff_id:
+        query = query.filter(staff_id=staff_id)
     if mine:
         query = query.filter(staff__membership_id=context.membership_id)
     return list(query.select_related("customer", "service", "staff", "location", "resource")[:500])
@@ -898,15 +902,29 @@ def set_appointment_materials(
 
 @transaction.atomic
 def complete_appointment(
-    *, appointment_id: UUID, idempotency_key: str, principal_ref: str
+    *,
+    appointment_id: UUID,
+    idempotency_key: str,
+    principal_ref: str,
+    ended_at: datetime | None = None,
 ) -> Appointment:
     """Marks a confirmed appointment as done; the customer's self-service link
-    stops working, because there is nothing left to move or call off."""
+    stops working, because there is nothing left to move or call off.
+
+    The people and the resource are busy until `ended_at` (now by default; a
+    product may pass its own, such as when the trimmer left the farm) plus the
+    buffer the booking took after the visit, so a walk-in blocked for the whole
+    day frees them when the work ends (ADR-058 §6). A trim only shortens, so
+    it cannot collide with anybody; the planned times stay as booked.
+    """
     context = require_tenant_context()
     appointment = Appointment.all_objects.select_for_update().filter(pk=appointment_id).first()
     if not appointment:
         raise NotFound("Rezerwacja nie istnieje.")
-    request_hash = _hash({"complete": True})
+    request_hash = _hash({
+        "complete": True,
+        **({"ended_at": ended_at.isoformat()} if ended_at else {}),
+    })
     existing = BookingMutation.all_objects.filter(
         action="complete", principal_ref=principal_ref, idempotency_key=idempotency_key
     ).first()
@@ -919,6 +937,17 @@ def complete_appointment(
             raise AppointmentNotChangeable
         appointment.status = AppointmentStatus.COMPLETED
         appointment.save(update_fields=["status", "updated_at"])
+        # The booking's own after-buffer, not the catalogue's today: none for a
+        # walk-in, which is booked without buffers.
+        until = (ended_at or timezone.now()) + (appointment.occupied_until - appointment.ends_at)
+        for model in (AppointmentStaffAllocation, AppointmentResourceAllocation):
+            for allocation in model.all_objects.filter(
+                appointment=appointment, active=True, occupied_range__endswith__gt=until
+            ):
+                start = allocation.occupied_range.lower
+                # Ended before it began: an empty range, which overlaps nothing.
+                allocation.occupied_range = (start, max(start, until))
+                allocation.save(update_fields=["occupied_range"])
         SelfServiceRoute.objects.filter(appointment_id=appointment.id).update(
             revoked_at=timezone.now()
         )

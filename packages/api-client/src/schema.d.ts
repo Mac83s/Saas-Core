@@ -7051,8 +7051,14 @@ export interface operations {
     api_v1_booking_appointments_retrieve: {
         parameters: {
             query?: {
+                /** @description Wizyty zaczynające się od tej chwili: data (północ w strefie organizacji) albo data i czas ISO 8601. */
+                from?: string;
                 /** @description Tylko wizyty pracownika kalendarza powiązanego z moim kontem. */
                 mine?: boolean;
+                /** @description Tylko wizyty tej osoby. */
+                staff_id?: string;
+                /** @description Wizyty zaczynające się przed tą chwilą (bez niej); format jak `from`. */
+                to?: string;
             };
             header?: never;
             path?: never;
@@ -7066,6 +7072,14 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AppointmentList"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };

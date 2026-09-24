@@ -936,10 +936,28 @@ paths:
       operationId: api_v1_booking_appointments_retrieve
       parameters:
       - in: query
+        name: from
+        schema:
+          type: string
+        description: 'Wizyty zaczynające się od tej chwili: data (północ w strefie
+          organizacji) albo data i czas ISO 8601.'
+      - in: query
         name: mine
         schema:
           type: boolean
         description: Tylko wizyty pracownika kalendarza powiązanego z moim kontem.
+      - in: query
+        name: staff_id
+        schema:
+          type: string
+          format: uuid
+        description: Tylko wizyty tej osoby.
+      - in: query
+        name: to
+        schema:
+          type: string
+        description: Wizyty zaczynające się przed tą chwilą (bez niej); format jak
+          `from`.
       tags:
       - booking
       security:
@@ -950,6 +968,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AppointmentList'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
           description: ''
     post:
       operationId: api_v1_booking_appointments_create

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
@@ -19,7 +19,7 @@ from rest_framework.views import APIView
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 from saas_core.modules.shared.billing.authorization import authorize_entitled
 
-from .availability import available_days, available_slots, available_times
+from .availability import _zone, available_days, available_slots, available_times
 from .models import Location, PublicBookingRoute, Resource, SelfServiceRoute, Service, StaffMember
 from .security import public_booking_context, token_digest
 from .serializers import (
@@ -123,6 +123,19 @@ def _staff_query(request: Request) -> list[UUID] | None:
         return [UUID(value)] if value else None
     except ValueError as error:
         raise ParseError("Nieprawidłowe parametry terminów.") from error
+
+
+def _window_edge(request: Request, name: str) -> datetime | None:
+    """One edge of the appointment list's window. Without an offset, a date
+    included, it is the organization's wall clock: a date is local midnight."""
+    value = request.query_params.get(name)
+    if not value:
+        return None
+    try:
+        edge = datetime.fromisoformat(value)
+    except ValueError as error:
+        raise ParseError("Nieprawidłowe parametry terminów.") from error
+    return edge if edge.tzinfo else edge.replace(tzinfo=_zone())
 
 
 def _materials(raw: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -354,13 +367,38 @@ class AppointmentListCreateView(APIView):
                 bool,
                 OpenApiParameter.QUERY,
                 description="Tylko wizyty pracownika kalendarza powiązanego z moim kontem.",
-            )
+            ),
+            OpenApiParameter(
+                "from",
+                str,
+                OpenApiParameter.QUERY,
+                description=(
+                    "Wizyty zaczynające się od tej chwili: data (północ w strefie organizacji) "
+                    "albo data i czas ISO 8601."
+                ),
+            ),
+            OpenApiParameter(
+                "to",
+                str,
+                OpenApiParameter.QUERY,
+                description="Wizyty zaczynające się przed tą chwilą (bez niej); format jak `from`.",
+            ),
+            OpenApiParameter(
+                "staff_id", UUID, OpenApiParameter.QUERY, description="Tylko wizyty tej osoby."
+            ),
         ],
-        responses={200: AppointmentListSerializer},
+        responses={200: AppointmentListSerializer, 400: ProblemDetailsSerializer},
     )
     def get(self, request: Request) -> Response:
         mine = request.query_params.get("mine", "").lower() in {"1", "true"}
-        return Response({"items": [_appointment_payload(x) for x in list_appointments(mine=mine)]})
+        staff = _staff_query(request)
+        items = list_appointments(
+            starts_from=_window_edge(request, "from"),
+            starts_until=_window_edge(request, "to"),
+            staff_id=staff[0] if staff else None,
+            mine=mine,
+        )
+        return Response({"items": [_appointment_payload(x) for x in items]})
 
     @extend_schema(
         tags=["booking"],
