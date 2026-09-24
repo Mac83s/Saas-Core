@@ -29,6 +29,11 @@ def token_digest(token: str) -> str:
 #: The role of the tenant context a customer's public link acts under.
 PUBLIC_BOOKING_ROLE = "public_booking"
 
+#: The organization's own reminder job (ADR-058 §7): it reads the visit and
+#: queues one mail. The permission is a scope marker nobody's role carries.
+REMINDER_ROLE = "booking_reminder"
+REMINDER_PERMISSIONS = frozenset({"booking.reminder.send"})
+
 
 @contextmanager
 def public_booking_context(organization_id: UUID) -> Iterator[TenantContext]:

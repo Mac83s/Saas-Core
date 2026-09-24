@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from celery import shared_task
 from django.db import transaction
 from django.utils import timezone
@@ -10,6 +12,8 @@ from saas_core.modules.shared.notifications.services import queue_email
 
 from .models import Appointment, AppointmentStatus, ReminderRoute
 from .services import local_time
+
+logger = logging.getLogger("saas_core.security")
 
 
 @shared_task  # type: ignore[untyped-decorator]
@@ -26,12 +30,16 @@ def dispatch_booking_reminders() -> int:
                 decrypt_secret(route.signed_tenant_context),
                 expected_causation_id=f"booking:{route.appointment_id}",
             ):
+                # Locked, so a move committing meanwhile is read here rather
+                # than overwritten; a move re-arms to a later due time.
                 appointment = (
-                    Appointment.all_objects.select_related("customer", "organization")
+                    Appointment.all_objects.select_for_update(of=("self",))
+                    .select_related("customer", "organization")
                     .filter(
                         pk=route.appointment_id,
                         status=AppointmentStatus.CONFIRMED,
                         reminder_sent_at__isnull=True,
+                        reminder_due_at__lte=timezone.now(),
                     )
                     .first()
                 )
@@ -49,16 +57,31 @@ def dispatch_booking_reminders() -> int:
                                 appointment.customer.locale,
                             ),
                         },
-                        idempotency_key=f"booking-reminder:{appointment.id}",
+                        # The time is part of the identity: a moved visit is
+                        # reminded again, a retry of this one is not.
+                        idempotency_key=(
+                            f"booking-reminder:{appointment.id}:{appointment.starts_at.isoformat()}"
+                        ),
                         causation_id=f"booking:{appointment.id}",
                     )
                     appointment.reminder_sent_at = timezone.now()
                     appointment.save(update_fields=["reminder_sent_at", "updated_at"])
-            with transaction.atomic():
-                ReminderRoute.objects.filter(pk=route.pk, dispatched_at__isnull=True).update(
-                    dispatched_at=timezone.now()
-                )
             dispatched += 1
-        except InvalidTenantTaskContext:
-            continue
+        except InvalidTenantTaskContext as error:
+            # A contract that does not open now never will (expired, an
+            # inactive organization, a membership since revoked). Left
+            # unmarked, it would head the queue forever (ADR-058 §7).
+            logger.warning(
+                "booking_reminder_route_rejected",
+                extra={
+                    "security_event": "booking.reminder_route_rejected",
+                    "route_id": str(route.pk),
+                    "reason": str(error),
+                },
+            )
+        with transaction.atomic():
+            # Only the arming this run read: a move re-arms with another due time.
+            ReminderRoute.objects.filter(
+                pk=route.pk, dispatched_at__isnull=True, due_at=route.due_at
+            ).update(dispatched_at=timezone.now())
     return dispatched

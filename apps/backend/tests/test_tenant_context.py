@@ -39,6 +39,7 @@ from saas_core.modules.core.organizations.models import (
 from saas_core.modules.core.organizations.permissions import SYSTEM_ROLE_PERMISSIONS
 from saas_core.modules.core.organizations.tasks import (
     InvalidTenantTaskContext,
+    issue_service_task_contract,
     issue_tenant_task_contract,
     tenant_task_context,
 )
@@ -308,6 +309,40 @@ def test_task_contract_contains_uuid_correlation_id_without_request_context() ->
 
     with tenant_task_context(contract):
         assert UUID(correlation_id.get() or "").version == 7
+
+
+def test_reminder_service_contract_opens_without_a_membership() -> None:
+    organization_id = create_membership().organization_id
+    contract = issue_service_task_contract(
+        organization_id=organization_id,
+        role_key="booking_reminder",
+        permissions=frozenset({"booking.reminder.send"}),
+        causation_id="booking:reminder",
+    )
+    Membership.objects.filter(organization_id=organization_id).update(
+        status=MembershipStatus.REVOKED, revoked_at=timezone.now()
+    )
+
+    with tenant_task_context(contract) as context:
+        assert context.principal_kind == "service"
+        assert context.membership_id == context.actor_id == organization_id
+        assert context.permissions == frozenset({"booking.reminder.send"})
+
+
+@pytest.mark.parametrize(
+    "permissions",
+    [set(), {"booking.reminder.send", "booking.appointment.read"}, {"booking.public.read"}],
+)
+def test_reminder_service_contract_refuses_any_other_scope(permissions: set[str]) -> None:
+    contract = issue_service_task_contract(
+        organization_id=create_membership().organization_id,
+        role_key="booking_reminder",
+        permissions=frozenset(permissions),
+        causation_id="booking:reminder",
+    )
+
+    with pytest.raises(InvalidTenantTaskContext, match="zakres"), tenant_task_context(contract):
+        pass
 
 
 def test_first_sensitive_tenant_model_has_forced_rls() -> None:

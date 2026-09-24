@@ -22,7 +22,7 @@ from saas_core.modules.core.organizations.models import (
     MembershipStatus,
     Organization,
 )
-from saas_core.modules.core.organizations.tasks import issue_tenant_task_contract
+from saas_core.modules.core.organizations.tasks import issue_service_task_contract
 from saas_core.modules.shared.billing.api import FeatureOperation
 from saas_core.modules.shared.billing.authorization import authorize_entitled
 from saas_core.modules.shared.notifications.security import decrypt_secret, encrypt_secret
@@ -59,7 +59,12 @@ from .observers import (
     AppointmentChange,
     notify_appointment_change,
 )
-from .security import PUBLIC_BOOKING_ROLE, issue_self_service_token
+from .security import (
+    PUBLIC_BOOKING_ROLE,
+    REMINDER_PERMISSIONS,
+    REMINDER_ROLE,
+    issue_self_service_token,
+)
 
 BOOKING_READ = "booking.appointment.read"
 BOOKING_MANAGE = "booking.appointment.manage"
@@ -414,10 +419,6 @@ def create_appointment(
         materials=lines,
         self_service_token_ciphertext=encrypt_secret(token),
         self_service_expires_at=expires,
-        # Nothing to remind anybody about when the visit is already happening.
-        reminder_due_at=None
-        if walk_in_minutes
-        else max(timezone.now(), starts_at - timedelta(hours=settings.BOOKING_REMINDER_LEAD_HOURS)),
     )
     try:
         AppointmentStaffAllocation.all_objects.create(
@@ -459,15 +460,8 @@ def create_appointment(
         expires_at=expires,
     )
     if walk_in_minutes is None:
-        signed = issue_tenant_task_contract(causation_id=f"booking:{appointment.id}")
-        reminder_due_at = appointment.reminder_due_at
-        assert reminder_due_at is not None
-        ReminderRoute.objects.create(
-            appointment_id=appointment.id,
-            organization_id=organization.id,
-            signed_tenant_context=encrypt_secret(signed),
-            due_at=reminder_due_at,
-        )
+        # Nothing to remind anybody about when the visit is already happening.
+        _arm_reminder(appointment)
     if email and walk_in_minutes is None:
         queue_email(
             recipient_email=email,
@@ -571,6 +565,7 @@ def reschedule_appointment(
     appointment.save(
         update_fields=["starts_at", "ends_at", "occupied_from", "occupied_until", "updated_at"]
     )
+    _arm_reminder(appointment)
     AppointmentStatusHistory.all_objects.create(
         organization_id=context.organization_id,
         appointment=appointment,
@@ -725,6 +720,37 @@ def _refuse_customer_after_start(role_key: str, appointment: Appointment) -> Non
     starts; once the provider is on site, changes go through the provider."""
     if role_key == PUBLIC_BOOKING_ROLE and appointment.starts_at <= timezone.now():
         raise AppointmentNotChangeable
+
+
+def _arm_reminder(appointment: Appointment) -> None:
+    """Schedules the customer's reminder for the appointment's current time.
+
+    A move re-arms it: the reminder follows the new time, even when the old
+    one was already sent. The route is signed as the organization's own
+    service, not as whoever booked, so it outlives that person's membership
+    (ADR-058 §7).
+    """
+    due_at = max(
+        timezone.now(),
+        appointment.starts_at - timedelta(hours=settings.BOOKING_REMINDER_LEAD_HOURS),
+    )
+    appointment.reminder_due_at, appointment.reminder_sent_at = due_at, None
+    appointment.save(update_fields=["reminder_due_at", "reminder_sent_at", "updated_at"])
+    signed = issue_service_task_contract(
+        organization_id=appointment.organization_id,
+        role_key=REMINDER_ROLE,
+        permissions=REMINDER_PERMISSIONS,
+        causation_id=f"booking:{appointment.id}",
+    )
+    ReminderRoute.objects.update_or_create(
+        appointment_id=appointment.id,
+        defaults={
+            "organization_id": appointment.organization_id,
+            "signed_tenant_context": encrypt_secret(signed),
+            "due_at": due_at,
+            "dispatched_at": None,
+        },
+    )
 
 
 def staff_for_membership(organization_id: UUID, membership_id: UUID) -> StaffMember | None:
