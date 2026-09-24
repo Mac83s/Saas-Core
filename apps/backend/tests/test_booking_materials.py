@@ -222,7 +222,23 @@ def test_a_kind_whose_module_takes_its_own_material_stays_out_of_the_warehouse(
         with pytest.raises(ValidationError, match="rozlicza jej moduł"):
             set_service_materials(service_id=configured["service"].id, materials=[line])
 
-    appointment = booking_tests.create(member, configured).appointment
+    # A visit confirmed before its module said so still holds a reservation.
+    monkeypatch.setattr(settings, "APPOINTMENT_KINDS_OWN_MATERIALS", frozenset(), raising=False)
+    earlier = booking_tests.create(member, configured).appointment
+    assert stock(member, items["oil"]) == (Decimal(10), Decimal(8))
+    monkeypatch.setattr(
+        settings, "APPOINTMENT_KINDS_OWN_MATERIALS", frozenset({"field.visit"}), raising=False
+    )
+    with booking_tests.tenant(member):
+        complete_appointment(
+            appointment_id=earlier.id, idempotency_key="done-earlier", principal_ref="t"
+        )
+    # Completing it lets the reservation go and settles nothing.
+    assert stock(member, items["oil"]) == (Decimal(10), Decimal(10))
+    assert documents(member, earlier.id) == []
+
+    configured.pop("starts_at")  # the first slot is taken now
+    appointment = booking_tests.create(member, configured, key="own-2").appointment
     assert appointment.materials == []
     assert stock(member, items["oil"]) == (Decimal(10), Decimal(10))
     with booking_tests.tenant(member):

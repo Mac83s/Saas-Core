@@ -850,10 +850,11 @@ def complete_appointment(
             actor_kind=context.principal_kind,
         )
         # A kind whose module accounts for its own material (HoofCare) never
-        # settles here: its stock already went per cow (ADR-055).
-        if context.actor_id is not None and stock.takes_materials(
-            appointment.service.appointment_kind
-        ):
+        # settles here: its stock already went per cow (ADR-055). A reservation
+        # it held from before its module said so is let go, not left behind.
+        if not stock.takes_materials(appointment.service.appointment_kind):
+            stock.release(context.organization_id, appointment.id)
+        elif context.actor_id is not None:
             stock.settle(
                 context.organization_id, appointment.id, appointment.materials, context.actor_id
             )
