@@ -36,6 +36,7 @@ from test_media_api import (
 pytestmark = pytest.mark.django_db
 
 MARK = b"trainedAlgorithmicMedia"
+_clients: dict[str, Any] = {}
 
 
 @pytest.fixture(autouse=True)
@@ -51,6 +52,7 @@ def _process(
     ai_origin: str,
 ) -> tuple[MediaAsset, MemoryStorage, list[tuple[str, str]], str]:
     client, _, _ = media_client(slug=slug, storage_limit=10**7)
+    _clients[slug] = client
     raw = encoded_image("JPEG")
     created = initiate_upload(client, size=len(raw), idempotency_key=f"{slug}-upload")
     MediaAsset.all_objects.filter(pk=created.data["asset"]["id"]).update(ai_origin=ai_origin)
@@ -208,3 +210,21 @@ def test_migration_marks_template_media_as_generated_and_walks_back() -> None:
 
     for key, expected in rows.items():
         assert MediaAsset.all_objects.get(pk=ids[key]).ai_origin == expected
+
+
+def test_media_list_reports_each_assets_ai_origin(
+    monkeypatch: pytest.MonkeyPatch,
+    django_capture_on_commit_callbacks: Any,
+) -> None:
+    """The serializer and OpenAPI declared it, the panel filtered on it, and
+    the list never sent it: every picker treated AI images as real photos."""
+    asset, _, _, _ = _process(
+        monkeypatch,
+        django_capture_on_commit_callbacks,
+        slug="ai-origin-list",
+        ai_origin=AiOrigin.GENERATED,
+    )
+    items = _clients["ai-origin-list"].get("/api/v1/media/").data["items"]
+    assert {str(item["id"]): item["ai_origin"] for item in items} == {
+        str(asset.id): AiOrigin.GENERATED
+    }
