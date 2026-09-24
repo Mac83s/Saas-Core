@@ -88,8 +88,21 @@ def test_offer_reports_price_aspects_and_availability() -> None:
         "available": True,
         "credit_cost": 2,
         "aspects": ["16:9", "4:3", "3:2"],
+        "badge_visible": True,
     }
     assert response["Cache-Control"] == "private, no-store"
+
+
+def test_offer_carries_the_operator_badge_switch() -> None:
+    from saas_core.modules.shared.sites.models import AiBadgeSwitch
+
+    client, organization = generation_client("imagegen-offer-badge")
+    AiBadgeSwitch.objects.create(
+        visible=False,
+        reason="Przegląd prawny oznaczeń.",
+        changed_by=organization.memberships.first().user,
+    )
+    assert client.get("/api/v1/image-generation/offer/").json()["badge_visible"] is False
 
 
 @pytest.mark.parametrize("missing", ["key", "operation", "heartbeat", "blocked"])

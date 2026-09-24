@@ -688,15 +688,19 @@ export function PageEditor({
       },
       registry,
       privateMediaRenderer(
-        new Set(
-          assets
-            .filter((asset) => asset.ai_origin === "generated")
-            .map((asset) => asset.id),
-        ),
+        // The badge only where published pages show it (operator switch);
+        // unknown when there is no offer, so shown as by default.
+        imageGeneration?.badge_visible === false
+          ? new Set<string>()
+          : new Set(
+              assets
+                .filter((asset) => asset.ai_origin === "generated")
+                .map((asset) => asset.id),
+            ),
         locale === "en" ? "en" : "pl",
       ),
     );
-  }, [preview, savedAppearance, assets, locale]);
+  }, [preview, savedAppearance, assets, locale, imageGeneration]);
 
   /** Every section entering the page from the library goes through here:
    *  its photos refresh the media list and its heading anchors are renamed

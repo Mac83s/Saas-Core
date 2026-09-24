@@ -25,6 +25,7 @@ from saas_core.modules.shared.billing.api import (
     reserve_quota,
 )
 from saas_core.modules.shared.media.api import MEDIA_MANAGE, STORAGE_BYTES
+from saas_core.modules.shared.sites.api import badge_visible
 
 from .models import ACTIVE, ASPECTS, ImageGenerationJob, JobState
 from .permissions import (
@@ -114,7 +115,12 @@ def read_offer() -> dict[str, object]:
         cost = operation_cost(CREDIT_OPERATION)
     except APIException:
         cost = 0
-    return {"available": _available(), "credit_cost": cost, "aspects": list(ASPECTS)}
+    return {
+        "available": _available(),
+        "credit_cost": cost,
+        "aspects": list(ASPECTS),
+        "badge_visible": badge_visible(),
+    }
 
 
 def read_job(*, job_id: UUID) -> ImageGenerationJob:

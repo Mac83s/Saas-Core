@@ -10,8 +10,11 @@ import { z } from "zod";
 import {
   ApiProblemError,
   getImageGenerationJob,
+  getImageGenerationOffer,
   requestImageGeneration,
+  type ImageGenerationAspect,
   type ImageGenerationJob,
+  type ImageGenerationOffer,
 } from "@saas-core/api-client";
 import { withAiBadge } from "@saas-core/site-blocks";
 import { Button } from "@saas-core/ui/components/button";
@@ -31,9 +34,8 @@ import {
 } from "@saas-core/ui/components/field";
 import { Textarea } from "@saas-core/ui/components/textarea";
 
+import { mutationKey, type MutationReceipt } from "../sites/idempotency";
 import { PrivateMediaPreview } from "../sites/private-media-preview";
-
-export type GeneratedImageAspect = "16:9" | "4:3" | "3:2";
 
 const POLL_MS = 2000;
 const POLL_LIMIT_MS = 3 * 60 * 1000;
@@ -52,10 +54,10 @@ const PROBLEM_KEYS: Record<string, string> = {
 /** The slot's aspect as the API names it, when the API generates it at all. */
 export function generatedAspect(
   aspect: readonly [number, number] | undefined,
-  offered: readonly string[],
-): GeneratedImageAspect | undefined {
+  offered: readonly ImageGenerationAspect[],
+): ImageGenerationAspect | undefined {
   const key = aspect ? `${aspect[0]}:${aspect[1]}` : "";
-  return offered.includes(key) ? (key as GeneratedImageAspect) : undefined;
+  return offered.find((item) => item === key);
 }
 
 function wait(ms: number, signal: AbortSignal): Promise<void> {
@@ -75,17 +77,18 @@ function wait(ms: number, signal: AbortSignal): Promise<void> {
 /**
  * „Wygeneruj obraz AI” przy polu obrazu: opis → zlecenie → gotowy obraz.
  *
- * Obraz ma już proporcję miejsca, więc nie przechodzi przez kadrowanie. Każde
- * wysłanie to nowy klucz idempotencji; ponowienie tego samego żądania po
- * zerwanym połączeniu nie zdarza się tu, bo formularz blokuje się na czas pracy.
+ * Obraz ma już proporcję miejsca, więc nie przechodzi przez kadrowanie. Klucz
+ * idempotencji trwa, dopóki wynik wysłania jest nieznany: ponowienie po
+ * zerwanej odpowiedzi trafia w to samo zlecenie, a nie płaci drugi raz. Nowy
+ * klucz dostaje dopiero wysłanie po otrzymanym zleceniu albo zmieniony opis.
  */
 export function GenerateImageDialog({
   aspect,
-  creditCost,
+  offer,
   onUse,
 }: {
-  aspect: GeneratedImageAspect;
-  creditCost: number;
+  aspect: ImageGenerationAspect;
+  offer: ImageGenerationOffer;
   onUse: (assetId: string) => void;
 }) {
   const t = useTranslations("ImageGeneration");
@@ -95,7 +98,12 @@ export function GenerateImageDialog({
   const [working, setWorking] = useState(false);
   const [assetId, setAssetId] = useState<string>();
   const [problem, setProblem] = useState<string>();
+  const [status, setStatus] = useState("");
+  // The editor reads the offer once; a price change re-reads it here.
+  const [creditCost, setCreditCost] = useState(offer.credit_cost);
   const polling = useRef<AbortController | null>(null);
+  const receipt = useRef<MutationReceipt | undefined>(undefined);
+  const useButton = useRef<HTMLButtonElement>(null);
   const schema = z.object({
     prompt: z
       .string()
@@ -111,6 +119,10 @@ export function GenerateImageDialog({
 
   // Leaving the editor stops the polling; the job itself goes on server-side.
   useEffect(() => () => polling.current?.abort(), []);
+  // A finished image moves focus to the action that uses it.
+  useEffect(() => {
+    if (assetId) useButton.current?.focus();
+  }, [assetId]);
 
   async function generate({ prompt }: { prompt: string }) {
     polling.current?.abort();
@@ -119,31 +131,65 @@ export function GenerateImageDialog({
     setWorking(true);
     setProblem(undefined);
     setAssetId(undefined);
+    setStatus(t("working"));
+    const input = { prompt, aspect, expected_cost: creditCost };
+    let job: ImageGenerationJob;
     try {
-      let job: ImageGenerationJob = await requestImageGeneration(
-        { prompt, aspect, expected_cost: creditCost },
-        crypto.randomUUID(),
+      job = await requestImageGeneration(
+        input,
+        mutationKey(receipt, "image-generation", input),
       );
-      const deadline = Date.now() + POLL_LIMIT_MS;
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      setStatus("");
+      setWorking(false);
+      const code = error instanceof ApiProblemError ? error.problem.code : "";
+      if (code === "credit_price_changed") {
+        await refreshPrice();
+        return;
+      }
+      setProblem(t(PROBLEM_KEYS[code] ?? "problem"));
+      return;
+    }
+    // The job exists and will be charged if it succeeds: from here on a
+    // failed read is a blip to wait out, never "request failed, try again".
+    receipt.current = undefined;
+    const deadline = Date.now() + POLL_LIMIT_MS;
+    try {
       while (!["succeeded", "refused", "failed"].includes(job.state)) {
         if (Date.now() >= deadline) {
-          setProblem(t("timeout"));
+          setStatus(t("timeout"));
           return;
         }
         await wait(POLL_MS, controller.signal);
-        job = await getImageGenerationJob(job.id, controller.signal);
+        job = await getImageGenerationJob(job.id, controller.signal).catch(
+          (error: unknown) => {
+            if (controller.signal.aborted) throw error;
+            return job;
+          },
+        );
       }
       if (job.state === "succeeded" && job.media_asset_id) {
         setAssetId(job.media_asset_id);
+        setStatus(t("ready"));
       } else {
+        setStatus("");
         setProblem(t(job.state === "refused" ? "refused" : "failed"));
       }
-    } catch (error) {
-      if (controller.signal.aborted) return;
-      const code = error instanceof ApiProblemError ? error.problem.code : "";
-      setProblem(t(PROBLEM_KEYS[code] ?? "problem"));
+    } catch {
+      // Only an abort gets here: the dialog closed or the editor left.
     } finally {
       if (!controller.signal.aborted) setWorking(false);
+    }
+  }
+
+  async function refreshPrice() {
+    try {
+      const fresh = await getImageGenerationOffer();
+      setCreditCost(fresh.credit_cost);
+      setProblem(t("priceChanged"));
+    } catch {
+      setProblem(t("priceChangedReload"));
     }
   }
 
@@ -153,6 +199,7 @@ export function GenerateImageDialog({
     setWorking(false);
     setAssetId(undefined);
     setProblem(undefined);
+    setStatus("");
   }
 
   return (
@@ -191,7 +238,9 @@ export function GenerateImageDialog({
                 rows={4}
                 {...form.register("prompt")}
               />
-              <FieldDescription>{t("marking")}</FieldDescription>
+              <FieldDescription>
+                {t(offer.badge_visible ? "marking" : "markingFileOnly")}
+              </FieldDescription>
               <FieldError>{promptError}</FieldError>
             </Field>
             <p
@@ -200,11 +249,10 @@ export function GenerateImageDialog({
             >
               {t("warning")}
             </p>
-            {working ? (
-              <p className="text-sm text-muted-foreground" role="status">
-                {t("working")}
-              </p>
-            ) : null}
+            {/* Always mounted, so a screen reader hears each change in it. */}
+            <p className="text-sm text-muted-foreground" role="status">
+              {status}
+            </p>
             {problem ? (
               <p className="text-sm text-destructive" role="alert">
                 {problem}
@@ -212,12 +260,20 @@ export function GenerateImageDialog({
             ) : null}
             {assetId ? (
               <div className="overflow-hidden rounded-lg">
-                {withAiBadge(
+                {/* The badge only where the published page will show one. */}
+                {offer.badge_visible ? (
+                  withAiBadge(
+                    <PrivateMediaPreview
+                      alt={t("previewAlt")}
+                      assetId={assetId}
+                    />,
+                    locale,
+                  )
+                ) : (
                   <PrivateMediaPreview
                     alt={t("previewAlt")}
                     assetId={assetId}
-                  />,
-                  locale,
+                  />
                 )}
               </div>
             ) : null}
@@ -232,6 +288,7 @@ export function GenerateImageDialog({
                       onUse(assetId);
                       close();
                     }}
+                    ref={useButton}
                     type="button"
                   >
                     {t("use")}

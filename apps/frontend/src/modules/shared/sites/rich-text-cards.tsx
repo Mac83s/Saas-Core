@@ -229,7 +229,7 @@ function FigureView({
             {offer?.available && offer.aspects.includes("3:2") ? (
               <GenerateImageDialog
                 aspect="3:2"
-                creditCost={offer.credit_cost}
+                offer={offer}
                 onUse={(generated) => {
                   updateAttributes({ assetId: generated });
                   media.onUpload?.(generated);

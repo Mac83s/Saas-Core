@@ -63,6 +63,8 @@ export type ImageGenerationOffer =
 export type ImageGenerationJob = components["schemas"]["ImageGenerationJob"];
 export type ImageGenerationInput =
   components["schemas"]["ImageGenerationRequest"];
+export type ImageGenerationAspect =
+  components["schemas"]["ImageGenerationAspectEnum"];
 
 export async function getImageGenerationOffer(): Promise<ImageGenerationOffer> {
   const { data, error, response } = await client.GET(

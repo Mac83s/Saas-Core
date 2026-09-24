@@ -1,5 +1,6 @@
 """Public use-case API of the Sites module."""
 
+from .ai_badge import badge_visible
 from .block_contracts import (
     InvalidSiteBlockData,
     UnknownSiteBlockType,
@@ -43,6 +44,7 @@ from .services import (
 )
 
 __all__ = [
+    "badge_visible",
     "DraftVersionConflict",
     "InvalidSiteBlockData",
     "MutationResult",

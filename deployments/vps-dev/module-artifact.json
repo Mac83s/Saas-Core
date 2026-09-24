@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:4a11e05a82f14c7672f1dabb6364abc260a8ce6e30467c268682834d506ca4be",
+  "profileHash": "sha256:fa1628373d1d0756d9e6deb4619ce80831076653213b9babac74d19c35386f0d",
   "schemaVersion": 1,
   "deployment": "vps-dev",
   "product": {
@@ -295,7 +295,8 @@
       "dependsOn": [
         "core.organizations",
         "shared.billing",
-        "shared.media"
+        "shared.media",
+        "shared.sites"
       ],
       "backend": {
         "djangoApp": "saas_core.modules.shared.image_generation",

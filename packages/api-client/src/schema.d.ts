@@ -4463,6 +4463,7 @@ export interface components {
             available: boolean;
             credit_cost: number;
             aspects: components["schemas"]["ImageGenerationAspectEnum"][];
+            badge_visible: boolean;
         };
         ImageGenerationRequest: {
             prompt: string;

@@ -9,6 +9,8 @@ class ImageGenerationOfferSerializer(serializers.Serializer[dict[str, Any]]):
     available = serializers.BooleanField()
     credit_cost = serializers.IntegerField(min_value=0)
     aspects = serializers.ListField(child=serializers.ChoiceField(choices=list(ASPECTS)))
+    #: Whether published pages show the visible AI badge (the operator switch).
+    badge_visible = serializers.BooleanField()
 
 
 class ImageGenerationRequestSerializer(serializers.Serializer[dict[str, Any]]):

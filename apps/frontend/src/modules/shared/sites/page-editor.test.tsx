@@ -13,7 +13,11 @@ import axe from "axe-core";
 import { FormProvider, useForm, type FieldValues } from "react-hook-form";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
-import { ApiProblemError, type DraftSaveInput } from "@saas-core/api-client";
+import {
+  ApiProblemError,
+  type DraftSaveInput,
+  type ImageGenerationOffer,
+} from "@saas-core/api-client";
 import {
   availablePageTemplates,
   sectionDecorationPresets,
@@ -28,10 +32,11 @@ import { PageEditorContext } from "./page-editor-context";
 import { PublicationHistory } from "./publication-history";
 import { RichTextEditor } from "./rich-text-editor";
 
-const offer = {
+const offer: ImageGenerationOffer = {
   available: true,
   credit_cost: 2,
-  aspects: ["16:9", "4:3", "3:2"] as ("16:9" | "4:3" | "3:2")[],
+  aspects: ["16:9", "4:3", "3:2"],
+  badge_visible: true,
 };
 
 // The gallery offers whatever recipes are current (retired ones are hidden),
@@ -51,6 +56,7 @@ const {
   initiateMediaUpload,
   listMediaAssets,
   listPageTranslations,
+  requestImageGeneration,
   savePageDraft,
   savePageTranslation,
 } = vi.hoisted(() => ({
@@ -63,6 +69,7 @@ const {
   initiateMediaUpload: vi.fn(),
   listMediaAssets: vi.fn(),
   listPageTranslations: vi.fn(),
+  requestImageGeneration: vi.fn(),
   savePageDraft: vi.fn(),
   savePageTranslation: vi.fn(),
 }));
@@ -81,6 +88,7 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   initiateMediaUpload,
   listMediaAssets,
   listPageTranslations,
+  requestImageGeneration,
   savePageDraft,
   savePageTranslation,
 }));
@@ -1546,6 +1554,98 @@ test.each([
     count,
   );
 });
+
+test("„Użyj” leaves the generated image selected in the field, also after leaving it", async () => {
+  const generatedId = "019ff20d-a000-7000-8000-0000000000b1";
+  requestImageGeneration.mockResolvedValue({
+    id: "019ff20d-a000-7000-8000-0000000000b0",
+    state: "succeeded",
+    aspect: "16:9",
+    width: 1536,
+    height: 864,
+    media_asset_id: generatedId,
+    error_code: "",
+    created_at: "2026-09-24T12:00:00Z",
+    finished_at: "2026-09-24T12:01:00Z",
+  });
+  const messages = polishMessages.ImageGeneration;
+  render(
+    <MediaFieldsHarness assets={[]} imageGeneration={offer} type="core.hero" />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: generateLabel }));
+  fireEvent.change(screen.getByLabelText(messages.prompt), {
+    target: { value: "Jasna pracownia" },
+  });
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: messages.generate.replace("{cost}", "2"),
+    }),
+  );
+  fireEvent.click(await screen.findByRole("button", { name: messages.use }));
+
+  const select = screen.getByLabelText(
+    polishMessages.Sites.imageAsset,
+  ) as HTMLSelectElement;
+  await waitFor(() => expect(select.value).toBe(generatedId));
+  // The media list does not know the new asset yet; blurring must not lose it.
+  fireEvent.blur(select);
+  expect(select.value).toBe(generatedId);
+  expect(select.selectedOptions[0]?.textContent).toBe(
+    polishMessages.Sites.richText.currentImage,
+  );
+});
+
+test.each([true, false])(
+  "the draft preview badges AI images only while the badge is visible (%s)",
+  async (badgeVisible) => {
+    const aiId = "019ff20d-a000-7000-8000-0000000000c1";
+    getImageGenerationOffer.mockResolvedValue({
+      ...offer,
+      badge_visible: badgeVisible,
+    });
+    listMediaAssets.mockResolvedValue({
+      items: [
+        {
+          id: aiId,
+          original_filename: "pracownia.jpg",
+          declared_mime: "image/jpeg",
+          expected_size: 10,
+          actual_size: 10,
+          state: "ready",
+          ai_origin: "generated",
+          upload_expires_at: "2026-09-24T12:00:00Z",
+          created_at: "2026-09-24T12:00:00Z",
+        },
+      ],
+      next_cursor: null,
+    });
+    getPageDraftPreview.mockResolvedValue({
+      ...draft,
+      blocks: [
+        {
+          ...draft.blocks[0],
+          schema_version: heroVersion,
+          data: {
+            title: "Oferta",
+            image: { asset_id: aiId, alt: "Pracownia" },
+          },
+        },
+      ],
+      media_asset_ids: [aiId],
+    });
+    renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
+    await screen.findByLabelText("Nagłówek");
+    fireEvent.click(
+      screen.getAllByRole("button", { name: polishMessages.Sites.preview })[0]!,
+    );
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() =>
+      expect(Boolean(dialog.querySelector(".site-ai-badge"))).toBe(
+        badgeVisible,
+      ),
+    );
+  },
+);
 
 test("no AI button when the offer is unavailable or refused", () => {
   render(

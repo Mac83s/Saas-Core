@@ -2,7 +2,12 @@
   "id": "shared.image-generation",
   "layer": "shared",
   "version": 1,
-  "dependsOn": ["core.organizations", "shared.billing", "shared.media"],
+  "dependsOn": [
+    "core.organizations",
+    "shared.billing",
+    "shared.media",
+    "shared.sites"
+  ],
   "backend": {
     "djangoApp": "saas_core.modules.shared.image_generation",
     "urlPrefix": "/api/v1/image-generation",

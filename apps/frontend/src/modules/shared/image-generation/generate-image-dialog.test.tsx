@@ -10,20 +10,29 @@ import {
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
-import { ApiProblemError } from "@saas-core/api-client";
+import {
+  ApiProblemError,
+  type ImageGenerationOffer,
+} from "@saas-core/api-client";
 
 import englishMessages from "../../../../messages/en.json";
 import polishMessages from "../../../../messages/pl.json";
 import { GenerateImageDialog } from "./generate-image-dialog";
 
-const { getImageGenerationJob, requestImageGeneration } = vi.hoisted(() => ({
+const {
+  getImageGenerationJob,
+  getImageGenerationOffer,
+  requestImageGeneration,
+} = vi.hoisted(() => ({
   getImageGenerationJob: vi.fn(),
+  getImageGenerationOffer: vi.fn(),
   requestImageGeneration: vi.fn(),
 }));
 
 vi.mock("@saas-core/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@saas-core/api-client")>()),
   getImageGenerationJob,
+  getImageGenerationOffer,
   requestImageGeneration,
   getMediaAssetPreview: vi
     .fn()
@@ -33,6 +42,14 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
 const JOB_ID = "019ff20d-a000-7000-8000-0000000000a1";
 const ASSET_ID = "019ff20d-a000-7000-8000-0000000000a2";
 const PROMPT = "Jasna sala zabiegowa bez ludzi";
+const KEY_1 = "image-generation-0000000a-0000-4000-8000-000000000001";
+const KEY_2 = "image-generation-0000000a-0000-4000-8000-000000000002";
+const OFFER: ImageGenerationOffer = {
+  available: true,
+  credit_cost: 2,
+  aspects: ["16:9", "4:3", "3:2"],
+  badge_visible: true,
+};
 
 function job(state: string, extra: object = {}) {
   return {
@@ -63,11 +80,12 @@ function problem(status: number, code: string) {
 function renderDialog(
   locale: "pl" | "en" = "pl",
   onUse: (assetId: string) => void = vi.fn(),
+  offer: ImageGenerationOffer = OFFER,
 ) {
   const messages = locale === "pl" ? polishMessages : englishMessages;
   const result = render(
     <NextIntlClientProvider locale={locale} messages={messages}>
-      <GenerateImageDialog aspect="16:9" creditCost={2} onUse={onUse} />
+      <GenerateImageDialog aspect="16:9" offer={offer} onUse={onUse} />
     </NextIntlClientProvider>,
   );
   fireEvent.click(
@@ -76,13 +94,13 @@ function renderDialog(
   return { ...result, messages: messages.ImageGeneration };
 }
 
-function submit(messages: typeof polishMessages.ImageGeneration) {
+function submit(messages: typeof polishMessages.ImageGeneration, cost = "2") {
   fireEvent.change(screen.getByLabelText(messages.prompt), {
     target: { value: PROMPT },
   });
   fireEvent.click(
     screen.getByRole("button", {
-      name: messages.generate.replace("{cost}", "2"),
+      name: messages.generate.replace("{cost}", cost),
     }),
   );
 }
@@ -130,7 +148,7 @@ test("submits with a fresh Idempotency-Key, polls until ready and uses the image
   await waitFor(() => expect(requestImageGeneration).toHaveBeenCalledOnce());
   expect(requestImageGeneration).toHaveBeenCalledWith(
     { prompt: PROMPT, aspect: "16:9", expected_cost: 2 },
-    "0000000a-0000-4000-8000-000000000001",
+    KEY_1,
   );
   await act(async () => {
     await vi.advanceTimersByTimeAsync(4100);
@@ -139,6 +157,9 @@ test("submits with a fresh Idempotency-Key, polls until ready and uses the image
   const use = await screen.findByRole("button", { name: messages.use });
   // The preview carries the badge the published page will show.
   expect(document.querySelector(".site-ai-badge")?.textContent).toBe("AI");
+  // A screen reader hears the result, and focus lands on what uses it.
+  expect(screen.getByText(messages.ready).getAttribute("role")).toBe("status");
+  await waitFor(() => expect(document.activeElement).toBe(use));
 
   fireEvent.click(use);
   expect(onUse).toHaveBeenCalledWith(ASSET_ID);
@@ -155,9 +176,92 @@ test("generate again sends a new job under a new key", async () => {
   });
   fireEvent.click(again);
   await waitFor(() => expect(requestImageGeneration).toHaveBeenCalledTimes(2));
-  expect(requestImageGeneration.mock.calls[1]?.[1]).toBe(
-    "0000000a-0000-4000-8000-000000000002",
+  expect(requestImageGeneration.mock.calls[1]?.[1]).toBe(KEY_2);
+});
+
+test("a retry after a lost response reuses the key, so it cannot pay twice", async () => {
+  requestImageGeneration
+    .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+    .mockResolvedValueOnce(job("succeeded", { media_asset_id: ASSET_ID }));
+  const { messages } = renderDialog();
+  submit(messages);
+  expect((await screen.findByRole("alert")).textContent).toBe(messages.problem);
+  submit(messages);
+  await screen.findByRole("button", { name: messages.use });
+  expect(requestImageGeneration.mock.calls.map((call) => call[1])).toEqual([
+    KEY_1,
+    KEY_1,
+  ]);
+});
+
+test("a failed poll is waited out: the paid job still reaches the field", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  requestImageGeneration.mockResolvedValue(job("queued"));
+  getImageGenerationJob
+    .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+    .mockResolvedValueOnce(job("succeeded", { media_asset_id: ASSET_ID }));
+  const { messages } = renderDialog();
+  submit(messages);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(4100);
+  });
+  expect(
+    await screen.findByRole("button", { name: messages.use }),
+  ).not.toBeNull();
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
+test("polling that never gets an answer ends in the timeout note, not a retry prompt", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  requestImageGeneration.mockResolvedValue(job("queued"));
+  getImageGenerationJob.mockRejectedValue(new TypeError("Failed to fetch"));
+  const { messages } = renderDialog();
+  submit(messages);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(3 * 60 * 1000 + 4000);
+  });
+  await waitFor(() =>
+    expect(screen.getByText(messages.timeout).getAttribute("role")).toBe(
+      "status",
+    ),
   );
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
+test("a changed price is read again and sent with the next request", async () => {
+  requestImageGeneration
+    .mockRejectedValueOnce(problem(409, "credit_price_changed"))
+    .mockResolvedValueOnce(job("succeeded", { media_asset_id: ASSET_ID }));
+  getImageGenerationOffer.mockResolvedValue({ ...OFFER, credit_cost: 3 });
+  const { messages } = renderDialog();
+  submit(messages);
+  expect((await screen.findByRole("alert")).textContent).toBe(
+    messages.priceChanged,
+  );
+  submit(messages, "3");
+  await screen.findByRole("button", { name: messages.use });
+  expect(requestImageGeneration.mock.calls[1]?.[0]).toEqual({
+    prompt: PROMPT,
+    aspect: "16:9",
+    expected_cost: 3,
+  });
+  // A different price is a different request: a new key, never a conflict.
+  expect(requestImageGeneration.mock.calls[1]?.[1]).toBe(KEY_2);
+});
+
+test("with the operator's badge off the dialog promises only the file marking", async () => {
+  requestImageGeneration.mockResolvedValue(
+    job("succeeded", { media_asset_id: ASSET_ID }),
+  );
+  const { messages } = renderDialog("pl", vi.fn(), {
+    ...OFFER,
+    badge_visible: false,
+  });
+  expect(screen.queryByText(messages.marking)).toBeNull();
+  expect(screen.getByText(messages.markingFileOnly)).not.toBeNull();
+  submit(messages);
+  await screen.findByRole("button", { name: messages.use });
+  expect(document.querySelector(".site-ai-badge")).toBeNull();
 });
 
 test.each([

@@ -12823,9 +12823,12 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ImageGenerationAspectEnum'
+        badge_visible:
+          type: boolean
       required:
       - aspects
       - available
+      - badge_visible
       - credit_cost
     ImageGenerationRequest:
       type: object
