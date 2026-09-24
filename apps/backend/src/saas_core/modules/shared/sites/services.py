@@ -838,25 +838,46 @@ PERSON_ONLY_PAGE_TYPES = frozenset({PageType.LEGAL})
 #: Blocks that carry commitments to a customer's customers rather than prose.
 PERSON_ONLY_BLOCK_TYPES = frozenset({"core.pricing"})
 
-#: Attributed statements: an automation carries them over unchanged or drops
-#: them, but never writes words into anyone's mouth (catalogue rule 4, docs/
-#: architecture/site-section-catalog.md). Pricing blocks everything; these
-#: only the change, so a page with a quote stays open to automation.
-STATEMENT_BLOCK_TYPES = frozenset({"core.quote", "core.testimonials"})
-
 
 def _statements(blocks: Iterable[Any]) -> Counter[str]:
+    """The words of every attributed statement, fingerprinted: a quote block's
+    quote and attribution, each testimonial, each quote node in rich text.
+    Anything else in those blocks (a layout, a title, a bound photo) is not
+    somebody's words."""
     found: Counter[str] = Counter()
+
+    def add(words: dict[str, Any]) -> None:
+        found[canonical_json_hash({key: value for key, value in words.items() if value})] += 1
+
     for block in blocks:
         if not isinstance(block, dict) or not isinstance(block.get("data"), dict):
             continue
         data = block["data"]
-        if block.get("block_type") in STATEMENT_BLOCK_TYPES:
-            found[canonical_json_hash(data)] += 1
+        if block.get("block_type") == "core.quote":
+            add({key: data.get(key) for key in ("quote", "author", "role", "context", "source")})
+        if block.get("block_type") == "core.testimonials":
+            for item in data.get("items") or []:
+                if isinstance(item, dict):
+                    add({key: item.get(key) for key in ("quote", "author", "role")})
         content = data.get("content")
         for node in content if isinstance(content, list) else []:
             if isinstance(node, dict) and node.get("type") == "quote":
-                found[canonical_json_hash(node)] += 1
+                add({key: node.get(key) for key in ("content", "author", "source")})
+    return found
+
+
+def _catalogue_statements() -> Counter[str]:
+    """Statements that ship in the page recipes (in the offered ones only
+    [Uzupełnij: …] slots): a blueprint importing a recipe carries them in,
+    which is the catalogue speaking, not the automation."""
+    from .page_templates import page_template_catalog
+
+    found: Counter[str] = Counter()
+    for versions in page_template_catalog().templates.values():
+        for template in versions.values():
+            for blocks in (template.blocks, *template.localized_blocks.values()):
+                for key in _statements(blocks):
+                    found[key] = len(blocks) + 1  # as many as a page may hold
     return found
 
 
@@ -867,7 +888,13 @@ def assert_person_blocks(
 ) -> None:
     """One check for every way blocks are written — page and entry drafts, and
     the change sets routed through them. `previous` is read only for an
-    automation: the blocks of the draft being replaced."""
+    automation: the blocks of the draft being replaced.
+
+    Pricing blocks an automation outright. Attributed statements only when
+    their words are new: an automation may carry them over unchanged, drop
+    them or import them with a recipe, but never put words into anyone's
+    mouth (catalogue rule 4, docs/architecture/site-section-catalog.md), so
+    a page with a quote stays open to it."""
     if not _is_automation(context):
         return
     if any(
@@ -875,7 +902,7 @@ def assert_person_blocks(
         for block in blocks
     ):
         assert_person_required(context, "Cennik")
-    if _statements(blocks) - _statements(previous()):
+    if _statements(blocks) - _statements(previous()) - _catalogue_statements():
         assert_person_required(context, "Cytaty i opinie")
 
 
