@@ -5,7 +5,7 @@ import type { ComponentProps } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
-import { UserPlusIcon } from "lucide-react";
+import { PencilIcon, UserPlusIcon } from "lucide-react";
 import { z } from "zod";
 
 import {
@@ -216,7 +216,10 @@ export function TeamPanel({
       if (!self && manages(member.role))
         items.push(
           {
+            // A member's editable part is the role: always in sight (ADR-057).
             label: t("changeRole"),
+            icon: <PencilIcon aria-hidden="true" />,
+            inline: true,
             onSelect: (trigger) => ask("role", member, trigger),
           },
           {

@@ -224,6 +224,20 @@ export function FarmsPanel({
               inline: true,
               link: <Link href={`/panel/farms/${farm.id}`} />,
             },
+            // Editing is always in sight where it is allowed (ADR-057).
+            ...(canManage
+              ? [
+                  {
+                    label: t("edit"),
+                    icon: <PencilIcon aria-hidden="true" />,
+                    inline: true,
+                    onSelect: (trigger: HTMLElement | null) => {
+                      setReturnTo(trigger);
+                      setEditing(farm);
+                    },
+                  },
+                ]
+              : []),
             ...(farm.phone
               ? [
                   {
@@ -239,18 +253,6 @@ export function FarmsPanel({
               icon: <PawPrintIcon aria-hidden="true" />,
               link: <Link href={`/panel/animals?farm=${farm.id}`} />,
             },
-            ...(canManage
-              ? [
-                  {
-                    label: t("edit"),
-                    icon: <PencilIcon aria-hidden="true" />,
-                    onSelect: (trigger: HTMLElement | null) => {
-                      setReturnTo(trigger);
-                      setEditing(farm);
-                    },
-                  },
-                ]
-              : []),
           ]}
           label={t("actionsFor", { name: farm.name })}
         />
