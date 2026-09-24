@@ -22,8 +22,17 @@ concurrency are both harder than they look.
   deduplicated — a slot list that shows the same wall-clock hour twice in
   October is correct.
 - **A slot is the service duration plus its buffers**, not the duration. The
-  public horizon is at most 62 days with a hard result limit, because an open
-  horizon is a scraping surface and a slow query at once.
+  public horizon is at most 62 days, because an open horizon is a scraping
+  surface and a slow query at once. Search is days first (one free start per
+  day), then the times of one day; a booking checks its one start with
+  `validate_start` (ADR-058 §5). Never cap results in the middle of a day, and
+  never validate a start by looking it up in a capped list — that is how a free
+  afternoon of the last-added person became "unavailable".
+- **The server picks the person** when the caller names nobody: least minutes
+  booked that local day, then that week, then id, trying the next one in a
+  savepoint when the exclusion constraint takes the first (ADR-058 §4). A
+  frontend that sends the first slot's `staff_id` hands every visit to the
+  oldest calendar entry.
 - **An appointment keeps a snapshot** of its time and service name. Editing the
   catalogue or the schedule later must not rewrite what a customer booked.
 
@@ -76,6 +85,10 @@ not in PostgreSQL.
   table.
 - **Everything else in Booking is under forced RLS.** Read `change-tenant-data`
   before adding a model or a task here.
+- **A reminder route is the organization's, not the booker's.** It is signed
+  as a `service` contract (`booking_reminder`) and re-armed by `_arm_reminder`
+  on every move (ADR-058 §7). Signed with the caller's membership it dies when
+  that person leaves — and an unopenable route used to head the queue forever.
 - **Payments are out of scope** until ADR-037 comes back with P5. Do not add a
   deposit field "for later".
 
