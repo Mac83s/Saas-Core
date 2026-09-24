@@ -216,7 +216,6 @@ function SlotHint({
   onPick,
   search,
   slots,
-  staffName,
   time,
   zone,
 }: {
@@ -226,8 +225,6 @@ function SlotHint({
   search: SlotSearch;
   /** The search's slots narrowed to the staff member and resource needed. */
   slots?: Slot[];
-  /** Who gets a free time when the choice was left open. */
-  staffName?: (slot: Slot) => string | undefined;
   time: string;
   zone: string;
 }) {
@@ -252,8 +249,7 @@ function SlotHint({
     tone = "text-destructive";
   } else if (!slots) message = idle;
   else if (match) {
-    const who = staffName?.(match);
-    message = who ? t("slotFreeWith", { staff: who }) : t("slotFree");
+    message = t("slotFree");
     tone = "text-success-foreground";
   } else if (dayFree.length) {
     message = time ? t("slotBusy") : t("freeTimes");
@@ -446,8 +442,9 @@ function NewAppointmentForm({
   }
 
   async function submit(values: NewValues) {
-    // The slot, not the form, says who and what is booked: the API accepts
-    // only a staff member and resource that are free at that instant.
+    // A chosen person books with the slot's resource: the API accepts only a
+    // staff member and resource that are free at that instant. "Any staff"
+    // names neither — the server picks the least busy pair (ADR-058 §4).
     const slot = findSlot(slots, values.date, values.time, zone);
     if (!slot) {
       form.setError("time", { message: t("pickFreeTime") });
@@ -460,8 +457,9 @@ function NewAppointmentForm({
           {
             service_id: values.service_id,
             location_id: values.location_id,
-            staff_id: slot.staff_id,
-            resource_id: slot.resource_id,
+            ...(values.staff_id
+              ? { staff_id: slot.staff_id, resource_id: slot.resource_id }
+              : {}),
             starts_at: slot.starts_at,
             customer: {
               display_name: values.display_name.trim(),
@@ -570,12 +568,6 @@ function NewAppointmentForm({
           onPick={pick}
           search={search}
           slots={slots}
-          staffName={
-            staffId
-              ? undefined
-              : (slot) =>
-                  catalog.staff.find((item) => item.id === slot.staff_id)?.name
-          }
           time={time}
           zone={zone}
         />

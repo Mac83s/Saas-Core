@@ -140,4 +140,4 @@ def test_the_catalog_names_a_services_visit_kind_but_not_who_has_an_account() ->
     public = _catalog_payload(value, public=True)
     assert panel["services"][0]["appointment_kind"] == "x.visit"
     assert panel["staff"][0]["membership_id"] == owner.id
-    assert public["staff"][0]["membership_id"] is None
+    assert "staff" not in public

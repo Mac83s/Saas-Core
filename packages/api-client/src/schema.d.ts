@@ -591,6 +591,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Kept for compatibility; each start once, without who takes it (ADR-058 §8). */
         get: operations["api_v1_booking_public_slots_retrieve"];
         put?: never;
         post?: never;
@@ -5206,6 +5207,26 @@ export interface components {
          * @enum {string}
          */
         ProviderStatusStatusEnum: "delivered" | "bounced" | "complained";
+        /** @description What the customer sees of their visit: no people, no stock (ADR-058 §8). */
+        PublicAppointment: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            timezone: string;
+            service_name: string;
+            location_name: string;
+            status: string;
+            self_service_token?: string;
+        };
+        /** @description The catalogue without the team: who works here is not listed (ADR-058 §8). */
+        PublicCatalog: {
+            locations: components["schemas"]["Location"][];
+            services: components["schemas"]["Service"][];
+            resources: components["schemas"]["Resource"][];
+        };
         PublicNavigationLink: {
             /** Format: uuid */
             page_id: string;
@@ -7374,7 +7395,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Catalog"];
+                    "application/json": components["schemas"]["PublicCatalog"];
                 };
             };
         };
@@ -7403,7 +7424,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Appointment"];
+                    "application/json": components["schemas"]["PublicAppointment"];
                 };
             };
         };
@@ -7455,7 +7476,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SlotList"];
+                    "application/json": components["schemas"]["SlotTimeList"];
                 };
             };
         };
@@ -7528,7 +7549,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Appointment"];
+                    "application/json": components["schemas"]["PublicAppointment"];
                 };
             };
         };
@@ -7549,7 +7570,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Appointment"];
+                    "application/json": components["schemas"]["PublicAppointment"];
                 };
             };
         };
@@ -7572,7 +7593,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Appointment"];
+                    "application/json": components["schemas"]["PublicAppointment"];
                 };
             };
         };
@@ -7593,7 +7614,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Appointment"];
+                    "application/json": components["schemas"]["PublicAppointment"];
                 };
             };
         };
@@ -7622,7 +7643,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Appointment"];
+                    "application/json": components["schemas"]["PublicAppointment"];
                 };
             };
         };

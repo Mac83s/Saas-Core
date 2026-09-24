@@ -20,7 +20,7 @@ from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 from saas_core.modules.shared.billing.authorization import authorize_entitled
 
 from .availability import _zone, available_days, available_slots, available_times
-from .models import Location, PublicBookingRoute, Resource, SelfServiceRoute, Service, StaffMember
+from .models import Location, PublicBookingRoute, Resource, SelfServiceRoute, Service
 from .security import public_booking_context, token_digest
 from .serializers import (
     AppointmentCreateSerializer,
@@ -30,6 +30,8 @@ from .serializers import (
     CatalogSerializer,
     CustomerAnonymizedSerializer,
     MaterialsInputSerializer,
+    PublicAppointmentSerializer,
+    PublicCatalogSerializer,
     RescheduleSerializer,
     ScheduleCreateSerializer,
     SlotDayListSerializer,
@@ -83,9 +85,7 @@ def _idem(request: Request) -> str:
     return value
 
 
-def _appointment_payload(
-    value: Any, token: str | None = None, *, public: bool = False
-) -> dict[str, Any]:
+def _appointment_payload(value: Any, token: str | None = None) -> dict[str, Any]:
     return {
         "id": value.id,
         "starts_at": value.starts_at,
@@ -99,8 +99,21 @@ def _appointment_payload(
         "staff_membership_id": value.staff.membership_id,
         "location_name": value.location.name,
         "resource_name": value.resource.name if value.resource else None,
-        # The customer sees their visit, not the company's stock sheet.
-        **({} if public else {"materials": value.materials}),
+        "materials": value.materials,
+        **({"self_service_token": token} if token else {}),
+    }
+
+
+def _public_appointment_payload(value: Any, token: str | None = None) -> dict[str, Any]:
+    """The customer's own visit: not who does it, nor the company's stock sheet."""
+    return {
+        "id": value.id,
+        "starts_at": value.starts_at,
+        "ends_at": value.ends_at,
+        "timezone": value.timezone,
+        "service_name": value.service_name,
+        "location_name": value.location.name,
+        "status": value.status,
         **({"self_service_token": token} if token else {}),
     }
 
@@ -153,17 +166,23 @@ def _catalog_payload(value: dict[str, list[Any]], *, public: bool = False) -> di
             for x in value["locations"]
             if x.active
         ],
-        "staff": [
-            {
-                "id": x.id,
-                "name": x.display_name,
-                "public_slug": x.public_slug,
-                # Who on the team has an account is not the public's business.
-                "membership_id": None if public else x.membership_id,
+        # Who works here is not the public's business (ADR-058 §8).
+        **(
+            {}
+            if public
+            else {
+                "staff": [
+                    {
+                        "id": x.id,
+                        "name": x.display_name,
+                        "public_slug": x.public_slug,
+                        "membership_id": x.membership_id,
+                    }
+                    for x in value["staff"]
+                    if x.active
+                ]
             }
-            for x in value["staff"]
-            if x.active
-        ],
+        ),
         "services": [
             {
                 "id": x.id,
@@ -563,7 +582,7 @@ class PublicBookingCatalogView(APIView):
     permission_classes = [AllowAny]
     throttle_classes = [BookingThrottle]
 
-    @extend_schema(tags=["public-booking"], responses={200: CatalogSerializer})
+    @extend_schema(tags=["public-booking"], responses={200: PublicCatalogSerializer})
     def get(self, request: Request, public_slug: str) -> Response:
         del request
         route = _route(public_slug)
@@ -572,7 +591,6 @@ class PublicBookingCatalogView(APIView):
             org = route.organization_id
             value: dict[str, list[Any]] = {
                 "locations": list(Location.all_objects.filter(organization_id=org)),
-                "staff": list(StaffMember.all_objects.filter(organization_id=org)),
                 "services": list(Service.all_objects.filter(organization_id=org)),
                 "resources": list(Resource.all_objects.filter(organization_id=org)),
             }
@@ -580,6 +598,8 @@ class PublicBookingCatalogView(APIView):
 
 
 class PublicBookingSlotsView(APIView):
+    """Kept for compatibility; each start once, without who takes it (ADR-058 §8)."""
+
     authentication_classes: list[type] = []
     permission_classes = [AllowAny]
     throttle_classes = [BookingThrottle]
@@ -592,7 +612,7 @@ class PublicBookingSlotsView(APIView):
             OpenApiParameter("from", date, OpenApiParameter.QUERY),
             OpenApiParameter("to", date, OpenApiParameter.QUERY),
         ],
-        responses={200: SlotListSerializer},
+        responses={200: SlotTimeListSerializer},
     )
     def get(self, request: Request, public_slug: str) -> Response:
         route = _route(public_slug)
@@ -605,17 +625,13 @@ class PublicBookingSlotsView(APIView):
             raise ParseError("Nieprawidłowe parametry terminów.") from error
         with public_booking_context(route.organization_id):
             authorize_entitled("booking.public.read", BOOKING_ENABLED)
+            slots = available_slots(
+                service_id=service, location_id=location, from_date=start, to_date=end
+            )
             return Response({
                 "items": [
-                    {
-                        "starts_at": x.starts_at,
-                        "ends_at": x.ends_at,
-                        "staff_id": x.staff_id,
-                        "resource_id": x.resource_id,
-                    }
-                    for x in available_slots(
-                        service_id=service, location_id=location, from_date=start, to_date=end
-                    )
+                    {"starts_at": starts_at, "ends_at": ends_at}
+                    for starts_at, ends_at in dict.fromkeys((x.starts_at, x.ends_at) for x in slots)
                 ]
             })
 
@@ -672,7 +688,7 @@ class PublicBookingCreateView(APIView):
         tags=["public-booking"],
         parameters=[IDEMPOTENCY],
         request=AppointmentCreateSerializer,
-        responses={201: AppointmentSerializer},
+        responses={201: PublicAppointmentSerializer},
     )
     def post(self, request: Request, public_slug: str) -> Response:
         route = _route(public_slug)
@@ -688,7 +704,7 @@ class PublicBookingCreateView(APIView):
                 idempotency_key=_idem(request),
                 principal_ref="public",
             )
-            payload = _appointment_payload(result.appointment, result.token, public=True)
+            payload = _public_appointment_payload(result.appointment, result.token)
         return Response(payload, status=201 if result.created else 200)
 
 
@@ -706,7 +722,7 @@ class SelfServiceAppointmentView(APIView):
     permission_classes = [AllowAny]
     throttle_classes = [BookingThrottle]
 
-    @extend_schema(tags=["public-booking"], responses={200: AppointmentSerializer})
+    @extend_schema(tags=["public-booking"], responses={200: PublicAppointmentSerializer})
     def get(self, request: Request, token: str) -> Response:
         del request
         route = _self(token)
@@ -715,13 +731,13 @@ class SelfServiceAppointmentView(APIView):
             from .models import Appointment
 
             value = (
-                Appointment.all_objects.select_related("customer", "staff", "location", "resource")
+                Appointment.all_objects.select_related("location")
                 .filter(pk=route.appointment_id)
                 .first()
             )
             if not value:
                 raise NotFound("Rezerwacja nie istnieje.")
-            return Response(_appointment_payload(value, public=True))
+            return Response(_public_appointment_payload(value))
 
 
 class SelfServiceRescheduleView(SelfServiceAppointmentView):
@@ -729,7 +745,7 @@ class SelfServiceRescheduleView(SelfServiceAppointmentView):
         tags=["public-booking"],
         parameters=[IDEMPOTENCY],
         request=RescheduleSerializer,
-        responses={200: AppointmentSerializer},
+        responses={200: PublicAppointmentSerializer},
     )
     def post(self, request: Request, token: str) -> Response:
         route = _self(token)
@@ -743,7 +759,7 @@ class SelfServiceRescheduleView(SelfServiceAppointmentView):
                 principal_ref=route.token_digest,
                 **s.validated_data,
             )
-            payload = _appointment_payload(value, public=True)
+            payload = _public_appointment_payload(value)
         return Response(payload)
 
 
@@ -752,7 +768,7 @@ class SelfServiceCancelView(SelfServiceAppointmentView):
         tags=["public-booking"],
         parameters=[IDEMPOTENCY],
         request=None,
-        responses={200: AppointmentSerializer},
+        responses={200: PublicAppointmentSerializer},
     )
     def post(self, request: Request, token: str) -> Response:
         route = _self(token)
@@ -763,5 +779,5 @@ class SelfServiceCancelView(SelfServiceAppointmentView):
                 idempotency_key=_idem(request),
                 principal_ref=route.token_digest,
             )
-            payload = _appointment_payload(value, public=True)
+            payload = _public_appointment_payload(value)
         return Response(payload)

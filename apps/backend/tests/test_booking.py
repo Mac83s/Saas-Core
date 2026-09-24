@@ -48,6 +48,7 @@ from saas_core.modules.shared.booking.models import (
     AvailabilityRule,
     Customer,
     Location,
+    PublicBookingRoute,
     ReminderRoute,
     Resource,
     Service,
@@ -450,6 +451,78 @@ def test_canceled_self_service_token_returns_same_non_enumerable_404(
     response = APIClient().get(f"/api/v1/booking/self-service/{created.token}/")
     assert response.status_code == 404
     assert "appointment" not in str(response.data).lower()
+
+
+def test_the_customer_gets_no_staff_data_from_any_public_answer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ADR-058 §8: the catalogue, the time list, the booking and the customer's
+    own link say when and where, never who."""
+    _no_delivery(monkeypatch)
+    member = membership("booking-public-no-staff")
+    configured = catalog(member)
+    day = configured["date"]
+    with tenant(member):
+        # A second person on the same hours: every start is free twice.
+        other = StaffMember.all_objects.create(
+            organization=member.organization, display_name="Bea", public_slug="bea"
+        )
+        ServiceStaff.all_objects.create(
+            organization=member.organization, service=configured["service"], staff=other
+        )
+        AvailabilityRule.all_objects.create(
+            organization=member.organization,
+            staff=other,
+            location=configured["location"],
+            weekday=day.weekday(),
+            local_start=time(9),
+            local_end=time(12),
+        )
+    PublicBookingRoute.objects.create(
+        public_slug="bez-personelu", organization_id=member.organization_id
+    )
+    client = APIClient()
+    url = "/api/v1/booking/public/bez-personelu"
+    query = {
+        "service_id": str(configured["service"].id),
+        "location_id": str(configured["location"].id),
+    }
+    visit = {"id", "starts_at", "ends_at", "timezone", "service_name", "location_name", "status"}
+
+    listing = client.get(f"{url}/")
+    assert listing.status_code == 200
+    assert set(listing.json()) == {"locations", "services", "resources"}
+    slots = client.get(f"{url}/slots/", {**query, "from": str(day), "to": str(day)})
+    assert slots.status_code == 200
+    items = slots.json()["items"]
+    assert items and all(set(item) == {"starts_at", "ends_at"} for item in items)
+    assert len({item["starts_at"] for item in items}) == len(items)
+
+    created = client.post(
+        f"{url}/appointments/",
+        {
+            **query,
+            "starts_at": items[0]["starts_at"],
+            "customer": {"display_name": "Anna", "email": "anna@example.test"},
+        },
+        format="json",
+        HTTP_IDEMPOTENCY_KEY="bez-personelu-1",
+    )
+    assert created.status_code == 201
+    assert set(created.json()) == {*visit, "self_service_token"}
+    link = f"/api/v1/booking/self-service/{created.json()['self_service_token']}"
+    shown = client.get(f"{link}/")
+    moved = client.post(
+        f"{link}/reschedule/",
+        {"starts_at": items[-1]["starts_at"]},
+        format="json",
+        HTTP_IDEMPOTENCY_KEY="bez-personelu-2",
+    )
+    canceled = client.post(f"{link}/cancel/", HTTP_IDEMPOTENCY_KEY="bez-personelu-3")
+    for response in (shown, moved, canceled):
+        assert response.status_code == 200
+        assert set(response.json()) == visit
+    assert canceled.json()["status"] == "canceled"
 
 
 def test_booking_tables_force_rls_and_cross_tenant_relations_fail_at_database() -> None:

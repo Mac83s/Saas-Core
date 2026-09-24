@@ -1294,7 +1294,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Catalog'
+                $ref: '#/components/schemas/PublicCatalog'
           description: ''
   /api/v1/booking/public/{public_slug}/appointments/:
     post:
@@ -1331,7 +1331,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Appointment'
+                $ref: '#/components/schemas/PublicAppointment'
           description: ''
   /api/v1/booking/public/{public_slug}/days/:
     get:
@@ -1380,6 +1380,8 @@ paths:
   /api/v1/booking/public/{public_slug}/slots/:
     get:
       operationId: api_v1_booking_public_slots_retrieve
+      description: Kept for compatibility; each start once, without who takes it (ADR-058
+        §8).
       parameters:
       - in: query
         name: from
@@ -1415,7 +1417,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SlotList'
+                $ref: '#/components/schemas/SlotTimeList'
           description: ''
   /api/v1/booking/public/{public_slug}/times/:
     get:
@@ -1502,7 +1504,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Appointment'
+                $ref: '#/components/schemas/PublicAppointment'
           description: ''
   /api/v1/booking/self-service/{token}/cancel/:
     get:
@@ -1522,7 +1524,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Appointment'
+                $ref: '#/components/schemas/PublicAppointment'
           description: ''
     post:
       operationId: api_v1_booking_self_service_cancel_create
@@ -1546,7 +1548,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Appointment'
+                $ref: '#/components/schemas/PublicAppointment'
           description: ''
   /api/v1/booking/self-service/{token}/reschedule/:
     get:
@@ -1566,7 +1568,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Appointment'
+                $ref: '#/components/schemas/PublicAppointment'
           description: ''
     post:
       operationId: api_v1_booking_self_service_reschedule_create
@@ -1602,7 +1604,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Appointment'
+                $ref: '#/components/schemas/PublicAppointment'
           description: ''
   /api/v1/booking/slots/:
     get:
@@ -14682,6 +14684,59 @@ components:
         * `delivered` - delivered
         * `bounced` - bounced
         * `complained` - complained
+    PublicAppointment:
+      type: object
+      description: 'What the customer sees of their visit: no people, no stock (ADR-058
+        §8).'
+      properties:
+        id:
+          type: string
+          format: uuid
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        timezone:
+          type: string
+        service_name:
+          type: string
+        location_name:
+          type: string
+        status:
+          type: string
+        self_service_token:
+          type: string
+      required:
+      - ends_at
+      - id
+      - location_name
+      - service_name
+      - starts_at
+      - status
+      - timezone
+    PublicCatalog:
+      type: object
+      description: 'The catalogue without the team: who works here is not listed (ADR-058
+        §8).'
+      properties:
+        locations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Location'
+        services:
+          type: array
+          items:
+            $ref: '#/components/schemas/Service'
+        resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/Resource'
+      required:
+      - locations
+      - resources
+      - services
     PublicNavigationLink:
       type: object
       properties:

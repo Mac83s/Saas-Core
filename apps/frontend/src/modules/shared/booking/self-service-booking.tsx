@@ -10,7 +10,7 @@ import {
   cancelSelfServiceBooking,
   getSelfServiceBooking,
   rescheduleSelfServiceBooking,
-  type BookingAppointment,
+  type BookingPublicAppointment,
 } from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
@@ -28,7 +28,7 @@ const schema = z.object({ starts_at: z.string().min(1) });
 
 export function SelfServiceBooking({ token }: { token: string }) {
   const t = useTranslations("BookingSelfService");
-  const [appointment, setAppointment] = useState<BookingAppointment>();
+  const [appointment, setAppointment] = useState<BookingPublicAppointment>();
   const [problem, setProblem] = useState<string>();
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
@@ -91,9 +91,7 @@ export function SelfServiceBooking({ token }: { token: string }) {
                   timeZone: appointment.timezone,
                 }).format(new Date(appointment.starts_at))}
               </p>
-              <p className="text-sm">
-                {appointment.staff_name} · {appointment.location_name}
-              </p>
+              <p className="text-sm">{appointment.location_name}</p>
             </div>
             {appointment.status === "confirmed" ? (
               <>

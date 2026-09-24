@@ -168,13 +168,17 @@ export type IntegrationApiKey = components["schemas"]["ApiKey"];
 export type IntegrationWebhook = components["schemas"]["Webhook"];
 export type NotificationSupportHealth = components["schemas"]["SupportHealth"];
 export type BookingCatalog = components["schemas"]["Catalog"];
+export type BookingPublicCatalog = components["schemas"]["PublicCatalog"];
 export type BookingAppointment = components["schemas"]["Appointment"];
+export type BookingPublicAppointment =
+  components["schemas"]["PublicAppointment"];
 export type BookingMaterialInput = components["schemas"]["MaterialInput"];
 export type BookingMaterialLine = components["schemas"]["MaterialLine"];
 export type BookingAppointmentList = components["schemas"]["AppointmentList"];
 export type BookingAppointmentInput =
   components["schemas"]["AppointmentCreate"];
 export type BookingSlotList = components["schemas"]["SlotList"];
+export type BookingSlotTimeList = components["schemas"]["SlotTimeList"];
 export type BookingCatalogInput = components["schemas"]["CatalogCreate"];
 export type BookingScheduleInput = components["schemas"]["ScheduleCreate"];
 
@@ -1578,7 +1582,7 @@ export async function rescheduleBookingAppointment(
 
 export async function getPublicBookingCatalog(
   publicSlug: string,
-): Promise<BookingCatalog> {
+): Promise<BookingPublicCatalog> {
   const { data, error, response } = await client.GET(
     "/api/v1/booking/public/{public_slug}/",
     { params: { path: { public_slug: publicSlug } }, cache: "no-store" },
@@ -1587,23 +1591,37 @@ export async function getPublicBookingCatalog(
   return data;
 }
 
-export async function getPublicBookingSlots(
+/** Days with a free start, for the customer's day picker (ADR-058 §5). */
+export async function getPublicBookingDays(
   publicSlug: string,
   query: { service_id: string; location_id: string; from: string; to: string },
-): Promise<BookingSlotList> {
+): Promise<string[]> {
   const { data, error, response } = await client.GET(
-    "/api/v1/booking/public/{public_slug}/slots/",
+    "/api/v1/booking/public/{public_slug}/days/",
     { params: { path: { public_slug: publicSlug }, query }, cache: "no-store" },
   );
   if (error || !data) throwProblem(error, response);
-  return data;
+  return data.items;
+}
+
+/** Free starts of one day, each once; who takes it is the server's pick. */
+export async function getPublicBookingTimes(
+  publicSlug: string,
+  query: { service_id: string; location_id: string; date: string },
+): Promise<BookingSlotTimeList["items"]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/public/{public_slug}/times/",
+    { params: { path: { public_slug: publicSlug }, query }, cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data.items;
 }
 
 export async function createPublicBookingAppointment(
   publicSlug: string,
   input: BookingAppointmentInput,
   idempotencyKey: string,
-): Promise<BookingAppointment> {
+): Promise<BookingPublicAppointment> {
   const { data, error, response } = await client.POST(
     "/api/v1/booking/public/{public_slug}/appointments/",
     {
@@ -1620,7 +1638,7 @@ export async function createPublicBookingAppointment(
 
 export async function getSelfServiceBooking(
   token: string,
-): Promise<BookingAppointment> {
+): Promise<BookingPublicAppointment> {
   const { data, error, response } = await client.GET(
     "/api/v1/booking/self-service/{token}/",
     { params: { path: { token } }, cache: "no-store" },
@@ -1633,7 +1651,7 @@ export async function rescheduleSelfServiceBooking(
   token: string,
   startsAt: string,
   idempotencyKey: string,
-): Promise<BookingAppointment> {
+): Promise<BookingPublicAppointment> {
   const { data, error, response } = await client.POST(
     "/api/v1/booking/self-service/{token}/reschedule/",
     {
@@ -1651,7 +1669,7 @@ export async function rescheduleSelfServiceBooking(
 export async function cancelSelfServiceBooking(
   token: string,
   idempotencyKey: string,
-): Promise<BookingAppointment> {
+): Promise<BookingPublicAppointment> {
   const { data, error, response } = await client.POST(
     "/api/v1/booking/self-service/{token}/cancel/",
     {

@@ -29,7 +29,8 @@ const api = vi.hoisted(() => ({
   getBookingCatalog: vi.fn(),
   getBookingSlots: vi.fn(),
   getPublicBookingCatalog: vi.fn(),
-  getPublicBookingSlots: vi.fn(),
+  getPublicBookingDays: vi.fn(),
+  getPublicBookingTimes: vi.fn(),
   getSelfServiceBooking: vi.fn(),
   listBookingAppointments: vi.fn(),
   rescheduleBookingAppointment: vi.fn(),
@@ -92,6 +93,16 @@ const appointment = {
   location_name: "Centrum",
   resource_name: "Room",
 };
+// What a customer is shown: when and where, never who (ADR-058 §8).
+const publicAppointment = {
+  id: appointment.id,
+  starts_at: appointment.starts_at,
+  ends_at: appointment.ends_at,
+  timezone: appointment.timezone,
+  service_name: appointment.service_name,
+  location_name: appointment.location_name,
+  status: appointment.status,
+};
 const completed = {
   ...appointment,
   id: "66666666-6666-4666-8666-666666666666",
@@ -110,21 +121,20 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"], shouldAdvanceTime: true });
   vi.setSystemTime(new Date("2026-08-19T10:00:00Z"));
   api.getBookingCatalog.mockResolvedValue(catalog);
-  api.getPublicBookingCatalog.mockResolvedValue(catalog);
-  api.listBookingAppointments.mockResolvedValue([appointment, completed]);
-  api.getPublicBookingSlots.mockResolvedValue({
-    items: [
-      {
-        starts_at: "2026-08-20T08:00:00Z",
-        ends_at: "2026-08-20T08:30:00Z",
-        staff_id: ALEX,
-        resource_id: ROOM,
-      },
-    ],
+  api.getPublicBookingCatalog.mockResolvedValue({
+    locations: catalog.locations,
+    services: catalog.services,
+    resources: catalog.resources,
   });
-  api.getSelfServiceBooking.mockResolvedValue(appointment);
+  api.listBookingAppointments.mockResolvedValue([appointment, completed]);
+  api.getPublicBookingDays.mockResolvedValue(["2026-08-20"]);
+  api.getPublicBookingTimes.mockResolvedValue([
+    { starts_at: "2026-08-20T08:00:00Z", ends_at: "2026-08-20T08:30:00Z" },
+    { starts_at: "2026-08-20T08:30:00Z", ends_at: "2026-08-20T09:00:00Z" },
+  ]);
+  api.getSelfServiceBooking.mockResolvedValue(publicAppointment);
   api.rescheduleSelfServiceBooking.mockResolvedValue({
-    ...appointment,
+    ...publicAppointment,
     starts_at: "2026-08-21T08:00:00Z",
     ends_at: "2026-08-21T08:30:00Z",
   });
@@ -443,7 +453,8 @@ test("a new appointment takes a free time and says when one is taken", async () 
   expect(await within(dialog).findByText(/This time is taken/)).not.toBeNull();
   expect((await axe.run(dialog)).violations).toHaveLength(0);
   fireEvent.click(within(dialog).getByRole("button", { name: /11:00/ }));
-  expect(await within(dialog).findByText("Free · Bea")).not.toBeNull();
+  // "Any staff" is the server's pick, so the hint names nobody.
+  expect(await within(dialog).findByText("This time is free.")).not.toBeNull();
 
   fireEvent.change(within(dialog).getByLabelText("Full name"), {
     target: { value: "Ewa Zielińska" },
@@ -472,7 +483,7 @@ test("a new appointment takes a free time and says when one is taken", async () 
   await waitFor(() =>
     expect(api.getBookingSlots).toHaveBeenCalledTimes(searches + 1),
   );
-  expect(await within(dialog).findByText("Free · Bea")).not.toBeNull();
+  expect(await within(dialog).findByText("This time is free.")).not.toBeNull();
 
   fireEvent.click(
     within(dialog).getByRole("button", { name: "Save appointment" }),
@@ -481,11 +492,12 @@ test("a new appointment takes a free time and says when one is taken", async () 
     await screen.findByText(/Appointment added: Ewa Zielińska/),
   ).not.toBeNull();
   const [input, key] = api.createBookingAppointment.mock.calls[1];
+  // Nobody was chosen, so nobody is named: the server picks (ADR-058 §4).
+  expect(input).not.toHaveProperty("staff_id");
+  expect(input).not.toHaveProperty("resource_id");
   expect(input).toEqual({
     service_id: catalog.services[0].id,
     location_id: catalog.locations[0].id,
-    staff_id: BEA,
-    resource_id: null,
     starts_at: "2026-08-20T09:00:00Z",
     customer: {
       display_name: "Ewa Zielińska",
@@ -635,7 +647,11 @@ test("load problems say what happened and what to do", async () => {
   expect(screen.getByRole("link", { name: "See the plan" })).not.toBeNull();
 });
 
-test("public booking searches slots without requiring an account", async () => {
+test("public booking picks a day, then a time, and names nobody", async () => {
+  api.createPublicBookingAppointment.mockResolvedValue({
+    ...publicAppointment,
+    self_service_token: "bk_new",
+  });
   render(
     <NextIntlClientProvider locale="en" messages={englishMessages}>
       <PublicBookingFlow publicSlug="demo" />
@@ -649,8 +665,58 @@ test("public booking searches slots without requiring an account", async () => {
     target: { value: catalog.locations[0].id },
   });
   fireEvent.click(screen.getByRole("button", { name: "Show times" }));
-  await waitFor(() => expect(api.getPublicBookingSlots).toHaveBeenCalledOnce());
-  expect(await screen.findByRole("option", { name: /2026/ })).not.toBeNull();
+  const query = {
+    service_id: catalog.services[0].id,
+    location_id: catalog.locations[0].id,
+  };
+  await waitFor(() =>
+    expect(api.getPublicBookingDays).toHaveBeenCalledWith("demo", {
+      ...query,
+      from: "2026-08-19",
+      to: "2026-09-02",
+    }),
+  );
+  fireEvent.change(screen.getByLabelText("Day"), {
+    target: { value: "2026-08-20" },
+  });
+  await waitFor(() =>
+    expect(api.getPublicBookingTimes).toHaveBeenCalledWith("demo", {
+      ...query,
+      date: "2026-08-20",
+    }),
+  );
+  // Each free start once, however many people are free at it.
+  const time = screen.getByLabelText("Time");
+  await waitFor(() =>
+    expect(
+      within(time)
+        .getAllByRole("option")
+        .map((option) => option.getAttribute("value")),
+    ).toEqual(["", "2026-08-20T08:00:00Z", "2026-08-20T08:30:00Z"]),
+  );
+  fireEvent.change(time, { target: { value: "2026-08-20T08:30:00Z" } });
+  fireEvent.change(screen.getByLabelText("Full name"), {
+    target: { value: "Anna Nowak" },
+  });
+  fireEvent.change(screen.getByLabelText("E-mail"), {
+    target: { value: "anna@example.test" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Book" }));
+  expect(await screen.findByText("Booking confirmed")).not.toBeNull();
+  const [slug, input] = api.createPublicBookingAppointment.mock.calls[0];
+  expect(slug).toBe("demo");
+  expect(input).not.toHaveProperty("staff_id");
+  expect(input).not.toHaveProperty("resource_id");
+  expect(input).toEqual({
+    ...query,
+    starts_at: "2026-08-20T08:30:00Z",
+    customer: {
+      display_name: "Anna Nowak",
+      email: "anna@example.test",
+      phone: "",
+      locale: "pl",
+    },
+  });
 });
 
 test("self-service reschedules an active booking", async () => {
@@ -660,6 +726,9 @@ test("self-service reschedules an active booking", async () => {
     </NextIntlClientProvider>,
   );
   expect(await screen.findByText("Consultation")).not.toBeNull();
+  // Where, not who: the customer's page names no staff member.
+  expect(screen.getByText("Centrum")).not.toBeNull();
+  expect(screen.queryByText(/Alex/)).toBeNull();
   fireEvent.change(screen.getByLabelText("New time"), {
     target: { value: "2026-08-21T10:00" },
   });

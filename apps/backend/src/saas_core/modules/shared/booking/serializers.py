@@ -116,6 +116,19 @@ class AppointmentSerializer(serializers.Serializer[dict[str, Any]]):
     self_service_token = serializers.CharField(required=False, allow_null=True)
 
 
+class PublicAppointmentSerializer(serializers.Serializer[dict[str, Any]]):
+    """What the customer sees of their visit: no people, no stock (ADR-058 §8)."""
+
+    id = serializers.UUIDField()
+    starts_at = serializers.DateTimeField()
+    ends_at = serializers.DateTimeField()
+    timezone = serializers.CharField()
+    service_name = serializers.CharField()
+    location_name = serializers.CharField()
+    status = serializers.CharField()
+    self_service_token = serializers.CharField(required=False)
+
+
 class AppointmentListSerializer(serializers.Serializer[dict[str, Any]]):
     items = AppointmentSerializer(many=True)
 
@@ -197,5 +210,13 @@ class ResourceSerializer(serializers.Serializer[dict[str, Any]]):
 class CatalogSerializer(serializers.Serializer[dict[str, Any]]):
     locations = LocationSerializer(many=True)
     staff = StaffSerializer(many=True)
+    services = ServiceSerializer(many=True)
+    resources = ResourceSerializer(many=True)
+
+
+class PublicCatalogSerializer(serializers.Serializer[dict[str, Any]]):
+    """The catalogue without the team: who works here is not listed (ADR-058 §8)."""
+
+    locations = LocationSerializer(many=True)
     services = ServiceSerializer(many=True)
     resources = ResourceSerializer(many=True)

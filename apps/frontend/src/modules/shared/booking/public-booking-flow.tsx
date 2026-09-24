@@ -10,9 +10,10 @@ import { z } from "zod";
 import {
   createPublicBookingAppointment,
   getPublicBookingCatalog,
-  getPublicBookingSlots,
-  type BookingCatalog,
-  type BookingSlotList,
+  getPublicBookingDays,
+  getPublicBookingTimes,
+  type BookingPublicCatalog,
+  type BookingSlotTimeList,
 } from "@saas-core/api-client";
 import { Button } from "@saas-core/ui/components/button";
 import {
@@ -29,8 +30,6 @@ import { NativeSelect } from "@saas-core/ui/components/native-select";
 const schema = z.object({
   service_id: z.string().uuid(),
   location_id: z.string().uuid(),
-  staff_id: z.string().uuid(),
-  resource_id: z.string().uuid().optional(),
   starts_at: z.string().min(1),
   display_name: z.string().trim().min(1).max(160),
   email: z.string().email(),
@@ -39,8 +38,10 @@ const schema = z.object({
 export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
   const t = useTranslations("PublicBooking");
   const locale = useLocale();
-  const [catalog, setCatalog] = useState<BookingCatalog>();
-  const [slots, setSlots] = useState<BookingSlotList["items"]>([]);
+  const [catalog, setCatalog] = useState<BookingPublicCatalog>();
+  const [days, setDays] = useState<string[]>([]);
+  const [day, setDay] = useState("");
+  const [times, setTimes] = useState<BookingSlotTimeList["items"]>([]);
   const [token, setToken] = useState<string>();
   const [problem, setProblem] = useState<string>();
   const form = useForm<z.infer<typeof schema>>({
@@ -48,7 +49,6 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
     defaultValues: {
       service_id: "",
       location_id: "",
-      staff_id: "",
       starts_at: "",
       display_name: "",
       email: "",
@@ -69,13 +69,35 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
     const to = new Date(from);
     to.setDate(to.getDate() + 14);
     try {
-      const result = await getPublicBookingSlots(publicSlug, {
-        service_id: service,
-        location_id: location,
-        from: from.toISOString().slice(0, 10),
-        to: to.toISOString().slice(0, 10),
-      });
-      setSlots(result.items);
+      setDays(
+        await getPublicBookingDays(publicSlug, {
+          service_id: service,
+          location_id: location,
+          from: from.toISOString().slice(0, 10),
+          to: to.toISOString().slice(0, 10),
+        }),
+      );
+      setDay("");
+      setTimes([]);
+      form.setValue("starts_at", "");
+      setProblem(undefined);
+    } catch {
+      setProblem(t("loadError"));
+    }
+  };
+  const pickDay = async (value: string) => {
+    setDay(value);
+    setTimes([]);
+    form.setValue("starts_at", "");
+    if (!value) return;
+    try {
+      setTimes(
+        await getPublicBookingTimes(publicSlug, {
+          service_id: form.getValues("service_id"),
+          location_id: form.getValues("location_id"),
+          date: value,
+        }),
+      );
       setProblem(undefined);
     } catch {
       setProblem(t("loadError"));
@@ -84,11 +106,12 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
   const submit = form.handleSubmit(
     async ({ display_name, email, ...booking }) => {
       try {
+        // Who takes the visit, and the room it needs, is the server's pick
+        // (ADR-058 §4): the form names only the service, place and time.
         const created = await createPublicBookingAppointment(
           publicSlug,
           {
             ...booking,
-            resource_id: booking.resource_id || null,
             customer: { display_name, email, phone: "", locale: "pl" },
           },
           crypto.randomUUID(),
@@ -159,32 +182,40 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
           <Button onClick={() => void search()} type="button" variant="outline">
             {t("search")}
           </Button>
-          <div>
-            <Label htmlFor="booking-slot">{t("slot")}</Label>
-            <NativeSelect
-              id="booking-slot"
-              {...form.register("starts_at")}
-              onChange={(event) => {
-                const slot = slots.find(
-                  (x) => x.starts_at === event.target.value,
-                );
-                form.setValue("starts_at", event.target.value);
-                if (slot) {
-                  form.setValue("staff_id", slot.staff_id);
-                  form.setValue("resource_id", slot.resource_id ?? undefined);
-                }
-              }}
-            >
-              <option value="">{t("choose")}</option>
-              {slots.map((x) => (
-                <option
-                  key={`${x.starts_at}:${x.staff_id}`}
-                  value={x.starts_at}
-                >
-                  {new Date(x.starts_at).toLocaleString()}
-                </option>
-              ))}
-            </NativeSelect>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="booking-day">{t("day")}</Label>
+              <NativeSelect
+                id="booking-day"
+                onChange={(event) => void pickDay(event.target.value)}
+                value={day}
+              >
+                <option value="">{t("choose")}</option>
+                {days.map((item) => (
+                  <option key={item} value={item}>
+                    {/* A calendar date, not an instant: read it in UTC. */}
+                    {new Date(item).toLocaleDateString(locale, {
+                      dateStyle: "full",
+                      timeZone: "UTC",
+                    })}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
+            <div>
+              <Label htmlFor="booking-slot">{t("slot")}</Label>
+              <NativeSelect id="booking-slot" {...form.register("starts_at")}>
+                <option value="">{t("choose")}</option>
+                {times.map((x) => (
+                  <option key={x.starts_at} value={x.starts_at}>
+                    {new Date(x.starts_at).toLocaleTimeString(locale, {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
           </div>
           <div>
             <Label htmlFor="booking-name">{t("name")}</Label>
