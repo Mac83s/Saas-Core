@@ -14,7 +14,7 @@ i git; zamknięte pozycje z dawnego dziennika zostały pominięte.
 
 | Plan | O czym | Gdzie jesteśmy |
 | --- | --- | --- |
-| `saas-core-panel-i-katalog-listy-wizytowka-historia-wyszukiwarka` | standard list panelu, wizytówka, historia zmian, limit podstron, wyszukiwarka katalogu | fazy 1–4 zrobione (DataTable, przełącznik wizytówki, historia zmian, limit podstron); dalej magazyn v2, potem Meilisearch |
+| `saas-core-panel-i-katalog-listy-wizytowka-historia-wyszukiwarka` | standard list panelu, szablon strony panelu, wizytówka, historia zmian, limit podstron, wyszukiwarka katalogu | fazy 1–4 i 7 zrobione (DataTable, przełącznik wizytówki, historia zmian, limit podstron; 24.09 szablon strony panelu, ADR-057, w trzech aplikacjach); faza 6 częściowo; dalej magazyn faza 7, potem Meilisearch |
 | `magazyn-materia-o-w-od-pakietu-korektora-do-kare` | uniwersalny magazyn firm (`shared.inventory` v2, ADR-055): dokumenty, miejsca, rezerwacje, rezerwacje stanu przy wizytach, przyszły sklep | fazy 4, 5, 6 i 8 zrobione 23–24.09 (rdzeń v2, HoofCare przepięty, panel na DataTable, włączony wszędzie, produkty przy wizycie); dalej przygotowanie do wizyty i alert małego stanu w HoofCare |
 | `saas-core-site-studio-templates`, `saas-core-site-studio-rich-content-and-full-width` | Site Studio: szablony, warianty, bogata treść | bogata treść, pełna szerokość, wygląd strony i 3 strony demonstracyjne scalone i wdrożone 23.09 (saas, a wieczorem też HoofCare i MedPlano) (`docs/architecture/site-rich-content.md`, raport `2026-09-23-rich-content`); faza 3a (20 układów redakcyjnych pod konwersję, `core.rich_text` v3, katalog v6, ostrzeżenie o miejscach `[Uzupełnij: …]`) i 3b (8 stylów strony, kotwice sekcji i przyciski „do formularza”, 9 recept stron v5 z celem i ścieżką konwersji, 8 dawnych szablonów wycofanych z galerii) scalone 23.09; etap 2b — edytor WYSIWYG (TipTap, ADR-056) w panelu i na pełnym ekranie, panel ze składnią `**` usunięty — scalony i wdrożony na saas 24.09 (raport `2026-09-24-wysiwyg-editor`); formularz kontaktu v2 (4 warianty wymaganych pól, m.in. „Oddzwonimy” z wymaganym telefonem, egzekwowane przez serwer) wdrożony na saas 24.09 (raport `2026-09-24-contact-form-v2`); dalej faza 4 planu (pozostałe rodziny sekcji i stron) |
 | `domkna-c-saas-core-po-audycie-realna-kompozycja-` | baza P0–P3 po audycie | treść w `Plan/Wdrozenie/13-…` |
@@ -31,7 +31,7 @@ magazyn 9–10 → pozostałe listy na DataTable.
   (ostatnie z 23.09: DataTable, przełącznik wizytówki i strona wizytówki w
   katalogu, bogata treść Site Studio, historia zmian, limit podstron, układy
   i recepty stron pod konwersję — Site Studio 3a i 3b; 24.09 edytor WYSIWYG i
-  formularz kontaktu v2). Od 23.09 wieczorem
+  formularz kontaktu v2, szablon strony panelu). Od 23.09 wieczorem
   HoofCare i MedPlano stoją na tym samym rdzeniu co Saas-Core (`e239f40`,
   decyzja właściciela „niech leci do produktów core”).
 - Płatności we wszystkich trzech: `BILLING_PROVIDER=simulated`.
@@ -96,9 +96,14 @@ magazyn 9–10 → pozostałe listy na DataTable.
   szablonu ze zdjęciem zwraca 500, gdy ClamAV nie zdąży w 30 s (obciążony host)
   — powinien być błąd „spróbuj ponownie”; publiczne zdjęcia bez wariantów
   responsywnych (oryginały PNG ~2 MB).
-- **Listy na DataTable:** zespół, historia i magazyn; własne tabele nadal w
-  `farms-panel`, `animals-panel`, `farm-detail`, `seo/audits-panel`,
-  `seo/gsc-panel`.
+- **Szablon strony panelu (ADR-057, 24.09):** każda strona to `PanelPage`,
+  szerokość ma układ (przełącznik „na całą szerokość” od 1536 px), podstrony
+  sekcji rozwijają się w lewym menu. Zakładki edytora strony www i karty
+  gospodarstwa zostają w stronie (etapy pracy nad jednym rekordem).
+- **Listy na DataTable:** zespół, historia, magazyn, gospodarstwa, zwierzęta,
+  zwierzęta gospodarstwa, lista kalendarza, raporty HoofCare; własne tabele
+  nadal w `seo/audits-panel` i `seo/gsc-panel`. Filtry raportów HoofCare to
+  formularz z „Pokaż” (API), nie pasek `DataTable`.
 - **Magazyn v2 (ADR-055):** włączony we wszystkich profilach i planach;
   wizyty rezerwują i zdejmują produkty zawsze z magazynu głównego (bez zapasu
   osoby i innych magazynów); zakończonej wizyty nie cofa się w kalendarzu; brak
