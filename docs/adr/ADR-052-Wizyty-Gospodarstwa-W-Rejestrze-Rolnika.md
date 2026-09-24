@@ -1,7 +1,10 @@
 # ADR-052: Wizyty gospodarstwa w rejestrze rolnika
 
-Status: proponowana, 2026-09-20. Rozszerza ADR-051 o poziom gospodarstwa;
-ADR-051 pozostaje obowiązujący w całym dotychczasowym zakresie.
+Status: przyjęta, 2026-09-21. Proponowana 2026-09-20; właściciel produktu
+zatwierdził wszystkie decyzje i dołożył jedną własną (pkt 8: odwołana wizyta
+zostaje w historii). Wdrożona w Saas-Core i HoofCare. Rozszerza ADR-051 o
+poziom gospodarstwa; ADR-051 pozostaje obowiązujący w całym dotychczasowym
+zakresie.
 
 ## Kontekst
 
