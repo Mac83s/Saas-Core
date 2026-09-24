@@ -823,3 +823,12 @@ SEO_AUDIT_CREDIT_OPERATION = os.environ.get("SEO_AUDIT_CREDIT_OPERATION", "")
 SEO_AUDIT_MAX_PAGES = int(os.environ.get("SEO_AUDIT_MAX_PAGES", "100"))
 SEO_REPORT_MAX_ISSUES = int(os.environ.get("SEO_REPORT_MAX_ISSUES", "5000"))
 SEO_GSC_REDIRECT_URI = os.environ.get("SEO_GSC_REDIRECT_URI", "")
+
+# ADR-059: the direct OpenAI Image API. An empty key means the feature is
+# unavailable, not misconfigured, so there is no system check for it.
+IMAGE_GENERATION_OPENAI_API_KEY = secret_setting("IMAGE_GENERATION_OPENAI_API_KEY")
+IMAGE_GENERATION_BASE_URL = os.environ.get("IMAGE_GENERATION_BASE_URL", "https://api.openai.com/v1")
+IMAGE_GENERATION_MODEL = os.environ.get("IMAGE_GENERATION_MODEL", "gpt-image-2.5-flare-2026-09-08")
+IMAGE_GENERATION_TEMPLATE_MODEL = os.environ.get(
+    "IMAGE_GENERATION_TEMPLATE_MODEL", "gpt-image-2.5-sunburst-2026-09-08"
+)

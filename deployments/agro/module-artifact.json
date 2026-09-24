@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:8741acb63a8270e7ebc9091d6cf9152065e180906cac9642efe294d3762661b1",
+  "profileHash": "sha256:697a649506bc73445a982eaa0c355fee012460ef908fb0472524f2e9985cb12b",
   "schemaVersion": 1,
   "deployment": "agro",
   "product": {
@@ -28,6 +28,7 @@
         "shared.notifications",
         "shared.sites",
         "shared.media",
+        "shared.image-generation",
         "shared.profiles",
         "shared.booking",
         "shared.seo",
@@ -285,6 +286,30 @@
         "translationNamespaces": [
           "media"
         ]
+      }
+    },
+    {
+      "id": "shared.image-generation",
+      "version": 1,
+      "layer": "shared",
+      "dependsOn": [
+        "core.organizations",
+        "shared.billing",
+        "shared.media"
+      ],
+      "backend": {
+        "djangoApp": "saas_core.modules.shared.image_generation",
+        "urlPrefix": null,
+        "permissions": [],
+        "entitlements": [],
+        "eventSchemas": [],
+        "publicTables": [],
+        "platformTables": []
+      },
+      "frontend": {
+        "routes": [],
+        "navigation": [],
+        "translationNamespaces": []
       }
     },
     {

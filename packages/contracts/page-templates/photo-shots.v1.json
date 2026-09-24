@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "style": "Realistic editorial photograph, natural daylight from a side window with soft fill, 35 mm lens at eye level, shallow depth of field, calm warm-neutral palette with muted greens and oak tones, lightly lived-in but tidy. No text, letters, numbers, signage, logos, brand marks or watermarks anywhere in the frame. No recognizable real or famous people; any person is seen from behind, in profile at a distance or cropped so the face is not identifiable.",
+  "shots": [
+    {
+      "id": "hoof-trimming-barn",
+      "aspect": "16:9",
+      "prompt": "A farrier trims the hoof of a calm dairy cow standing in a clean, bright barn aisle with straw bedding. The cow's hind leg is lifted and held in a padded trimming crate; hoof knife and rasp lie on a wooden stool. Only the farrier's hands, forearms and work apron are visible.",
+      "anchors": [],
+      "alt": {
+        "pl": "Werkowanie racic krowy w jasnej oborze",
+        "en": "Trimming a cow's hooves in a bright barn"
+      }
+    },
+    {
+      "id": "consultation-room",
+      "aspect": "3:2",
+      "prompt": "An empty, calm consultation room in a small private practice: a desk with a closed laptop, two chairs facing each other, an examination couch with a paper sheet, a plant by the window and a neat shelf with unlabeled boxes.",
+      "anchors": [],
+      "alt": {
+        "pl": "Spokojny gabinet konsultacyjny z biurkiem i leżanką",
+        "en": "Calm consultation room with a desk and an examination couch"
+      }
+    },
+    {
+      "id": "workshop",
+      "aspect": "4:3",
+      "prompt": "A tidy small workshop bench: a vise, hand tools hanging on a pegboard, a half-finished wooden part clamped for sanding, fine sawdust in the light. A craftsperson's hands and forearms work at the edge of the frame.",
+      "anchors": [],
+      "alt": {
+        "pl": "Stół warsztatowy z narzędziami i obrabianym elementem",
+        "en": "Workshop bench with tools and a part being finished"
+      }
+    },
+    {
+      "id": "studio",
+      "aspect": "16:9",
+      "prompt": "A bright small-business studio: an oak meeting table with a laptop, notebooks and two cups of coffee, linen chairs, large plants and a whiteboard with abstract colored shapes only, seen from the doorway.",
+      "anchors": [],
+      "alt": {
+        "pl": "Jasne studio z dębowym stołem spotkań",
+        "en": "Bright studio with an oak meeting table"
+      }
+    },
+    {
+      "id": "product",
+      "aspect": "1:1",
+      "prompt": "A plain, unbranded ceramic product - a matte glazed jug - on a linen cloth on an oak surface, with a sprig of dried grass beside it, against a soft off-white wall.",
+      "anchors": [],
+      "alt": {
+        "pl": "Ceramiczny dzbanek na lnianym obrusie",
+        "en": "Ceramic jug on a linen cloth"
+      }
+    }
+  ]
+}

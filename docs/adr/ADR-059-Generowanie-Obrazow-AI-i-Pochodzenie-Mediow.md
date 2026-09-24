@@ -39,8 +39,9 @@ mediów; nieznany wynik płatnego wywołania nie uruchamia kolejnego).
    klucza, wyczerpany limit wydatków albo brak workera oznacza, że funkcja jest
    niedostępna (`503 image_generation_unavailable`, `available=false` w ofercie);
    nie przełączamy się na innego dostawcę.
-3. **Granice modułu.** Nowy moduł `shared.image_generation` zależy od
-   `core.organizations`, `shared.billing` i `shared.media`. Nikt go nie
+3. **Granice modułu.** Nowy moduł `shared.image-generation` (aplikacja Django
+   `image_generation`; schemat deskryptora dopuszcza w id tylko myślnik)
+   zależy od `core.organizations`, `shared.billing` i `shared.media`. Nikt go nie
    importuje. Pochodzenie obrazu (`MediaAsset.ai_origin`) należy do
    `shared.media`, bo czytają je `shared.sites` (renderer, strażnik slotów) i
    panel; dzięki temu Sites zależy od Media, a nie od generatora.

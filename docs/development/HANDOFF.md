@@ -55,6 +55,15 @@ magazyn 9–10 → pozostałe listy na DataTable.
 - **Kredyty:** operacje content-ops zasiane jako nieaktywne do kontraktu SCR
   (`shared/billing/migrations/0016_seed_credit_catalog.py:89-100`); brak
   `shared.assistant` (zużycie przez AI, historia).
+- **Generator obrazów AI (ADR-059, gałąź `feat/image-generation`):** IG-0
+  gotowe bez wywołań na żywo — moduł `shared.image-generation` (na razie bez
+  modeli i URL-i) w agro, business i vps-dev, adapter OpenAI
+  (`image_generation/provider.py`), sekret `image_generation_openai_api_key`,
+  komenda `generate_template_photos` (kandydaci, `--verify`, `--promote`) i
+  `photo-shots.v1.json` z 5 scenami pilota. Czeka na klucz właściciela: pilot
+  5 scen × Flare/Sunburst, `--verify` (SynthID po `process_image`), potem ok.
+  26 ujęć. Dalej IG-1/IG-2 (pochodzenie w Media, zlecenia klientów, odznaka z
+  przełącznikiem operatora `set_ai_badge`).
 - **P3 (plan 13:406-442):** powiązanie profilu osoby z witryną, konto klienta
   (`Customer.user`, „moje wizyty”), role specjalista/recepcja,
   `PolicyAcknowledgement`, skill tożsamości.

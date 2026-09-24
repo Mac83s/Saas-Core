@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:a4f495ce535b72c304920f4591c2236ef350593e3dc92c178ae28dabce5c229d",
+  "profileHash": "sha256:3fcb7a9f4b75a5b5a6ee66ec92287324b72339f4d04a275dfc6afb6df94756ab",
   "schemaVersion": 1,
   "deployment": "business",
   "product": {
@@ -28,6 +28,7 @@
         "shared.notifications",
         "shared.sites",
         "shared.media",
+        "shared.image-generation",
         "shared.profiles",
         "shared.booking",
         "shared.seo",
@@ -284,6 +285,30 @@
         "translationNamespaces": [
           "media"
         ]
+      }
+    },
+    {
+      "id": "shared.image-generation",
+      "version": 1,
+      "layer": "shared",
+      "dependsOn": [
+        "core.organizations",
+        "shared.billing",
+        "shared.media"
+      ],
+      "backend": {
+        "djangoApp": "saas_core.modules.shared.image_generation",
+        "urlPrefix": null,
+        "permissions": [],
+        "entitlements": [],
+        "eventSchemas": [],
+        "publicTables": [],
+        "platformTables": []
+      },
+      "frontend": {
+        "routes": [],
+        "navigation": [],
+        "translationNamespaces": []
       }
     },
     {

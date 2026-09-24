@@ -529,3 +529,28 @@ test("latest complete pages contain localized seeds and bound example photograph
     }
   }
 });
+
+test("template photo shots are uniquely named, anchored to each other and captioned in both languages", async () => {
+  const { shots, style } = await readJson(
+    "page-templates",
+    "photo-shots.v1.json",
+  );
+  assert.ok(style.length > 0);
+  const ids = new Set(shots.map((shot) => shot.id));
+  assert.equal(ids.size, shots.length, "duplicate shot id");
+  for (const shot of shots) {
+    assert.match(shot.id, /^[a-z][a-z0-9-]*$/);
+    assert.ok(
+      ["16:9", "4:3", "3:2", "1:1", "4:5"].includes(shot.aspect),
+      `${shot.id}: aspect ${shot.aspect}`,
+    );
+    assert.ok(shot.prompt.length > 0, shot.id);
+    for (const anchor of shot.anchors)
+      assert.ok(
+        ids.has(anchor) && anchor !== shot.id,
+        `${shot.id}: anchor ${anchor}`,
+      );
+    for (const locale of ["pl", "en"])
+      assert.ok(shot.alt[locale]?.length > 0, `${shot.id}: alt.${locale}`);
+  }
+});

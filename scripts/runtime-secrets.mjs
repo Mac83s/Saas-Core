@@ -52,6 +52,7 @@ await ensureSecret(
 // Optional integration: empty files keep the unconfigured service disabled.
 await ensureSecret("seo_ssa_service_key", "");
 await ensureSecret("seo_ssa_callback_secret", "");
+await ensureSecret("image_generation_openai_api_key", "");
 await chmod(secretsDirectory, 0o700);
 
 async function ensureSecret(name, value) {

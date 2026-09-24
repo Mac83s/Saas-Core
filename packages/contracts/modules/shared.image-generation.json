@@ -1,0 +1,20 @@
+{
+  "id": "shared.image-generation",
+  "layer": "shared",
+  "version": 1,
+  "dependsOn": ["core.organizations", "shared.billing", "shared.media"],
+  "backend": {
+    "djangoApp": "saas_core.modules.shared.image_generation",
+    "urlPrefix": null,
+    "permissions": [],
+    "entitlements": [],
+    "eventSchemas": [],
+    "publicTables": [],
+    "platformTables": []
+  },
+  "frontend": {
+    "routes": [],
+    "navigation": [],
+    "translationNamespaces": []
+  }
+}
