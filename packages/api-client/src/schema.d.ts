@@ -591,7 +591,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Kept for compatibility; each start once, without who takes it (ADR-058 §8). */
+        /**
+         * @description Each start once, without who takes it (ADR-058 §8). Kept for API
+         *     consumers, not for the old public form: that one needs a staff_id per slot,
+         *     so the backend and frontend of this change deploy together.
+         */
         get: operations["api_v1_booking_public_slots_retrieve"];
         put?: never;
         post?: never;
@@ -5221,11 +5225,25 @@ export interface components {
             status: string;
             self_service_token?: string;
         };
+        /**
+         * @description The customer names the service, place and time; who takes the visit, the
+         *     room it needs and the stock it uses are the server's (ADR-058 §4).
+         */
+        PublicAppointmentCreate: {
+            /** Format: uuid */
+            service_id: string;
+            /** Format: uuid */
+            location_id: string;
+            /** Format: date-time */
+            starts_at: string;
+            customer: components["schemas"]["CustomerInput"];
+        };
         /** @description The catalogue without the team: who works here is not listed (ADR-058 §8). */
         PublicCatalog: {
             locations: components["schemas"]["Location"][];
-            services: components["schemas"]["Service"][];
+            services: components["schemas"]["PublicService"][];
             resources: components["schemas"]["Resource"][];
+            timezone: string;
         };
         PublicNavigationLink: {
             /** Format: uuid */
@@ -5247,6 +5265,14 @@ export interface components {
             quotas: {
                 [key: string]: number;
             };
+        };
+        PublicService: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            public_slug: string;
+            duration_minutes: number;
+            appointment_kind: string;
         };
         PublicSitePage: {
             /** Format: uuid */
@@ -7413,9 +7439,9 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AppointmentCreate"];
-                "application/x-www-form-urlencoded": components["schemas"]["AppointmentCreate"];
-                "multipart/form-data": components["schemas"]["AppointmentCreate"];
+                "application/json": components["schemas"]["PublicAppointmentCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PublicAppointmentCreate"];
+                "multipart/form-data": components["schemas"]["PublicAppointmentCreate"];
             };
         };
         responses: {

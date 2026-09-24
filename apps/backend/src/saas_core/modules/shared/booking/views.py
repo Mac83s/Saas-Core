@@ -30,6 +30,7 @@ from .serializers import (
     CatalogSerializer,
     CustomerAnonymizedSerializer,
     MaterialsInputSerializer,
+    PublicAppointmentCreateSerializer,
     PublicAppointmentSerializer,
     PublicCatalogSerializer,
     RescheduleSerializer,
@@ -594,11 +595,13 @@ class PublicBookingCatalogView(APIView):
                 "services": list(Service.all_objects.filter(organization_id=org)),
                 "resources": list(Resource.all_objects.filter(organization_id=org)),
             }
-            return Response(_catalog_payload(value, public=True))
+            return Response({**_catalog_payload(value, public=True), "timezone": _zone().key})
 
 
 class PublicBookingSlotsView(APIView):
-    """Kept for compatibility; each start once, without who takes it (ADR-058 §8)."""
+    """Each start once, without who takes it (ADR-058 §8). Kept for API
+    consumers, not for the old public form: that one needs a staff_id per slot,
+    so the backend and frontend of this change deploy together."""
 
     authentication_classes: list[type] = []
     permission_classes = [AllowAny]
@@ -687,12 +690,13 @@ class PublicBookingCreateView(APIView):
     @extend_schema(
         tags=["public-booking"],
         parameters=[IDEMPOTENCY],
-        request=AppointmentCreateSerializer,
+        request=PublicAppointmentCreateSerializer,
         responses={201: PublicAppointmentSerializer},
     )
     def post(self, request: Request, public_slug: str) -> Response:
         route = _route(public_slug)
-        s = AppointmentCreateSerializer(data=request.data)
+        # Unknown fields are dropped: a staff_id from an old form is not a pick.
+        s = PublicAppointmentCreateSerializer(data=request.data)
         s.is_valid(raise_exception=True)
         data = dict(s.validated_data)
         customer = data.pop("customer")

@@ -1682,7 +1682,12 @@
     "confirmedDescription": "Open the secure page to reschedule or cancel.",
     "manage": "Manage booking",
     "loadError": "Available times could not be loaded.",
-    "createError": "The time is no longer available or the details are invalid."
+    "createError": "The time is no longer available or the details are invalid.",
+    "required": "This field is required.",
+    "pickTime": "Choose a time.",
+    "invalidEmail": "Enter a valid email address.",
+    "loadingTimes": "Checking free times…",
+    "noDays": "There are no free times in the next 14 days."
   },
   "BookingConfiguration": {
     "catalogTitle": "Booking catalog",

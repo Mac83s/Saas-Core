@@ -93,6 +93,16 @@ class AppointmentCreateSerializer(serializers.Serializer[dict[str, Any]]):
     materials = MaterialInputSerializer(many=True, required=False)
 
 
+class PublicAppointmentCreateSerializer(serializers.Serializer[dict[str, Any]]):
+    """The customer names the service, place and time; who takes the visit, the
+    room it needs and the stock it uses are the server's (ADR-058 §4)."""
+
+    service_id = serializers.UUIDField()
+    location_id = serializers.UUIDField()
+    starts_at = serializers.DateTimeField()
+    customer = CustomerInputSerializer()
+
+
 class RescheduleSerializer(serializers.Serializer[dict[str, Any]]):
     starts_at = serializers.DateTimeField()
 
@@ -190,13 +200,16 @@ class StaffSerializer(serializers.Serializer[dict[str, Any]]):
     membership_id = serializers.UUIDField(allow_null=True)
 
 
-class ServiceSerializer(serializers.Serializer[dict[str, Any]]):
+class PublicServiceSerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     name = serializers.CharField()
     public_slug = serializers.CharField()
     duration_minutes = serializers.IntegerField()
     #: Lets a vertical's screen offer only its own kind of visit (ADR-050).
     appointment_kind = serializers.CharField()
+
+
+class ServiceSerializer(PublicServiceSerializer):
     #: Produkty z magazynu, które wizyta tej usługi zabiera.
     materials = MaterialInputSerializer(many=True, required=False)
 
@@ -218,5 +231,7 @@ class PublicCatalogSerializer(serializers.Serializer[dict[str, Any]]):
     """The catalogue without the team: who works here is not listed (ADR-058 §8)."""
 
     locations = LocationSerializer(many=True)
-    services = ServiceSerializer(many=True)
+    services = PublicServiceSerializer(many=True)
     resources = ResourceSerializer(many=True)
+    #: The organization's zone: the days and times offered are its wall clock.
+    timezone = serializers.CharField()

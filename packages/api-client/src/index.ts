@@ -177,6 +177,9 @@ export type BookingMaterialLine = components["schemas"]["MaterialLine"];
 export type BookingAppointmentList = components["schemas"]["AppointmentList"];
 export type BookingAppointmentInput =
   components["schemas"]["AppointmentCreate"];
+/** The customer's booking: service, place, time; never a person (ADR-058 §4). */
+export type BookingPublicAppointmentInput =
+  components["schemas"]["PublicAppointmentCreate"];
 export type BookingSlotList = components["schemas"]["SlotList"];
 export type BookingSlotTimeList = components["schemas"]["SlotTimeList"];
 export type BookingCatalogInput = components["schemas"]["CatalogCreate"];
@@ -1619,7 +1622,7 @@ export async function getPublicBookingTimes(
 
 export async function createPublicBookingAppointment(
   publicSlug: string,
-  input: BookingAppointmentInput,
+  input: BookingPublicAppointmentInput,
   idempotencyKey: string,
 ): Promise<BookingPublicAppointment> {
   const { data, error, response } = await client.POST(

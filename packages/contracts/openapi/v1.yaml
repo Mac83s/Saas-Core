@@ -1316,13 +1316,13 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AppointmentCreate'
+              $ref: '#/components/schemas/PublicAppointmentCreate'
           application/x-www-form-urlencoded:
             schema:
-              $ref: '#/components/schemas/AppointmentCreate'
+              $ref: '#/components/schemas/PublicAppointmentCreate'
           multipart/form-data:
             schema:
-              $ref: '#/components/schemas/AppointmentCreate'
+              $ref: '#/components/schemas/PublicAppointmentCreate'
         required: true
       security:
       - {}
@@ -1380,8 +1380,10 @@ paths:
   /api/v1/booking/public/{public_slug}/slots/:
     get:
       operationId: api_v1_booking_public_slots_retrieve
-      description: Kept for compatibility; each start once, without who takes it (ADR-058
-        §8).
+      description: |-
+        Each start once, without who takes it (ADR-058 §8). Kept for API
+        consumers, not for the old public form: that one needs a staff_id per slot,
+        so the backend and frontend of this change deploy together.
       parameters:
       - in: query
         name: from
@@ -14716,6 +14718,28 @@ components:
       - starts_at
       - status
       - timezone
+    PublicAppointmentCreate:
+      type: object
+      description: |-
+        The customer names the service, place and time; who takes the visit, the
+        room it needs and the stock it uses are the server's (ADR-058 §4).
+      properties:
+        service_id:
+          type: string
+          format: uuid
+        location_id:
+          type: string
+          format: uuid
+        starts_at:
+          type: string
+          format: date-time
+        customer:
+          $ref: '#/components/schemas/CustomerInput'
+      required:
+      - customer
+      - location_id
+      - service_id
+      - starts_at
     PublicCatalog:
       type: object
       description: 'The catalogue without the team: who works here is not listed (ADR-058
@@ -14728,15 +14752,18 @@ components:
         services:
           type: array
           items:
-            $ref: '#/components/schemas/Service'
+            $ref: '#/components/schemas/PublicService'
         resources:
           type: array
           items:
             $ref: '#/components/schemas/Resource'
+        timezone:
+          type: string
       required:
       - locations
       - resources
       - services
+      - timezone
     PublicNavigationLink:
       type: object
       properties:
@@ -14792,6 +14819,26 @@ components:
       - quotas
       - trial_days
       - unit_amount_minor
+    PublicService:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        public_slug:
+          type: string
+        duration_minutes:
+          type: integer
+        appointment_kind:
+          type: string
+      required:
+      - appointment_kind
+      - duration_minutes
+      - id
+      - name
+      - public_slug
     PublicSitePage:
       type: object
       properties:

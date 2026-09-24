@@ -63,6 +63,7 @@ from saas_core.modules.shared.booking.observers import (
     register_appointment_observer,
 )
 from saas_core.modules.shared.booking.security import public_booking_context
+from saas_core.modules.shared.booking.serializers import PublicCatalogSerializer
 from saas_core.modules.shared.booking.services import (
     SlotUnavailable,
     anonymize_customer,
@@ -491,17 +492,26 @@ def test_the_customer_gets_no_staff_data_from_any_public_answer(
 
     listing = client.get(f"{url}/")
     assert listing.status_code == 200
-    assert set(listing.json()) == {"locations", "services", "resources"}
+    assert set(listing.json()) == {"locations", "services", "resources", "timezone"}
+    # The days and times offered are the organization's wall clock.
+    assert listing.json()["timezone"] == "Europe/Warsaw"
+    # The contract names exactly what is sent: no team, no stock lines.
+    contract = PublicCatalogSerializer().fields["services"].child.fields
+    assert set(listing.json()["services"][0]) == set(contract)
     slots = client.get(f"{url}/slots/", {**query, "from": str(day), "to": str(day)})
     assert slots.status_code == 200
     items = slots.json()["items"]
     assert items and all(set(item) == {"starts_at", "ends_at"} for item in items)
     assert len({item["starts_at"] for item in items}) == len(items)
 
+    # Both are idle, so the server takes the lower id; the customer naming the
+    # other one changes nothing (ADR-058 §4).
+    pick, named = sorted((configured["staff"].id, other.id))
     created = client.post(
         f"{url}/appointments/",
         {
             **query,
+            "staff_id": str(named),
             "starts_at": items[0]["starts_at"],
             "customer": {"display_name": "Anna", "email": "anna@example.test"},
         },
@@ -510,6 +520,8 @@ def test_the_customer_gets_no_staff_data_from_any_public_answer(
     )
     assert created.status_code == 201
     assert set(created.json()) == {*visit, "self_service_token"}
+    with tenant(member):
+        assert Appointment.all_objects.get(pk=created.json()["id"]).staff_id == pick
     link = f"/api/v1/booking/self-service/{created.json()['self_service_token']}"
     shown = client.get(f"{link}/")
     moved = client.post(

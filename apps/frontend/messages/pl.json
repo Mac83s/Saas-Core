@@ -1682,7 +1682,12 @@
     "confirmedDescription": "Przejdź do bezpiecznego ekranu zmiany lub anulowania terminu.",
     "manage": "Zarządzaj rezerwacją",
     "loadError": "Nie udało się pobrać terminów.",
-    "createError": "Termin nie jest już dostępny albo dane są nieprawidłowe."
+    "createError": "Termin nie jest już dostępny albo dane są nieprawidłowe.",
+    "required": "To pole jest wymagane.",
+    "pickTime": "Wybierz godzinę.",
+    "invalidEmail": "Podaj poprawny adres e-mail.",
+    "loadingTimes": "Sprawdzam wolne terminy…",
+    "noDays": "W najbliższych 14 dniach nie ma wolnych terminów."
   },
   "BookingConfiguration": {
     "catalogTitle": "Katalog rezerwacji",

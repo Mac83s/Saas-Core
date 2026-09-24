@@ -1,5 +1,6 @@
 import axe from "axe-core";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -125,6 +126,7 @@ beforeEach(() => {
     locations: catalog.locations,
     services: catalog.services,
     resources: catalog.resources,
+    timezone: "Europe/Warsaw",
   });
   api.listBookingAppointments.mockResolvedValue([appointment, completed]);
   api.getPublicBookingDays.mockResolvedValue(["2026-08-20"]);
@@ -510,6 +512,65 @@ test("a new appointment takes a free time and says when one is taken", async () 
   expect(key).toBe(api.createBookingAppointment.mock.calls[0][1]);
 });
 
+test("a chosen staff member books with the resource that goes with them", async () => {
+  api.getBookingSlots.mockResolvedValue({
+    items: [
+      {
+        starts_at: "2026-08-20T07:00:00Z",
+        ends_at: "2026-08-20T07:30:00Z",
+        staff_id: ALEX,
+        resource_id: ROOM,
+      },
+      {
+        starts_at: "2026-08-20T07:00:00Z",
+        ends_at: "2026-08-20T07:30:00Z",
+        staff_id: BEA,
+        resource_id: null,
+      },
+    ],
+  });
+  api.createBookingAppointment.mockResolvedValue({
+    ...appointment,
+    starts_at: "2026-08-20T07:00:00Z",
+    ends_at: "2026-08-20T07:30:00Z",
+    customer_name: "Ewa Zielińska",
+  });
+  renderCalendar();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "New appointment" }),
+  );
+  const dialog = await screen.findByRole("dialog", { name: "New appointment" });
+  fireEvent.change(within(dialog).getByLabelText("Service"), {
+    target: { value: catalog.services[0].id },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Staff member"), {
+    target: { value: ALEX },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Date"), {
+    target: { value: "2026-08-20" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Time"), {
+    target: { value: "09:00" },
+  });
+  expect(await within(dialog).findByText("This time is free.")).not.toBeNull();
+  fireEvent.change(within(dialog).getByLabelText("Full name"), {
+    target: { value: "Ewa Zielińska" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Phone"), {
+    target: { value: "+48 600 100 200" },
+  });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Save appointment" }),
+  );
+  await waitFor(() => expect(api.createBookingAppointment).toHaveBeenCalled());
+  // The office chose Alex: the booking names Alex and Alex's room.
+  expect(api.createBookingAppointment.mock.calls[0][0]).toMatchObject({
+    staff_id: ALEX,
+    resource_id: ROOM,
+    starts_at: "2026-08-20T07:00:00Z",
+  });
+});
+
 test("rescheduling offers the staff member's own free times", async () => {
   api.getBookingSlots.mockResolvedValue({
     items: [
@@ -694,6 +755,12 @@ test("public booking picks a day, then a time, and names nobody", async () => {
         .map((option) => option.getAttribute("value")),
     ).toEqual(["", "2026-08-20T08:00:00Z", "2026-08-20T08:30:00Z"]),
   );
+  // Booking without a time says what is missing instead of doing nothing.
+  fireEvent.click(screen.getByRole("button", { name: "Book" }));
+  expect(await screen.findByText("Choose a time.")).not.toBeNull();
+  expect(screen.getByText("Enter a valid email address.")).not.toBeNull();
+  expect(time.getAttribute("aria-invalid")).toBe("true");
+  expect(api.createPublicBookingAppointment).not.toHaveBeenCalled();
   fireEvent.change(time, { target: { value: "2026-08-20T08:30:00Z" } });
   fireEvent.change(screen.getByLabelText("Full name"), {
     target: { value: "Anna Nowak" },
@@ -717,6 +784,115 @@ test("public booking picks a day, then a time, and names nobody", async () => {
       locale: "pl",
     },
   });
+});
+
+function renderPublic(locale: "en" | "pl" = "en") {
+  return render(
+    <NextIntlClientProvider
+      locale={locale}
+      messages={locale === "en" ? englishMessages : polishMessages}
+    >
+      <PublicBookingFlow publicSlug="demo" />
+    </NextIntlClientProvider>,
+  );
+}
+
+async function searchPublic(service = catalog.services[0].id) {
+  await screen.findAllByText("Consultation");
+  fireEvent.change(screen.getByLabelText(/Service|Usługa/), {
+    target: { value: service },
+  });
+  fireEvent.change(screen.getByLabelText(/Location|Lokalizacja/), {
+    target: { value: catalog.locations[0].id },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /Show times|Pokaż/ }));
+}
+
+const options = (select: HTMLElement) =>
+  within(select)
+    .getAllByRole("option")
+    .map((option) => option.textContent);
+
+test("public times are the business's own clock, zone named", async () => {
+  // 00:30 on 25 October in Warsaw, still the 24th in UTC; that night 02:30
+  // happens twice (ADR-030).
+  vi.setSystemTime(new Date("2026-10-24T22:30:00Z"));
+  api.getPublicBookingDays.mockResolvedValue(["2026-10-25"]);
+  api.getPublicBookingTimes.mockResolvedValue([
+    { starts_at: "2026-10-25T00:30:00Z", ends_at: "2026-10-25T01:00:00Z" },
+    { starts_at: "2026-10-25T01:30:00Z", ends_at: "2026-10-25T02:00:00Z" },
+  ]);
+  renderPublic("pl");
+  await searchPublic();
+  await waitFor(() =>
+    expect(api.getPublicBookingDays).toHaveBeenCalledWith(
+      "demo",
+      expect.objectContaining({ from: "2026-10-25", to: "2026-11-08" }),
+    ),
+  );
+  fireEvent.change(await screen.findByLabelText("Dzień"), {
+    target: { value: "2026-10-25" },
+  });
+  await waitFor(() =>
+    expect(options(screen.getByLabelText("Godzina"))).toEqual([
+      "Wybierz",
+      "02:30 CEST",
+      "02:30 CET",
+    ]),
+  );
+});
+
+test("public times follow the latest choice and say when nothing is free", async () => {
+  api.getPublicBookingDays.mockResolvedValue(["2026-08-20", "2026-08-21"]);
+  let answerFirst: (value: unknown) => void = () => {};
+  api.getPublicBookingTimes.mockImplementation(
+    (_slug: string, { date }: { date: string }) =>
+      date === "2026-08-20"
+        ? new Promise((resolve) => {
+            answerFirst = resolve;
+          })
+        : Promise.resolve([
+            {
+              starts_at: "2026-08-21T07:00:00Z",
+              ends_at: "2026-08-21T07:30:00Z",
+            },
+          ]),
+  );
+  renderPublic();
+  await searchPublic();
+  const day = screen.getByLabelText("Day");
+  await waitFor(() => expect(day).toHaveProperty("disabled", false));
+  fireEvent.change(day, { target: { value: "2026-08-20" } });
+  expect(await screen.findByText("Checking free times…")).not.toBeNull();
+  fireEvent.change(day, { target: { value: "2026-08-21" } });
+  const time = screen.getByLabelText("Time");
+  await waitFor(() => expect(options(time)).toHaveLength(2));
+  // The 20th answers last; the list stays the 21st's, the day on screen.
+  await act(async () =>
+    answerFirst([
+      { starts_at: "2026-08-20T08:00:00Z", ends_at: "2026-08-20T08:30:00Z" },
+    ]),
+  );
+  expect(
+    within(time)
+      .getAllByRole("option")
+      .map((option) => option.getAttribute("value")),
+  ).toEqual(["", "2026-08-21T07:00:00Z"]);
+  fireEvent.change(time, { target: { value: "2026-08-21T07:00:00Z" } });
+
+  // Another service: its days are still to be asked for.
+  fireEvent.change(screen.getByLabelText("Service"), {
+    target: { value: catalog.services[1].id },
+  });
+  expect(day).toHaveProperty("disabled", true);
+  expect(options(time)).toEqual(["Choose"]);
+
+  api.getPublicBookingDays.mockResolvedValue([]);
+  fireEvent.click(screen.getByRole("button", { name: "Show times" }));
+  expect(
+    await screen.findByText("There are no free times in the next 14 days."),
+  ).not.toBeNull();
+  expect(day).toHaveProperty("disabled", true);
 });
 
 test("self-service reschedules an active booking", async () => {

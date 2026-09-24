@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useLocale } from "next-intl";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -23,28 +23,47 @@ import {
   CardHeader,
   CardTitle,
 } from "@saas-core/ui/components/card";
+import { Field, FieldError, FieldLabel } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
-import { Label } from "@saas-core/ui/components/label";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
-const schema = z.object({
-  service_id: z.string().uuid(),
-  location_id: z.string().uuid(),
-  starts_at: z.string().min(1),
-  display_name: z.string().trim().min(1).max(160),
-  email: z.string().email(),
-});
+import { addDays, dateFormat, formatDay, wallClock } from "./calendar-time";
+
+type Values = {
+  service_id: string;
+  location_id: string;
+  starts_at: string;
+  display_name: string;
+  email: string;
+};
 
 export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
   const t = useTranslations("PublicBooking");
   const locale = useLocale();
   const [catalog, setCatalog] = useState<BookingPublicCatalog>();
-  const [days, setDays] = useState<string[]>([]);
+  // The search the days belong to, the days it found, the day chosen and its
+  // times; an unset list is one still being asked for.
+  const [query, setQuery] = useState<{
+    service_id: string;
+    location_id: string;
+  }>();
+  const [days, setDays] = useState<string[]>();
   const [day, setDay] = useState("");
-  const [times, setTimes] = useState<BookingSlotTimeList["items"]>([]);
+  const [times, setTimes] = useState<BookingSlotTimeList["items"]>();
   const [token, setToken] = useState<string>();
   const [problem, setProblem] = useState<string>();
-  const form = useForm<z.infer<typeof schema>>({
+  const schema = useMemo(
+    () =>
+      z.object({
+        service_id: z.string().uuid(t("required")),
+        location_id: z.string().uuid(t("required")),
+        starts_at: z.string().min(1, t("pickTime")),
+        display_name: z.string().trim().min(1, t("required")).max(160),
+        email: z.email(t("invalidEmail")),
+      }),
+    [t],
+  );
+  const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {
       service_id: "",
@@ -54,6 +73,9 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
       email: "",
     },
   });
+  const errors = form.formState.errors;
+  const zone = catalog?.timezone;
+  const loading = (!!query && !days) || (!!day && !times);
 
   useEffect(() => {
     void getPublicBookingCatalog(publicSlug)
@@ -61,47 +83,66 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
       .catch(() => setProblem(t("loadError")));
   }, [publicSlug, t]);
 
-  const search = async () => {
-    const service = form.getValues("service_id");
-    const location = form.getValues("location_id");
-    if (!service || !location) return;
-    const from = new Date();
-    const to = new Date(from);
-    to.setDate(to.getDate() + 14);
-    try {
-      setDays(
-        await getPublicBookingDays(publicSlug, {
-          service_id: service,
-          location_id: location,
-          from: from.toISOString().slice(0, 10),
-          to: to.toISOString().slice(0, 10),
-        }),
-      );
-      setDay("");
-      setTimes([]);
-      form.setValue("starts_at", "");
-      setProblem(undefined);
-    } catch {
-      setProblem(t("loadError"));
-    }
-  };
-  const pickDay = async (value: string) => {
+  // Each answer is dropped once the customer has moved on to another search
+  // or day, as in useFreeSlots: a late reply must not fill in the wrong list.
+  useEffect(() => {
+    if (!query || !zone) return;
+    let current = true;
+    // The business's today: the days offered are its calendar, not the browser's.
+    const from = wallClock(new Date(), zone).day;
+    getPublicBookingDays(publicSlug, { ...query, from, to: addDays(from, 14) })
+      .then((value) => {
+        if (!current) return;
+        setDays(value);
+        setProblem(undefined);
+      })
+      .catch(() => {
+        if (!current) return;
+        setQuery(undefined);
+        setProblem(t("loadError"));
+      });
+    return () => {
+      current = false;
+    };
+  }, [publicSlug, query, t, zone]);
+  useEffect(() => {
+    if (!query || !day) return;
+    let current = true;
+    getPublicBookingTimes(publicSlug, { ...query, date: day })
+      .then((value) => {
+        if (!current) return;
+        setTimes(value);
+        setProblem(undefined);
+      })
+      .catch(() => {
+        if (!current) return;
+        setTimes([]);
+        setProblem(t("loadError"));
+      });
+    return () => {
+      current = false;
+    };
+  }, [day, publicSlug, query, t]);
+
+  // Another service or place: the days and times listed are no longer its own.
+  function reset() {
+    form.clearErrors(["service_id", "location_id"]);
+    setQuery(undefined);
+    setDays(undefined);
+    pickDay("");
+  }
+  function pickDay(value: string) {
     setDay(value);
-    setTimes([]);
+    setTimes(undefined);
     form.setValue("starts_at", "");
-    if (!value) return;
-    try {
-      setTimes(
-        await getPublicBookingTimes(publicSlug, {
-          service_id: form.getValues("service_id"),
-          location_id: form.getValues("location_id"),
-          date: value,
-        }),
-      );
-      setProblem(undefined);
-    } catch {
-      setProblem(t("loadError"));
-    }
+  }
+  const search = async () => {
+    if (!(await form.trigger(["service_id", "location_id"]))) return;
+    reset();
+    setQuery({
+      service_id: form.getValues("service_id"),
+      location_id: form.getValues("location_id"),
+    });
   };
   const submit = form.handleSubmit(
     async ({ display_name, email, ...booking }) => {
@@ -123,6 +164,16 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
       }
     },
   );
+  // The business's wall clock, zone named: the customer may be elsewhere, and
+  // the autumn hour that happens twice reads as two different times.
+  const clock = zone
+    ? dateFormat(locale, {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: zone,
+        timeZoneName: "short",
+      })
+    : undefined;
 
   if (token)
     return (
@@ -148,13 +199,14 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
         <CardDescription>{t("description")}</CardDescription>
       </CardHeader>
       <CardContent>
-        <form className="space-y-4" onSubmit={submit}>
+        <form className="space-y-4" noValidate onSubmit={submit}>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="booking-service">{t("service")}</Label>
+            <Field data-invalid={Boolean(errors.service_id)}>
+              <FieldLabel htmlFor="booking-service">{t("service")}</FieldLabel>
               <NativeSelect
+                aria-invalid={Boolean(errors.service_id)}
                 id="booking-service"
-                {...form.register("service_id")}
+                {...form.register("service_id", { onChange: reset })}
               >
                 <option value="">{t("choose")}</option>
                 {catalog?.services.map((x) => (
@@ -163,12 +215,16 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
                   </option>
                 ))}
               </NativeSelect>
-            </div>
-            <div>
-              <Label htmlFor="booking-location">{t("location")}</Label>
+              <FieldError errors={[errors.service_id]} />
+            </Field>
+            <Field data-invalid={Boolean(errors.location_id)}>
+              <FieldLabel htmlFor="booking-location">
+                {t("location")}
+              </FieldLabel>
               <NativeSelect
+                aria-invalid={Boolean(errors.location_id)}
                 id="booking-location"
-                {...form.register("location_id")}
+                {...form.register("location_id", { onChange: reset })}
               >
                 <option value="">{t("choose")}</option>
                 {catalog?.locations.map((x) => (
@@ -177,58 +233,79 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
                   </option>
                 ))}
               </NativeSelect>
-            </div>
+              <FieldError errors={[errors.location_id]} />
+            </Field>
           </div>
-          <Button onClick={() => void search()} type="button" variant="outline">
-            {t("search")}
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              disabled={loading}
+              onClick={() => void search()}
+              type="button"
+              variant="outline"
+            >
+              {t("search")}
+            </Button>
+            <p aria-live="polite" className="text-sm text-muted-foreground">
+              {loading
+                ? t("loadingTimes")
+                : days?.length === 0
+                  ? t("noDays")
+                  : null}
+            </p>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="booking-day">{t("day")}</Label>
+            <Field>
+              <FieldLabel htmlFor="booking-day">{t("day")}</FieldLabel>
               <NativeSelect
+                disabled={!days?.length}
                 id="booking-day"
-                onChange={(event) => void pickDay(event.target.value)}
+                onChange={(event) => pickDay(event.target.value)}
                 value={day}
               >
                 <option value="">{t("choose")}</option>
-                {days.map((item) => (
+                {days?.map((item) => (
                   <option key={item} value={item}>
-                    {/* A calendar date, not an instant: read it in UTC. */}
-                    {new Date(item).toLocaleDateString(locale, {
-                      dateStyle: "full",
-                      timeZone: "UTC",
-                    })}
+                    {formatDay(item, locale, { dateStyle: "full" })}
                   </option>
                 ))}
               </NativeSelect>
-            </div>
-            <div>
-              <Label htmlFor="booking-slot">{t("slot")}</Label>
-              <NativeSelect id="booking-slot" {...form.register("starts_at")}>
+            </Field>
+            <Field data-invalid={Boolean(errors.starts_at)}>
+              <FieldLabel htmlFor="booking-slot">{t("slot")}</FieldLabel>
+              <NativeSelect
+                aria-invalid={Boolean(errors.starts_at)}
+                id="booking-slot"
+                {...form.register("starts_at")}
+              >
                 <option value="">{t("choose")}</option>
-                {times.map((x) => (
+                {times?.map((x) => (
                   <option key={x.starts_at} value={x.starts_at}>
-                    {new Date(x.starts_at).toLocaleTimeString(locale, {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    {clock?.format(new Date(x.starts_at))}
                   </option>
                 ))}
               </NativeSelect>
-            </div>
+              <FieldError errors={[errors.starts_at]} />
+            </Field>
           </div>
-          <div>
-            <Label htmlFor="booking-name">{t("name")}</Label>
-            <Input id="booking-name" {...form.register("display_name")} />
-          </div>
-          <div>
-            <Label htmlFor="booking-email">E-mail</Label>
+          <Field data-invalid={Boolean(errors.display_name)}>
+            <FieldLabel htmlFor="booking-name">{t("name")}</FieldLabel>
             <Input
+              aria-invalid={Boolean(errors.display_name)}
+              id="booking-name"
+              {...form.register("display_name")}
+            />
+            <FieldError errors={[errors.display_name]} />
+          </Field>
+          <Field data-invalid={Boolean(errors.email)}>
+            <FieldLabel htmlFor="booking-email">E-mail</FieldLabel>
+            <Input
+              aria-invalid={Boolean(errors.email)}
               id="booking-email"
               type="email"
               {...form.register("email")}
             />
-          </div>
+            <FieldError errors={[errors.email]} />
+          </Field>
           {problem ? (
             <p className="text-sm text-destructive" role="alert">
               {problem}
