@@ -308,6 +308,8 @@ def _content_base(target: dict[str, Any], context: TenantContext) -> dict[str, A
 
 
 def _plan_change_set(document: dict[str, Any], context: TenantContext) -> ChangeSetPlan:
+    from .services import assert_links_within_grant
+
     validate_change_set(document)
     target = document["target"]
     current = _content_base(target, context)
@@ -383,6 +385,15 @@ def _plan_change_set(document: dict[str, Any], context: TenantContext) -> Change
     )
     # Refused at preview already, not only when the draft is saved.
     assert_unique_anchors(resulting)
+    assert_links_within_grant(
+        context,
+        site_id=UUID(target["site_id"]),
+        collection_id=(
+            UUID(target["collection_id"]) if target["kind"] == "content_entry" else None
+        ),
+        blocks=resulting,
+        base_blocks=blocks,
+    )
     return ChangeSetPlan(
         target_kind=target["kind"],
         resource_id=resource,
