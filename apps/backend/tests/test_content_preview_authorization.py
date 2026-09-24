@@ -436,19 +436,48 @@ def test_an_entry_draft_written_directly_by_a_key_is_held_to_the_same_hosts(
     assert put("https://partner.test/", "entry-partner").status_code == 201
 
 
+@pytest.mark.parametrize(
+    ("path", "allowed"),
+    [("/blog/wpis/", True), ("//3627732462/oferta", False), ("//evil/", False)],
+)
+def test_an_entry_list_path_is_a_link_too(surface: Any, path: str, allowed: bool) -> None:
+    """`items[].path` renders as an href, and its pattern accepts `//<digits>`,
+    which a browser opens as an IPv4 address (216.58.214.206 here)."""
+    client = linking(surface, [])
+    listing = {
+        "type": "core.entry_list",
+        "schema_version": 1,
+        "data": {"items": [{"title": "Oferta", "path": path}]},
+    }
+    response = post_preview(client, with_block(surface, listing))
+    if allowed:
+        assert response.status_code == 200, response.content
+    else:
+        assert response.status_code == 403, response.content
+        assert response.json()["code"] == "automation_link_host_forbidden"
+        assert "blocks[0].data.items[0].path" in response.json()["detail"]
+
+
 def test_every_link_field_in_the_block_schemas_is_walked() -> None:
-    """A future `…Url` field would slip past the host check unnoticed."""
+    """A field whose pattern accepts a path or a URL is rendered as a link; one
+    the walker does not name would slip past the host check unnoticed."""
     import json
+    import re
     from pathlib import Path
 
     from django.conf import settings
 
     from saas_core.modules.shared.sites.rich_content import is_link_field
 
+    def link_like(pattern: Any) -> bool:
+        return isinstance(pattern, str) and any(
+            re.search(pattern, sample) for sample in ("/a", "https://a.test")
+        )
+
     def keys(value: Any) -> Any:
         if isinstance(value, dict):
             for key, child in value.items():
-                if isinstance(child, dict) and "https://" in str(child.get("pattern", "")):
+                if isinstance(child, dict) and link_like(child.get("pattern")):
                     yield key
                 yield from keys(child)
         elif isinstance(value, list):
@@ -460,5 +489,5 @@ def test_every_link_field_in_the_block_schemas_is_walked() -> None:
         for path in Path(settings.SITE_BLOCK_CONTRACTS_PATH).glob("core.*.schema.json")
         for key in keys(json.loads(path.read_text(encoding="utf-8")))
     }
-    assert found
+    assert {"href", "ctaHref", "privacy_href", "path"} <= found
     assert {key for key in found if not is_link_field(key)} == set()

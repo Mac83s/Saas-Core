@@ -3,9 +3,10 @@
 Mirrors `blockAssetIds` in `@saas-core/site-blocks` (rich-text.ts). Every block
 schema uses `asset_id` for a media asset and nothing else, so one walk covers a
 hero photo, a product gallery and a figure inside rich text alike. Links are
-the same kind of convention: every schema names a link target `href` or
-`…Href`/`…_href`, which `test_every_link_field_in_the_block_schemas_is_walked`
-holds against the shipped schemas.
+the same kind of convention: a schema names a link target `href` or
+`…Href`/`…_href`, except `core.entry_list`, whose items carry a `path`.
+`test_every_link_field_in_the_block_schemas_is_walked` holds every field whose
+pattern accepts a path or an `https://` URL against `is_link_field`.
 """
 
 from __future__ import annotations
@@ -55,7 +56,9 @@ def block_asset_ids(blocks: Iterable[dict[str, Any]]) -> list[UUID]:
 
 
 def is_link_field(key: str) -> bool:
-    return key.casefold().endswith("href")
+    # `core.entry_list` renders `items[].path` as an href, and its pattern lets
+    # `//3627732462/` through, which a browser opens as an IPv4 host.
+    return key.casefold().endswith("href") or key == "path"
 
 
 def block_links(blocks: Iterable[dict[str, Any]]) -> dict[str, str]:

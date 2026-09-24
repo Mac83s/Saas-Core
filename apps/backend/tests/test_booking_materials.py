@@ -197,3 +197,62 @@ def test_the_customer_sees_the_visit_not_the_companys_stock_sheet(
     response = APIClient().get(f"/api/v1/booking/self-service/{created.token}/")
     assert response.status_code == 200
     assert "materials" not in response.data
+
+
+def test_a_kind_whose_module_takes_its_own_material_stays_out_of_the_warehouse(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """HoofCare takes material per cow from the trimmer's own stock; the calendar
+    neither offers products for its visits nor settles any at completion,
+    or the same material would go twice (ADR-055, owner 24.09 answer 4A)."""
+    from saas_core.modules.shared.booking.models import Service  # noqa: PLC0415
+
+    booking_tests._no_delivery(monkeypatch)
+    monkeypatch.setattr(
+        settings, "APPOINTMENT_KINDS_OWN_MATERIALS", frozenset({"field.visit"}), raising=False
+    )
+    member, configured, items = setup("wizyta-wlasny-material")
+    line = {"item_id": str(items["oil"].id), "quantity": "2", "mode": "consume"}
+    with booking_tests.tenant(member):
+        # Materials set while the kind still took them (or by hand in the DB)
+        # must not reach a visit either.
+        Service.all_objects.filter(pk=configured["service"].id).update(
+            appointment_kind="field.visit", materials=[line]
+        )
+        with pytest.raises(ValidationError, match="rozlicza jej moduł"):
+            set_service_materials(service_id=configured["service"].id, materials=[line])
+
+    # A visit confirmed before its module said so still holds a reservation.
+    monkeypatch.setattr(settings, "APPOINTMENT_KINDS_OWN_MATERIALS", frozenset(), raising=False)
+    earlier = booking_tests.create(member, configured).appointment
+    assert stock(member, items["oil"]) == (Decimal(10), Decimal(8))
+    monkeypatch.setattr(
+        settings, "APPOINTMENT_KINDS_OWN_MATERIALS", frozenset({"field.visit"}), raising=False
+    )
+    with booking_tests.tenant(member):
+        complete_appointment(
+            appointment_id=earlier.id, idempotency_key="done-earlier", principal_ref="t"
+        )
+    # Completing it lets the reservation go and settles nothing.
+    assert stock(member, items["oil"]) == (Decimal(10), Decimal(10))
+    assert documents(member, earlier.id) == []
+
+    configured.pop("starts_at")  # the first slot is taken now
+    appointment = booking_tests.create(member, configured, key="own-2").appointment
+    assert appointment.materials == []
+    assert stock(member, items["oil"]) == (Decimal(10), Decimal(10))
+    with booking_tests.tenant(member):
+        with pytest.raises(ValidationError, match="rozlicza jej moduł"):
+            set_appointment_materials(appointment_id=appointment.id, materials=[line])
+        complete_appointment(
+            appointment_id=appointment.id, idempotency_key="done-own", principal_ref="t"
+        )
+    assert documents(member, appointment.id) == []
+
+    from saas_core.modules.shared.booking.services import list_catalog  # noqa: PLC0415
+    from saas_core.modules.shared.booking.views import _catalog_payload  # noqa: PLC0415
+
+    with booking_tests.tenant(member):
+        services = _catalog_payload(list_catalog())["services"]
+    # The panel hides the products editor for such a service.
+    assert [service["takes_materials"] for service in services] == [False]

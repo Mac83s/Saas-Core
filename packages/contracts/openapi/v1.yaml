@@ -9899,6 +9899,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MaterialLine'
+        takes_materials:
+          type: boolean
         self_service_token:
           type:
           - string
@@ -15134,6 +15136,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MaterialInput'
+        takes_materials:
+          type: boolean
       required:
       - appointment_kind
       - duration_minutes

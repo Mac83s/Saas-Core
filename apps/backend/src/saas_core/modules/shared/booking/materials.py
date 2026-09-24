@@ -33,6 +33,24 @@ def enabled() -> bool:
     return "shared.inventory" in settings.ACTIVE_MODULES
 
 
+def takes_materials(kind: str) -> bool:
+    """Czy wizyta tego rodzaju bierze produkty z magazynu przez kalendarz.
+
+    Moduł, który rozlicza materiał sam (HoofCare: przy każdej krowie z pakietu
+    korektora), deklaruje swoje rodzaje w deskryptorze — kalendarz ich nie
+    dotyka, bo zakończenie wizyty zdjęłoby ten sam materiał drugi raz.
+    """
+    return enabled() and kind not in getattr(settings, "APPOINTMENT_KINDS_OWN_MATERIALS", ())
+
+
+def refuse_own(kind: str) -> None:
+    """Produkty wpisane do wizyty, której materiał rozlicza jej moduł."""
+    if enabled() and not takes_materials(kind):
+        raise ValidationError({
+            "materials": "Materiał tej wizyty rozlicza jej moduł (np. przy każdej krowie)."
+        })
+
+
 def authorize_change() -> None:
     """Kto zmienia produkty wizyty, musi móc brać z magazynu."""
     if not enabled():

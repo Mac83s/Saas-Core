@@ -29,6 +29,7 @@ from saas_core.config.composition import (
     django_apps_for,
     load_catalog,
     middleware_for,
+    own_material_kinds_for,
     role_grants_for,
     select_by_module,
     verify_artifact,
@@ -200,9 +201,7 @@ def test_middleware_and_scheduled_work_come_only_from_composed_modules() -> None
         "saas_core.modules.shared.seo.middleware.Example",
     )
     assert middleware_for(core_only, catalog) == ()
-    assert set(beat_schedule_for((*core_only, "vertical.example"), catalog)) == {
-        "example-sweep"
-    }
+    assert set(beat_schedule_for((*core_only, "vertical.example"), catalog)) == {"example-sweep"}
     assert beat_schedule_for(core_only, catalog) == {}
 
 
@@ -227,6 +226,31 @@ def test_two_modules_cannot_claim_one_visit_kind() -> None:
 
     with pytest.raises(CompositionError, match="x.visit"):
         appointment_kinds_for(("vertical.example", "vertical.other"), catalog)
+
+
+def test_a_module_that_takes_its_own_material_keeps_booking_out_of_it() -> None:
+    """HoofCare takes material per cow; booking must not settle it again (ADR-055)."""
+    catalog = dict(CATALOG)
+    catalog["vertical.example"] = made_up_vertical(
+        appointment_kinds={"example.visit": "Wizyta", "example.call": "Telefon"},
+        own_material_kinds=("example.visit",),
+    )
+    core_only = tuple(profile_modules("core-only"))
+
+    assert own_material_kinds_for((*core_only, "vertical.example"), catalog) == {"example.visit"}
+    assert own_material_kinds_for(core_only, catalog) == frozenset()
+
+
+def test_own_material_for_a_kind_the_module_does_not_add_is_refused(tmp_path: Path) -> None:
+    descriptor = json.loads(
+        (Path(settings.MODULE_CATALOG_PATH) / "core.health.json").read_text(encoding="utf-8")
+    )
+    descriptor["backend"]["appointmentKinds"] = {"health.visit": "Wizyta"}
+    descriptor["backend"]["appointmentKindsWithOwnMaterials"] = ["health.other"]
+    (tmp_path / "core.health.json").write_text(json.dumps(descriptor), encoding="utf-8")
+
+    with pytest.raises(CompositionError, match="health.other"):
+        load_catalog(tmp_path)
 
 
 def test_system_roles_carry_what_the_composed_modules_grant() -> None:

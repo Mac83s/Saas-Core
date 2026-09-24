@@ -533,3 +533,33 @@ test("sztuki wpisane przez firmę czekają na przejrzenie", async () => {
     }),
   );
 });
+
+test("edycja zwierzęcia jest zawsze w wierszu i wysyła tylko zmiany", async () => {
+  api.updateFarmAnimal.mockResolvedValue({ ...HERD[0], name: "Krasula" });
+  renderPanel();
+  const row = (await screen.findByText("PL005432198765")).closest("tr")!;
+  // Edycja nie chowa się pod „…” (ADR-057).
+  const edit = within(row).getByRole("button", { name: "Edytuj zwierzę" });
+  fireEvent.click(edit);
+  const dialog = await screen.findByRole("dialog", { name: "Edytuj zwierzę" });
+  fireEvent.change(within(dialog).getByLabelText("Imię"), {
+    target: { value: "Krasula" },
+  });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Zapisz zmiany" }),
+  );
+  await waitFor(() =>
+    expect(api.updateFarmAnimal).toHaveBeenCalledWith("a1", {
+      name: "Krasula",
+    }),
+  );
+  expect(await screen.findByText("Zapisano: PL005432198765.")).toBeVisible();
+});
+
+test("bez farms.manage wiersz nie proponuje edycji", async () => {
+  renderPanel(["farms.read"]);
+  const row = (await screen.findByText("PL005432198765")).closest("tr")!;
+  expect(
+    within(row).queryByRole("button", { name: "Edytuj zwierzę" }),
+  ).toBeNull();
+});

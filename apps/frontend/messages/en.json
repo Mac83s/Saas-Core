@@ -2382,7 +2382,9 @@
     "call": "Call {phone}",
     "animalsOfFarm": "This farm’s animals",
     "openAnimal": "Animal card",
-    "farm": "Farm"
+    "farm": "Farm",
+    "editAnimal": "Edit the animal",
+    "animalSaved": "Animal saved: {tag}."
   },
   "Animals": {
     "title": "Animals",
@@ -2453,7 +2455,10 @@
     "actions": "Actions",
     "actionsFor": "Actions: {tag}",
     "openCard": "Animal card",
-    "openFarm": "Go to the farm"
+    "openFarm": "Go to the farm",
+    "edit": "Edit the animal",
+    "saveChanges": "Save changes",
+    "saved": "Saved: {tag}."
   },
   "StaffAccounts": {
     "title": "Calendar staff accounts",

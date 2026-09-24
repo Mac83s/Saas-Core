@@ -68,6 +68,11 @@ export function BookingConfiguration({
   const t = useTranslations("BookingConfiguration");
   const locale = useLocale();
   const existing = new Set(catalog?.services.map((service) => service.name));
+  // A visit whose module takes its own material (HoofCare, per cow) gets no
+  // products here, or finishing it would take them a second time (ADR-055).
+  const stocked = (catalog?.services ?? []).filter(
+    (one) => one.takes_materials !== false,
+  );
   const [problem, setProblem] = useState<string>();
 
   // An add that fails, or a form that is not complete, says so.
@@ -297,8 +302,8 @@ export function BookingConfiguration({
           </form>
         </CardContent>
       </Card>
-      {canUseInventory && catalog?.services.length ? (
-        <ServiceMaterials catalog={catalog} onChanged={onChanged} />
+      {canUseInventory && stocked.length ? (
+        <ServiceMaterials onChanged={onChanged} services={stocked} />
       ) : null}
     </div>
   );
@@ -306,16 +311,16 @@ export function BookingConfiguration({
 
 /** What each visit of a service takes from the warehouse, by default. */
 function ServiceMaterials({
-  catalog,
+  services,
   onChanged,
 }: {
-  catalog: BookingCatalog;
+  services: BookingCatalog["services"];
   onChanged: () => Promise<void>;
 }) {
   const t = useTranslations("BookingMaterials");
   const warehouse = useWarehouse(true);
-  const [serviceId, setServiceId] = useState(catalog.services[0]?.id ?? "");
-  const service = catalog.services.find((one) => one.id === serviceId);
+  const [serviceId, setServiceId] = useState(services[0]?.id ?? "");
+  const service = services.find((one) => one.id === serviceId);
   const [drafts, setDrafts] = useState<MaterialDraft[]>(() =>
     draftsOf(service?.materials),
   );
@@ -351,7 +356,7 @@ function ServiceMaterials({
           <NativeSelect
             id="service-materials-service"
             onChange={(event) => {
-              const next = catalog.services.find(
+              const next = services.find(
                 (one) => one.id === event.target.value,
               );
               setServiceId(event.target.value);
@@ -360,7 +365,7 @@ function ServiceMaterials({
             }}
             value={serviceId}
           >
-            {catalog.services.map((one) => (
+            {services.map((one) => (
               <option key={one.id} value={one.id}>
                 {one.name}
               </option>

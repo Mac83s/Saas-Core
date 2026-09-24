@@ -16,6 +16,7 @@ from saas_core.config.composition import (
     load_catalog,
     middleware_for,
     organization_types_from,
+    own_material_kinds_for,
     role_grants_for,
     select_by_module,
     verify_artifact,
@@ -302,8 +303,7 @@ INSTALLED_APPS = [
 #: a deployment without it; the tenant middleware is Core and is always there.
 _MODULE_MIDDLEWARE = {
     "shared.notifications": (
-        "saas_core.modules.shared.notifications.api_key_middleware."
-        "ApiKeyTenantContextMiddleware"
+        "saas_core.modules.shared.notifications.api_key_middleware.ApiKeyTenantContextMiddleware"
     ),
 }
 
@@ -540,9 +540,7 @@ STRIPE_WEBHOOK_SECRET = secret_setting("STRIPE_WEBHOOK_SECRET")
 #: production endpoint must be created with this exact api_version, and moving
 #: the account default forward means moving this line — the mismatch shows up
 #: as every event refused with 400, which is loud but easy to misread.
-STRIPE_API_VERSION = (
-    os.environ.get("STRIPE_API_VERSION", "").strip() or "2026-08-26.dahlia"
-)
+STRIPE_API_VERSION = os.environ.get("STRIPE_API_VERSION", "").strip() or "2026-08-26.dahlia"
 #: Stripe's tax code for what we sell. "General - Electronically Supplied
 #: Services" is the EU category a SaaS subscription falls into, and it taxes
 #: the same way for business and private buyers.
@@ -731,9 +729,7 @@ _MODULE_BEAT_SCHEDULE: dict[str, dict[str, Any]] = {
 }
 
 try:
-    CELERY_BEAT_SCHEDULE = select_by_module(
-        _MODULE_BEAT_SCHEDULE, ACTIVE_MODULES, KNOWN_MODULES
-    )
+    CELERY_BEAT_SCHEDULE = select_by_module(_MODULE_BEAT_SCHEDULE, ACTIVE_MODULES, KNOWN_MODULES)
     # A product's vertical declares its scheduled work in the descriptor.
     _declared_schedule = beat_schedule_for(ACTIVE_MODULES, _module_catalog)
     if clash := sorted(set(_declared_schedule) & set(CELERY_BEAT_SCHEDULE)):
@@ -743,6 +739,10 @@ try:
     #: knows the shape of a visit declares it in its descriptor; core only
     #: knows that a key from a module this product lacks is a typo.
     APPOINTMENT_KINDS = appointment_kinds_for(ACTIVE_MODULES, _module_catalog)
+    #: Visits whose materials their module takes itself (HoofCare: per cow from
+    #: the trimmer's own stock). Booking offers no products for them and does
+    #: not settle any at completion, or the same material would go twice.
+    APPOINTMENT_KINDS_OWN_MATERIALS = own_material_kinds_for(ACTIVE_MODULES, _module_catalog)
 except CompositionError as error:
     raise ImproperlyConfigured(str(error)) from error
 

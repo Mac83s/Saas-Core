@@ -56,9 +56,10 @@ export function PanelHeader({
           aria-label={t("toggleNavigation")}
           className="size-11"
         />
+        {/* The page's frame sits with the menu's: both change the layout. */}
+        <WidthToggle />
         <ConnectionStatus />
         <div className="ml-auto flex items-center gap-1 sm:gap-2">
-          <WidthToggle />
           <ThemeToggle />
           <LocaleToggle />
           <NotificationBell />
