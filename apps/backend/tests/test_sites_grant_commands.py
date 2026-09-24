@@ -82,6 +82,7 @@ def test_issuing_a_grant_sets_the_tenant_before_reading_the_key() -> None:
             api_key=str(key.id),
             site=site_id,
             mode="draft_write",
+            allow_link_host=["Partner.TEST.", "partner.test"],
         )
 
     from saas_core.modules.shared.sites.models import ContentAutomationGrant
@@ -89,6 +90,8 @@ def test_issuing_a_grant_sets_the_tenant_before_reading_the_key() -> None:
     grant = ContentAutomationGrant.all_objects.get(credential_id=key.id)
     assert grant.organization_id == organization.id
     assert grant.mode == "draft_write"
+    # Stored the way links are compared, so what the operator typed matches.
+    assert grant.allowed_link_hosts == ["partner.test"]
     _assert_tenant_set_before_guarded_reads(captured.captured_queries)
 
 
@@ -166,4 +169,24 @@ def test_revoking_a_grant_sets_the_tenant_before_reading_it() -> None:
             organization=str(other_organization.id),
             grant=str(grant.id),
             reason="Nie moja organizacja.",
+        )
+
+
+def test_issuing_refuses_a_link_host_that_names_no_host() -> None:
+    """A URL stored as a host would match nothing and look like a working grant."""
+    client, organization, user = sites_client(slug="grant-link-host", role_key="owner")
+    site_id = create_site(client).data["id"]
+    key = _api_key(organization, user)
+    person = operator(email="grant-operator-3@example.test")
+    confirm_mfa(person)
+
+    with pytest.raises(CommandError, match="--allow-link-host"):
+        call_command(
+            "issue_content_grant",
+            operator=person.email,
+            organization=str(organization.id),
+            api_key=str(key.id),
+            site=site_id,
+            mode="draft_write",
+            allow_link_host=["https://partner.test/"],
         )

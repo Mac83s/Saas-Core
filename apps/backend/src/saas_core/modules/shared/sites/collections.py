@@ -62,6 +62,7 @@ from .services import (
     _idempotency_key,
     _is_automation,
     _schedule_site_outbox_delivery,
+    assert_links_within_grant,
     assert_person_blocks,
     assert_person_required,
     assert_within_grant,
@@ -424,6 +425,14 @@ def save_entry_draft(
         normalized_blocks,
         lambda: entry.current_draft.blocks if entry.current_draft is not None else [],
     )
+    if _is_automation(context):
+        assert_links_within_grant(
+            context,
+            site_id=entry.collection.site_id,
+            collection_id=entry.collection_id,
+            blocks=normalized_blocks,
+            base_blocks=entry.current_draft.blocks if entry.current_draft else [],
+        )
     if entry.version != expected_version:
         raise DraftVersionConflict
     version = ContentEntryVersion.all_objects.create(

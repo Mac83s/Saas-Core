@@ -53,6 +53,7 @@ from .block_decoration import (
     validate_page_presentation,
     validate_presentation,
 )
+from .domains import InvalidHostname, link_host, normalize_hostname
 from .localization import (
     SiteLocalizationReport,
     build_localization_report,
@@ -64,6 +65,8 @@ from .models import (
     ContentAutomationGrant,
     ContentCollection,
     ContentEntryVersion,
+    Domain,
+    DomainStatus,
     NavigationItem,
     Page,
     PageAutomationPolicy,
@@ -80,7 +83,7 @@ from .models import (
     canonical_json_hash,
 )
 from .permissions import PAGES_MAX, SITE_CONTENT_EDIT, SITE_PUBLISH, SITES_ENABLED, SITES_MAX
-from .rich_content import assert_unique_anchors, block_asset_ids
+from .rich_content import assert_unique_anchors, block_asset_ids, block_links
 
 SITE_CREATED = "sites.site.created"
 PAGE_CREATED = "sites.page.created"
@@ -279,6 +282,12 @@ class AutomationChangeLimitReached(APIException):
     status_code = 429
     default_detail = "Dzienny limit zmian tego grantu został wyczerpany."
     default_code = "automation_change_limit_reached"
+
+
+class AutomationLinkHostForbidden(APIException):
+    status_code = 403
+    default_detail = "Grant nie pozwala linkować do tego hosta."
+    default_code = "automation_link_host_forbidden"
 
 
 class PersonRequired(APIException):
@@ -821,6 +830,63 @@ def _assert_grant_permits(
             raise AutomationChangeLimitReached
 
 
+def assert_links_within_grant(
+    context: TenantContext,
+    *,
+    site_id: UUID,
+    blocks: Any,
+    base_blocks: Any,
+    collection_id: UUID | None = None,
+) -> None:
+    """Refuses an automation's link to a host its grant does not name.
+
+    A link is a recommendation made in the customer's name, so an automation
+    links only to this site's own hostnames and to the grant's
+    `allowed_link_hosts`, compared exactly after IDNA normalization: a listed
+    host does not bring its subdomains. An empty list means internal links only.
+
+    Only links the change introduces are checked. One already in the draft it
+    replaces was put there by somebody else, and rewriting the paragraph around
+    it is not a new recommendation.
+    """
+    if not _is_automation(context):
+        return
+    introduced = block_links(blocks)
+    if not introduced:
+        return
+    kept = block_links(base_blocks)
+    leaving = {
+        href: host
+        for href in introduced
+        if href not in kept and (host := link_host(href)) is not None
+    }
+    if not leaving:
+        return
+    grant = assert_within_grant(context, site_id=site_id, collection_id=collection_id)
+    own = Domain.all_objects.filter(
+        organization_id=context.organization_id, site_id=site_id
+    ).exclude(status=DomainStatus.RELEASED)
+    allowed = _hostnames(list(own.values_list("hostname", flat=True)))
+    allowed |= _hostnames(grant.allowed_link_hosts if grant else [])
+    for href, host in leaving.items():
+        if host not in allowed:
+            raise AutomationLinkHostForbidden(
+                detail=f"{introduced[href]}: grant nie pozwala linkować do {host}."
+            )
+
+
+def _hostnames(values: Any) -> set[str]:
+    # A stored value that is not a list of hostnames names nothing, so it
+    # allows nothing.
+    found = set()
+    for value in values if isinstance(values, list) else []:
+        try:
+            found.add(normalize_hostname(str(value)))
+        except InvalidHostname:
+            continue
+    return found
+
+
 #: Policies under which an automation may write a draft. `PROPOSED` allows the
 #: draft and nothing further: turning it into what visitors see stays a
 #: person's act, which is the whole point of the setting.
@@ -1082,6 +1148,15 @@ def save_draft(
         )
         .order_by("position")
         .values("block_type", "data"),
+    )
+    assert_links_within_grant(
+        context,
+        site_id=page.site_id,
+        blocks=normalized_blocks,
+        base_blocks=PageBlock.all_objects.filter(
+            organization_id=context.organization_id,
+            page_version_id=page.current_draft_id,
+        ).values("data"),
     )
     existing = PageVersion.all_objects.filter(
         organization_id=context.organization_id,

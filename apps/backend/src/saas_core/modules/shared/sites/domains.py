@@ -56,3 +56,48 @@ def normalize_hostname(value: str, *, allow_port: bool = False) -> str:
 
 def verification_record_name(hostname: str) -> str:
     return f"_saas-core.{normalize_hostname(hostname)}"
+
+
+_TAB_OR_NEWLINE = re.compile(r"[\t\n\r]")
+_C0_OR_SPACE = "".join(map(chr, range(0x21)))
+_SCHEME = re.compile(r"([A-Za-z][A-Za-z0-9+.-]*):")
+_AUTHORITY_END = re.compile(r"[/?#]")
+
+
+def link_host(href: str) -> str | None:
+    """The host a link takes a visitor to, or `None` when it has none.
+
+    Read the way a browser reads it (WHATWG URL), not the way `urlsplit` does,
+    because the browser is what follows the link: tabs and newlines vanish, a
+    backslash is a slash, any run of slashes after the scheme is skipped, and
+    userinfo and port are not the host. So `//evil.test`, `/\\evil.test`,
+    `https:///evil.test` and `https://allowed.test@evil.test` all answer
+    `evil.test`.
+
+    A path, query or in-page anchor stays on the site, and `mailto:`/`tel:` open
+    the visitor's own mail or phone app rather than somebody's website; all of
+    them answer `None`. Any other scheme answers with the whole link, which no
+    host list names, so an unknown kind of link fails closed. A host that is
+    not a valid name comes back as written, for the same reason.
+    """
+    value = _TAB_OR_NEWLINE.sub("", href).strip(_C0_OR_SPACE).replace("\\", "/")
+    scheme = _SCHEME.match(value)
+    if scheme is None:
+        if not value.startswith("//"):
+            return None
+        rest = value
+    else:
+        name = scheme.group(1).casefold()
+        if name in {"mailto", "tel"}:
+            return None
+        if name not in {"http", "https"}:
+            return value
+        rest = value[scheme.end():]
+    authority = _AUTHORITY_END.split(rest.lstrip("/"), maxsplit=1)[0]
+    host = authority.rpartition("@")[2]
+    if not host.startswith("["):
+        host = host.partition(":")[0]
+    try:
+        return normalize_hostname(host)
+    except InvalidHostname:
+        return host or value

@@ -1,13 +1,16 @@
-"""What the server reads out of blocks themselves: media ids and page anchors.
+"""What the server reads out of blocks themselves: media ids, links and page anchors.
 
 Mirrors `blockAssetIds` in `@saas-core/site-blocks` (rich-text.ts). Every block
 schema uses `asset_id` for a media asset and nothing else, so one walk covers a
-hero photo, a product gallery and a figure inside rich text alike.
+hero photo, a product gallery and a figure inside rich text alike. Links are
+the same kind of convention: every schema names a link target `href` or
+`…Href`/`…_href`, which `test_every_link_field_in_the_block_schemas_is_walked`
+holds against the shipped schemas.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from contextlib import suppress
 from typing import Any
 from uuid import UUID
@@ -21,6 +24,22 @@ class DuplicateRichTextAnchor(APIException):
     default_detail = "Kotwica sekcji lub śródtytułu powtarza się na tej stronie."
 
 
+def _data_fields(blocks: Iterable[dict[str, Any]]) -> Iterator[tuple[str, str, Any]]:
+    """`(path, key, value)` for every object key in the blocks' data, depth first."""
+
+    def visit(value: Any, path: str) -> Iterator[tuple[str, str, Any]]:
+        if isinstance(value, list):
+            for index, child in enumerate(value):
+                yield from visit(child, f"{path}[{index}]")
+        elif isinstance(value, dict):
+            for key, child in value.items():
+                yield f"{path}.{key}", key, child
+                yield from visit(child, f"{path}.{key}")
+
+    for position, block in enumerate(blocks):
+        yield from visit(block.get("data"), f"blocks[{position}].data")
+
+
 def block_asset_ids(blocks: Iterable[dict[str, Any]]) -> list[UUID]:
     """Every media asset id in the blocks' data, in first-occurrence order.
 
@@ -28,22 +47,24 @@ def block_asset_ids(blocks: Iterable[dict[str, Any]]) -> list[UUID]:
     one cannot name an asset, so it is skipped rather than turned into a 500.
     """
     found: dict[UUID, None] = {}
-
-    def visit(value: Any) -> None:
-        if isinstance(value, list):
-            for child in value:
-                visit(child)
-        elif isinstance(value, dict):
-            for key, child in value.items():
-                if key == "asset_id" and isinstance(child, str):
-                    with suppress(ValueError):
-                        found.setdefault(UUID(child))
-                else:
-                    visit(child)
-
-    for block in blocks:
-        visit(block.get("data"))
+    for _path, key, value in _data_fields(blocks):
+        if key == "asset_id" and isinstance(value, str):
+            with suppress(ValueError):
+                found.setdefault(UUID(value))
     return list(found)
+
+
+def is_link_field(key: str) -> bool:
+    return key.casefold().endswith("href")
+
+
+def block_links(blocks: Iterable[dict[str, Any]]) -> dict[str, str]:
+    """Every link target in the blocks' data, mapped to where it first appears."""
+    found: dict[str, str] = {}
+    for path, key, value in _data_fields(blocks):
+        if is_link_field(key) and isinstance(value, str):
+            found.setdefault(value, path)
+    return found
 
 
 def rich_text_anchors(blocks: Iterable[dict[str, Any]]) -> list[str]:
