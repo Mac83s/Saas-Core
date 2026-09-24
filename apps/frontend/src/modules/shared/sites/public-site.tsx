@@ -129,6 +129,8 @@ export function PublicSiteRenderer({ page }: { page: PublicSitePage }) {
       pagePresentation: (page.page_presentation ??
         null) as PagePresentationV1 | null,
       navigation: page.navigation,
+      // AI images get the visible badge; empty when the operator hid it.
+      aiMediaIds: page.ai_media_ids,
       // The visitor is reading one language; the menu's accessible name has to
       // be in it too, not in the panel's language.
       navigationLabel: page.locale === "en" ? "Menu" : "Menu witryny",

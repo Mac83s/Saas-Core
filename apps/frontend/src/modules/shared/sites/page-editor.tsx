@@ -110,7 +110,7 @@ import {
   type BlockOption,
 } from "./block-form";
 import { mutationKey, type MutationReceipt } from "./idempotency";
-import { renderPrivateMedia } from "./private-media-preview";
+import { privateMediaRenderer } from "./private-media-preview";
 import {
   pageLookClassName,
   SectionCanvas,
@@ -671,9 +671,16 @@ export function PageEditor({
         designTokens,
       },
       registry,
-      renderPrivateMedia,
+      privateMediaRenderer(
+        new Set(
+          assets
+            .filter((asset) => asset.ai_origin === "generated")
+            .map((asset) => asset.id),
+        ),
+        locale === "en" ? "en" : "pl",
+      ),
     );
-  }, [preview, savedAppearance]);
+  }, [preview, savedAppearance, assets, locale]);
 
   /** Every section entering the page from the library goes through here:
    *  its photos refresh the media list and its heading anchors are renamed

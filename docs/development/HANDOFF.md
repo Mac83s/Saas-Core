@@ -62,8 +62,25 @@ magazyn 9–10 → pozostałe listy na DataTable.
   komenda `generate_template_photos` (kandydaci, `--verify`, `--promote`) i
   `photo-shots.v1.json` z 5 scenami pilota. Czeka na klucz właściciela: pilot
   5 scen × Flare/Sunburst, `--verify` (SynthID po `process_image`), potem ok.
-  26 ujęć. Dalej IG-1/IG-2 (pochodzenie w Media, zlecenia klientów, odznaka z
-  przełącznikiem operatora `set_ai_badge`).
+  26 ujęć.
+  IG-1 (pochodzenie mediów i widoczne oznaczenie z art. 50) gotowe na gałęzi:
+  `MediaAsset.ai_origin` (`none`/`generated`; migracja `media.0008` oznacza
+  zaimportowane zdjęcia szablonów), XMP IPTC DigitalSourceType w przetworzonym
+  oryginale i wariantach WebP (PNG jako iTXt), prywatny oryginał dowodowy AI
+  usuwany dopiero przez tombstone i erasure (`stored_object_keys` zbiera teraz
+  też `*_object_key` i `variants[*].object_key` — luka ADR-042), pochodzenie
+  zdjęć szablonów z `sample-media.v1.json` (`aiGenerated`), strażnik slotów
+  dowodowych (`sites/real_media.py`, `422 ai_media_not_allowed_in_slot` w
+  zapisie i publikacji stron i wpisów), `ai_media_ids` w publicznym payloadzie
+  czytane przy renderze, odznaka „AI” z dopiskiem w `alt` w rendererze
+  (`@saas-core/site-blocks` `withAiBadge`), panel oznacza obrazy AI „· AI” i
+  ukrywa je w polach `realMediaOnly`. Odznakę dla całego deploymentu włącza i
+  wyłącza tylko operator (is_staff + MFA):
+  `python manage.py set_ai_badge --operator <e-mail> --off|--on --reason "…"`,
+  historia `--show` (tabela `sites_aibadgeswitch`, admin tylko do odczytu);
+  XMP w plikach zostaje zawsze. Niesprawdzone na uruchomionym stacku (gałąź
+  niewdrożona): odznaka po hoście, XMP w `/media/<id>`, `--off`. Dalej IG-2
+  (zlecenia klientów, `worker-ai`).
 - **P3 (plan 13:406-442):** powiązanie profilu osoby z witryną, konto klienta
   (`Customer.user`, „moje wizyty”), role specjalista/recepcja,
   `PolicyAcknowledgement`, skill tożsamości.

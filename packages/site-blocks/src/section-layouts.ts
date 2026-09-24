@@ -1,6 +1,7 @@
 import { createElement as h, type ReactElement } from "react";
 
 import { plainBlockText } from "./block-text";
+import { renderImage } from "./ai-badge";
 import { withSecondaryAction } from "./editorial-blocks";
 
 import type {
@@ -110,14 +111,16 @@ export function renderSectionLayout(
       ),
     );
     const image = hero.image
-      ? imageRenderer
-        ? imageRenderer(hero.image)
-        : h("img", {
+      ? renderImage(
+          hero.image,
+          h("img", {
             src: `/media/${hero.image.asset_id}`,
             alt: hero.image.alt,
             loading: "eager",
             decoding: "async",
-          })
+          }),
+          imageRenderer,
+        )
       : null;
     const grouped =
       (layout === "split" && image) ||
@@ -189,14 +192,16 @@ export function renderSectionLayout(
       ? h(
           "div",
           { className: "site-section__photo" },
-          imageRenderer
-            ? imageRenderer(offer.image)
-            : h("img", {
-                src: `/media/${offer.image.asset_id}`,
-                alt: offer.image.alt,
-                loading: "lazy",
-                decoding: "async",
-              }),
+          renderImage(
+            offer.image,
+            h("img", {
+              src: `/media/${offer.image.asset_id}`,
+              alt: offer.image.alt,
+              loading: "lazy",
+              decoding: "async",
+            }),
+            imageRenderer,
+          ),
         )
       : null;
     // Built per layout: the editor adapter records every text it renders.

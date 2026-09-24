@@ -79,7 +79,10 @@ describe("hidden fields", () => {
                   ? text(["note"], String(data.note))
                   : null,
                 data.layout === "full" && image && imageRenderer
-                  ? imageRenderer(image)
+                  ? imageRenderer(
+                      image,
+                      createElement("img", { alt: image.alt }),
+                    )
                   : null,
               );
             },

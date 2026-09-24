@@ -1,4 +1,5 @@
 import { createElement } from "react";
+import { renderImage } from "./ai-badge";
 import { plainBlockText } from "./block-text";
 import type {
   BlockComponentProps,
@@ -141,14 +142,16 @@ export function ContactFormSection({
       ),
       form.text ? createElement("p", null, text(["text"], form.text)) : null,
       form.image
-        ? imageRenderer
-          ? imageRenderer(form.image)
-          : createElement("img", {
+        ? renderImage(
+            form.image,
+            createElement("img", {
               src: `/media/${form.image.asset_id}`,
               alt: form.image.alt,
               loading: "lazy",
               decoding: "async",
-            })
+            }),
+            imageRenderer,
+          )
         : null,
     ),
     createElement(

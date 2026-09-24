@@ -846,6 +846,7 @@
     "blogInMenu": "Pokaż blog w menu witryny",
     "blogInMenuHint": "Link pojawi się na końcu menu po najbliższej publikacji witryny. Bloga nie da się dziś zagnieździć ani wstawić między podstrony.",
     "noImage": "Bez obrazu",
+    "aiSuffix": " · AI",
     "imageAsset": "Obraz",
     "imageAlt": "Opis obrazu",
     "entryTranslations": "Wersje językowe",

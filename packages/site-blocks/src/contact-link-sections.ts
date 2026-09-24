@@ -1,5 +1,6 @@
 import { createElement as h, type ReactElement } from "react";
 import { plainBlockText } from "./block-text";
+import { renderImage } from "./ai-badge";
 import type {
   BlockComponentProps,
   ContactV2Data,
@@ -148,14 +149,16 @@ export function ContactSection({
       ? h(
           "div",
           { className: "site-contact__photo" },
-          imageRenderer
-            ? imageRenderer(contact.image)
-            : h("img", {
-                src: `/media/${contact.image.asset_id}`,
-                alt: contact.image.alt,
-                loading: "lazy",
-                decoding: "async",
-              }),
+          renderImage(
+            contact.image,
+            h("img", {
+              src: `/media/${contact.image.asset_id}`,
+              alt: contact.image.alt,
+              loading: "lazy",
+              decoding: "async",
+            }),
+            imageRenderer,
+          ),
         )
       : null,
     h(

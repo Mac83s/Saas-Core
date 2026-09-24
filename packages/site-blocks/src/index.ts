@@ -1,6 +1,7 @@
 export const SITE_BLOCK_SCHEMA_VERSION = 1 as const;
 
 export * from "./errors";
+export { aiBadgeImageRenderer, withAiBadge } from "./ai-badge";
 export { coreSiteBlockManifest } from "./core-manifest";
 export { CONTACT_FORM_FIELDS, contactFormFields } from "./contact-form-block";
 export {

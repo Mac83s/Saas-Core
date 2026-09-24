@@ -10,6 +10,7 @@ import {
 import { NextIntlClientProvider } from "next-intl";
 import type { ComponentProps } from "react";
 import axe from "axe-core";
+import { FormProvider, useForm, type FieldValues } from "react-hook-form";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import { ApiProblemError, type DraftSaveInput } from "@saas-core/api-client";
@@ -21,7 +22,7 @@ import {
 
 import englishMessages from "../../../../messages/en.json";
 import polishMessages from "../../../../messages/pl.json";
-import { registry } from "./block-form";
+import { BlockFields, emptyBlock, registry } from "./block-form";
 import { PageEditor } from "./page-editor";
 import { PublicationHistory } from "./publication-history";
 
@@ -1480,4 +1481,76 @@ test("separator editor restores stored dimensions and saves the selected layout,
       data: { layout: "wave", size: "large", width: "full", tone: "muted" },
     },
   ]);
+});
+
+function MediaFieldsHarness({
+  assets,
+  type,
+}: {
+  assets: ComponentProps<typeof BlockFields>["assets"];
+  type: string;
+}) {
+  // FieldValues: the block form's own Path types are too deep for a harness.
+  const form = useForm<FieldValues>({
+    defaultValues: { blocks: [emptyBlock(type)] },
+  });
+  return (
+    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+      <FormProvider {...form}>
+        <BlockFields
+          assets={assets}
+          form={form}
+          index={0}
+          isFirst
+          isLast
+          moveDown={vi.fn()}
+          moveUp={vi.fn()}
+          onRemove={vi.fn()}
+          type={type}
+        />
+      </FormProvider>
+    </NextIntlClientProvider>
+  );
+}
+
+test("portret przy cytacie nie oferuje obrazów AI, hero oznacza je dopiskiem", () => {
+  const base = {
+    declared_mime: "image/jpeg",
+    expected_size: 10,
+    actual_size: 10,
+    state: "ready",
+    upload_expires_at: "2026-09-24T12:00:00Z",
+    created_at: "2026-09-24T12:00:00Z",
+  };
+  const assets = [
+    {
+      ...base,
+      id: "019ff20d-a000-7000-8000-000000000050",
+      original_filename: "zespol.jpg",
+      ai_origin: "none",
+    },
+    {
+      ...base,
+      id: "019ff20d-a000-7000-8000-000000000051",
+      original_filename: "pracownia.jpg",
+      ai_origin: "generated",
+    },
+  ];
+  const options = (select: HTMLElement) =>
+    within(select)
+      .getAllByRole("option")
+      .map((option) => option.textContent);
+
+  render(<MediaFieldsHarness assets={assets} type="core.quote" />);
+  expect(
+    options(screen.getByLabelText(polishMessages.Sites.imageAsset)),
+  ).toEqual([polishMessages.Sites.noImage, "zespol.jpg"]);
+  cleanup();
+
+  render(<MediaFieldsHarness assets={assets} type="core.hero" />);
+  expect(
+    options(screen.getByLabelText(polishMessages.Sites.imageAsset)),
+  ).toEqual([polishMessages.Sites.noImage, "zespol.jpg", "pracownia.jpg · AI"]);
+  expect(polishMessages.Sites.aiSuffix).toBe(" · AI");
+  expect(englishMessages.Sites.aiSuffix).toBe(" · AI");
 });

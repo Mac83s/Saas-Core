@@ -846,6 +846,7 @@
     "blogInMenu": "Show the blog in the site menu",
     "blogInMenuHint": "The link appears at the end of the menu after the next publication. The blog cannot yet be nested or placed between pages.",
     "noImage": "No image",
+    "aiSuffix": " · AI",
     "imageAsset": "Image",
     "imageAlt": "Image description",
     "entryTranslations": "Language versions",
