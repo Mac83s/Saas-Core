@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:264249d0d417a4cb99d9aa078425662cb8538321e52b82e9480c46487e8da2cc",
+  "profileHash": "sha256:91a4815be2581a9eecb0d0fa8cd3f8274e45455764ec3ba1b74124708940fcb6",
   "schemaVersion": 1,
   "deployment": "vps-dev",
   "product": {
@@ -25,9 +25,9 @@
       "description": null,
       "modules": [
         "shared.billing",
+        "shared.media",
         "shared.notifications",
         "shared.sites",
-        "shared.media",
         "shared.image-generation",
         "shared.profiles",
         "shared.booking",
@@ -164,6 +164,41 @@
       }
     },
     {
+      "id": "shared.media",
+      "version": 1,
+      "layer": "shared",
+      "dependsOn": [
+        "core.organizations",
+        "shared.billing"
+      ],
+      "backend": {
+        "djangoApp": "saas_core.modules.shared.media",
+        "urlPrefix": "/api/v1/media",
+        "permissions": [
+          "media.read",
+          "media.manage",
+          "media.template.import"
+        ],
+        "entitlements": [
+          "storage.enabled"
+        ],
+        "eventSchemas": [],
+        "publicTables": [],
+        "platformTables": []
+      },
+      "frontend": {
+        "routes": [
+          "/media"
+        ],
+        "navigation": [
+          "media"
+        ],
+        "translationNamespaces": [
+          "media"
+        ]
+      }
+    },
+    {
       "id": "shared.notifications",
       "version": 1,
       "layer": "shared",
@@ -213,6 +248,7 @@
       "dependsOn": [
         "core.organizations",
         "shared.billing",
+        "shared.media",
         "shared.notifications"
       ],
       "backend": {
@@ -249,41 +285,6 @@
         ],
         "translationNamespaces": [
           "sites"
-        ]
-      }
-    },
-    {
-      "id": "shared.media",
-      "version": 1,
-      "layer": "shared",
-      "dependsOn": [
-        "core.organizations",
-        "shared.billing"
-      ],
-      "backend": {
-        "djangoApp": "saas_core.modules.shared.media",
-        "urlPrefix": "/api/v1/media",
-        "permissions": [
-          "media.read",
-          "media.manage",
-          "media.template.import"
-        ],
-        "entitlements": [
-          "storage.enabled"
-        ],
-        "eventSchemas": [],
-        "publicTables": [],
-        "platformTables": []
-      },
-      "frontend": {
-        "routes": [
-          "/media"
-        ],
-        "navigation": [
-          "media"
-        ],
-        "translationNamespaces": [
-          "media"
         ]
       }
     },

@@ -18,6 +18,7 @@ class MediaAssetSerializer(serializers.Serializer[dict[str, Any]]):
     expected_size = serializers.IntegerField()
     actual_size = serializers.IntegerField(allow_null=True)
     state = serializers.CharField()
+    ai_origin = serializers.CharField()
     upload_expires_at = serializers.DateTimeField()
     created_at = serializers.DateTimeField()
 

@@ -34,5 +34,6 @@ def materialize_template_photo(*, photo_id: str, idempotency_key: str) -> UUID:
         filename=medium.filename,
         content_type=medium.content_type,
         content=medium.read(),
+        ai_origin="generated" if medium.ai_generated else "none",
     )
     return result.asset.id

@@ -83,6 +83,7 @@ from .models import (
     canonical_json_hash,
 )
 from .permissions import PAGES_MAX, SITE_CONTENT_EDIT, SITE_PUBLISH, SITES_ENABLED, SITES_MAX
+from .real_media import assert_real_media_slots
 from .rich_content import assert_unique_anchors, block_asset_ids, block_links
 
 SITE_CREATED = "sites.site.created"
@@ -1091,6 +1092,7 @@ def save_draft(
             data=block["data"],
         )
     assert_unique_anchors(normalized_blocks)
+    assert_real_media_slots(organization_id=context.organization_id, blocks=normalized_blocks)
     if page_presentation is not UNSET:
         validate_page_presentation(page_presentation)
     # Images nested in block data (figures, galleries, blocks a change set
@@ -1309,6 +1311,7 @@ def import_page_template(
                     filename=medium.filename,
                     content_type=medium.content_type,
                     content=medium.read(),
+                    ai_origin="generated" if medium.ai_generated else "none",
                 )
             )
         template.bind_media(
@@ -1840,6 +1843,11 @@ def publish_site(*, site_id: UUID, idempotency_key: str) -> SitePublication:
             data=block.data,
         )
         blocks_by_version.setdefault(block.page_version_id, []).append(block)
+    # Drafts saved before the guard existed are checked again on the way out.
+    assert_real_media_slots(
+        organization_id=context.organization_id,
+        blocks=[{"block_type": block.block_type, "data": block.data} for block in blocks],
+    )
 
     page_media_ids = {
         page.id: _page_version_media_asset_ids(

@@ -27,7 +27,7 @@ from typing import Any
 from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.db import DatabaseError, ProgrammingError, connection, transaction
-from django.db.models import ForeignKey, Model
+from django.db.models import ForeignKey, JSONField, Model
 
 from saas_core.modules.core.identity.models import User
 
@@ -94,21 +94,43 @@ def stored_object_keys(organization_id: uuid.UUID) -> list[str]:
     """Object-storage keys the tenant owns, found by convention.
 
     Core may not import Shared, so this asks the model metadata rather than the
-    media module: any tenant model with an ``object_key`` column holds something
-    outside PostgreSQL. Deleting those objects is the media module's job — this
-    only writes down what has to go.
+    media module: any tenant model column named ``object_key`` or ending in
+    ``_object_key`` (a kept source original) holds something outside
+    PostgreSQL, and so does every ``object_key`` inside a JSON column named
+    ``variants``. Deleting those objects is the media module's job — this only
+    writes down what has to go.
     """
-    keys: list[str] = []
+    keys: set[str] = set()
     for model, field_name in organization_scoped_models():
-        columns = {field.name for field in model._meta.fields}
-        if "object_key" not in columns:
+        fields = model._meta.fields
+        key_columns = [
+            field.name
+            for field in fields
+            if field.name == "object_key" or field.name.endswith("_object_key")
+        ]
+        variant_columns = [
+            field.name
+            for field in fields
+            if field.name == "variants" and isinstance(field, JSONField)
+        ]
+        if not key_columns and not variant_columns:
             continue
-        keys.extend(
-            model._base_manager.filter(**{f"{field_name}_id": organization_id})
-            .exclude(object_key="")
-            .values_list("object_key", flat=True)
+        rows = model._base_manager.filter(**{f"{field_name}_id": organization_id}).values_list(
+            *key_columns, *variant_columns
         )
-    return sorted(set(keys))
+        for row in rows:
+            keys.update(value for value in row[: len(key_columns)] if value)
+            for variants in row[len(key_columns) :]:
+                if not isinstance(variants, dict):
+                    continue
+                keys.update(
+                    variant["object_key"]
+                    for variant in variants.values()
+                    if isinstance(variant, dict)
+                    and isinstance(variant.get("object_key"), str)
+                    and variant["object_key"]
+                )
+    return sorted(keys)
 
 
 def _break_reference_cycles(organization_id: uuid.UUID) -> None:

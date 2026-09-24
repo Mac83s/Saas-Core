@@ -31,7 +31,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError, CommandParser
 from PIL import Image
 
-from saas_core.modules.shared.media.images import process_image
+from saas_core.modules.shared.media.images import AI_GENERATED_XMP, process_image
 
 from ...provider import ImageRequest, ProviderError, check_provenance, generate
 
@@ -48,18 +48,6 @@ PROMOTED_TARGET_BYTES = 400 * 1024
 PROMOTED_QUALITIES = range(82, 71, -2)
 UNAVAILABLE = "unavailable: verify manually at openai.com/verify"
 END_USER = "saas-core:template-photos"
-# IPTC DigitalSourceType for fully generated media, the same marking the media
-# pipeline writes on customer images (ADR-059 pkt 6).
-XMP_TRAINED_ALGORITHMIC_MEDIA = (
-    '<?xpacket begin="\ufeff" id="W5M0MpCehiHzreSzNTczkc9d"?>'
-    '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF'
-    ' xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
-    '<rdf:Description rdf:about=""'
-    ' xmlns:Iptc4xmpExt="http://iptc.org/std/Iptc4xmpExt/2008-02-29/"'
-    " Iptc4xmpExt:DigitalSourceType="
-    '"http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia"/>'
-    '</rdf:RDF></x:xmpmeta><?xpacket end="r"?>'
-).encode()
 
 
 class Command(BaseCommand):
@@ -306,7 +294,7 @@ def _web_jpeg(master: bytes) -> bytes:
             quality=quality,
             optimize=True,
             progressive=True,
-            xmp=XMP_TRAINED_ALGORITHMIC_MEDIA,
+            xmp=AI_GENERATED_XMP,
         )
         content = output.getvalue()
         if len(content) <= PROMOTED_TARGET_BYTES:

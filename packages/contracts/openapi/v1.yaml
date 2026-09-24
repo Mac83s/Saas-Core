@@ -13162,6 +13162,8 @@ components:
           - 'null'
         state:
           type: string
+        ai_origin:
+          type: string
         upload_expires_at:
           type: string
           format: date-time
@@ -13170,6 +13172,7 @@ components:
           format: date-time
       required:
       - actual_size
+      - ai_origin
       - created_at
       - declared_mime
       - expected_size
@@ -14638,7 +14641,13 @@ components:
           - object
           - 'null'
           additionalProperties: {}
+        ai_media_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
       required:
+      - ai_media_ids
       - article
       - blocks
       - breadcrumbs

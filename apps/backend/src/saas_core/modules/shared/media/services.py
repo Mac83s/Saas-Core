@@ -5,6 +5,7 @@ import json
 import math
 import secrets
 import unicodedata
+from collections.abc import Iterable
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -37,8 +38,14 @@ from saas_core.modules.shared.billing.api import (
     reserve_quota,
 )
 
-from .images import UnsafeImageError, process_image
-from .models import MediaAsset, MediaAssetState, MediaReference, MediaReferenceOwner
+from .images import AI_GENERATED_XMP, UnsafeImageError, process_image
+from .models import (
+    AiOrigin,
+    MediaAsset,
+    MediaAssetState,
+    MediaReference,
+    MediaReferenceOwner,
+)
 from .permissions import (
     MEDIA_MANAGE,
     MEDIA_READ,
@@ -297,6 +304,7 @@ def materialize_approved_media_asset(
     filename: str,
     content_type: str,
     content: bytes,
+    ai_origin: str = AiOrigin.NONE,
     storage: ObjectStorage | None = None,
     scanner: MalwareScanner | None = None,
 ) -> ApprovedMediaMaterialization:
@@ -320,6 +328,7 @@ def materialize_approved_media_asset(
         raise UnsupportedMediaType
     if not content or len(content) > settings.MEDIA_MAX_UPLOAD_BYTES:
         raise MediaUploadTooLarge
+    origin = AiOrigin(ai_origin)
 
     content_sha256 = hashlib.sha256(content).hexdigest()
     request_hash = _canonical_hash({
@@ -339,7 +348,13 @@ def materialize_approved_media_asset(
         organization_id=context.organization_id,
     ).first()
     if existing is not None:
-        if existing.request_hash != request_hash or existing.state != MediaAssetState.READY:
+        # Provenance is compared beside the hash, not inside it, so assets
+        # materialized before ai_origin existed still match their re-import.
+        if (
+            existing.request_hash != request_hash
+            or existing.ai_origin != origin
+            or existing.state != MediaAssetState.READY
+        ):
             raise MediaIdempotencyConflict
         return ApprovedMediaMaterialization(asset=existing, created=False)
 
@@ -366,6 +381,7 @@ def materialize_approved_media_asset(
         created_by=actor,
         idempotency_key=normalized_source_key,
         request_hash=request_hash,
+        ai_origin=origin,
     )
     record_audit(
         organization=organization,
@@ -440,6 +456,7 @@ def _complete_media_upload(
     context: TenantContext,
     asset_id: UUID,
     storage: ObjectStorage | None,
+    enqueue_processing: bool = True,
 ) -> MediaAsset:
     asset = MediaAsset.all_objects.filter(
         pk=asset_id,
@@ -497,6 +514,9 @@ def _complete_media_upload(
             target_id=locked.id,
             metadata={"actual_size": metadata.content_length},
         )
+        if not enqueue_processing:
+            # The caller processes the asset itself; one processing path only.
+            return locked
         task_contract = issue_tenant_task_contract(causation_id=f"media-upload:{locked.id}")
 
         def enqueue() -> None:
@@ -620,7 +640,11 @@ def process_media_asset(
             scanned_at=checked_at,
         )
     try:
-        processed = process_image(raw_content, declared_mime=asset.declared_mime)
+        processed = process_image(
+            raw_content,
+            declared_mime=asset.declared_mime,
+            xmp=AI_GENERATED_XMP if asset.ai_origin != AiOrigin.NONE else None,
+        )
     except UnsafeImageError:
         return _reject_media_asset(
             asset,
@@ -712,6 +736,21 @@ def process_media_asset(
         },
     )
     return asset
+
+
+def ai_generated_asset_ids(*, organization_id: UUID, asset_ids: Iterable[str]) -> set[str]:
+    """The AI-generated subset of `asset_ids`; the caller has set the tenant."""
+    ids = list(asset_ids)
+    if not ids:
+        return set()
+    return {
+        str(pk)
+        for pk in MediaAsset.all_objects.filter(
+            organization_id=organization_id,
+            pk__in=ids,
+            ai_origin=AiOrigin.GENERATED,
+        ).values_list("pk", flat=True)
+    }
 
 
 def cleanup_media_source_object(

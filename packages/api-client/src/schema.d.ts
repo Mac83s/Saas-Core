@@ -4595,6 +4595,7 @@ export interface components {
             expected_size: number;
             actual_size: number | null;
             state: string;
+            ai_origin: string;
             /** Format: date-time */
             upload_expires_at: string;
             /** Format: date-time */
@@ -5198,6 +5199,7 @@ export interface components {
             article: {
                 [key: string]: unknown;
             } | null;
+            ai_media_ids: string[];
         };
         PublicationAuthor: {
             /** Format: uuid */

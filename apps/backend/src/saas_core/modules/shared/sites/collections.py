@@ -49,6 +49,7 @@ from .models import (
     canonical_json_hash,
 )
 from .permissions import SITE_CONTENT_EDIT, SITE_PUBLISH, SITES_ENABLED
+from .real_media import assert_real_media_slots
 from .rich_content import assert_unique_anchors, block_asset_ids
 from .services import (
     DRAFTABLE_POLICIES,
@@ -389,6 +390,7 @@ def save_entry_draft(
             data=block["data"],
         )
     assert_unique_anchors(normalized_blocks)
+    assert_real_media_slots(organization_id=context.organization_id, blocks=normalized_blocks)
     request_hash = canonical_json_hash({
         "entry_id": str(entry_id),
         "expected_version": expected_version,
@@ -534,6 +536,9 @@ def publish_entry(
     for block in entry.current_draft.blocks:
         validate_decoration(block.get("decoration"))
         validate_presentation(block.get("presentation"))
+    assert_real_media_slots(
+        organization_id=context.organization_id, blocks=entry.current_draft.blocks
+    )
     snapshot = {
         "schema_version": ENTRY_SNAPSHOT_SCHEMA_VERSION,
         "entry_id": str(entry.id),

@@ -1,5 +1,6 @@
 """Public use-case API of the Media module."""
 
+from .models import AiOrigin
 from .permissions import MEDIA_MANAGE, MEDIA_READ
 from .references import MEDIA_ASSET_RESOURCE_TYPE
 from .services import (
@@ -11,6 +12,7 @@ from .services import (
     MediaUploadIntent,
     MediaUploadTooLarge,
     UnsupportedMediaType,
+    ai_generated_asset_ids,
     discard_approved_media_asset_objects,
     initiate_media_upload,
     list_media_assets,
@@ -20,6 +22,7 @@ from .services import (
 )
 
 __all__ = [
+    "AiOrigin",
     "ApprovedMediaMaterialization",
     "ApprovedMediaMaterializationFailed",
     "MediaDeletion",
@@ -31,6 +34,7 @@ __all__ = [
     "MEDIA_MANAGE",
     "MEDIA_READ",
     "UnsupportedMediaType",
+    "ai_generated_asset_ids",
     "discard_approved_media_asset_objects",
     "initiate_media_upload",
     "list_media_assets",

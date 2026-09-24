@@ -158,6 +158,14 @@ def template_png() -> bytes:
     return output.getvalue()
 
 
+def catalogue_template_media(contracts: Path, medium: dict[str, Any]) -> None:
+    """Recipes take provenance from the photo catalogue (ADR-059)."""
+    path = contracts / "sample-media.v1.json"
+    catalogue = json.loads(path.read_text(encoding="utf-8"))
+    catalogue["media"].append({**medium, "aiGenerated": False})
+    path.write_text(json.dumps(catalogue), encoding="utf-8")
+
+
 def create_site(
     client: APIClient,
     *,
@@ -748,6 +756,7 @@ def test_page_template_import_materializes_approved_media_once_per_tenant(
         }
     ]
     recipe_path.write_text(json.dumps(recipe), encoding="utf-8")
+    catalogue_template_media(contracts, recipe["media"][0])
 
     site = create_site(client)
     first_page = create_page(client, site.data["id"])
@@ -878,6 +887,7 @@ def test_page_template_approved_media_rejects_escape_and_checksum_drift(
     recipe["media"][0]["source"] = "assets/profile/hero.png"
     recipe["media"][0]["sha256"] = "0" * 64
     recipe_path.write_text(json.dumps(recipe), encoding="utf-8")
+    catalogue_template_media(contracts, recipe["media"][0])
 
     page_template_catalog.cache_clear()
     try:

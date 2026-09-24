@@ -530,6 +530,17 @@ test("latest complete pages contain localized seeds and bound example photograph
   }
 });
 
+test("every template photo declares its provenance and every recipe photo is catalogued", async () => {
+  const { templates } = await loadTemplates();
+  const photos = await readJson("page-templates", "sample-media.v1.json");
+  for (const medium of photos.media)
+    assert.equal(typeof medium.aiGenerated, "boolean", medium.id);
+  const sources = new Set(photos.media.map((medium) => medium.source));
+  for (const { recipe } of templates)
+    for (const medium of recipe.media ?? [])
+      assert.ok(sources.has(medium.source), `${recipe.id}: ${medium.source}`);
+});
+
 test("template photo shots are uniquely named, anchored to each other and captioned in both languages", async () => {
   const { shots, style } = await readJson(
     "page-templates",

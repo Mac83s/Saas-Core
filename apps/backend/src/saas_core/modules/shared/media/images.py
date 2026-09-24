@@ -7,6 +7,20 @@ from io import BytesIO
 
 from django.conf import settings
 from PIL import Image, ImageOps, UnidentifiedImageError
+from PIL.PngImagePlugin import PngInfo
+
+# IPTC DigitalSourceType for fully generated media (ADR-059 pkt 6). Written into
+# the processed original and every variant of an AI asset; EXIF is still dropped.
+AI_GENERATED_XMP = (
+    '<?xpacket begin="\ufeff" id="W5M0MpCehiHzreSzNTczkc9d"?>'
+    '<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF'
+    ' xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">'
+    '<rdf:Description rdf:about=""'
+    ' xmlns:Iptc4xmpExt="http://iptc.org/std/Iptc4xmpExt/2008-02-29/"'
+    " Iptc4xmpExt:DigitalSourceType="
+    '"http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia"/>'
+    '</rdf:RDF></x:xmpmeta><?xpacket end="r"?>'
+).encode()
 
 
 class UnsafeImageError(RuntimeError):
@@ -43,7 +57,12 @@ VARIANT_SIZES = {
 }
 
 
-def process_image(content: bytes, *, declared_mime: str) -> ProcessedImage:
+def process_image(
+    content: bytes,
+    *,
+    declared_mime: str,
+    xmp: bytes | None = None,
+) -> ProcessedImage:
     detected_mime = detect_image_mime(content)
     if detected_mime != declared_mime:
         raise UnsafeImageError("Rzeczywisty typ obrazu nie zgadza się z deklaracją.")
@@ -66,9 +85,9 @@ def process_image(content: bytes, *, declared_mime: str) -> ProcessedImage:
                 if width <= 0 or height <= 0:
                     raise UnsafeImageError("Obraz ma nieprawidłowe wymiary.")
                 normalized = _normalized_mode(image, detected_mime)
-                sanitized = _encode(normalized, detected_mime)
+                sanitized = _encode(normalized, detected_mime, xmp)
                 variants = tuple(
-                    _variant(normalized, kind=kind, size=size)
+                    _variant(normalized, kind=kind, size=size, xmp=xmp)
                     for kind, size in VARIANT_SIZES.items()
                 )
     except UnsafeImageError:
@@ -111,14 +130,19 @@ def _normalized_mode(image: Image.Image, content_type: str) -> Image.Image:
     return image.convert("RGB")
 
 
-def _encode(image: Image.Image, content_type: str) -> bytes:
+def _encode(image: Image.Image, content_type: str, xmp: bytes | None) -> bytes:
     output = BytesIO()
+    marking: dict[str, object] = {"xmp": xmp} if xmp else {}
     if content_type == "image/jpeg":
-        image.save(output, format="JPEG", quality=88, optimize=True, progressive=True)
+        image.save(output, format="JPEG", quality=88, optimize=True, progressive=True, **marking)
     elif content_type == "image/png":
-        image.save(output, format="PNG", optimize=True)
+        # Pillow ignores `xmp=` for PNG; XMP lives in an iTXt chunk there.
+        pnginfo = PngInfo()
+        if xmp:
+            pnginfo.add_itxt("XML:com.adobe.xmp", xmp.decode())
+        image.save(output, format="PNG", optimize=True, pnginfo=pnginfo)
     else:
-        image.save(output, format="WEBP", quality=85, method=6)
+        image.save(output, format="WEBP", quality=85, method=6, **marking)
     return output.getvalue()
 
 
@@ -127,11 +151,13 @@ def _variant(
     *,
     kind: str,
     size: tuple[int, int],
+    xmp: bytes | None,
 ) -> ProcessedVariant:
     resized = image.copy()
     resized.thumbnail(size, Image.Resampling.LANCZOS, reducing_gap=3.0)
     output = BytesIO()
-    resized.save(output, format="WEBP", quality=82, method=6)
+    marking: dict[str, object] = {"xmp": xmp} if xmp else {}
+    resized.save(output, format="WEBP", quality=82, method=6, **marking)
     return ProcessedVariant(
         kind=kind,
         content=output.getvalue(),

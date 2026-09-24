@@ -153,6 +153,8 @@ class PublicSitePageSerializer(serializers.Serializer[dict[str, Any]]):
     breadcrumbs = serializers.ListField(child=serializers.DictField())
     pagination = serializers.DictField(allow_null=True)
     article = serializers.DictField(allow_null=True)
+    # AI images on this page; empty when the operator switched the badge off.
+    ai_media_ids = serializers.ListField(child=serializers.UUIDField())
 
 
 class NavigationItemSerializer(serializers.Serializer[dict[str, Any]]):
