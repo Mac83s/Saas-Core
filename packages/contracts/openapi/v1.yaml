@@ -1309,6 +1309,50 @@ paths:
               schema:
                 $ref: '#/components/schemas/Appointment'
           description: ''
+  /api/v1/booking/public/{public_slug}/days/:
+    get:
+      operationId: api_v1_booking_public_days_retrieve
+      parameters:
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+        required: true
+      - in: query
+        name: location_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_slug
+        schema:
+          type: string
+        required: true
+      - in: query
+        name: service_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+        required: true
+      tags:
+      - public-booking
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SlotDayList'
+          description: ''
   /api/v1/booking/public/{public_slug}/slots/:
     get:
       operationId: api_v1_booking_public_slots_retrieve
@@ -1348,6 +1392,46 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SlotList'
+          description: ''
+  /api/v1/booking/public/{public_slug}/times/:
+    get:
+      operationId: api_v1_booking_public_times_retrieve
+      description: 'Free starts of one day, once each: who is free is the company''s
+        business.'
+      parameters:
+      - in: query
+        name: date
+        schema:
+          type: string
+          format: date
+        required: true
+      - in: query
+        name: location_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: public_slug
+        schema:
+          type: string
+        required: true
+      - in: query
+        name: service_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - public-booking
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SlotTimeList'
           description: ''
   /api/v1/booking/schedule/:
     post:
@@ -1530,6 +1614,92 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SlotList'
+          description: ''
+  /api/v1/booking/slots/days/:
+    get:
+      operationId: api_v1_booking_slots_days_retrieve
+      description: Days with a free start, for the day picker (ADR-058 §5).
+      parameters:
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+        required: true
+      - in: query
+        name: location_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: service_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: staff_id
+        schema:
+          type: string
+          format: uuid
+        description: Tylko terminy tej osoby.
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+        required: true
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SlotDayList'
+          description: ''
+  /api/v1/booking/slots/times/:
+    get:
+      operationId: api_v1_booking_slots_times_retrieve
+      description: Every free start of one day with who is free for it (ADR-058 §5).
+      parameters:
+      - in: query
+        name: date
+        schema:
+          type: string
+          format: date
+        required: true
+      - in: query
+        name: location_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: service_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: staff_id
+        schema:
+          type: string
+          format: uuid
+        description: Tylko terminy tej osoby.
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffSlotTimeList'
           description: ''
   /api/v1/farms/:
     get:
@@ -9764,7 +9934,9 @@ components:
           type: string
           format: uuid
         staff_id:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uuid
         location_id:
           type: string
@@ -9787,7 +9959,6 @@ components:
       - customer
       - location_id
       - service_id
-      - staff_id
       - starts_at
     AppointmentList:
       type: object
@@ -15426,6 +15597,16 @@ components:
       - resource_id
       - staff_id
       - starts_at
+    SlotDayList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: string
+            format: date
+      required:
+      - items
     SlotList:
       type: object
       properties:
@@ -15433,6 +15614,41 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Slot'
+      required:
+      - items
+    SlotStaff:
+      type: object
+      properties:
+        staff_id:
+          type: string
+          format: uuid
+        resource_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+      required:
+      - resource_id
+      - staff_id
+    SlotTime:
+      type: object
+      properties:
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+      required:
+      - ends_at
+      - starts_at
+    SlotTimeList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SlotTime'
       required:
       - items
     SpeciesEnum:
@@ -15469,6 +15685,32 @@ components:
       - membership_id
       - name
       - public_slug
+    StaffSlotTime:
+      type: object
+      properties:
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        staff:
+          type: array
+          items:
+            $ref: '#/components/schemas/SlotStaff'
+      required:
+      - ends_at
+      - staff
+      - starts_at
+    StaffSlotTimeList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StaffSlotTime'
+      required:
+      - items
     StateEnum:
       enum:
       - queued

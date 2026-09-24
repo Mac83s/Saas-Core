@@ -83,7 +83,8 @@ class MaterialsInputSerializer(serializers.Serializer[dict[str, Any]]):
 
 class AppointmentCreateSerializer(serializers.Serializer[dict[str, Any]]):
     service_id = serializers.UUIDField()
-    staff_id = serializers.UUIDField()
+    #: Omitted: the server picks the least busy free person (ADR-058 §4).
+    staff_id = serializers.UUIDField(required=False, allow_null=True)
     location_id = serializers.UUIDField()
     resource_id = serializers.UUIDField(required=False, allow_null=True)
     starts_at = serializers.DateTimeField()
@@ -133,6 +134,34 @@ class SlotSerializer(serializers.Serializer[dict[str, Any]]):
 
 class SlotListSerializer(serializers.Serializer[dict[str, Any]]):
     items = SlotSerializer(many=True)
+
+
+class SlotDayListSerializer(serializers.Serializer[dict[str, Any]]):
+    items = serializers.ListField(child=serializers.DateField())
+
+
+class SlotTimeSerializer(serializers.Serializer[dict[str, Any]]):
+    starts_at = serializers.DateTimeField()
+    ends_at = serializers.DateTimeField()
+
+
+class SlotTimeListSerializer(serializers.Serializer[dict[str, Any]]):
+    items = SlotTimeSerializer(many=True)
+
+
+class SlotStaffSerializer(serializers.Serializer[dict[str, Any]]):
+    staff_id = serializers.UUIDField()
+    #: The resource that goes with this person at this start, for the create call.
+    resource_id = serializers.UUIDField(allow_null=True)
+
+
+class StaffSlotTimeSerializer(SlotTimeSerializer):
+    #: Who is free at this start; only the panel sees it (ADR-058 §8).
+    staff = SlotStaffSerializer(many=True)
+
+
+class StaffSlotTimeListSerializer(serializers.Serializer[dict[str, Any]]):
+    items = StaffSlotTimeSerializer(many=True)
 
 
 class LocationSerializer(serializers.Serializer[dict[str, Any]]):

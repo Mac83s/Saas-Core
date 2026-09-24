@@ -568,6 +568,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/booking/public/{public_slug}/days/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["api_v1_booking_public_days_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/booking/public/{public_slug}/slots/": {
         parameters: {
             query?: never;
@@ -576,6 +592,23 @@ export interface paths {
             cookie?: never;
         };
         get: operations["api_v1_booking_public_slots_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/public/{public_slug}/times/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Free starts of one day, once each: who is free is the company's business. */
+        get: operations["api_v1_booking_public_times_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -656,6 +689,40 @@ export interface paths {
             cookie?: never;
         };
         get: operations["api_v1_booking_slots_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/slots/days/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Days with a free start, for the day picker (ADR-058 §5). */
+        get: operations["api_v1_booking_slots_days_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/slots/times/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Every free start of one day with who is free for it (ADR-058 §5). */
+        get: operations["api_v1_booking_slots_times_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3261,7 +3328,7 @@ export interface components {
             /** Format: uuid */
             service_id: string;
             /** Format: uuid */
-            staff_id: string;
+            staff_id?: string | null;
             /** Format: uuid */
             location_id: string;
             /** Format: uuid */
@@ -5531,8 +5598,26 @@ export interface components {
             /** Format: uuid */
             resource_id: string | null;
         };
+        SlotDayList: {
+            items: string[];
+        };
         SlotList: {
             items: components["schemas"]["Slot"][];
+        };
+        SlotStaff: {
+            /** Format: uuid */
+            staff_id: string;
+            /** Format: uuid */
+            resource_id: string | null;
+        };
+        SlotTime: {
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+        };
+        SlotTimeList: {
+            items: components["schemas"]["SlotTime"][];
         };
         /**
          * @description * `cattle` - cattle
@@ -5550,6 +5635,16 @@ export interface components {
             public_slug: string;
             /** Format: uuid */
             membership_id: string | null;
+        };
+        StaffSlotTime: {
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            staff: components["schemas"]["SlotStaff"][];
+        };
+        StaffSlotTimeList: {
+            items: components["schemas"]["StaffSlotTime"][];
         };
         /**
          * @description * `queued` - Queued
@@ -7299,6 +7394,32 @@ export interface operations {
             };
         };
     };
+    api_v1_booking_public_days_retrieve: {
+        parameters: {
+            query: {
+                from: string;
+                location_id: string;
+                service_id: string;
+                to: string;
+            };
+            header?: never;
+            path: {
+                public_slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotDayList"];
+                };
+            };
+        };
+    };
     api_v1_booking_public_slots_retrieve: {
         parameters: {
             query?: {
@@ -7321,6 +7442,31 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SlotList"];
+                };
+            };
+        };
+    };
+    api_v1_booking_public_times_retrieve: {
+        parameters: {
+            query: {
+                date: string;
+                location_id: string;
+                service_id: string;
+            };
+            header?: never;
+            path: {
+                public_slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotTimeList"];
                 };
             };
         };
@@ -7487,6 +7633,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SlotList"];
+                };
+            };
+        };
+    };
+    api_v1_booking_slots_days_retrieve: {
+        parameters: {
+            query: {
+                from: string;
+                location_id: string;
+                service_id: string;
+                /** @description Tylko terminy tej osoby. */
+                staff_id?: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlotDayList"];
+                };
+            };
+        };
+    };
+    api_v1_booking_slots_times_retrieve: {
+        parameters: {
+            query: {
+                date: string;
+                location_id: string;
+                service_id: string;
+                /** @description Tylko terminy tej osoby. */
+                staff_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffSlotTimeList"];
                 };
             };
         };

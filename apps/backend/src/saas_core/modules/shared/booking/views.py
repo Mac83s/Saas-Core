@@ -19,7 +19,7 @@ from rest_framework.views import APIView
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 from saas_core.modules.shared.billing.authorization import authorize_entitled
 
-from .availability import available_slots
+from .availability import available_days, available_slots, available_times
 from .models import Location, PublicBookingRoute, Resource, SelfServiceRoute, Service, StaffMember
 from .security import public_booking_context, token_digest
 from .serializers import (
@@ -32,8 +32,11 @@ from .serializers import (
     MaterialsInputSerializer,
     RescheduleSerializer,
     ScheduleCreateSerializer,
+    SlotDayListSerializer,
     SlotListSerializer,
+    SlotTimeListSerializer,
     StaffSerializer,
+    StaffSlotTimeListSerializer,
     StaffUpdateSerializer,
 )
 from .services import (
@@ -54,6 +57,19 @@ from .services import (
 )
 
 IDEMPOTENCY = OpenApiParameter("Idempotency-Key", str, OpenApiParameter.HEADER, required=True)
+SLOT_QUERY = [
+    OpenApiParameter("service_id", UUID, OpenApiParameter.QUERY, required=True),
+    OpenApiParameter("location_id", UUID, OpenApiParameter.QUERY, required=True),
+]
+DAYS_QUERY = [
+    *SLOT_QUERY,
+    OpenApiParameter("from", date, OpenApiParameter.QUERY, required=True),
+    OpenApiParameter("to", date, OpenApiParameter.QUERY, required=True),
+]
+TIMES_QUERY = [*SLOT_QUERY, OpenApiParameter("date", date, OpenApiParameter.QUERY, required=True)]
+STAFF_QUERY = OpenApiParameter(
+    "staff_id", UUID, OpenApiParameter.QUERY, description="Tylko terminy tej osoby."
+)
 
 
 class BookingThrottle(AnonRateThrottle):
@@ -87,6 +103,26 @@ def _appointment_payload(
         **({} if public else {"materials": value.materials}),
         **({"self_service_token": token} if token else {}),
     }
+
+
+def _slot_query(request: Request, *dates: str) -> tuple[UUID, UUID, list[date]]:
+    """service_id, location_id and the named dates of a slot search."""
+    try:
+        return (
+            UUID(request.query_params["service_id"]),
+            UUID(request.query_params["location_id"]),
+            [date.fromisoformat(request.query_params[name]) for name in dates],
+        )
+    except (KeyError, ValueError) as error:
+        raise ParseError("Nieprawidłowe parametry terminów.") from error
+
+
+def _staff_query(request: Request) -> list[UUID] | None:
+    value = request.query_params.get("staff_id")
+    try:
+        return [UUID(value)] if value else None
+    except ValueError as error:
+        raise ParseError("Nieprawidłowe parametry terminów.") from error
 
 
 def _materials(raw: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -245,6 +281,62 @@ class BookingSlotsView(APIView):
                     location_id=location,
                     from_date=start,
                     to_date=end,
+                )
+            ]
+        })
+
+
+class BookingSlotDaysView(APIView):
+    """Days with a free start, for the day picker (ADR-058 §5)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        parameters=[*DAYS_QUERY, STAFF_QUERY],
+        responses={200: SlotDayListSerializer},
+    )
+    def get(self, request: Request) -> Response:
+        service, location, (start, end) = _slot_query(request, "from", "to")
+        staff = _staff_query(request)
+        authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
+        return Response({
+            "items": available_days(
+                service_id=service,
+                location_id=location,
+                from_date=start,
+                to_date=end,
+                staff_ids=staff,
+            )
+        })
+
+
+class BookingSlotTimesView(APIView):
+    """Every free start of one day with who is free for it (ADR-058 §5)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        parameters=[*TIMES_QUERY, STAFF_QUERY],
+        responses={200: StaffSlotTimeListSerializer},
+    )
+    def get(self, request: Request) -> Response:
+        service, location, (day,) = _slot_query(request, "date")
+        staff = _staff_query(request)
+        authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
+        return Response({
+            "items": [
+                {
+                    "starts_at": item.starts_at,
+                    "ends_at": item.ends_at,
+                    "staff": [
+                        {"staff_id": staff_id, "resource_id": resource_id}
+                        for staff_id, resource_id in item.staff.items()
+                    ],
+                }
+                for item in available_times(
+                    service_id=service, location_id=location, day=day, staff_ids=staff
                 )
             ]
         })
@@ -486,6 +578,49 @@ class PublicBookingSlotsView(APIView):
                     for x in available_slots(
                         service_id=service, location_id=location, from_date=start, to_date=end
                     )
+                ]
+            })
+
+
+class PublicBookingDaysView(APIView):
+    authentication_classes: list[type] = []
+    permission_classes = [AllowAny]
+    throttle_classes = [BookingThrottle]
+
+    @extend_schema(
+        tags=["public-booking"], parameters=DAYS_QUERY, responses={200: SlotDayListSerializer}
+    )
+    def get(self, request: Request, public_slug: str) -> Response:
+        route = _route(public_slug)
+        service, location, (start, end) = _slot_query(request, "from", "to")
+        with public_booking_context(route.organization_id):
+            authorize_entitled("booking.public.read", BOOKING_ENABLED)
+            return Response({
+                "items": available_days(
+                    service_id=service, location_id=location, from_date=start, to_date=end
+                )
+            })
+
+
+class PublicBookingTimesView(APIView):
+    """Free starts of one day, once each: who is free is the company's business."""
+
+    authentication_classes: list[type] = []
+    permission_classes = [AllowAny]
+    throttle_classes = [BookingThrottle]
+
+    @extend_schema(
+        tags=["public-booking"], parameters=TIMES_QUERY, responses={200: SlotTimeListSerializer}
+    )
+    def get(self, request: Request, public_slug: str) -> Response:
+        route = _route(public_slug)
+        service, location, (day,) = _slot_query(request, "date")
+        with public_booking_context(route.organization_id):
+            authorize_entitled("booking.public.read", BOOKING_ENABLED)
+            return Response({
+                "items": [
+                    {"starts_at": item.starts_at, "ends_at": item.ends_at}
+                    for item in available_times(service_id=service, location_id=location, day=day)
                 ]
             })
 
