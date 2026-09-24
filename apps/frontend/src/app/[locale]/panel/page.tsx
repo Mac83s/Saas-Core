@@ -71,7 +71,7 @@ export default async function PanelPage() {
   ].filter((item): item is NonNullable<typeof item> => item !== null);
 
   return (
-    <main className="mx-auto w-full max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:py-10">
+    <div className="space-y-8">
       <section className="relative overflow-hidden rounded-3xl border bg-gradient-to-br from-primary/12 via-background to-background p-6 shadow-sm sm:p-10">
         <div className="relative z-10 max-w-3xl space-y-5">
           <Badge className="w-fit" variant="secondary">
@@ -117,7 +117,7 @@ export default async function PanelPage() {
           ))}
         </div>
       </section>
-    </main>
+    </div>
   );
 }
 

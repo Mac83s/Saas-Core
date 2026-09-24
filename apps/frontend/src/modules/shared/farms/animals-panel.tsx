@@ -5,7 +5,8 @@ import { useTranslations } from "next-intl";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
-import { PlusIcon, SearchIcon } from "lucide-react";
+import { EyeIcon, PlusIcon, WarehouseIcon } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 
 import {
   createFarmAnimal,
@@ -18,7 +19,6 @@ import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -39,8 +39,15 @@ import {
   DialogTitle,
 } from "@saas-core/ui/components/dialog";
 import {
+  DataTable,
+  DataTableField,
+  DataTableFilter,
+  DataTableSearch,
+  RowActions,
+  type ColumnDef,
+} from "@saas-core/ui/components/data-table";
+import {
   Field,
-  FieldDescription,
   FieldError,
   FieldGroup,
   FieldLabel,
@@ -48,6 +55,9 @@ import {
 import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
+import { PanelPage } from "#components/panel/panel-page";
+import { Link } from "#i18n/navigation";
+import { useDataTableLabels } from "#lib/data-table-labels";
 import { allows, type PanelAccess } from "#lib/panel-navigation";
 import { ANIMAL_STATUSES, AnimalCard } from "./animal-card";
 import { farmProblem } from "./problem";
@@ -78,6 +88,9 @@ type NewAnimal = {
 export function AnimalsPanel({ access }: { access: PanelAccess }) {
   const t = useTranslations("Animals");
   const common = useTranslations("Common");
+  const labels = useDataTableLabels();
+  // A farm's row in the register leads here with that farm already chosen.
+  const params = useSearchParams();
   const hasOrganization = access.permissions !== null;
   const canRead = hasOrganization && allows(access, { permission: READ });
   const canManage = hasOrganization && allows(access, { permission: MANAGE });
@@ -86,7 +99,7 @@ export function AnimalsPanel({ access }: { access: PanelAccess }) {
   const [farms, setFarms] = useState<Farm[]>([]);
   const [failed, setFailed] = useState(false);
   const [search, setSearch] = useState("");
-  const [farmId, setFarmId] = useState("");
+  const [farmId, setFarmId] = useState(params?.get("farm") ?? "");
   const [status, setStatus] = useState("");
   const [review, setReview] = useState(false);
   const [version, setVersion] = useState(0);
@@ -210,41 +223,151 @@ export function AnimalsPanel({ access }: { access: PanelAccess }) {
     return key ? t(`status_${key}`) : value;
   };
 
-  const reviewToggle = (
-    <Button
-      aria-pressed={review}
-      onClick={() => setReview((on) => !on)}
-      type="button"
-      variant={review ? "default" : "outline"}
-    >
-      {toReview > 0 && !review
-        ? t("reviewFilterCount", { count: toReview })
-        : t("reviewFilter")}
-    </Button>
-  );
+  const open = (animal: FarmAnimal, target: HTMLElement | null) => {
+    setReturnTo(target);
+    setOpened(animal);
+  };
 
-  const addButton = (
-    <Button onClick={openAdd} type="button">
-      <PlusIcon aria-hidden="true" />
-      {t("add")}
-    </Button>
+  const columns: ColumnDef<FarmAnimal, unknown>[] = [
+    {
+      id: "tag",
+      accessorKey: "national_id",
+      header: t("tag"),
+      meta: { primary: true },
+      cell: ({ row: { original: animal } }) => (
+        <>
+          <Button
+            className="h-auto p-0 font-mono wrap-anywhere"
+            onClick={(event) => open(animal, event.currentTarget)}
+            type="button"
+            variant="link"
+          >
+            {animal.national_id}
+          </Button>
+          {animal.review_requested_at ? (
+            <Badge className="ml-2" variant="outline">
+              {t("reviewBadge")}
+            </Badge>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      id: "name",
+      accessorFn: (animal) => animal.name || animal.working_number,
+      header: t("nameColumn"),
+      cell: ({ row: { original: animal } }) => (
+        <span className="wrap-anywhere">
+          {animal.name || (animal.working_number ? "" : "—")}
+          {animal.working_number ? (
+            <span className="text-muted-foreground">
+              {animal.name ? " · " : ""}#{animal.working_number}
+            </span>
+          ) : null}
+        </span>
+      ),
+    },
+    {
+      id: "farm",
+      accessorKey: "farm_name",
+      header: t("farm"),
+      cell: ({ row: { original: animal } }) => (
+        <span className="wrap-anywhere">{animal.farm_name}</span>
+      ),
+    },
+    {
+      id: "status",
+      accessorFn: (animal) => statusLabel(animal.status),
+      header: t("status"),
+      cell: ({ row: { original: animal } }) => (
+        <Badge variant={animal.status === "active" ? "secondary" : "outline"}>
+          {statusLabel(animal.status)}
+        </Badge>
+      ),
+    },
+    {
+      id: "actions",
+      header: t("actions"),
+      meta: { actions: true },
+      cell: ({ row: { original: animal } }) => (
+        <RowActions
+          items={[
+            {
+              label: t("openCard"),
+              icon: <EyeIcon aria-hidden="true" />,
+              inline: true,
+              onSelect: (trigger) => open(animal, trigger),
+            },
+            {
+              label: t("openFarm"),
+              icon: <WarehouseIcon aria-hidden="true" />,
+              link: <Link href={`/panel/farms/${animal.farm_id}`} />,
+            },
+          ]}
+          label={t("actionsFor", { tag: animal.national_id })}
+        />
+      ),
+    },
+  ];
+
+  const toolbar = (
+    <>
+      <DataTableSearch
+        id="animal-search"
+        label={t("search")}
+        onChange={setSearch}
+        placeholder={t("searchHint")}
+        value={search}
+      />
+      <DataTableField htmlFor="animal-farm" label={t("farm")}>
+        <FarmField
+          allLabel={t("allFarms")}
+          emptyLabel={t("noFarmMatches")}
+          farms={farms}
+          id="animal-farm"
+          onChange={setFarmId}
+          value={farmId}
+        />
+      </DataTableField>
+      <DataTableFilter
+        id="animal-status"
+        label={t("status")}
+        onChange={(event) => setStatus(event.target.value)}
+        value={status}
+      >
+        <option value="">{t("allStatuses")}</option>
+        {ANIMAL_STATUSES.map((value) => (
+          <option key={value} value={value}>
+            {t(`status_${value}`)}
+          </option>
+        ))}
+      </DataTableFilter>
+      <Button
+        aria-pressed={review}
+        onClick={() => setReview((on) => !on)}
+        type="button"
+        variant={review ? "default" : "outline"}
+      >
+        {toReview > 0 && !review
+          ? t("reviewFilterCount", { count: toReview })
+          : t("reviewFilter")}
+      </Button>
+    </>
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t("title")}
-          </h1>
-          <p className="text-muted-foreground">{t("description")}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {canRead ? reviewToggle : null}
-          {canRead && canManage ? addButton : null}
-        </div>
-      </div>
-
+    <PanelPage
+      actions={
+        canRead && canManage ? (
+          <Button onClick={openAdd} type="button">
+            <PlusIcon aria-hidden="true" />
+            {t("add")}
+          </Button>
+        ) : null
+      }
+      description={t("description")}
+      title={t("title")}
+    >
       {!canRead ? (
         <Card>
           <CardHeader>
@@ -258,160 +381,41 @@ export function AnimalsPanel({ access }: { access: PanelAccess }) {
             </CardDescription>
           </CardHeader>
         </Card>
+      ) : failed ? (
+        <div className="flex flex-wrap items-center gap-3" role="alert">
+          <p className="text-sm text-destructive">{t("loadError")}</p>
+          <Button onClick={() => void load()} variant="outline">
+            {t("retry")}
+          </Button>
+        </div>
       ) : (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              <h2>{t("listTitle")}</h2>
-            </CardTitle>
-            <CardDescription>{t("listDescription")}</CardDescription>
-            <div className="grid gap-4 pt-2 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr]">
-              <Field>
-                <FieldLabel htmlFor="animal-search">{t("search")}</FieldLabel>
-                <div className="relative">
-                  <SearchIcon
-                    aria-hidden="true"
-                    className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-                  />
-                  <Input
-                    aria-describedby="animal-search-hint"
-                    className="pl-9"
-                    id="animal-search"
-                    onChange={(event) => setSearch(event.target.value)}
-                    value={search}
-                  />
-                </div>
-                <FieldDescription id="animal-search-hint">
-                  {t("searchHint")}
-                </FieldDescription>
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="animal-farm">{t("farm")}</FieldLabel>
-                <FarmField
-                  allLabel={t("allFarms")}
-                  emptyLabel={t("noFarmMatches")}
-                  farms={farms}
-                  id="animal-farm"
-                  onChange={setFarmId}
-                  value={farmId}
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="animal-status">{t("status")}</FieldLabel>
-                <NativeSelect
-                  id="animal-status"
-                  onChange={(event) => setStatus(event.target.value)}
-                  value={status}
-                >
-                  <option value="">{t("allStatuses")}</option>
-                  {ANIMAL_STATUSES.map((value) => (
-                    <option key={value} value={value}>
-                      {t(`status_${value}`)}
-                    </option>
-                  ))}
-                </NativeSelect>
-              </Field>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {failed ? (
-              <div className="flex flex-wrap items-center gap-3" role="alert">
-                <p className="text-sm text-destructive">{t("loadError")}</p>
-                <Button onClick={() => void load()} variant="outline">
-                  {t("retry")}
+        <div className="space-y-3">
+          <DataTable
+            caption={t("tableCaption")}
+            columns={columns}
+            data={rows}
+            // The one next step, next to the empty list.
+            emptyAction={
+              !filtered && canManage ? (
+                <Button onClick={openAdd} type="button">
+                  <PlusIcon aria-hidden="true" />
+                  {t("add")}
                 </Button>
-              </div>
-            ) : !animals ? (
-              <div aria-busy="true" className="space-y-2">
-                <span className="sr-only">{common("loading")}</span>
-                {[0, 1, 2].map((row) => (
-                  <div
-                    className="h-12 animate-pulse rounded-lg bg-muted"
-                    key={row}
-                  />
-                ))}
-              </div>
-            ) : rows.length === 0 ? (
-              <div className="space-y-3 py-4 text-center">
-                <p className="text-muted-foreground">
-                  {filtered ? t("noResults") : t("empty")}
-                </p>
-                {!filtered && canManage ? addButton : null}
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <caption className="sr-only">{t("tableCaption")}</caption>
-                  <thead className="border-b text-xs text-muted-foreground">
-                    <tr>
-                      <th className="py-2 pr-3 font-medium" scope="col">
-                        {t("tag")}
-                      </th>
-                      <th className="py-2 pr-3 font-medium" scope="col">
-                        {t("nameColumn")}
-                      </th>
-                      <th className="py-2 pr-3 font-medium" scope="col">
-                        {t("farm")}
-                      </th>
-                      <th className="py-2 font-medium" scope="col">
-                        {t("status")}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {rows.map((animal) => (
-                      <tr key={animal.id}>
-                        <td className="py-2 pr-3 align-top">
-                          <Button
-                            className="h-auto p-0 font-mono wrap-anywhere"
-                            onClick={(event) => {
-                              setReturnTo(event.currentTarget);
-                              setOpened(animal);
-                            }}
-                            type="button"
-                            variant="link"
-                          >
-                            {animal.national_id}
-                          </Button>
-                          {animal.review_requested_at ? (
-                            <Badge className="ml-2" variant="outline">
-                              {t("reviewBadge")}
-                            </Badge>
-                          ) : null}
-                        </td>
-                        <td className="py-3 pr-3 align-top wrap-anywhere">
-                          {animal.name || (animal.working_number ? "" : "—")}
-                          {animal.working_number ? (
-                            <span className="text-muted-foreground">
-                              {animal.name ? " · " : ""}#{animal.working_number}
-                            </span>
-                          ) : null}
-                        </td>
-                        <td className="py-3 pr-3 align-top wrap-anywhere">
-                          {animal.farm_name}
-                        </td>
-                        <td className="py-3 align-top">
-                          <Badge
-                            variant={
-                              animal.status === "active"
-                                ? "secondary"
-                                : "outline"
-                            }
-                          >
-                            {statusLabel(animal.status)}
-                          </Badge>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            <p aria-live="polite" className="text-sm text-muted-foreground">
-              {animals && !failed ? t("found", { count: rows.length }) : ""}
-            </p>
-          </CardContent>
-        </Card>
+              ) : undefined
+            }
+            getRowId={(animal) => animal.id}
+            labels={{
+              ...labels,
+              empty: filtered ? t("noResults") : t("empty"),
+              loading: common("loading"),
+            }}
+            loading={!animals}
+            toolbar={toolbar}
+          />
+          <p aria-live="polite" className="text-sm text-muted-foreground">
+            {animals ? t("found", { count: rows.length }) : ""}
+          </p>
+        </div>
       )}
 
       {opened ? (
@@ -512,7 +516,7 @@ export function AnimalsPanel({ access }: { access: PanelAccess }) {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </PanelPage>
   );
 }
 

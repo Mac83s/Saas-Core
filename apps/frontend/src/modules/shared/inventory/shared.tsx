@@ -20,6 +20,9 @@ import {
   DialogTitle,
 } from "@saas-core/ui/components/dialog";
 
+/** The header every warehouse page shares: section, its title, last outcome. */
+export type PageFrame = { eyebrow: string; notice: string; title: string };
+
 /** What every tab of the warehouse reads; loaded once by the panel. */
 export type InventoryData = {
   items: InventoryItem[];

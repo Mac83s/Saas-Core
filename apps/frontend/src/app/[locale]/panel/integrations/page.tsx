@@ -1,9 +1,20 @@
+import { getTranslations } from "next-intl/server";
+
+import { PanelPage } from "#components/panel/panel-page";
 import { IntegrationsPanel } from "../../../../modules/shared/notifications";
 
-export default function IntegrationsPage() {
+export default async function IntegrationsPage() {
+  const [t, settings] = await Promise.all([
+    getTranslations("Integrations"),
+    getTranslations("Settings"),
+  ]);
   return (
-    <main className="mx-auto w-full max-w-6xl px-5 py-10">
+    <PanelPage
+      description={t("description")}
+      eyebrow={settings("eyebrow")}
+      title={t("title")}
+    >
       <IntegrationsPanel />
-    </main>
+    </PanelPage>
   );
 }

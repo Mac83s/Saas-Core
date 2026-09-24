@@ -27,7 +27,7 @@ import {
 } from "@saas-core/ui/components/card";
 import { Field, FieldError, FieldLabel } from "@saas-core/ui/components/field";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
-import { Link } from "#i18n/navigation";
+import { PanelPage } from "#components/panel/panel-page";
 import {
   Combobox,
   ComboboxInput,
@@ -46,6 +46,7 @@ function record(value: unknown): Record<string, unknown> {
 
 export function SeoAuditsPanel() {
   const t = useTranslations("SeoAudits");
+  const nav = useTranslations("DashboardNav");
   const locale = useLocale();
   const [orders, setOrders] = useState<SeoAuditSummary[]>([]);
   const [sites, setSites] = useState<SiteSummary[]>([]);
@@ -228,32 +229,23 @@ export function SeoAuditsPanel() {
 
   return (
     <div className="space-y-8">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">
-            {t("title")}
-          </h1>
-          <p className="mt-2 max-w-2xl text-muted-foreground">
-            {t("description")}
-          </p>
-          <Link
-            href="/panel/seo/search-console"
-            className="mt-3 inline-block underline"
+      <PanelPage
+        actions={
+          <Button
+            variant="outline"
+            disabled={loading}
+            onClick={() => {
+              setLoading(true);
+              void load();
+            }}
           >
-            Google Search Console
-          </Link>
-        </div>
-        <Button
-          variant="outline"
-          disabled={loading}
-          onClick={() => {
-            setLoading(true);
-            void load();
-          }}
-        >
-          {t("refresh")}
-        </Button>
-      </header>
+            {t("refresh")}
+          </Button>
+        }
+        description={t("description")}
+        eyebrow={nav("website")}
+        title={t("title")}
+      />
       {problem ? (
         <p role="alert" className="text-destructive">
           {problem}

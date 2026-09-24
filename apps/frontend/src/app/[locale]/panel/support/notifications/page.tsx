@@ -1,9 +1,13 @@
+import { getTranslations } from "next-intl/server";
+
+import { PanelPage } from "#components/panel/panel-page";
 import { NotificationSupportPanel } from "../../../../../modules/shared/notifications";
 
-export default function NotificationSupportPage() {
+export default async function NotificationSupportPage() {
+  const t = await getTranslations("NotificationSupport");
   return (
-    <main className="mx-auto w-full max-w-6xl px-5 py-10">
+    <PanelPage description={t("description")} title={t("title")}>
       <NotificationSupportPanel />
-    </main>
+    </PanelPage>
   );
 }

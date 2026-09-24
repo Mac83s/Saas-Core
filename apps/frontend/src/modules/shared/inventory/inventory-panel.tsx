@@ -16,19 +16,20 @@ import {
   CardHeader,
   CardTitle,
 } from "@saas-core/ui/components/card";
-import {
-  Tabs,
-  TabsIndicator,
-  TabsList,
-  TabsPanel,
-  TabsTab,
-} from "@saas-core/ui/components/tabs";
+import { ListSkeleton } from "@saas-core/ui/components/data-table";
 
+import { PanelPage } from "#components/panel/panel-page";
 import { DocumentsTab } from "./documents-tab";
 import { ItemsTab } from "./items-tab";
 import { SetupTab } from "./setup-tab";
 import type { InventoryData } from "./shared";
 import { StockTab } from "./stock-tab";
+
+/** The warehouse's pages, each at its own address under Magazyn (ADR-057). */
+export type InventorySection = "stock" | "items" | "documents" | "setup";
+
+/** What only the one who runs the warehouse sees. */
+const MANAGED: InventorySection[] = ["documents", "setup"];
 
 /**
  * Magazyn firmy (ADR-055). Właściciel pyta „co mam, czego brakuje, co przyszło
@@ -37,18 +38,21 @@ import { StockTab } from "./stock-tab";
 export function InventoryPanel({
   canManage = false,
   canRead = false,
+  section = "stock",
 }: {
   canManage?: boolean;
   canRead?: boolean;
+  section?: InventorySection;
 } = {}) {
   const t = useTranslations("Inventory");
   const [data, setData] = useState<InventoryData | undefined>();
   const [failed, setFailed] = useState(false);
   const [notice, setNotice] = useState("");
   const [reloads, setReloads] = useState(0);
+  const allowed = canRead && (canManage || !MANAGED.includes(section));
 
   useEffect(() => {
-    if (!canRead) return;
+    if (!allowed) return;
     let current = true;
     Promise.all([
       listInventoryItems(),
@@ -73,84 +77,70 @@ export function InventoryPanel({
     return () => {
       current = false;
     };
-  }, [canManage, canRead, reloads]);
+  }, [allowed, canManage, reloads]);
 
   const changed = (message: string) => {
     setNotice(message);
     setReloads((value) => value + 1);
   };
 
-  if (!canRead) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            <h2>{t("noAccessTitle")}</h2>
-          </CardTitle>
-          <CardDescription>{t("noAccess")}</CardDescription>
-        </CardHeader>
-      </Card>
-    );
-  }
+  const title = {
+    stock: canManage ? t("tabStock") : t("myStock"),
+    items: t("tabItems"),
+    documents: t("tabDocuments"),
+    setup: t("setupTitle"),
+  }[section];
 
+  if (!allowed || failed || !data)
+    return (
+      <PanelPage eyebrow={t("title")} title={title}>
+        {!allowed ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <h2>{t("noAccessTitle")}</h2>
+              </CardTitle>
+              <CardDescription>{t("noAccess")}</CardDescription>
+            </CardHeader>
+          </Card>
+        ) : failed ? (
+          <p className="text-sm text-destructive" role="alert">
+            {t("loadError")}
+          </p>
+        ) : (
+          <ListSkeleton label={t("loading")} />
+        )}
+      </PanelPage>
+    );
+
+  const page = { eyebrow: t("title"), notice, title };
+  if (section === "items")
+    return (
+      <ItemsTab
+        canManage={canManage}
+        data={data}
+        onChanged={changed}
+        page={page}
+      />
+    );
+  if (section === "documents")
+    return (
+      <DocumentsTab
+        data={data}
+        onChanged={changed}
+        page={page}
+        reloads={reloads}
+      />
+    );
+  if (section === "setup")
+    return <SetupTab data={data} onChanged={changed} page={page} />;
   return (
-    <div className="space-y-6">
-      <header className="space-y-2">
-        <p className="text-sm font-medium text-primary">{t("eyebrow")}</p>
-        <h1 className="text-3xl font-semibold tracking-tight">{t("title")}</h1>
-        <p className="max-w-2xl text-muted-foreground">{t("description")}</p>
-      </header>
-      <p aria-live="polite" className="text-sm text-success-foreground">
-        {notice}
-      </p>
-      {failed ? (
-        <p className="text-sm text-destructive" role="alert">
-          {t("loadError")}
-        </p>
-      ) : !data ? (
-        <p className="text-muted-foreground">{t("loading")}</p>
-      ) : (
-        <Tabs defaultValue="stock">
-          <TabsList>
-            <TabsTab value="stock">
-              {canManage ? t("tabStock") : t("myStock")}
-            </TabsTab>
-            <TabsTab value="items">{t("tabItems")}</TabsTab>
-            {canManage ? (
-              <>
-                <TabsTab value="documents">{t("tabDocuments")}</TabsTab>
-                <TabsTab value="setup">{t("tabSetup")}</TabsTab>
-              </>
-            ) : null}
-            <TabsIndicator />
-          </TabsList>
-          <TabsPanel value="stock">
-            <StockTab
-              canManage={canManage}
-              data={data}
-              onChanged={changed}
-              reloads={reloads}
-            />
-          </TabsPanel>
-          <TabsPanel value="items">
-            <ItemsTab canManage={canManage} data={data} onChanged={changed} />
-          </TabsPanel>
-          {canManage ? (
-            <>
-              <TabsPanel value="documents">
-                <DocumentsTab
-                  data={data}
-                  onChanged={changed}
-                  reloads={reloads}
-                />
-              </TabsPanel>
-              <TabsPanel value="setup">
-                <SetupTab data={data} onChanged={changed} />
-              </TabsPanel>
-            </>
-          ) : null}
-        </Tabs>
-      )}
-    </div>
+    <StockTab
+      canManage={canManage}
+      data={data}
+      onChanged={changed}
+      page={page}
+      reloads={reloads}
+    />
   );
 }

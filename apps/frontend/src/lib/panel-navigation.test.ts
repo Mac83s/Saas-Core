@@ -15,6 +15,7 @@ vi.mock("../product", () => ({
   },
 }));
 import {
+  currentPage,
   isActive,
   panelNavigation,
   sectionTabs,
@@ -39,7 +40,12 @@ describe("sekcje menu", () => {
     expect(tabs?.map((tab) => tab.href)).toEqual([
       "/panel/sites",
       "/panel/seo",
+      "/panel/seo/search-console",
     ]);
+    // The deepest page is the current one, not its parent that also matches.
+    expect(currentPage("/panel/seo/search-console", tabs!)).toBe(
+      "/panel/seo/search-console",
+    );
 
     const website = panelNavigation(OWNER).company.find(
       (item) => item.href === "/panel/sites",
@@ -173,7 +179,7 @@ describe("website inquiry access", () => {
       modules,
       permissions,
       isOwner: false,
-    }).company.some((item) => item.href === "/panel/notifications");
+    }).company.some((item) => item.href.startsWith("/panel/notifications"));
   it("offers messages to website editors without automation permission", () => {
     expect(
       messages(["shared.notifications", "shared.sites"], ["site.content.edit"]),
@@ -185,5 +191,46 @@ describe("website inquiry access", () => {
     expect(messages(["shared.notifications"], ["notifications.manage"])).toBe(
       true,
     );
+  });
+});
+
+describe("podstrony w menu (ADR-057)", () => {
+  const WAREHOUSE = {
+    ...OWNER,
+    modules: [...OWNER.modules, "shared.inventory"],
+  };
+  const inventory = (access: PanelAccess) =>
+    panelNavigation(access).work.find((item) => item.labelKey === "inventory");
+
+  it("magazyn rozwija się na strony, które osoba może otworzyć", () => {
+    expect(inventory(WAREHOUSE)?.pages?.map((page) => page.href)).toEqual([
+      "/panel/inventory",
+      "/panel/inventory/items",
+      "/panel/inventory/documents",
+      "/panel/inventory/settings",
+    ]);
+    // A worker without inventory.manage sees their stock and the catalogue.
+    expect(
+      inventory({
+        ...WAREHOUSE,
+        permissions: ["inventory.read"],
+      })?.pages?.map((page) => page.href),
+    ).toEqual(["/panel/inventory", "/panel/inventory/items"]);
+    expect(
+      currentPage("/panel/inventory/items", inventory(WAREHOUSE)!.pages!),
+    ).toBe("/panel/inventory/items");
+    expect(currentPage("/panel/inventory", inventory(WAREHOUSE)!.pages!)).toBe(
+      "/panel/inventory",
+    );
+  });
+
+  it("jedna dostępna strona to sama pozycja, bez rozwijania", () => {
+    const messages = panelNavigation({
+      ...OWNER,
+      permissions: ["notifications.manage"],
+      isOwner: false,
+    }).company.find((item) => item.labelKey === "messages");
+    expect(messages?.href).toBe("/panel/notifications/automation");
+    expect(messages?.pages).toBeUndefined();
   });
 });

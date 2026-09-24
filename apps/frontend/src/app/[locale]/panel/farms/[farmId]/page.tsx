@@ -15,14 +15,13 @@ export default async function FarmPage({
   ]);
   const access = panelAccess(organization);
   if (!allows(access, { module: "shared.farms" })) notFound();
+  // The API decides; these only keep the panel from leading to a 403.
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:py-10">
-      {/* The API decides; these only keep the panel from leading to a 403. */}
-      <FarmDetail
-        canManage={allows(access, { permission: "farms.manage" })}
-        canRead={allows(access, { permission: "farms.read" })}
-        farmId={farmId}
-      />
-    </main>
+    <FarmDetail
+      canManage={allows(access, { permission: "farms.manage" })}
+      canRead={allows(access, { permission: "farms.read" })}
+      access={access}
+      farmId={farmId}
+    />
   );
 }

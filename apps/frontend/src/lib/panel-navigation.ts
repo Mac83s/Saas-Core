@@ -21,8 +21,9 @@ import type { ProductNavigationItem } from "./product-extension";
 /**
  * The panel menu from the HoofCare design (shell 1a): two groups, "Praca" for
  * daily work and "Firma" for running the business. Tools that used to be
- * top-level (SEO, credits, integrations) are tabs of the entry they belong
- * to, so daily work does not drown among them.
+ * top-level (SEO, credits, integrations) are pages of the entry they belong
+ * to, so daily work does not drown among them. An entry's pages unfold under
+ * it in the menu (ADR-057); on a phone they are also tabs above the content.
  */
 export type PanelNavItem = ProductNavigationItem & {
   group: "work" | "company";
@@ -50,11 +51,57 @@ export type PanelSectionTab = Pick<
 >;
 
 export const PANEL_SECTIONS = {
+  inventory: [
+    {
+      href: "/panel/inventory",
+      labelKey: "inventoryStock",
+      module: "shared.inventory",
+      permission: "inventory.read",
+    },
+    {
+      href: "/panel/inventory/items",
+      labelKey: "inventoryItems",
+      module: "shared.inventory",
+      permission: "inventory.read",
+    },
+    {
+      href: "/panel/inventory/documents",
+      labelKey: "inventoryDocuments",
+      module: "shared.inventory",
+      permission: "inventory.manage",
+    },
+    {
+      href: "/panel/inventory/settings",
+      labelKey: "inventorySettings",
+      module: "shared.inventory",
+      permission: "inventory.manage",
+    },
+  ],
+  messages: [
+    {
+      href: "/panel/notifications",
+      labelKey: "messagesInquiries",
+      module: "shared.sites",
+      permission: "site.content.edit",
+    },
+    {
+      href: "/panel/notifications/automation",
+      labelKey: "messagesAutomation",
+      module: "shared.notifications",
+      permission: "notifications.manage",
+    },
+  ],
   website: [
     { href: "/panel/sites", labelKey: "sectionSite", module: "shared.sites" },
     {
       href: "/panel/seo",
       labelKey: "seo",
+      module: "shared.seo",
+      permission: "seo.audit.read",
+    },
+    {
+      href: "/panel/seo/search-console",
+      labelKey: "searchConsole",
       module: "shared.seo",
       permission: "seo.audit.read",
     },
@@ -154,6 +201,7 @@ const WORK: PanelNavItem[] = [
     group: "work",
     module: "shared.inventory",
     permission: "inventory.read",
+    section: "inventory",
   },
   {
     // Every farm's animals at once: how a trimmer looks for one ear tag.
@@ -203,6 +251,7 @@ const COMPANY: PanelNavItem[] = [
       { module: "shared.notifications", permission: "notifications.manage" },
       { module: "shared.sites", permission: "site.content.edit" },
     ],
+    section: "messages",
   },
   {
     // The owner lands on the plan, everyone else on the credits they spend.
@@ -257,19 +306,33 @@ export function allows(
   );
 }
 
-export function panelNavigation(access: PanelAccess) {
+/** A menu entry as offered: the pages it unfolds to, when there are several. */
+export type PanelNavEntry = PanelNavItem & { pages?: PanelSectionTab[] };
+
+export function panelNavigation(access: PanelAccess): {
+  work: PanelNavEntry[];
+  company: PanelNavEntry[];
+} {
   const fromProduct = (product.navigation ?? []).map((item): PanelNavItem => ({
     ...item,
     group: item.group ?? "work",
   }));
-  const visible = (items: PanelNavItem[]) =>
+  const visible = (items: PanelNavItem[]): PanelNavEntry[] =>
     items.flatMap((item) => {
       if (!allows(access, item)) return [];
       if (!item.section) return [item];
-      const first = PANEL_SECTIONS[item.section].find((tab) =>
+      const pages = PANEL_SECTIONS[item.section].filter((tab) =>
         allows(access, tab),
       );
-      return first ? [{ ...item, href: first.href }] : [];
+      if (pages.length === 0) return [];
+      // One page is the entry itself: nothing to unfold.
+      return [
+        {
+          ...item,
+          href: pages[0].href,
+          ...(pages.length > 1 ? { pages } : {}),
+        },
+      ];
     });
   return {
     work: visible([...WORK, ...fromProduct.filter((i) => i.group === "work")]),
@@ -287,7 +350,7 @@ export function sectionTabs(
   pathname: string,
   access: PanelAccess,
 ): PanelSectionTab[] | null {
-  for (const tabs of Object.values(PANEL_SECTIONS)) {
+  for (const tabs of Object.values(PANEL_SECTIONS) as PanelSectionTab[][]) {
     if (!tabs.some((tab) => matches(pathname, tab.href))) continue;
     const visible = tabs.filter((tab) => allows(access, tab));
     return visible.length > 1 ? visible : null;
@@ -322,4 +385,19 @@ export function isActive(pathname: string, item: PanelNavItem): boolean {
 
 export function matches(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+/**
+ * The page of a section `pathname` is on: the deepest match, because the
+ * first page is often the section's root ("/panel/inventory" also matches
+ * "/panel/inventory/items").
+ */
+export function currentPage(
+  pathname: string,
+  pages: readonly Pick<PanelSectionTab, "href">[],
+): string | undefined {
+  return pages
+    .map((page) => page.href)
+    .filter((href) => matches(pathname, href))
+    .sort((a, b) => b.length - a.length)[0];
 }

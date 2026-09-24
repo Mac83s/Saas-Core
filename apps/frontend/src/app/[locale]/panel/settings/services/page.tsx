@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Building2Icon, LockIcon } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
+import { PanelPage } from "#components/panel/panel-page";
 import { SettingsNotice } from "#components/panel/settings-notice";
 import { allows, panelAccess } from "#lib/panel-navigation";
 import { getServerCurrentOrganization } from "#lib/server-auth";
@@ -16,16 +17,11 @@ export default async function ServicesSettingsPage() {
   // Not composed for this deployment or organization type: nothing to set up.
   if (!allows(access, { module: "shared.booking" })) notFound();
   return (
-    <main className="mx-auto w-full max-w-7xl space-y-7 px-4 py-8 sm:px-6 lg:py-10">
-      <header className="space-y-2">
-        <p className="text-sm font-medium text-primary">{t("eyebrow")}</p>
-        <h1 className="text-3xl font-semibold tracking-tight">
-          {t("servicesTitle")}
-        </h1>
-        <p className="max-w-2xl text-muted-foreground">
-          {t("servicesDescription")}
-        </p>
-      </header>
+    <PanelPage
+      description={t("servicesDescription")}
+      eyebrow={t("eyebrow")}
+      title={t("servicesTitle")}
+    >
       {!organization ? (
         <SettingsNotice icon={Building2Icon} title={t("noCompanyTitle")}>
           {t("noCompany")}
@@ -44,6 +40,6 @@ export default async function ServicesSettingsPage() {
           {t("noAccess")}
         </SettingsNotice>
       )}
-    </main>
+    </PanelPage>
   );
 }

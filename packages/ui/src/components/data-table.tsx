@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  cloneElement,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import {
   functionalUpdate,
   getCoreRowModel,
@@ -21,17 +29,20 @@ import {
   ChevronRightIcon,
   ChevronsUpDownIcon,
   EllipsisIcon,
+  SearchIcon,
 } from "lucide-react";
 
-import { Button } from "#components/button";
+import { Button, buttonVariants } from "#components/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLinkItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "#components/dropdown-menu";
 import { Input } from "#components/input";
+import { NativeSelect } from "#components/native-select";
 import {
   Table,
   TableBody,
@@ -133,6 +144,7 @@ export function DataTable<TData, TValue>({
   searchable = false,
   searchText,
   toolbar,
+  emptyAction,
   pageSize = 20,
   rowCount,
   query,
@@ -149,8 +161,14 @@ export function DataTable<TData, TValue>({
   searchable?: boolean;
   /** What search looks at in a row; defaults to its text and number columns. */
   searchText?: (row: TData) => string;
-  /** Filters and buttons next to the search field. */
+  /**
+   * Filters next to the search field, in one row: `DataTableFilter`, and
+   * `DataTableSearch` when the API searches. The page's actions (add, receive)
+   * belong in its header, not here.
+   */
   toolbar?: ReactNode;
+  /** A way out of an empty list, e.g. "Clear the search". */
+  emptyAction?: ReactNode;
   pageSize?: number;
   rowCount?: number;
   query?: DataTableQuery;
@@ -238,14 +256,11 @@ export function DataTable<TData, TValue>({
   return (
     <div className={cn("space-y-3", className)}>
       {searchable || toolbar ? (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
           {searchable ? (
-            <Input
-              aria-label={labels.search}
-              className="max-w-xs"
-              onChange={(event) => search(event.target.value)}
-              placeholder={labels.search}
-              type="search"
+            <DataTableSearch
+              label={labels.search}
+              onChange={search}
               value={term}
             />
           ) : null}
@@ -254,12 +269,7 @@ export function DataTable<TData, TValue>({
       ) : null}
 
       {loading && data.length === 0 ? (
-        <div aria-busy="true" className="space-y-2">
-          <span className="sr-only">{labels.loading}</span>
-          {[0, 1, 2].map((row) => (
-            <div className="h-14 animate-pulse rounded-lg bg-muted" key={row} />
-          ))}
-        </div>
+        <ListSkeleton label={labels.loading} />
       ) : (
         // Explicit roles: a phone lays rows out as cards, and a table styled
         // with `display: block` loses its semantics in some browsers.
@@ -292,7 +302,7 @@ export function DataTable<TData, TValue>({
                       }
                       className={cn(
                         "text-xs text-muted-foreground",
-                        meta?.actions && "w-11",
+                        meta?.actions && "w-px",
                         meta?.className,
                       )}
                       key={header.id}
@@ -343,6 +353,9 @@ export function DataTable<TData, TValue>({
                   role="cell"
                 >
                   {labels.empty}
+                  {emptyAction ? (
+                    <div className="mt-3">{emptyAction}</div>
+                  ) : null}
                 </TableCell>
               </TableRow>
             ) : (
@@ -363,7 +376,7 @@ export function DataTable<TData, TValue>({
                         className={cn(
                           "py-3 align-top whitespace-normal",
                           meta?.actions
-                            ? "py-1.5 text-right max-md:absolute max-md:top-1.5 max-md:right-1.5 max-md:p-0"
+                            ? "py-1.5 text-right whitespace-nowrap max-md:absolute max-md:top-1.5 max-md:right-1.5 max-md:p-0"
                             : meta?.primary
                               ? "max-md:block max-md:px-0 max-md:pt-0 max-md:pr-12 max-md:pb-1 max-md:text-base"
                               : "max-md:flex max-md:justify-between max-md:gap-3 max-md:px-0 max-md:py-1",
@@ -435,16 +448,114 @@ export function DataTable<TData, TValue>({
   );
 }
 
+/** Rows of a list before they arrive; a page loading its data shows the same. */
+export function ListSkeleton({ label }: { label: string }) {
+  return (
+    <div aria-busy="true" className="space-y-2">
+      <span className="sr-only">{label}</span>
+      {[0, 1, 2].map((row) => (
+        <div className="h-14 animate-pulse rounded-lg bg-muted" key={row} />
+      ))}
+    </div>
+  );
+}
+
+/** The list's search field; a page whose API searches puts it in `toolbar`. */
+export function DataTableSearch({
+  label,
+  value,
+  onChange,
+  placeholder,
+  id,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  /** What can be searched for, e.g. "Ear tag, name or number". */
+  placeholder?: string;
+  id?: string;
+}) {
+  return (
+    <div className="relative w-full sm:w-72">
+      <SearchIcon
+        aria-hidden="true"
+        className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+      />
+      <Input
+        aria-label={label}
+        className="pl-9"
+        id={id}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder ?? label}
+        type="search"
+        value={value}
+      />
+    </div>
+  );
+}
+
+/**
+ * A filter of the list: its name and the control on one line, as tall as the
+ * search field, so the toolbar reads as one row. Takes any control (a
+ * combobox for a long list); `DataTableFilter` is the usual native select.
+ */
+export function DataTableField({
+  label,
+  htmlFor,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-2 max-sm:w-full">
+      <label
+        className="shrink-0 text-sm text-muted-foreground max-sm:w-24"
+        htmlFor={htmlFor}
+      >
+        {label}
+      </label>
+      <div className="min-w-0 flex-1 sm:w-48 sm:flex-none">{children}</div>
+    </div>
+  );
+}
+
+/** A select filter; its first option is the unfiltered state ("All kinds"). */
+export function DataTableFilter({
+  label,
+  id,
+  children,
+  ...props
+}: Omit<ComponentProps<"select">, "id"> & { label: string; id: string }) {
+  return (
+    <DataTableField htmlFor={id} label={label}>
+      <NativeSelect id={id} {...props}>
+        {children}
+      </NativeSelect>
+    </DataTableField>
+  );
+}
+
 export type RowAction = {
   label: string;
-  /** Gets the menu's trigger, so a dialog can return focus to it. */
-  onSelect: (trigger: HTMLElement | null) => void;
+  /** Gets the button or the menu's trigger, so a dialog can return focus to it. */
+  onSelect?: (trigger: HTMLElement | null) => void;
+  /** Navigates instead of `onSelect`: the anchor to render, e.g. `<Link href>`. */
+  link?: ReactElement;
+  /** Always in sight as its own button on a wide screen; needs `icon`. */
+  inline?: boolean;
+  icon?: ReactNode;
   destructive?: boolean;
   /** Draws a separator above this item. */
   separated?: boolean;
 };
 
-/** A row's actions behind one 44 px button, so the list stays readable. */
+/**
+ * A row's actions: the few that are used all the time as buttons, the rest
+ * behind one "…" (ADR-057). On a phone the card has room for one button, so
+ * everything is in the menu there.
+ */
 export function RowActions({
   label,
   items,
@@ -454,28 +565,90 @@ export function RowActions({
 }) {
   const trigger = useRef<HTMLButtonElement>(null);
   if (items.length === 0) return null;
+  const shown = (item: RowAction) => Boolean(item.inline && item.icon);
+  const phoneOnly = (item: RowAction) =>
+    shown(item) ? "md:hidden" : undefined;
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        ref={trigger}
-        render={<Button aria-label={label} size="icon" variant="ghost" />}
-      >
-        <EllipsisIcon aria-hidden="true" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {items.flatMap((item) => [
-          ...(item.separated
-            ? [<DropdownMenuSeparator key={`${item.label}-separator`} />]
-            : []),
-          <DropdownMenuItem
-            className={item.destructive ? "text-destructive" : undefined}
+    <div className="flex items-center justify-end gap-0.5">
+      {items.filter(shown).map((item) =>
+        // A link stays a link: Base UI's Button would give it role="button".
+        item.link ? (
+          cloneElement(item.link as ReactElement<Record<string, unknown>>, {
+            "aria-label": item.label,
+            className: cn(
+              buttonVariants({ size: "icon", variant: "ghost" }),
+              "max-md:hidden",
+            ),
+            key: item.label,
+            title: item.label,
+            children: item.icon,
+          })
+        ) : (
+          <Button
+            aria-label={item.label}
+            className="max-md:hidden"
             key={item.label}
-            onClick={() => item.onSelect(trigger.current)}
+            onClick={(event) => item.onSelect?.(event.currentTarget)}
+            size="icon"
+            title={item.label}
+            variant="ghost"
           >
-            {item.label}
-          </DropdownMenuItem>,
-        ])}
-      </DropdownMenuContent>
-    </DropdownMenu>
+            {item.icon}
+          </Button>
+        ),
+      )}
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          ref={trigger}
+          render={
+            <Button
+              aria-label={label}
+              className={items.every(shown) ? "md:hidden" : undefined}
+              size="icon"
+              variant="ghost"
+            />
+          }
+        >
+          <EllipsisIcon aria-hidden="true" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {items.flatMap((item) => [
+            ...(item.separated
+              ? [
+                  <DropdownMenuSeparator
+                    className={phoneOnly(item)}
+                    key={`${item.label}-separator`}
+                  />,
+                ]
+              : []),
+            item.link ? (
+              <DropdownMenuLinkItem
+                className={cn(
+                  item.destructive && "text-destructive",
+                  phoneOnly(item),
+                )}
+                key={item.label}
+                render={item.link}
+              >
+                {item.icon}
+                {item.label}
+              </DropdownMenuLinkItem>
+            ) : (
+              <DropdownMenuItem
+                className={cn(
+                  item.destructive && "text-destructive",
+                  phoneOnly(item),
+                )}
+                key={item.label}
+                onClick={() => item.onSelect?.(trigger.current)}
+              >
+                {item.icon}
+                {item.label}
+              </DropdownMenuItem>
+            ),
+          ])}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 }

@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 
@@ -11,8 +11,9 @@ import { AppSidebar } from "./app-sidebar";
 // entries and messages, which this test neither knows nor needs.
 vi.mock("../../product", () => ({ product: {} }));
 
+const location = vi.hoisted(() => ({ pathname: "/panel" }));
 vi.mock("#i18n/navigation", () => ({
-  usePathname: () => "/panel",
+  usePathname: () => location.pathname,
   // The organization switcher inside the sidebar refreshes the shell.
   useRouter: () => ({ refresh: vi.fn() }),
   Link: ({
@@ -74,7 +75,10 @@ const hrefs = () =>
     .map((link) => link.getAttribute("href"))
     .filter((href): href is string => href !== null);
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  location.pathname = "/panel";
+});
 
 /**
  * The backend refuses to answer for a module a deployment does not have, and
@@ -128,5 +132,35 @@ describe("menu panelu", () => {
 
     expect(hrefs()).toContain("/panel/settings/credits");
     expect(hrefs()).not.toContain("/panel/settings/billing");
+  });
+});
+
+describe("podstrony w menu (ADR-057)", () => {
+  it("sekcja, w której się jest, jest rozwinięta; inne na żądanie", () => {
+    location.pathname = "/panel/inventory/documents";
+    renderSidebar({ modules: [...BUSINESS, "shared.inventory"] });
+
+    const warehouse = screen.getByRole("button", {
+      name: "Podstrony: Magazyn",
+    });
+    expect(warehouse).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("link", { name: "Dokumenty" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    // The root page of the section matches too, but is not the current one.
+    expect(screen.getByRole("link", { name: "Stany" })).not.toHaveAttribute(
+      "aria-current",
+    );
+
+    const settings = screen.getByRole("button", {
+      name: "Podstrony: Ustawienia",
+    });
+    expect(settings).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("link", { name: "Historia zmian" })).toBeNull();
+    fireEvent.click(settings);
+    expect(
+      screen.getByRole("link", { name: "Historia zmian" }),
+    ).toHaveAttribute("href", "/panel/settings/history");
   });
 });

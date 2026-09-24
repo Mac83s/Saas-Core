@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { PlusIcon } from "lucide-react";
+import { PencilIcon, PlusIcon } from "lucide-react";
 
 import {
   createInventoryItem,
@@ -14,6 +14,7 @@ import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
 import {
   DataTable,
+  DataTableFilter,
   RowActions,
   type ColumnDef,
 } from "@saas-core/ui/components/data-table";
@@ -22,6 +23,7 @@ import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { Textarea } from "@saas-core/ui/components/textarea";
 
+import { PanelPage } from "#components/panel/panel-page";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import {
   FormDialog,
@@ -29,6 +31,7 @@ import {
   VAT_RATES,
   useFormat,
   type InventoryData,
+  type PageFrame,
 } from "./shared";
 
 type Draft = {
@@ -82,14 +85,17 @@ export function ItemsTab({
   data,
   canManage,
   onChanged,
+  page,
 }: {
   data: InventoryData;
   canManage: boolean;
   onChanged: (notice: string) => void;
+  page: PageFrame;
 }) {
   const t = useTranslations("Inventory");
   const labels = useDataTableLabels();
   const { amount, money } = useFormat();
+  const [category, setCategory] = useState("");
   const [editing, setEditing] = useState<InventoryItem | "new" | null>(null);
   const [draft, setDraft] = useState<Draft>(EMPTY);
 
@@ -190,7 +196,12 @@ export function ItemsTab({
             cell: ({ row: { original: item } }) => (
               <RowActions
                 items={[
-                  { label: t("edit"), onSelect: () => open(item) },
+                  {
+                    label: t("edit"),
+                    icon: <PencilIcon aria-hidden="true" />,
+                    inline: true,
+                    onSelect: () => open(item),
+                  },
                   {
                     label: item.active ? t("hide") : t("show"),
                     onSelect: () => void toggle(item),
@@ -212,11 +223,26 @@ export function ItemsTab({
   });
 
   return (
-    <div className="space-y-4">
+    <PanelPage
+      {...page}
+      actions={
+        canManage ? (
+          <Button onClick={() => open("new")}>
+            <PlusIcon aria-hidden="true" />
+            {t("addItem")}
+          </Button>
+        ) : null
+      }
+      description={t("itemsDescription")}
+    >
       <DataTable
         caption={t("itemsCaption")}
         columns={columns}
-        data={data.items}
+        data={
+          category
+            ? data.items.filter((item) => item.category_id === category)
+            : data.items
+        }
         getRowId={(item) => item.id}
         labels={{ ...labels, empty: t("itemsEmpty") }}
         searchable
@@ -224,11 +250,20 @@ export function ItemsTab({
           [item.name, item.sku, item.ean, item.category_name].join(" ")
         }
         toolbar={
-          canManage ? (
-            <Button onClick={() => open("new")}>
-              <PlusIcon aria-hidden="true" />
-              {t("addItem")}
-            </Button>
+          data.categories.length ? (
+            <DataTableFilter
+              id="items-category"
+              label={t("category")}
+              onChange={(event) => setCategory(event.target.value)}
+              value={category}
+            >
+              <option value="">{t("allCategories")}</option>
+              {data.categories.map((one) => (
+                <option key={one.id} value={one.id}>
+                  {one.name}
+                </option>
+              ))}
+            </DataTableFilter>
           ) : null
         }
       />
@@ -305,6 +340,6 @@ export function ItemsTab({
           <Textarea {...field("notes")} rows={2} />
         </Field>
       </FormDialog>
-    </div>
+    </PanelPage>
   );
 }

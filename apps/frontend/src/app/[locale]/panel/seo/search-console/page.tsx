@@ -7,9 +7,5 @@ export default async function SearchConsolePage() {
   const organization = await getServerCurrentOrganization();
   if (!modulesFor(organization?.organization_type).has("shared.seo"))
     notFound();
-  return (
-    <main className="mx-auto w-full max-w-7xl px-5 py-10">
-      <SeoGscPanel key={organization?.id ?? "no-organization"} />
-    </main>
-  );
+  return <SeoGscPanel key={organization?.id ?? "no-organization"} />;
 }

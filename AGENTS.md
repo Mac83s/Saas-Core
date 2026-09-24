@@ -77,6 +77,11 @@ wskazujący nieistniejący skill albo nieistniejącą ścieżkę psuje walidacj�
 - każda lista w panelu klienta to `DataTable` z `@saas-core/ui` (ADR-054):
   na telefonie wiersze są kartami, długie listy stronicuje API. Nie rysuj
   własnej `<table>` ani listy kart;
+- każda strona panelu klienta to `PanelPage` z `#components/panel/panel-page`
+  (ADR-057): szerokość ma układ, nie strona (bez `<main>` i `max-w-*`); akcje
+  strony w nagłówku, filtry listy w pasku `DataTable` (`DataTableFilter`),
+  działania wiersza w `RowActions` (`inline` dla tych zawsze widocznych);
+  podstrona sekcji to adres i wpis w `PANEL_SECTIONS`, nie zakładki w stronie;
 - zachowuj semantykę, klawiaturę i focus komponentów; testuj axe oraz PL/EN;
 - nie kopiuj wariantów shadcn do aplikacji. Rozszerzaj wspólny komponent lub
   kompozycję w `packages/ui`.

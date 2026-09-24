@@ -250,26 +250,44 @@ test.each(["pl", "en"] as const)(
   },
 );
 
-test("oddziela skrzynkę i automatyczne powiadomienia dostępnymi zakładkami", async () => {
-  render(
+test("skrzynka i powiadomienia automatyczne to osobne strony", async () => {
+  const { unmount } = render(
     <NextIntlClientProvider locale="en" messages={englishMessages}>
-      <NotificationsPanel canReadSiteInquiries canManageNotifications />
+      <h1 id="messages-title">Website inquiries</h1>
+      <NotificationsPanel
+        canManageNotifications
+        canReadSiteInquiries
+        titleId="messages-title"
+      />
     </NextIntlClientProvider>,
   );
   expect(
     await screen.findByText(/You do not have a website yet/),
   ).not.toBeNull();
+  // The page's title names the inbox; it does not get a second one.
   expect(
-    screen.getByRole("tab", { name: "Website inquiries" }),
-  ).toHaveAttribute("aria-selected", "true");
+    screen.getByRole("region", { name: "Website inquiries" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getAllByRole("heading", { name: "Website inquiries" }),
+  ).toHaveLength(1);
   expect(getNotificationTemplates).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("tab", { name: "Automatic notifications" }));
+  unmount();
+  vi.mocked(listSites).mockClear();
+
+  render(
+    <NextIntlClientProvider locale="en" messages={englishMessages}>
+      <NotificationsPanel
+        canManageNotifications
+        canReadSiteInquiries
+        section="automation"
+      />
+    </NextIntlClientProvider>,
+  );
   expect(
     await screen.findByRole("heading", { name: "Booking reminder" }),
   ).not.toBeNull();
-  expect(
-    screen.getByRole("tab", { name: "Automatic notifications" }),
-  ).toHaveAttribute("aria-selected", "true");
+  expect(listSites).not.toHaveBeenCalled();
 });
 
 test("brak obu uprawnień nie wywołuje endpointów ani nie pokazuje treści", () => {

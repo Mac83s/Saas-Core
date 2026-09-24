@@ -81,6 +81,13 @@ verifies both directions.
    `useDataTableLabels()` (ADR-054) — never a hand-made `<table>` or a list of
    cards. Column renderers are plain functions without hooks; a phone gets
    cards, so mark the title column `meta.primary` and the menu `meta.actions`.
+   The page around it is `PanelPage` (ADR-057): no `<main>`, no `max-w-*` —
+   the layout owns the width. The page's actions go in its header, the list's
+   filters in the table's `toolbar` (`DataTableSearch`, `DataTableFilter`),
+   and the row's everyday actions are `RowActions` items with `inline` and an
+   icon. A page of a section is its own address plus an entry in
+   `PANEL_SECTIONS` (`apps/frontend/src/lib/panel-navigation.ts`), which the
+   menu unfolds — never tabs inside the page.
 
 ## Traps
 

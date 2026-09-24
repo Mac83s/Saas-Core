@@ -9,7 +9,9 @@ import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, expect, test, vi } from "vitest";
 
 import polishMessages from "../../../../messages/pl.json";
-import { InventoryPanel } from "./inventory-panel";
+import { InventoryPanel, type InventorySection } from "./inventory-panel";
+
+vi.mock("#i18n/navigation", () => ({ Link: "a" }));
 
 const { api } = vi.hoisted(() => ({
   api: {
@@ -114,7 +116,11 @@ beforeEach(() => {
   api.issueInventory.mockResolvedValue({});
 });
 
-function renderPanel(props: { canManage?: boolean } = { canManage: true }) {
+function renderPanel(
+  props: { canManage?: boolean; section?: InventorySection } = {
+    canManage: true,
+  },
+) {
   return render(
     <NextIntlClientProvider
       locale="pl"
@@ -142,8 +148,11 @@ test("wydanie osobie pokazuje, co ma przy sobie, i idzie jako jedno polecenie", 
   expect(api.listInventoryBalances).toHaveBeenCalledWith({
     locationId: WAREHOUSE,
   });
+  // The page's action is in its header; the row repeats it for its item.
+  const [pageAction] = screen.getAllByRole("button", { name: "Wydaj osobie" });
+  expect(pageAction.closest("header")).not.toBeNull();
 
-  fireEvent.click(screen.getByRole("button", { name: "Wydaj osobie" }));
+  fireEvent.click(pageAction);
   const dialog = await screen.findByRole("dialog");
   fireEvent.change(within(dialog).getByLabelText("Osoba"), {
     target: { value: TRIMMER },
@@ -179,8 +188,14 @@ test("dokument zapisany i zatwierdzony od razu dostaje numer", async () => {
     number: "PZ/2026/0001",
   });
 
-  renderPanel();
-  fireEvent.click(await screen.findByRole("tab", { name: "Dokumenty" }));
+  renderPanel({ canManage: true, section: "documents" });
+  // What PZ or MM means sits next to the list, not in a manual.
+  expect(
+    await screen.findByRole("complementary", { name: "Pomoc" }),
+  ).toHaveTextContent("Rodzaje dokumentów");
+  expect(
+    screen.getByRole("heading", { level: 1, name: "Dokumenty" }),
+  ).toBeInTheDocument();
   fireEvent.click(await screen.findByRole("button", { name: "Nowy dokument" }));
   const dialog = await screen.findByRole("dialog");
   fireEvent.change(within(dialog).getByLabelText("Pozycja"), {
@@ -216,14 +231,37 @@ test("dokument zapisany i zatwierdzony od razu dostaje numer", async () => {
 test("bez prawa do prowadzenia magazynu widać tylko swój zapas", async () => {
   api.listInventoryBalances.mockResolvedValue([]);
 
-  renderPanel({ canManage: false });
+  const { unmount } = renderPanel({ canManage: false });
 
+  await waitFor(() =>
+    expect(api.listInventoryBalances).toHaveBeenCalledWith({ mine: true }),
+  );
   expect(
-    await screen.findByRole("tab", { name: "Mój zapas" }),
+    screen.getByRole("heading", { level: 1, name: "Mój zapas" }),
   ).toBeInTheDocument();
-  expect(api.listInventoryBalances).toHaveBeenCalledWith({ mine: true });
   expect(screen.queryByRole("button", { name: "Wydaj osobie" })).toBeNull();
-  expect(screen.queryByRole("tab", { name: "Dokumenty" })).toBeNull();
   // Lista ludzi to nie jest widok magazynu: pracownik jej nie pobiera.
   expect(api.listMemberships).not.toHaveBeenCalled();
+  unmount();
+
+  // Dokumenty pod własnym adresem: bez prawa — informacja, nie zapytania.
+  api.listInventoryItems.mockClear();
+  renderPanel({ canManage: false, section: "documents" });
+  expect(
+    await screen.findByText("Brak dostępu do magazynu"),
+  ).toBeInTheDocument();
+  expect(api.listInventoryItems).not.toHaveBeenCalled();
+});
+
+test("przyjęcie z wiersza stanu ma już wybraną pozycję", async () => {
+  api.listInventoryBalances.mockResolvedValue([
+    balance("20.000", WAREHOUSE, null),
+  ]);
+  renderPanel();
+  const row = (await screen.findByText("Klocek drewniany")).closest("tr")!;
+  fireEvent.click(
+    within(row).getByRole("button", { name: "Przyjmij dostawę" }),
+  );
+  const dialog = await screen.findByRole("dialog");
+  expect(within(dialog).getByLabelText("Pozycja")).toHaveValue(BLOCK);
 });

@@ -17,11 +17,17 @@ import {
 } from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
-import { DataTable, type ColumnDef } from "@saas-core/ui/components/data-table";
+import {
+  DataTable,
+  DataTableFilter,
+  RowActions,
+  type ColumnDef,
+} from "@saas-core/ui/components/data-table";
 import { Field, FieldLabel } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
+import { PanelPage } from "#components/panel/panel-page";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import {
   FormDialog,
@@ -29,9 +35,15 @@ import {
   personName,
   useFormat,
   type InventoryData,
+  type PageFrame,
 } from "./shared";
 
 type Movement = "receive" | "issue" | "return";
+const MOVEMENT_ICONS = {
+  receive: PackagePlusIcon,
+  issue: PackageCheckIcon,
+  return: PackageMinusIcon,
+};
 
 /**
  * Stany jednego miejsca. Właściciel wybiera magazyn albo czyjś zapas; pracownik
@@ -43,11 +55,13 @@ export function StockTab({
   canManage,
   reloads,
   onChanged,
+  page,
 }: {
   data: InventoryData;
   canManage: boolean;
   reloads: number;
   onChanged: (notice: string) => void;
+  page: PageFrame;
 }) {
   const t = useTranslations("Inventory");
   const labels = useDataTableLabels();
@@ -160,22 +174,59 @@ export function StockTab({
       header: t("minimum"),
       cell: ({ row: { original: row } }) => amount(row.minimum_quantity),
     },
+    ...(canManage
+      ? [
+          {
+            id: "actions",
+            header: t("actions"),
+            meta: { actions: true },
+            // The main warehouse takes deliveries and gives out; a person's
+            // stock gets more or gives back.
+            cell: ({ row: { original: row } }) => (
+              <RowActions
+                items={
+                  row.holder_id
+                    ? [
+                        movement("issue", row, true),
+                        movement("return", row, true),
+                      ]
+                    : [
+                        movement("receive", row, true),
+                        movement("issue", row, true),
+                        movement("return", row, false),
+                      ]
+                }
+                label={t("actionsFor", { name: row.item_name })}
+              />
+            ),
+          } satisfies ColumnDef<InventoryBalance, unknown>,
+        ]
+      : []),
   ];
 
   const people = data.crew;
   const items = data.items.filter((item) => item.active);
-  const open = (kind: Movement) => {
+  const open = (kind: Movement, row?: InventoryBalance) => {
     // One id per opened form: a retry after a lost answer is the same document.
     setForm({
       id: crypto.randomUUID(),
-      item_id: "",
-      holder_id: "",
+      item_id: row?.item_id ?? "",
+      holder_id: kind === "receive" ? "" : (row?.holder_id ?? ""),
       quantity: "",
       price: "",
     });
     setHeld([]);
     setDialog(kind);
   };
+  function movement(kind: Movement, row: InventoryBalance, inline: boolean) {
+    const Icon = MOVEMENT_ICONS[kind];
+    return {
+      label: t(kind),
+      icon: <Icon aria-hidden="true" />,
+      inline,
+      onSelect: () => open(kind, row),
+    };
+  }
 
   async function submit() {
     if (dialog === "receive") {
@@ -201,22 +252,23 @@ export function StockTab({
   }
 
   const toolbar = canManage ? (
-    <div className="flex flex-wrap items-end gap-2">
-      <Field className="min-w-48">
-        <FieldLabel htmlFor="stock-location">{t("location")}</FieldLabel>
-        <NativeSelect
-          id="stock-location"
-          onChange={(event) => setLocationId(event.target.value)}
-          value={shown}
-        >
-          {data.locations.map((location) => (
-            <option key={location.id} value={location.id}>
-              {locationLabel(location)}
-            </option>
-          ))}
-        </NativeSelect>
-      </Field>
-      <Button onClick={() => open("receive")} variant="outline">
+    <DataTableFilter
+      id="stock-location"
+      label={t("location")}
+      onChange={(event) => setLocationId(event.target.value)}
+      value={shown}
+    >
+      {data.locations.map((location) => (
+        <option key={location.id} value={location.id}>
+          {locationLabel(location)}
+        </option>
+      ))}
+    </DataTableFilter>
+  ) : null;
+
+  const actions = canManage ? (
+    <>
+      <Button onClick={() => open("receive")}>
         <PackagePlusIcon aria-hidden="true" />
         {t("receive")}
       </Button>
@@ -228,14 +280,15 @@ export function StockTab({
         <PackageMinusIcon aria-hidden="true" />
         {t("return")}
       </Button>
-    </div>
+    </>
   ) : null;
 
   return (
-    <div className="space-y-4">
-      <p className="text-muted-foreground">
-        {canManage ? t("stockDescription") : t("myStockDescription")}
-      </p>
+    <PanelPage
+      {...page}
+      actions={actions}
+      description={canManage ? t("stockDescription") : t("myStockDescription")}
+    >
       {failed ? (
         <p className="text-sm text-destructive" role="alert">
           {t("loadError")}
@@ -352,6 +405,6 @@ export function StockTab({
           </Field>
         ) : null}
       </FormDialog>
-    </div>
+    </PanelPage>
   );
 }

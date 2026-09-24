@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
@@ -5,6 +6,11 @@ import { getTranslations } from "next-intl/server";
 import { AppSidebar } from "#components/panel/app-sidebar";
 import { MobileTabBar } from "#components/panel/mobile-tab-bar";
 import { PanelHeader } from "#components/panel/panel-header";
+import {
+  PANEL_WIDTH_COOKIE,
+  PanelMain,
+  PanelWidthProvider,
+} from "#components/panel/panel-width";
 import { SectionTabs } from "#components/panel/section-tabs";
 import { billingAttention } from "#lib/billing-attention";
 import {
@@ -29,13 +35,15 @@ export default async function PanelLayout({
   children: ReactNode;
   params: Promise<{ locale: string }>;
 }) {
-  const [{ locale }, user, organization, organizations, t] = await Promise.all([
-    params,
-    getServerUser(),
-    getServerCurrentOrganization(),
-    getServerOrganizations(),
-    getTranslations("Organizations"),
-  ]);
+  const [{ locale }, user, organization, organizations, t, jar] =
+    await Promise.all([
+      params,
+      getServerUser(),
+      getServerCurrentOrganization(),
+      getServerOrganizations(),
+      getTranslations("Organizations"),
+      cookies(),
+    ]);
   const prefix = locale === "pl" ? "" : `/${locale}`;
   if (!user) redirect(`${prefix}/login`);
   // An account without an organization has nothing to show yet: it starts by
@@ -65,9 +73,17 @@ export default async function PanelLayout({
         roleLabel={roleLabel}
       />
       <SidebarInset className="flex min-h-svh flex-col">
-        <PanelHeader access={access} user={user} />
-        <SectionTabs access={access} />
-        <div className="flex-1 pb-20 lg:pb-0">{children}</div>
+        <PanelWidthProvider
+          initialWide={jar.get(PANEL_WIDTH_COOKIE)?.value === "full"}
+        >
+          <PanelHeader access={access} user={user} />
+          <PanelMain>
+            {/* On a phone the menu is a drawer away; the section's pages
+                stay one tap apart above the content. */}
+            <SectionTabs access={access} />
+            {children}
+          </PanelMain>
+        </PanelWidthProvider>
         <MobileTabBar access={access} />
       </SidebarInset>
     </SidebarProvider>

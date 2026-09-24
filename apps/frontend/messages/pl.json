@@ -302,7 +302,16 @@
     "themeDark": "Ciemny motyw",
     "animals": "Zwierzęta",
     "inventory": "Magazyn",
-    "profile": "Wizytówka"
+    "profile": "Wizytówka",
+    "inventoryStock": "Stany",
+    "inventoryItems": "Katalog",
+    "inventoryDocuments": "Dokumenty",
+    "inventorySettings": "Ustawienia",
+    "messagesInquiries": "Zapytania ze strony",
+    "messagesAutomation": "Powiadomienia automatyczne",
+    "sectionPages": "Podstrony: {section}",
+    "wideView": "Widok na całą szerokość",
+    "searchConsole": "Search Console"
   },
   "Dashboard": {
     "eyebrow": "Centrum zarządzania",
@@ -1648,7 +1657,16 @@
     "complete": "Zakończ wizytę",
     "completed": "Wizyta zakończona. Produkty zeszły z magazynu.",
     "completeError": "Nie udało się zakończyć wizyty.",
-    "materialsSaved": "Zapisano produkty wizyty."
+    "materialsSaved": "Zapisano produkty wizyty.",
+    "view_list": "Lista",
+    "previous_list": "Poprzedni miesiąc",
+    "next_list": "Następny miesiąc",
+    "statusColumn": "Status",
+    "details": "Szczegóły wizyty",
+    "actions": "Działania",
+    "actionsFor": "Działania: {customer}",
+    "listCaption": "Wizyty: {month}",
+    "noAppointmentsMonth": "Brak wizyt w tym miesiącu."
   },
   "PublicBooking": {
     "title": "Umów termin",
@@ -1811,7 +1829,9 @@
     "revoked": "wycofany",
     "secretHint": "Końcówka sekretu",
     "loadError": "Nie udało się pobrać integracji.",
-    "createError": "Nie udało się utworzyć integracji. Sprawdź uprawnienia i dane."
+    "createError": "Nie udało się utworzyć integracji. Sprawdź uprawnienia i dane.",
+    "title": "Integracje",
+    "description": "Klucze API i webhooki dla programów, które mają rozmawiać z Twoją firmą."
   },
   "NotificationSupport": {
     "queued_messages": "Wiadomości w kolejce",
@@ -1825,7 +1845,9 @@
     "mfaHelp": "Operacja wymaga notifications.support, aktywnego MFA i jest audytowana.",
     "retry": "Ponów ten sam rekord",
     "loadError": "Nie udało się pobrać stanu kolejek. Sprawdź MFA i uprawnienia.",
-    "retryError": "Nie udało się ponowić wiadomości."
+    "retryError": "Nie udało się ponowić wiadomości.",
+    "title": "Kolejki powiadomień",
+    "description": "Stan kolejek wysyłki i bezpieczne ponowienie wiadomości."
   },
   "Identity": {
     "securePanel": "Bezpieczny panel",
@@ -2250,8 +2272,6 @@
     "problem_access": "Rejestr gospodarstw widzą tylko osoby z dostępem do niego. Jeśli go potrzebujesz, poproś właściciela organizacji.",
     "problem_plan": "Rejestr gospodarstw nie jest dostępny w planie tej organizacji.",
     "problem_missing": "Nie ma takiego gospodarstwa albo nie masz do niego dostępu.",
-    "listTitle": "{count, plural, one {# gospodarstwo} few {# gospodarstwa} many {# gospodarstw} other {# gospodarstw}}",
-    "listDescription": "Otwórz gospodarstwo, żeby zobaczyć zwierzęta i notatki.",
     "search": "Szukaj: nazwa, miejscowość, hodowca, numer",
     "clearSearch": "Wyczyść wyszukiwanie",
     "noResults": "Nic nie pasuje do wyszukiwania.",
@@ -2351,13 +2371,18 @@
     "scheduleConsentOn": "Włączone. Nowe terminy i raporty tej firmy trafiają do kartoteki wizyt.",
     "scheduleConsentOff": "Wyłączone — tak jest domyślnie. Ta firma nie przysyła terminów ani raportów, a kartoteka wizyt zostaje bez jej wpisów.",
     "scheduleConsentOnNotice": "Włączono zgodę na grafik: {name}.",
-    "scheduleConsentOffNotice": "Wyłączono zgodę na grafik: {name}."
+    "scheduleConsentOffNotice": "Wyłączono zgodę na grafik: {name}.",
+    "actions": "Działania",
+    "actionsFor": "Działania: {name}",
+    "open": "Otwórz gospodarstwo",
+    "call": "Zadzwoń: {phone}",
+    "animalsOfFarm": "Zwierzęta tego gospodarstwa",
+    "openAnimal": "Karta zwierzęcia",
+    "farm": "Gospodarstwo"
   },
   "Animals": {
     "title": "Zwierzęta",
     "description": "Wszystkie zwierzęta ze wszystkich gospodarstw w jednym miejscu.",
-    "listTitle": "Lista zwierząt",
-    "listDescription": "Kliknij kolczyk, żeby otworzyć kartę zwierzęcia.",
     "tableCaption": "Zwierzęta ze wszystkich gospodarstw",
     "search": "Szukaj zwierzęcia",
     "searchHint": "Kolczyk (wystarczą ostatnie cyfry), numer roboczy albo imię.",
@@ -2420,7 +2445,11 @@
     "reviewHint": "Tę sztukę wpisała firma korekcyjna. Sprawdź dane i potwierdź.",
     "photoAlt": "Zdjęcie z wpisu",
     "photoLoading": "Wczytywanie zdjęcia",
-    "photoUnavailable": "Zdjęcia już nie ma"
+    "photoUnavailable": "Zdjęcia już nie ma",
+    "actions": "Działania",
+    "actionsFor": "Działania: {tag}",
+    "openCard": "Karta zwierzęcia",
+    "openFarm": "Przejdź do gospodarstwa"
   },
   "StaffAccounts": {
     "title": "Konta pracowników kalendarza",
@@ -2591,7 +2620,21 @@
     "unit_g": "g",
     "unit_kg": "kg",
     "unit_m": "m",
-    "unit_hour": "godz."
+    "unit_hour": "godz.",
+    "setupTitle": "Ustawienia magazynu",
+    "itemsDescription": "Wszystko, co firma kupuje, zużywa i sprzedaje. Pozycji z historią się nie usuwa — ukrywa się je.",
+    "documentsDescription": "Każda zmiana stanu to dokument. Szkic możesz poprawiać; zatwierdzenie nadaje numer i zmienia stan.",
+    "setupDescription": "Magazyny, zapasy osób, dostawcy i kategorie — to, co ustawia się raz i rzadko zmienia.",
+    "helpLabel": "Pomoc",
+    "kindsHelpTitle": "Rodzaje dokumentów",
+    "kindHelp_PZ": "Towar przychodzi z zewnątrz, zwykle dostawa od dostawcy. Cena z faktury wycenia późniejszy rozchód.",
+    "kindHelp_WZ": "Towar wychodzi do klienta, np. sprzedaż przy wizycie.",
+    "kindHelp_RW": "Firma zużywa towar na własne potrzeby, np. materiał w pracy.",
+    "kindHelp_PW": "Towar powstaje albo wraca w firmie bez dostawcy, np. z własnej produkcji.",
+    "kindHelp_MM": "Towar zmienia miejsce: z magazynu do zapasu osoby i z powrotem.",
+    "kindHelp_INW": "Spis z natury ustawia stan na to, co naprawdę leży na półce.",
+    "correctionHelp": "Zatwierdzonego dokumentu się nie zmienia. Pomyłkę cofa korekta, a potem wystawiasz poprawny dokument.",
+    "allCategories": "Wszystkie kategorie"
   },
   "Catalog": {
     "title": "Katalog firm",
@@ -2636,7 +2679,9 @@
     "catalogNotPublished": "Wizytówka jest wyłączona — nikt nie znajdzie Cię w katalogu. Uzupełnij nazwę, miasto i kategorię, a potem ją włącz.",
     "leadsToSite": "Wpis w katalogu prowadzi do Twojej strony internetowej.",
     "leadsToCatalog": "Wpis w katalogu prowadzi do strony wizytówki na naszej platformie.",
-    "showInCatalog": "Pokazuj wizytówkę w katalogu"
+    "showInCatalog": "Pokazuj wizytówkę w katalogu",
+    "pageTitle": "Wizytówka",
+    "pageDescription": "Strona firmy w publicznym katalogu: nazwa, opis, kontakt i usługi. Pokazujesz ją, kiedy chcesz."
   },
   "SiteInquiries": {
     "title": "Zapytania ze strony",

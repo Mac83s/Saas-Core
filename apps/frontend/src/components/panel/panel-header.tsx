@@ -34,6 +34,7 @@ import { SidebarTrigger } from "@saas-core/ui/components/sidebar";
 import { cn } from "@saas-core/ui/lib/utils";
 import { product } from "../../product";
 import { NotificationBell } from "../../modules/shared/notifications";
+import { WidthToggle } from "./panel-width";
 
 /** Header of shell 1a: status on the left, the day's action and the account on the right. */
 export function PanelHeader({
@@ -57,6 +58,7 @@ export function PanelHeader({
         />
         <ConnectionStatus />
         <div className="ml-auto flex items-center gap-1 sm:gap-2">
+          <WidthToggle />
           <ThemeToggle />
           <LocaleToggle />
           <NotificationBell />

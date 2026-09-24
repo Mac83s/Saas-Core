@@ -6,6 +6,7 @@ import {
   CalendarPlusIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  EyeIcon,
   PlusIcon,
   Settings2Icon,
 } from "lucide-react";
@@ -18,11 +19,17 @@ import {
   type BookingCatalog,
 } from "@saas-core/api-client";
 import { Button, buttonVariants } from "@saas-core/ui/components/button";
-import { Label } from "@saas-core/ui/components/label";
-import { NativeSelect } from "@saas-core/ui/components/native-select";
+import {
+  DataTable,
+  DataTableFilter,
+  RowActions,
+  type ColumnDef,
+} from "@saas-core/ui/components/data-table";
 import { cn } from "@saas-core/ui/lib/utils";
 
+import { PanelPage } from "#components/panel/panel-page";
 import { Link } from "#i18n/navigation";
+import { useDataTableLabels } from "#lib/data-table-labels";
 import {
   AppointmentDialog,
   NewAppointmentDialog,
@@ -42,8 +49,9 @@ import {
   weekStart,
 } from "./calendar-time";
 
-type View = "day" | "week" | "month";
-const VIEWS: View[] = ["day", "week", "month"];
+type View = "day" | "week" | "month" | "list";
+/** The list is the month as a table: the same arrows, sortable and searchable. */
+const VIEWS: View[] = ["day", "week", "month", "list"];
 type OpenAppointment = (
   appointment: BookingAppointment,
   opener: HTMLElement,
@@ -70,6 +78,7 @@ export function BookingPanel({
 } = {}) {
   const t = useTranslations("Calendar");
   const locale = useLocale();
+  const labels = useDataTableLabels();
   const appZone = useTimeZone();
   const zone = timeZone ?? appZone ?? "UTC";
   const today = wallClock(new Date(), zone).day;
@@ -149,6 +158,12 @@ export function BookingPanel({
 
   const days = useMemo(() => {
     if (view === "day") return [cursor];
+    if (view === "list") {
+      const first = `${cursor.slice(0, 7)}-01`;
+      const count =
+        (Date.parse(addMonths(cursor, 1)) - Date.parse(first)) / 86_400_000;
+      return Array.from({ length: count }, (_, index) => addDays(first, index));
+    }
     const first = weekStart(
       view === "week" ? cursor : `${cursor.slice(0, 7)}-01`,
     );
@@ -170,7 +185,8 @@ export function BookingPanel({
         })
       : view === "week"
         ? formatDayRange(days[0], days[6], locale)
-        : formatDay(cursor, locale, { month: "long", year: "numeric" });
+        : // The month and the list show the same month.
+          formatDay(cursor, locale, { month: "long", year: "numeric" });
 
   const move = (step: number) =>
     setCursor(
@@ -263,7 +279,70 @@ export function BookingPanel({
       />
     ) : null;
 
+  const listColumns: ColumnDef<BookingAppointment, unknown>[] = [
+    {
+      id: "when",
+      accessorFn: (item) => new Date(item.starts_at),
+      header: t("when"),
+      meta: { primary: true },
+      cell: ({ row: { original: item } }) => (
+        <span
+          className={cn(
+            "font-medium tabular-nums",
+            item.status === "canceled" && "line-through",
+          )}
+        >
+          {formatWhen(item, locale, zone)}
+        </span>
+      ),
+    },
+    { id: "customer", accessorKey: "customer_name", header: t("customer") },
+    { id: "service", accessorKey: "service_name", header: t("service") },
+    { id: "staff", accessorKey: "staff_name", header: t("staff") },
+    {
+      id: "status",
+      accessorFn: (item) => statusLabel(t, item.status),
+      header: t("statusColumn"),
+      cell: ({ row: { original: item } }) => (
+        <StatusBadge status={item.status} />
+      ),
+    },
+    {
+      id: "actions",
+      header: t("actions"),
+      meta: { actions: true },
+      cell: ({ row: { original: item } }) => (
+        <RowActions
+          items={[
+            {
+              label: t("details"),
+              icon: <EyeIcon aria-hidden="true" />,
+              inline: true,
+              onSelect: (trigger) => {
+                if (trigger) openAppointment(item, trigger);
+              },
+            },
+          ]}
+          label={t("actionsFor", { customer: item.customer_name })}
+        />
+      ),
+    },
+  ];
+
   const views = {
+    list: () => (
+      <DataTable
+        caption={t("listCaption", { month: title })}
+        columns={listColumns}
+        data={days.flatMap((day) => byDay.get(day) ?? [])}
+        getRowId={(item) => item.id}
+        labels={{ ...labels, empty: t("noAppointmentsMonth") }}
+        searchable
+        searchText={(item) =>
+          [item.customer_name, item.service_name, item.staff_name].join(" ")
+        }
+      />
+    ),
     day: () => {
       const items = byDay.get(cursor) ?? [];
       return items.length ? (
@@ -394,19 +473,10 @@ export function BookingPanel({
   };
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-primary">{t("eyebrow")}</p>
-          <h1 className="text-3xl font-semibold tracking-tight">
-            {t("title")}
-          </h1>
-          <p className="max-w-2xl text-muted-foreground">
-            {t("description", { zone: zone.replaceAll("_", " ") })}
-          </p>
-        </div>
-        {canManage ? (
-          <div className="flex flex-wrap gap-2">
+    <PanelPage
+      actions={
+        canManage ? (
+          <>
             <Link
               className={buttonVariants({ variant: "ghost" })}
               href="/panel/settings/services"
@@ -420,10 +490,14 @@ export function BookingPanel({
                 {t("newAppointment")}
               </Button>
             ) : null}
-          </div>
-        ) : null}
-      </header>
-
+          </>
+        ) : null
+      }
+      description={t("description", { zone: zone.replaceAll("_", " ") })}
+      eyebrow={t("eyebrow")}
+      notice={notice}
+      title={t("title")}
+    >
       <section aria-labelledby="calendar-range" className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <Button onClick={() => setCursor(today)} variant="outline">
@@ -472,38 +546,34 @@ export function BookingPanel({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="grid w-full gap-1.5 sm:w-60">
-            <Label htmlFor="calendar-staff">{t("staffFilter")}</Label>
-            <NativeSelect
-              id="calendar-staff"
-              onChange={(event) => setStaffFilter(event.target.value)}
-              value={staffFilter}
-            >
-              <option value="">{t("allStaff")}</option>
-              <option value="mine">{t("mine")}</option>
-              {catalog?.staff.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </NativeSelect>
-          </div>
-          <div className="grid w-full gap-1.5 sm:w-60">
-            <Label htmlFor="calendar-service">{t("serviceFilter")}</Label>
-            <NativeSelect
-              id="calendar-service"
-              onChange={(event) => setServiceFilter(event.target.value)}
-              value={serviceFilter}
-            >
-              <option value="">{t("allServices")}</option>
-              {serviceNames.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </NativeSelect>
-          </div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <DataTableFilter
+            id="calendar-staff"
+            label={t("staffFilter")}
+            onChange={(event) => setStaffFilter(event.target.value)}
+            value={staffFilter}
+          >
+            <option value="">{t("allStaff")}</option>
+            <option value="mine">{t("mine")}</option>
+            {catalog?.staff.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </DataTableFilter>
+          <DataTableFilter
+            id="calendar-service"
+            label={t("serviceFilter")}
+            onChange={(event) => setServiceFilter(event.target.value)}
+            value={serviceFilter}
+          >
+            <option value="">{t("allServices")}</option>
+            {serviceNames.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </DataTableFilter>
           <ul
             aria-label={t("legend")}
             className="flex flex-wrap gap-2 lg:ml-auto"
@@ -515,10 +585,6 @@ export function BookingPanel({
             ))}
           </ul>
         </div>
-
-        <p className="text-sm text-success-foreground" role="status">
-          {notice}
-        </p>
 
         {problem && !appointments ? (
           problemNotice
@@ -577,7 +643,7 @@ export function BookingPanel({
           zone={zone}
         />
       ) : null}
-    </div>
+    </PanelPage>
   );
 }
 

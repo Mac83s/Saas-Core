@@ -10,6 +10,7 @@ import { afterEach, expect, test, vi } from "vitest";
 
 import {
   DataTable,
+  DataTableFilter,
   RowActions,
   type ColumnDef,
   type DataTableLabels,
@@ -225,4 +226,60 @@ test("row actions hide without items and hand the trigger to the chosen one", as
   fireEvent.click(trigger);
   fireEvent.click(await screen.findByRole("menuitem", { name: "Remove" }));
   expect(onSelect).toHaveBeenCalledWith(trigger);
+});
+
+test("inline row actions are buttons of their own, and stay in the menu for phones", async () => {
+  const open = vi.fn();
+  const remove = vi.fn();
+  render(
+    <RowActions
+      items={[
+        { label: "Open", onSelect: open, inline: true, icon: <svg /> },
+        { label: "Remove", onSelect: remove, destructive: true },
+      ]}
+      label="Actions for Kasia"
+    />,
+  );
+  const button = screen.getByRole("button", { name: "Open" });
+  fireEvent.click(button);
+  expect(open).toHaveBeenCalledWith(button);
+  fireEvent.click(screen.getByRole("button", { name: "Actions for Kasia" }));
+  // A phone card has room for "…" only, so the menu repeats the inline one
+  // there; a wide screen hides the copy.
+  const copy = await screen.findByRole("menuitem", { name: "Open" });
+  expect(copy.className).toContain("md:hidden");
+  expect(
+    screen.getByRole("menuitem", { name: "Remove" }).className,
+  ).not.toContain("md:hidden");
+});
+
+test("a row whose actions are all inline shows its menu on a phone only", () => {
+  render(
+    <RowActions
+      items={[
+        {
+          label: "Open",
+          link: <a href="/farms/1" />,
+          inline: true,
+          icon: <svg />,
+        },
+      ]}
+      label="Actions for Kasia"
+    />,
+  );
+  expect(screen.getByRole("link", { name: "Open" }).getAttribute("href")).toBe(
+    "/farms/1",
+  );
+  expect(
+    screen.getByRole("button", { name: "Actions for Kasia" }).className,
+  ).toContain("md:hidden");
+});
+
+test("a filter names its select on the same line", () => {
+  render(
+    <DataTableFilter id="kind" label="Kind" onChange={() => undefined} value="">
+      <option value="">All kinds</option>
+    </DataTableFilter>,
+  );
+  expect(screen.getByRole("combobox", { name: "Kind" })).toBeTruthy();
 });

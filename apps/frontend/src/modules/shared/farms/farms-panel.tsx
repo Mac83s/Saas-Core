@@ -2,22 +2,36 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { KeyRoundIcon, PlusIcon, WarehouseIcon } from "lucide-react";
+import {
+  EyeIcon,
+  KeyRoundIcon,
+  PawPrintIcon,
+  PencilIcon,
+  PhoneIcon,
+  PlusIcon,
+  WarehouseIcon,
+} from "lucide-react";
 
 import {
   createFarm,
   listFarms,
   redeemFarmActivationCode,
+  updateFarm,
   type Farm,
 } from "@saas-core/api-client";
 import { Button, buttonVariants } from "@saas-core/ui/components/button";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@saas-core/ui/components/card";
+import {
+  DataTable,
+  DataTableSearch,
+  RowActions,
+  type ColumnDef,
+} from "@saas-core/ui/components/data-table";
 import {
   Dialog,
   DialogContent,
@@ -29,7 +43,9 @@ import {
 import { Input } from "@saas-core/ui/components/input";
 import { Label } from "@saas-core/ui/components/label";
 
+import { PanelPage } from "#components/panel/panel-page";
 import { Link } from "#i18n/navigation";
+import { useDataTableLabels } from "#lib/data-table-labels";
 import { FarmForm } from "./farm-form";
 import { farmProblem, farmProblemKind, type FarmProblem } from "./problem";
 
@@ -105,11 +121,15 @@ export function FarmsPanel({
 } = {}) {
   const t = useTranslations("Farms");
   const common = useTranslations("Common");
+  const labels = useDataTableLabels();
   const [farms, setFarms] = useState<Farm[]>();
   const [search, setSearch] = useState("");
   const [problem, setProblem] = useState<FarmProblem>();
   const [notice, setNotice] = useState("");
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState<Farm>();
+  // The row's button gets focus back when the edit dialog closes.
+  const [returnTo, setReturnTo] = useState<HTMLElement | null>(null);
   const [claiming, setClaiming] = useState(false);
   const [code, setCode] = useState("");
   const [claimProblem, setClaimProblem] = useState<string>();
@@ -139,241 +159,277 @@ export function FarmsPanel({
     };
   }, [canRead, reloads, search]);
 
+  const columns: ColumnDef<Farm, unknown>[] = [
+    {
+      id: "name",
+      accessorKey: "name",
+      header: t("colFarm"),
+      meta: { primary: true },
+      cell: ({ row: { original: farm } }) => (
+        <>
+          <Link
+            className={`font-medium wrap-anywhere hover:underline ${focusRing}`}
+            href={`/panel/farms/${farm.id}`}
+          >
+            {farm.name}
+          </Link>
+          {farm.herd_number ? (
+            <p className="text-xs text-muted-foreground tabular-nums">
+              {farm.herd_number}
+            </p>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      id: "village",
+      accessorKey: "village",
+      header: t("village"),
+      cell: ({ row: { original: farm } }) => farm.village || "—",
+    },
+    {
+      id: "keeper",
+      accessorFn: (farm) => farm.keeper_name,
+      header: t("colKeeper"),
+      cell: ({ row: { original: farm } }) => (
+        <>
+          <p className="wrap-anywhere">{farm.keeper_name || "—"}</p>
+          {farm.phone ? (
+            <a
+              className={`text-muted-foreground hover:text-foreground hover:underline ${focusRing}`}
+              href={`tel:${farm.phone.replaceAll(" ", "")}`}
+            >
+              {farm.phone}
+            </a>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      id: "animals",
+      accessorKey: "animal_count",
+      header: t("animals"),
+      meta: { className: "tabular-nums" },
+    },
+    {
+      id: "actions",
+      header: t("actions"),
+      meta: { actions: true },
+      cell: ({ row: { original: farm } }) => (
+        <RowActions
+          items={[
+            {
+              label: t("open"),
+              icon: <EyeIcon aria-hidden="true" />,
+              inline: true,
+              link: <Link href={`/panel/farms/${farm.id}`} />,
+            },
+            ...(farm.phone
+              ? [
+                  {
+                    label: t("call", { phone: farm.phone }),
+                    icon: <PhoneIcon aria-hidden="true" />,
+                    inline: true,
+                    link: <a href={`tel:${farm.phone.replaceAll(" ", "")}`} />,
+                  },
+                ]
+              : []),
+            {
+              label: t("animalsOfFarm"),
+              icon: <PawPrintIcon aria-hidden="true" />,
+              link: <Link href={`/panel/animals?farm=${farm.id}`} />,
+            },
+            ...(canManage
+              ? [
+                  {
+                    label: t("edit"),
+                    icon: <PencilIcon aria-hidden="true" />,
+                    onSelect: (trigger: HTMLElement | null) => {
+                      setReturnTo(trigger);
+                      setEditing(farm);
+                    },
+                  },
+                ]
+              : []),
+          ]}
+          label={t("actionsFor", { name: farm.name })}
+        />
+      ),
+    },
+  ];
+
   const list = !canRead ? (
     <FarmNoAccess />
+  ) : problem && !farms ? (
+    <FarmNotice kind={problem} onRetry={refresh} />
+  ) : farms?.length === 0 && !search.trim() ? (
+    <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed bg-muted/30 p-6">
+      <WarehouseIcon aria-hidden="true" className="size-8 text-primary" />
+      <h2 className="font-semibold">{t("emptyTitle")}</h2>
+      <p className="max-w-xl text-muted-foreground">
+        {t(canManage ? "empty" : "emptyReadOnly")}
+      </p>
+      {canManage ? (
+        <Button onClick={() => setAdding(true)}>
+          <PlusIcon aria-hidden="true" />
+          {t("add")}
+        </Button>
+      ) : null}
+    </div>
   ) : (
-    <Card>
-      <CardHeader>
-        <CardTitle>
-          <h2>{t("listTitle", { count: farms?.length ?? 0 })}</h2>
-        </CardTitle>
-        <CardDescription>{t("listDescription")}</CardDescription>
-        <div className="grid gap-1.5 pt-2 sm:max-w-md">
-          <Label htmlFor="farms-search">{t("search")}</Label>
-          <Input
+    <>
+      {problem ? <FarmNotice kind={problem} onRetry={refresh} /> : null}
+      <DataTable
+        caption={t("tableCaption")}
+        columns={columns}
+        data={farms ?? []}
+        getRowId={(farm) => farm.id}
+        labels={{ ...labels, empty: t("noResults"), loading: t("loading") }}
+        emptyAction={
+          <Button onClick={() => setSearch("")} variant="outline">
+            {t("clearSearch")}
+          </Button>
+        }
+        loading={!farms}
+        // The server searches, so a big register stays on one screen.
+        toolbar={
+          <DataTableSearch
             id="farms-search"
-            onChange={(event) => setSearch(event.target.value)}
-            type="search"
+            label={t("search")}
+            onChange={setSearch}
             value={search}
           />
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {problem && !farms ? (
-          <FarmNotice kind={problem} onRetry={refresh} />
-        ) : !farms ? (
-          <div aria-busy="true" className="space-y-2">
-            <span className="sr-only">{t("loading")}</span>
-            {[0, 1, 2].map((row) => (
-              <div
-                className="h-14 animate-pulse rounded-lg bg-muted"
-                key={row}
-              />
-            ))}
-          </div>
-        ) : (
-          <>
-            {problem ? <FarmNotice kind={problem} onRetry={refresh} /> : null}
-            {farms.length === 0 && search.trim() ? (
-              <div className="space-y-3">
-                <p className="text-muted-foreground">{t("noResults")}</p>
-                <Button onClick={() => setSearch("")} variant="outline">
-                  {t("clearSearch")}
-                </Button>
-              </div>
-            ) : farms.length === 0 ? (
-              <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed bg-muted/30 p-6">
-                <WarehouseIcon
-                  aria-hidden="true"
-                  className="size-8 text-primary"
-                />
-                <h3 className="font-semibold">{t("emptyTitle")}</h3>
-                <p className="max-w-xl text-muted-foreground">
-                  {t(canManage ? "empty" : "emptyReadOnly")}
-                </p>
-                {canManage ? (
-                  <Button onClick={() => setAdding(true)}>
-                    <PlusIcon aria-hidden="true" />
-                    {t("add")}
-                  </Button>
-                ) : null}
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <caption className="sr-only">{t("tableCaption")}</caption>
-                  <thead className="border-b text-xs text-muted-foreground">
-                    <tr>
-                      <th className="py-2 pr-3 font-medium" scope="col">
-                        {t("colFarm")}
-                      </th>
-                      <th
-                        className="hidden py-2 pr-3 font-medium md:table-cell"
-                        scope="col"
-                      >
-                        {t("village")}
-                      </th>
-                      <th className="py-2 pr-3 font-medium" scope="col">
-                        {t("colKeeper")}
-                      </th>
-                      <th className="py-2 text-right font-medium" scope="col">
-                        {t("animals")}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {farms.map((farm) => (
-                      <tr key={farm.id}>
-                        <th
-                          className="py-3 pr-3 text-left align-top font-normal"
-                          scope="row"
-                        >
-                          <Link
-                            className={`font-medium wrap-anywhere hover:underline ${focusRing}`}
-                            href={`/panel/farms/${farm.id}`}
-                          >
-                            {farm.name}
-                          </Link>
-                          {farm.herd_number ? (
-                            <p className="text-xs text-muted-foreground tabular-nums">
-                              {farm.herd_number}
-                            </p>
-                          ) : null}
-                          {farm.village ? (
-                            <p className="text-muted-foreground md:hidden">
-                              {farm.village}
-                            </p>
-                          ) : null}
-                        </th>
-                        <td className="hidden py-3 pr-3 align-top md:table-cell">
-                          {farm.village || "—"}
-                        </td>
-                        <td className="py-3 pr-3 align-top">
-                          <p className="wrap-anywhere">
-                            {farm.keeper_name || "—"}
-                          </p>
-                          {farm.phone ? (
-                            <a
-                              className={`text-muted-foreground hover:text-foreground hover:underline ${focusRing}`}
-                              href={`tel:${farm.phone.replaceAll(" ", "")}`}
-                            >
-                              {farm.phone}
-                            </a>
-                          ) : null}
-                        </td>
-                        <td className="py-3 text-right align-top tabular-nums">
-                          {farm.animal_count}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </>
-        )}
-        <p aria-live="polite" className="text-sm text-success-foreground">
-          {notice}
-        </p>
-      </CardContent>
-    </Card>
+        }
+      />
+    </>
   );
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-primary">{t("eyebrow")}</p>
-          <h1 className="text-3xl font-semibold tracking-tight">
-            {t("title")}
-          </h1>
-          <p className="max-w-2xl text-muted-foreground">{t("description")}</p>
-        </div>
-        {canRead && canManage ? (
-          <Dialog onOpenChange={setClaiming} open={claiming}>
-            <DialogTrigger render={<Button variant="outline" />}>
-              <KeyRoundIcon aria-hidden="true" />
-              {t("claim")}
-            </DialogTrigger>
-            <DialogContent closeLabel={common("close")}>
-              <DialogHeader>
-                <DialogTitle>{t("claim")}</DialogTitle>
-                <DialogDescription>{t("claimDescription")}</DialogDescription>
-              </DialogHeader>
-              <form
-                className="space-y-4"
-                onSubmit={async (event) => {
-                  event.preventDefault();
-                  setClaimProblem(undefined);
-                  try {
-                    const taken = await redeemFarmActivationCode(code.trim());
-                    setClaiming(false);
-                    setCode("");
-                    setNotice(
-                      t("claimed", {
-                        name: taken.farm.name,
-                        count: taken.animals_added,
-                      }),
-                    );
-                    refresh();
-                  } catch (error) {
-                    setClaimProblem(farmProblem(error, t("claimFailed")));
-                  }
-                }}
-              >
-                <div className="space-y-2">
-                  <Label htmlFor="farm-claim-code">{t("claimCode")}</Label>
-                  <Input
-                    autoComplete="off"
-                    id="farm-claim-code"
-                    onChange={(event) => setCode(event.target.value)}
-                    placeholder="ABCD-EFGH-JKLM-NPQR"
-                    required
-                    value={code}
-                  />
-                </div>
-                {claimProblem ? (
-                  <p className="text-sm text-destructive" role="alert">
-                    {claimProblem}
-                  </p>
-                ) : null}
-                <Button disabled={code.trim().length < 8} type="submit">
-                  {t("claimSubmit")}
-                </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
-        ) : null}
-        {canRead && canManage ? (
-          <Dialog onOpenChange={setAdding} open={adding}>
-            <DialogTrigger render={<Button />}>
-              <PlusIcon aria-hidden="true" />
-              {t("add")}
-            </DialogTrigger>
-            <DialogContent closeLabel={common("close")}>
-              <DialogHeader>
-                <DialogTitle>{t("add")}</DialogTitle>
-                <DialogDescription>{t("addDescription")}</DialogDescription>
-              </DialogHeader>
-              <FarmForm
-                onSubmit={async (values) => {
-                  try {
-                    const farm = await createFarm(values);
-                    setAdding(false);
-                    setNotice(t("added", { name: farm.name }));
-                    refresh();
-                    return undefined;
-                  } catch (error) {
-                    return farmProblem(error, t("saveFailed"));
-                  }
-                }}
-                submitLabel={t("add")}
-              />
-            </DialogContent>
-          </Dialog>
-        ) : null}
-      </header>
+    <PanelPage
+      actions={
+        canRead && canManage ? (
+          <>
+            <Dialog onOpenChange={setClaiming} open={claiming}>
+              <DialogTrigger render={<Button variant="outline" />}>
+                <KeyRoundIcon aria-hidden="true" />
+                {t("claim")}
+              </DialogTrigger>
+              <DialogContent closeLabel={common("close")}>
+                <DialogHeader>
+                  <DialogTitle>{t("claim")}</DialogTitle>
+                  <DialogDescription>{t("claimDescription")}</DialogDescription>
+                </DialogHeader>
+                <form
+                  className="space-y-4"
+                  onSubmit={async (event) => {
+                    event.preventDefault();
+                    setClaimProblem(undefined);
+                    try {
+                      const taken = await redeemFarmActivationCode(code.trim());
+                      setClaiming(false);
+                      setCode("");
+                      setNotice(
+                        t("claimed", {
+                          name: taken.farm.name,
+                          count: taken.animals_added,
+                        }),
+                      );
+                      refresh();
+                    } catch (error) {
+                      setClaimProblem(farmProblem(error, t("claimFailed")));
+                    }
+                  }}
+                >
+                  <div className="space-y-2">
+                    <Label htmlFor="farm-claim-code">{t("claimCode")}</Label>
+                    <Input
+                      autoComplete="off"
+                      id="farm-claim-code"
+                      onChange={(event) => setCode(event.target.value)}
+                      placeholder="ABCD-EFGH-JKLM-NPQR"
+                      required
+                      value={code}
+                    />
+                  </div>
+                  {claimProblem ? (
+                    <p className="text-sm text-destructive" role="alert">
+                      {claimProblem}
+                    </p>
+                  ) : null}
+                  <Button disabled={code.trim().length < 8} type="submit">
+                    {t("claimSubmit")}
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+            <Dialog onOpenChange={setAdding} open={adding}>
+              <DialogTrigger render={<Button />}>
+                <PlusIcon aria-hidden="true" />
+                {t("add")}
+              </DialogTrigger>
+              <DialogContent closeLabel={common("close")}>
+                <DialogHeader>
+                  <DialogTitle>{t("add")}</DialogTitle>
+                  <DialogDescription>{t("addDescription")}</DialogDescription>
+                </DialogHeader>
+                <FarmForm
+                  onSubmit={async (values) => {
+                    try {
+                      const farm = await createFarm(values);
+                      setAdding(false);
+                      setNotice(t("added", { name: farm.name }));
+                      refresh();
+                      return undefined;
+                    } catch (error) {
+                      return farmProblem(error, t("saveFailed"));
+                    }
+                  }}
+                  submitLabel={t("add")}
+                />
+              </DialogContent>
+            </Dialog>
+          </>
+        ) : null
+      }
+      description={t("description")}
+      eyebrow={t("eyebrow")}
+      notice={notice}
+      title={t("title")}
+    >
       {list}
-    </div>
+      {editing ? (
+        <Dialog
+          onOpenChange={(open) => {
+            if (!open) setEditing(undefined);
+          }}
+          open
+        >
+          <DialogContent
+            closeLabel={common("close")}
+            finalFocus={() => returnTo ?? true}
+          >
+            <DialogHeader>
+              <DialogTitle>{t("edit")}</DialogTitle>
+              <DialogDescription>{editing.name}</DialogDescription>
+            </DialogHeader>
+            <FarmForm
+              farm={editing}
+              onSubmit={async (_values, changed) => {
+                try {
+                  await updateFarm(editing.id, changed);
+                  setEditing(undefined);
+                  setNotice(t("saved"));
+                  refresh();
+                  return undefined;
+                } catch (error) {
+                  return farmProblem(error, t("saveFailed"));
+                }
+              }}
+              submitLabel={t("save")}
+            />
+          </DialogContent>
+        </Dialog>
+      ) : null}
+    </PanelPage>
   );
 }

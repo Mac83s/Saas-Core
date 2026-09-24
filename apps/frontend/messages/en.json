@@ -302,7 +302,16 @@
     "themeDark": "Dark theme",
     "animals": "Animals",
     "inventory": "Inventory",
-    "profile": "Business card"
+    "profile": "Business card",
+    "inventoryStock": "Stock",
+    "inventoryItems": "Catalogue",
+    "inventoryDocuments": "Documents",
+    "inventorySettings": "Settings",
+    "messagesInquiries": "Website inquiries",
+    "messagesAutomation": "Automatic notifications",
+    "sectionPages": "Pages of {section}",
+    "wideView": "Full-width view",
+    "searchConsole": "Search Console"
   },
   "Dashboard": {
     "eyebrow": "Management hub",
@@ -1648,7 +1657,16 @@
     "complete": "Complete the visit",
     "completed": "Visit completed. Its products left the warehouse.",
     "completeError": "The visit could not be completed.",
-    "materialsSaved": "Visit products saved."
+    "materialsSaved": "Visit products saved.",
+    "view_list": "List",
+    "previous_list": "Previous month",
+    "next_list": "Next month",
+    "statusColumn": "Status",
+    "details": "Visit details",
+    "actions": "Actions",
+    "actionsFor": "Actions: {customer}",
+    "listCaption": "Visits: {month}",
+    "noAppointmentsMonth": "No visits this month."
   },
   "PublicBooking": {
     "title": "Book a time",
@@ -1811,7 +1829,9 @@
     "revoked": "revoked",
     "secretHint": "Secret suffix",
     "loadError": "Could not load integrations.",
-    "createError": "Could not create the integration. Check permissions and input."
+    "createError": "Could not create the integration. Check permissions and input.",
+    "title": "Integrations",
+    "description": "API keys and webhooks for software that talks to your company."
   },
   "NotificationSupport": {
     "queued_messages": "Queued messages",
@@ -1825,7 +1845,9 @@
     "mfaHelp": "The action requires notifications.support, active MFA, and is audited.",
     "retry": "Retry the same record",
     "loadError": "Could not load queue health. Check MFA and permissions.",
-    "retryError": "Could not retry the message."
+    "retryError": "Could not retry the message.",
+    "title": "Notification queues",
+    "description": "The delivery queues and a safe retry of one message."
   },
   "Identity": {
     "securePanel": "Secure dashboard",
@@ -2250,8 +2272,6 @@
     "problem_access": "Only people with access to the farm register can see it. Ask the organization's owner if you need it.",
     "problem_plan": "The farm register isn't included in this organization's plan.",
     "problem_missing": "There is no such farm, or you have no access to it.",
-    "listTitle": "{count, plural, one {# farm} other {# farms}}",
-    "listDescription": "Open a farm to see its animals and notes.",
     "search": "Search: name, village, keeper, number",
     "clearSearch": "Clear the search",
     "noResults": "Nothing matches the search.",
@@ -2351,13 +2371,18 @@
     "scheduleConsentOn": "On. New dates and reports from this company reach the visit file.",
     "scheduleConsentOff": "Off — that is the default. This company sends no dates and no reports, and the visit file stays without its entries.",
     "scheduleConsentOnNotice": "Schedule consent turned on: {name}.",
-    "scheduleConsentOffNotice": "Schedule consent turned off: {name}."
+    "scheduleConsentOffNotice": "Schedule consent turned off: {name}.",
+    "actions": "Actions",
+    "actionsFor": "Actions: {name}",
+    "open": "Open the farm",
+    "call": "Call {phone}",
+    "animalsOfFarm": "This farm’s animals",
+    "openAnimal": "Animal card",
+    "farm": "Farm"
   },
   "Animals": {
     "title": "Animals",
     "description": "Every animal of every farm in one place.",
-    "listTitle": "Animal list",
-    "listDescription": "Open an ear tag to see the animal's card.",
     "tableCaption": "Animals of all farms",
     "search": "Search for an animal",
     "searchHint": "Ear tag (the last digits are enough), working number or name.",
@@ -2420,7 +2445,11 @@
     "reviewHint": "The trimming company added this animal. Check it and confirm.",
     "photoAlt": "Photo from the entry",
     "photoLoading": "Loading the photo",
-    "photoUnavailable": "The photo is gone"
+    "photoUnavailable": "The photo is gone",
+    "actions": "Actions",
+    "actionsFor": "Actions: {tag}",
+    "openCard": "Animal card",
+    "openFarm": "Go to the farm"
   },
   "StaffAccounts": {
     "title": "Calendar staff accounts",
@@ -2591,7 +2620,21 @@
     "unit_g": "g",
     "unit_kg": "kg",
     "unit_m": "m",
-    "unit_hour": "h"
+    "unit_hour": "h",
+    "setupTitle": "Inventory settings",
+    "itemsDescription": "Everything the company buys, uses and sells. An item with history is hidden, never deleted.",
+    "documentsDescription": "Every change of stock is a document. A draft can be edited; posting numbers it and changes the stock.",
+    "setupDescription": "Warehouses, people’s stock, suppliers and categories: set once, changed rarely.",
+    "helpLabel": "Help",
+    "kindsHelpTitle": "Kinds of documents",
+    "kindHelp_PZ": "Goods come in from outside, usually a supplier’s delivery. The invoice price values later issues.",
+    "kindHelp_WZ": "Goods go out to a customer, e.g. a sale at a visit.",
+    "kindHelp_RW": "The company uses goods itself, e.g. material at work.",
+    "kindHelp_PW": "Goods appear inside the company without a supplier, e.g. own production.",
+    "kindHelp_MM": "Goods change place: from a warehouse to a person’s stock and back.",
+    "kindHelp_INW": "A stocktake sets the stock to what is really on the shelf.",
+    "correctionHelp": "A posted document never changes. A correction reverses a mistake; then issue the right document.",
+    "allCategories": "All categories"
   },
   "Catalog": {
     "title": "Company directory",
@@ -2636,7 +2679,9 @@
     "catalogNotPublished": "Your business card is switched off — nobody finds you in the directory. Fill in the name, city and category, then switch it on.",
     "leadsToSite": "The directory entry leads to your website.",
     "leadsToCatalog": "The directory entry leads to your business card page on our platform.",
-    "showInCatalog": "Show my business card in the directory"
+    "showInCatalog": "Show my business card in the directory",
+    "pageTitle": "Business card",
+    "pageDescription": "Your company’s page in the public catalogue: name, description, contact and services. Shown only when you want it."
   },
   "SiteInquiries": {
     "title": "Website inquiries",

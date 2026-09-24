@@ -202,7 +202,13 @@ test("pokazuje zwierzęta wszystkich gospodarstw kolumnami rejestru", async () =
     within(table)
       .getAllByRole("columnheader")
       .map((header) => header.textContent),
-  ).toEqual(["Kolczyk", "Imię / nr roboczy", "Gospodarstwo", "Status"]);
+  ).toEqual([
+    "Kolczyk",
+    "Imię / nr roboczy",
+    "Gospodarstwo",
+    "Status",
+    "Działania",
+  ]);
 
   const rows = within(table).getAllByRole("row");
   expect(rows).toHaveLength(4);
@@ -465,7 +471,7 @@ test("lists the register in English and never fakes trimming columns", async () 
     within(table)
       .getAllByRole("columnheader")
       .map((header) => header.textContent),
-  ).toEqual(["Ear tag", "Name / working no.", "Farm", "Status"]);
+  ).toEqual(["Ear tag", "Name / working no.", "Farm", "Status", "Actions"]);
   expect(screen.getByText("Found 3 animals")).toBeInTheDocument();
   expect(screen.getByLabelText("Farm")).toBeInTheDocument();
   expect(

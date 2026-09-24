@@ -78,6 +78,8 @@ import {
   TabsTab,
 } from "@saas-core/ui/components/tabs";
 
+import { PanelPage } from "#components/panel/panel-page";
+
 import { sitesErrorMessage } from "./problem";
 import { slugifyTitle } from "./slug";
 import { Link } from "#i18n/navigation";
@@ -374,30 +376,26 @@ export function SitesPanel({
   }
 
   const heading = (
-    <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-      <div>
-        <p className="text-sm font-medium text-primary">{t("panelEyebrow")}</p>
-        <h1
-          className="text-3xl font-semibold tracking-tight"
-          id="sites-heading"
+    <PanelPage
+      actions={
+        <Button
+          aria-label={common("refresh")}
+          disabled={loading}
+          onClick={() => void refresh()}
+          size="icon"
+          variant="outline"
         >
-          {t("title")}
-        </h1>
-        <p className="text-muted-foreground">{t("description")}</p>
-      </div>
-      <Button
-        aria-label={common("refresh")}
-        disabled={loading}
-        onClick={() => void refresh()}
-        size="icon"
-        variant="outline"
-      >
-        <RefreshCwIcon
-          aria-hidden="true"
-          className={loading ? "animate-spin" : ""}
-        />
-      </Button>
-    </div>
+          <RefreshCwIcon
+            aria-hidden="true"
+            className={loading ? "animate-spin" : ""}
+          />
+        </Button>
+      }
+      description={t("description")}
+      eyebrow={t("panelEyebrow")}
+      title={t("title")}
+      titleId="sites-heading"
+    />
   );
 
   const publishedSiteUrl =

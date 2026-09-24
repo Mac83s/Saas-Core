@@ -3,23 +3,29 @@
 import { useTranslations } from "next-intl";
 
 import { Link, usePathname } from "#i18n/navigation";
-import { matches, sectionTabs, type PanelAccess } from "#lib/panel-navigation";
+import {
+  currentPage,
+  sectionTabs,
+  type PanelAccess,
+} from "#lib/panel-navigation";
 import { cn } from "@saas-core/ui/lib/utils";
 
-/** Tabs of the menu entry the page belongs to, e.g. Website › Google visibility. */
+/**
+ * The pages of the section the page belongs to, e.g. Magazyn › Dokumenty, as
+ * tabs above the content — on a phone and a tablet only. A wide screen has
+ * them unfolded in the menu (ADR-057).
+ */
 export function SectionTabs({ access }: { access: PanelAccess }) {
   const t = useTranslations("DashboardNav");
   const pathname = usePathname();
   const tabs = sectionTabs(pathname, access);
   if (!tabs) return null;
+  const current = currentPage(pathname, tabs);
   return (
-    <nav
-      aria-label={t("sections")}
-      className="mx-auto w-full max-w-7xl px-4 pt-6 sm:px-6"
-    >
+    <nav aria-label={t("sections")} className="-mt-2 mb-6 lg:hidden">
       <ul className="flex gap-1 overflow-x-auto border-b">
         {tabs.map((tab) => {
-          const active = matches(pathname, tab.href);
+          const active = tab.href === current;
           return (
             <li key={tab.href}>
               <Link

@@ -25,12 +25,14 @@ import {
 import { Field, FieldLabel } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
 
+import { PanelPage, PanelSection } from "#components/panel/panel-page";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import {
   FormDialog,
   locationLabel,
   problemText,
   type InventoryData,
+  type PageFrame,
 } from "./shared";
 
 type Naming =
@@ -44,9 +46,11 @@ type SupplierDraft = Record<(typeof SUPPLIER_FIELDS)[number], string>;
 export function SetupTab({
   data,
   onChanged,
+  page,
 }: {
   data: InventoryData;
   onChanged: (notice: string) => void;
+  page: PageFrame;
 }) {
   const t = useTranslations("Inventory");
   const labels = useDataTableLabels();
@@ -257,21 +261,15 @@ export function SetupTab({
   ];
 
   return (
-    <div className="space-y-8">
+    <PanelPage {...page} description={t("setupDescription")}>
       {problem ? (
         <p className="text-sm text-destructive" role="alert">
           {problem}
         </p>
       ) : null}
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">{t("locations")}</h2>
-        <DataTable
-          caption={t("locations")}
-          columns={locationColumns}
-          data={data.locations}
-          getRowId={(location) => location.id}
-          labels={labels}
-          toolbar={
+      <div className="space-y-10">
+        <PanelSection
+          actions={
             <Button
               onClick={() => rename({ kind: "warehouse" })}
               variant="outline"
@@ -280,18 +278,18 @@ export function SetupTab({
               {t("addWarehouse")}
             </Button>
           }
-        />
-      </section>
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">{t("suppliers")}</h2>
-        <DataTable
-          caption={t("suppliers")}
-          columns={supplierColumns}
-          data={data.suppliers}
-          getRowId={(one) => one.id}
-          labels={{ ...labels, empty: t("suppliersEmpty") }}
-          searchable={data.suppliers.length > 10}
-          toolbar={
+          title={t("locations")}
+        >
+          <DataTable
+            caption={t("locations")}
+            columns={locationColumns}
+            data={data.locations}
+            getRowId={(location) => location.id}
+            labels={labels}
+          />
+        </PanelSection>
+        <PanelSection
+          actions={
             <Button
               onClick={() => {
                 setSupplierDraft({
@@ -309,17 +307,19 @@ export function SetupTab({
               {t("addSupplier")}
             </Button>
           }
-        />
-      </section>
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold">{t("categories")}</h2>
-        <DataTable
-          caption={t("categories")}
-          columns={categoryColumns}
-          data={data.categories}
-          getRowId={(category) => category.id}
-          labels={labels}
-          toolbar={
+          title={t("suppliers")}
+        >
+          <DataTable
+            caption={t("suppliers")}
+            columns={supplierColumns}
+            data={data.suppliers}
+            getRowId={(one) => one.id}
+            labels={{ ...labels, empty: t("suppliersEmpty") }}
+            searchable={data.suppliers.length > 10}
+          />
+        </PanelSection>
+        <PanelSection
+          actions={
             <Button
               onClick={() => rename({ kind: "category" })}
               variant="outline"
@@ -328,8 +328,17 @@ export function SetupTab({
               {t("addCategory")}
             </Button>
           }
-        />
-      </section>
+          title={t("categories")}
+        >
+          <DataTable
+            caption={t("categories")}
+            columns={categoryColumns}
+            data={data.categories}
+            getRowId={(category) => category.id}
+            labels={labels}
+          />
+        </PanelSection>
+      </div>
 
       <FormDialog
         onOpenChange={(next) => setNaming(next ? naming : null)}
@@ -381,6 +390,6 @@ export function SetupTab({
           </Field>
         ))}
       </FormDialog>
-    </div>
+    </PanelPage>
   );
 }

@@ -1,1 +1,1 @@
-export { InventoryPanel } from "./inventory-panel";
+export { InventoryPanel, type InventorySection } from "./inventory-panel";

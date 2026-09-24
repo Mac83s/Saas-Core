@@ -455,9 +455,11 @@ test("gospodarstwo spoza organizacji nie kusi ponowieniem", async () => {
     ),
   ).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Spróbuj ponownie" })).toBeNull();
-  expect(
-    screen.getByRole("link", { name: "Wszystkie gospodarstwa" }),
-  ).toHaveAttribute("href", "/panel/farms");
+  // The way back up is the page's eyebrow, as on every nested page.
+  expect(screen.getByRole("link", { name: "Gospodarstwa" })).toHaveAttribute(
+    "href",
+    "/panel/farms",
+  );
 });
 
 test("kod aktywacji dla karty firmy, a hodowca cofa dostęp", async () => {

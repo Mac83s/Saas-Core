@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { PlusIcon, Trash2Icon } from "lucide-react";
+import { CheckIcon, EyeIcon, PlusIcon, Trash2Icon } from "lucide-react";
 
 import {
   correctStockDocument,
@@ -16,6 +16,7 @@ import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
 import {
   DataTable,
+  DataTableFilter,
   RowActions,
   type ColumnDef,
 } from "@saas-core/ui/components/data-table";
@@ -29,6 +30,7 @@ import { Field, FieldLabel } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
+import { PanelHelp, PanelPage } from "#components/panel/panel-page";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import {
   FormDialog,
@@ -36,6 +38,7 @@ import {
   problemText,
   useFormat,
   type InventoryData,
+  type PageFrame,
 } from "./shared";
 
 const KINDS = ["PZ", "WZ", "RW", "PW", "MM", "INW"] as const;
@@ -54,10 +57,12 @@ export function DocumentsTab({
   data,
   reloads,
   onChanged,
+  page,
 }: {
   data: InventoryData;
   reloads: number;
   onChanged: (notice: string) => void;
+  page: PageFrame;
 }) {
   const t = useTranslations("Inventory");
   const common = useTranslations("Common");
@@ -194,11 +199,18 @@ export function DocumentsTab({
       cell: ({ row: { original: row } }) => (
         <RowActions
           items={[
-            { label: t("view"), onSelect: () => setViewing(row) },
+            {
+              label: t("view"),
+              icon: <EyeIcon aria-hidden="true" />,
+              inline: true,
+              onSelect: () => setViewing(row),
+            },
             ...(row.status === "draft"
               ? [
                   {
                     label: t("post"),
+                    icon: <CheckIcon aria-hidden="true" />,
+                    inline: true,
                     onSelect: () =>
                       void act(
                         () => postStockDocument(row.id),
@@ -242,7 +254,37 @@ export function DocumentsTab({
     ));
 
   return (
-    <div className="space-y-4">
+    <PanelPage
+      {...page}
+      actions={
+        <Button
+          onClick={() => {
+            setDraft(blank());
+            setCreating(true);
+          }}
+        >
+          <PlusIcon aria-hidden="true" />
+          {t("newDocument")}
+        </Button>
+      }
+      aside={
+        <PanelHelp title={t("kindsHelpTitle")}>
+          <dl className="space-y-2">
+            {KINDS.map((kind) => (
+              <div key={kind}>
+                <dt className="font-medium text-foreground">
+                  {kind} · {t(`kind_${kind}`)}
+                </dt>
+                <dd>{t(`kindHelp_${kind}`)}</dd>
+              </div>
+            ))}
+          </dl>
+          <p>{t("correctionHelp")}</p>
+        </PanelHelp>
+      }
+      asideLabel={t("helpLabel")}
+      description={t("documentsDescription")}
+    >
       {failed ? (
         <p className="text-sm text-destructive" role="alert">
           {t("loadError")}
@@ -265,32 +307,19 @@ export function DocumentsTab({
             ].join(" ")
           }
           toolbar={
-            <div className="flex flex-wrap items-end gap-2">
-              <Field className="min-w-40">
-                <FieldLabel htmlFor="documents-kind">{t("kind")}</FieldLabel>
-                <NativeSelect
-                  id="documents-kind"
-                  onChange={(event) => setKindFilter(event.target.value)}
-                  value={kindFilter}
-                >
-                  <option value="">{t("allKinds")}</option>
-                  {KINDS.map((kind) => (
-                    <option key={kind} value={kind}>
-                      {t(`kind_${kind}`)}
-                    </option>
-                  ))}
-                </NativeSelect>
-              </Field>
-              <Button
-                onClick={() => {
-                  setDraft(blank());
-                  setCreating(true);
-                }}
-              >
-                <PlusIcon aria-hidden="true" />
-                {t("newDocument")}
-              </Button>
-            </div>
+            <DataTableFilter
+              id="documents-kind"
+              label={t("kind")}
+              onChange={(event) => setKindFilter(event.target.value)}
+              value={kindFilter}
+            >
+              <option value="">{t("allKinds")}</option>
+              {KINDS.map((kind) => (
+                <option key={kind} value={kind}>
+                  {t(`kind_${kind}`)}
+                </option>
+              ))}
+            </DataTableFilter>
           }
         />
       )}
@@ -605,6 +634,6 @@ export function DocumentsTab({
           ) : null}
         </DialogContent>
       </Dialog>
-    </div>
+    </PanelPage>
   );
 }

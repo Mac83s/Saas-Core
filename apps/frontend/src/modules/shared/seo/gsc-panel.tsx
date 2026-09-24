@@ -48,10 +48,11 @@ import {
   ComboboxItem,
   ComboboxEmpty,
 } from "@saas-core/ui/components/combobox";
-import { Link } from "#i18n/navigation";
+import { PanelPage } from "#components/panel/panel-page";
 
 export function SeoGscPanel() {
   const t = useTranslations("SeoGsc");
+  const nav = useTranslations("DashboardNav");
   const [sites, setSites] = useState<SiteSummary[]>([]);
   const [siteId, setSiteId] = useState("");
   const [problem, setProblem] = useState(false);
@@ -70,15 +71,11 @@ export function SeoGscPanel() {
   }, []);
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-3xl font-semibold">{t("title")}</h1>
-        <p className="mt-2 max-w-3xl text-muted-foreground">
-          {t("description")}
-        </p>
-        <Link href="/panel/seo" className="mt-3 inline-block underline">
-          {t("audits")}
-        </Link>
-      </header>
+      <PanelPage
+        description={t("description")}
+        eyebrow={nav("website")}
+        title={t("title")}
+      />
       {problem ? <p role="alert">{t("unavailable")}</p> : null}
       <Field>
         <FieldLabel htmlFor="gsc-site">{t("site")}</FieldLabel>

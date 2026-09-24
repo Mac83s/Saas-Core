@@ -28,13 +28,6 @@ import {
 } from "@saas-core/ui/components/card";
 import { Label } from "@saas-core/ui/components/label";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
-import {
-  Tabs,
-  TabsIndicator,
-  TabsList,
-  TabsPanel,
-  TabsTab,
-} from "@saas-core/ui/components/tabs";
 import { SiteInquiries } from "../sites/site-inquiries";
 
 const schema = z.object({
@@ -67,42 +60,36 @@ const NAMED_VARIABLES = new Set([
 ]);
 
 /**
- * Messages: what goes out automatically (templates with their variables and a
- * preview) and what the person receives. Sent-message history and reminder
- * timing have no API yet, so they are not shown.
+ * Messages: website inquiries, and what goes out automatically (templates with
+ * their variables and a preview) and what the person receives. Each is a page
+ * of its own (ADR-057); a person with the right to one only gets that one.
+ * Sent-message history and reminder timing have no API yet, so they are not
+ * shown.
  */
 export function NotificationsPanel({
   canManageBilling = false,
   canReadSiteInquiries = false,
   canManageNotifications = true,
+  section,
+  titleId,
 }: {
   /** The owner is offered the plans when messages are not in the plan. */
   canManageBilling?: boolean;
   canReadSiteInquiries?: boolean;
   canManageNotifications?: boolean;
+  /** Which page; without it, the inquiries when allowed. */
+  section?: "inquiries" | "automation";
+  /** The page's title, which names the inquiries instead of their own. */
+  titleId?: string;
 }) {
-  const t = useTranslations("Notifications");
   const notifications = canManageNotifications ? (
     <div className="space-y-8">
       <TemplatesSection canManageBilling={canManageBilling} />
       <PreferencesSection />
     </div>
   ) : null;
-  if (!canReadSiteInquiries) return notifications;
-  if (!canManageNotifications) return <SiteInquiries />;
-  return (
-    <Tabs defaultValue="inquiries">
-      <TabsList aria-label={t("sectionsLabel")}>
-        <TabsTab value="inquiries">{t("inquiriesTab")}</TabsTab>
-        <TabsTab value="notifications">{t("automationTab")}</TabsTab>
-        <TabsIndicator />
-      </TabsList>
-      <TabsPanel value="inquiries">
-        <SiteInquiries />
-      </TabsPanel>
-      <TabsPanel value="notifications">{notifications}</TabsPanel>
-    </Tabs>
-  );
+  if (section === "automation" || !canReadSiteInquiries) return notifications;
+  return <SiteInquiries labelledBy={titleId} />;
 }
 
 function TemplatesSection({ canManageBilling }: { canManageBilling: boolean }) {

@@ -232,6 +232,36 @@ test("views, navigation and filters show the right appointments", async () => {
   );
 });
 
+test("the list is the month as a table, and a row opens the visit", async () => {
+  renderCalendar();
+  await screen.findByText("Jan Kowalski");
+  fireEvent.click(screen.getByRole("button", { name: "List" }));
+  expect(
+    screen.getByRole("heading", { level: 2, name: "August 2026" }),
+  ).not.toBeNull();
+  const table = screen.getByRole("table", { name: "Visits: August 2026" });
+  const rows = within(table).getAllByRole("row").slice(1);
+  // In time order, as the month runs.
+  expect(rows).toHaveLength(2);
+  expect(rows[0]).toHaveTextContent("Jan Kowalski");
+  expect(rows[1]).toHaveTextContent("Anna Nowak");
+  // The staff filter narrows the list like every other view.
+  fireEvent.change(screen.getByLabelText("Staff member"), {
+    target: { value: BEA },
+  });
+  expect(within(table).queryByText("Jan Kowalski")).toBeNull();
+  fireEvent.click(within(table).getByRole("button", { name: "Visit details" }));
+  expect(
+    await screen.findByRole("dialog", { name: /Anna Nowak/ }),
+  ).not.toBeNull();
+  // The arrows move the list by a month.
+  fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+  fireEvent.click(screen.getByRole("button", { name: "Next month" }));
+  expect(
+    screen.getByRole("heading", { level: 2, name: "September 2026" }),
+  ).not.toBeNull();
+});
+
 test("an appointment opens its details and is canceled only after confirmation", async () => {
   api.cancelBookingAppointment.mockResolvedValue({
     ...appointment,

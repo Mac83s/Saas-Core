@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 
+import { PanelPage } from "#components/panel/panel-page";
 import { getServerUser } from "#lib/server-auth";
 import {
   PasswordCard,
@@ -14,18 +15,17 @@ export default async function AccountSettingsPage() {
     getServerUser(),
   ]);
   return (
-    <main className="mx-auto w-full max-w-7xl space-y-7 px-4 py-8 sm:px-6 lg:py-10">
-      <header className="space-y-2">
-        <p className="text-sm font-medium text-primary">{t("eyebrow")}</p>
-        <h1 className="text-3xl font-semibold tracking-tight">{t("title")}</h1>
-        <p className="max-w-2xl text-muted-foreground">{t("description")}</p>
-      </header>
+    <PanelPage
+      description={t("description")}
+      eyebrow={t("eyebrow")}
+      title={t("title")}
+    >
       <div className="max-w-3xl space-y-7">
         <ProfileNameForm />
         {user ? <PasswordCard email={user.email} /> : null}
         <TwoFactorCard />
         <SessionManager />
       </div>
-    </main>
+    </PanelPage>
   );
 }

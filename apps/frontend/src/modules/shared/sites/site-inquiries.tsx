@@ -29,7 +29,8 @@ function failureKey(error: unknown): Failure {
 
 /** Mounted only when the organization has site editing access. The API enforces
  * the same permission and entitlement for every list/read operation. */
-export function SiteInquiries() {
+/** `labelledBy`: the page's own title names the list; its header is left out. */
+export function SiteInquiries({ labelledBy }: { labelledBy?: string } = {}) {
   const t = useTranslations("SiteInquiries");
   const id = useId();
   const [sites, setSites] = useState<Site[]>();
@@ -68,18 +69,23 @@ export function SiteInquiries() {
   }, [loadSites]);
 
   return (
-    <section aria-labelledby={`${id}-heading`} className="space-y-5">
-      <header className="space-y-1">
-        <h2
-          className="text-xl font-semibold tracking-tight"
-          id={`${id}-heading`}
-        >
-          {t("title")}
-        </h2>
-        <p className="max-w-3xl text-sm text-muted-foreground">
-          {t("description")}
-        </p>
-      </header>
+    <section
+      aria-labelledby={labelledBy ?? `${id}-heading`}
+      className="space-y-5"
+    >
+      {labelledBy ? null : (
+        <header className="space-y-1">
+          <h2
+            className="text-xl font-semibold tracking-tight"
+            id={`${id}-heading`}
+          >
+            {t("title")}
+          </h2>
+          <p className="max-w-3xl text-sm text-muted-foreground">
+            {t("description")}
+          </p>
+        </header>
+      )}
       {loading ? (
         <p role="status">{t("loading")}</p>
       ) : failure ? (
