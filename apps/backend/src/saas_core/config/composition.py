@@ -42,6 +42,9 @@ class ModuleDescriptor:
     #: module without editing a file it received from Saas-Core (ADR-049).
     role_grants: dict[str, tuple[str, ...]] | None = None
     appointment_kinds: dict[str, str] | None = None
+    #: Of those kinds, the ones whose materials the module accounts for itself;
+    #: booking stays out of their stock (ADR-055).
+    own_material_kinds: tuple[str, ...] = ()
     #: Middleware and scheduled work of a module core does not name, so a
     #: product's vertical mounts them without editing `base.py` (ADR-049).
     middleware: tuple[str, ...] = ()
@@ -65,6 +68,7 @@ def load_catalog(directory: Path) -> dict[str, ModuleDescriptor]:
                 for role, grants in (raw["backend"].get("roleGrants") or {}).items()
             },
             appointment_kinds=dict(raw["backend"].get("appointmentKinds") or {}),
+            own_material_kinds=tuple(raw["backend"].get("appointmentKindsWithOwnMaterials") or ()),
             middleware=tuple(raw["backend"].get("middleware") or ()),
             beat_schedule={
                 name: dict(entry)
@@ -73,6 +77,11 @@ def load_catalog(directory: Path) -> dict[str, ModuleDescriptor]:
         )
         if descriptor.id in descriptors:
             raise CompositionError(f"Powielony deskryptor modułu {descriptor.id}")
+        if stray := set(descriptor.own_material_kinds) - set(descriptor.appointment_kinds or {}):
+            raise CompositionError(
+                f"{descriptor.id}: własne materiały dla nieznanego typu wizyty "
+                f"{', '.join(sorted(stray))}"
+            )
         descriptors[descriptor.id] = descriptor
     if not descriptors:
         raise CompositionError(f"Katalog modułów jest pusty: {directory}")
@@ -361,6 +370,16 @@ def appointment_kinds_for(
                 raise CompositionError(f"Typ wizyty {key} zgłoszony przez więcej niż jeden moduł")
             kinds[key] = label
     return kinds
+
+
+def own_material_kinds_for(
+    modules: tuple[str, ...] | frozenset[str],
+    catalog: dict[str, ModuleDescriptor],
+) -> frozenset[str]:
+    """Visit kinds whose materials their module accounts for itself (ADR-055)."""
+    return frozenset(
+        kind for module_id in modules for kind in catalog[module_id].own_material_kinds
+    )
 
 
 def middleware_for(

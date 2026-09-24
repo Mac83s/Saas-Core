@@ -385,11 +385,15 @@ def create_appointment(
         )
     if materials is not None:
         # Hand-picked products: whoever types them must be allowed to take stock.
+        if materials:
+            stock.refuse_own(service.appointment_kind)
         if materials or stock.enabled():
             stock.authorize_change()
         lines = stock.normalize(organization.id, materials)
-    else:
+    elif stock.takes_materials(service.appointment_kind):
         lines = stock.normalize(organization.id, service.materials, strict=False)
+    else:
+        lines = []
     ends_at = starts_at + timedelta(minutes=walk_in_minutes or service.duration_minutes)
     # A walk-in takes no buffers: they exist to protect a plan, and there is none.
     before = 0 if walk_in_minutes else service.buffer_before_minutes
@@ -752,6 +756,8 @@ def set_service_materials(*, service_id: UUID, materials: list[dict[str, Any]]) 
     service = Service.all_objects.select_for_update().filter(pk=service_id).first()
     if service is None:
         raise NotFound("Usługa nie istnieje.")
+    if materials:
+        stock.refuse_own(service.appointment_kind)
     lines = stock.normalize(context.organization_id, materials)
     service.materials = [
         {"item_id": line["item_id"], "quantity": line["quantity"], "mode": line["mode"]}
@@ -776,11 +782,18 @@ def set_appointment_materials(
     """Produkty jednej wizyty, wpisane ręcznie — rezerwacja idzie za nimi."""
     context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
     stock.authorize_change()
-    appointment = Appointment.all_objects.select_for_update().filter(pk=appointment_id).first()
+    appointment = (
+        Appointment.all_objects.select_for_update(of=("self",))
+        .select_related("service")
+        .filter(pk=appointment_id)
+        .first()
+    )
     if appointment is None:
         raise NotFound("Rezerwacja nie istnieje.")
     if appointment.status != AppointmentStatus.CONFIRMED:
         raise AppointmentNotChangeable
+    if materials:
+        stock.refuse_own(appointment.service.appointment_kind)
     before = appointment.materials
     appointment.materials = stock.normalize(context.organization_id, materials)
     appointment.save(update_fields=["materials", "updated_at"])
@@ -836,7 +849,11 @@ def complete_appointment(
             to_status=AppointmentStatus.COMPLETED,
             actor_kind=context.principal_kind,
         )
-        if context.actor_id is not None:
+        # A kind whose module accounts for its own material (HoofCare) never
+        # settles here: its stock already went per cow (ADR-055).
+        if context.actor_id is not None and stock.takes_materials(
+            appointment.service.appointment_kind
+        ):
             stock.settle(
                 context.organization_id, appointment.id, appointment.materials, context.actor_id
             )
