@@ -43,8 +43,8 @@ export function PanelPage({
 }) {
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
-        <div className="min-w-0 space-y-1.5">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
+        <div className="min-w-0 flex-1 space-y-1.5">
           {eyebrow && eyebrowHref ? (
             <Link
               className="-ml-1 inline-flex min-h-8 items-center gap-1 rounded-md px-1 text-sm font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
@@ -67,7 +67,9 @@ export function PanelPage({
           ) : null}
         </div>
         {actions ? (
-          <div className="flex flex-wrap items-center gap-2">{actions}</div>
+          <div className="flex flex-wrap items-center gap-2 lg:shrink-0 lg:justify-end">
+            {actions}
+          </div>
         ) : null}
       </header>
       {notice !== undefined ? (

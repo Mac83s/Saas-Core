@@ -6,11 +6,7 @@ import { getTranslations } from "next-intl/server";
 import { AppSidebar } from "#components/panel/app-sidebar";
 import { MobileTabBar } from "#components/panel/mobile-tab-bar";
 import { PanelHeader } from "#components/panel/panel-header";
-import {
-  PANEL_WIDTH_COOKIE,
-  PanelMain,
-  PanelWidthProvider,
-} from "#components/panel/panel-width";
+import { PanelMain, PanelWidthProvider } from "#components/panel/panel-width";
 import { SectionTabs } from "#components/panel/section-tabs";
 import { billingAttention } from "#lib/billing-attention";
 import {
@@ -21,6 +17,7 @@ import {
 } from "#lib/server-auth";
 import { typeRole, typeText } from "#lib/organization-types";
 import { panelAccess, type PanelAccess } from "#lib/panel-navigation";
+import { PANEL_WIDTH_COOKIE } from "#lib/panel-width";
 import {
   SidebarInset,
   SidebarProvider,

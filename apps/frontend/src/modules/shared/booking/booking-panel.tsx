@@ -341,6 +341,7 @@ export function BookingPanel({
         searchText={(item) =>
           [item.customer_name, item.service_name, item.staff_name].join(" ")
         }
+        toolbar={filters}
       />
     ),
     day: () => {
@@ -472,6 +473,39 @@ export function BookingPanel({
     ),
   };
 
+  // Who and what: the same two filters above the grids and in the list's row.
+  const filters = (
+    <>
+      <DataTableFilter
+        id="calendar-staff"
+        label={t("staffFilter")}
+        onChange={(event) => setStaffFilter(event.target.value)}
+        value={staffFilter}
+      >
+        <option value="">{t("allStaff")}</option>
+        <option value="mine">{t("mine")}</option>
+        {catalog?.staff.map((item) => (
+          <option key={item.id} value={item.id}>
+            {item.name}
+          </option>
+        ))}
+      </DataTableFilter>
+      <DataTableFilter
+        id="calendar-service"
+        label={t("serviceFilter")}
+        onChange={(event) => setServiceFilter(event.target.value)}
+        value={serviceFilter}
+      >
+        <option value="">{t("allServices")}</option>
+        {serviceNames.map((name) => (
+          <option key={name} value={name}>
+            {name}
+          </option>
+        ))}
+      </DataTableFilter>
+    </>
+  );
+
   return (
     <PanelPage
       actions={
@@ -546,45 +580,22 @@ export function BookingPanel({
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <DataTableFilter
-            id="calendar-staff"
-            label={t("staffFilter")}
-            onChange={(event) => setStaffFilter(event.target.value)}
-            value={staffFilter}
-          >
-            <option value="">{t("allStaff")}</option>
-            <option value="mine">{t("mine")}</option>
-            {catalog?.staff.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-              </option>
-            ))}
-          </DataTableFilter>
-          <DataTableFilter
-            id="calendar-service"
-            label={t("serviceFilter")}
-            onChange={(event) => setServiceFilter(event.target.value)}
-            value={serviceFilter}
-          >
-            <option value="">{t("allServices")}</option>
-            {serviceNames.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </DataTableFilter>
-          <ul
-            aria-label={t("legend")}
-            className="flex flex-wrap gap-2 lg:ml-auto"
-          >
-            {STATUSES.map((status) => (
-              <li key={status}>
-                <StatusBadge status={status} />
-              </li>
-            ))}
-          </ul>
-        </div>
+        {/* The list has its own row with search; the grids have these. */}
+        {view === "list" ? null : (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            {filters}
+            <ul
+              aria-label={t("legend")}
+              className="flex flex-wrap gap-2 lg:ml-auto"
+            >
+              {STATUSES.map((status) => (
+                <li key={status}>
+                  <StatusBadge status={status} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {problem && !appointments ? (
           problemNotice

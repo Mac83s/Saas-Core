@@ -116,14 +116,18 @@ function NavEntry({ item }: { item: PanelNavEntry }) {
   const page = pages ? currentPage(pathname, pages) : undefined;
   return (
     <li>
-      <div className="flex items-center gap-0.5">
+      {/* The entry and its unfold button are one row: one highlight. */}
+      <div
+        className={cn(
+          "flex items-center rounded-lg transition-colors",
+          current
+            ? "bg-primary font-medium text-primary-foreground"
+            : "hover:bg-foreground/6",
+        )}
+      >
         <Link
           aria-current={current}
-          className={cn(
-            "flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg px-3 text-sm transition-colors hover:bg-foreground/6 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-            current &&
-              "bg-primary font-medium text-primary-foreground hover:bg-primary",
-          )}
+          className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-lg px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           href={item.href}
           onClick={closeMobile}
           title={text}
@@ -138,7 +142,10 @@ function NavEntry({ item }: { item: PanelNavEntry }) {
             aria-controls={listId}
             aria-expanded={open}
             aria-label={t("sectionPages", { section: text })}
-            className="flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-foreground/6 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring group-data-[collapsed=true]/sidebar-wrapper:hidden"
+            className={cn(
+              "flex size-11 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-foreground/8 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring group-data-[collapsed=true]/sidebar-wrapper:hidden",
+              !current && "text-muted-foreground hover:text-foreground",
+            )}
             onClick={() => setToggled(!open)}
             type="button"
           >

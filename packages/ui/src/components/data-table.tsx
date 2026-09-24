@@ -577,7 +577,7 @@ export function RowActions({
             "aria-label": item.label,
             className: cn(
               buttonVariants({ size: "icon", variant: "ghost" }),
-              "max-md:hidden",
+              "max-md:hidden md:size-9",
             ),
             key: item.label,
             title: item.label,
@@ -586,7 +586,7 @@ export function RowActions({
         ) : (
           <Button
             aria-label={item.label}
-            className="max-md:hidden"
+            className="max-md:hidden md:size-9"
             key={item.label}
             onClick={(event) => item.onSelect?.(event.currentTarget)}
             size="icon"
@@ -603,7 +603,8 @@ export function RowActions({
           render={
             <Button
               aria-label={label}
-              className={items.every(shown) ? "md:hidden" : undefined}
+              // 44 px on a phone's card, row height on a wide table.
+              className={items.every(shown) ? "md:hidden" : "md:size-9"}
               size="icon"
               variant="ghost"
             />

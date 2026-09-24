@@ -10,10 +10,8 @@ import {
 import { Maximize2Icon, Minimize2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { PANEL_WIDTH_COOKIE } from "#lib/panel-width";
 import { cn } from "@saas-core/ui/lib/utils";
-
-/** Read by the panel layout, so the first render already has the right width. */
-export const PANEL_WIDTH_COOKIE = "panel-width";
 
 const WidthContext = createContext<{
   wide: boolean;
