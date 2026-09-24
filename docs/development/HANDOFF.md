@@ -79,8 +79,24 @@ magazyn 9–10 → pozostałe listy na DataTable.
   `python manage.py set_ai_badge --operator <e-mail> --off|--on --reason "…"`,
   historia `--show` (tabela `sites_aibadgeswitch`, admin tylko do odczytu);
   XMP w plikach zostaje zawsze. Niesprawdzone na uruchomionym stacku (gałąź
-  niewdrożona): odznaka po hoście, XMP w `/media/<id>`, `--off`. Dalej IG-2
-  (zlecenia klientów, `worker-ai`).
+  niewdrożona): odznaka po hoście, XMP w `/media/<id>`, `--off`.
+  IG-2 (zlecenia klientów) gotowe na gałęzi, bez wywołań na żywo: tabela
+  `image_generation_imagegenerationjob` (FORCE RLS, wyzwalacz członkostwa),
+  migracje modułu 0001-0004 (cecha we wszystkich planach, limit prób
+  `image_generation.monthly` 50/200/1000/50, operacja `image_generation.generate`
+  = 2 kredyty, uprawnienie manager/admin/owner; odwracalne), `roleGrants` i
+  `beatSchedule` w deskryptorze, API `/api/v1/image-generation/` (oferta,
+  zlecenie z `Idempotency-Key`, odczyt bez promptu), `worker.py` na wzór SEO
+  (dzierżawa, dostawca poza transakcją, ponowienia przez beat, blokada
+  dostawcy 1 h, jedna ścieżka mediów przez `stage_generated_media_asset`),
+  usługa `worker-ai` (`-Q ai`) w compose, vps i staging, przycisk „Wygeneruj
+  obraz AI” w Site Studio (16:9, 4:3, figura 3:2; nie w slotach dowodowych),
+  runbook `docs/operations/image-generation.md`. Otwarte: dowód na
+  uruchomionym stacku (RLS trzema odczytami, job do `succeeded` z kluczem,
+  odznaka po hoście, erasure obiektów, grep logów) — nie robiony, bo host
+  jest przeciążony i nie ma klucza; `worker-ai` w overlayach HoofCare i
+  MedPlano po `core:update`; przed klientami: klucz, Tier ≥ 2, limit wydatków
+  w projekcie OpenAI, przegląd prawnika (projekt ToS/AUP/DPA w planie memeksu).
 - **P3 (plan 13:406-442):** powiązanie profilu osoby z witryną, konto klienta
   (`Customer.user`, „moje wizyty”), role specjalista/recepcja,
   `PolicyAcknowledgement`, skill tożsamości.
