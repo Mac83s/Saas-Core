@@ -97,8 +97,16 @@ def tenant_task_context(
     signed_contract: str,
     *,
     expected_causation_id: str | None = None,
+    expires: bool = True,
 ) -> Iterator[TenantContext]:
-    contract = _load_contract(signed_contract)
+    """Opens the tenant a signed task contract names, as it stands now.
+
+    `expires=False` is for a contract the server stores until a date the work
+    itself sets, like a reminder for a visit booked further ahead than the TTL.
+    It still names only what the server signed, and the organization or the
+    membership is asked again here, as `deferred_tenant_context` does.
+    """
+    contract = _load_contract(signed_contract, expires=expires)
     if expected_causation_id is not None and not secrets.compare_digest(
         contract.causation_id,
         expected_causation_id,
@@ -196,14 +204,14 @@ def deferred_tenant_context(
         correlation_id.reset(correlation_token)
 
 
-def _load_contract(signed_contract: str) -> TenantTaskContract:
+def _load_contract(signed_contract: str, *, expires: bool = True) -> TenantTaskContract:
     if not signed_contract:
         raise InvalidTenantTaskContext("Brak tenant task context.")
     try:
         payload = signing.loads(
             signed_contract,
             salt=TENANT_TASK_CONTEXT_SALT,
-            max_age=settings.TENANT_TASK_CONTEXT_TTL_SECONDS,
+            max_age=settings.TENANT_TASK_CONTEXT_TTL_SECONDS if expires else None,
         )
         if not isinstance(payload, dict):
             raise ValueError

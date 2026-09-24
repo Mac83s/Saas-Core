@@ -111,10 +111,12 @@ wyjazdu z gospodarstwa). Przycięcie tylko skraca zakres, więc nie może narusz
 ### 7. Zadania przypomnień działają jako usługa
 
 Kontrakt trasy przypomnienia jest podpisywany jako zasada `service` z
-zakresem `booking_reminder`, nie członkostwem twórcy. Trasa, której kontrakt
-jest nieważny (wygasł, wskazuje nieaktywną organizację, stare trasy podpisane
-członkostwem, które wygasło), zostaje oznaczona i zalogowana jako odrzucona,
-zamiast zostać na czele kolejki.
+zakresem `booking_reminder`, nie członkostwem twórcy. Kontrakt trasy nie
+wygasa po `TENANT_TASK_CONTEXT_TTL_SECONDS`: wizytę umawia się dalej niż ten
+TTL, a przy otwarciu i tak sprawdza się organizację (starej trasy — członkostwo).
+Trasa, której kontrakt jest nieważny (nie da się go odszyfrować, wskazuje
+nieaktywną organizację, stare trasy podpisane członkostwem, które wygasło),
+zostaje oznaczona i zalogowana jako odrzucona, zamiast zostać na czele kolejki.
 
 ### 8. Klient nie dostaje danych pracowników
 

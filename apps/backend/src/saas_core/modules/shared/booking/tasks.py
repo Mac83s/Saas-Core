@@ -27,8 +27,10 @@ def dispatch_booking_reminders() -> int:
     for route in routes:
         try:
             with tenant_task_context(
-                decrypt_secret(route.signed_tenant_context),
+                _contract(route),
                 expected_causation_id=f"booking:{route.appointment_id}",
+                # Due when the visit is, which can be further off than the TTL.
+                expires=False,
             ):
                 # Locked, so a move committing meanwhile is read here rather
                 # than overwritten; a move re-arms to a later due time.
@@ -57,10 +59,11 @@ def dispatch_booking_reminders() -> int:
                                 appointment.customer.locale,
                             ),
                         },
-                        # The time is part of the identity: a moved visit is
-                        # reminded again, a retry of this one is not.
+                        # One per arming: a move re-arms to a later due time,
+                        # even back to a start already reminded, and a retry
+                        # of this arming is not sent twice.
                         idempotency_key=(
-                            f"booking-reminder:{appointment.id}:{appointment.starts_at.isoformat()}"
+                            f"booking-reminder:{appointment.id}:{appointment.reminder_due_at}"
                         ),
                         causation_id=f"booking:{appointment.id}",
                     )
@@ -68,7 +71,7 @@ def dispatch_booking_reminders() -> int:
                     appointment.save(update_fields=["reminder_sent_at", "updated_at"])
             dispatched += 1
         except InvalidTenantTaskContext as error:
-            # A contract that does not open now never will (expired, an
+            # A contract that does not open now never will (undecryptable, an
             # inactive organization, a membership since revoked). Left
             # unmarked, it would head the queue forever (ADR-058 §7).
             logger.warning(
@@ -85,3 +88,11 @@ def dispatch_booking_reminders() -> int:
                 pk=route.pk, dispatched_at__isnull=True, due_at=route.due_at
             ).update(dispatched_at=timezone.now())
     return dispatched
+
+
+def _contract(route: ReminderRoute) -> str:
+    try:
+        return decrypt_secret(route.signed_tenant_context)
+    except RuntimeError as error:
+        # A key since rotated: no later run decrypts it either.
+        raise InvalidTenantTaskContext(str(error)) from error
