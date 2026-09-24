@@ -2301,16 +2301,25 @@ def test_all_section_seeds_validate_in_backend() -> None:
     from saas_core.modules.shared.sites.block_contracts import validate_site_block
     from saas_core.modules.shared.sites.page_templates import page_template_catalog
 
-    catalog = json.loads(
-        (settings.SITE_BLOCK_CONTRACTS_PATH / "section-templates.v1.json").read_text()
+    # Every catalogue version, not only the first: the library inserts seeds
+    # from the newest one, and the backend must accept them as the panel does.
+    catalogs = sorted(
+        (
+            path
+            for path in settings.SITE_BLOCK_CONTRACTS_PATH.glob("section-templates.v*.json")
+            if not path.name.endswith(".schema.json")
+        ),
+        key=lambda path: int(path.name.split(".v")[1].split(".")[0]),
     )
-    for template in catalog["templates"]:
-        for data in template["seed"].values():
-            validate_site_block(
-                block_type=template["blockType"],
-                schema_version=template["schemaVersion"],
-                data=data,
-            )
+    assert catalogs[-1].name == "section-templates.v7.json"
+    for path in catalogs:
+        for template in json.loads(path.read_text())["templates"]:
+            for data in template["seed"].values():
+                validate_site_block(
+                    block_type=template["blockType"],
+                    schema_version=template["schemaVersion"],
+                    data=data,
+                )
     recipe = page_template_catalog().get(template_id="core.service_landing", version=1)
     assert [block["data"].get("layout") for block in recipe.blocks] == [
         "centered",

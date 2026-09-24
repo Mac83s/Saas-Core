@@ -443,7 +443,7 @@ test("every offered page declares its conversion path", async () => {
 test("composed page recipes pin section versions and materialize their exact seed data", async () => {
   const { templates } = await loadTemplates();
   const catalogs = await Promise.all(
-    [1, 2, 3, 4, 5, 6].map((version) =>
+    [1, 2, 3, 4, 5, 6, 7].map((version) =>
       readJson("site-blocks", `section-templates.v${version}.json`),
     ),
   );

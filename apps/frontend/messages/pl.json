@@ -995,6 +995,7 @@
       "mobileBehavior": "Na wąskich ekranach kolumny układają się pionowo. Wszystkie elementy pozostają dostępne.",
       "layout": "Układ sekcji",
       "preservesContent": "Zmiana układu zachowuje Twoją treść.",
+      "hiddenFields": "Ten układ nie pokazuje: {fields}. Treść zostaje zapisana i wróci po zmianie układu.",
       "samplePhotos": "Zdjęcia i treści są demonstracyjne — możesz je wymienić po wstawieniu.",
       "preparingPhoto": "Przygotowuję zdjęcie w Twojej bibliotece…",
       "photoError": "Nie udało się przygotować zdjęcia. Sekcja nie została dodana; spróbuj ponownie.",

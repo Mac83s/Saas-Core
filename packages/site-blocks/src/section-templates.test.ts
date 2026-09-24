@@ -1,16 +1,19 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import Ajv2020 from "ajv/dist/2020.js";
-import catalog from "@saas-core/contracts/site-blocks/section-templates.v6.json";
+import catalog from "@saas-core/contracts/site-blocks/section-templates.v7.json";
+import v6Catalog from "@saas-core/contracts/site-blocks/section-templates.v6.json";
 import previousCatalog from "@saas-core/contracts/site-blocks/section-templates.v5.json";
 import v4Catalog from "@saas-core/contracts/site-blocks/section-templates.v4.json";
 import olderCatalog from "@saas-core/contracts/site-blocks/section-templates.v3.json";
-import schema from "@saas-core/contracts/site-blocks/section-templates.v6.schema.json";
+import schema from "@saas-core/contracts/site-blocks/section-templates.v7.schema.json";
+import sampleMedia from "@saas-core/contracts/page-templates/sample-media.v1.json";
 import {
   availableSectionTemplates,
   coreSectionTemplates,
   coreSiteBlockManifest,
   createSiteBlockRegistry,
+  offeredSectionTemplates,
   replaceSectionLayout,
   sectionTemplateBlock,
   type JsonObject,
@@ -25,6 +28,7 @@ describe("section template contract", () => {
       ...olderCatalog.templates,
       ...v4Catalog.templates,
       ...previousCatalog.templates,
+      ...v6Catalog.templates,
     ])
       expect(
         coreSectionTemplates().find(
@@ -35,12 +39,11 @@ describe("section template contract", () => {
   });
 
   it("appends exactly the sixteen v6 conversion sections to the 104 v5 recipes", () => {
-    expect(coreSectionTemplates()).toHaveLength(120);
-    expect(coreSectionTemplates().slice(0, 104)).toEqual(
-      previousCatalog.templates,
-    );
+    const v6 = v6Catalog.templates as unknown as typeof catalog.templates;
+    expect(v6).toHaveLength(120);
+    expect(v6.slice(0, 104)).toEqual(previousCatalog.templates);
     const counts = new Map<string, [number, number]>();
-    for (const template of coreSectionTemplates()) {
+    for (const template of v6) {
       const key = `${template.blockType.replace("core.", "")}@${template.schemaVersion}`;
       const [defaults, industry] = counts.get(key) ?? [0, 0];
       counts.set(
@@ -82,7 +85,7 @@ describe("section template contract", () => {
       "resources",
       "essay_cta",
     ];
-    const added = coreSectionTemplates().slice(104);
+    const added = v6.slice(104);
     expect(added.map((template) => template.id).sort()).toEqual(
       layouts.map((layout) => `core.rich_text_${layout}`).sort(),
     );
@@ -106,18 +109,84 @@ describe("section template contract", () => {
         primaryAction: expect.any(Boolean),
       });
     }
-    // One family of twenty editorial layouts across schema versions 2 and 3.
-    const richText = coreSectionTemplates().filter(
+  });
+
+  it("v7 appends version 2 of the eight phase-2 layouts: conversion-ready, no invented proof", () => {
+    expect(coreSectionTemplates()).toHaveLength(128);
+    expect(coreSectionTemplates().slice(0, 120)).toEqual(v6Catalog.templates);
+    const phaseTwo = [
+      "core.rich_text_column",
+      "core.rich_text_split_intro",
+      "core.rich_text_facts_panel",
+      "core.rich_text_chapters",
+      "core.feature_list_steps_notes",
+      "core.feature_list_benefits_commentary",
+      "core.quote_portrait",
+      "core.product_showcase",
+    ];
+    const added = coreSectionTemplates().slice(120);
+    expect(added.map((template) => template.id)).toEqual(phaseTwo);
+    for (const template of added) {
+      const previous = v6Catalog.templates.find(
+        (item) => item.id === template.id,
+      )!;
+      expect(template.version).toBe(2);
+      expect(template.layout).toBe(previous.layout);
+      // Each on the newest schema of its block type.
+      expect(template.schemaVersion).toBe(
+        coreSiteBlockManifest.blocks.find(
+          (block) => block.type === template.blockType,
+        )!.latestVersion,
+      );
+      expect(template.conversion).toEqual({
+        stage: expect.stringMatching(
+          /^(attention|interest|proof|objection|action)$/,
+        ),
+        primaryAction: expect.any(Boolean),
+      });
+      // Statements and parameters are the owner's to supply.
+      const seed = JSON.stringify(template.seed);
+      expect(seed).not.toMatch(/przykładowa wypowiedź|example statement/i);
+    }
+    const product = added.find((item) => item.id === "core.product_showcase")!;
+    for (const locale of ["pl", "en"] as const)
+      for (const spec of product.seed[locale].specs as { value: string }[])
+        expect(spec.value).toMatch(/^\[(Uzupełnij|Fill in): /);
+    expect(product.sampleMedia).toMatchObject({
+      id: "electronics",
+      path: ["images", 0],
+    });
+  });
+
+  it("offers the newest version of each template, one per id, in catalogue order", () => {
+    const offered = offeredSectionTemplates();
+    expect(offered).toHaveLength(120);
+    // A revision keeps its predecessor's place in the library.
+    expect(offered.map((template) => template.id)).toEqual(
+      v6Catalog.templates.map((template) => template.id),
+    );
+    expect(new Set(offered.map((template) => template.id)).size).toBe(120);
+    expect(new Set(offered.map((template) => template.id))).toEqual(
+      new Set(v6Catalog.templates.map((template) => template.id)),
+    );
+    for (const template of offered)
+      expect(template.version).toBe(
+        Math.max(
+          ...coreSectionTemplates()
+            .filter((item) => item.id === template.id)
+            .map((item) => item.version),
+        ),
+      );
+    // One family of twenty editorial layouts, all on rich_text v3 now.
+    const richText = offered.filter(
       (template) =>
         template.blockType === "core.rich_text" && template.kind === "default",
     );
     expect(richText).toHaveLength(20);
     expect(new Set(richText.map((template) => template.layout)).size).toBe(20);
-    expect(
-      coreSectionTemplates().find(
-        (template) => template.id === "core.product_showcase",
-      )?.sampleMedia,
-    ).toMatchObject({ id: "electronics", path: ["images", 0] });
+    expect(richText.every((template) => template.schemaVersion === 3)).toBe(
+      true,
+    );
   });
   it("validates the manifest and every localized seed against the canonical schemas", () => {
     const validate = new Ajv2020({ allErrors: true, strict: true }).compile(
@@ -126,6 +195,7 @@ describe("section template contract", () => {
     expect(validate(catalog), JSON.stringify(validate.errors)).toBe(true);
     const keys = new Set<string>();
     const industries = new Set(catalog.industries.map((item) => item.id));
+    const photos = new Set(sampleMedia.media.map((item) => item.id));
     for (const template of coreSectionTemplates()) {
       const key = `${template.id}@${template.version}`;
       expect(keys.has(key)).toBe(false);
@@ -136,6 +206,9 @@ describe("section template contract", () => {
       template.industries.forEach((id) =>
         expect(industries.has(id)).toBe(true),
       );
+      // v7 replaced the enum of ids with the sample media catalogue.
+      if (template.sampleMedia)
+        expect(photos.has(template.sampleMedia.id)).toBe(true);
       for (const locale of ["pl", "en"] as const) {
         const block = sectionTemplateBlock(template, locale, registry);
         expect(block.data.layout).toBe(template.layout);

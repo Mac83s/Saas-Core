@@ -995,6 +995,7 @@
       "mobileBehavior": "Columns stack on narrow screens. All content remains available.",
       "layout": "Section layout",
       "preservesContent": "Changing the layout preserves your content.",
+      "hiddenFields": "This layout does not show: {fields}. The content is kept and returns when you change the layout.",
       "samplePhotos": "Photos and copy are demonstration content — replace them after inserting.",
       "preparingPhoto": "Preparing the photo in your media library…",
       "photoError": "Could not prepare the photo. The section was not added; please try again.",
