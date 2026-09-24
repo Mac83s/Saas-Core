@@ -26,7 +26,9 @@ import {
 import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
+import { GenerateImageDialog } from "../image-generation/generate-image-dialog";
 import { ImageCropUpload } from "../media/crop";
+import { PageEditorContext } from "./page-editor-context";
 import { PrivateMediaPreview } from "./private-media-preview";
 
 export type RichTextMediaOption = { id: string; label: string };
@@ -175,6 +177,7 @@ function FigureView({
 }: ReactNodeViewProps) {
   const t = useTranslations("Sites.richText");
   const media = useContext(RichTextMediaContext);
+  const offer = useContext(PageEditorContext)?.imageGeneration;
   const id = useId();
   const attrs = node.attrs as Attrs;
   const assetId = attrs.assetId ?? "";
@@ -220,6 +223,16 @@ function FigureView({
                 onUploaded={(uploaded) => {
                   updateAttributes({ assetId: uploaded });
                   media.onUpload?.(uploaded);
+                }}
+              />
+            ) : null}
+            {offer?.available && offer.aspects.includes("3:2") ? (
+              <GenerateImageDialog
+                aspect="3:2"
+                creditCost={offer.credit_cost}
+                onUse={(generated) => {
+                  updateAttributes({ assetId: generated });
+                  media.onUpload?.(generated);
                 }}
               />
             ) : null}

@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:eb5ca4d36f67c626ce8f32e54e179a99a6251473406279928144f3b048920130",
+  "profileHash": "sha256:b52147b03ca439c181616b88b95bd40e30982ba4515856672a2bda7b6870920b",
   "schemaVersion": 1,
   "deployment": "business",
   "product": {
@@ -331,7 +331,7 @@
         "routes": [],
         "navigation": [],
         "translationNamespaces": [
-          "imageGeneration"
+          "ImageGeneration"
         ]
       }
     },

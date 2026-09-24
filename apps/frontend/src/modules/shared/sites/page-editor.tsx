@@ -33,6 +33,7 @@ import { z } from "zod";
 import {
   ApiProblemError,
   completeMediaUpload,
+  getImageGenerationOffer,
   getPageDraft,
   getPageDraftPreview,
   importPageTemplate,
@@ -41,6 +42,7 @@ import {
   listPageTranslations,
   savePageDraft,
   savePageTranslation,
+  type ImageGenerationOffer,
   type MediaAsset,
   type PageDraft,
   type PageSummary,
@@ -303,6 +305,20 @@ export function PageEditor({
   const [locale, setLocale] = useState("pl");
   const [baseLocale, setBaseLocale] = useState("pl");
   const [assets, setAssets] = useState<MediaAsset[]>([]);
+  // Read once per editor: a 403 or an unavailable offer hides the AI button.
+  const [imageGeneration, setImageGeneration] =
+    useState<ImageGenerationOffer | null>(null);
+  useEffect(() => {
+    let mounted = true;
+    getImageGenerationOffer()
+      .then((offer) => {
+        if (mounted) setImageGeneration(offer);
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
   const [selectedBlock, setSelectedBlock] = useState<BlockOption | null>(null);
   const [assetOption, setAssetOption] = useState<MediaAsset | null>(null);
   const [preview, setPreview] = useState<PageDraft>();
@@ -781,6 +797,7 @@ export function PageEditor({
                 undo: history.undo,
                 redo: history.redo,
                 look: pageLookClassName(appearance, pagePresentation),
+                imageGeneration,
               }}
             >
               <form

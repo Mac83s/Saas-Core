@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:ff15d2bc46d4904e5bd22bbbdfcffa97c09a2f5ba92f7dbe134fdb3f5239c486",
+  "profileHash": "sha256:5f0b12aff7544a8285da4f41939f75c3c5f6c8b9b3b6df106b68073fdbe067b2",
   "schemaVersion": 1,
   "deployment": "agro",
   "product": {
@@ -332,7 +332,7 @@
         "routes": [],
         "navigation": [],
         "translationNamespaces": [
-          "imageGeneration"
+          "ImageGeneration"
         ]
       }
     },

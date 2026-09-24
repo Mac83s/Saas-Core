@@ -26,6 +26,6 @@
   "frontend": {
     "routes": [],
     "navigation": [],
-    "translationNamespaces": ["imageGeneration"]
+    "translationNamespaces": ["ImageGeneration"]
   }
 }

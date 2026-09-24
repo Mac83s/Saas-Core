@@ -7,13 +7,18 @@
  *  panel, the future drag-and-drop canvas and the AI generator agree on what a
  *  block is — a second copy would drift the moment a block gains a field. */
 
-import { useMemo } from "react";
+import { useContext, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useLocale, useTranslations } from "next-intl";
 
 import { SectionDecorationFields } from "./section-decoration-fields";
 import { SectionPresentationFields } from "./section-presentation-fields";
 import { ImageCropUpload } from "../media/crop";
+import {
+  GenerateImageDialog,
+  generatedAspect,
+} from "../image-generation/generate-image-dialog";
+import { PageEditorContext } from "./page-editor-context";
 import {
   useFieldArray,
   useWatch,
@@ -473,6 +478,12 @@ function BlockField<TValues extends FieldValues>({
   const name = fieldName(pathPrefix, field.path);
   const id = `block-${blockIndex}-${name.replace(/[^a-zA-Z0-9]+/g, "-")}`;
   const error = fieldErrorMessage(form, name);
+  // A portrait or an author's photo claims a real person: never generated.
+  const offer = useContext(PageEditorContext)?.imageGeneration;
+  const generated =
+    offer?.available && !field.realMediaOnly
+      ? generatedAspect(field.aspect, offer.aspects)
+      : undefined;
 
   if (field.kind === "richText") {
     // The editor reads the surrounding form from context (FormProvider in
@@ -547,6 +558,19 @@ function BlockField<TValues extends FieldValues>({
                 shouldDirty: true,
               })
             }
+          />
+        ) : null}
+        {/* Already in the slot's aspect, so it skips the browser crop. */}
+        {generated && offer ? (
+          <GenerateImageDialog
+            aspect={generated}
+            creditCost={offer.credit_cost}
+            onUse={(assetId) => {
+              form.setValue(name as never, assetId as never, {
+                shouldDirty: true,
+              });
+              onMediaUploaded?.();
+            }}
           />
         ) : null}
       </div>

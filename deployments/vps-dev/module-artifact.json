@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:52456d1a3984e24a9843e56212f47be384b674693769d343f682d16792e52c8e",
+  "profileHash": "sha256:4a11e05a82f14c7672f1dabb6364abc260a8ce6e30467c268682834d506ca4be",
   "schemaVersion": 1,
   "deployment": "vps-dev",
   "product": {
@@ -331,7 +331,7 @@
         "routes": [],
         "navigation": [],
         "translationNamespaces": [
-          "imageGeneration"
+          "ImageGeneration"
         ]
       }
     },

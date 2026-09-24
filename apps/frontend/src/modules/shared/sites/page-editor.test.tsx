@@ -24,7 +24,15 @@ import englishMessages from "../../../../messages/en.json";
 import polishMessages from "../../../../messages/pl.json";
 import { BlockFields, emptyBlock, registry } from "./block-form";
 import { PageEditor } from "./page-editor";
+import { PageEditorContext } from "./page-editor-context";
 import { PublicationHistory } from "./publication-history";
+import { RichTextEditor } from "./rich-text-editor";
+
+const offer = {
+  available: true,
+  credit_cost: 2,
+  aspects: ["16:9", "4:3", "3:2"] as ("16:9" | "4:3" | "3:2")[],
+};
 
 // The gallery offers whatever recipes are current (retired ones are hidden),
 // so the tests follow the first offered one instead of naming it.
@@ -35,6 +43,7 @@ const heroVersion = registry.definitions.get("core.hero")?.latestVersion;
 
 const {
   completeMediaUpload,
+  getImageGenerationOffer,
   materializeTemplatePhoto,
   getPageDraft,
   getPageDraftPreview,
@@ -46,6 +55,7 @@ const {
   savePageTranslation,
 } = vi.hoisted(() => ({
   completeMediaUpload: vi.fn(),
+  getImageGenerationOffer: vi.fn(),
   materializeTemplatePhoto: vi.fn(),
   getPageDraft: vi.fn(),
   getPageDraftPreview: vi.fn(),
@@ -60,6 +70,7 @@ const {
 vi.mock("@saas-core/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@saas-core/api-client")>()),
   completeMediaUpload,
+  getImageGenerationOffer,
   materializeTemplatePhoto,
   getMediaAssetPreview: vi
     .fn()
@@ -127,6 +138,7 @@ const translation = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  getImageGenerationOffer.mockResolvedValue({ ...offer, available: false });
   materializeTemplatePhoto.mockResolvedValue({
     asset_id: "019ff20d-a000-7000-8000-000000000099",
   });
@@ -1486,9 +1498,11 @@ test("separator editor restores stored dimensions and saves the selected layout,
 function MediaFieldsHarness({
   assets,
   type,
+  imageGeneration = null,
 }: {
   assets: ComponentProps<typeof BlockFields>["assets"];
   type: string;
+  imageGeneration?: typeof offer | null;
 }) {
   // FieldValues: the block form's own Path types are too deep for a harness.
   const form = useForm<FieldValues>({
@@ -1497,21 +1511,117 @@ function MediaFieldsHarness({
   return (
     <NextIntlClientProvider locale="pl" messages={polishMessages}>
       <FormProvider {...form}>
-        <BlockFields
-          assets={assets}
-          form={form}
-          index={0}
-          isFirst
-          isLast
-          moveDown={vi.fn()}
-          moveUp={vi.fn()}
-          onRemove={vi.fn()}
-          type={type}
-        />
+        <PageEditorContext
+          value={{ undo: vi.fn(), redo: vi.fn(), look: "", imageGeneration }}
+        >
+          <BlockFields
+            assets={assets}
+            form={form}
+            index={0}
+            isFirst
+            isLast
+            moveDown={vi.fn()}
+            moveUp={vi.fn()}
+            onRemove={vi.fn()}
+            type={type}
+          />
+        </PageEditorContext>
       </FormProvider>
     </NextIntlClientProvider>
   );
 }
+
+const generateLabel = polishMessages.ImageGeneration.open;
+
+test.each([
+  ["core.hero", 1],
+  // The section photo (4:3) yes, the author's portrait never (ADR-059 pkt 8).
+  ["core.rich_text", 1],
+  ["core.quote", 0],
+])("%s offers AI generation on %i image field(s)", (type, count) => {
+  render(
+    <MediaFieldsHarness assets={[]} imageGeneration={offer} type={type} />,
+  );
+  expect(screen.queryAllByRole("button", { name: generateLabel })).toHaveLength(
+    count,
+  );
+});
+
+test("no AI button when the offer is unavailable or refused", () => {
+  render(
+    <MediaFieldsHarness
+      assets={[]}
+      imageGeneration={{ ...offer, available: false }}
+      type="core.hero"
+    />,
+  );
+  expect(screen.queryByRole("button", { name: generateLabel })).toBeNull();
+  cleanup();
+  render(<MediaFieldsHarness assets={[]} type="core.hero" />);
+  expect(screen.queryByRole("button", { name: generateLabel })).toBeNull();
+});
+
+test("a figure in the text (3:2) offers AI generation", async () => {
+  function FigureHarness() {
+    const form = useForm<FieldValues>({
+      defaultValues: {
+        content: [
+          {
+            type: "figure",
+            image: {
+              asset_id: "00000000-0000-4000-8000-000000000001",
+              alt: "",
+            },
+          },
+        ],
+      },
+    });
+    return (
+      <NextIntlClientProvider locale="pl" messages={polishMessages}>
+        <FormProvider {...form}>
+          <PageEditorContext
+            value={{
+              undo: vi.fn(),
+              redo: vi.fn(),
+              look: "",
+              imageGeneration: offer,
+            }}
+          >
+            <RichTextEditor label="Treść" name="content" />
+          </PageEditorContext>
+        </FormProvider>
+      </NextIntlClientProvider>
+    );
+  }
+  render(<FigureHarness />);
+  expect(
+    await screen.findByRole("button", { name: generateLabel }),
+  ).not.toBeNull();
+});
+
+test("the editor reads the offer once and shows the button only when it is available", async () => {
+  getImageGenerationOffer.mockResolvedValue(offer);
+  renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
+  expect(
+    await screen.findByRole("button", { name: generateLabel }),
+  ).not.toBeNull();
+  expect(getImageGenerationOffer).toHaveBeenCalledOnce();
+  cleanup();
+
+  getImageGenerationOffer.mockRejectedValue(
+    new ApiProblemError({
+      type: "about:blank",
+      title: "Forbidden",
+      status: 403,
+      code: "entitlement_required",
+      detail: "Plan organizacji nie pozwala na tę operację.",
+      correlation_id: null,
+    }),
+  );
+  renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
+  await screen.findByLabelText("Nagłówek");
+  expect(screen.queryByRole("button", { name: generateLabel })).toBeNull();
+});
 
 test("portret przy cytacie nie oferuje obrazów AI, hero oznacza je dopiskiem", () => {
   const base = {
