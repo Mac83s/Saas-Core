@@ -18,7 +18,9 @@ from django.conf import settings
 # where the profile does not compose the module (a product repository runs
 # the core suite under its own profile); `skipif` comes too late for them.
 collect_ignore_glob = (
-    [] if "shared.image-generation" in settings.ACTIVE_MODULES else ["test_image_generation_*.py"]
+    []
+    if "shared.image-generation" in settings.ACTIVE_MODULES
+    else ["test_image_generation_*.py", "test_template_photos_command.py"]
 )
 
 

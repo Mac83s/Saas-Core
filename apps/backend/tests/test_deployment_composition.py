@@ -97,6 +97,10 @@ def test_core_only_registers_no_route_of_a_module_it_does_not_have() -> None:
         assert absent not in prefixes, f"core-only nie powinien wystawiać {absent}"
 
 
+@pytest.mark.skipif(
+    "shared.image-generation" not in settings.ACTIVE_MODULES,
+    reason="importing the routes loads the module's models, which only its profile installs",
+)
 def test_business_registers_the_routes_core_only_refuses() -> None:
     prefixes = route_prefixes(profile_modules("business"))
 
