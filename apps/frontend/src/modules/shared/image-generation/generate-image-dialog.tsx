@@ -39,6 +39,9 @@ import { PrivateMediaPreview } from "../sites/private-media-preview";
 
 const POLL_MS = 2000;
 const POLL_LIMIT_MS = 3 * 60 * 1000;
+/** The polling deadline is read in the submit handler, never while
+ * rendering; outside the component the purity rule can see that. */
+const now = () => Date.now();
 
 /** The codes the API answers with, each with its own sentence (ADR-059). */
 const PROBLEM_KEYS: Record<string, string> = {
@@ -154,10 +157,10 @@ export function GenerateImageDialog({
     // The job exists and will be charged if it succeeds: from here on a
     // failed read is a blip to wait out, never "request failed, try again".
     receipt.current = undefined;
-    const deadline = Date.now() + POLL_LIMIT_MS;
+    const deadline = now() + POLL_LIMIT_MS;
     try {
       while (!["succeeded", "refused", "failed"].includes(job.state)) {
-        if (Date.now() >= deadline) {
+        if (now() >= deadline) {
           setStatus(t("timeout"));
           return;
         }
