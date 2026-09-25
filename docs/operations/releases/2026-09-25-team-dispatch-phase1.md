@@ -11,6 +11,12 @@ osobę dobiera system; klient nie widzi danych pracowników. Wdrożono
 | Aplikacja | Backend, worker, scheduler i frontend |
 | --- | --- |
 | Saas-Core / vps-dev | `3e0f71b` |
+| HoofCare | `df5ecfd` (rdzeń `a1fb1ea`) |
+| MedPlano | `d9a71e0` (rdzeń `a1fb1ea`) — scalone, **niewdrożone** |
+
+Produkty stoją na `a1fb1ea`: faza 1 plus poprawki testów pod profil produktu,
+bez partii magazynu (`8fd0882`, inna sesja) i bez poprawki lintu okna
+generatora obrazów (`08f5a01`) — obie wejdą z następnym `core:update`.
 
 ## Co się zmieniło
 
@@ -85,5 +91,25 @@ osobę dobiera system; klient nie widzi danych pracowników. Wdrożono
   powiadomień (wiadomości dostawcy, klucze API). Wchodzi z następnym
   wdrożeniem; istniejące sieroty na instancjach deweloperskich zostają
   (losowe slugi kont testowych, bez danych osobowych).
+
+## Produkty (25.09)
+
+- [x] HoofCare: backend **1122 passed** (7 testów generatora obrazów AI
+  padało na kolekcji i poleceniu spoza profilu — poprawione w rdzeniu
+  `3fe2f7a`, `a1fb1ea`), tsc, `core:check`, `deployment:check:all`,
+  `ai:validate`, `ai:eval`, prettier, vitest **682** (2 testy stron
+  niestabilne pod obciążeniem, osobno zielone); ESLint: 2 błędy w
+  `generate-image-dialog.tsx` z rdzenia (naprawione w `08f5a01`);
+- [x] HoofCare wdrożony: obrazy po jednym przez strażnika pamięci
+  (backend 244 s, frontend 220 s), migracje zakończone kodem 0, ale Docker
+  ~10 min usuwał kontener `migrate` (`--rm`), a skrypt czekał z zatrzymanym
+  backendem — **~11 min przestoju**; usługi uruchomione ręcznie na nowych
+  obrazach, dalej kontrole jak w `deploy.py`: rola bazy, skaner `CLEAN`, zero
+  zaległych migracji, wszystkie odwracalne, `/healthz` 200. Kopia
+  `deploy.py` już nie używa `--rm`;
+- [x] HoofCare na żywo, ten sam odbiór co na saas: wyniki identyczne, konto
+  usunięte;
+- [x] MedPlano: backend **1053 passed, 28 skipped**, tsc, vitest **575**,
+  prettier; ESLint jak w HoofCare; scalone do `main`, **niewdrożone**.
 
 Dowody (prywatne): `.runtime/releases/20260925-team-dispatch/`.
