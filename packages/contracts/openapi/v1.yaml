@@ -13405,7 +13405,7 @@ components:
           - 'null'
           format: date
         status:
-          $ref: '#/components/schemas/StatusAdcEnum'
+          $ref: '#/components/schemas/LotStatusEnum'
         location_id:
           type: string
           format: uuid
@@ -16341,18 +16341,6 @@ components:
         * `sold` - Sprzedane
         * `culled` - Wybrakowane
         * `dead` - Padłe
-    StatusAdcEnum:
-      enum:
-      - expired
-      - expiring
-      - ok
-      - no_date
-      type: string
-      description: |-
-        * `expired` - Po terminie
-        * `expiring` - Kończy się ważność
-        * `ok` - Ważna
-        * `no_date` - Bez daty ważności
     StepEnum:
       enum:
       - address

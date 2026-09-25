@@ -4672,7 +4672,7 @@ export interface components {
             number: string;
             /** Format: date */
             expires_on: string | null;
-            status: components["schemas"]["StatusAdcEnum"];
+            status: components["schemas"]["LotStatusEnum"];
             /** Format: uuid */
             location_id: string;
             location_name: string;
@@ -5879,14 +5879,6 @@ export interface components {
          * @enum {string}
          */
         Status891Enum: "active" | "sold" | "culled" | "dead";
-        /**
-         * @description * `expired` - Po terminie
-         *     * `expiring` - Kończy się ważność
-         *     * `ok` - Ważna
-         *     * `no_date` - Bez daty ważności
-         * @enum {string}
-         */
-        StatusAdcEnum: "expired" | "expiring" | "ok" | "no_date";
         /**
          * @description * `address` - address
          *     * `details` - details
