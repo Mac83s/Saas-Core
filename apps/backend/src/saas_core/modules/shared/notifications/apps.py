@@ -9,8 +9,18 @@ class NotificationsConfig(AppConfig):
 
     def ready(self) -> None:
         from saas_core.modules.core.organizations.api import register_domain_event_handler
+        from saas_core.modules.core.organizations.erasure_checks import register_erasure_rows
 
+        from .models import ApiKeyCredentialRoute, ProviderMessageRoute
         from .services import consume_domain_event
+
+        # Pre-tenant lookups keyed by a bare organization id: erased with it.
+        register_erasure_rows(
+            "shared.notifications.provider_message_route", ProviderMessageRoute, "organization_id"
+        )
+        register_erasure_rows(
+            "shared.notifications.api_key_route", ApiKeyCredentialRoute, "organization_id"
+        )
 
         # Every type here needs a payload allowlist in `services.py` as well:
         # an unregistered event is silently delivered nowhere, and an

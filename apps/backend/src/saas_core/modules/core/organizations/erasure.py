@@ -32,7 +32,7 @@ from django.db.models import ForeignKey, JSONField, Model
 from saas_core.modules.core.identity.models import User
 
 from .context import TenantContext, activate_tenant_context, set_local_organization_id
-from .erasure_checks import check_erasure_preconditions
+from .erasure_checks import check_erasure_preconditions, registered_erasure_rows
 from .models import ErasureReceipt, Organization
 from .pre_tenant import PRE_TENANT_DB
 
@@ -166,6 +166,10 @@ def row_counts(organization_id: uuid.UUID) -> dict[str, int]:
         found = model._base_manager.filter(**{f"{field_name}_id": organization_id}).count()
         if found:
             counts[model._meta.label] = found
+    for model, column in registered_erasure_rows():
+        found = model._base_manager.filter(**{column: organization_id}).count()
+        if found:
+            counts[model._meta.label] = found
     return counts
 
 
@@ -214,6 +218,10 @@ def erase_organization(
                         f"Nie da się usunąć organizacji {slug}: baza odmawia dla {labels}."
                     )
                 remaining = blocked
+            # Routing indexes name the tenant without a foreign key; nothing
+            # else points at them, so they go last, in one pass.
+            for model, column in registered_erasure_rows():
+                model._base_manager.filter(**{column: organization_id}).delete()
 
             Organization.objects.filter(pk=organization_id).delete()
 
