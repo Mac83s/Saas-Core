@@ -87,7 +87,8 @@
   max-width: 70ch;
 }
 .site-theme .site-block--hero > img,
-.site-theme .site-section__photo img {
+.site-theme .site-section__photo img,
+.site-theme .site-block--hero > .site-ai-media {
   width: 100%;
   object-fit: cover;
   border-radius: var(--site-radius, 0.75rem);

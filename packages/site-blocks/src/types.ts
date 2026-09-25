@@ -397,6 +397,10 @@ export interface BlockFieldDefinition {
   /** Present exactly when `kind` is `"choice"`: the allowed values; the first
    *  is what an absent value means. Labels live in the panel's messages. */
   readonly options?: readonly string[];
+  /** On `kind: "media"`: the slot claims a real person (a quote's portrait, an
+   *  author's photo), so the panel offers no AI images. The backend refuses
+   *  them regardless (ADR-059 pkt 8). */
+  readonly realMediaOnly?: true;
 }
 
 export interface BlockCatalogEntry {
@@ -414,11 +418,13 @@ export type BlockTextRenderer = (
 export interface BlockEditor {
   readonly text: BlockTextRenderer;
 }
-/** Code-only media projection. Publications always use canonical public URLs. */
-export type BlockImageRenderer = (image: {
-  asset_id: string;
-  alt: string;
-}) => ReactNode;
+/** Code-only media projection. Publications always use canonical public URLs.
+ *  `element` is the block's own `<img>` (loading, decoding, src), so a
+ *  renderer that only decorates it — the AI badge — keeps the block's choices. */
+export type BlockImageRenderer = (
+  image: { asset_id: string; alt: string },
+  element: ReactElement<{ alt?: string }>,
+) => ReactNode;
 
 export interface BlockComponentProps {
   data: JsonObject;
@@ -493,6 +499,8 @@ export interface PublishedPageDocument {
    *  the newest articles; the rest exist but nothing on the page leads there. */
   readonly pagination?: IndexPagination | null;
   readonly paginationLabels?: PaginationLabels;
+  /** AI-generated images on the page; each gets the visible badge. */
+  readonly aiMediaIds?: readonly string[];
 }
 
 export interface PageTemplateLabel {

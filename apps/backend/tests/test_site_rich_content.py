@@ -589,6 +589,10 @@ def _write_contracts(tmp_path: Path, recipe: dict[str, Any]) -> Path:
         (source / manifest["recipe"]).read_text(encoding="utf-8"), encoding="utf-8"
     )
     (contracts / "fixture.v1.json").write_text(json.dumps(recipe), encoding="utf-8")
+    catalogue = {"schemaVersion": 1, "media": [
+        {**medium, "aiGenerated": False} for medium in recipe.get("media", [])
+    ]}
+    (contracts / "sample-media.v1.json").write_text(json.dumps(catalogue), encoding="utf-8")
     return contracts
 
 

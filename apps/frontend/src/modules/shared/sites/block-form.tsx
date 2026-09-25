@@ -7,13 +7,18 @@
  *  panel, the future drag-and-drop canvas and the AI generator agree on what a
  *  block is — a second copy would drift the moment a block gains a field. */
 
-import { useMemo } from "react";
+import { useContext, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useLocale, useTranslations } from "next-intl";
 
 import { SectionDecorationFields } from "./section-decoration-fields";
 import { SectionPresentationFields } from "./section-presentation-fields";
 import { ImageCropUpload } from "../media/crop";
+import {
+  GenerateImageDialog,
+  generatedAspect,
+} from "../image-generation/generate-image-dialog";
+import { PageEditorContext } from "./page-editor-context";
 import {
   useFieldArray,
   useWatch,
@@ -473,6 +478,12 @@ function BlockField<TValues extends FieldValues>({
   const name = fieldName(pathPrefix, field.path);
   const id = `block-${blockIndex}-${name.replace(/[^a-zA-Z0-9]+/g, "-")}`;
   const error = fieldErrorMessage(form, name);
+  // A portrait or an author's photo claims a real person: never generated.
+  const offer = useContext(PageEditorContext)?.imageGeneration;
+  const generated =
+    offer?.available && !field.realMediaOnly
+      ? generatedAspect(field.aspect, offer.aspects)
+      : undefined;
 
   if (field.kind === "richText") {
     // The editor reads the surrounding form from context (FormProvider in
@@ -487,7 +498,10 @@ function BlockField<TValues extends FieldValues>({
         label={t(field.labelKey)}
         mediaOptions={assets
           .filter((asset) => asset.state === "ready")
-          .map((asset) => ({ id: asset.id, label: asset.original_filename }))}
+          .map((asset) => ({
+            id: asset.id,
+            label: mediaLabel(asset, t("aiSuffix")),
+          }))}
         name={name}
         onUploadImage={onMediaUploaded}
       />
@@ -511,21 +525,19 @@ function BlockField<TValues extends FieldValues>({
       <div className="flex flex-wrap items-center gap-2">
         {/* Only assets that finished scanning: offering a pending one would let
             the operator publish a page whose picture is not there yet. */}
-        <NativeSelect
-          aria-invalid={Boolean(error)}
-          className="flex-1"
+        <MediaSelect
+          assets={assets.filter(
+            (asset) =>
+              asset.state === "ready" &&
+              // A portrait or an author's photo claims a real person; the
+              // API refuses AI images there too (ADR-059 pkt 8).
+              !(field.realMediaOnly && asset.ai_origin === "generated"),
+          )}
+          form={form}
           id={id}
-          {...form.register(name as never)}
-        >
-          <option value="">{t("noImage")}</option>
-          {assets
-            .filter((asset) => asset.state === "ready")
-            .map((asset) => (
-              <option key={asset.id} value={asset.id}>
-                {asset.original_filename}
-              </option>
-            ))}
-        </NativeSelect>
+          invalid={Boolean(error)}
+          name={name}
+        />
         {/* Zdjęcie wgrywane w to konkretne miejsce kadrujemy do jego
             proporcji: układ decyduje o ramce, operator o tym, co w niej
             jest (decyzja z 20.09). */}
@@ -538,6 +550,19 @@ function BlockField<TValues extends FieldValues>({
                 shouldDirty: true,
               })
             }
+          />
+        ) : null}
+        {/* Already in the slot's aspect, so it skips the browser crop. */}
+        {generated && offer ? (
+          <GenerateImageDialog
+            aspect={generated}
+            offer={offer}
+            onUse={(assetId) => {
+              form.setValue(name as never, assetId as never, {
+                shouldDirty: true,
+              });
+              onMediaUploaded?.();
+            }}
           />
         ) : null}
       </div>
@@ -734,6 +759,54 @@ export function editableBlocks(
           : withEditableFields(migrated.data, option.fields),
     };
   });
+}
+
+/** Controlled, like FigureView's: an upload or a generated image sets an id
+ *  the options learn only later. An uncontrolled select would show "no image"
+ *  meanwhile, and leaving it would write that back into the form. */
+function MediaSelect<TValues extends FieldValues>({
+  assets,
+  form,
+  id,
+  invalid,
+  name,
+}: {
+  assets: readonly MediaAsset[];
+  form: UseFormReturn<TValues>;
+  id: string;
+  invalid: boolean;
+  name: string;
+}) {
+  const t = useTranslations("Sites");
+  const value =
+    (useWatch({ control: form.control, name: name as Path<TValues> }) as
+      string | undefined) ?? "";
+  return (
+    <NativeSelect
+      aria-invalid={invalid}
+      className="flex-1"
+      id={id}
+      {...form.register(name as never)}
+      value={value}
+    >
+      <option value="">{t("noImage")}</option>
+      {value && !assets.some((asset) => asset.id === value) ? (
+        <option value={value}>{t("richText.currentImage")}</option>
+      ) : null}
+      {assets.map((asset) => (
+        <option key={asset.id} value={asset.id}>
+          {mediaLabel(asset, t("aiSuffix"))}
+        </option>
+      ))}
+    </NativeSelect>
+  );
+}
+
+/** The file name, marked when the image was generated by AI. */
+function mediaLabel(asset: MediaAsset, aiSuffix: string): string {
+  return asset.ai_origin === "generated"
+    ? `${asset.original_filename}${aiSuffix}`
+    : asset.original_filename;
 }
 
 /** The assets the blocks themselves point at, wherever they sit: a hero

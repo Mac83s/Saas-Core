@@ -940,7 +940,7 @@ def test_processing_rejects_when_sanitized_original_and_variants_exceed_quota(
     )
     monkeypatch.setattr(
         "saas_core.modules.shared.media.services.process_image",
-        lambda content, declared_mime: oversized,
+        lambda content, declared_mime, xmp=None: oversized,
     )
     monkeypatch.setattr(
         "saas_core.modules.shared.media.tasks.process_media_asset_task.delay",

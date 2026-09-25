@@ -1001,6 +1001,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/image-generation/jobs/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["image_generation_jobs_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/image-generation/jobs/{job_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["image_generation_jobs_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/image-generation/offer/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["image_generation_offer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/inventory/adjustments/": {
         parameters: {
             query?: never;
@@ -4451,6 +4499,50 @@ export interface components {
             actions: string[];
             items: components["schemas"]["HistoryEntry"][];
         };
+        /**
+         * @description * `16:9` - 16:9
+         *     * `4:3` - 4:3
+         *     * `3:2` - 3:2
+         * @enum {string}
+         */
+        ImageGenerationAspectEnum: "16:9" | "4:3" | "3:2";
+        /** @description Never the prompt: it is the customer's text and is not echoed back. */
+        ImageGenerationJob: {
+            /** Format: uuid */
+            readonly id: string;
+            readonly state: components["schemas"]["ImageGenerationJobStateEnum"];
+            readonly aspect: string;
+            readonly width: number;
+            readonly height: number;
+            /** Format: uuid */
+            readonly media_asset_id: string | null;
+            readonly error_code: string;
+            /** Format: date-time */
+            readonly created_at: string;
+            /** Format: date-time */
+            readonly finished_at: string | null;
+        };
+        /**
+         * @description * `queued` - Queued
+         *     * `running` - Running
+         *     * `ingesting` - Ingesting
+         *     * `succeeded` - Succeeded
+         *     * `refused` - Refused
+         *     * `failed` - Failed
+         * @enum {string}
+         */
+        ImageGenerationJobStateEnum: "queued" | "running" | "ingesting" | "succeeded" | "refused" | "failed";
+        ImageGenerationOffer: {
+            available: boolean;
+            credit_cost: number;
+            aspects: components["schemas"]["ImageGenerationAspectEnum"][];
+            badge_visible: boolean;
+        };
+        ImageGenerationRequest: {
+            prompt: string;
+            aspect: components["schemas"]["ImageGenerationAspectEnum"];
+            expected_cost: number;
+        };
         InventoryAdjustInput: {
             /** Format: uuid */
             id?: string;
@@ -4668,6 +4760,7 @@ export interface components {
             expected_size: number;
             actual_size: number | null;
             state: string;
+            ai_origin: string;
             /** Format: date-time */
             upload_expires_at: string;
             /** Format: date-time */
@@ -5313,6 +5406,7 @@ export interface components {
             article: {
                 [key: string]: unknown;
             } | null;
+            ai_media_ids: string[];
         };
         PublicationAuthor: {
             /** Format: uuid */
@@ -8629,6 +8723,154 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
+    };
+    image_generation_jobs_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia zlecenia w zakresie organizacji i użytkownika. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImageGenerationRequest"];
+                "application/x-www-form-urlencoded": components["schemas"]["ImageGenerationRequest"];
+                "multipart/form-data": components["schemas"]["ImageGenerationRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageGenerationJob"];
+                };
+            };
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageGenerationJob"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            402: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    image_generation_jobs_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageGenerationJob"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    image_generation_offer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageGenerationOffer"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };

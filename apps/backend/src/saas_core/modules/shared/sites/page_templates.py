@@ -38,6 +38,7 @@ class ApprovedTemplateMedia:
     filename: str
     content_type: str
     sha256: str
+    ai_generated: bool
 
     def read(self) -> bytes:
         try:
@@ -245,7 +246,17 @@ def _approved_media(
     asset_directory = (contract_directory / "assets").resolve()
     approved: list[ApprovedTemplateMedia] = []
     seen_ids: set[str] = set()
-    for item in recipe.get("media", []):
+    items = recipe.get("media", [])
+    # Provenance lives in the photo catalogue, once per file (ADR-059 pkt 10).
+    catalogue = (
+        {
+            entry["source"]: entry
+            for entry in _read_json(contract_directory / "sample-media.v1.json")["media"]
+        }
+        if items
+        else {}
+    )
+    for item in items:
         media_id = item["id"]
         if media_id in seen_ids:
             raise ImproperlyConfigured(f"Powielone medium recepty: {media_id}")
@@ -253,6 +264,11 @@ def _approved_media(
         source_path = (contract_directory / item["source"]).resolve()
         if not source_path.is_relative_to(asset_directory):
             raise ImproperlyConfigured("Medium recepty wychodzi poza katalog assets")
+        catalogued = catalogue.get(item["source"])
+        if catalogued is None or not isinstance(catalogued.get("aiGenerated"), bool):
+            raise ImproperlyConfigured(
+                f"Medium recepty nie ma pochodzenia w katalogu zdjęć: {item['source']}"
+            )
         approved.append(
             ApprovedTemplateMedia(
                 id=media_id,
@@ -260,6 +276,7 @@ def _approved_media(
                 filename=item["filename"],
                 content_type=item["contentType"],
                 sha256=item["sha256"],
+                ai_generated=catalogued["aiGenerated"],
             )
         )
     return tuple(approved)

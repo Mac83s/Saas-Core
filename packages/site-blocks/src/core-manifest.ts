@@ -34,6 +34,7 @@ import {
 } from "./section-layouts";
 import { ContactSection, LinkListSection } from "./contact-link-sections";
 import { createElement } from "react";
+import { renderImage } from "./ai-badge";
 
 import contactV1Schema from "@saas-core/contracts/site-blocks/core.contact.v1.schema.json";
 import contactV2Schema from "@saas-core/contracts/site-blocks/core.contact.v2.schema.json";
@@ -98,16 +99,18 @@ function HeroBlock({ data, editor, imageRenderer }: BlockComponentProps) {
       text(["title"], hero.title),
     ),
     hero.image
-      ? imageRenderer
-        ? imageRenderer(hero.image)
-        : createElement("img", {
+      ? renderImage(
+          hero.image,
+          createElement("img", {
             alt: hero.image.alt,
             decoding: "async",
             // A hero is the first thing on the page, so it is the one image
             // worth fetching eagerly; everything else can wait.
             loading: "eager",
             src: publicMediaPath(hero.image.asset_id),
-          })
+          }),
+          imageRenderer,
+        )
       : null,
     hero.text ? createElement("p", null, text(["text"], hero.text)) : null,
     withSecondaryAction(
@@ -612,6 +615,8 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
             labelKey: "authorPhoto",
             // Portret na karcie autora: kwadrat, w kółku.
             aspect: [1, 1],
+            // Evidence of a real person: no AI images (ADR-059 pkt 8).
+            realMediaOnly: true,
           },
           {
             path: ["author", "image", "alt"],
@@ -948,6 +953,8 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
             labelKey: "imageAsset",
             // Portret mówcy: pionowy kadr obok cytatu.
             aspect: [4, 5],
+            // A portrait beside a quote: no AI images (ADR-059 pkt 8).
+            realMediaOnly: true,
           },
           { path: ["image", "alt"], kind: "text", labelKey: "imageAlt" },
         ],

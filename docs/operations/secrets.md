@@ -14,6 +14,17 @@ Na stagingu katalog `/opt/saas-core/secrets`:
 - zawiera wyłącznie nazwy opisane w
   `deployments/staging/secrets/README.md`.
 
+## Opcjonalne integracje
+
+Pusty plik oznacza, że integracja jest wyłączona, a nie źle skonfigurowana.
+`scripts/runtime-secrets.mjs` tworzy je puste.
+
+| Plik                              | Zmienna                                | Kto używa                                                                                  |
+| --------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `seo_ssa_service_key`             | `SEO_SSA_SERVICE_KEY_FILE`             | audyty SEO (SSA)                                                                           |
+| `seo_ssa_callback_secret`         | `SEO_SSA_CALLBACK_SECRET_FILE`         | callbacki SSA                                                                              |
+| `image_generation_openai_api_key` | `IMAGE_GENERATION_OPENAI_API_KEY_FILE` | generowanie obrazów (ADR-059); osobny projekt OpenAI na produkt z twardym limitem wydatków |
+
 ## Utworzenie
 
 1. Wygeneruj wartości kryptograficznym generatorem na zaufanej stacji.

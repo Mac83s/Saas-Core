@@ -579,3 +579,65 @@
     grid-template-columns: 1fr 2fr;
   }
 }
+
+/* ADR-059 pkt 7: the visible marking of an AI image on a published page. The
+   wrapper takes the image's place in every layout (the layout selectors name
+   `.site-ai-media` beside `> img`), and the image fills it. */
+.site-ai-media {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  vertical-align: top;
+}
+.site-ai-media > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+.site-ai-badge {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 1;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  /* White on 80 % black stays above 4.5:1 on any photograph. */
+  background: rgb(0 0 0 / 0.8);
+  color: #fff;
+  font:
+    600 12px/1.25 system-ui,
+    sans-serif;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+/* Where the image sat directly in a section, the wrapper takes the image's
+   base look as well, and the image keeps the frame's height limit. */
+.site-section > .site-ai-media {
+  width: 100%;
+  max-height: 32rem;
+  border-radius: 1rem;
+}
+.site-section > .site-ai-media > img {
+  max-height: inherit;
+}
+/* On a background photo the wrapper must not become its own stacking context,
+   or the badge would sit under the hero's darkening gradient. */
+.site-section--hero:is(
+    .site-section--overlay_left,
+    .site-section--overlay_center
+  )
+  > .site-ai-media {
+  z-index: auto;
+}
+.site-section--hero:is(
+    .site-section--overlay_left,
+    .site-section--overlay_center
+  )
+  > .site-ai-media
+  > img {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+}

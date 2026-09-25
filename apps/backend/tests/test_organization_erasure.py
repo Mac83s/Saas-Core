@@ -28,6 +28,7 @@ from saas_core.modules.core.organizations.erasure import (
     erase_organization,
     erasure_is_complete,
     row_counts,
+    stored_object_keys,
 )
 from saas_core.modules.core.organizations.models import (
     ErasureReceipt,
@@ -199,3 +200,42 @@ def test_erasing_a_tenant_does_not_erase_the_people() -> None:
 
     assert get_user_model().objects.filter(pk=user_id).exists()
     assert Membership.objects.using("default").filter(user_id=user_id).count() == 0
+
+
+def test_erasure_lists_every_stored_object_of_a_media_asset() -> None:
+    """ADR-042 gap: only the `object_key` column used to be collected, so a
+    kept source original and every WebP variant outlived the tenant."""
+    from django.utils import timezone
+
+    from saas_core.modules.shared.media.models import MediaAsset
+
+    organization = _organization("kasowanie-media")
+    member = _member(organization)
+    asset_id = uuid7()
+    prefix = f"{organization.id}"
+    variant_keys = {
+        f"{prefix}/variants/{asset_id}/preview.webp",
+        f"{prefix}/variants/{asset_id}/thumbnail.webp",
+    }
+    asset = MediaAsset.all_objects.create(
+        id=asset_id,
+        organization=organization,
+        original_filename="evidence.jpg",
+        object_key=f"{prefix}/processed/{asset_id}/original.jpg",
+        source_object_key=f"{prefix}/originals/{asset_id}.jpg",
+        declared_mime="image/jpeg",
+        expected_size=10,
+        quota_reservation_key=f"erasure:{asset_id}",
+        variants={
+            key.rsplit("/", 1)[1].split(".")[0]: {"object_key": key} for key in variant_keys
+        },
+        upload_expires_at=timezone.now(),
+        created_by=member.user,
+        idempotency_key=f"erasure-{asset_id}",
+        request_hash="0" * 64,
+    )
+
+    keys = stored_object_keys(organization.id)
+
+    assert {asset.object_key, asset.source_object_key, *variant_keys} <= set(keys)
+    assert keys == sorted(set(keys))

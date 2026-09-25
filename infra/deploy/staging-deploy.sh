@@ -30,12 +30,20 @@ for required_secret in \
     exit 1
   fi
 done
+# Mounted into backend and worker-ai; empty keeps image generation off
+# (ADR-059). A missing file stops both of them with a bind-source error.
+if [ ! -f "${DEPLOY_PATH}/secrets/image_generation_openai_api_key" ]; then
+  echo "Brak pliku sekretu image_generation_openai_api_key (może być pusty) na hoście staging" >&2
+  exit 1
+fi
 
 set -a
 . "${DEPLOY_PATH}/staging.env"
 set +a
 export SAAS_CORE_IMAGE_TAG="sha-${RELEASE_SHA}"
 export SAAS_CORE_SECRETS_DIR="${DEPLOY_PATH}/secrets"
+# worker-ai is opt-in in compose.yaml; staging runs it.
+export COMPOSE_PROFILES=image-generation
 unset SAAS_CORE_BACKEND_IMAGE SAAS_CORE_FRONTEND_IMAGE SAAS_CORE_CADDY_IMAGE SAAS_CORE_REDIS_IMAGE
 
 compose() {
@@ -60,7 +68,7 @@ compose up -d --wait --wait-timeout 1800 postgres redis clamav
 compose run --rm database-bootstrap
 compose run --rm migrate
 compose run --rm --no-deps backend python manage.py configure_simulated_prices
-compose up -d --no-deps backend worker scheduler
+compose up -d --no-deps backend worker worker-ai scheduler
 compose up -d --no-deps frontend
 compose up -d --no-deps caddy
 compose up -d postgres-exporter redis-exporter loki alloy
@@ -73,14 +81,14 @@ until curl --fail --silent --show-error --max-time 10 \
   if [ "${attempt}" -ge 18 ]; then
     compose ps
     compose logs --tail 100 \
-      caddy backend frontend worker scheduler \
+      caddy backend frontend worker worker-ai scheduler \
       clamav celery-exporter postgres-exporter redis-exporter prometheus loki alloy grafana
     exit 1
   fi
   sleep 5
 done
 
-for service in backend worker scheduler; do
+for service in backend worker worker-ai scheduler; do
   compose exec -T "${service}" python manage.py check_database_role
 done
 compose exec -T worker python manage.py check_malware_scanner

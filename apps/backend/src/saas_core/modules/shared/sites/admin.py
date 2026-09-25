@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Domain
+from .models import AiBadgeSwitch, Domain
 
 
 @admin.register(Domain)
@@ -44,6 +44,23 @@ class DomainAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
 
     def has_change_permission(self, request, obj=None):  # type: ignore[no-untyped-def]
         return request.user.is_staff
+
+    def has_delete_permission(self, request, obj=None):  # type: ignore[no-untyped-def]
+        return False
+
+
+@admin.register(AiBadgeSwitch)
+class AiBadgeSwitchAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
+    """History only: /internal/admin/ login skips MFA, so it gets no write."""
+
+    list_display = ("created_at", "visible", "changed_by", "reason")
+    ordering = ("-created_at", "-id")
+
+    def has_add_permission(self, request):  # type: ignore[no-untyped-def]
+        return False
+
+    def has_change_permission(self, request, obj=None):  # type: ignore[no-untyped-def]
+        return False
 
     def has_delete_permission(self, request, obj=None):  # type: ignore[no-untyped-def]
         return False

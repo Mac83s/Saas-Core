@@ -13,6 +13,7 @@ import {
   renderSiteFooter,
   renderResponsiveNavigation,
 } from "./site-chrome";
+import { aiBadgeImageRenderer } from "./ai-badge";
 import { InvalidDesignTokensError } from "./errors";
 import type {
   BlockRegistry,
@@ -285,7 +286,10 @@ export function renderPublishedPage(
     "main",
     document.pagination ?? null,
     document.paginationLabels ?? DEFAULT_PAGINATION_LABELS,
-    undefined,
+    // Without AI images the page renders exactly as it always did.
+    document.aiMediaIds?.length
+      ? aiBadgeImageRenderer(document.aiMediaIds, document.locale ?? "pl")
+      : undefined,
     document.appearance,
     formRenderer,
     { preview: false, locale: document.locale ?? "pl" },

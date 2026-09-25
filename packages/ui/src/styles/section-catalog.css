@@ -27,7 +27,12 @@
     .site-section--overlay_left,
     .site-section--overlay_center
   )
-  > img {
+  > img,
+.site-section--hero:is(
+    .site-section--overlay_left,
+    .site-section--overlay_center
+  )
+  > .site-ai-media {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -71,14 +76,16 @@
   .site-section__action--secondary {
   color: inherit;
 }
-.site-section--hero.site-section--image_above > img {
+.site-section--hero.site-section--image_above > img,
+.site-section--hero.site-section--image_above > .site-ai-media {
   order: -1;
   aspect-ratio: 3/1;
 }
 .site-section--hero.site-section--banner {
   padding-inline: 0;
 }
-.site-section--hero.site-section--banner > img {
+.site-section--hero.site-section--banner > img,
+.site-section--hero.site-section--banner > .site-ai-media {
   aspect-ratio: 3/1;
   max-height: 22rem;
   border-radius: 0;
@@ -97,7 +104,8 @@
   padding: clamp(1.5rem, 5cqw, 5rem);
   gap: 2rem;
 }
-.site-section--hero.site-section--inset > img {
+.site-section--hero.site-section--inset > img,
+.site-section--hero.site-section--inset > .site-ai-media {
   aspect-ratio: 2/1;
 }
 .site-section--hero.site-section--framed {
@@ -105,7 +113,8 @@
   margin: 1.5rem;
   gap: 2rem;
 }
-.site-section--hero.site-section--portrait > img {
+.site-section--hero.site-section--portrait > img,
+.site-section--hero.site-section--portrait > .site-ai-media {
   aspect-ratio: 3/4;
   max-height: 38rem;
 }
@@ -114,7 +123,8 @@
   justify-items: center;
   gap: 2rem;
 }
-.site-section--hero.site-section--spotlight > img {
+.site-section--hero.site-section--spotlight > img,
+.site-section--hero.site-section--spotlight > .site-ai-media {
   width: min(100%, 46rem);
   aspect-ratio: 2/1;
 }
@@ -125,10 +135,12 @@
   font-size: clamp(2.75rem, 10cqw, 7rem);
   max-width: 16ch;
 }
-.site-section--hero.site-section--poster > img {
+.site-section--hero.site-section--poster > img,
+.site-section--hero.site-section--poster > .site-ai-media {
   aspect-ratio: 3/1;
 }
-.site-section--hero.site-section--diagonal > img {
+.site-section--hero.site-section--diagonal > img,
+.site-section--hero.site-section--diagonal > .site-ai-media {
   clip-path: polygon(10% 0, 100% 0, 90% 100%, 0 100%);
   aspect-ratio: 1;
 }
@@ -139,13 +151,15 @@
   background: color-mix(in srgb, var(--site-accent) 5%, var(--background));
   gap: 2rem;
 }
-.site-section--hero.site-section--card > img {
+.site-section--hero.site-section--card > img,
+.site-section--hero.site-section--card > .site-ai-media {
   aspect-ratio: 2/1;
 }
 .site-section--hero.site-section--floating {
   gap: 0;
 }
-.site-section--hero.site-section--floating > img {
+.site-section--hero.site-section--floating > img,
+.site-section--hero.site-section--floating > .site-ai-media {
   order: -1;
   aspect-ratio: 2/1;
 }
@@ -159,11 +173,13 @@
 .site-section--hero.site-section--compact h1 {
   font-size: clamp(2rem, 4cqw, 3rem);
 }
-.site-section--hero.site-section--compact > img {
+.site-section--hero.site-section--compact > img,
+.site-section--hero.site-section--compact > .site-ai-media {
   max-height: 18rem;
   aspect-ratio: 2/1;
 }
-.site-section--hero.site-section--magazine > img {
+.site-section--hero.site-section--magazine > img,
+.site-section--hero.site-section--magazine > .site-ai-media {
   aspect-ratio: 4/5;
 }
 .site-section--feature_list .site-section__photo {
@@ -341,7 +357,8 @@
   ) {
     grid-template-columns: 1fr 1fr;
   }
-  .site-section--hero.site-section--split_reverse > img {
+  .site-section--hero.site-section--split_reverse > img,
+  .site-section--hero.site-section--split_reverse > .site-ai-media {
     grid-column: 1;
     grid-row: 1;
   }

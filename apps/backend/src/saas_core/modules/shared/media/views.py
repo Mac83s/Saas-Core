@@ -200,6 +200,9 @@ def _asset_payload(asset: MediaAsset) -> dict[str, object]:
         "state": asset.state,
         "upload_expires_at": asset.upload_expires_at,
         "created_at": asset.created_at,
+        # The panel reads it to keep AI images out of real-media-only slots
+        # and to badge them in previews (ADR-059).
+        "ai_origin": asset.ai_origin,
     }
 
 

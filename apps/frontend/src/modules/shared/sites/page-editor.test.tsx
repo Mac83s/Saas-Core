@@ -10,9 +10,14 @@ import {
 import { NextIntlClientProvider } from "next-intl";
 import type { ComponentProps } from "react";
 import axe from "axe-core";
+import { FormProvider, useForm, type FieldValues } from "react-hook-form";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
-import { ApiProblemError, type DraftSaveInput } from "@saas-core/api-client";
+import {
+  ApiProblemError,
+  type DraftSaveInput,
+  type ImageGenerationOffer,
+} from "@saas-core/api-client";
 import {
   availablePageTemplates,
   sectionDecorationPresets,
@@ -21,9 +26,18 @@ import {
 
 import englishMessages from "../../../../messages/en.json";
 import polishMessages from "../../../../messages/pl.json";
-import { registry } from "./block-form";
+import { BlockFields, emptyBlock, registry } from "./block-form";
 import { PageEditor } from "./page-editor";
+import { PageEditorContext } from "./page-editor-context";
 import { PublicationHistory } from "./publication-history";
+import { RichTextEditor } from "./rich-text-editor";
+
+const offer: ImageGenerationOffer = {
+  available: true,
+  credit_cost: 2,
+  aspects: ["16:9", "4:3", "3:2"],
+  badge_visible: true,
+};
 
 // The gallery offers whatever recipes are current (retired ones are hidden),
 // so the tests follow the first offered one instead of naming it.
@@ -34,6 +48,7 @@ const heroVersion = registry.definitions.get("core.hero")?.latestVersion;
 
 const {
   completeMediaUpload,
+  getImageGenerationOffer,
   materializeTemplatePhoto,
   getPageDraft,
   getPageDraftPreview,
@@ -41,10 +56,12 @@ const {
   initiateMediaUpload,
   listMediaAssets,
   listPageTranslations,
+  requestImageGeneration,
   savePageDraft,
   savePageTranslation,
 } = vi.hoisted(() => ({
   completeMediaUpload: vi.fn(),
+  getImageGenerationOffer: vi.fn(),
   materializeTemplatePhoto: vi.fn(),
   getPageDraft: vi.fn(),
   getPageDraftPreview: vi.fn(),
@@ -52,6 +69,7 @@ const {
   initiateMediaUpload: vi.fn(),
   listMediaAssets: vi.fn(),
   listPageTranslations: vi.fn(),
+  requestImageGeneration: vi.fn(),
   savePageDraft: vi.fn(),
   savePageTranslation: vi.fn(),
 }));
@@ -59,6 +77,7 @@ const {
 vi.mock("@saas-core/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@saas-core/api-client")>()),
   completeMediaUpload,
+  getImageGenerationOffer,
   materializeTemplatePhoto,
   getMediaAssetPreview: vi
     .fn()
@@ -69,6 +88,7 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   initiateMediaUpload,
   listMediaAssets,
   listPageTranslations,
+  requestImageGeneration,
   savePageDraft,
   savePageTranslation,
 }));
@@ -126,6 +146,7 @@ const translation = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  getImageGenerationOffer.mockResolvedValue({ ...offer, available: false });
   materializeTemplatePhoto.mockResolvedValue({
     asset_id: "019ff20d-a000-7000-8000-000000000099",
   });
@@ -1480,4 +1501,266 @@ test("separator editor restores stored dimensions and saves the selected layout,
       data: { layout: "wave", size: "large", width: "full", tone: "muted" },
     },
   ]);
+});
+
+function MediaFieldsHarness({
+  assets,
+  type,
+  imageGeneration = null,
+}: {
+  assets: ComponentProps<typeof BlockFields>["assets"];
+  type: string;
+  imageGeneration?: typeof offer | null;
+}) {
+  // FieldValues: the block form's own Path types are too deep for a harness.
+  const form = useForm<FieldValues>({
+    defaultValues: { blocks: [emptyBlock(type)] },
+  });
+  return (
+    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+      <FormProvider {...form}>
+        <PageEditorContext
+          value={{ undo: vi.fn(), redo: vi.fn(), look: "", imageGeneration }}
+        >
+          <BlockFields
+            assets={assets}
+            form={form}
+            index={0}
+            isFirst
+            isLast
+            moveDown={vi.fn()}
+            moveUp={vi.fn()}
+            onRemove={vi.fn()}
+            type={type}
+          />
+        </PageEditorContext>
+      </FormProvider>
+    </NextIntlClientProvider>
+  );
+}
+
+const generateLabel = polishMessages.ImageGeneration.open;
+
+test.each([
+  ["core.hero", 1],
+  // The section photo (4:3) yes, the author's portrait never (ADR-059 pkt 8).
+  ["core.rich_text", 1],
+  ["core.quote", 0],
+])("%s offers AI generation on %i image field(s)", (type, count) => {
+  render(
+    <MediaFieldsHarness assets={[]} imageGeneration={offer} type={type} />,
+  );
+  expect(screen.queryAllByRole("button", { name: generateLabel })).toHaveLength(
+    count,
+  );
+});
+
+test("„Użyj” leaves the generated image selected in the field, also after leaving it", async () => {
+  const generatedId = "019ff20d-a000-7000-8000-0000000000b1";
+  requestImageGeneration.mockResolvedValue({
+    id: "019ff20d-a000-7000-8000-0000000000b0",
+    state: "succeeded",
+    aspect: "16:9",
+    width: 1536,
+    height: 864,
+    media_asset_id: generatedId,
+    error_code: "",
+    created_at: "2026-09-24T12:00:00Z",
+    finished_at: "2026-09-24T12:01:00Z",
+  });
+  const messages = polishMessages.ImageGeneration;
+  render(
+    <MediaFieldsHarness assets={[]} imageGeneration={offer} type="core.hero" />,
+  );
+  fireEvent.click(screen.getByRole("button", { name: generateLabel }));
+  fireEvent.change(screen.getByLabelText(messages.prompt), {
+    target: { value: "Jasna pracownia" },
+  });
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: messages.generate.replace("{cost}", "2"),
+    }),
+  );
+  fireEvent.click(await screen.findByRole("button", { name: messages.use }));
+
+  const select = screen.getByLabelText(
+    polishMessages.Sites.imageAsset,
+  ) as HTMLSelectElement;
+  await waitFor(() => expect(select.value).toBe(generatedId));
+  // The media list does not know the new asset yet; blurring must not lose it.
+  fireEvent.blur(select);
+  expect(select.value).toBe(generatedId);
+  expect(select.selectedOptions[0]?.textContent).toBe(
+    polishMessages.Sites.richText.currentImage,
+  );
+});
+
+test.each([true, false])(
+  "the draft preview badges AI images only while the badge is visible (%s)",
+  async (badgeVisible) => {
+    const aiId = "019ff20d-a000-7000-8000-0000000000c1";
+    getImageGenerationOffer.mockResolvedValue({
+      ...offer,
+      badge_visible: badgeVisible,
+    });
+    listMediaAssets.mockResolvedValue({
+      items: [
+        {
+          id: aiId,
+          original_filename: "pracownia.jpg",
+          declared_mime: "image/jpeg",
+          expected_size: 10,
+          actual_size: 10,
+          state: "ready",
+          ai_origin: "generated",
+          upload_expires_at: "2026-09-24T12:00:00Z",
+          created_at: "2026-09-24T12:00:00Z",
+        },
+      ],
+      next_cursor: null,
+    });
+    getPageDraftPreview.mockResolvedValue({
+      ...draft,
+      blocks: [
+        {
+          ...draft.blocks[0],
+          schema_version: heroVersion,
+          data: {
+            title: "Oferta",
+            image: { asset_id: aiId, alt: "Pracownia" },
+          },
+        },
+      ],
+      media_asset_ids: [aiId],
+    });
+    renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
+    await screen.findByLabelText("Nagłówek");
+    fireEvent.click(
+      screen.getAllByRole("button", { name: polishMessages.Sites.preview })[0]!,
+    );
+    const dialog = await screen.findByRole("dialog");
+    await waitFor(() =>
+      expect(Boolean(dialog.querySelector(".site-ai-badge"))).toBe(
+        badgeVisible,
+      ),
+    );
+  },
+);
+
+test("no AI button when the offer is unavailable or refused", () => {
+  render(
+    <MediaFieldsHarness
+      assets={[]}
+      imageGeneration={{ ...offer, available: false }}
+      type="core.hero"
+    />,
+  );
+  expect(screen.queryByRole("button", { name: generateLabel })).toBeNull();
+  cleanup();
+  render(<MediaFieldsHarness assets={[]} type="core.hero" />);
+  expect(screen.queryByRole("button", { name: generateLabel })).toBeNull();
+});
+
+test("a figure in the text (3:2) offers AI generation", async () => {
+  function FigureHarness() {
+    const form = useForm<FieldValues>({
+      defaultValues: {
+        content: [
+          {
+            type: "figure",
+            image: {
+              asset_id: "00000000-0000-4000-8000-000000000001",
+              alt: "",
+            },
+          },
+        ],
+      },
+    });
+    return (
+      <NextIntlClientProvider locale="pl" messages={polishMessages}>
+        <FormProvider {...form}>
+          <PageEditorContext
+            value={{
+              undo: vi.fn(),
+              redo: vi.fn(),
+              look: "",
+              imageGeneration: offer,
+            }}
+          >
+            <RichTextEditor label="Treść" name="content" />
+          </PageEditorContext>
+        </FormProvider>
+      </NextIntlClientProvider>
+    );
+  }
+  render(<FigureHarness />);
+  expect(
+    await screen.findByRole("button", { name: generateLabel }),
+  ).not.toBeNull();
+});
+
+test("the editor reads the offer once and shows the button only when it is available", async () => {
+  getImageGenerationOffer.mockResolvedValue(offer);
+  renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
+  expect(
+    await screen.findByRole("button", { name: generateLabel }),
+  ).not.toBeNull();
+  expect(getImageGenerationOffer).toHaveBeenCalledOnce();
+  cleanup();
+
+  getImageGenerationOffer.mockRejectedValue(
+    new ApiProblemError({
+      type: "about:blank",
+      title: "Forbidden",
+      status: 403,
+      code: "entitlement_required",
+      detail: "Plan organizacji nie pozwala na tę operację.",
+      correlation_id: null,
+    }),
+  );
+  renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
+  await screen.findByLabelText("Nagłówek");
+  expect(screen.queryByRole("button", { name: generateLabel })).toBeNull();
+});
+
+test("portret przy cytacie nie oferuje obrazów AI, hero oznacza je dopiskiem", () => {
+  const base = {
+    declared_mime: "image/jpeg",
+    expected_size: 10,
+    actual_size: 10,
+    state: "ready",
+    upload_expires_at: "2026-09-24T12:00:00Z",
+    created_at: "2026-09-24T12:00:00Z",
+  };
+  const assets = [
+    {
+      ...base,
+      id: "019ff20d-a000-7000-8000-000000000050",
+      original_filename: "zespol.jpg",
+      ai_origin: "none",
+    },
+    {
+      ...base,
+      id: "019ff20d-a000-7000-8000-000000000051",
+      original_filename: "pracownia.jpg",
+      ai_origin: "generated",
+    },
+  ];
+  const options = (select: HTMLElement) =>
+    within(select)
+      .getAllByRole("option")
+      .map((option) => option.textContent);
+
+  render(<MediaFieldsHarness assets={assets} type="core.quote" />);
+  expect(
+    options(screen.getByLabelText(polishMessages.Sites.imageAsset)),
+  ).toEqual([polishMessages.Sites.noImage, "zespol.jpg"]);
+  cleanup();
+
+  render(<MediaFieldsHarness assets={assets} type="core.hero" />);
+  expect(
+    options(screen.getByLabelText(polishMessages.Sites.imageAsset)),
+  ).toEqual([polishMessages.Sites.noImage, "zespol.jpg", "pracownia.jpg · AI"]);
+  expect(polishMessages.Sites.aiSuffix).toBe(" · AI");
+  expect(englishMessages.Sites.aiSuffix).toBe(" · AI");
 });

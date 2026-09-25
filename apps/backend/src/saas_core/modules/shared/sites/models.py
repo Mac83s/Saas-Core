@@ -1795,3 +1795,31 @@ class SiteInquiry(TenantScopedModel):
         indexes = [
             models.Index(fields=("organization", "site", "-id"), name="sites_inquiry_inbox_idx"),
         ]
+
+
+class AiBadgeSwitch(models.Model):
+    """The operator's switch for the visible AI marking (ADR-059 pkt 7).
+
+    Append-only: the newest row is the current state and no rows means visible.
+    It belongs to the platform, not to a tenant, so it has no organization and
+    no RLS; the renderer reads it on every page. Written only by `set_ai_badge`.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    visible = models.BooleanField()
+    reason = models.TextField()
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+        constraints = [
+            models.CheckConstraint(
+                condition=~models.Q(reason=""), name="sites_aibadgeswitch_reason_ck"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.created_at:%Y-%m-%d %H:%M} visible={self.visible}"

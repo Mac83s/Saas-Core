@@ -13,6 +13,7 @@ from saas_core.modules.core.organizations.tasks import (
     tenant_task_context,
 )
 
+from .models import AiOrigin
 from .scanner import MalwareScannerUnavailable
 from .services import (
     cleanup_media_source_object,
@@ -48,7 +49,9 @@ def process_media_asset_task(
             expected_causation_id=f"media-upload:{parsed_asset_id}",
         ):
             asset = process_media_asset(asset_id=parsed_asset_id)
-            if asset is not None and asset.source_object_key:
+            # An AI asset keeps the provider original as private evidence
+            # (ADR-059 pkt 6); tombstone and erasure delete it.
+            if asset is not None and asset.source_object_key and asset.ai_origin == AiOrigin.NONE:
 
                 def enqueue_cleanup() -> None:
                     cleanup_media_source_object_task.delay(asset_id, signed_tenant_context)

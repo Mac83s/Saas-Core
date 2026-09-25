@@ -1,6 +1,7 @@
 import { Fragment, createElement as h, type ReactNode } from "react";
 
 import { plainBlockText } from "./block-text";
+import { renderImage } from "./ai-badge";
 import { monogram, picture } from "./editorial-blocks";
 
 import type {
@@ -206,14 +207,16 @@ function richTextNode(
           key,
           className: `site-figure site-figure--${node.width ?? "column"}`,
         },
-        context.imageRenderer
-          ? context.imageRenderer(node.image)
-          : h("img", {
-              src: `/media/${node.image.asset_id}`,
-              alt: node.image.alt,
-              loading: "lazy",
-              decoding: "async",
-            }),
+        renderImage(
+          node.image,
+          h("img", {
+            src: `/media/${node.image.asset_id}`,
+            alt: node.image.alt,
+            loading: "lazy",
+            decoding: "async",
+          }),
+          context.imageRenderer,
+        ),
         node.caption === undefined
           ? null
           : h("figcaption", null, text([...path, "caption"], node.caption)),

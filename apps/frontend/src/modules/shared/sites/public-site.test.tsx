@@ -57,6 +57,7 @@ const page: PublicSitePage = {
   ],
   pagination: null,
   article: null,
+  ai_media_ids: [],
 };
 
 test("renderuje tylko kontrolowane bloki opublikowanego snapshotu", async () => {
@@ -189,4 +190,36 @@ test("nie pokazuje stronicowania, gdy strona jest tylko jedna", () => {
   );
 
   expect(screen.queryByRole("navigation", { name: "Strony" })).toBeNull();
+});
+
+test("oznacza obrazy AI odznaką i dopiskiem w alt (ADR-059)", async () => {
+  const aiId = "019ff20d-a000-7000-8000-000000000040";
+  const rendered = render(
+    <PublicSiteRenderer
+      page={{
+        ...page,
+        blocks: [
+          {
+            block_type: "core.hero",
+            schema_version: 3,
+            data: {
+              title: "Pracownia",
+              image: { asset_id: aiId, alt: "Jasna pracownia" },
+            },
+          },
+        ],
+        ai_media_ids: [aiId],
+      }}
+    />,
+  );
+
+  expect(
+    screen.getByRole("img", {
+      name: "Jasna pracownia — obraz wygenerowany przez AI",
+    }),
+  ).not.toBeNull();
+  const badge = rendered.container.querySelector(".site-ai-badge");
+  expect(badge?.textContent).toBe("AI");
+  expect(badge?.getAttribute("aria-hidden")).toBe("true");
+  expect((await axe.run(rendered.container)).violations).toHaveLength(0);
 });

@@ -10,7 +10,9 @@ from rest_framework.exceptions import NotFound, ValidationError
 
 from saas_core.modules.core.organizations.context import set_local_organization_id
 from saas_core.modules.core.organizations.models import Organization, OrganizationStatus
+from saas_core.modules.shared.media.api import ai_generated_asset_ids
 
+from .ai_badge import badge_visible
 from .domains import InvalidHostname, normalize_hostname
 from .localization import collection_index_path
 from .models import (
@@ -238,7 +240,29 @@ def public_page_payload(page: PublicPage) -> dict[str, Any]:
         # article has an author and dates, a plain page has neither.
         "pagination": _absolute_pagination(page.page.get("pagination"), canonical_origin),
         "article": page.page.get("article"),
+        "ai_media_ids": _ai_media_ids(page),
     }
+
+
+def _ai_media_ids(page: PublicPage) -> list[str]:
+    """AI images on the page, read at render time (ADR-059 pkt 7).
+
+    Provenance is not in the snapshot, so publications made before an asset
+    was marked get the badge too. The operator switch hides the list; the XMP
+    inside the files stays either way.
+    """
+    asset_ids = page.page.get("media_asset_ids") or []
+    if not asset_ids or not badge_visible():
+        return []
+    # media_mediaasset forces RLS: the tenant the host named goes first.
+    with transaction.atomic():
+        set_local_organization_id(page.publication.organization_id)
+        return sorted(
+            ai_generated_asset_ids(
+                organization_id=page.publication.organization_id,
+                asset_ids=asset_ids,
+            )
+        )
 
 
 def _absolute_pagination(
@@ -477,6 +501,10 @@ class _IndexPublication:
     @property
     def id(self) -> Any:
         return self.collection.id
+
+    @property
+    def organization_id(self) -> Any:
+        return self.collection.organization_id
 
     @property
     def snapshot(self) -> dict[str, Any]:

@@ -54,6 +54,7 @@ rejestr z `Plan/SaaS-Core-06-Rejestr-Decyzji.md`.
 | [ADR-056](ADR-056-Edytor-Tekstu-WYSIWYG-Na-Kontrakcie-Rich-Text.md) | edytor tekstu WYSIWYG (TipTap) na kontrakcie `core.rich_text` | Accepted |
 | [ADR-057](ADR-057-Szablon-Strony-Panelu.md) | szablon strony panelu: jedna szerokość, podstrony w menu, pasek filtrów, akcje wiersza | Accepted |
 | [ADR-058](ADR-058-Zespoly-Przydzial-i-Dobor-Osob-w-Rezerwacjach.md) | zespoły, wiele osób na wizycie, dobór najmniej obciążonej osoby, silnik terminów w trzech częściach | Accepted |
+| [ADR-059](ADR-059-Generowanie-Obrazow-AI-i-Pochodzenie-Mediow.md) | generowanie obrazów AI, pochodzenie mediów i odznaka z przełącznikiem operatora | Accepted |
 
 Każda zmiana decyzji tworzy nowy ADR. Całkowicie zastąpiony dokument otrzymuje
 status `Superseded`; przy częściowym zastąpieniu nowy ADR wskazuje dokładny

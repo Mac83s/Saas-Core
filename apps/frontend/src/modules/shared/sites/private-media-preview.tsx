@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { getMediaAssetPreview } from "@saas-core/api-client";
-import type { BlockImageRenderer } from "@saas-core/site-blocks";
+import { withAiBadge, type BlockImageRenderer } from "@saas-core/site-blocks";
 import { Button } from "@saas-core/ui/components/button";
 
 /** URLs exist only while mounted; image bytes never enter the draft or history. */
@@ -14,6 +14,23 @@ export const renderPrivateMedia: BlockImageRenderer = (image) => (
     alt={image.alt}
   />
 );
+
+/** The same, with the badge a published page will show on AI images. */
+export function privateMediaRenderer(
+  aiIds: ReadonlySet<string>,
+  locale: "pl" | "en",
+): BlockImageRenderer {
+  return function renderWithBadge(image) {
+    const preview = (
+      <PrivateMediaPreview
+        key={image.asset_id}
+        assetId={image.asset_id}
+        alt={image.alt}
+      />
+    );
+    return aiIds.has(image.asset_id) ? withAiBadge(preview, locale) : preview;
+  };
+}
 
 export function PrivateMediaPreview({
   assetId,

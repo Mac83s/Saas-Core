@@ -247,13 +247,13 @@
 .site-theme.site-style--product
   .site-block
   :where(
-    .site-block--hero > img,
+    .site-block--hero > :is(img, .site-ai-media),
     .site-section--hero:not(
         .site-section--overlay_left,
         .site-section--overlay_center,
         .site-section--banner
       )
-      > img,
+      > :is(img, .site-ai-media),
     .site-block:not(.site-section--panorama) .site-section__image img,
     .site-section__photo img,
     .site-product__gallery img,
@@ -581,13 +581,13 @@
 .site-theme.site-style--organic
   .site-block
   :where(
-    .site-block--hero > img,
+    .site-block--hero > :is(img, .site-ai-media),
     .site-section--hero:not(
         .site-section--overlay_left,
         .site-section--overlay_center,
         .site-section--banner
       )
-      > img,
+      > :is(img, .site-ai-media),
     .site-block:not(.site-section--panorama) .site-section__image img,
     .site-section__photo img,
     .site-product__gallery img,

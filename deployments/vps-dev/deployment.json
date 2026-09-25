@@ -15,6 +15,7 @@
     "shared.billing",
     "shared.sites",
     "shared.media",
+    "shared.image-generation",
     "shared.profiles",
     "shared.notifications",
     "shared.booking",

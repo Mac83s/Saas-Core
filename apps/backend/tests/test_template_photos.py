@@ -1,7 +1,12 @@
+import json
+import shutil
+from pathlib import Path
 from uuid import uuid7
 
 import pytest
+from django.conf import settings
 from django.core.cache import cache
+from django.core.exceptions import ImproperlyConfigured
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
@@ -10,6 +15,7 @@ from saas_core.modules.core.organizations.models import Membership, Organization
 from saas_core.modules.shared.billing.models import EntitlementSnapshot
 from saas_core.modules.shared.media.models import MediaAsset
 from saas_core.modules.shared.sites.models import Domain, PageVersion, Publication
+from saas_core.modules.shared.sites.page_templates import _approved_media
 from saas_core.modules.shared.sites.public_media import serve_public_media
 from saas_core.modules.shared.sites.publication_routing import PublicSiteNotFound
 from test_sites_api import (
@@ -86,6 +92,8 @@ def test_photo_materialization_is_scanned_idempotent_and_isolated(media_runtime)
     assert second.data["asset_id"] != first.data["asset_id"]
     assert scanner.calls == 2
     assert MediaAsset.all_objects.get(id=first.data["asset_id"]).organization_id == org.id
+    # The catalogue says the photo is AI-generated; the asset carries it (ADR-059).
+    assert MediaAsset.all_objects.get(id=first.data["asset_id"]).ai_origin == "generated"
     assert all(key.startswith((str(org.id), str(foreign.id))) for key in storage.objects)
     assert other.get(f"/api/v1/media/{first.data['asset_id']}/preview/").status_code == 404
     assert client.post("/api/v1/sites/template-media/business/materialize/", {}).status_code == 403
@@ -171,6 +179,7 @@ def test_localized_page_import_binds_real_photos_and_compensates_failed_import(m
         asset = MediaAsset.all_objects.get(id=image["asset_id"])
         assert asset.state == "ready"
         assert asset.organization_id == org.id
+        assert asset.ai_origin == "generated"
         assert client.get(f"/api/v1/media/{asset.id}/preview/").status_code == 200
     assert send("import").data["draft_id"] == result.data["draft_id"]
     payload["locale"] = "pl"
@@ -225,3 +234,19 @@ def test_a_busy_scanner_is_a_retryable_503_that_stores_nothing(media_runtime, mo
         "saas_core.modules.shared.media.services.get_malware_scanner", lambda: scanner
     )
     assert photo_request(client, key="busy-photo").status_code == 200
+
+
+def test_a_recipe_photo_missing_from_the_catalogue_is_refused(tmp_path: Path) -> None:
+    """Provenance is read from the catalogue; an uncatalogued file has none."""
+    source = Path(settings.PAGE_TEMPLATE_CONTRACTS_PATH)
+    shutil.copytree(source / "assets", tmp_path / "assets")
+    catalogue = json.loads((source / "sample-media.v1.json").read_text(encoding="utf-8"))
+    medium = catalogue["media"][0]
+    (tmp_path / "sample-media.v1.json").write_text(
+        json.dumps({**catalogue, "media": catalogue["media"][1:]}), encoding="utf-8"
+    )
+
+    with pytest.raises(ImproperlyConfigured):
+        _approved_media(contract_directory=tmp_path, recipe={"media": [medium]})
+    (approved,) = _approved_media(contract_directory=source, recipe={"media": [medium]})
+    assert approved.ai_generated is True

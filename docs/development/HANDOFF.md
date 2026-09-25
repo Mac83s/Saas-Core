@@ -14,20 +14,25 @@ i git; zamknięte pozycje z dawnego dziennika zostały pominięte.
 
 | Plan | O czym | Gdzie jesteśmy |
 | --- | --- | --- |
-| `saas-core-panel-i-katalog-listy-wizytowka-historia-wyszukiwarka` | standard list panelu, szablon strony panelu, wizytówka, historia zmian, limit podstron, wyszukiwarka katalogu | fazy 1–4 i 7 zrobione (DataTable, przełącznik wizytówki, historia zmian, limit podstron; 24.09 szablon strony panelu, ADR-057, w trzech aplikacjach); faza 6 częściowo; dalej magazyn faza 7, potem Meilisearch |
-| `magazyn-materia-o-w-od-pakietu-korektora-do-kare` | uniwersalny magazyn firm (`shared.inventory` v2, ADR-055): dokumenty, miejsca, rezerwacje, rezerwacje stanu przy wizytach, przyszły sklep | fazy 4, 5, 6 i 8 zrobione 23–24.09 (rdzeń v2, HoofCare przepięty, panel na DataTable, włączony wszędzie, produkty przy wizycie); dalej przygotowanie do wizyty i alert małego stanu w HoofCare |
+| `saas-core-panel-i-katalog-listy-wizytowka-historia-wyszukiwarka` | standard list panelu, szablon strony panelu, wizytówka, historia zmian, limit podstron, wyszukiwarka katalogu | fazy 1–4 i 7 zrobione (DataTable, przełącznik wizytówki, historia zmian, limit podstron; 24.09 szablon strony panelu, ADR-057, w trzech aplikacjach); faza 6 częściowo; dalej wyszukiwarka (Meilisearch) po fazie 9 magazynu |
+| `magazyn-materia-o-w-od-pakietu-korektora-do-kare` | uniwersalny magazyn firm (`shared.inventory` v2, ADR-055): dokumenty, miejsca, rezerwacje, rezerwacje stanu przy wizytach, przyszły sklep | fazy 1–8 zrobione 23–24.09 (rdzeń v2, HoofCare przepięty, panel na DataTable, włączony wszędzie, produkty przy wizycie; 24.09 wieczorem przygotowanie do wizyty i mały stan w terenie w HoofCare, raport `2026-09-24-inventory-phase7`); dalej faza 9 — partie, ważność, karencja leków (decyzja 24.09) |
 | `saas-core-zespol-pracownicy-i-przydzial-wizyt` | kierunek CRM (decyzja 24.09): lista pracowników z kontem i bez, zespoły, wiele osób na wizycie, dobór osoby przez serwer, przydział i „kto jest wolny”, historia i wydajność z miar produktu (ADR-058) | koncepcja i 16 makiet przyjęte 24.09 (odpowiedzi 1–8; pkt 1 „potwierdzona od razu” czeka na potwierdzenie litery); faza 1 bez widocznych zmian (przypomnienia jako usługa i za przełożoną wizytą, terminy: dni → godziny → walidacja, dobór najmniej obciążonej osoby, przycięcie alokacji przy zakończeniu, lista wizyt z oknem, klient bez danych pracowników) na gałęzi `feat/team-dispatch`; zostaje: kalendarz nadal pobiera wszystkie wizyty (okno API gotowe, pusty stan do przeniesienia w fazie 2) |
-| `saas-core-site-studio-templates`, `saas-core-site-studio-rich-content-and-full-width` | Site Studio: szablony, warianty, bogata treść | bogata treść, pełna szerokość, wygląd strony i 3 strony demonstracyjne scalone i wdrożone 23.09 (saas, a wieczorem też HoofCare i MedPlano) (`docs/architecture/site-rich-content.md`, raport `2026-09-23-rich-content`); faza 3a (20 układów redakcyjnych pod konwersję, `core.rich_text` v3, katalog v6, ostrzeżenie o miejscach `[Uzupełnij: …]`) i 3b (8 stylów strony, kotwice sekcji i przyciski „do formularza”, 9 recept stron v5 z celem i ścieżką konwersji, 8 dawnych szablonów wycofanych z galerii) scalone 23.09; etap 2b — edytor WYSIWYG (TipTap, ADR-056) w panelu i na pełnym ekranie, panel ze składnią `**` usunięty — scalony i wdrożony na saas 24.09 (raport `2026-09-24-wysiwyg-editor`); formularz kontaktu v2 (4 warianty wymaganych pól, m.in. „Oddzwonimy” z wymaganym telefonem, egzekwowane przez serwer) wdrożony na saas 24.09 (raport `2026-09-24-contact-form-v2`); faza 4 (paczki F4-P0…P5, 24 sekcje, 3 strony, 6 dodatków branżowych): F4-P0a (katalog v7, najnowsza wersja sekcji w bibliotece, harness zrzutów) i F4-P0b (bez zmyślonych faktów w receptach, strażnik cytatów dla automatu, 503 przy zajętym skanerze, Manrope 800) wdrożone na saas 24.09 (raport `2026-09-24-phase4-p0`); dalej F4-P1 (listy, Poradnik, sekcje gabinetu i gospodarstwa). Generator obrazów AI (OpenAI GPT Image 2.5, decyzja memex z 24.09) w budowie na gałęzi `feat/image-generation`, bez klucza API i testów na żywo |
+| `saas-core-site-studio-templates`, `saas-core-site-studio-rich-content-and-full-width` | Site Studio: szablony, warianty, bogata treść | bogata treść, pełna szerokość, wygląd strony i 3 strony demonstracyjne scalone i wdrożone 23.09 (saas, a wieczorem też HoofCare i MedPlano) (`docs/architecture/site-rich-content.md`, raport `2026-09-23-rich-content`); faza 3a (20 układów redakcyjnych pod konwersję, `core.rich_text` v3, katalog v6, ostrzeżenie o miejscach `[Uzupełnij: …]`) i 3b (8 stylów strony, kotwice sekcji i przyciski „do formularza”, 9 recept stron v5 z celem i ścieżką konwersji, 8 dawnych szablonów wycofanych z galerii) scalone 23.09; etap 2b — edytor WYSIWYG (TipTap, ADR-056) w panelu i na pełnym ekranie, panel ze składnią `**` usunięty — scalony i wdrożony na saas 24.09 (raport `2026-09-24-wysiwyg-editor`); formularz kontaktu v2 (4 warianty wymaganych pól, m.in. „Oddzwonimy” z wymaganym telefonem, egzekwowane przez serwer) wdrożony na saas 24.09 (raport `2026-09-24-contact-form-v2`); faza 4 (paczki F4-P0…P5, 24 sekcje, 3 strony, 6 dodatków branżowych): F4-P0a (katalog v7, najnowsza wersja sekcji w bibliotece, harness zrzutów) i F4-P0b (bez zmyślonych faktów w receptach, strażnik cytatów dla automatu, 503 przy zajętym skanerze, Manrope 800) wdrożone na saas 24.09 (raport `2026-09-24-phase4-p0`); dalej F4-P1 (listy, Poradnik, sekcje gabinetu i gospodarstwa). Generator obrazów AI (OpenAI GPT Image 2.5, ADR-059) wdrożony na saas 24.09 bez klucza (raport `2026-09-24-image-generation`): oznaczanie AI, odznaka i sloty dowodowe działają; generowanie czeka na klucz, pilot SynthID i prawnika |
 | `domkna-c-saas-core-po-audycie-realna-kompozycja-` | baza P0–P3 po audycie | treść w `Plan/Wdrozenie/13-…` |
 
-Kolejność przyjęta 23.09: faza panelu 3 → 4 → magazyn 4–8 → wyszukiwarka →
-magazyn 9–10 → pozostałe listy na DataTable.
+Kolejność przyjęta 23.09, zmieniona 24.09: faza panelu 3 → 4 → magazyn 4–8 →
+magazyn 9 → wyszukiwarka → magazyn 10 → pozostałe listy na DataTable.
 
 ## Wdrożenie (dev VPS goldentrd, instancje to development do ok. połowy października)
 
 - `saas.goldenstar.cloud` (profil `vps-dev`), `hoofcare.goldenstar.cloud`,
   `medplano.goldenstar.cloud` — osobne stacki compose; produkty przez
   `--env-file .env.<produkt>` i `compose.<produkt>.yaml`.
+- Jeden skaner plików na hoście (decyzja 24.09): `saas-core-clamav-1` jest
+  podpięty do sieci `<produkt>_scanner` z aliasem `clamav`; produkty nie mają
+  własnych kopii. Odtworzenie tego kontenera zrywa podpięcie — workery
+  produktów nie wstaną, dopóki `docker network connect --alias clamav
+  <produkt>_scanner saas-core-clamav-1` nie zostanie powtórzone.
 - Kod działający na VPS i raporty wydań: `docs/operations/releases/`
   (ostatnie z 23.09: DataTable, przełącznik wizytówki i strona wizytówki w
   katalogu, bogata treść Site Studio, historia zmian, limit podstron, układy
@@ -56,6 +61,58 @@ magazyn 9–10 → pozostałe listy na DataTable.
 - **Kredyty:** operacje content-ops zasiane jako nieaktywne do kontraktu SCR
   (`shared/billing/migrations/0016_seed_credit_catalog.py:89-100`); brak
   `shared.assistant` (zużycie przez AI, historia).
+- **Generator obrazów AI (ADR-059, gałąź `feat/image-generation`):** IG-0
+  gotowe bez wywołań na żywo — moduł `shared.image-generation` (na razie bez
+  modeli i URL-i) w agro, business i vps-dev, adapter OpenAI
+  (`image_generation/provider.py`), sekret `image_generation_openai_api_key`,
+  komenda `generate_template_photos` (kandydaci, `--verify`, `--promote`) i
+  `photo-shots.v1.json` z 5 scenami pilota. Czeka na klucz właściciela: pilot
+  5 scen × Flare/Sunburst, `--verify` (SynthID po `process_image`), potem ok.
+  26 ujęć.
+  IG-1 (pochodzenie mediów i widoczne oznaczenie z art. 50) gotowe na gałęzi:
+  `MediaAsset.ai_origin` (`none`/`generated`; migracja `media.0008` oznacza
+  zaimportowane zdjęcia szablonów), XMP IPTC DigitalSourceType w przetworzonym
+  oryginale i wariantach WebP (PNG jako iTXt), prywatny oryginał dowodowy AI
+  usuwany dopiero przez tombstone i erasure (`stored_object_keys` zbiera teraz
+  też `*_object_key` i `variants[*].object_key` — luka ADR-042), pochodzenie
+  zdjęć szablonów z `sample-media.v1.json` (`aiGenerated`), strażnik slotów
+  dowodowych (`sites/real_media.py`, `422 ai_media_not_allowed_in_slot` w
+  zapisie i publikacji stron i wpisów), `ai_media_ids` w publicznym payloadzie
+  czytane przy renderze, odznaka „AI” z dopiskiem w `alt` w rendererze
+  (`@saas-core/site-blocks` `withAiBadge`), panel oznacza obrazy AI „· AI” i
+  ukrywa je w polach `realMediaOnly`. Odznakę dla całego deploymentu włącza i
+  wyłącza tylko operator (is_staff + MFA):
+  `python manage.py set_ai_badge --operator <e-mail> --off|--on --reason "…"`,
+  historia `--show` (tabela `sites_aibadgeswitch`, admin tylko do odczytu);
+  XMP w plikach zostaje zawsze. Niesprawdzone na uruchomionym stacku (gałąź
+  niewdrożona): odznaka po hoście, XMP w `/media/<id>`, `--off`.
+  IG-2 (zlecenia klientów) gotowe na gałęzi, bez wywołań na żywo: tabela
+  `image_generation_imagegenerationjob` (FORCE RLS, wyzwalacz członkostwa),
+  migracje modułu 0001-0004 (cecha we wszystkich planach, limit prób
+  `image_generation.monthly` 50/200/1000/50, operacja `image_generation.generate`
+  = 2 kredyty, uprawnienie manager/admin/owner; odwracalne), `roleGrants` i
+  `beatSchedule` w deskryptorze, API `/api/v1/image-generation/` (oferta,
+  zlecenie z `Idempotency-Key`, odczyt bez promptu), `worker.py` na wzór SEO
+  (dzierżawa, dostawca poza transakcją, ponowienia przez beat, blokada
+  dostawcy 1 h, jedna ścieżka mediów przez `stage_generated_media_asset`),
+  usługa `worker-ai` (`-Q ai`, profil Compose `image-generation`,
+  `stop_grace_period` 200 s) w compose, vps i skryptach deployu/rollbacku
+  stagingu, przycisk „Wygeneruj obraz AI” w Site Studio (16:9, 4:3, figura
+  3:2; nie w slotach dowodowych), runbook `docs/operations/image-generation.md`.
+  **Kroki wdrożenia (blokujące) na każdym stosie:** plik
+  `image_generation_openai_api_key` musi istnieć, także pusty, `0644`
+  (`test -f F || install -m 0644 /dev/null F` w `.runtime/secrets`,
+  `.runtime-hoofcare/secrets`, `.runtime-medplano/secrets`) — bez niego
+  Compose nie tworzy kontenera `backend`; `COMPOSE_PROFILES=image-generation`
+  w pliku env stosu uruchamia `worker-ai`. HoofCare i MedPlano po
+  `core:update`: najpierw wpis `worker-ai` w overlayu produktu (obraz, env,
+  sekrety jak `worker`), dopiero potem profil — inaczej `worker-ai` buduje się
+  pod tagiem `saas-core-backend:local` stosu Saas-Core. Otwarte: dowód na
+  uruchomionym stacku (RLS trzema odczytami, job do `succeeded` z kluczem,
+  odznaka po hoście, erasure obiektów, grep logów) — nie robiony, bo host
+  jest przeciążony i nie ma klucza; przed klientami: klucz, Tier ≥ 2, limit
+  wydatków w projekcie OpenAI, przegląd prawnika (projekt ToS/AUP/DPA w planie
+  memeksu).
 - **P3 (plan 13:406-442):** powiązanie profilu osoby z witryną, konto klienta
   (`Customer.user`, „moje wizyty”), role specjalista/recepcja,
   `PolicyAcknowledgement`, skill tożsamości.
@@ -108,7 +165,9 @@ magazyn 9–10 → pozostałe listy na DataTable.
 - **Magazyn v2 (ADR-055):** włączony we wszystkich profilach i planach;
   wizyty rezerwują i zdejmują produkty zawsze z magazynu głównego (bez zapasu
   osoby i innych magazynów); zakończonej wizyty nie cofa się w kalendarzu; brak
-  wydruku dokumentów (PDF później), partii, alertów i raportów.
+  wydruku dokumentów (PDF później), partii, alertów i raportów. Moduł może
+  wyłączyć produkty kalendarza dla swoich rodzajów wizyt
+  (`appointmentKindsWithOwnMaterials`, robi to HoofCare).
 - **Wyszukiwarka panelu** z makiety — brak API i UI; **warianty kolorów
   produktów** (5 od właściciela) — brak.
 - **Integracja SEO na instancjach (plan 14:74-91, 205):** osiem przepływów na

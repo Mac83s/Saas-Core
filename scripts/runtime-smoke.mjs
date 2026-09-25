@@ -5,7 +5,16 @@ const baseUrl = new URL(
   process.env.SAAS_CORE_BASE_URL ?? "http://127.0.0.1:8080",
 );
 
-for (const service of ["backend", "worker", "scheduler"]) {
+// worker-ai is opt-in (COMPOSE_PROFILES=image-generation, ADR-059).
+const imageGeneration = (process.env.COMPOSE_PROFILES ?? "")
+  .split(",")
+  .includes("image-generation");
+for (const service of [
+  "backend",
+  "worker",
+  ...(imageGeneration ? ["worker-ai"] : []),
+  "scheduler",
+]) {
   checkDatabaseRole(service);
 }
 checkMalwareScanner();

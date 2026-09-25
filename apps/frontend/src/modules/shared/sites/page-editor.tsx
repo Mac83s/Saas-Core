@@ -33,6 +33,7 @@ import { z } from "zod";
 import {
   ApiProblemError,
   completeMediaUpload,
+  getImageGenerationOffer,
   getPageDraft,
   getPageDraftPreview,
   importPageTemplate,
@@ -41,6 +42,7 @@ import {
   listPageTranslations,
   savePageDraft,
   savePageTranslation,
+  type ImageGenerationOffer,
   type MediaAsset,
   type PageDraft,
   type PageSummary,
@@ -110,7 +112,7 @@ import {
   type BlockOption,
 } from "./block-form";
 import { mutationKey, type MutationReceipt } from "./idempotency";
-import { renderPrivateMedia } from "./private-media-preview";
+import { privateMediaRenderer } from "./private-media-preview";
 import {
   pageLookClassName,
   SectionCanvas,
@@ -303,6 +305,20 @@ export function PageEditor({
   const [locale, setLocale] = useState("pl");
   const [baseLocale, setBaseLocale] = useState("pl");
   const [assets, setAssets] = useState<MediaAsset[]>([]);
+  // Read once per editor: a 403 or an unavailable offer hides the AI button.
+  const [imageGeneration, setImageGeneration] =
+    useState<ImageGenerationOffer | null>(null);
+  useEffect(() => {
+    let mounted = true;
+    getImageGenerationOffer()
+      .then((offer) => {
+        if (mounted) setImageGeneration(offer);
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
   const [selectedBlock, setSelectedBlock] = useState<BlockOption | null>(null);
   const [assetOption, setAssetOption] = useState<MediaAsset | null>(null);
   const [preview, setPreview] = useState<PageDraft>();
@@ -671,9 +687,20 @@ export function PageEditor({
         designTokens,
       },
       registry,
-      renderPrivateMedia,
+      privateMediaRenderer(
+        // The badge only where published pages show it (operator switch);
+        // unknown when there is no offer, so shown as by default.
+        imageGeneration?.badge_visible === false
+          ? new Set<string>()
+          : new Set(
+              assets
+                .filter((asset) => asset.ai_origin === "generated")
+                .map((asset) => asset.id),
+            ),
+        locale === "en" ? "en" : "pl",
+      ),
     );
-  }, [preview, savedAppearance]);
+  }, [preview, savedAppearance, assets, locale, imageGeneration]);
 
   /** Every section entering the page from the library goes through here:
    *  its photos refresh the media list and its heading anchors are renamed
@@ -774,6 +801,7 @@ export function PageEditor({
                 undo: history.undo,
                 redo: history.redo,
                 look: pageLookClassName(appearance, pagePresentation),
+                imageGeneration,
               }}
             >
               <form

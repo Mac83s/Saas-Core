@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:a4f495ce535b72c304920f4591c2236ef350593e3dc92c178ae28dabce5c229d",
+  "profileHash": "sha256:85fa9c16f51c99d4680f120a4c504807b5b28d029036b38b9a93fb447c5a79db",
   "schemaVersion": 1,
   "deployment": "business",
   "product": {
@@ -25,9 +25,10 @@
       "description": null,
       "modules": [
         "shared.billing",
+        "shared.media",
         "shared.notifications",
         "shared.sites",
-        "shared.media",
+        "shared.image-generation",
         "shared.profiles",
         "shared.booking",
         "shared.seo",
@@ -163,6 +164,41 @@
       }
     },
     {
+      "id": "shared.media",
+      "version": 1,
+      "layer": "shared",
+      "dependsOn": [
+        "core.organizations",
+        "shared.billing"
+      ],
+      "backend": {
+        "djangoApp": "saas_core.modules.shared.media",
+        "urlPrefix": "/api/v1/media",
+        "permissions": [
+          "media.read",
+          "media.manage",
+          "media.template.import"
+        ],
+        "entitlements": [
+          "storage.enabled"
+        ],
+        "eventSchemas": [],
+        "publicTables": [],
+        "platformTables": []
+      },
+      "frontend": {
+        "routes": [
+          "/media"
+        ],
+        "navigation": [
+          "media"
+        ],
+        "translationNamespaces": [
+          "media"
+        ]
+      }
+    },
+    {
       "id": "shared.notifications",
       "version": 1,
       "layer": "shared",
@@ -212,6 +248,7 @@
       "dependsOn": [
         "core.organizations",
         "shared.billing",
+        "shared.media",
         "shared.notifications"
       ],
       "backend": {
@@ -252,37 +289,50 @@
       }
     },
     {
-      "id": "shared.media",
+      "id": "shared.image-generation",
       "version": 1,
       "layer": "shared",
       "dependsOn": [
         "core.organizations",
-        "shared.billing"
+        "shared.billing",
+        "shared.media",
+        "shared.sites"
       ],
       "backend": {
-        "djangoApp": "saas_core.modules.shared.media",
-        "urlPrefix": "/api/v1/media",
+        "djangoApp": "saas_core.modules.shared.image_generation",
+        "urlPrefix": "/api/v1/image-generation",
         "permissions": [
-          "media.read",
-          "media.manage",
-          "media.template.import"
+          "image_generation.run"
         ],
+        "roleGrants": {
+          "manager": [
+            "image_generation.run"
+          ],
+          "admin": [
+            "image_generation.run"
+          ],
+          "owner": [
+            "image_generation.run"
+          ]
+        },
         "entitlements": [
-          "storage.enabled"
+          "image_generation.enabled"
         ],
         "eventSchemas": [],
         "publicTables": [],
-        "platformTables": []
+        "platformTables": [],
+        "beatSchedule": {
+          "image-generation-reconcile": {
+            "task": "saas_core.modules.shared.image_generation.tasks.reconcile_image_generation_jobs",
+            "schedule": 60
+          }
+        }
       },
       "frontend": {
-        "routes": [
-          "/media"
-        ],
-        "navigation": [
-          "media"
-        ],
+        "routes": [],
+        "navigation": [],
         "translationNamespaces": [
-          "media"
+          "ImageGeneration"
         ]
       }
     },

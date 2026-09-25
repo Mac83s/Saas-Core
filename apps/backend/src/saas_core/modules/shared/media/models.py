@@ -18,6 +18,13 @@ class MediaAssetState(models.TextChoices):
     REJECTED = "rejected", "Odrzucony"
 
 
+class AiOrigin(models.TextChoices):
+    """Where the pixels came from (ADR-059 pkt 6); `edited` arrives with a producer."""
+
+    NONE = "none", "Zwykłe medium"
+    GENERATED = "generated", "Wygenerowane przez AI"
+
+
 class MediaReferenceOwner(models.TextChoices):
     PAGE_VERSION = "sites.page_version", "Wersja strony"
     CONTENT_ENTRY_VERSION = "sites.content_entry_version", "Wersja wpisu"
@@ -45,6 +52,7 @@ class MediaAsset(TenantScopedModel):
     quota_reservation_key = models.CharField(max_length=120, unique=True)
     quota_committed = models.BooleanField(default=False)
     variants = models.JSONField(default=dict, blank=True)
+    ai_origin = models.CharField(max_length=16, choices=AiOrigin, default=AiOrigin.NONE)
     rejection_code = models.CharField(max_length=80, blank=True)
     upload_expires_at = models.DateTimeField()
     uploaded_at = models.DateTimeField(null=True, blank=True)

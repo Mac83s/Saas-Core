@@ -33,6 +33,7 @@ set -a
 set +a
 export SAAS_CORE_IMAGE_TAG="${previous_tag}"
 export SAAS_CORE_SECRETS_DIR="${DEPLOY_PATH}/secrets"
+export COMPOSE_PROFILES=image-generation
 
 compose() {
   docker compose --env-file "${DEPLOY_PATH}/staging.env" \
@@ -42,10 +43,10 @@ compose() {
 # Rollback nie cofa schematu. Poprzedni obraz musi być zgodny z migracją expand/contract.
 compose pull backend frontend caddy redis clamav
 compose up -d --wait --wait-timeout 1800 clamav
-compose up -d --no-deps backend worker scheduler celery-exporter frontend caddy
+compose up -d --no-deps backend worker worker-ai scheduler celery-exporter frontend caddy
 curl --fail --silent --show-error --retry 18 --retry-delay 5 --max-time 10 \
   "${STAGING_URL%/}/api/v1/health/" >/dev/null
-for service in backend worker scheduler; do
+for service in backend worker worker-ai scheduler; do
   compose exec -T "${service}" python manage.py check_database_role
 done
 compose exec -T worker python manage.py check_malware_scanner
