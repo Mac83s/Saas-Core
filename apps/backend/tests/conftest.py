@@ -12,6 +12,14 @@ from dataclasses import replace
 from typing import Any
 
 import pytest
+from django.conf import settings
+
+# A module's tests that import its models at the top cannot even be collected
+# where the profile does not compose the module (a product repository runs
+# the core suite under its own profile); `skipif` comes too late for them.
+collect_ignore_glob = (
+    [] if "shared.image-generation" in settings.ACTIVE_MODULES else ["test_image_generation_*.py"]
+)
 
 
 @pytest.fixture(autouse=True)

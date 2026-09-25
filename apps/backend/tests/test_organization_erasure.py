@@ -239,3 +239,71 @@ def test_erasure_lists_every_stored_object_of_a_media_asset() -> None:
 
     assert {asset.object_key, asset.source_object_key, *variant_keys} <= set(keys)
     assert keys == sorted(set(keys))
+
+
+def test_erasure_takes_the_routing_indexes_that_name_the_tenant_without_a_key() -> None:
+    """Pre-tenant routing rows keep a bare `organization_id`, so the discovery by
+    foreign key missed them: a public slug outlived its tenant and would have
+    routed a new organization of that slug to the erased one."""
+    from django.utils import timezone
+
+    from saas_core.modules.shared.booking.models import (
+        PublicBookingRoute,
+        ReminderRoute,
+        SelfServiceRoute,
+    )
+    from saas_core.modules.shared.notifications.models import (
+        ApiKeyCredentialRoute,
+        ProviderMessageRoute,
+    )
+
+    other = _organization("trasa-zostaje")
+    PublicBookingRoute.objects.create(public_slug=other.slug, organization_id=other.id)
+    organization = _organization("trasa-znika")
+    appointment_id = uuid7()
+    PublicBookingRoute.objects.create(
+        public_slug=organization.slug, organization_id=organization.id
+    )
+    SelfServiceRoute.objects.create(
+        token_digest="a" * 64,
+        organization_id=organization.id,
+        appointment_id=appointment_id,
+        expires_at=timezone.now(),
+    )
+    ReminderRoute.objects.create(
+        appointment_id=appointment_id,
+        organization_id=organization.id,
+        signed_tenant_context="contract",
+        due_at=timezone.now(),
+    )
+    ProviderMessageRoute.objects.create(
+        provider_message_id="provider-1",
+        organization_id=organization.id,
+        message_id=uuid7(),
+        tenant_context_ciphertext="contract",
+    )
+    ApiKeyCredentialRoute.objects.create(
+        prefix="sck_test",
+        api_key_id=uuid7(),
+        organization_id=organization.id,
+        secret_hash="hash",
+    )
+    before = row_counts(organization.id)
+    for label in (
+        "booking.PublicBookingRoute",
+        "booking.SelfServiceRoute",
+        "booking.ReminderRoute",
+        "notifications.ProviderMessageRoute",
+        "notifications.ApiKeyCredentialRoute",
+    ):
+        assert before[label] == 1, label
+
+    receipt = erase_organization(
+        organization=organization, requested_by=_operator(), reason="Test tras."
+    )
+
+    assert erasure_is_complete(organization.id)["rows"] == {}
+    assert receipt.row_counts == before
+    assert list(PublicBookingRoute.objects.values_list("organization_id", flat=True)) == [
+        other.id
+    ]
