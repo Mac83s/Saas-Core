@@ -79,6 +79,11 @@ osobę dobiera system; klient nie widzi danych pracowników. Wdrożono
   testowych: 9 / 14 / 14 osieroconych wierszy (same identyfikatory, bez
   danych osobowych). Skutek praktyczny: nowa organizacja z tym samym `slug`
   dostałaby publiczną trasę starej. Przypomnienia osieroconych tras są od tego
-  wydania odrzucane i nie blokują kolejki. Poprawka: osobna zmiana.
+  wydania odrzucane i nie blokują kolejki. Poprawka `fc9c08b`: moduły
+  rejestrują takie tabele (`register_erasure_rows`), a usunięcie organizacji
+  je liczy, kasuje i sprawdza w dowodzie kompletności; to samo dotyczy tras
+  powiadomień (wiadomości dostawcy, klucze API). Wchodzi z następnym
+  wdrożeniem; istniejące sieroty na instancjach deweloperskich zostają
+  (losowe slugi kont testowych, bez danych osobowych).
 
 Dowody (prywatne): `.runtime/releases/20260925-team-dispatch/`.
