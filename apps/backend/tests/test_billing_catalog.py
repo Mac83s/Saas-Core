@@ -57,7 +57,11 @@ QUOTA_KEYS = {
     "credits.monthly",
     # Pages on one site (billing 0024): Profile 5, Site 15, Pro 50 for now.
     "pages.max",
-}
+} | (
+    # The image generator's attempt limit comes with its module's migration
+    # (image_generation 0003), so only a profile composing the module has it.
+    {"image_generation.monthly"} if "shared.image-generation" in settings.ACTIVE_MODULES else set()
+)
 
 
 def organization(*, slug: str = "billing-acme") -> Organization:
