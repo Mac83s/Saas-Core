@@ -543,8 +543,12 @@ def nearest_expiry(rows: Sequence[InventoryBalance]) -> dict[tuple[UUID, UUID], 
     for lot in lot_rows(
         tracked[0].organization_id, location_ids={row.location_id for row in tracked}
     ):
-        # lot_rows comes in FEFO order: the first row of a place is its nearest.
-        nearest.setdefault((lot["item_id"], lot["location_id"]), lot)
+        # The soonest date, an expired one included — not the lot FEFO takes
+        # next, which skips what is past its date.
+        key = (lot["item_id"], lot["location_id"])
+        held = nearest.get(key)
+        if held is None or (lot["expires_on"] or date.max) < (held["expires_on"] or date.max):
+            nearest[key] = lot
     return nearest
 
 
@@ -590,7 +594,14 @@ def list_documents(*, kind: str = "", status: str = "") -> list[StockDocument]:
 
 def get_document(document_id: UUID) -> StockDocument:
     context = _read_context()
-    return _get(StockDocument, context.organization_id, document_id)
+    return with_lines(_get(StockDocument, context.organization_id, document_id))
+
+
+def with_lines(document: StockDocument) -> StockDocument:
+    """The document as its serializer reads it: lines, lots and movements."""
+    return StockDocument.all_objects.prefetch_related(
+        "lines__item", "lines__lot", "movements__lot"
+    ).get(pk=document.pk)
 
 
 def _location(organization_id: UUID, location_id: UUID | None) -> StockLocation | None:
@@ -791,6 +802,8 @@ def _post(document: StockDocument, *, actor_id: UUID, allow_negative: bool) -> N
     if not lines:
         raise ValidationError({"lines": "Dokument musi mieć co najmniej jedną pozycję."})
     today = organization_today(document.organization_id)
+    #: Items a count went through lot by lot: nothing on the shelf is without one.
+    counted_by_lot: set[UUID] = set()
     for line in lines:
         # The lock serialises postings of the item, so two rozchody never take
         # the same lot twice.
@@ -800,11 +813,22 @@ def _post(document: StockDocument, *, actor_id: UUID, allow_negative: bool) -> N
             _average(item, quantity, line.unit_price_minor)
         if kind == DocumentKind.INW and target is not None:
             organization_id = document.organization_id
+            balance = _balance(organization_id, item.id, target, lock=True)
             if item.tracks_lots:
-                # Counted lot by lot: the lot the line names, or stock without one.
+                # Counted lot by lot. A line without a lot counts stock that has
+                # none — only while no lot holds anything here; otherwise it
+                # would count the lots a second time.
+                if line.lot_id is None and _lot_stock(
+                    organization_id, item_id=item.id, location_id=target
+                ):
+                    raise ValidationError({
+                        "lines": f"Policz „{item.name}” partia po partii — wskaż partię."
+                    })
                 held = _lot_quantity(organization_id, item.id, target, line.lot_id)
+                if line.lot_id is not None:
+                    counted_by_lot.add(item.id)
             else:
-                held = Decimal(_balance(organization_id, item.id, target, lock=True).quantity)
+                held = Decimal(balance.quantity)
             delta = quantity - held
             if delta != 0:
                 _move(document, item, target, delta, actor_id, lot_id=line.lot_id)
@@ -834,6 +858,12 @@ def _post(document: StockDocument, *, actor_id: UUID, allow_negative: bool) -> N
             # A transfer carries the same lots to the other place.
             for lot_id, part in parts:
                 _move(document, item, target, part, actor_id, line.unit_price_minor, lot_id)
+    for item_id in counted_by_lot:
+        assert target is not None
+        loose = _lot_quantity(document.organization_id, item_id, target, None)
+        if loose != 0:
+            item = InventoryItem.all_objects.get(pk=item_id)
+            _move(document, item, target, -loose, actor_id)
     document.number = _next_number(document.organization_id, kind, document.document_date)
     document.status = DocumentStatus.POSTED
     document.posted_by_id = actor_id
@@ -1010,7 +1040,11 @@ def _lot_stock(organization_id: UUID, **where: Any) -> dict[tuple[UUID, UUID, UU
     """(pozycja, miejsce, partia) → ile leży, tylko to, czego jest więcej niż zero."""
     rows = (
         InventoryMovement.all_objects.filter(
-            organization_id=organization_id, lot__isnull=False, **where
+            organization_id=organization_id,
+            lot__isnull=False,
+            # An item that stopped keeping lots: its old lots are history.
+            item__tracks_lots=True,
+            **where,
         )
         .values("item_id", "location_id", "lot_id")
         .annotate(total=Sum("quantity"))
@@ -1042,8 +1076,11 @@ def _allocate(
     if not item.tracks_lots:
         return [(None, quantity)]
     if lot is not None:
-        if sale and strict and lot_status(lot.expires_on, today) == "expired":
-            raise LotExpired(f"Partia {lot.number} „{item.name}” jest po terminie.")
+        if sale and strict:
+            if lot_status(lot.expires_on, today) == "expired":
+                raise LotExpired(f"Partia {lot.number} „{item.name}” jest po terminie.")
+            if _lot_quantity(document.organization_id, item.id, location_id, lot.id) < quantity:
+                raise StockShortage(f"Brakuje „{item.name}” w partii {lot.number}.")
         return [(lot.id, quantity)]
     held = {
         lot_id: amount
@@ -1238,10 +1275,12 @@ def consume(
     return document
 
 
-def describe_items(organization_id: UUID, item_ids: Iterable[UUID]) -> dict[UUID, dict[str, Any]]:
+def describe_items(
+    organization_id: UUID, item_ids: Iterable[UUID], *, include_hidden: bool = False
+) -> dict[UUID, dict[str, Any]]:
     """Co moduł może pokazać o pozycji bez importu modeli: nazwa, jednostka,
-    cena sprzedaży, klucz kategorii, partie. Nieznanych i ukrytych pozycji w
-    wyniku nie ma."""
+    cena sprzedaży, klucz kategorii, partie. Nieznanych pozycji w wyniku nie
+    ma, ukrytych też — chyba że moduł pyta o to, co już zeszło (`include_hidden`)."""
     return {
         item.id: {
             "name": item.name,
@@ -1252,7 +1291,9 @@ def describe_items(organization_id: UUID, item_ids: Iterable[UUID]) -> dict[UUID
             "tracks_lots": item.tracks_lots,
         }
         for item in InventoryItem.all_objects.filter(
-            organization_id=organization_id, id__in=list(item_ids), active=True
+            organization_id=organization_id,
+            id__in=list(item_ids),
+            **({} if include_hidden else {"active": True}),
         ).select_related("category")
     }
 

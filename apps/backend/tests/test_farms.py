@@ -732,6 +732,7 @@ def test_a_medicine_keeps_the_cow_in_withdrawal_on_both_cards_until_it_runs_out(
         farm_animals,
         publish_health_entry,
         record_own_health_entry,
+        unpublish_health_entry,
     )
     from saas_core.modules.shared.farms.models import (  # noqa: PLC0415
         AnimalHealthEntry,
@@ -795,11 +796,15 @@ def test_a_medicine_keeps_the_cow_in_withdrawal_on_both_cards_until_it_runs_out(
         ).update(withdrawal_milk_until=now - timedelta(hours=1))
         (listed,) = list_animals()
         assert (listed.withdrawal_milk_until, listed.withdrawal_meat_until) == (None, meat)
-        # An undone record leaves the company's card.
+        # An undone record leaves the company's card, and the register.
         drop_own_health_entry(animal=cow, source=medicine["source"], reference="wpis-1")
         assert not AnimalHealthEntry.all_objects.filter(
             organization_id=company.organization_id, source=medicine["source"]
         ).exists()
+        unpublish_health_entry(animal=cow, source=medicine["source"], reference="wpis-1")
+    with tenant(farmer):
+        (keeper_cow,) = list_animals()
+        assert keeper_cow.withdrawal_meat_until is None
 
 
 def test_what_a_company_writes_waits_for_the_keeper_to_look_at_it() -> None:

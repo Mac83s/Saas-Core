@@ -422,7 +422,12 @@ export function DocumentsTab({
               <NativeSelect
                 id="document-source"
                 onChange={(event) =>
-                  setDraft({ ...draft, source: event.target.value })
+                  // A lot picked at one place is not stock at another.
+                  setDraft({
+                    ...draft,
+                    source: event.target.value,
+                    lines: draft.lines.map((line) => ({ ...line, lot_id: "" })),
+                  })
                 }
                 required
                 value={draft.source}
@@ -502,7 +507,13 @@ export function DocumentsTab({
                 <NativeSelect
                   id={`line-item-${index}`}
                   onChange={(event) =>
-                    setLine(index, { item_id: event.target.value })
+                    // Another item: its lots are not this one's.
+                    setLine(index, {
+                      item_id: event.target.value,
+                      lot_id: "",
+                      lot_number: "",
+                      expires_on: "",
+                    })
                   }
                   value={line.item_id}
                 >
@@ -560,7 +571,17 @@ export function DocumentsTab({
                       onChange={(event) =>
                         setLine(index, { lot_number: event.target.value })
                       }
-                      required={draft.kind === "PZ"}
+                      // A count of an item with lots goes lot by lot once
+                      // any lot holds something there (the API refuses otherwise).
+                      required={
+                        draft.kind === "PZ" ||
+                        (draft.kind === "INW" &&
+                          lotStock.some(
+                            (lot) =>
+                              lot.item_id === line.item_id &&
+                              lot.location_id === draft.target,
+                          ))
+                      }
                       value={line.lot_number}
                     />
                   </Field>

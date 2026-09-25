@@ -307,6 +307,28 @@ def publish_health_entry(
         return entry
 
 
+def unpublish_health_entry(*, animal: Animal, source: str, reference: str) -> None:
+    """Takes back what `publish_health_entry` wrote: an entry its author undid.
+
+    Same gate as publishing — the share with the keeper's consent; without it
+    there is nothing of the company's in the register to take back.
+    """
+    share = share_for_publishing(animal.organization_id, animal.farm_id)
+    if share is None:
+        return
+    with transaction.atomic(), registry_door(share) as context:
+        mirrored = _registry_animal(context, share, animal)
+        if mirrored is None:
+            return
+        AnimalHealthEntry.all_objects.filter(
+            organization_id=context.organization_id,
+            animal=mirrored,
+            source=source,
+            source_reference=reference,
+            author_organization_id=share.company_organization_id,
+        ).delete()
+
+
 def record_own_health_entry(
     *,
     animal: Animal,

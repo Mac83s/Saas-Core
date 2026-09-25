@@ -825,3 +825,121 @@ def test_a_lot_belongs_to_an_item_that_keeps_lots_and_keeps_its_date() -> None:
         )
         assert document is not None
         assert held(owner.organization_id) == {}
+
+
+def test_a_count_of_an_item_with_lots_goes_lot_by_lot_and_leaves_nothing_loose() -> None:
+    """Review 25.09: a count line without a lot must not count the lots twice,
+    and a count by lots leaves no stock without a lot on the shelf."""
+    from datetime import timedelta  # noqa: PLC0415
+
+    from saas_core.modules.shared.inventory.api import (  # noqa: PLC0415
+        consume,
+        default_warehouse,
+        organization_today,
+    )
+    from saas_core.modules.shared.inventory.services import (  # noqa: PLC0415
+        LineInput,
+        create_document,
+        post_document,
+    )
+
+    owner = membership("partie-inwentaryzacja")
+    with tenant(owner) as request:
+        today = organization_today(owner.organization_id)
+        drug = lot_item(request)
+        receive_lots(
+            request,
+            owner.organization_id,
+            drug.id,
+            ("A", today + timedelta(days=100), 5),
+            ("B", today + timedelta(days=200), 3),
+        )
+        warehouse = default_warehouse(owner.organization_id).id
+        # Work took more than the lots hold: 2 went out without a lot.
+        consume(
+            organization_id=owner.organization_id,
+            source=ENTRY,
+            source_reference="wpis-duzo",
+            lines=[(drug.id, Decimal(10))],
+            location_id=warehouse,
+            actor_id=owner.user_id,
+        )
+        assert quantities() == {"Oksytetracyklina": Decimal(-2)}
+        receive_lots(request, owner.organization_id, drug.id, ("C", today + timedelta(days=50), 4))
+        loose = create_document(
+            request=request,
+            kind="INW",
+            data={"target_location_id": warehouse},
+            lines=[LineInput(item_id=drug.id, quantity=Decimal(4))],
+        )
+        with pytest.raises(ValidationError, match="partia po partii"):
+            post_document(request=request, document_id=loose.id)
+        count = create_document(
+            request=request,
+            kind="INW",
+            data={"target_location_id": warehouse},
+            lines=[LineInput(item_id=drug.id, quantity=Decimal(3), lot_number="C")],
+        )
+        post_document(request=request, document_id=count.id)
+        # C counted at 3; the 2 that went out without a lot are gone with it.
+        assert held(owner.organization_id) == {"C": Decimal(3)}
+        assert quantities() == {"Oksytetracyklina": Decimal(3)}
+
+
+def test_a_sale_naming_a_lot_needs_that_lot_and_the_stock_page_shows_the_soonest_date() -> None:
+    from datetime import timedelta  # noqa: PLC0415
+
+    from saas_core.modules.shared.inventory.api import (  # noqa: PLC0415
+        default_warehouse,
+        describe_items,
+        organization_today,
+    )
+    from saas_core.modules.shared.inventory.services import (  # noqa: PLC0415
+        LineInput,
+        StockShortage,
+        balances,
+        create_document,
+        nearest_expiry,
+        post_document,
+        update_item,
+    )
+
+    owner = membership("partie-sprzedaz")
+    with tenant(owner) as request:
+        today = organization_today(owner.organization_id)
+        drug = lot_item(request)
+        receive_lots(
+            request,
+            owner.organization_id,
+            drug.id,
+            ("OLD", today - timedelta(days=1), 2),
+            ("SMALL", today + timedelta(days=40), 1),
+            ("BIG", today + timedelta(days=90), 10),
+        )
+        warehouse = default_warehouse(owner.organization_id).id
+        sale = create_document(
+            request=request,
+            kind="WZ",
+            data={"source_location_id": warehouse, "counterparty": "Klient"},
+            lines=[
+                LineInput(
+                    item_id=drug.id,
+                    quantity=Decimal(5),
+                    lot_id=held_lot(owner.organization_id, "SMALL"),
+                )
+            ],
+        )
+        with pytest.raises(StockShortage, match="SMALL"):
+            post_document(request=request, document_id=sale.id)
+
+        # The page warns about what is past its date, not about what goes next.
+        rows = balances()
+        (nearest,) = nearest_expiry(rows).values()
+        assert (nearest["number"], nearest["status"]) == ("OLD", "expired")
+
+        # An item that stops keeping lots keeps no phantom lot stock; its
+        # description still reaches a module when it is hidden.
+        update_item(request=request, item_id=drug.id, data={"tracks_lots": False, "active": False})
+        assert held(owner.organization_id) == {}
+        assert describe_items(owner.organization_id, [drug.id]) == {}
+        assert drug.id in describe_items(owner.organization_id, [drug.id], include_hidden=True)

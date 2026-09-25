@@ -113,11 +113,18 @@ Decyzje właściciela z 25.09 (faza 9 planu magazynu, odpowiedzi 1a–5a):
   przyszłego sklepu; blokada pozycji w tym samym miejscu szereguje rozchody, żeby
   dwa nie wzięły tej samej partii. Czego nie ma w partiach, schodzi bez partii
   (stan poniżej zera jak dotąd); MM przenosi te same partie do drugiego miejsca;
-  inwentaryzacja liczy partia po partii; korekta odwraca ruchy razem z partią.
+  korekta odwraca ruchy razem z partią.
+- Inwentaryzacja pozycji z partiami liczy partia po partii: wiersz bez partii
+  wolno podać tylko, gdy żadna partia nic tu nie ma (inaczej liczyłby partie
+  drugi raz), a policzenie po partiach zeruje stan bez partii w tym miejscu —
+  na półce nie ma towaru bez partii.
 - Przeterminowana partia w pracy tylko ostrzega; **sprzedaż (WZ) zatwierdzana w
-  panelu odmawia** partii po terminie (`stock_lot_expired`, 409) i towaru bez
-  ważnej partii (`stock_shortage`). WZ z wizyty (`consume`) omija partie po
+  panelu odmawia** partii po terminie (`stock_lot_expired`, 409), towaru bez
+  ważnej partii i wskazanej partii, której nie starcza (`stock_shortage`). WZ z wizyty (`consume`) omija partie po
   terminie, ale nie zatrzymuje zakończenia wizyty.
+- „Najbliższa ważność” w stanach to najwcześniejszy termin partii w miejscu —
+  także już miniony — a nie partia, którą FEFO weźmie jako następną. Pozycja,
+  która przestała prowadzić partie, nie pokazuje dawnych partii jako stanu.
 - „Kończy się ważność” to termin w ciągu 30 dni; stan (`expired`, `expiring`,
   `ok`, `no_date`) liczy się w dniu firmy (jej strefa czasowa).
 - Moduły dostają partie przez `api.py`: `consume` przyjmuje partię jako trzeci

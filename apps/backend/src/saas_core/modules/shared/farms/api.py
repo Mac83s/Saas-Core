@@ -18,6 +18,7 @@ from .herd_sync import (
     publish_farm_visit,
     publish_health_entry,
     record_own_health_entry,
+    unpublish_health_entry,
 )
 from .models import (
     Animal,
@@ -110,4 +111,5 @@ __all__ = [
     "publish_health_entry",
     "record_own_health_entry",
     "resolve_animal",
+    "unpublish_health_entry",
 ]

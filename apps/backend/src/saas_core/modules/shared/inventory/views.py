@@ -373,7 +373,7 @@ class StockDocumentListView(APIView):
             lines=_lines(data.pop("lines", [])) or [],
             data=data,
         )
-        return Response(StockDocumentSerializer(document).data, status=201)
+        return Response(StockDocumentSerializer(services.with_lines(document)).data, status=201)
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -404,7 +404,7 @@ class StockDocumentDetailView(APIView):
             lines=_lines(data.pop("lines", None)),
             data=data,
         )
-        return Response(StockDocumentSerializer(document).data)
+        return Response(StockDocumentSerializer(services.with_lines(document)).data)
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -421,7 +421,7 @@ class StockDocumentPostView(APIView):
     )
     def post(self, request: Request, document_id: UUID) -> Response:
         document = services.post_document(request=_http(request), document_id=document_id)
-        return Response(StockDocumentSerializer(document).data)
+        return Response(StockDocumentSerializer(services.with_lines(document)).data)
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -441,7 +441,7 @@ class StockDocumentCorrectView(APIView):
         correction = services.correct_document(
             request=_http(request), document_id=document_id, note=data.get("note", "")
         )
-        return Response(StockDocumentSerializer(correction).data, status=201)
+        return Response(StockDocumentSerializer(services.with_lines(correction)).data, status=201)
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -468,7 +468,7 @@ class InventoryReceiptView(APIView):
             lot_number=data.get("lot_number", ""),
             expires_on=data.get("expires_on"),
         )
-        return Response(StockDocumentSerializer(document).data, status=201)
+        return Response(StockDocumentSerializer(services.with_lines(document)).data, status=201)
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -493,7 +493,7 @@ class InventoryIssueView(APIView):
             quantity=data["quantity"],
             note=data.get("note", ""),
         )
-        return Response(StockDocumentSerializer(document).data, status=201)
+        return Response(StockDocumentSerializer(services.with_lines(document)).data, status=201)
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -518,7 +518,7 @@ class InventoryReturnView(APIView):
             quantity=data["quantity"],
             note=data.get("note", ""),
         )
-        return Response(StockDocumentSerializer(document).data, status=201)
+        return Response(StockDocumentSerializer(services.with_lines(document)).data, status=201)
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -543,4 +543,4 @@ class InventoryAdjustView(APIView):
             quantity=data["quantity"],
             note=data["note"],
         )
-        return Response(StockDocumentSerializer(document).data, status=201)
+        return Response(StockDocumentSerializer(services.with_lines(document)).data, status=201)
