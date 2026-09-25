@@ -10,11 +10,13 @@ same way in both modes, rather than a checklist.
 Safe to repeat. A product carries a deterministic id derived from the catalog
 key, and a price is reused when its amount, currency, interval and tax
 behaviour already match; only a genuine change creates a new one and retires
-the old.
+the old. A new plan version counts as one even at an unchanged amount: the
+price already sold names the previous version for its subscribers.
 """
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from typing import Any, Literal, cast
 
 import stripe
@@ -149,12 +151,20 @@ class Command(BaseCommand):
                 "saas_core_plan_version": str(version.version),
             },
         )
+        # Webhooks resolve a subscription's version from its price, so a price
+        # another version already owns stays with it, even at the same amount.
+        owned_elsewhere = set(
+            StripePriceMapping.objects.filter(livemode=settings.STRIPE_LIVEMODE)
+            .exclude(plan_version=version)
+            .values_list("stripe_price_id", flat=True)
+        )
         price = self._ensure_price(
             client,
             product_id=product.id,
             amount=amount,
             currency=currency,
             interval=interval,
+            retired=owned_elsewhere,
         )
         created = self._map(version, product_id=product.id, price_id=price.id)
         self.stdout.write(
@@ -237,6 +247,7 @@ class Command(BaseCommand):
         amount: int,
         currency: str,
         interval: str | None,
+        retired: Collection[str] = (),
     ) -> Any:
         for candidate in client.v1.prices.list({
             "product": product_id,
@@ -248,14 +259,15 @@ class Command(BaseCommand):
                 getattr(recurring, "interval", None) if recurring is not None else None
             )
             if (
-                getattr(candidate, "unit_amount", None) == amount
+                candidate.id not in retired
+                and getattr(candidate, "unit_amount", None) == amount
                 and getattr(candidate, "currency", None) == currency
                 and getattr(candidate, "tax_behavior", None) == TAX_BEHAVIOR
                 and candidate_interval == interval
             ):
                 return candidate
             # A price is immutable in Stripe, so a changed amount means a new
-            # one and the old must stop being offered.
+            # one and the old must stop being offered — as must a retired one.
             client.v1.prices.update(candidate.id, {"active": False})
         payload: Any = {
             "product": product_id,
