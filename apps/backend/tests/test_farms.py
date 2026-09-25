@@ -632,9 +632,10 @@ def test_the_animals_file_is_a_feed_of_kinds_with_its_own_notes() -> None:
         # Two entries written in one breath keep their own rows.
         assert feed[1].id == note.id
         # Filters run in the database, not in the panel.
-        assert [entry.kind for entry in list_health_entries(
-            animal_id=cow.id, kinds=[HealthEntryKind.MEDICATION]
-        )] == [HealthEntryKind.MEDICATION]
+        assert [
+            entry.kind
+            for entry in list_health_entries(animal_id=cow.id, kinds=[HealthEntryKind.MEDICATION])
+        ] == [HealthEntryKind.MEDICATION]
         assert list_health_entries(animal_id=cow.id, since=date(2026, 9, 11)) == [feed[0]]
         assert list_health_entries(animal_id=cow.id, until=date(2026, 9, 11)) == [feed[1]]
         assert list_health_entries(animal_id=cow.id, author="others") == []
@@ -719,6 +720,88 @@ def test_a_company_reads_the_file_through_the_share_except_what_is_private() -> 
         assert [entry.summary for entry in list_health_entries(animal_id=cow.id)] == []
 
 
+def test_a_medicine_keeps_the_cow_in_withdrawal_on_both_cards_until_it_runs_out() -> None:
+    """Faza 9 magazynu (decyzja 25.09, 3a): lek z karencją to wpis na karcie
+    firmy i w rejestrze rolnika; zwierzę jest „w karencji”, dopóki wpis trwa."""
+    from datetime import date, timedelta  # noqa: PLC0415
+
+    from django.utils import timezone  # noqa: PLC0415
+
+    from saas_core.modules.shared.farms.api import (  # noqa: PLC0415
+        drop_own_health_entry,
+        farm_animals,
+        publish_health_entry,
+        record_own_health_entry,
+    )
+    from saas_core.modules.shared.farms.models import (  # noqa: PLC0415
+        AnimalHealthEntry,
+        HealthEntryKind,
+    )
+    from saas_core.modules.shared.farms.services import (  # noqa: PLC0415
+        create_animal,
+        create_farm,
+        list_animals,
+        list_health_entries,
+    )
+    from saas_core.modules.shared.farms.sharing import (  # noqa: PLC0415
+        issue_activation_code,
+        redeem_activation_code,
+    )
+
+    company = membership("firma-karencja")
+    farmer = membership("rolnik-karencja")
+    with tenant(company) as request:
+        card = create_farm(
+            request=request, data={"name": "Gospodarstwo Lek", "herd_number": "PL066666666-002"}
+        )
+        cow = create_animal(
+            request=request, farm_id=card.id, data={"national_id": "PL005432144002"}
+        )
+        code, _ = issue_activation_code(request=request, farm_id=card.id)
+    with tenant(farmer) as request:
+        taken = redeem_activation_code(request=request, code=code)
+        (registry_cow,) = list(farm_animals(farmer.organization_id, taken["farm"].id))
+
+    now = timezone.now()
+    milk, meat = now + timedelta(hours=84), now + timedelta(days=28)
+    medicine = {
+        "animal": cow,
+        "occurred_on": date.today(),
+        "source": "hoofcare.medication",
+        "reference": "wpis-1",
+        "summary": "Podano: Oksytetracyklina (partia L1).",
+        "kind": HealthEntryKind.MEDICATION,
+        "withdrawal_milk_until": milk,
+        "withdrawal_meat_until": meat,
+    }
+    with tenant(company):
+        record_own_health_entry(**medicine)
+        publish_health_entry(**medicine)
+        (listed,) = list_animals()
+        assert (listed.withdrawal_milk_until, listed.withdrawal_meat_until) == (milk, meat)
+        # The card shows the company's entry once, not again from the register.
+        feed = [e for e in list_health_entries(animal_id=cow.id) if e.source == medicine["source"]]
+        assert len(feed) == 1
+        assert feed[0].withdrawal_milk_until == milk
+    with tenant(farmer):
+        (keeper_cow,) = list_animals()
+        assert keeper_cow.id == registry_cow.id
+        assert (keeper_cow.withdrawal_milk_until, keeper_cow.withdrawal_meat_until) == (milk, meat)
+
+    with tenant(company):
+        # Over: milk ran out, meat still runs.
+        AnimalHealthEntry.all_objects.filter(
+            organization_id=company.organization_id, source=medicine["source"]
+        ).update(withdrawal_milk_until=now - timedelta(hours=1))
+        (listed,) = list_animals()
+        assert (listed.withdrawal_milk_until, listed.withdrawal_meat_until) == (None, meat)
+        # An undone record leaves the company's card.
+        drop_own_health_entry(animal=cow, source=medicine["source"], reference="wpis-1")
+        assert not AnimalHealthEntry.all_objects.filter(
+            organization_id=company.organization_id, source=medicine["source"]
+        ).exists()
+
+
 def test_what_a_company_writes_waits_for_the_keeper_to_look_at_it() -> None:
     """Nic nie kasujemy: rozjazd to znacznik, a decyzja należy do hodowcy."""
     from saas_core.modules.shared.farms.services import (  # noqa: PLC0415
@@ -755,9 +838,9 @@ def test_what_a_company_writes_waits_for_the_keeper_to_look_at_it() -> None:
         )
     with tenant(farmer):
         # Nowa sztuka od firmy wraca na listę do przejrzenia.
-        assert [animal.national_id for animal in list_animals(
-            farm_id=registry_farm.id, review=True
-        )] == ["PL005432133002"]
+        assert [
+            animal.national_id for animal in list_animals(farm_id=registry_farm.id, review=True)
+        ] == ["PL005432133002"]
 
     with tenant(company) as request:
         # Zapis bez zmiany niczego nie zgłasza: wizyta co miesiąc nie może
@@ -770,9 +853,9 @@ def test_what_a_company_writes_waits_for_the_keeper_to_look_at_it() -> None:
     with tenant(company) as request:
         update_animal(request=request, animal_id=second.id, data={"status": "sold"})
     with tenant(farmer):
-        assert [animal.status for animal in list_animals(
-            farm_id=registry_farm.id, review=True
-        )] == ["sold"]
+        assert [
+            animal.status for animal in list_animals(farm_id=registry_farm.id, review=True)
+        ] == ["sold"]
 
 
 def test_a_company_sends_the_whole_herd_and_the_keeper_hears_about_it() -> None:

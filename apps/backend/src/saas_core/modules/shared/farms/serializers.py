@@ -61,6 +61,9 @@ class AnimalSerializer(serializers.Serializer[Any]):
     notes = serializers.CharField(read_only=True)
     #: Wpisane przez firmę, jeszcze nieprzejrzane przez hodowcę.
     review_requested_at = serializers.DateTimeField(read_only=True, allow_null=True)
+    #: W karencji do (mleko, mięso) — z wpisów, które jeszcze trwają.
+    withdrawal_milk_until = serializers.DateTimeField(read_only=True, allow_null=True)
+    withdrawal_meat_until = serializers.DateTimeField(read_only=True, allow_null=True)
     updated_at = serializers.DateTimeField(read_only=True)
 
 
@@ -118,6 +121,8 @@ class AnimalHealthEntrySerializer(serializers.Serializer[Any]):
     photos = serializers.ListField(child=serializers.UUIDField())
     summary = serializers.CharField()
     details = serializers.DictField()
+    withdrawal_milk_until = serializers.DateTimeField(allow_null=True)
+    withdrawal_meat_until = serializers.DateTimeField(allow_null=True)
     published_at = serializers.DateTimeField()
 
 

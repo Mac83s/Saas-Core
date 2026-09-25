@@ -108,6 +108,19 @@ wspólne dla kilku aplikacji rolniczych muszą leżeć w warstwie `shared`.
   modułów w każdym repozytorium, więc także produkty bez rejestru.
 - HoofCare przeniósł swoje `Farm`/`Animal` do rejestru (HC-ADR-001).
 
+## Uzupełnienie 2026-09-25: karencja na wpisie kartoteki
+
+- Wpis kartoteki (`AnimalHealthEntry`) ma `withdrawal_milk_until` i
+  `withdrawal_meat_until`: do kiedy mleka i mięsa od zwierzęcia nie wolno
+  sprzedać. Zwierzę jest „w karencji”, dopóki któryś wpis trwa — liczone z
+  wpisów przy liście zwierząt, nie flaga, którą ktoś musiałby zdejmować.
+- Wertykał pisze taki wpis w rejestrze rolnika (`publish_health_entry`) i na
+  własnej karcie zwierzęcia (`record_own_health_entry`, cofany przez
+  `drop_own_health_entry`); karta firmy nie pokazuje drugi raz kopii z rejestru
+  (ten sam autor, źródło i identyfikator).
+- Decyzja właściciela z 25.09 (faza 9 planu magazynu, 3a): hodowca i firma
+  widzą „w karencji do …” na liście zwierząt i na karcie.
+
 ## Alternatywy odrzucone
 
 - **Jeden wspólny rekord gospodarstwa z dostępem przez udział w RLS.** Wymagałby

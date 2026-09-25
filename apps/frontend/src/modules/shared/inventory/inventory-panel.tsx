@@ -21,15 +21,17 @@ import { ListSkeleton } from "@saas-core/ui/components/data-table";
 import { PanelPage } from "#components/panel/panel-page";
 import { DocumentsTab } from "./documents-tab";
 import { ItemsTab } from "./items-tab";
+import { LotsTab } from "./lots-tab";
 import { SetupTab } from "./setup-tab";
 import type { InventoryData } from "./shared";
 import { StockTab } from "./stock-tab";
 
 /** The warehouse's pages, each at its own address under Magazyn (ADR-057). */
-export type InventorySection = "stock" | "items" | "documents" | "setup";
+export type InventorySection =
+  "stock" | "items" | "lots" | "documents" | "setup";
 
 /** What only the one who runs the warehouse sees. */
-const MANAGED: InventorySection[] = ["documents", "setup"];
+const MANAGED: InventorySection[] = ["lots", "documents", "setup"];
 
 /**
  * Magazyn firmy (ADR-055). Właściciel pyta „co mam, czego brakuje, co przyszło
@@ -87,6 +89,7 @@ export function InventoryPanel({
   const title = {
     stock: canManage ? t("tabStock") : t("myStock"),
     items: t("tabItems"),
+    lots: t("lotsTitle"),
     documents: t("tabDocuments"),
     setup: t("setupTitle"),
   }[section];
@@ -134,6 +137,8 @@ export function InventoryPanel({
     );
   if (section === "setup")
     return <SetupTab data={data} onChanged={changed} page={page} />;
+  if (section === "lots")
+    return <LotsTab data={data} page={page} reloads={reloads} />;
   return (
     <StockTab
       canManage={canManage}

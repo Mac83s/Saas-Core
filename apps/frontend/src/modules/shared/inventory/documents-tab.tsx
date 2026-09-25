@@ -7,8 +7,10 @@ import { CheckIcon, EyeIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import {
   correctStockDocument,
   createStockDocument,
+  listInventoryLots,
   listStockDocuments,
   postStockDocument,
+  type InventoryLotStock,
   type StockDocument,
   type StockDocumentKind,
 } from "@saas-core/api-client";
@@ -46,8 +48,25 @@ const KINDS = ["PZ", "WZ", "RW", "PW", "MM", "INW"] as const;
 const FROM: StockDocumentKind[] = ["WZ", "RW", "MM"];
 const TO: StockDocumentKind[] = ["PZ", "PW", "MM", "INW"];
 const PRICED: StockDocumentKind[] = ["PZ", "PW"];
+/** Kinds that name a lot by its number: what comes in, and a count. */
+const NAMES_LOT: StockDocumentKind[] = ["PZ", "PW", "INW"];
 
-type Line = { item_id: string; quantity: string; price: string };
+type Line = {
+  item_id: string;
+  quantity: string;
+  price: string;
+  lot_id: string;
+  lot_number: string;
+  expires_on: string;
+};
+const EMPTY_LINE: Line = {
+  item_id: "",
+  quantity: "",
+  price: "",
+  lot_id: "",
+  lot_number: "",
+  expires_on: "",
+};
 
 /**
  * Dokumenty magazynowe. Szkic można poprawiać; zatwierdzenie nadaje numer i
@@ -67,7 +86,7 @@ export function DocumentsTab({
   const t = useTranslations("Inventory");
   const common = useTranslations("Common");
   const labels = useDataTableLabels();
-  const { amount, money } = useFormat();
+  const { amount, day, money } = useFormat();
   const [kindFilter, setKindFilter] = useState("");
   const [rows, setRows] = useState<StockDocument[] | undefined>();
   const [failed, setFailed] = useState(false);
@@ -88,9 +107,28 @@ export function DocumentsTab({
     counterparty: "",
     note: "",
     post: true,
-    lines: [{ item_id: "", quantity: "", price: "" }] as Line[],
+    lines: [EMPTY_LINE] as Line[],
   });
   const [draft, setDraft] = useState(blank);
+  // Which lots lie where: a rozchód may name one, otherwise it goes by expiry.
+  const [lotStock, setLotStock] = useState<InventoryLotStock[]>([]);
+  const tracksLots = (itemId: string) =>
+    data.items.some((item) => item.id === itemId && item.tracks_lots);
+
+  useEffect(() => {
+    if (!creating) return;
+    let current = true;
+    listInventoryLots()
+      .then((lots) => {
+        if (current) setLotStock(lots);
+      })
+      .catch(() => {
+        if (current) setLotStock([]);
+      });
+    return () => {
+      current = false;
+    };
+  }, [creating]);
 
   useEffect(() => {
     let current = true;
@@ -143,6 +181,14 @@ export function DocumentsTab({
             PRICED.includes(kind) && line.price
               ? Math.round(Number(line.price) * 100)
               : null,
+          ...(tracksLots(line.item_id)
+            ? NAMES_LOT.includes(kind)
+              ? {
+                  lot_number: line.lot_number,
+                  expires_on: line.expires_on || null,
+                }
+              : { lot_id: line.lot_id || null }
+            : {}),
         })),
     });
     if (!draft.post) return onChanged(t("documentDrafted"));
@@ -502,6 +548,73 @@ export function DocumentsTab({
                   />
                 </Field>
               ) : null}
+              {tracksLots(line.item_id) && NAMES_LOT.includes(draft.kind) ? (
+                <>
+                  <Field className="w-36">
+                    <FieldLabel htmlFor={`line-lot-${index}`}>
+                      {t("lot")}
+                    </FieldLabel>
+                    <Input
+                      id={`line-lot-${index}`}
+                      maxLength={64}
+                      onChange={(event) =>
+                        setLine(index, { lot_number: event.target.value })
+                      }
+                      required={draft.kind === "PZ"}
+                      value={line.lot_number}
+                    />
+                  </Field>
+                  <Field className="w-40">
+                    <FieldLabel htmlFor={`line-expires-${index}`}>
+                      {t("expiresOn")}
+                    </FieldLabel>
+                    <Input
+                      id={`line-expires-${index}`}
+                      onChange={(event) =>
+                        setLine(index, { expires_on: event.target.value })
+                      }
+                      type="date"
+                      value={line.expires_on}
+                    />
+                  </Field>
+                </>
+              ) : null}
+              {tracksLots(line.item_id) && FROM.includes(draft.kind) ? (
+                <Field className="min-w-48">
+                  <FieldLabel htmlFor={`line-lot-${index}`}>
+                    {t("lot")}
+                  </FieldLabel>
+                  <NativeSelect
+                    id={`line-lot-${index}`}
+                    onChange={(event) =>
+                      setLine(index, { lot_id: event.target.value })
+                    }
+                    value={line.lot_id}
+                  >
+                    <option value="">{t("lotAuto")}</option>
+                    {lotStock
+                      .filter(
+                        (lot) =>
+                          lot.item_id === line.item_id &&
+                          lot.location_id === draft.source,
+                      )
+                      .map((lot) => (
+                        <option key={lot.lot_id} value={lot.lot_id}>
+                          {[
+                            lot.number,
+                            lot.expires_on ? day(lot.expires_on) : null,
+                            `${amount(lot.quantity)} ${t(`unit_${lot.unit}`)}`,
+                            lot.status === "expired"
+                              ? t("lotStatus_expired")
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </option>
+                      ))}
+                  </NativeSelect>
+                </Field>
+              ) : null}
               <Button
                 aria-label={t("removeLine")}
                 disabled={draft.lines.length === 1}
@@ -523,10 +636,7 @@ export function DocumentsTab({
             onClick={() =>
               setDraft({
                 ...draft,
-                lines: [
-                  ...draft.lines,
-                  { item_id: "", quantity: "", price: "" },
-                ],
+                lines: [...draft.lines, EMPTY_LINE],
               })
             }
             type="button"
@@ -619,7 +729,35 @@ export function DocumentsTab({
               <ul className="divide-y divide-border">
                 {viewing.lines.map((line, index) => (
                   <li className="flex justify-between gap-4 py-2" key={index}>
-                    <span>{line.item_name}</span>
+                    <span>
+                      {line.item_name}
+                      {line.moved_lots.length || line.lot_number ? (
+                        <span className="block text-xs text-muted-foreground">
+                          {t("lotsMoved", {
+                            lots: (line.moved_lots.length
+                              ? line.moved_lots
+                              : [
+                                  {
+                                    number: line.lot_number ?? "",
+                                    expires_on: line.expires_on,
+                                    quantity: line.quantity,
+                                  },
+                                ]
+                            )
+                              .map((lot) =>
+                                [
+                                  lot.number,
+                                  lot.expires_on ? day(lot.expires_on) : null,
+                                  amount(lot.quantity),
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · "),
+                              )
+                              .join("; "),
+                          })}
+                        </span>
+                      ) : null}
+                    </span>
                     <span className="text-right">
                       {amount(line.quantity)}
                       {line.unit_price_minor !== null &&

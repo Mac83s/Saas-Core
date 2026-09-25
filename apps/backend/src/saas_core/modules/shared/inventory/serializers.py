@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from .models import DocumentKind, DocumentStatus, ItemUnit, LocationKind, VatRate
@@ -68,6 +69,8 @@ class InventoryItemSerializer(serializers.Serializer[Any]):
     currency = serializers.CharField(read_only=True)
     #: Pozycja standardowa produktu: można ją zmienić i ukryć, nie usunąć.
     system_key = serializers.CharField(read_only=True)
+    #: Partie i daty ważności: przyjęcie podaje partię, rozchód bierze je wg ważności.
+    tracks_lots = serializers.BooleanField()
     active = serializers.BooleanField()
     notes = serializers.CharField(allow_blank=True)
 
@@ -82,8 +85,17 @@ class InventoryItemInputSerializer(serializers.Serializer[Any]):
     minimum_quantity = _quantity(required=False, min_value=0)
     sale_price_net_minor = serializers.IntegerField(required=False, allow_null=True, min_value=0)
     vat_rate = serializers.ChoiceField(choices=VatRate.choices, required=False)
+    tracks_lots = serializers.BooleanField(required=False)
     active = serializers.BooleanField(required=False)
     notes = serializers.CharField(required=False, allow_blank=True)
+
+
+LOT_STATUS = (
+    ("expired", "Po terminie"),
+    ("expiring", "Kończy się ważność"),
+    ("ok", "Ważna"),
+    ("no_date", "Bez daty ważności"),
+)
 
 
 class InventoryBalanceSerializer(serializers.Serializer[Any]):
@@ -104,10 +116,44 @@ class InventoryBalanceSerializer(serializers.Serializer[Any]):
     reserved = _quantity()
     available = serializers.SerializerMethodField()
     minimum_quantity = _quantity(source="item.minimum_quantity")
+    tracks_lots = serializers.BooleanField(source="item.tracks_lots")
+    #: Najbliższy termin partii, które tu leżą — i co z niego wynika.
+    nearest_expiry = serializers.SerializerMethodField()
+    lot_status = serializers.SerializerMethodField()
     updated_at = serializers.DateTimeField()
 
     def get_available(self, balance: Any) -> str:
         return f"{balance.quantity - balance.reserved:.3f}"
+
+    def _nearest(self, balance: Any) -> dict[str, Any] | None:
+        nearest: dict[tuple[Any, Any], dict[str, Any]] = self.context.get("nearest", {})
+        return nearest.get((balance.item_id, balance.location_id))
+
+    @extend_schema_field(serializers.DateField(allow_null=True))
+    def get_nearest_expiry(self, balance: Any) -> Any:
+        found = self._nearest(balance)
+        return found["expires_on"] if found else None
+
+    @extend_schema_field(serializers.ChoiceField(choices=LOT_STATUS, allow_null=True))
+    def get_lot_status(self, balance: Any) -> str | None:
+        found = self._nearest(balance)
+        return found["status"] if found else None
+
+
+class InventoryLotStockSerializer(serializers.Serializer[Any]):
+    """Partia, która gdzieś leży: ile i jak z jej ważnością."""
+
+    lot_id = serializers.UUIDField()
+    item_id = serializers.UUIDField()
+    item_name = serializers.CharField()
+    unit = serializers.CharField()
+    number = serializers.CharField()
+    expires_on = serializers.DateField(allow_null=True)
+    status = serializers.ChoiceField(choices=LOT_STATUS)
+    location_id = serializers.UUIDField()
+    location_name = serializers.CharField()
+    holder_id = serializers.UUIDField(allow_null=True)
+    quantity = _quantity()
 
 
 class InventoryMovementSerializer(serializers.Serializer[Any]):
@@ -124,18 +170,53 @@ class InventoryMovementSerializer(serializers.Serializer[Any]):
     created_at = serializers.DateTimeField()
 
 
+class MovedLotSerializer(serializers.Serializer[Any]):
+    number = serializers.CharField()
+    expires_on = serializers.DateField(allow_null=True)
+    quantity = _quantity()
+
+
 class StockDocumentLineSerializer(serializers.Serializer[Any]):
     item_id = serializers.UUIDField()
     item_name = serializers.CharField(source="item.name")
     quantity = _quantity()
     unit_price_minor = serializers.IntegerField(allow_null=True)
+    #: Partia wiersza: przyjęta albo wskazana do rozchodu.
+    lot_id = serializers.UUIDField(allow_null=True)
+    lot_number = serializers.CharField(source="lot.number", allow_null=True, default=None)
+    expires_on = serializers.DateField(source="lot.expires_on", allow_null=True, default=None)
+    #: Co naprawdę zeszło albo przybyło — partie z ruchów zatwierdzonego dokumentu.
+    moved_lots = serializers.SerializerMethodField()
     note = serializers.CharField()
+
+    @extend_schema_field(MovedLotSerializer(many=True))
+    def get_moved_lots(self, line: Any) -> list[dict[str, Any]]:
+        document = line.document
+        place = document.source_location_id or document.target_location_id
+        totals: dict[Any, dict[str, Any]] = {}
+        for movement in document.movements.all():
+            if movement.item_id != line.item_id or movement.lot is None:
+                continue
+            if movement.location_id != place:
+                continue
+            lot = movement.lot
+            row = totals.setdefault(
+                movement.lot_id,
+                {"number": lot.number, "expires_on": lot.expires_on, "quantity": 0},
+            )
+            row["quantity"] += abs(movement.quantity)
+        return list(totals.values())
 
 
 class StockDocumentLineInputSerializer(serializers.Serializer[Any]):
     item_id = serializers.UUIDField()
     quantity = _quantity(min_value=0)
     unit_price_minor = serializers.IntegerField(required=False, allow_null=True, min_value=0)
+    #: Partia do rozchodu; bez niej rozchód bierze partie wg ważności.
+    lot_id = serializers.UUIDField(required=False, allow_null=True)
+    #: Numer partii — przyjęcie i inwentaryzacja zakładają nową.
+    lot_number = serializers.CharField(max_length=64, required=False, allow_blank=True)
+    expires_on = serializers.DateField(required=False, allow_null=True)
     note = serializers.CharField(max_length=240, required=False, allow_blank=True)
 
 
@@ -182,6 +263,8 @@ class InventoryReceiptInputSerializer(serializers.Serializer[Any]):
     item_id = serializers.UUIDField()
     quantity = _quantity(min_value=0)
     unit_cost_minor = serializers.IntegerField(min_value=0, default=0)
+    lot_number = serializers.CharField(max_length=64, required=False, allow_blank=True)
+    expires_on = serializers.DateField(required=False, allow_null=True)
     note = serializers.CharField(max_length=240, required=False, allow_blank=True)
 
 

@@ -3644,6 +3644,58 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/inventory/lots/:
+    get:
+      operationId: inventory_lot_list
+      description: Partie, których coś leży — od najkrótszej ważności (decyzja 25.09).
+      parameters:
+      - in: query
+        name: item_id
+        schema:
+          type: string
+        description: Partie jednej pozycji.
+      - in: query
+        name: location_id
+        schema:
+          type: string
+        description: Partie w jednym miejscu.
+      tags:
+      - inventory
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InventoryLotStock'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/inventory/movements/:
     get:
       operationId: inventory_movement_list
@@ -9800,6 +9852,18 @@ components:
           - 'null'
           format: date-time
           readOnly: true
+        withdrawal_milk_until:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          readOnly: true
+        withdrawal_meat_until:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          readOnly: true
         updated_at:
           type: string
           format: date-time
@@ -9817,6 +9881,8 @@ components:
       - species
       - status
       - updated_at
+      - withdrawal_meat_until
+      - withdrawal_milk_until
       - working_number
     AnimalHealthEntry:
       type: object
@@ -9856,6 +9922,16 @@ components:
         details:
           type: object
           additionalProperties: {}
+        withdrawal_milk_until:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        withdrawal_meat_until:
+          type:
+          - string
+          - 'null'
+          format: date-time
         published_at:
           type: string
           format: date-time
@@ -9873,6 +9949,8 @@ components:
       - source
       - source_reference
       - summary
+      - withdrawal_meat_until
+      - withdrawal_milk_until
     AnimalHealthInput:
       type: object
       description: An entry written here by hand. `source` belongs to the server.
@@ -13118,6 +13196,19 @@ components:
           type: string
           format: decimal
           pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+        tracks_lots:
+          type: boolean
+        nearest_expiry:
+          type:
+          - string
+          - 'null'
+          format: date
+          readOnly: true
+        lot_status:
+          readOnly: true
+          oneOf:
+          - $ref: '#/components/schemas/LotStatusEnum'
+          - $ref: '#/components/schemas/NullEnum'
         updated_at:
           type: string
           format: date-time
@@ -13128,10 +13219,13 @@ components:
       - item_name
       - location_id
       - location_name
+      - lot_status
       - minimum_quantity
+      - nearest_expiry
       - quantity
       - reserved
       - sku
+      - tracks_lots
       - unit
       - updated_at
     InventoryCategory:
@@ -13231,6 +13325,8 @@ components:
         system_key:
           type: string
           readOnly: true
+        tracks_lots:
+          type: boolean
         active:
           type: boolean
         notes:
@@ -13247,6 +13343,7 @@ components:
       - name
       - notes
       - system_key
+      - tracks_lots
       - unit
       - vat_rate
     InventoryItemInput:
@@ -13278,12 +13375,63 @@ components:
           minimum: 0
         vat_rate:
           $ref: '#/components/schemas/VatRateEnum'
+        tracks_lots:
+          type: boolean
         active:
           type: boolean
         notes:
           type: string
       required:
       - name
+    InventoryLotStock:
+      type: object
+      description: 'Partia, która gdzieś leży: ile i jak z jej ważnością.'
+      properties:
+        lot_id:
+          type: string
+          format: uuid
+        item_id:
+          type: string
+          format: uuid
+        item_name:
+          type: string
+        unit:
+          type: string
+        number:
+          type: string
+        expires_on:
+          type:
+          - string
+          - 'null'
+          format: date
+        status:
+          $ref: '#/components/schemas/StatusAdcEnum'
+        location_id:
+          type: string
+          format: uuid
+        location_name:
+          type: string
+        holder_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+      required:
+      - expires_on
+      - holder_id
+      - item_id
+      - item_name
+      - location_id
+      - location_name
+      - lot_id
+      - number
+      - quantity
+      - status
+      - unit
     InventoryMovement:
       type: object
       properties:
@@ -13345,6 +13493,14 @@ components:
           type: integer
           minimum: 0
           default: 0
+        lot_number:
+          type: string
+          maxLength: 64
+        expires_on:
+          type:
+          - string
+          - 'null'
+          format: date
         note:
           type: string
           maxLength: 240
@@ -13531,6 +13687,18 @@ components:
       required:
       - email
       - password
+    LotStatusEnum:
+      enum:
+      - expired
+      - expiring
+      - ok
+      - no_date
+      type: string
+      description: |-
+        * `expired` - Po terminie
+        * `expiring` - Kończy się ważność
+        * `ok` - Ważna
+        * `no_date` - Bez daty ważności
     MaterialInput:
       type: object
       description: Produkt z magazynu przy usłudze albo wizycie (ADR-055).
@@ -13771,6 +13939,24 @@ components:
       description: |-
         * `consume` - consume
         * `sale` - sale
+    MovedLot:
+      type: object
+      properties:
+        number:
+          type: string
+        expires_on:
+          type:
+          - string
+          - 'null'
+          format: date
+        quantity:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,9}(?:\.\d{0,3})?$
+      required:
+      - expires_on
+      - number
+      - quantity
     NavigationItem:
       type: object
       properties:
@@ -14460,6 +14646,8 @@ components:
           minimum: 0
         vat_rate:
           $ref: '#/components/schemas/VatRateEnum'
+        tracks_lots:
+          type: boolean
         active:
           type: boolean
         notes:
@@ -16153,6 +16341,18 @@ components:
         * `sold` - Sprzedane
         * `culled` - Wybrakowane
         * `dead` - Padłe
+    StatusAdcEnum:
+      enum:
+      - expired
+      - expiring
+      - ok
+      - no_date
+      type: string
+      description: |-
+        * `expired` - Po terminie
+        * `expiring` - Kończy się ważność
+        * `ok` - Ważna
+        * `no_date` - Bez daty ważności
     StepEnum:
       enum:
       - address
@@ -16311,11 +16511,32 @@ components:
           type:
           - integer
           - 'null'
+        lot_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        lot_number:
+          type:
+          - string
+          - 'null'
+        expires_on:
+          type:
+          - string
+          - 'null'
+          format: date
+        moved_lots:
+          type: array
+          items:
+            $ref: '#/components/schemas/MovedLot'
+          readOnly: true
         note:
           type: string
       required:
       - item_id
       - item_name
+      - lot_id
+      - moved_lots
       - note
       - quantity
       - unit_price_minor
@@ -16334,6 +16555,19 @@ components:
           - integer
           - 'null'
           minimum: 0
+        lot_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        lot_number:
+          type: string
+          maxLength: 64
+        expires_on:
+          type:
+          - string
+          - 'null'
+          format: date
         note:
           type: string
           maxLength: 240

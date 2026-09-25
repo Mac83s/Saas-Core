@@ -71,6 +71,7 @@ import type { PanelAccess } from "#lib/panel-navigation";
 import { AnimalCard } from "./animal-card";
 import { AnimalEditDialog } from "./animal-edit-dialog";
 import { FarmForm } from "./farm-form";
+import { Withdrawal } from "./withdrawal";
 import { FarmVisits, ScheduleConsent } from "./farm-visits";
 import { FarmNoAccess, FarmNotice, focusRing } from "./farms-panel";
 import { farmProblem, farmProblemKind, type FarmProblem } from "./problem";
@@ -296,6 +297,10 @@ export function FarmDetail({
               .filter(Boolean)
               .join(" · ")}
           </p>
+          <Withdrawal
+            meat={animal.withdrawal_meat_until}
+            milk={animal.withdrawal_milk_until}
+          />
         </>
       ),
     },

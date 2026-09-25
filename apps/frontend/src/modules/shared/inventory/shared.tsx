@@ -7,10 +7,12 @@ import {
   ApiProblemError,
   type InventoryCategory,
   type InventoryItem,
+  type InventoryLotStock,
   type MembershipSummary,
   type StockLocation,
   type Supplier,
 } from "@saas-core/api-client";
+import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
 import {
   Dialog,
@@ -58,7 +60,33 @@ export function useFormat() {
       new Intl.NumberFormat(locale, { maximumFractionDigits: 3 }).format(
         Number(value),
       ),
+    /** A date without a time (an expiry): read where it was written. */
+    day: (iso: string) =>
+      new Intl.DateTimeFormat(locale, {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        timeZone: "UTC",
+      }).format(new Date(`${iso}T00:00:00Z`)),
   };
+}
+
+/** How a lot stands with its expiry: red past it, amber within 30 days. */
+export function LotStatusBadge({
+  status,
+}: {
+  status: InventoryLotStock["status"] | null | undefined;
+}) {
+  const t = useTranslations("Inventory");
+  if (status === "expired")
+    return <Badge variant="destructive">{t("lotStatus_expired")}</Badge>;
+  if (status === "expiring")
+    return (
+      <Badge className="bg-warning text-warning-foreground">
+        {t("lotStatus_expiring")}
+      </Badge>
+    );
+  return null;
 }
 
 /** „Magazyn główny” or the person whose stock it is. */

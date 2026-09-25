@@ -11,14 +11,15 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from typing import Any, cast
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.db import IntegrityError, transaction
-from django.db.models import F, Model, Q, QuerySet
+from django.db.models import F, Model, Q, QuerySet, Sum
 from django.http import HttpRequest
 from django.utils import timezone
 from django.utils.text import slugify
@@ -40,6 +41,7 @@ from .models import (
     InventoryBalance,
     InventoryCategory,
     InventoryItem,
+    InventoryLot,
     InventoryMovement,
     LocationKind,
     ReservationStatus,
@@ -70,6 +72,8 @@ NEEDS_SOURCE = {DocumentKind.WZ, DocumentKind.RW, DocumentKind.MM}
 NEEDS_TARGET = {DocumentKind.PZ, DocumentKind.PW, DocumentKind.MM, DocumentKind.INW}
 #: Przyjęcia z ceną przeliczają średnią ważoną pozycji.
 PRICED_RECEIPTS = {DocumentKind.PZ, DocumentKind.PW}
+#: Partia, której termin mija w tylu dniach, jest „kończy się ważność” (decyzja 25.09).
+EXPIRING_DAYS = 30
 
 
 class StockShortage(APIException):
@@ -92,12 +96,24 @@ class DocumentAlreadyCorrected(APIException):
     default_detail = "Ten dokument ma już korektę."
 
 
+class LotExpired(APIException):
+    """Sprzedaż partii po terminie — przeterminowane w pracy tylko ostrzegają."""
+
+    status_code = 409
+    default_code = "stock_lot_expired"
+    default_detail = "Ta partia jest po terminie — sprzedaż zablokowana."
+
+
 @dataclass(frozen=True, slots=True)
 class LineInput:
     item_id: UUID
     quantity: Decimal
     unit_price_minor: int | None = None
     note: str = ""
+    #: Istniejąca partia albo numer (przyjęcie zakłada nową, z datą ważności).
+    lot_id: UUID | None = None
+    lot_number: str = ""
+    expires_on: date | None = None
 
 
 # --- katalog, kategorie, miejsca --------------------------------------------------
@@ -147,6 +163,7 @@ def ensure_catalog(organization_id: UUID) -> None:
                     "name": _label(item.name, organization),
                     "category": by_key.get(item.category),
                     "unit": item.unit,
+                    "tracks_lots": item.tracks_lots,
                 },
             )
         try:
@@ -390,6 +407,7 @@ ITEM_FIELDS = (
     "minimum_quantity",
     "sale_price_net_minor",
     "vat_rate",
+    "tracks_lots",
     "active",
     "notes",
 )
@@ -516,6 +534,31 @@ def balances(
     return list(query[:PAGE_LIMIT])
 
 
+def nearest_expiry(rows: Sequence[InventoryBalance]) -> dict[tuple[UUID, UUID], dict[str, Any]]:
+    """(pozycja, miejsce) → najbliższy termin partii, które tam leżą, i jego stan."""
+    tracked = [row for row in rows if row.item.tracks_lots]
+    if not tracked:
+        return {}
+    nearest: dict[tuple[UUID, UUID], dict[str, Any]] = {}
+    for lot in lot_rows(
+        tracked[0].organization_id, location_ids={row.location_id for row in tracked}
+    ):
+        # lot_rows comes in FEFO order: the first row of a place is its nearest.
+        nearest.setdefault((lot["item_id"], lot["location_id"]), lot)
+    return nearest
+
+
+def list_lots(
+    *, item_id: UUID | None = None, location_id: UUID | None = None
+) -> list[dict[str, Any]]:
+    context = _read_context()
+    return lot_rows(
+        context.organization_id,
+        item_id=item_id,
+        location_ids=[location_id] if location_id is not None else (),
+    )
+
+
 def movements(
     *, item_id: UUID | None = None, location_id: UUID | None = None
 ) -> QuerySet[InventoryMovement]:
@@ -537,7 +580,7 @@ def list_documents(*, kind: str = "", status: str = "") -> list[StockDocument]:
     context = _read_context()
     query = StockDocument.all_objects.filter(
         organization_id=context.organization_id
-    ).prefetch_related("lines__item")
+    ).prefetch_related("lines__item", "lines__lot", "movements__lot")
     if kind:
         query = query.filter(kind=kind)
     if status:
@@ -563,15 +606,52 @@ def _write_lines(document: StockDocument, lines: Sequence[LineInput]) -> None:
     for position, line in enumerate(lines, start=1):
         if line.quantity < 0 or (line.quantity == 0 and document.kind != DocumentKind.INW):
             raise ValidationError({"lines": "Ilość musi być dodatnia."})
+        item = _get(InventoryItem, document.organization_id, line.item_id)
         StockDocumentLine.all_objects.create(
             organization_id=document.organization_id,
             document=document,
             position=position,
-            item=_get(InventoryItem, document.organization_id, line.item_id),
+            item=item,
             quantity=line.quantity,
             unit_price_minor=line.unit_price_minor,
+            lot=_line_lot(document, item, line),
             note=line.note,
         )
+
+
+def _line_lot(document: StockDocument, item: InventoryItem, line: LineInput) -> InventoryLot | None:
+    """Partia wiersza: wskazana, znana po numerze albo — przy przyjęciu i
+    inwentaryzacji — nowa. Bez partii rozchód weźmie je wg ważności."""
+    number = line.lot_number.strip()
+    if line.lot_id is None and not number:
+        return None
+    if not item.tracks_lots:
+        raise ValidationError({"lines": f"„{item.name}” nie prowadzi partii."})
+    lots = InventoryLot.all_objects.filter(organization_id=document.organization_id, item=item)
+    if line.lot_id is not None:
+        found = lots.filter(pk=line.lot_id).first()
+        if found is None:
+            raise ValidationError({"lines": f"Nie ma takiej partii „{item.name}”."})
+        return found
+    if document.kind not in (*PRICED_RECEIPTS, DocumentKind.INW):
+        found = lots.filter(number=number).first()
+        if found is None:
+            raise ValidationError({"lines": f"Nie ma partii {number} „{item.name}”."})
+        return found
+    lot, created = lots.get_or_create(
+        organization_id=document.organization_id,
+        item=item,
+        number=number,
+        defaults={"expires_on": line.expires_on},
+    )
+    if not created and line.expires_on is not None and lot.expires_on != line.expires_on:
+        if lot.expires_on is not None:
+            raise ValidationError({
+                "lines": f"Partia {number} „{item.name}” ma już termin {lot.expires_on:%d.%m.%Y}."
+            })
+        lot.expires_on = line.expires_on
+        lot.save(update_fields=["expires_on"])
+    return lot
 
 
 def _document_values(organization_id: UUID, data: dict[str, Any]) -> dict[str, Any]:
@@ -707,28 +787,53 @@ def _post(document: StockDocument, *, actor_id: UUID, allow_negative: bool) -> N
         raise ValidationError({"target_location_id": "Wskaż miejsce docelowe."})
     if kind == DocumentKind.MM and source == target:
         raise ValidationError({"target_location_id": "Przesunięcie wymaga dwóch różnych miejsc."})
-    lines = list(StockDocumentLine.all_objects.filter(document=document))
+    lines = list(StockDocumentLine.all_objects.filter(document=document).select_related("lot"))
     if not lines:
         raise ValidationError({"lines": "Dokument musi mieć co najmniej jedną pozycję."})
+    today = organization_today(document.organization_id)
     for line in lines:
+        # The lock serialises postings of the item, so two rozchody never take
+        # the same lot twice.
         item = InventoryItem.all_objects.select_for_update().get(pk=line.item_id)
         quantity = Decimal(line.quantity)
         if kind in PRICED_RECEIPTS:
             _average(item, quantity, line.unit_price_minor)
         if kind == DocumentKind.INW and target is not None:
-            balance = _balance(document.organization_id, item.id, target, lock=True)
-            delta = quantity - Decimal(balance.quantity)
+            organization_id = document.organization_id
+            if item.tracks_lots:
+                # Counted lot by lot: the lot the line names, or stock without one.
+                held = _lot_quantity(organization_id, item.id, target, line.lot_id)
+            else:
+                held = Decimal(_balance(organization_id, item.id, target, lock=True).quantity)
+            delta = quantity - held
             if delta != 0:
-                _move(document, item, target, delta, actor_id)
+                _move(document, item, target, delta, actor_id, lot_id=line.lot_id)
             continue
-        if source is not None:
-            if not allow_negative:
-                balance = _balance(document.organization_id, item.id, source, lock=True)
-                if Decimal(balance.quantity) - Decimal(balance.reserved) < quantity:
-                    raise StockShortage(f"Brakuje „{item.name}” na stanie.")
-            _move(document, item, source, -quantity, actor_id)
+        if source is None:
+            if target is not None:
+                price = line.unit_price_minor
+                _move(document, item, target, quantity, actor_id, price, line.lot_id)
+            continue
+        if not allow_negative:
+            balance = _balance(document.organization_id, item.id, source, lock=True)
+            if Decimal(balance.quantity) - Decimal(balance.reserved) < quantity:
+                raise StockShortage(f"Brakuje „{item.name}” na stanie.")
+        parts = _allocate(
+            document,
+            item,
+            source,
+            quantity,
+            line.lot,
+            today=today,
+            sale=kind == DocumentKind.WZ,
+            strict=not allow_negative,
+        )
+        for lot_id, part in parts:
+            _move(document, item, source, -part, actor_id, lot_id=lot_id)
         if target is not None:
-            _move(document, item, target, quantity, actor_id, line.unit_price_minor)
+            # A transfer carries the same lots to the other place.
+            for lot_id, part in parts:
+                _move(document, item, target, part, actor_id, line.unit_price_minor, lot_id)
     document.number = _next_number(document.organization_id, kind, document.document_date)
     document.status = DocumentStatus.POSTED
     document.posted_by_id = actor_id
@@ -767,6 +872,7 @@ def _correct(original: StockDocument, *, actor_id: UUID, note: str) -> StockDocu
             item_id=line.item_id,
             quantity=line.quantity,
             unit_price_minor=line.unit_price_minor,
+            lot_id=line.lot_id,
             note=line.note,
         )
     # Reversing the ledger, not re-running the kind: an INW counted "10" must
@@ -779,6 +885,7 @@ def _correct(original: StockDocument, *, actor_id: UUID, note: str) -> StockDocu
             -Decimal(movement.quantity),
             actor_id,
             movement.unit_cost_minor,
+            movement.lot_id,
         )
     correction.number = _next_number(
         original.organization_id, original.kind, correction.document_date
@@ -837,6 +944,7 @@ def _move(
     quantity: Decimal,
     actor_id: UUID,
     unit_cost_minor: int | None = None,
+    lot_id: UUID | None = None,
 ) -> InventoryMovement:
     balance = _balance(document.organization_id, item.id, location_id, lock=True)
     InventoryBalance.all_objects.filter(pk=balance.pk).update(quantity=F("quantity") + quantity)
@@ -848,8 +956,163 @@ def _move(
         kind=document.kind,
         quantity=quantity,
         unit_cost_minor=unit_cost_minor if unit_cost_minor is not None else item.average_cost_minor,
+        lot_id=lot_id,
         created_by_id=actor_id,
     )
+
+
+# --- partie i ważność ----------------------------------------------------------------
+
+
+def organization_today(organization_id: UUID) -> date:
+    """Dzień firmy: partia z terminem na dziś jest ważna do końca tego dnia."""
+    return timezone.localdate(timezone=ZoneInfo(_organization(organization_id).timezone))
+
+
+def lot_status(expires_on: date | None, today: date) -> str:
+    """`expired`, `expiring` (w ciągu EXPIRING_DAYS), `ok` albo `no_date`."""
+    if expires_on is None:
+        return "no_date"
+    if expires_on < today:
+        return "expired"
+    if expires_on <= today + timedelta(days=EXPIRING_DAYS):
+        return "expiring"
+    return "ok"
+
+
+def fefo(lots: Iterable[InventoryLot], today: date) -> list[InventoryLot]:
+    """Kolejność rozchodu: ważne od najkrótszej daty (bez daty na końcu), po
+    nich przeterminowane — te schodzą tylko, gdy innych już nie ma."""
+    return sorted(
+        lots,
+        key=lambda lot: (
+            lot.expires_on is not None and lot.expires_on < today,
+            lot.expires_on or date.max,
+            lot.created_at,
+        ),
+    )
+
+
+def _lot_quantity(
+    organization_id: UUID, item_id: UUID, location_id: UUID, lot_id: UUID | None
+) -> Decimal:
+    """Ile leży z jednej partii (albo bez partii) w miejscu: suma jej ruchów."""
+    total = InventoryMovement.all_objects.filter(
+        organization_id=organization_id,
+        item_id=item_id,
+        location_id=location_id,
+        **({"lot_id": lot_id} if lot_id is not None else {"lot__isnull": True}),
+    ).aggregate(total=Sum("quantity"))["total"]
+    return Decimal(total or 0)
+
+
+def _lot_stock(organization_id: UUID, **where: Any) -> dict[tuple[UUID, UUID, UUID], Decimal]:
+    """(pozycja, miejsce, partia) → ile leży, tylko to, czego jest więcej niż zero."""
+    rows = (
+        InventoryMovement.all_objects.filter(
+            organization_id=organization_id, lot__isnull=False, **where
+        )
+        .values("item_id", "location_id", "lot_id")
+        .annotate(total=Sum("quantity"))
+        .filter(total__gt=0)
+    )
+    return {
+        (row["item_id"], row["location_id"], row["lot_id"]): Decimal(row["total"]) for row in rows
+    }
+
+
+def _allocate(
+    document: StockDocument,
+    item: InventoryItem,
+    location_id: UUID,
+    quantity: Decimal,
+    lot: InventoryLot | None,
+    *,
+    today: date,
+    sale: bool,
+    strict: bool,
+) -> list[tuple[UUID | None, Decimal]]:
+    """Z których partii schodzi rozchód (FEFO, decyzja 25.09).
+
+    Wskazana partia schodzi w całości. Bez wskazania: partie wg ważności, a
+    czego w partiach nie ma, schodzi bez partii (stan poniżej zera, jak dotąd).
+    Sprzedaż (WZ) omija partie po terminie; zatwierdzana w panelu (`strict`)
+    odmawia sprzedaży partii po terminie i towaru bez ważnej partii.
+    """
+    if not item.tracks_lots:
+        return [(None, quantity)]
+    if lot is not None:
+        if sale and strict and lot_status(lot.expires_on, today) == "expired":
+            raise LotExpired(f"Partia {lot.number} „{item.name}” jest po terminie.")
+        return [(lot.id, quantity)]
+    held = {
+        lot_id: amount
+        for (_item, _place, lot_id), amount in _lot_stock(
+            document.organization_id, item_id=item.id, location_id=location_id
+        ).items()
+    }
+    parts: list[tuple[UUID | None, Decimal]] = []
+    left = quantity
+    for candidate in fefo(InventoryLot.all_objects.filter(pk__in=list(held)), today):
+        if left <= 0:
+            break
+        if sale and lot_status(candidate.expires_on, today) == "expired":
+            continue
+        take = min(left, held[candidate.id])
+        parts.append((candidate.id, take))
+        left -= take
+    if left > 0:
+        if sale and strict:
+            raise StockShortage(
+                f"Brakuje ważnego towaru „{item.name}” — partie po terminie nie idą do sprzedaży."
+            )
+        parts.append((None, left))
+    return parts
+
+
+def lot_rows(
+    organization_id: UUID, *, item_id: UUID | None = None, location_ids: Iterable[UUID] = ()
+) -> list[dict[str, Any]]:
+    """Partie, których coś leży: w jakim miejscu, ile i jak z ich ważnością."""
+    where: dict[str, Any] = {}
+    if item_id is not None:
+        where["item_id"] = item_id
+    places = list(location_ids)
+    if places:
+        where["location_id__in"] = places
+    stock = _lot_stock(organization_id, **where)
+    lots = {
+        lot.id: lot
+        for lot in InventoryLot.all_objects.filter(
+            pk__in={lot_id for (_item, _place, lot_id) in stock}
+        ).select_related("item")
+    }
+    locations = {
+        location.id: location
+        for location in StockLocation.all_objects.filter(
+            pk__in={place for (_item, place, _lot) in stock}
+        )
+    }
+    today = organization_today(organization_id)
+    order = {lot.id: index for index, lot in enumerate(fefo(lots.values(), today))}
+    rows: list[dict[str, Any]] = [
+        {
+            "lot_id": lot_id,
+            "item_id": item,
+            "item_name": lots[lot_id].item.name,
+            "unit": lots[lot_id].item.unit,
+            "number": lots[lot_id].number,
+            "expires_on": lots[lot_id].expires_on,
+            "status": lot_status(lots[lot_id].expires_on, today),
+            "location_id": place,
+            "location_name": locations[place].name,
+            "holder_id": locations[place].holder_id,
+            "quantity": amount,
+        }
+        for (item, place, lot_id), amount in stock.items()
+    ]
+    rows.sort(key=lambda row: (order[cast(UUID, row["lot_id"])], row["location_name"]))
+    return rows
 
 
 # --- operacje dla innych modułów (przez api.py) -----------------------------------------
@@ -862,6 +1125,21 @@ def holder_stock(organization_id: UUID, holder_id: UUID) -> list[dict[str, Any]]
     która właśnie pracuje). Kategoria to jej klucz — po nim produkt rozpoznaje
     swoje pozycje.
     """
+    rows = list(
+        InventoryBalance.all_objects.filter(
+            organization_id=organization_id, location__holder_id=holder_id
+        ).select_related("item", "item__category")
+    )
+    lots: dict[UUID, list[dict[str, Any]]] = {}
+    places = {balance.location_id for balance in rows if balance.item.tracks_lots}
+    for row in lot_rows(organization_id, location_ids=places) if places else ():
+        lots.setdefault(row["item_id"], []).append({
+            "lot_id": row["lot_id"],
+            "number": row["number"],
+            "expires_on": row["expires_on"],
+            "status": row["status"],
+            "quantity": row["quantity"],
+        })
     return [
         {
             "item_id": balance.item_id,
@@ -869,10 +1147,11 @@ def holder_stock(organization_id: UUID, holder_id: UUID) -> list[dict[str, Any]]
             "category": balance.item.category.key if balance.item.category else "",
             "unit": balance.item.unit,
             "quantity": Decimal(balance.quantity),
+            "tracks_lots": balance.item.tracks_lots,
+            # Lots in FEFO order: the first is what goes next.
+            "lots": lots.get(balance.item_id, []),
         }
-        for balance in InventoryBalance.all_objects.filter(
-            organization_id=organization_id, location__holder_id=holder_id
-        ).select_related("item", "item__category")
+        for balance in rows
     ]
 
 
@@ -889,7 +1168,7 @@ def consume(
     organization_id: UUID,
     source: str,
     source_reference: str,
-    lines: Iterable[tuple[UUID, Decimal]],
+    lines: Iterable[tuple[UUID, Decimal] | tuple[UUID, Decimal, UUID | None]],
     holder_id: UUID | None = None,
     location_id: UUID | None = None,
     actor_id: UUID | None = None,
@@ -903,6 +1182,9 @@ def consume(
     stan schodzi poniżej zera (decyzja z 21.09); blokuje tylko sprzedaż w
     sklepie, która tędy nie idzie. Powtórka tego samego źródła zwraca
     istniejący dokument: wpis zapisany dwa razy to jeden klocek.
+
+    Wiersz może wskazać partię (trzeci element); nieznana partia nie zatrzymuje
+    pracy — wtedy partie idą wg ważności.
     """
     if kind not in (DocumentKind.RW, DocumentKind.WZ):
         raise ValueError(f"Zużycie wystawia RW albo WZ, nie {kind}.")
@@ -915,12 +1197,21 @@ def consume(
     ).first()
     if existing is not None:
         return existing
-    rows = [
-        LineInput(item_id=item_id, quantity=Decimal(quantity))
-        for item_id, quantity in lines
-        if Decimal(quantity) > 0
-        and InventoryItem.all_objects.filter(organization_id=organization_id, id=item_id).exists()
-    ]
+    rows = []
+    items = InventoryItem.all_objects.filter(organization_id=organization_id)
+    for line in lines:
+        item_id, quantity = line[0], Decimal(line[1])
+        lot_id = line[2] if len(line) > 2 else None
+        if quantity <= 0 or not items.filter(id=item_id).exists():
+            continue
+        if (
+            lot_id is not None
+            and not InventoryLot.all_objects.filter(
+                organization_id=organization_id, pk=lot_id, item_id=item_id, item__tracks_lots=True
+            ).exists()
+        ):
+            lot_id = None
+        rows.append(LineInput(item_id=item_id, quantity=quantity, lot_id=lot_id))
     if not rows:
         return None
     actor = actor_id or holder_id
@@ -949,18 +1240,53 @@ def consume(
 
 def describe_items(organization_id: UUID, item_ids: Iterable[UUID]) -> dict[UUID, dict[str, Any]]:
     """Co moduł może pokazać o pozycji bez importu modeli: nazwa, jednostka,
-    cena sprzedaży. Nieznanych i ukrytych pozycji w wyniku nie ma."""
+    cena sprzedaży, klucz kategorii, partie. Nieznanych i ukrytych pozycji w
+    wyniku nie ma."""
     return {
         item.id: {
             "name": item.name,
             "unit": item.unit,
             "sale_price_net_minor": item.sale_price_net_minor,
             "currency": item.currency,
+            "category": item.category.key if item.category else "",
+            "tracks_lots": item.tracks_lots,
         }
         for item in InventoryItem.all_objects.filter(
             organization_id=organization_id, id__in=list(item_ids), active=True
-        )
+        ).select_related("category")
     }
+
+
+def source_lots(
+    organization_id: UUID, *, source: str, source_reference: str
+) -> list[dict[str, Any]]:
+    """Które partie zeszły dla źródła (np. wpisu korekcji): rozchody jego
+    nieskorygowanych dokumentów, pozycja po pozycji."""
+    taken: dict[tuple[UUID, UUID], Decimal] = {}
+    lots: dict[UUID, InventoryLot] = {}
+    for movement in InventoryMovement.all_objects.filter(
+        organization_id=organization_id,
+        document__source=source,
+        document__source_reference=source_reference,
+        document__corrects__isnull=True,
+        document__correction__isnull=True,
+        lot__isnull=False,
+        quantity__lt=0,
+    ).select_related("lot"):
+        assert movement.lot is not None
+        lots[movement.lot.id] = movement.lot
+        key = (movement.item_id, movement.lot.id)
+        taken[key] = taken.get(key, Decimal(0)) - Decimal(movement.quantity)
+    return [
+        {
+            "item_id": item_id,
+            "lot_id": lot_id,
+            "number": lots[lot_id].number,
+            "expires_on": lots[lot_id].expires_on,
+            "quantity": quantity,
+        }
+        for (item_id, lot_id), quantity in taken.items()
+    ]
 
 
 @transaction.atomic
@@ -1065,6 +1391,8 @@ def receive(
     unit_cost_minor: int,
     note: str = "",
     document_id: UUID | None = None,
+    lot_number: str = "",
+    expires_on: date | None = None,
 ) -> StockDocument:
     """Przyjęcie do magazynu głównego z ceną z faktury (PZ)."""
     context = _manage_context()
@@ -1072,7 +1400,15 @@ def receive(
         request=request,
         kind=DocumentKind.PZ,
         data={"target_location_id": default_warehouse(context.organization_id).id, "note": note},
-        lines=[LineInput(item_id=item_id, quantity=quantity, unit_price_minor=unit_cost_minor)],
+        lines=[
+            LineInput(
+                item_id=item_id,
+                quantity=quantity,
+                unit_price_minor=unit_cost_minor,
+                lot_number=lot_number,
+                expires_on=expires_on,
+            )
+        ],
         document_id=document_id,
     )
     return post_document(request=request, document_id=document.id)

@@ -311,7 +311,8 @@
     "messagesAutomation": "Powiadomienia automatyczne",
     "sectionPages": "Podstrony: {section}",
     "wideView": "Widok na całą szerokość",
-    "searchConsole": "Search Console"
+    "searchConsole": "Search Console",
+    "inventoryLots": "Partie i ważność"
   },
   "Dashboard": {
     "eyebrow": "Centrum zarządzania",
@@ -2463,7 +2464,10 @@
     "openFarm": "Przejdź do gospodarstwa",
     "edit": "Edytuj zwierzę",
     "saveChanges": "Zapisz zmiany",
-    "saved": "Zapisano: {tag}."
+    "saved": "Zapisano: {tag}.",
+    "withdrawal": "Karencja: {parts}",
+    "withdrawalMilk": "mleko do {until}",
+    "withdrawalMeat": "mięso do {until}"
   },
   "StaffAccounts": {
     "title": "Konta pracowników kalendarza",
@@ -2648,7 +2652,30 @@
     "kindHelp_MM": "Towar zmienia miejsce: z magazynu do zapasu osoby i z powrotem.",
     "kindHelp_INW": "Spis z natury ustawia stan na to, co naprawdę leży na półce.",
     "correctionHelp": "Zatwierdzonego dokumentu się nie zmienia. Pomyłkę cofa korekta, a potem wystawiasz poprawny dokument.",
-    "allCategories": "Wszystkie kategorie"
+    "allCategories": "Wszystkie kategorie",
+    "tracksLots": "Partie i daty ważności",
+    "tracksLotsHint": "Przyjęcie podaje numer partii i datę ważności, a rozchód bierze najpierw partię, która najwcześniej traci ważność. Dla leków i kosmetyków.",
+    "lotsBadge": "partie",
+    "lot": "Partia",
+    "expiresOn": "Ważna do",
+    "lotAuto": "Automatycznie — najkrótsza ważność",
+    "lotsMoved": "Partie: {lots}",
+    "lotsTitle": "Partie i ważność",
+    "lotsDescription": "Partie, których coś leży, od najkrótszej ważności. Po terminie — na czerwono, kończąca się (30 dni) — na bursztynowo. W pracy przeterminowana partia tylko ostrzega; sprzedaży (WZ) system odmawia.",
+    "lotsCaption": "Partie na stanie",
+    "lotsEmpty": "Żadna partia nie ma nic na stanie.",
+    "lotStatus_expired": "Po terminie",
+    "lotStatus_expiring": "Kończy się ważność",
+    "lotStatus_ok": "Ważna",
+    "lotStatus_no_date": "Bez daty ważności",
+    "lotFilter": "Ważność",
+    "lotFilterAll": "Wszystkie partie",
+    "lotFilterSoon": "Kończy się ważność (30 dni)",
+    "lotFilterExpired": "Po terminie",
+    "allItems": "Wszystkie pozycje",
+    "allLocations": "Wszystkie miejsca",
+    "nearestExpiry": "Najbliższa ważność",
+    "showLots": "Partie i ważność"
   },
   "Catalog": {
     "title": "Katalog firm",

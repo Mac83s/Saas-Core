@@ -65,6 +65,12 @@ export const PANEL_SECTIONS = {
       permission: "inventory.read",
     },
     {
+      href: "/panel/inventory/lots",
+      labelKey: "inventoryLots",
+      module: "shared.inventory",
+      permission: "inventory.manage",
+    },
+    {
       href: "/panel/inventory/documents",
       labelKey: "inventoryDocuments",
       module: "shared.inventory",

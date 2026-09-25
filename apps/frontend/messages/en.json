@@ -311,7 +311,8 @@
     "messagesAutomation": "Automatic notifications",
     "sectionPages": "Pages of {section}",
     "wideView": "Full-width view",
-    "searchConsole": "Search Console"
+    "searchConsole": "Search Console",
+    "inventoryLots": "Lots and expiry"
   },
   "Dashboard": {
     "eyebrow": "Management hub",
@@ -2463,7 +2464,10 @@
     "openFarm": "Go to the farm",
     "edit": "Edit the animal",
     "saveChanges": "Save changes",
-    "saved": "Saved: {tag}."
+    "saved": "Saved: {tag}.",
+    "withdrawal": "Withdrawal: {parts}",
+    "withdrawalMilk": "milk until {until}",
+    "withdrawalMeat": "meat until {until}"
   },
   "StaffAccounts": {
     "title": "Calendar staff accounts",
@@ -2648,7 +2652,30 @@
     "kindHelp_MM": "Goods change place: from a warehouse to a person’s stock and back.",
     "kindHelp_INW": "A stocktake sets the stock to what is really on the shelf.",
     "correctionHelp": "A posted document never changes. A correction reverses a mistake; then issue the right document.",
-    "allCategories": "All categories"
+    "allCategories": "All categories",
+    "tracksLots": "Lots and expiry dates",
+    "tracksLotsHint": "A receipt names the lot number and its expiry date, and stock goes out from the lot that expires first. For medicines and cosmetics.",
+    "lotsBadge": "lots",
+    "lot": "Lot",
+    "expiresOn": "Expires on",
+    "lotAuto": "Automatic — shortest expiry first",
+    "lotsMoved": "Lots: {lots}",
+    "lotsTitle": "Lots and expiry",
+    "lotsDescription": "Lots that hold stock, from the shortest expiry. Past the date in red, expiring within 30 days in amber. At work an expired lot only warns; a sale (WZ) is refused.",
+    "lotsCaption": "Lots in stock",
+    "lotsEmpty": "No lot holds any stock.",
+    "lotStatus_expired": "Expired",
+    "lotStatus_expiring": "Expiring soon",
+    "lotStatus_ok": "Valid",
+    "lotStatus_no_date": "No expiry date",
+    "lotFilter": "Expiry",
+    "lotFilterAll": "All lots",
+    "lotFilterSoon": "Expiring (30 days)",
+    "lotFilterExpired": "Expired",
+    "allItems": "All items",
+    "allLocations": "All places",
+    "nearestExpiry": "Nearest expiry",
+    "showLots": "Lots and expiry"
   },
   "Catalog": {
     "title": "Company directory",

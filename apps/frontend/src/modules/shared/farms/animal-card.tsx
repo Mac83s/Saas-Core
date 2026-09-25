@@ -30,6 +30,7 @@ import { allows, type PanelAccess } from "#lib/panel-navigation";
 import productAnimalSections from "../../../product/animal-sections";
 import { EntryPhoto } from "./entry-photo";
 import { farmProblem } from "./problem";
+import { Withdrawal } from "./withdrawal";
 
 /** `AnimalStatus` of the register (models.py). Core knows no health status. */
 export const ANIMAL_STATUSES = ["active", "sold", "culled", "dead"] as const;
@@ -199,6 +200,10 @@ export function AnimalCard({
             </Badge>
           </p>
         )}
+        <Withdrawal
+          meat={animal.withdrawal_meat_until}
+          milk={animal.withdrawal_milk_until}
+        />
         {animal.review_requested_at && canManage ? (
           <div className="flex flex-wrap items-center gap-3 rounded-xl border border-dashed p-3">
             <p className="text-sm text-muted-foreground">{t("reviewHint")}</p>
@@ -352,6 +357,11 @@ export function AnimalCard({
                     ) : null}
                   </div>
                   <p className="mt-1 text-sm">{item.summary}</p>
+                  <Withdrawal
+                    meat={item.withdrawal_meat_until}
+                    milk={item.withdrawal_milk_until}
+                    plain
+                  />
                   {item.photos.length > 0 ? (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {item.photos.map((photo) => (
