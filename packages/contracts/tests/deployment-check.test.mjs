@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
-import { cp, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { test } from "node:test";
+import { after, test } from "node:test";
 
 import {
   assertBillingConfiguration,
@@ -11,6 +11,16 @@ import {
   validateDeployment,
 } from "../scripts/deployment-check.mjs";
 import { toPublicDeployment } from "../scripts/deployment-render.mjs";
+
+// Every fixture repository lives in tmp and is removed after the file runs;
+// without it each run leaked ~14 MB per typed profile (8.5 GB in /tmp by 25.09).
+const temporaryRoots = [];
+after(() => Promise.all(temporaryRoots.map((root) => rm(root, { recursive: true, force: true }))));
+const temporaryRoot = async (prefix) => {
+  const root = await mkdtemp(path.join(tmpdir(), prefix));
+  temporaryRoots.push(root);
+  return root;
+};
 
 test("profil core-only jest poprawny i posortowany zależnościami", async () => {
   const result = await validateDeployment("core-only");
@@ -52,7 +62,7 @@ test("deskryptor aplikacji, której nie ma w kodzie, jest odrzucany", async () =
   // A catalog that lies passes schema and graph checks and fails only at boot.
   // Build a repository root with one phantom module and make sure the check
   // refuses it before anything gets built.
-  const root = await mkdtemp(path.join(tmpdir(), "saas-core-catalog-"));
+  const root = await temporaryRoot("saas-core-catalog-");
   const contracts = path.join(root, "packages/contracts");
   await mkdir(path.join(contracts, "modules"), { recursive: true });
   await mkdir(path.join(root, "deployments/ghost"), { recursive: true });
@@ -110,7 +120,7 @@ test("bez drzewa backendu sprawdzenie aplikacji jest pomijane", async () => {
   // The frontend image copies only apps/frontend, deployments and packages, so
   // the render step inside that build has nothing to look at. Skipping there is
   // deliberate: the same guarantee is asserted by the backend's own test.
-  const root = await mkdtemp(path.join(tmpdir(), "saas-core-nobackend-"));
+  const root = await temporaryRoot("saas-core-nobackend-");
   const contracts = path.join(root, "packages/contracts");
   await mkdir(path.join(contracts, "modules"), { recursive: true });
   await mkdir(path.join(root, "deployments/ghost"), { recursive: true });
@@ -160,7 +170,7 @@ test("bez drzewa backendu sprawdzenie aplikacji jest pomijane", async () => {
 });
 
 test("moduł nie może zadeklarować cudzej tabeli jako publicznej", async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "saas-core-public-tables-"));
+  const root = await temporaryRoot("saas-core-public-tables-");
   const contracts = path.join(root, "packages/contracts");
   await mkdir(path.join(contracts, "modules"), { recursive: true });
   await mkdir(path.join(root, "deployments/only-health"), { recursive: true });
@@ -312,7 +322,7 @@ test("profil publiczny nie przenosi sekretów ani nieznanych pól", () => {
 
 // One module, `core.health`, with the backend section under test.
 const singleModuleRoot = async (backend) => {
-  const root = await mkdtemp(path.join(tmpdir(), "saas-core-extension-"));
+  const root = await temporaryRoot("saas-core-extension-");
   const contracts = path.join(root, "packages/contracts");
   await mkdir(path.join(contracts, "modules"), { recursive: true });
   await mkdir(path.join(root, "deployments/only-health"), { recursive: true });
@@ -428,7 +438,7 @@ test("moduł nadaje rolom tylko własne uprawnienia i montuje tylko własny kod 
 
 // A profile with shared.billing and two organization types, for ADR-050.
 const typedProfileRoot = async (organizationTypes) => {
-  const root = await mkdtemp(path.join(tmpdir(), "saas-core-org-types-"));
+  const root = await temporaryRoot("saas-core-org-types-");
   await cp(
     path.join(repositoryRoot, "packages/contracts"),
     path.join(root, "packages/contracts"),
