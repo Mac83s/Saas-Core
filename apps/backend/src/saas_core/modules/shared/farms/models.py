@@ -165,6 +165,11 @@ class AnimalHealthEntry(TenantScopedModel):
     summary = models.CharField(max_length=240)
     #: Structured detail the panel renders; shape belongs to the source.
     details = models.JSONField(default=dict)
+    #: A medicine's withdrawal period: until when milk and meat of the animal
+    #: may not be sold. The animal is "in withdrawal" while any entry still
+    #: runs — computed from the entries, not a flag somebody has to clear.
+    withdrawal_milk_until = models.DateTimeField(null=True, blank=True)
+    withdrawal_meat_until = models.DateTimeField(null=True, blank=True)
     published_at = models.DateTimeField(auto_now=True)
     all_objects = models.Manager()
 

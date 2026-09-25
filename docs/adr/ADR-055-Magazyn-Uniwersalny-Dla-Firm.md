@@ -94,6 +94,44 @@ zdjęłoby go drugi raz — z magazynu głównego.
   nie rozlicza (nawet wpisanych wcześniej). API panelu mówi to flagą
   `takes_materials` przy usłudze i wizycie; panel chowa wtedy edytor produktów.
 
+## Uzupełnienie 2026-09-25: partie i daty ważności
+
+Decyzje właściciela z 25.09 (faza 9 planu magazynu, odpowiedzi 1a–5a):
+
+- Pozycja może prowadzić partie (`tracks_lots`, przełącznik w karcie; produkt
+  może go włączyć pozycji standardowej przez `defaultItems[].tracksLots`).
+  Partia (`InventoryLot`) to numer i opcjonalna data ważności, unikalna w
+  obrębie pozycji. Przyjęcie (PZ, PW) i inwentaryzacja zakładają partię po
+  numerze; rozchód może ją wskazać.
+- Ruch i wiersz dokumentu niosą partię. **Stan partii w miejscu to suma jej
+  ruchów** — bez osobnej tabeli stanów, więc `InventoryBalance`, rezerwacje i
+  wszystko, co z nich czyta, zostają bez zmian.
+- Rozchód bez wskazanej partii bierze partie **FEFO** (pierwsze traci ważność,
+  pierwsze wychodzi): ważne od najkrótszej daty, bez daty na końcu, a
+  przeterminowane dopiero wtedy, gdy innych nie ma. Wybór zapada w jednym
+  miejscu księgowania (`_post`), więc tak samo dla kalendarza, terenu i
+  przyszłego sklepu; blokada pozycji w tym samym miejscu szereguje rozchody, żeby
+  dwa nie wzięły tej samej partii. Czego nie ma w partiach, schodzi bez partii
+  (stan poniżej zera jak dotąd); MM przenosi te same partie do drugiego miejsca;
+  inwentaryzacja liczy partia po partii; korekta odwraca ruchy razem z partią.
+- Przeterminowana partia w pracy tylko ostrzega; **sprzedaż (WZ) zatwierdzana w
+  panelu odmawia** partii po terminie (`stock_lot_expired`, 409) i towaru bez
+  ważnej partii (`stock_shortage`). WZ z wizyty (`consume`) omija partie po
+  terminie, ale nie zatrzymuje zakończenia wizyty.
+- „Kończy się ważność” to termin w ciągu 30 dni; stan (`expired`, `expiring`,
+  `ok`, `no_date`) liczy się w dniu firmy (jej strefa czasowa).
+- Moduły dostają partie przez `api.py`: `consume` przyjmuje partię jako trzeci
+  element wiersza (nieznana partia nie zatrzymuje pracy — wtedy FEFO),
+  `holder_stock` zwraca partie zapasu w kolejności FEFO, `source_lots` mówi,
+  które partie zeszły dla źródła, `describe_items` — kategorię i czy pozycja
+  prowadzi partie.
+- Panel: przełącznik w karcie pozycji, partia i data przy przyjęciu, wybór
+  partii przy rozchodzie („automatycznie — najkrótsza ważność”), najbliższa
+  ważność w stanach i podstrona **Partie i ważność** (`/panel/inventory/lots`).
+- Karencja leków nie należy do magazynu: zostaje w HoofCare, a rejestr
+  gospodarstw niesie jej koniec na wpisie kartoteki (ADR-051, uzupełnienie
+  25.09).
+
 ## Konsekwencje
 
 - Dziesięć tabel tenantowych z wymuszonym RLS (ADR-039): pozycja, kategoria,
@@ -104,8 +142,8 @@ zdjęłoby go drugi raz — z magazynu głównego.
 - Stare endpointy v1 (przyjęcie, wydanie, zwrot, korekta) działają dalej jako
   skróty tworzące zatwierdzone dokumenty PZ, MM oraz PW/RW (korekta stanu), dopóki panel nie
   przejdzie na dokumenty.
-- Partie i terminy ważności, alerty stanu minimalnego, raporty, import CSV i PDF
-  dokumentów to kolejne fazy planu.
+- Alerty stanu minimalnego, raporty, import CSV i PDF dokumentów to kolejne
+  fazy planu (partie i ważność — uzupełnienie 25.09 wyżej).
 
 ## Odrzucone
 

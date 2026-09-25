@@ -1270,6 +1270,23 @@ export interface paths {
         patch: operations["inventory_location_update"];
         trace?: never;
     };
+    "/api/v1/inventory/lots/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Partie, których coś leży — od najkrótszej ważności (decyzja 25.09). */
+        get: operations["inventory_lot_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/inventory/movements/": {
         parameters: {
             query?: never;
@@ -3253,6 +3270,10 @@ export interface components {
             /** Format: date-time */
             readonly review_requested_at: string | null;
             /** Format: date-time */
+            readonly withdrawal_milk_until: string | null;
+            /** Format: date-time */
+            readonly withdrawal_meat_until: string | null;
+            /** Format: date-time */
             readonly updated_at: string;
         };
         /** @description One entry of an animal's history, as the keeper reads it. */
@@ -3276,6 +3297,10 @@ export interface components {
             details: {
                 [key: string]: unknown;
             };
+            /** Format: date-time */
+            withdrawal_milk_until: string | null;
+            /** Format: date-time */
+            withdrawal_meat_until: string | null;
             /** Format: date-time */
             published_at: string;
         };
@@ -4575,6 +4600,10 @@ export interface components {
             readonly available: string;
             /** Format: decimal */
             minimum_quantity: string;
+            tracks_lots: boolean;
+            /** Format: date */
+            readonly nearest_expiry: string | null;
+            readonly lot_status: components["schemas"]["LotStatusEnum"] | components["schemas"]["NullEnum"];
             /** Format: date-time */
             updated_at: string;
         };
@@ -4614,6 +4643,7 @@ export interface components {
             vat_rate: components["schemas"]["VatRateEnum"];
             readonly currency: string;
             readonly system_key: string;
+            tracks_lots: boolean;
             active: boolean;
             notes: string;
         };
@@ -4627,8 +4657,29 @@ export interface components {
             minimum_quantity?: string;
             sale_price_net_minor?: number | null;
             vat_rate?: components["schemas"]["VatRateEnum"];
+            tracks_lots?: boolean;
             active?: boolean;
             notes?: string;
+        };
+        /** @description Partia, która gdzieś leży: ile i jak z jej ważnością. */
+        InventoryLotStock: {
+            /** Format: uuid */
+            lot_id: string;
+            /** Format: uuid */
+            item_id: string;
+            item_name: string;
+            unit: string;
+            number: string;
+            /** Format: date */
+            expires_on: string | null;
+            status: components["schemas"]["LotStatusEnum"];
+            /** Format: uuid */
+            location_id: string;
+            location_name: string;
+            /** Format: uuid */
+            holder_id: string | null;
+            /** Format: decimal */
+            quantity: string;
         };
         InventoryMovement: {
             /** Format: uuid */
@@ -4658,6 +4709,9 @@ export interface components {
             quantity: string;
             /** @default 0 */
             unit_cost_minor: number;
+            lot_number?: string;
+            /** Format: date */
+            expires_on?: string | null;
             note?: string;
         };
         InvitationAccept: {
@@ -4730,6 +4784,14 @@ export interface components {
             email: string;
             password: string;
         };
+        /**
+         * @description * `expired` - Po terminie
+         *     * `expiring` - Kończy się ważność
+         *     * `ok` - Ważna
+         *     * `no_date` - Bez daty ważności
+         * @enum {string}
+         */
+        LotStatusEnum: "expired" | "expiring" | "ok" | "no_date";
         /** @description Produkt z magazynu przy usłudze albo wizycie (ADR-055). */
         MaterialInput: {
             /** Format: uuid */
@@ -4835,6 +4897,13 @@ export interface components {
          * @enum {string}
          */
         ModeEnum: "consume" | "sale";
+        MovedLot: {
+            number: string;
+            /** Format: date */
+            expires_on: string | null;
+            /** Format: decimal */
+            quantity: string;
+        };
         NavigationItem: {
             /** Format: uuid */
             page_id: string;
@@ -5106,6 +5175,7 @@ export interface components {
             minimum_quantity?: string;
             sale_price_net_minor?: number | null;
             vat_rate?: components["schemas"]["VatRateEnum"];
+            tracks_lots?: boolean;
             active?: boolean;
             notes?: string;
         };
@@ -5878,6 +5948,12 @@ export interface components {
             /** Format: decimal */
             quantity: string;
             unit_price_minor: number | null;
+            /** Format: uuid */
+            lot_id: string | null;
+            lot_number?: string | null;
+            /** Format: date */
+            expires_on?: string | null;
+            readonly moved_lots: components["schemas"]["MovedLot"][];
             note: string;
         };
         StockDocumentLineInput: {
@@ -5886,6 +5962,11 @@ export interface components {
             /** Format: decimal */
             quantity: string;
             unit_price_minor?: number | null;
+            /** Format: uuid */
+            lot_id?: string | null;
+            lot_number?: string;
+            /** Format: date */
+            expires_on?: string | null;
             note?: string;
         };
         /**
@@ -9906,6 +9987,62 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StockLocation"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    inventory_lot_list: {
+        parameters: {
+            query?: {
+                /** @description Partie jednej pozycji. */
+                item_id?: string;
+                /** @description Partie w jednym miejscu. */
+                location_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryLotStock"][];
                 };
             };
             400: {

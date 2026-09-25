@@ -62,6 +62,7 @@ import { allows, type PanelAccess } from "#lib/panel-navigation";
 import { ANIMAL_STATUSES, AnimalCard } from "./animal-card";
 import { AnimalEditDialog } from "./animal-edit-dialog";
 import { farmProblem } from "./problem";
+import { Withdrawal } from "./withdrawal";
 
 // The API decides; these only keep the screen from offering a 403.
 const READ = "farms.read";
@@ -252,6 +253,14 @@ export function AnimalsPanel({ access }: { access: PanelAccess }) {
             <Badge className="ml-2" variant="outline">
               {t("reviewBadge")}
             </Badge>
+          ) : null}
+          {animal.withdrawal_milk_until || animal.withdrawal_meat_until ? (
+            <span className="mt-1 block">
+              <Withdrawal
+                meat={animal.withdrawal_meat_until}
+                milk={animal.withdrawal_milk_until}
+              />
+            </span>
           ) : null}
         </>
       ),

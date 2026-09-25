@@ -27,6 +27,7 @@ urlpatterns = [
     path("items/<uuid:item_id>/", views.InventoryItemDetailView.as_view(), name="item-detail"),
     path("balances/", views.InventoryBalanceView.as_view(), name="balances"),
     path("movements/", views.InventoryMovementView.as_view(), name="movements"),
+    path("lots/", views.InventoryLotView.as_view(), name="lots"),
     path("documents/", views.StockDocumentListView.as_view(), name="document-list"),
     path(
         "documents/<uuid:document_id>/",

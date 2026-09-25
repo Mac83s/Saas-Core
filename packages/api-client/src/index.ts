@@ -2707,6 +2707,7 @@ export type InventoryItem = components["schemas"]["InventoryItem"];
 export type InventoryItemInput = components["schemas"]["InventoryItemInput"];
 export type InventoryBalance = components["schemas"]["InventoryBalance"];
 export type InventoryMovement = components["schemas"]["InventoryMovement"];
+export type InventoryLotStock = components["schemas"]["InventoryLotStock"];
 export type InventoryCategory = components["schemas"]["InventoryCategory"];
 export type StockLocation = components["schemas"]["StockLocation"];
 export type Supplier = components["schemas"]["Supplier"];
@@ -2868,6 +2869,16 @@ export function listInventoryBalances(
     location_id: filters.locationId,
     holder_id: filters.holderId,
     mine: filters.mine || undefined,
+  });
+}
+
+/** Partie, których coś leży — od najkrótszej ważności. */
+export function listInventoryLots(
+  filters: { itemId?: string; locationId?: string } = {},
+): Promise<InventoryLotStock[]> {
+  return inventoryRead("/api/v1/inventory/lots/", {
+    item_id: filters.itemId,
+    location_id: filters.locationId,
   });
 }
 

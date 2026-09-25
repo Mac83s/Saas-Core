@@ -182,6 +182,9 @@ class InventoryItem(TenantScopedModel):
     currency = models.CharField(max_length=3, default="PLN")
     #: Klucz pozycji standardowej z deklaracji produktu; taka pozycja nie znika.
     system_key = models.CharField(max_length=64, blank=True)
+    #: Partie i daty ważności (leki, kosmetyki): każdy ruch niesie partię, a
+    #: rozchód bez wskazanej partii bierze tę, która najwcześniej traci ważność.
+    tracks_lots = models.BooleanField(default=False)
     active = models.BooleanField(default=True)
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -212,6 +215,33 @@ class InventoryItem(TenantScopedModel):
 
     def __str__(self) -> str:
         return self.name
+
+
+class InventoryLot(TenantScopedModel):
+    """Partia pozycji: numer z opakowania i data ważności.
+
+    Stan partii w miejscu to suma jej ruchów — osobnej tabeli stanów nie ma, więc
+    stan pozycji, rezerwacje i wszystko, co z niego czyta, zostają bez zmian.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    item = models.ForeignKey(InventoryItem, on_delete=models.PROTECT, related_name="lots")
+    number = models.CharField(max_length=64)
+    #: Pusta: partia bez terminu ważności.
+    expires_on = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "item_id", "expires_on", "number")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "item", "number"], name="inventory_lot_number_uq"
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.number
 
 
 class StockDocument(TenantScopedModel):
@@ -289,6 +319,11 @@ class StockDocumentLine(TenantScopedModel):
     quantity = models.DecimalField(max_digits=12, decimal_places=3)
     #: Cena jednostkowa w groszach: zakupu przy PZ/PW, sprzedaży przy WZ.
     unit_price_minor = models.PositiveIntegerField(null=True, blank=True)
+    #: Partia przyjęta albo wskazana do rozchodu; rozchód bez niej bierze partie
+    #: wg ważności, a to, co zeszło, mówią ruchy.
+    lot = models.ForeignKey(
+        InventoryLot, on_delete=models.PROTECT, related_name="+", null=True, blank=True
+    )
     note = models.CharField(max_length=240, blank=True)
     all_objects = models.Manager()
 
@@ -361,6 +396,10 @@ class InventoryMovement(TenantScopedModel):
     quantity = models.DecimalField(max_digits=12, decimal_places=3)
     #: Cena jednostkowa w groszach z chwili ruchu, żeby koszt się nie zmieniał później.
     unit_cost_minor = models.PositiveIntegerField(default=0)
+    #: Partia pozycji z partiami; pusta, gdy żadnej nie było (stan poniżej zera).
+    lot = models.ForeignKey(
+        InventoryLot, on_delete=models.PROTECT, related_name="movements", null=True, blank=True
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
     )
@@ -377,6 +416,9 @@ class InventoryMovement(TenantScopedModel):
         indexes = [
             models.Index(fields=["organization", "item"], name="inventory_movement_item_idx"),
             models.Index(fields=["organization", "location"], name="inventory_movement_place_idx"),
+            models.Index(
+                fields=["organization", "item", "location"], name="inventory_movement_stock_idx"
+            ),
         ]
 
     def __str__(self) -> str:

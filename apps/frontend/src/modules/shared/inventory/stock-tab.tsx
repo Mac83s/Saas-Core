@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
+  CalendarClockIcon,
   PackageCheckIcon,
   PackageMinusIcon,
   PackagePlusIcon,
@@ -28,9 +29,11 @@ import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
 import { PanelPage } from "#components/panel/panel-page";
+import { Link } from "#i18n/navigation";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import {
   FormDialog,
+  LotStatusBadge,
   locationLabel,
   personName,
   useFormat,
@@ -65,7 +68,7 @@ export function StockTab({
 }) {
   const t = useTranslations("Inventory");
   const labels = useDataTableLabels();
-  const { amount } = useFormat();
+  const { amount, day } = useFormat();
   const warehouse = data.locations.find((location) => location.is_default);
   const [locationId, setLocationId] = useState("");
   const shown = locationId || warehouse?.id || "";
@@ -78,6 +81,8 @@ export function StockTab({
     holder_id: "",
     quantity: "",
     price: "",
+    lot_number: "",
+    expires_on: "",
   });
   const [held, setHeld] = useState<InventoryBalance[]>([]);
 
@@ -174,6 +179,19 @@ export function StockTab({
       header: t("minimum"),
       cell: ({ row: { original: row } }) => amount(row.minimum_quantity),
     },
+    {
+      // The lot that expires first here: red past it, amber within 30 days.
+      id: "expiry",
+      accessorFn: (row) => row.nearest_expiry ?? "",
+      header: t("nearestExpiry"),
+      cell: ({ row: { original: row } }) =>
+        row.nearest_expiry ? (
+          <span className="inline-flex flex-wrap items-center gap-2">
+            {day(row.nearest_expiry)}
+            <LotStatusBadge status={row.lot_status} />
+          </span>
+        ) : null,
+    },
     ...(canManage
       ? [
           {
@@ -184,8 +202,8 @@ export function StockTab({
             // stock gets more or gives back.
             cell: ({ row: { original: row } }) => (
               <RowActions
-                items={
-                  row.holder_id
+                items={[
+                  ...(row.holder_id
                     ? [
                         movement("issue", row, true),
                         movement("return", row, true),
@@ -194,8 +212,21 @@ export function StockTab({
                         movement("receive", row, true),
                         movement("issue", row, true),
                         movement("return", row, false),
+                      ]),
+                  ...(row.tracks_lots
+                    ? [
+                        {
+                          label: t("showLots"),
+                          icon: <CalendarClockIcon aria-hidden="true" />,
+                          link: (
+                            <Link
+                              href={`/panel/inventory/lots?item=${row.item_id}`}
+                            />
+                          ),
+                        },
                       ]
-                }
+                    : []),
+                ]}
                 label={t("actionsFor", { name: row.item_name })}
               />
             ),
@@ -206,6 +237,10 @@ export function StockTab({
 
   const people = data.crew;
   const items = data.items.filter((item) => item.active);
+  // A receipt of an item with lots names the lot and its expiry date.
+  const lots =
+    dialog === "receive" &&
+    items.some((item) => item.id === form.item_id && item.tracks_lots);
   const open = (kind: Movement, row?: InventoryBalance) => {
     // One id per opened form: a retry after a lost answer is the same document.
     setForm({
@@ -214,6 +249,8 @@ export function StockTab({
       holder_id: kind === "receive" ? "" : (row?.holder_id ?? ""),
       quantity: "",
       price: "",
+      lot_number: "",
+      expires_on: "",
     });
     setHeld([]);
     setDialog(kind);
@@ -236,6 +273,9 @@ export function StockTab({
         quantity: form.quantity,
         // Cena z faktury, w groszach: po niej wycenia się rozchód.
         unit_cost_minor: Math.round(Number(form.price || 0) * 100),
+        ...(lots
+          ? { lot_number: form.lot_number, expires_on: form.expires_on || null }
+          : {}),
       });
       onChanged(t("received"));
       return;
@@ -389,6 +429,35 @@ export function StockTab({
             value={form.quantity}
           />
         </Field>
+        {lots ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="movement-lot">{t("lot")}</FieldLabel>
+              <Input
+                id="movement-lot"
+                maxLength={64}
+                onChange={(event) =>
+                  setForm({ ...form, lot_number: event.target.value })
+                }
+                required
+                value={form.lot_number}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="movement-expires">
+                {t("expiresOn")}
+              </FieldLabel>
+              <Input
+                id="movement-expires"
+                onChange={(event) =>
+                  setForm({ ...form, expires_on: event.target.value })
+                }
+                type="date"
+                value={form.expires_on}
+              />
+            </Field>
+          </div>
+        ) : null}
         {dialog === "receive" ? (
           <Field>
             <FieldLabel htmlFor="movement-price">{t("unitPrice")}</FieldLabel>

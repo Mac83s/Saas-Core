@@ -15,7 +15,7 @@ from typing import Any, cast
 from uuid import UUID
 
 from django.db import IntegrityError, transaction
-from django.db.models import Count, Q
+from django.db.models import Count, Max, Q, QuerySet
 from django.http import HttpRequest
 from django.utils import timezone
 from rest_framework.exceptions import NotFound, ValidationError
@@ -217,7 +217,23 @@ def list_animals(
             | Q(working_number__iexact=search.strip())
             | Q(name__icontains=search.strip())
         )
-    return list(query.select_related("farm")[:PAGE_LIMIT])
+    return list(with_withdrawal(query).select_related("farm")[:PAGE_LIMIT])
+
+
+def with_withdrawal(query: QuerySet[Animal]) -> QuerySet[Animal]:
+    """Until when each animal is in withdrawal, milk and meat, from its entries
+    that still run; None when none does."""
+    now = timezone.now()
+    return query.annotate(
+        withdrawal_milk_until=Max(
+            "health_entries__withdrawal_milk_until",
+            filter=Q(health_entries__withdrawal_milk_until__gt=now),
+        ),
+        withdrawal_meat_until=Max(
+            "health_entries__withdrawal_meat_until",
+            filter=Q(health_entries__withdrawal_meat_until__gt=now),
+        ),
+    )
 
 
 def list_health_entries(
@@ -259,10 +275,20 @@ def list_health_entries(
     # door lives one layer above these use cases.
     from .herd_sync import registry_health_entries  # noqa: PLC0415
 
+    # What this company wrote on its own card and also published is one entry.
+    own = {
+        (entry.source, entry.source_reference)
+        for entry in entries
+        if entry.author_organization_id == context.organization_id
+    }
     entries.extend(
         entry
         for entry in registry_health_entries(animal_id)
-        if _matches(entry, kinds=kinds, author=author, since=since, until=until, context=context)
+        if not (
+            entry.author_organization_id == context.organization_id
+            and (entry.source, entry.source_reference) in own
+        )
+        and _matches(entry, kinds=kinds, author=author, since=since, until=until, context=context)
     )
     entries.sort(key=lambda entry: (entry.occurred_on, entry.published_at), reverse=True)
     return entries[:PAGE_LIMIT]

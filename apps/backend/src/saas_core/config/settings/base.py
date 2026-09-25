@@ -810,6 +810,8 @@ SPECTACULAR_SETTINGS = {
         "StateEnum": "saas_core.modules.shared.seo.models.AuditOrderState",
         "ImageGenerationJobStateEnum": "saas_core.modules.shared.image_generation.models.JobState",
         "ImageGenerationAspectEnum": ["16:9", "4:3", "3:2"],
+        # One name for a lot's expiry state, on a balance and on a lot.
+        "LotStatusEnum": "saas_core.modules.shared.inventory.serializers.LOT_STATUS",
     },
 }
 

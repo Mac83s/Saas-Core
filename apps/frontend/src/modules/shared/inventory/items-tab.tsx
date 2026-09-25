@@ -21,6 +21,7 @@ import {
 import { Field, FieldLabel } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
+import { Switch } from "@saas-core/ui/components/switch";
 import { Textarea } from "@saas-core/ui/components/textarea";
 
 import { PanelPage } from "#components/panel/panel-page";
@@ -43,6 +44,7 @@ type Draft = {
   minimum_quantity: string;
   sale_price: string;
   vat_rate: string;
+  tracks_lots: boolean;
   notes: string;
 };
 
@@ -55,6 +57,7 @@ const EMPTY: Draft = {
   minimum_quantity: "0",
   sale_price: "",
   vat_rate: "23",
+  tracks_lots: false,
   notes: "",
 };
 
@@ -72,6 +75,7 @@ function draftOf(item: InventoryItem): Draft {
         ? ""
         : String(item.sale_price_net_minor / 100),
     vat_rate: item.vat_rate,
+    tracks_lots: item.tracks_lots,
     notes: item.notes,
   };
 }
@@ -116,6 +120,7 @@ export function ItemsTab({
         ? Math.round(Number(draft.sale_price) * 100)
         : null,
       vat_rate: draft.vat_rate as InventoryItemInput["vat_rate"],
+      tracks_lots: draft.tracks_lots,
       notes: draft.notes,
     };
     if (editing === "new") {
@@ -144,6 +149,9 @@ export function ItemsTab({
             {item.name}{" "}
             {item.system_key ? (
               <Badge variant="secondary">{t("standard")}</Badge>
+            ) : null}{" "}
+            {item.tracks_lots ? (
+              <Badge variant="outline">{t("lotsBadge")}</Badge>
             ) : null}{" "}
             {item.active ? null : (
               <Badge variant="outline">{t("hidden")}</Badge>
@@ -215,7 +223,7 @@ export function ItemsTab({
       : []),
   ];
 
-  const field = (key: keyof Draft) => ({
+  const field = (key: Exclude<keyof Draft, "tracks_lots">) => ({
     id: `item-${key}`,
     onChange: (event: { target: { value: string } }) =>
       setDraft({ ...draft, [key]: event.target.value }),
@@ -335,6 +343,24 @@ export function ItemsTab({
             </NativeSelect>
           </Field>
         </div>
+        <Field>
+          <label className="flex min-h-11 items-center gap-3 font-medium">
+            <Switch
+              aria-describedby="item-tracks-lots-hint"
+              checked={draft.tracks_lots}
+              onCheckedChange={(checked) =>
+                setDraft({ ...draft, tracks_lots: checked })
+              }
+            />
+            {t("tracksLots")}
+          </label>
+          <p
+            className="text-sm text-muted-foreground"
+            id="item-tracks-lots-hint"
+          >
+            {t("tracksLotsHint")}
+          </p>
+        </Field>
         <Field>
           <FieldLabel htmlFor="item-notes">{t("notes")}</FieldLabel>
           <Textarea {...field("notes")} rows={2} />

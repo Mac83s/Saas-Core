@@ -266,6 +266,8 @@ def publish_health_entry(
     author_name: str = "",
     details: dict[str, Any] | None = None,
     photos: list[str] | None = None,
+    withdrawal_milk_until: datetime | None = None,
+    withdrawal_meat_until: datetime | None = None,
 ) -> AnimalHealthEntry | None:
     """One entry in the farmer's register about an animal (ADR-051 pt 8).
 
@@ -298,9 +300,64 @@ def publish_health_entry(
                 "summary": summary,
                 "details": details or {},
                 "photos": list(photos or []),
+                "withdrawal_milk_until": withdrawal_milk_until,
+                "withdrawal_meat_until": withdrawal_meat_until,
             },
         )
         return entry
+
+
+def record_own_health_entry(
+    *,
+    animal: Animal,
+    occurred_on: date,
+    source: str,
+    reference: str,
+    summary: str,
+    kind: str = HealthEntryKind.TREATMENT,
+    author_name: str = "",
+    details: dict[str, Any] | None = None,
+    withdrawal_milk_until: datetime | None = None,
+    withdrawal_meat_until: datetime | None = None,
+) -> AnimalHealthEntry:
+    """The same kind of entry on the company's own card of the animal.
+
+    What a company did to an animal belongs on its own card too, shared farm
+    or not — a medicine and its withdrawal most of all. Same key as
+    publishing, so writing again rewrites the one row; on a shared card the
+    register's copy of it is not shown a second time (`list_health_entries`).
+    """
+    from saas_core.modules.core.organizations.models import Organization  # noqa: PLC0415
+
+    organization = Organization.objects.get(pk=animal.organization_id)
+    entry, _ = AnimalHealthEntry.all_objects.update_or_create(
+        organization_id=animal.organization_id,
+        animal=animal,
+        source=source,
+        source_reference=reference,
+        defaults={
+            "kind": kind,
+            "occurred_on": occurred_on,
+            "author_name": author_name or organization.name,
+            "author_organization_id": animal.organization_id,
+            "author_organization_name": organization.name,
+            "summary": summary,
+            "details": details or {},
+            "withdrawal_milk_until": withdrawal_milk_until,
+            "withdrawal_meat_until": withdrawal_meat_until,
+        },
+    )
+    return entry
+
+
+def drop_own_health_entry(*, animal: Animal, source: str, reference: str) -> None:
+    """An entry the company takes back (an undone record) leaves its own card."""
+    AnimalHealthEntry.all_objects.filter(
+        organization_id=animal.organization_id,
+        animal=animal,
+        source=source,
+        source_reference=reference,
+    ).delete()
 
 
 def read_entry_photo(*, entry_id: UUID, media_id: UUID) -> bytes:
@@ -376,9 +433,7 @@ def registry_health_entries(animal_id: UUID) -> list[AnimalHealthEntry]:
     linked card never opens another farm's file.
     """
     caller = require_tenant_context()
-    animal = Animal.all_objects.filter(
-        organization_id=caller.organization_id, id=animal_id
-    ).first()
+    animal = Animal.all_objects.filter(organization_id=caller.organization_id, id=animal_id).first()
     if animal is None:
         return []
     share = share_for_publishing(caller.organization_id, animal.farm_id)
@@ -401,9 +456,7 @@ def registry_health_entries(animal_id: UUID) -> list[AnimalHealthEntry]:
     return entries
 
 
-def _registry_animal(
-    context: TenantContext, share: FarmShare, animal: Animal
-) -> Animal | None:
+def _registry_animal(context: TenantContext, share: FarmShare, animal: Animal) -> Animal | None:
     """The same cow in the register: matched by species and tag, one rule."""
     return Animal.all_objects.filter(
         organization_id=context.organization_id,
@@ -495,7 +548,5 @@ def list_farm_visits(farm_id: UUID, *, limit: int = PAGE_LIMIT) -> list[FarmVisi
     return list(
         FarmVisitEntry.all_objects.filter(
             organization_id=context.organization_id, farm_id=farm_id
-        ).filter(
-            ~Q(status=VisitStatus.PLANNED) | Q(company_organization_id__in=allowed)
-        )[:limit]
+        ).filter(~Q(status=VisitStatus.PLANNED) | Q(company_organization_id__in=allowed))[:limit]
     )

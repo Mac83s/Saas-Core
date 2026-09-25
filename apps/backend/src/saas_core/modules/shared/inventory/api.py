@@ -2,7 +2,8 @@
 
 Moduł zużywa towar przez `consume` (jeden dokument RW albo WZ na źródło), cofa go przez
 `cancel_source`, odkłada przez `reserve` / `release_reservations`, a stan czyta
-przez `holder_stock` i `available`. Modeli nie importuje — to, co magazyn uważa
+przez `holder_stock` i `available`; które partie zeszły dla źródła, mówi
+`source_lots`. Modeli nie importuje — to, co magazyn uważa
 za stan, zostaje jego sprawą. Bramkę uprawnień sprawdza wołający.
 """
 
@@ -18,9 +19,12 @@ from .services import (
     default_warehouse,
     describe_items,
     holder_stock,
+    lot_status,
+    organization_today,
     person_location,
     release_reservations,
     reserve,
+    source_lots,
 )
 
 __all__ = [
@@ -35,7 +39,10 @@ __all__ = [
     "default_warehouse",
     "describe_items",
     "holder_stock",
+    "lot_status",
+    "organization_today",
     "person_location",
     "release_reservations",
     "reserve",
+    "source_lots",
 ]

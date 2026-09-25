@@ -331,6 +331,9 @@
                       "pattern": "^[a-z][a-z0-9_]*$",
                       "maxLength": 64
                     },
+                    "tracksLots": {
+                      "type": "boolean"
+                    },
                     "unit": {
                       "type": "string",
                       "enum": [

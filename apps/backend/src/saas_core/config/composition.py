@@ -133,6 +133,8 @@ class InventoryItemTemplate:
     name: dict[str, str]
     category: str
     unit: str
+    #: Partie i daty ważności od pierwszego dnia (np. lek).
+    tracks_lots: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,6 +180,7 @@ def _inventory_template(raw: dict[str, Any]) -> InventoryTemplate:
                 name=labels(item["name"]),
                 category=str(item["category"]),
                 unit=str(item["unit"]),
+                tracks_lots=bool(item.get("tracksLots", False)),
             )
             for item in raw.get("defaultItems") or ()
         ),

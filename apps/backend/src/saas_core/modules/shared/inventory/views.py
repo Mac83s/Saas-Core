@@ -22,6 +22,7 @@ from .serializers import (
     InventoryIssueInputSerializer,
     InventoryItemInputSerializer,
     InventoryItemSerializer,
+    InventoryLotStockSerializer,
     InventoryMovementSerializer,
     InventoryReceiptInputSerializer,
     StockDocumentCorrectionSerializer,
@@ -64,6 +65,9 @@ def _lines(raw: list[dict[str, Any]] | None) -> list[services.LineInput] | None:
             quantity=line["quantity"],
             unit_price_minor=line.get("unit_price_minor"),
             note=line.get("note", ""),
+            lot_id=line.get("lot_id"),
+            lot_number=line.get("lot_number", ""),
+            expires_on=line.get("expires_on"),
         )
         for line in raw
     ]
@@ -285,7 +289,32 @@ class InventoryBalanceView(APIView):
             holder_id=_uuid(request, "holder_id"),
             mine=request.query_params.get("mine") == "true",
         )
-        return Response(InventoryBalanceSerializer(rows, many=True).data)
+        return Response(
+            InventoryBalanceSerializer(
+                rows, many=True, context={"nearest": services.nearest_expiry(rows)}
+            ).data
+        )
+
+
+class InventoryLotView(APIView):
+    """Partie, których coś leży — od najkrótszej ważności (decyzja 25.09)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter("item_id", str, description="Partie jednej pozycji."),
+            OpenApiParameter("location_id", str, description="Partie w jednym miejscu."),
+        ],
+        responses={200: InventoryLotStockSerializer(many=True), **ERRORS},
+        operation_id="inventory_lot_list",
+        tags=TAGS,
+    )
+    def get(self, request: Request) -> Response:
+        rows = services.list_lots(
+            item_id=_uuid(request, "item_id"), location_id=_uuid(request, "location_id")
+        )
+        return Response(InventoryLotStockSerializer(rows, many=True).data)
 
 
 class InventoryMovementView(APIView):
@@ -436,6 +465,8 @@ class InventoryReceiptView(APIView):
             quantity=data["quantity"],
             unit_cost_minor=data["unit_cost_minor"],
             note=data.get("note", ""),
+            lot_number=data.get("lot_number", ""),
+            expires_on=data.get("expires_on"),
         )
         return Response(StockDocumentSerializer(document).data, status=201)
 

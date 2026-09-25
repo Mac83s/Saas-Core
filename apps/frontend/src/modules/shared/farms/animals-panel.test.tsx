@@ -97,6 +97,8 @@ function animal(
     status: "active",
     notes: "",
     review_requested_at: null,
+    withdrawal_milk_until: null,
+    withdrawal_meat_until: null,
     updated_at: "2026-09-18T09:00:00Z",
     ...over,
   };
@@ -562,4 +564,25 @@ test("bez farms.manage wiersz nie proponuje edycji", async () => {
   expect(
     within(row).queryByRole("button", { name: "Edytuj zwierzę" }),
   ).toBeNull();
+});
+
+test("zwierzę w karencji ma czerwoną odznakę z końcem karencji mleka i mięsa", async () => {
+  api.listFarmAnimals.mockResolvedValue([
+    animal("a1", "PL005432198765", {
+      withdrawal_milk_until: "2026-09-28T16:00:00Z",
+      withdrawal_meat_until: "2026-10-22T08:00:00Z",
+    }),
+    ...HERD.slice(1),
+  ]);
+  renderPanel();
+  const table = await screen.findByRole("table", {
+    name: "Zwierzęta ze wszystkich gospodarstw",
+  });
+  const [, first, second] = within(table).getAllByRole("row");
+  expect(
+    within(first).getByText(
+      "Karencja: mleko do 28 wrz, 18:00 · mięso do 22 paź, 10:00",
+    ),
+  ).toBeInTheDocument();
+  expect(within(second).queryByText(/Karencja/)).toBeNull();
 });

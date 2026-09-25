@@ -206,6 +206,7 @@ describe("podstrony w menu (ADR-057)", () => {
     expect(inventory(WAREHOUSE)?.pages?.map((page) => page.href)).toEqual([
       "/panel/inventory",
       "/panel/inventory/items",
+      "/panel/inventory/lots",
       "/panel/inventory/documents",
       "/panel/inventory/settings",
     ]);
