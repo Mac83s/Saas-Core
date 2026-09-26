@@ -746,25 +746,31 @@ def assert_within_grant(
         credential_id=context.credential_id,
         revoked_at__isnull=True,
     )
-    for grant in grants:
-        if not grant.active:
-            continue
+    matching = [
+        grant
+        for grant in grants
+        if grant.active
         # A site-wide grant covers its collections; a collection grant covers
         # only itself, never the pages around it.
-        matches = (grant.site_id is not None and grant.site_id == site_id) or (
-            collection_id is not None and grant.collection_id == collection_id
+        and (
+            (grant.site_id is not None and grant.site_id == site_id)
+            or (collection_id is not None and grant.collection_id == collection_id)
         )
-        if not matches:
-            continue
-        _assert_grant_permits(
-            grant,
-            context,
-            writing=writing or publishing,
-            publishing=publishing,
-            payload_bytes=payload_bytes,
-        )
-        return grant
-    raise AutomationGrantMissing
+    ]
+    if not matching:
+        raise AutomationGrantMissing
+    # A grant naming the collection is the customer's word on that collection,
+    # in either direction, and the site-wide one speaks for the rest. Which was
+    # issued first says nothing about which was meant.
+    grant = min(matching, key=lambda item: item.collection_id is None)
+    _assert_grant_permits(
+        grant,
+        context,
+        writing=writing or publishing,
+        publishing=publishing,
+        payload_bytes=payload_bytes,
+    )
+    return grant
 
 
 def _assert_grant_permits(
@@ -864,9 +870,13 @@ def assert_links_within_grant(
     if not leaving:
         return
     grant = assert_within_grant(context, site_id=site_id, collection_id=collection_id)
+    # Verified only: a domain typed into the panel is a claim until DNS proves
+    # it, and linking there before that may be linking to a stranger's site.
     own = Domain.all_objects.filter(
-        organization_id=context.organization_id, site_id=site_id
-    ).exclude(status=DomainStatus.RELEASED)
+        organization_id=context.organization_id,
+        site_id=site_id,
+        status=DomainStatus.VERIFIED,
+    )
     allowed = _hostnames(list(own.values_list("hostname", flat=True)))
     allowed |= _hostnames(grant.allowed_link_hosts if grant else [])
     for href, host in leaving.items():
@@ -2708,6 +2718,7 @@ def list_site_redirects(*, site_id: UUID) -> list[SiteRedirect]:
         pk=site_id, organization_id=context.organization_id
     ).exists():
         raise SiteNotFound
+    assert_within_grant(context, site_id=site_id)
     return list(
         SiteRedirect.all_objects.filter(
             organization_id=context.organization_id, site_id=site_id

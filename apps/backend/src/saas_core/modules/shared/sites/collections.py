@@ -26,7 +26,10 @@ from saas_core.modules.core.organizations.api import (
     record_resource_references,
 )
 from saas_core.modules.core.organizations.audit import record_audit
-from saas_core.modules.core.organizations.context import require_tenant_context
+from saas_core.modules.core.organizations.context import (
+    require_tenant_context,
+    set_local_organization_id,
+)
 from saas_core.modules.core.organizations.models import Organization
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 from saas_core.observability import correlation_id
@@ -134,7 +137,7 @@ def _blocks_size(blocks: Any) -> int:
 
 
 def _assert_entry_writable(
-    entry: ContentEntry,
+    entry: ContentEntry | None,
     collection: ContentCollection,
     *,
     publishing: bool = False,
@@ -145,6 +148,7 @@ def _assert_entry_writable(
 
     Under `proposed` the automation writes the draft and stops there — putting
     the article in front of readers, or taking it down, stays a person's act.
+    Without an entry (one about to be created) there is no lock to respect.
     """
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
     if not _is_automation(context):
@@ -163,7 +167,8 @@ def _assert_entry_writable(
     if collection.automation_policy not in allowed:
         raise PageAutomationForbidden
     if (
-        entry.editing_locked_until is not None
+        entry is not None
+        and entry.editing_locked_until is not None
         and entry.editing_locked_until > timezone.now()
     ):
         raise PageEditingLocked(
@@ -184,11 +189,18 @@ def list_collections(*, site_id: UUID) -> list[ContentCollection]:
         pk=site_id, organization_id=context.organization_id
     ).exists():
         raise SiteNotFound
-    return list(
+    rows = list(
         ContentCollection.all_objects.filter(
             organization_id=context.organization_id, site_id=site_id
         ).order_by("key")
     )
+    if not _is_automation(context):
+        return rows
+    # A key sees the sections its grants name, as in the inventory, not every
+    # section the customer has.
+    from .inventory import _granted
+
+    return [row for row in rows if _granted(context, site_id, row.id)]
 
 
 @transaction.atomic
@@ -202,6 +214,10 @@ def create_collection(
     idempotency_key: str,
 ) -> tuple[ContentCollection, bool]:
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    # A new section of the site is the site's business: a grant for one
+    # collection never opens another beside it. Checked before the replay, so
+    # a revoked key does not get its old answer back either.
+    assert_within_grant(context, site_id=site_id, writing=True)
     normalized_key = _idempotency_key(idempotency_key)
     request_hash = canonical_json_hash({
         "site_id": str(site_id),
@@ -257,10 +273,16 @@ def list_entries(
         SITES_ENABLED,
         operation=FeatureOperation.READ,
     )
-    if not ContentCollection.all_objects.filter(
+    collection = ContentCollection.all_objects.filter(
         pk=collection_id, organization_id=context.organization_id
-    ).exists():
+    ).first()
+    if collection is None:
         raise CollectionNotFound
+    # Titles and addresses of unpublished articles, like a draft, are read
+    # only where the key was granted the collection.
+    assert_within_grant(
+        context, site_id=collection.site_id, collection_id=collection.id
+    )
     queryset = (
         # The listing reports who wrote each waiting draft, so the draft comes
         # with the row rather than one query per entry.
@@ -285,6 +307,14 @@ def create_entry(
     idempotency_key: str,
 ) -> tuple[ContentEntry, bool]:
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    collection = ContentCollection.all_objects.filter(
+        pk=collection_id, organization_id=context.organization_id
+    ).first()
+    if collection is None:
+        raise CollectionNotFound
+    # The title and the address are published with the article, so creating
+    # one is writing into the collection: same grant and policy as its draft.
+    _assert_entry_writable(None, collection)
     normalized_key = _idempotency_key(idempotency_key)
     request_hash = canonical_json_hash({
         "collection_id": str(collection_id),
@@ -302,11 +332,6 @@ def create_entry(
         if existing.request_hash != request_hash:
             raise SitesIdempotencyConflict
         return existing, False
-    collection = ContentCollection.all_objects.filter(
-        pk=collection_id, organization_id=context.organization_id
-    ).first()
-    if collection is None:
-        raise CollectionNotFound
     if ContentEntry.all_objects.filter(
         organization_id=context.organization_id,
         collection_id=collection_id,
@@ -724,6 +749,12 @@ def entry_tags(*, entry_id: UUID) -> list[ContentTag]:
     context = authorize_entitled(
         SITE_CONTENT_EDIT, SITES_ENABLED, operation=FeatureOperation.READ
     )
+    entry = ContentEntry.all_objects.filter(
+        pk=entry_id, organization_id=context.organization_id
+    ).first()
+    if entry is None:
+        raise EntryNotFound
+    assert_within_grant(context, site_id=entry.site_id, collection_id=entry.collection_id)
     return list(
         ContentTag.all_objects.filter(
             organization_id=context.organization_id,
@@ -773,7 +804,11 @@ def schedule_entry_publication(
     entry.schedule_state = EntryScheduleState.PENDING
     entry.schedule_error = ""
     entry.scheduled_by_id = context.actor_id
-    entry.scheduled_membership_id = context.membership_id
+    # What gets asked again when the moment comes. A key's membership id is
+    # synthetic and would never be found, so a key is remembered as itself.
+    automation = _is_automation(context)
+    entry.scheduled_membership_id = None if automation else context.membership_id
+    entry.scheduled_credential_id = context.credential_id if automation else None
     entry.save(
         update_fields=[
             "scheduled_publish_at",
@@ -781,6 +816,7 @@ def schedule_entry_publication(
             "schedule_error",
             "scheduled_by",
             "scheduled_membership_id",
+            "scheduled_credential_id",
             "updated_at",
         ]
     )
@@ -806,6 +842,9 @@ def cancel_entry_publication_schedule(*, entry_id: UUID) -> ContentEntry:
     )
     if entry is None:
         raise EntryNotFound
+    # Calling off a publication decides what readers see, exactly as setting
+    # one does, so it takes the same grant and policy.
+    _assert_entry_writable(entry, entry.collection, publishing=True)
     if entry.schedule_state != EntryScheduleState.PENDING:
         raise ScheduleNotPending
     # The moment is kept rather than cleared: an operator looking at this
@@ -829,12 +868,13 @@ def cancel_entry_publication_schedule(*, entry_id: UUID) -> ContentEntry:
     return entry
 
 
-def due_scheduled_entries(*, limit: int = 100) -> list[dict[str, str]]:
+def due_scheduled_entries(*, limit: int = 100) -> list[dict[str, str | None]]:
     """Every article whose moment has arrived, across every tenant.
 
     Deliberately unscoped, and deliberately returning only identifiers: the
     caller has no tenant context yet, and establishing one per entry is what
-    the worker does next.
+    the worker does next. Exactly one of `membership_id` and `credential_id`
+    is set — whichever authorised the schedule.
     """
     rows = (
         ContentEntry.all_objects.filter(
@@ -842,20 +882,77 @@ def due_scheduled_entries(*, limit: int = 100) -> list[dict[str, str]]:
             scheduled_publish_at__lte=timezone.now(),
         )
         .order_by("scheduled_publish_at", "id")
-        .values("id", "organization_id", "scheduled_membership_id", "scheduled_by_id")[
-            :limit
-        ]
+        .values(
+            "id",
+            "organization_id",
+            "scheduled_membership_id",
+            "scheduled_credential_id",
+            "scheduled_by_id",
+        )[:limit]
     )
     return [
         {
             "entry_id": str(row["id"]),
             "organization_id": str(row["organization_id"]),
-            "membership_id": str(row["scheduled_membership_id"]),
+            "membership_id": _optional_id(row["scheduled_membership_id"]),
+            "credential_id": _optional_id(row["scheduled_credential_id"]),
             "actor_id": str(row["scheduled_by_id"]),
         }
         for row in rows
-        if row["scheduled_membership_id"] and row["scheduled_by_id"]
+        if row["scheduled_by_id"]
+        and (row["scheduled_membership_id"] or row["scheduled_credential_id"])
     ]
+
+
+def _optional_id(value: UUID | None) -> str | None:
+    return str(value) if value is not None else None
+
+
+def close_schedule_without_authority(
+    *,
+    entry_id: UUID,
+    organization_id: str,
+    membership_id: str | None,
+    credential_id: str | None,
+    actor_id: str,
+) -> None:
+    """Closes a schedule whose author can no longer be acted for.
+
+    Left pending, the scan would hand it to the worker again every minute,
+    forever, and the article would never say why it did not appear. Only the
+    schedule this run was issued for is closed: a person may have set a new
+    one since.
+    """
+    reason = (
+        "Klucz, który zaplanował publikację, jest unieważniony albo stracił zakres publikacji."
+        if credential_id
+        else "Osoba, która zaplanowała publikację, nie ma już dostępu do organizacji."
+    )
+    with transaction.atomic():
+        # The entry needs no tenant setting; the audit row and the
+        # organization it names do.
+        set_local_organization_id(UUID(organization_id))
+        closed = ContentEntry.all_objects.filter(
+            pk=entry_id,
+            organization_id=organization_id,
+            schedule_state=EntryScheduleState.PENDING,
+            scheduled_membership_id=membership_id,
+            scheduled_credential_id=credential_id,
+        ).update(
+            schedule_state=EntryScheduleState.FAILED,
+            schedule_error=reason,
+            updated_at=timezone.now(),
+        )
+        if not closed:
+            return
+        record_audit(
+            organization=Organization.objects.get(pk=organization_id),
+            action=ENTRY_SCHEDULE_FAILED,
+            actor=User.objects.filter(pk=actor_id).first(),
+            target_type="content_entry",
+            target_id=entry_id,
+            metadata={"code": "schedule_authority_lost"},
+        )
 
 
 def run_scheduled_publication(*, entry_id: UUID) -> ContentEntryPublication | None:

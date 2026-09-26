@@ -56,10 +56,21 @@ fail closed. `autonomous` means no per-change approval — it is still bounded b
 resource scope, limits, windows, command and link allowlists, the kill switch
 and the content policy, which can only narrow a grant.
 
+Every service behind an `IsSessionOrApiKey` route asks the grant, reads
+included — `assert_within_grant`, or `_assert_entry_writable` for anything that
+writes into a collection. Creating a collection or an entry once asked nothing,
+so a key hired for one blog could open sections and write articles beside it.
+A listing narrows to what the key's grants cover rather than refusing. When a
+site grant and a collection grant both reach an entry, the collection grant
+decides — mode and link hosts alike — whichever was issued first.
+
 The link allowlist is `assert_links_within_grant` in `services.py`: an
-automation may link only to the site's own hostnames (its non-released
-`Domain` rows) and the grant's `allowed_link_hosts`, exact match after IDNA
-normalization, no implied subdomains; an empty list means internal links only.
+automation may link only to the site's own hostnames (its verified `Domain`
+rows — a pending one is only a claim) and the grant's `allowed_link_hosts`,
+exact match after IDNA normalization, no implied subdomains; an empty list
+means internal links only. `normalize_hostname` lowercases rather than
+casefolds: casefolding makes `straße.de` equal `strasse.de`, two domains a
+browser keeps apart.
 Paths, in-page anchors, `mailto:` and `tel:` have no host and pass. It runs in
 the change-set plan (so preview refuses too, before anything is written) and in
 `save_draft`/`save_entry_draft`, because a key also writes entry drafts
@@ -77,8 +88,9 @@ not get one. `translation.update` carries `title`, `description`,
 position that URL earned; it goes through
 `PUT /api/v1/sites/pages/<id>/url/`, a human session with a mandatory reason.
 
-Capabilities answer with the **narrowest** active grant mode, the command list
-read from `packages/contracts/content-operations/`, and the contract versions.
+Capabilities answer with the **narrowest** active grant mode, each grant's
+scope with its `allowed_link_hosts`, the command list read from
+`packages/contracts/content-operations/`, and the contract versions.
 A capabilities response that disagrees with the contract it describes is worse
 than none, because the client believes it.
 
@@ -122,8 +134,12 @@ Review each new template against the checklist with screenshots at 390 and
   once made every image on every published page answer 404.
 - **Scheduled publication cannot carry a signed contract.** It expires long
   before the date. `publish_scheduled_entry` rebuilds the context from the
-  stored `scheduled_membership_id`, which also means a person suspended in the
-  meantime does not get one more publication out of the queue.
+  stored `scheduled_membership_id`, or for an integration from
+  `scheduled_credential_id` (a key's membership id is synthetic and would never
+  be found), which also means a person suspended or a key revoked in the
+  meantime does not get one more publication out of the queue. A schedule whose
+  author can no longer be acted for is closed as `failed` with a reason, not
+  left pending for the scan to hand out every minute.
 - **Template media goes through the ordinary media lifecycle** — upload
   completion, malware scan, normalization, variants, quota, audit. There is no
   trusted-file shortcut. Object storage does not roll back with PostgreSQL, so

@@ -1334,6 +1334,9 @@ class ContentEntry(TenantScopedModel):
     # ask again whether this person may still publish here. A signed task
     # payload cannot serve for this — it expires long before next Monday.
     scheduled_membership_id = models.UUIDField(null=True, blank=True)
+    # Set instead of the membership when an integration scheduled: a key has
+    # no membership, so the key itself is asked again when the moment comes.
+    scheduled_credential_id = models.UUIDField(null=True, blank=True)
     editing_locked_until = models.DateTimeField(null=True, blank=True)
     editing_locked_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -1372,14 +1375,24 @@ class ContentEntry(TenantScopedModel):
                 fields=["organization", "translation_group", "locale"],
                 name="sites_entry_org_group_locale_uq",
             ),
-            # A pending schedule without a moment or without an authorising
-            # membership is one the worker could only guess at.
+            # A pending schedule without a moment, or without exactly one
+            # authority to ask again (a membership or a credential), is one
+            # the worker could only guess at.
             models.CheckConstraint(
                 condition=(
                     ~models.Q(schedule_state="pending")
-                    | models.Q(
-                        scheduled_publish_at__isnull=False,
-                        scheduled_membership_id__isnull=False,
+                    | (
+                        models.Q(scheduled_publish_at__isnull=False)
+                        & (
+                            models.Q(
+                                scheduled_membership_id__isnull=False,
+                                scheduled_credential_id__isnull=True,
+                            )
+                            | models.Q(
+                                scheduled_membership_id__isnull=True,
+                                scheduled_credential_id__isnull=False,
+                            )
+                        )
                     )
                 ),
                 name="sites_entry_pending_schedule_complete_ck",
