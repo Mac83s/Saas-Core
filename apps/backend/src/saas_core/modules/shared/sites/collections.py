@@ -134,7 +134,7 @@ def _blocks_size(blocks: Any) -> int:
 
 
 def _assert_entry_writable(
-    entry: ContentEntry,
+    entry: ContentEntry | None,
     collection: ContentCollection,
     *,
     publishing: bool = False,
@@ -145,6 +145,7 @@ def _assert_entry_writable(
 
     Under `proposed` the automation writes the draft and stops there — putting
     the article in front of readers, or taking it down, stays a person's act.
+    Without an entry (one about to be created) there is no lock to respect.
     """
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
     if not _is_automation(context):
@@ -163,7 +164,8 @@ def _assert_entry_writable(
     if collection.automation_policy not in allowed:
         raise PageAutomationForbidden
     if (
-        entry.editing_locked_until is not None
+        entry is not None
+        and entry.editing_locked_until is not None
         and entry.editing_locked_until > timezone.now()
     ):
         raise PageEditingLocked(
@@ -184,11 +186,18 @@ def list_collections(*, site_id: UUID) -> list[ContentCollection]:
         pk=site_id, organization_id=context.organization_id
     ).exists():
         raise SiteNotFound
-    return list(
+    rows = list(
         ContentCollection.all_objects.filter(
             organization_id=context.organization_id, site_id=site_id
         ).order_by("key")
     )
+    if not _is_automation(context):
+        return rows
+    # A key sees the sections its grants name, as in the inventory, not every
+    # section the customer has.
+    from .inventory import _granted
+
+    return [row for row in rows if _granted(context, site_id, row.id)]
 
 
 @transaction.atomic
@@ -202,6 +211,10 @@ def create_collection(
     idempotency_key: str,
 ) -> tuple[ContentCollection, bool]:
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    # A new section of the site is the site's business: a grant for one
+    # collection never opens another beside it. Checked before the replay, so
+    # a revoked key does not get its old answer back either.
+    assert_within_grant(context, site_id=site_id, writing=True)
     normalized_key = _idempotency_key(idempotency_key)
     request_hash = canonical_json_hash({
         "site_id": str(site_id),
@@ -257,10 +270,16 @@ def list_entries(
         SITES_ENABLED,
         operation=FeatureOperation.READ,
     )
-    if not ContentCollection.all_objects.filter(
+    collection = ContentCollection.all_objects.filter(
         pk=collection_id, organization_id=context.organization_id
-    ).exists():
+    ).first()
+    if collection is None:
         raise CollectionNotFound
+    # Titles and addresses of unpublished articles, like a draft, are read
+    # only where the key was granted the collection.
+    assert_within_grant(
+        context, site_id=collection.site_id, collection_id=collection.id
+    )
     queryset = (
         # The listing reports who wrote each waiting draft, so the draft comes
         # with the row rather than one query per entry.
@@ -285,6 +304,14 @@ def create_entry(
     idempotency_key: str,
 ) -> tuple[ContentEntry, bool]:
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
+    collection = ContentCollection.all_objects.filter(
+        pk=collection_id, organization_id=context.organization_id
+    ).first()
+    if collection is None:
+        raise CollectionNotFound
+    # The title and the address are published with the article, so creating
+    # one is writing into the collection: same grant and policy as its draft.
+    _assert_entry_writable(None, collection)
     normalized_key = _idempotency_key(idempotency_key)
     request_hash = canonical_json_hash({
         "collection_id": str(collection_id),
@@ -302,11 +329,6 @@ def create_entry(
         if existing.request_hash != request_hash:
             raise SitesIdempotencyConflict
         return existing, False
-    collection = ContentCollection.all_objects.filter(
-        pk=collection_id, organization_id=context.organization_id
-    ).first()
-    if collection is None:
-        raise CollectionNotFound
     if ContentEntry.all_objects.filter(
         organization_id=context.organization_id,
         collection_id=collection_id,
@@ -724,6 +746,12 @@ def entry_tags(*, entry_id: UUID) -> list[ContentTag]:
     context = authorize_entitled(
         SITE_CONTENT_EDIT, SITES_ENABLED, operation=FeatureOperation.READ
     )
+    entry = ContentEntry.all_objects.filter(
+        pk=entry_id, organization_id=context.organization_id
+    ).first()
+    if entry is None:
+        raise EntryNotFound
+    assert_within_grant(context, site_id=entry.site_id, collection_id=entry.collection_id)
     return list(
         ContentTag.all_objects.filter(
             organization_id=context.organization_id,
@@ -806,6 +834,9 @@ def cancel_entry_publication_schedule(*, entry_id: UUID) -> ContentEntry:
     )
     if entry is None:
         raise EntryNotFound
+    # Calling off a publication decides what readers see, exactly as setting
+    # one does, so it takes the same grant and policy.
+    _assert_entry_writable(entry, entry.collection, publishing=True)
     if entry.schedule_state != EntryScheduleState.PENDING:
         raise ScheduleNotPending
     # The moment is kept rather than cleared: an operator looking at this

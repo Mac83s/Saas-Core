@@ -2708,6 +2708,7 @@ def list_site_redirects(*, site_id: UUID) -> list[SiteRedirect]:
         pk=site_id, organization_id=context.organization_id
     ).exists():
         raise SiteNotFound
+    assert_within_grant(context, site_id=site_id)
     return list(
         SiteRedirect.all_objects.filter(
             organization_id=context.organization_id, site_id=site_id

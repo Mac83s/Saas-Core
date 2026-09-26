@@ -3076,3 +3076,192 @@ def test_automation_writes_no_price_list_into_an_entry_and_no_words_into_quotes(
             idempotency_key="st-carry",
         )
         assert created and version.number == 2
+
+
+def _blog_and_news(slug: str) -> dict[str, Any]:
+    """Two sections of one site, a key granted only the blog, and a news
+    article a person has already scheduled."""
+    client, organization, user = sites_client(slug=slug, role_key="owner")
+    site = create_site(client)
+    blog = create_collection(client, site.data["id"], idempotency_key="gs-blog")
+    news = create_collection(
+        client,
+        site.data["id"],
+        key="aktualnosci",
+        base_path="aktualnosci",
+        idempotency_key="gs-news",
+    )
+    # Both open to automation, so the grant is the only thing left to refuse.
+    for collection in (blog, news):
+        client.put(
+            f"/api/v1/sites/collections/{collection.data['id']}/policy/",
+            {"automation_policy": "automated"},
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf_value(client),
+        )
+    news_entry = _ready_entry(client, news.data["id"], "gs-news")
+    scheduled = schedule(
+        client,
+        news_entry.data["id"],
+        (timezone.now() + timedelta(days=1)).isoformat(),
+    )
+    assert scheduled.status_code == 200
+    credential_id = uuid7()
+    _grant(
+        organization.id,
+        credential_id,
+        user.id,
+        collection_id=blog.data["id"],
+        mode="draft_write",
+    )
+    return {
+        "organization": organization,
+        "user": user,
+        "site_id": site.data["id"],
+        "blog_id": blog.data["id"],
+        "news_id": news.data["id"],
+        "news_entry_id": news_entry.data["id"],
+        "context": _automation(organization.id, user.id, credential_id),
+    }
+
+
+def _outside_the_grant(name: str, world: dict[str, Any]) -> Any:
+    from saas_core.modules.shared.sites import collections
+    from saas_core.modules.shared.sites.services import list_site_redirects
+
+    return {
+        "create_collection": lambda: collections.create_collection(
+            site_id=world["site_id"],
+            key="porady",
+            name="Porady",
+            kind="blog",
+            base_path="porady",
+            idempotency_key="gs-new-collection",
+        ),
+        "create_entry": lambda: collections.create_entry(
+            collection_id=world["news_id"],
+            slug="wpis-klucza",
+            locale="pl",
+            title="Wpis klucza",
+            idempotency_key="gs-new-entry",
+        ),
+        "list_entries": lambda: collections.list_entries(
+            collection_id=world["news_id"], cursor=None, limit=10
+        ),
+        "entry_tags": lambda: collections.entry_tags(entry_id=world["news_entry_id"]),
+        "cancel_entry_publication_schedule": lambda: (
+            collections.cancel_entry_publication_schedule(
+                entry_id=world["news_entry_id"]
+            )
+        ),
+        "list_site_redirects": lambda: list_site_redirects(site_id=world["site_id"]),
+    }[name]()
+
+
+@pytest.mark.parametrize(
+    "operation",
+    [
+        "create_collection",
+        "create_entry",
+        "list_entries",
+        "entry_tags",
+        "cancel_entry_publication_schedule",
+        "list_site_redirects",
+    ],
+)
+def test_a_collection_grant_reaches_no_operation_outside_its_collection(
+    operation: str,
+) -> None:
+    """Every collection route an API key reaches asks the grant, not only the
+    ones that write a draft: a key hired for the blog must not open a section
+    beside it, write into the news, cancel what a person scheduled there, or
+    read what the customer has not published yet."""
+    from saas_core.modules.core.organizations.context import activate_tenant_context
+    from saas_core.modules.shared.sites.models import (
+        ContentCollection,
+        EntryScheduleState,
+    )
+    from saas_core.modules.shared.sites.services import AutomationGrantMissing
+
+    world = _blog_and_news(f"gs-{operation.replace('_', '-')}")
+    with activate_tenant_context(world["context"]), pytest.raises(AutomationGrantMissing):
+        _outside_the_grant(operation, world)
+
+    assert ContentCollection.all_objects.filter(key="porady").count() == 0
+    assert not ContentEntry.all_objects.filter(slug="wpis-klucza").exists()
+    news_entry = ContentEntry.all_objects.get(pk=world["news_entry_id"])
+    assert news_entry.schedule_state == EntryScheduleState.PENDING
+
+
+def test_a_granted_key_still_creates_where_its_grant_and_the_policy_allow() -> None:
+    """The other half: the grant narrows the key, it does not switch it off.
+    A new section needs a site-wide grant that may write, and it starts closed
+    to automation like any page."""
+    from saas_core.modules.core.organizations.context import activate_tenant_context
+    from saas_core.modules.shared.sites import collections
+    from saas_core.modules.shared.sites.models import (
+        ContentAutomationGrant,
+        ContentCollection,
+    )
+    from saas_core.modules.shared.sites.services import (
+        AutomationSuggestOnly,
+        PageAutomationForbidden,
+    )
+
+    world = _blog_and_news("gs-granted")
+    new_section = {
+        "site_id": world["site_id"],
+        "key": "porady",
+        "name": "Porady",
+        "kind": "blog",
+        "base_path": "porady",
+    }
+    with activate_tenant_context(world["context"]):
+        entry, created = collections.create_entry(
+            collection_id=world["blog_id"],
+            slug="wpis-klucza",
+            locale="pl",
+            title="Wpis klucza",
+            idempotency_key="gs-granted-entry",
+        )
+        assert created is True
+        rows, _ = collections.list_entries(collection_id=world["blog_id"], cursor=None, limit=10)
+        assert [row.id for row in rows] == [entry.id]
+        # The listing narrows to the grant rather than refusing the site.
+        assert [item.id for item in collections.list_collections(site_id=world["site_id"])] == [
+            ContentCollection.all_objects.get(pk=world["blog_id"]).id
+        ]
+    ContentCollection.all_objects.filter(pk=world["blog_id"]).update(
+        automation_policy=PageAutomationPolicy.MANUAL
+    )
+    with activate_tenant_context(world["context"]), pytest.raises(
+        PageAutomationForbidden
+    ):
+        collections.create_entry(
+            collection_id=world["blog_id"],
+            slug="wpis-reczny",
+            locale="pl",
+            title="Wpis ręczny",
+            idempotency_key="gs-manual-entry",
+        )
+
+    suggesting, writing = uuid7(), uuid7()
+    for credential_id, mode in ((suggesting, "suggest_only"), (writing, "draft_write")):
+        ContentAutomationGrant.all_objects.create(
+            organization=world["organization"],
+            credential_id=credential_id,
+            site_id=world["site_id"],
+            mode=mode,
+            created_by=world["user"],
+        )
+    organization_id, user_id = world["organization"].id, world["user"].id
+    with activate_tenant_context(
+        _automation(organization_id, user_id, suggesting)
+    ), pytest.raises(AutomationSuggestOnly):
+        collections.create_collection(**new_section, idempotency_key="gs-suggest")
+    with activate_tenant_context(_automation(organization_id, user_id, writing)):
+        collection, created = collections.create_collection(
+            **new_section, idempotency_key="gs-write"
+        )
+    assert created is True
+    assert collection.automation_policy == PageAutomationPolicy.MANUAL
