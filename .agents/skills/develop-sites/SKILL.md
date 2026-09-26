@@ -140,6 +140,12 @@ Review each new template against the checklist with screenshots at 390 and
   meantime does not get one more publication out of the queue. A schedule whose
   author can no longer be acted for is closed as `failed` with a reason, not
   left pending for the scan to hand out every minute.
+- **A page view is the renderer's verdict** (ADR-060). `countsAsPageView`
+  decides in the renderer and only `x-saas-core-count-view: 1` reaches the
+  backend — never the user agent. Layout, metadata and page build the same
+  path (`publicSitePath`) and pass the same verdict; if one of them asks
+  differently, `cache()` splits the call and a visit counts twice. The metrics
+  route takes only the `content:metrics` scope and a whole-site grant.
 - **Template media goes through the ordinary media lifecycle** — upload
   completion, malware scan, normalization, variants, quota, audit. There is no
   trusted-file shortcut. Object storage does not roll back with PostgreSQL, so
