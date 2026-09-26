@@ -2,7 +2,11 @@ import type { ReactNode } from "react";
 import { headers } from "next/headers";
 
 import "@saas-core/ui/globals.css";
-import { getPublicSite } from "../../modules/shared/sites/public-site";
+import { countsAsPageView } from "../../modules/shared/sites/page-view";
+import {
+  getPublicSite,
+  publicSitePath,
+} from "../../modules/shared/sites/public-site";
 import { PUBLIC_SITE_PATH_HEADER } from "../../proxy";
 
 /** WCAG 2.2 requires the document to declare its language; without it a screen
@@ -18,10 +22,20 @@ export default async function PublicSiteLayout({
 }) {
   const requestHeaders = await headers();
   const host = requestHeaders.get("host") ?? "";
-  const path = requestHeaders.get(PUBLIC_SITE_PATH_HEADER) ?? "/";
+  // Built like the page's own path, or the two calls would not be one — and
+  // a visit could be counted twice.
+  const path = publicSitePath(
+    (requestHeaders.get(PUBLIC_SITE_PATH_HEADER) ?? "/")
+      .split("/")
+      .map(decodeSegment),
+  );
   let locale: string | undefined;
   try {
-    const result = await getPublicSite(host, path);
+    const result = await getPublicSite(
+      host,
+      path,
+      countsAsPageView(requestHeaders),
+    );
     if (result.kind === "page") locale = result.page.locale;
   } catch {
     // The page route reports the failure; the layout only loses the language.
@@ -32,4 +46,12 @@ export default async function PublicSiteLayout({
       <body>{children}</body>
     </html>
   );
+}
+
+function decodeSegment(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
 }

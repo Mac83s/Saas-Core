@@ -34,7 +34,11 @@ type BackendResponse = {
  *  resolves the wrong site — in practice, no site at all. The visitor's host is
  *  the entire routing key for a published page, so it has to arrive intact, and
  *  `node:http` is what still lets us set it. */
-function requestBackend(url: URL, host: string): Promise<BackendResponse> {
+function requestBackend(
+  url: URL,
+  host: string,
+  countView: boolean,
+): Promise<BackendResponse> {
   return new Promise((resolve, reject) => {
     const request = httpRequest(
       {
@@ -43,7 +47,12 @@ function requestBackend(url: URL, host: string): Promise<BackendResponse> {
         port: url.port,
         path: `${url.pathname}${url.search}`,
         method: "GET",
-        headers: { host, accept: "application/json" },
+        headers: {
+          host,
+          accept: "application/json",
+          // The renderer's verdict, never the visitor's own headers (ADR-060).
+          ...(countView ? { "x-saas-core-count-view": "1" } : {}),
+        },
       },
       (response) => {
         const chunks: Buffer[] = [];
@@ -62,12 +71,28 @@ function requestBackend(url: URL, host: string): Promise<BackendResponse> {
   });
 }
 
+/** The address as the page route sees it: decoded segments, no trailing
+ *  slash. The layout and the metadata build it the same way, so all three ask
+ *  `getPublicSite` the same question and share one backend call — and one
+ *  counted view. */
+export function publicSitePath(
+  segments: readonly string[] | undefined,
+): string {
+  return `/${(segments ?? []).filter(Boolean).join("/")}`;
+}
+
+/** `countView` is part of the cached question on purpose: every caller in one
+ *  request passes the same answer, so it never splits the shared call. */
 export const getPublicSite = cache(
-  async (host: string, path: string): Promise<PublicSiteResult> => {
+  async (
+    host: string,
+    path: string,
+    countView = false,
+  ): Promise<PublicSiteResult> => {
     const backend = process.env.BACKEND_INTERNAL_URL ?? "http://127.0.0.1:8000";
     const url = new URL("/api/v1/public/site/", backend);
     url.searchParams.set("path", path);
-    const response = await requestBackend(url, host);
+    const response = await requestBackend(url, host, countView);
     if (response.status === 308) {
       return response.location === null
         ? { kind: "not-found" }

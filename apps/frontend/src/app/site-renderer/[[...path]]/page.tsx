@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound, permanentRedirect } from "next/navigation";
 
+import { countsAsPageView } from "../../../modules/shared/sites/page-view";
 import {
   getPublicSite,
   publicSiteMetadata,
+  publicSitePath,
   PublicSiteRenderer,
 } from "../../../modules/shared/sites/public-site";
 
@@ -19,7 +21,11 @@ export async function generateMetadata({
   params,
 }: PublicSiteRouteProps): Promise<Metadata> {
   const request = await publicRequest(params);
-  const result = await getPublicSite(request.host, request.path);
+  const result = await getPublicSite(
+    request.host,
+    request.path,
+    request.countView,
+  );
   return result.kind === "page" ? publicSiteMetadata(result.page) : {};
 }
 
@@ -28,7 +34,11 @@ export default async function PublicSitePage({
   searchParams,
 }: PublicSiteRouteProps) {
   const request = await publicRequest(params);
-  const result = await getPublicSite(request.host, request.path);
+  const result = await getPublicSite(
+    request.host,
+    request.path,
+    request.countView,
+  );
   if (result.kind === "not-found") notFound();
   if (result.kind === "redirect") {
     permanentRedirect(withSearchParams(result.location, await searchParams));
@@ -52,6 +62,6 @@ function withSearchParams(
 async function publicRequest(params: PublicSiteRouteProps["params"]) {
   const [requestHeaders, route] = await Promise.all([headers(), params]);
   const host = requestHeaders.get("host") ?? "";
-  const path = `/${route.path?.join("/") ?? ""}`;
-  return { host, path };
+  const path = publicSitePath(route.path);
+  return { host, path, countView: countsAsPageView(requestHeaders) };
 }

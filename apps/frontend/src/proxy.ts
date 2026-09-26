@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { routing } from "#i18n/routing";
 import { deployment } from "./generated/deployment";
+import { PUBLIC_SITE_METHOD_HEADER } from "./modules/shared/sites/page-view";
 import { normalizeRequestHostname } from "./proxy-host";
 
 const internationalization = createMiddleware(routing);
@@ -22,6 +23,8 @@ export default function proxy(request: NextRequest) {
     // and steer which page's language the document claims.
     const forwarded = new Headers(request.headers);
     forwarded.set(PUBLIC_SITE_PATH_HEADER, request.nextUrl.pathname);
+    // Same rule for the method, which decides whether this is a page view.
+    forwarded.set(PUBLIC_SITE_METHOD_HEADER, request.method);
     return NextResponse.rewrite(rewritten, {
       request: { headers: forwarded },
     });
