@@ -56,6 +56,7 @@ rejestr z `Plan/SaaS-Core-06-Rejestr-Decyzji.md`.
 | [ADR-058](ADR-058-Zespoly-Przydzial-i-Dobor-Osob-w-Rezerwacjach.md) | zespoły, wiele osób na wizycie, dobór najmniej obciążonej osoby, silnik terminów w trzech częściach | Accepted |
 | [ADR-059](ADR-059-Generowanie-Obrazow-AI-i-Pochodzenie-Mediow.md) | generowanie obrazów AI, pochodzenie mediów i odznaka z przełącznikiem operatora | Accepted |
 | [ADR-060](ADR-060-Licznik-Odslon-i-Agregat-Zapytan-Witryny.md) | licznik odsłon po stronie serwera i agregat zapytań witryny dla pomiaru, zakres `content:metrics` | Accepted |
+| [ADR-061](ADR-061-Rodzaj-Linku-rel-w-Blokach.md) | rodzaj linku (`rel`: sponsored, ugc, nofollow) w tekście, listach linków i stopce; `nofollow` domyślnie dla linków automatyzacji | Accepted |
 
 Każda zmiana decyzji tworzy nowy ADR. Całkowicie zastąpiony dokument otrzymuje
 status `Superseded`; przy częściowym zastąpieniu nowy ADR wskazuje dokładny
