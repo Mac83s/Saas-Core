@@ -51,6 +51,19 @@ export type PanelSectionTab = Pick<
 >;
 
 export const PANEL_SECTIONS = {
+  // Zespoły (phase 3) and Wydajność (phase 5) join here (ADR-058).
+  team: [
+    {
+      href: "/panel/team",
+      labelKey: "teamPeople",
+      permission: "organization.members.read",
+    },
+    {
+      href: "/panel/team/roles",
+      labelKey: "teamRoles",
+      permission: "organization.members.read",
+    },
+  ],
   inventory: [
     {
       href: "/panel/inventory",
@@ -227,6 +240,7 @@ const COMPANY: PanelNavItem[] = [
     labelKey: "team",
     group: "company",
     permission: "organization.members.read",
+    section: "team",
   },
   {
     // Above the website on purpose: the business card is the floor of the

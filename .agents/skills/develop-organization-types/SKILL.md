@@ -21,7 +21,7 @@ are `Plan/Wdrozenie/15-Typy-Organizacji-i-Rejestr-Gospodarstw.md`.
 | the security boundary | `apps/backend/src/saas_core/config/module_gate.py`: a shared or vertical module outside the organization's type answers 404 `module_not_available` |
 | plans per type | `apps/backend/src/saas_core/modules/shared/billing/plan_offer.py` |
 | system roles per type | `apps/backend/src/saas_core/modules/core/organizations/role_catalog.py` (written after every `migrate` by `post_migrate`) |
-| an organization's own roles | `apps/backend/src/saas_core/modules/core/organizations/custom_roles.py`, API `current/roles/`, card `apps/frontend/src/modules/core/organizations/roles-card.tsx` |
+| an organization's own roles | `apps/backend/src/saas_core/modules/core/organizations/custom_roles.py`, API `current/roles/`, page `apps/frontend/src/modules/core/organizations/roles-panel.tsx` |
 | service templates | `serviceTemplates` of a type, offered in `apps/frontend/src/modules/shared/booking/booking-configuration.tsx`; the visit kind is checked against the type's modules in booking's `create_catalog_item` |
 | frontend | `apps/frontend/src/lib/organization-types.ts` (`modulesFor`, `selfSignupTypes`), onboarding at `apps/frontend/src/app/[locale]/(auth)/onboarding/page.tsx` |
 

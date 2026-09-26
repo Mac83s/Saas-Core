@@ -515,6 +515,15 @@ class OrganizationAuditAction(models.TextChoices):
         "Zmieniono produkty wizyty",
     )
     BOOKING_CUSTOMER_ANONYMIZED = "booking.customer.anonymized", "Zanonimizowano klienta"
+    BOOKING_STAFF_ADDED = "booking.staff.added", "Dodano pracownika"
+    BOOKING_STAFF_UPDATED = "booking.staff.updated", "Zmieniono dane pracownika"
+    BOOKING_STAFF_LINKED = "booking.staff.linked", "Połączono pracownika z kontem"
+    BOOKING_STAFF_SERVICES_CHANGED = "booking.staff.services_changed", "Zmieniono usługi pracownika"
+    BOOKING_STAFF_HOURS_CHANGED = "booking.staff.hours_changed", "Zmieniono godziny pracy"
+    BOOKING_STAFF_TIME_OFF_ADDED = "booking.staff.time_off_added", "Dodano nieobecność"
+    BOOKING_STAFF_TIME_OFF_REMOVED = "booking.staff.time_off_removed", "Usunięto nieobecność"
+    BOOKING_STAFF_ENDED = "booking.staff.ended", "Zakończono współpracę"
+    BOOKING_STAFF_RESTORED = "booking.staff.restored", "Przywrócono pracownika"
 
 
 class OrganizationAuditEntry(models.Model):

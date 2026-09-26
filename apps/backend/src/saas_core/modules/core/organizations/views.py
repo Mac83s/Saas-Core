@@ -17,6 +17,7 @@ from .authorization import authorize
 from .context import context_from_membership
 from .custom_roles import create_role, delete_role, list_roles, update_role
 from .history import history_item, list_history
+from .joining import current_seat_usage
 from .lifecycle import (
     accept_invitation,
     create_invitation,
@@ -38,6 +39,7 @@ from .serializers import (
     InvitationCreateSerializer,
     InvitationSummarySerializer,
     LifecycleResultSerializer,
+    MembershipListQuerySerializer,
     MembershipSummarySerializer,
     MembershipUpdateSerializer,
     OrganizationArchivedSerializer,
@@ -49,6 +51,7 @@ from .serializers import (
     RoleCreateSerializer,
     RoleSummarySerializer,
     RoleUpdateSerializer,
+    SeatUsageSerializer,
 )
 from .services import (
     OrganizationAccess,
@@ -241,14 +244,27 @@ class InvitationAcceptView(ProtectedOrganizationView):
 
 class MembershipListView(ProtectedOrganizationView):
     @extend_schema(
+        parameters=[MembershipListQuerySerializer],
         responses={
             200: MembershipSummarySerializer(many=True),
             403: ProblemDetailsSerializer,
             409: ProblemDetailsSerializer,
-        }
+        },
     )
+    def get(self, request: Request) -> Response:
+        query = MembershipListQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        members = list_memberships(include_former=query.validated_data["include_former"])
+        return Response([_membership_summary(item) for item in members])
+
+
+class SeatUsageView(ProtectedOrganizationView):
+    """Accounts in use against the plan's limit, for the team screen."""
+
+    @extend_schema(responses={200: SeatUsageSerializer, 403: ProblemDetailsSerializer})
     def get(self, _request: Request) -> Response:
-        return Response([_membership_summary(item) for item in list_memberships()])
+        used, limit = current_seat_usage()
+        return Response({"used": used, "limit": limit})
 
 
 @method_decorator(csrf_protect, name="dispatch")
@@ -357,6 +373,7 @@ def _membership_summary(membership: Membership) -> dict[str, object]:
         "role": membership.role.key,
         "status": membership.status,
         "joined_at": membership.joined_at,
+        "revoked_at": membership.revoked_at,
     }
 
 

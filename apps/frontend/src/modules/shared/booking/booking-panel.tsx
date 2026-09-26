@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
 import { useLocale, useTimeZone, useTranslations } from "next-intl";
 import {
   CalendarPlusIcon,
@@ -52,6 +53,7 @@ import {
 type View = "day" | "week" | "month" | "list";
 /** The list is the month as a table: the same arrows, sortable and searchable. */
 const VIEWS: View[] = ["day", "week", "month", "list"];
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
 type OpenAppointment = (
   appointment: BookingAppointment,
   opener: HTMLElement,
@@ -82,59 +84,55 @@ export function BookingPanel({
   const appZone = useTimeZone();
   const zone = timeZone ?? appZone ?? "UTC";
   const today = wallClock(new Date(), zone).day;
+  // The view, the day and the filters live in the address (plan: phase 2):
+  // a person's card links to their visits, and back or a refresh keeps them.
+  const params = useSearchParams();
+  const asked = (name: string) => params?.get(name) ?? "";
   const [catalog, setCatalog] = useState<BookingCatalog>();
   const [appointments, setAppointments] = useState<BookingAppointment[]>();
+  const [hasAny, setHasAny] = useState(false);
   const [problem, setProblem] = useState<"load" | "plan" | "access">();
   const [reloads, setReloads] = useState(0);
-  const [view, setView] = useState<View>("week");
-  const [cursor, setCursor] = useState(today);
-  const [staffFilter, setStaffFilter] = useState("");
-  const [serviceFilter, setServiceFilter] = useState("");
+  const [view, setView] = useState<View>(() =>
+    VIEWS.includes(asked("view") as View) ? (asked("view") as View) : "week",
+  );
+  const [cursor, setCursor] = useState(() =>
+    DAY.test(asked("date")) ? asked("date") : today,
+  );
+  const [staffFilter, setStaffFilter] = useState(() => asked("staff"));
+  const [serviceFilter, setServiceFilter] = useState(() => asked("service"));
   const [selected, setSelected] = useState<BookingAppointment>();
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
+  // "Zaplanuj wizytę" on a person's card opens the form with them chosen.
+  const [creating, setCreating] = useState(
+    () => canManage && asked("new") === "1",
+  );
   const [notice, setNotice] = useState("");
   const opener = useRef<HTMLElement | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const mine = staffFilter === "mine";
+  const chosenStaff = staffFilter && !mine ? staffFilter : "";
 
   useEffect(() => {
-    let current = true;
-    Promise.all([
-      getBookingCatalog(),
-      // ponytail: this takes the first 500 appointments by start time, so
-      // past 500 in history the newest drop out. The API takes from/to now;
-      // asking for the visible range waits on the empty state below, which
-      // must know that the calendar is empty, not only this week.
-      listBookingAppointments(mine ? { mine } : {}),
-    ])
-      .then(([nextCatalog, nextAppointments]) => {
-        if (!current) return;
-        setCatalog(nextCatalog);
-        setAppointments(nextAppointments);
-        setProblem(undefined);
-      })
-      .catch((error: unknown) => {
-        if (!current) return;
-        const code = error instanceof ApiProblemError ? error.problem.code : "";
-        setProblem(
-          code === "entitlement_required"
-            ? "plan"
-            : code === "organization_permission_denied"
-              ? "access"
-              : "load",
-        );
-      });
-    return () => {
-      current = false;
-    };
-  }, [mine, reloads]);
+    const query = new URLSearchParams();
+    if (view !== "week") query.set("view", view);
+    if (cursor !== today) query.set("date", cursor);
+    if (staffFilter) query.set("staff", staffFilter);
+    if (serviceFilter) query.set("service", serviceFilter);
+    const search = query.toString();
+    // Replace, not push: the arrows would otherwise fill the history.
+    window.history.replaceState(
+      window.history.state,
+      "",
+      `${window.location.pathname}${search ? `?${search}` : ""}`,
+    );
+  }, [cursor, serviceFilter, staffFilter, today, view]);
   const refresh = () => setReloads((value) => value + 1);
 
   const byDay = useMemo(() => {
     const days = new Map<string, BookingAppointment[]>();
     for (const item of appointments ?? []) {
-      if (staffFilter && !mine && item.staff_id !== staffFilter) continue;
+      if (chosenStaff && item.staff_id !== chosenStaff) continue;
       if (serviceFilter && item.service_name !== serviceFilter) continue;
       const day = wallClock(item.starts_at, zone).day;
       const list = days.get(day);
@@ -142,7 +140,7 @@ export function BookingPanel({
       else days.set(day, [item]);
     }
     return days;
-  }, [appointments, mine, serviceFilter, staffFilter, zone]);
+  }, [appointments, chosenStaff, serviceFilter, zone]);
 
   // An appointment keeps the service name it was booked under, so the filter
   // offers those names too, not only today's catalogue.
@@ -175,6 +173,40 @@ export function BookingPanel({
     const count = (Date.parse(last) - Date.parse(first)) / 86_400_000 + 1;
     return Array.from({ length: count }, (_, index) => addDays(first, index));
   }, [cursor, view]);
+
+  // Only what the view shows; whether the calendar is empty at all is a
+  // separate question, or an empty week would pass for an empty company.
+  const from = days[0];
+  const until = addDays(days[days.length - 1], 1);
+  useEffect(() => {
+    let current = true;
+    Promise.all([
+      getBookingCatalog(),
+      listBookingAppointments({ ...(mine ? { mine } : {}), from, to: until }),
+      listBookingAppointments({ limit: 1 }),
+    ])
+      .then(([nextCatalog, nextAppointments, first]) => {
+        if (!current) return;
+        setCatalog(nextCatalog);
+        setAppointments(nextAppointments);
+        setHasAny(first.length > 0);
+        setProblem(undefined);
+      })
+      .catch((error: unknown) => {
+        if (!current) return;
+        const code = error instanceof ApiProblemError ? error.problem.code : "";
+        setProblem(
+          code === "entitlement_required"
+            ? "plan"
+            : code === "organization_permission_denied"
+              ? "access"
+              : "load",
+        );
+      });
+    return () => {
+      current = false;
+    };
+  }, [from, mine, reloads, until]);
 
   const title =
     view === "day"
@@ -265,7 +297,7 @@ export function BookingPanel({
         text={t("setupText")}
         title={t("setupTitle")}
       />
-    ) : appointments.length === 0 && !mine ? (
+    ) : !hasAny && !mine ? (
       <EmptyState
         action={
           canManage && ready ? (
@@ -638,6 +670,7 @@ export function BookingPanel({
           canUseInventory={canUseInventory}
           catalog={catalog}
           day={cursor}
+          staffId={chosenStaff}
           onCreated={(appointment) => {
             setCreating(false);
             setNotice(

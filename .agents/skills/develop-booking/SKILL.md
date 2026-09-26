@@ -91,6 +91,11 @@ not in PostgreSQL.
   that person leaves — and an unopenable route used to head the queue forever.
 - **Payments are out of scope** until ADR-037 comes back with P5. Do not add a
   deposit field "for later".
+- **A person is a `StaffMember`, with an account or without one** (ADR-058 §1,
+  `booking/staff.py`). The account joins the entry in one place:
+  `staff.link_on_join`, registered through `organizations.joining` because
+  core may not import booking. A second linking path next to it — a signal,
+  a sweep — would link one person twice or not at all.
 
 ## Done means
 

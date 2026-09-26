@@ -182,6 +182,33 @@ prowadzącego, gdy ma pozycję, inaczej z magazynu głównego (odpowiedź 8), wi
 - wybór osoby w przeglądarce — nieautorytatywny i zawsze ten sam;
 - większy limit wyników — przesuwa problem, nie usuwa ucięcia dnia.
 
+## Ustalenia fazy 2 (26.09.2026)
+
+Faza 2 (lista Pracownicy, karta osoby, Moja karta) doprecyzowała §1 i §9;
+odpowiedzi właściciela z 26.09 są w planie memex i w decyzji
+`zespo-faza-2-grafik-na-karcie-osoby-blokada-zako`.
+
+- §1: `StaffMember.phone` i `invitation` weszły w fazie 2. `profile`
+  (przełącznik „Pokazuj klientom”) wchodzi z krokiem „Do kogo?” w fazie 3 —
+  wcześniej nie miałby żadnego skutku.
+- Konto łączy się z wpisem przy przyjęciu zaproszenia. Rdzeń daje rejestr
+  `organizations.joining.register_invitation_accepted`, rezerwacje wpinają
+  `staff.link_on_join`: wpis wskazany zaproszeniem, po ponownym wysłaniu —
+  wpis z zaproszeniem na ten sam e-mail; bez wpisu powstaje nowy, jeśli
+  firma ma aktywną usługę. Limit kont z §9 sprawdza rdzeń przez
+  `register_seat_limit`, w który billing wpina `team_members.max` — przy
+  zaproszeniu i przy przywróceniu zawieszonego konta.
+- Zmiana roli nie kończy sesji: uprawnienia liczą się z roli przy każdym
+  żądaniu, więc nowa rola działa od następnego kliknięcia. Zawieszenie,
+  odebranie członkostwa i przekazanie firmy kończą sesje jak dotąd (ADR-023).
+- Godziny pracy i nieobecności zmienia zarząd (`booking.appointment.manage`)
+  albo sama osoba z `booking.schedule.own` (w rdzeniu rola Pracownik; produkt
+  może jej tego nie dać). Nowy tydzień wyłącza stare reguły, zamiast je
+  kasować.
+- Zakończenie współpracy jest odrzucane (409
+  `staff_has_upcoming_appointments`), dopóki osoba prowadzi zaplanowane
+  wizyty; w fazie 3 zamieni się to w wakat.
+
 ## Wdrożenie
 
 Fazy żyją w planie memex. Faza 1 (bez widocznych zmian): §4, §5, §6, §7 i §8

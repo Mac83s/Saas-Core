@@ -8,6 +8,7 @@ import {
   SessionManager,
   TwoFactorCard,
 } from "../../../../../modules/core/identity";
+import { OrganizationPanel } from "../../../../../modules/core/organizations";
 
 export default async function AccountSettingsPage() {
   const [t, user] = await Promise.all([
@@ -25,6 +26,8 @@ export default async function AccountSettingsPage() {
         {user ? <PasswordCard email={user.email} /> : null}
         <TwoFactorCard />
         <SessionManager />
+        {/* The companies one works for belong to the account, not a team. */}
+        <OrganizationPanel />
       </div>
     </PanelPage>
   );

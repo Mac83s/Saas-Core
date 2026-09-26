@@ -21,6 +21,10 @@ export type RoleAccess =
 // Every role has these; they say nothing about it.
 const BASELINE = new Set(["organization.read", "notifications.preferences"]);
 
+// A right to one's own things, not to an area: "own hours" edits nobody's
+// visits, so it is named, not counted as editing the calendar.
+const OWN = new Set(["booking.schedule.own"]);
+
 // Core's and shared modules' permissions by area, in the order they are read.
 const AREAS: readonly (readonly [prefix: string, area: string])[] = [
   ["booking.", "bookings"],
@@ -55,7 +59,11 @@ export function roleAccess(
   offered: readonly string[],
 ): RoleAccess {
   const own = new Set(permissions);
-  const meaningful = offered.filter((permission) => !BASELINE.has(permission));
+  // Own hours is less than managing the calendar: no role is short of "full"
+  // for lacking it, but a role that has it says so.
+  const meaningful = offered.filter(
+    (permission) => !BASELINE.has(permission) && !OWN.has(permission),
+  );
   if (meaningful.every((permission) => own.has(permission)))
     return { kind: "full" };
 
@@ -64,7 +72,7 @@ export function roleAccess(
   for (const permission of own) {
     if (BASELINE.has(permission)) continue;
     const writes = !permission.endsWith(".read");
-    const area = areaOf(permission);
+    const area = OWN.has(permission) ? undefined : areaOf(permission);
     if (area) {
       edits.set(area, (edits.get(area) ?? false) || writes);
       continue;

@@ -22,12 +22,6 @@ class CatalogCreateSerializer(serializers.Serializer[dict[str, Any]]):
     membership_id = serializers.UUIDField(required=False, allow_null=True)
 
 
-class StaffUpdateSerializer(serializers.Serializer[dict[str, Any]]):
-    name = serializers.CharField(max_length=160, required=False)
-    active = serializers.BooleanField(required=False)
-    membership_id = serializers.UUIDField(required=False, allow_null=True)
-
-
 class ScheduleCreateSerializer(serializers.Serializer[dict[str, Any]]):
     kind = serializers.ChoiceField(
         choices=(
@@ -239,3 +233,154 @@ class PublicCatalogSerializer(serializers.Serializer[dict[str, Any]]):
     resources = ResourceSerializer(many=True)
     #: The organization's zone: the days and times offered are its wall clock.
     timezone = serializers.CharField()
+
+
+class PersonSerializer(serializers.Serializer[dict[str, Any]]):
+    """A person of the company as booking keeps them (ADR-058 §1)."""
+
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    public_slug = serializers.CharField()
+    #: The person's account; null: no account (a subcontractor) or not yet.
+    membership_id = serializers.UUIDField(allow_null=True)
+    #: The invitation the person was added under; accepting it links the account.
+    invitation_id = serializers.UUIDField(allow_null=True)
+    #: Null for whoever may not see it: management and the person only (ADR-058 §9).
+    phone = serializers.CharField(allow_null=True)
+    #: False: a former employee.
+    active = serializers.BooleanField()
+    #: The services the person does; with hours, that is "takes visits".
+    service_ids = serializers.ListField(child=serializers.UUIDField())
+    has_hours = serializers.BooleanField()
+    created_at = serializers.DateTimeField()
+
+
+class PersonListSerializer(serializers.Serializer[dict[str, Any]]):
+    items = PersonSerializer(many=True)
+
+
+class PersonListQuerySerializer(serializers.Serializer[dict[str, Any]]):
+    #: Only the caller's own entry ("my card").
+    mine = serializers.BooleanField(default=False)
+
+
+class WorkingHoursSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    #: 0 is Monday; the times are the organization's wall clock.
+    weekday = serializers.IntegerField()
+    local_start = serializers.TimeField()
+    local_end = serializers.TimeField()
+    location_id = serializers.UUIDField()
+    location_name = serializers.CharField()
+
+
+class TimeOffSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    starts_at = serializers.DateTimeField()
+    ends_at = serializers.DateTimeField()
+    #: Null for whoever may not see it: an illness is health data (ADR-058 §9).
+    reason = serializers.CharField(allow_null=True)
+
+
+class PersonDetailSerializer(PersonSerializer):
+    hours = WorkingHoursSerializer(many=True)
+    #: Current and coming absences.
+    time_off = TimeOffSerializer(many=True)
+
+
+class PersonInvitationInputSerializer(serializers.Serializer[dict[str, Any]]):
+    email = serializers.EmailField()
+    role = serializers.SlugField(max_length=64)
+
+
+class WeeklyHoursInputSerializer(serializers.Serializer[dict[str, Any]]):
+    """The same hours on the chosen weekdays, as "Add employee" asks for them."""
+
+    weekdays = serializers.ListField(
+        child=serializers.IntegerField(min_value=0, max_value=6), min_length=1, max_length=7
+    )
+    local_start = serializers.TimeField()
+    local_end = serializers.TimeField()
+    #: Omitted: the organization's only place of work.
+    location_id = serializers.UUIDField(required=False, allow_null=True)
+
+
+class PersonCreateSerializer(serializers.Serializer[dict[str, Any]]):
+    name = serializers.CharField(min_length=1, max_length=160)
+    phone = serializers.CharField(max_length=40, required=False, allow_blank=True, default="")
+    #: An e-mail and a role: the person gets an invitation to the panel.
+    invitation = PersonInvitationInputSerializer(required=False, allow_null=True)
+    #: An existing member's own entry, when they have none yet.
+    membership_id = serializers.UUIDField(required=False, allow_null=True)
+    service_ids = serializers.ListField(child=serializers.UUIDField(), required=False, default=list)
+    hours = WeeklyHoursInputSerializer(required=False, allow_null=True)
+    #: "Hours like …": another person's week instead of `hours`.
+    copy_hours_from = serializers.UUIDField(required=False, allow_null=True)
+
+
+class PersonUpdateSerializer(serializers.Serializer[dict[str, Any]]):
+    name = serializers.CharField(min_length=1, max_length=160, required=False)
+    phone = serializers.CharField(max_length=40, required=False, allow_blank=True)
+    #: Links an entry added without an account to a team member's (null: unlinks).
+    membership_id = serializers.UUIDField(required=False, allow_null=True)
+
+
+class PersonServicesInputSerializer(serializers.Serializer[dict[str, Any]]):
+    service_ids = serializers.ListField(child=serializers.UUIDField())
+
+
+class HoursRuleInputSerializer(serializers.Serializer[dict[str, Any]]):
+    weekday = serializers.IntegerField(min_value=0, max_value=6)
+    local_start = serializers.TimeField()
+    local_end = serializers.TimeField()
+    location_id = serializers.UUIDField()
+
+
+class PersonHoursInputSerializer(serializers.Serializer[dict[str, Any]]):
+    #: The person's whole week; an empty list clears it.
+    rules = serializers.ListField(child=HoursRuleInputSerializer(), max_length=70)
+
+
+class TimeOffInputSerializer(serializers.Serializer[dict[str, Any]]):
+    starts_at = serializers.DateTimeField()
+    ends_at = serializers.DateTimeField()
+    reason = serializers.CharField(max_length=160, required=False, allow_blank=True, default="")
+
+
+class TimeOffCreatedSerializer(serializers.Serializer[dict[str, Any]]):
+    time_off = TimeOffSerializer()
+    #: The person's visits the absence runs into; they stay until someone moves them.
+    conflicts = serializers.IntegerField()
+
+
+class PersonInvitationSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    email = serializers.EmailField()
+    role = serializers.CharField()
+    status = serializers.CharField()
+    expires_at = serializers.DateTimeField()
+
+
+class IntervalSerializer(serializers.Serializer[dict[str, Any]]):
+    starts_at = serializers.DateTimeField()
+    ends_at = serializers.DateTimeField()
+
+
+class AwayIntervalSerializer(IntervalSerializer):
+    #: Null for whoever may not see it (ADR-058 §9).
+    reason = serializers.CharField(allow_null=True)
+
+
+class PersonDaySerializer(serializers.Serializer[dict[str, Any]]):
+    staff_id = serializers.UUIDField()
+    #: Working hours that day, as instants.
+    works = IntervalSerializer(many=True)
+    time_off = AwayIntervalSerializer(many=True)
+    #: Visits that occupy the person, buffers included.
+    busy = IntervalSerializer(many=True)
+
+
+class PeopleDaySerializer(serializers.Serializer[dict[str, Any]]):
+    date = serializers.DateField()
+    timezone = serializers.CharField()
+    items = PersonDaySerializer(many=True)

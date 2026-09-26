@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:73395bf9b1ae7f7a6606f1376933f292a9cac45b8141a052573b7c60b12714ce",
+  "profileHash": "sha256:14b0be703b060f4f566b1b2eb3223e789e06cecbd985b8c9a2a486b83d2633d1",
   "schemaVersion": 1,
   "deployment": "agro",
   "product": {
@@ -387,8 +387,14 @@
         "urlPrefix": "/api/v1/booking",
         "permissions": [
           "booking.appointment.read",
-          "booking.appointment.manage"
+          "booking.appointment.manage",
+          "booking.schedule.own"
         ],
+        "roleGrants": {
+          "staff": [
+            "booking.schedule.own"
+          ]
+        },
         "entitlements": [
           "booking.enabled"
         ],

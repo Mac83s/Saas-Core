@@ -8,9 +8,14 @@ class BookingConfig(AppConfig):
     verbose_name = "Booking"
 
     def ready(self) -> None:
+        from saas_core.modules.core.organizations.api import register_invitation_accepted
         from saas_core.modules.core.organizations.erasure_checks import register_erasure_rows
 
         from .models import PublicBookingRoute, ReminderRoute, SelfServiceRoute
+        from .staff import link_on_join
+
+        # The person the office added is the one who accepts the invitation.
+        register_invitation_accepted(link_on_join)
 
         # Pre-tenant routing indexes: erasing the organization takes them too,
         # or its public slug would route a new organization to the old tenant.

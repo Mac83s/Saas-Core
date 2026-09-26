@@ -236,6 +236,20 @@ export type BookingSlotList = components["schemas"]["SlotList"];
 export type BookingSlotTimeList = components["schemas"]["SlotTimeList"];
 export type BookingCatalogInput = components["schemas"]["CatalogCreate"];
 export type BookingScheduleInput = components["schemas"]["ScheduleCreate"];
+/** A person of the company, with an account or without one (ADR-058 §1). */
+export type Person = components["schemas"]["Person"];
+export type PersonDetail = components["schemas"]["PersonDetail"];
+export type PersonCreateInput = components["schemas"]["PersonCreate"];
+export type PersonUpdateInput = components["schemas"]["PatchedPersonUpdate"];
+export type PersonHoursRule = components["schemas"]["HoursRuleInput"];
+export type PersonInvitation = components["schemas"]["PersonInvitation"];
+export type PersonInvitationInput =
+  components["schemas"]["PersonInvitationInput"];
+export type TimeOffInput = components["schemas"]["TimeOffInput"];
+export type TimeOffCreated = components["schemas"]["TimeOffCreated"];
+/** Who works, is away and is busy on one day (ADR-058 §9). */
+export type PeopleDay = components["schemas"]["PeopleDay"];
+export type SeatUsage = components["schemas"]["SeatUsage"];
 
 export type LoginResult =
   { kind: "authenticated"; user: UserSummary } | { kind: "mfa_required" };
@@ -768,9 +782,28 @@ export async function deleteRole(roleKey: string): Promise<void> {
   if (error) throwProblem(error, response);
 }
 
-export async function listMemberships(): Promise<MembershipSummary[]> {
+/** Current members; `includeFormer` adds former ones (management only). */
+export async function listMemberships(
+  query: { includeFormer?: boolean } = {},
+): Promise<MembershipSummary[]> {
   const { data, error, response } = await client.GET(
     "/api/v1/organizations/current/members/",
+    {
+      params: query.includeFormer
+        ? { query: { include_former: true } }
+        : undefined,
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Accounts in use against the plan's limit (owner's answer 5). */
+export async function getSeatUsage(): Promise<SeatUsage> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/organizations/current/seats/",
     { credentials: "same-origin", cache: "no-store" },
   );
   if (error || !data) throwProblem(error, response);
@@ -1468,12 +1501,28 @@ export async function configureBookingSchedule(
 }
 
 export async function listBookingAppointments(
-  filters: { mine?: boolean } = {},
+  filters: {
+    mine?: boolean;
+    /** A date (the organization's midnight) or an ISO instant, inclusive. */
+    from?: string;
+    /** As `from`, exclusive. */
+    to?: string;
+    staffId?: string;
+    /** At most this many, earliest first; 1 answers "is there any". */
+    limit?: number;
+  } = {},
 ): Promise<BookingAppointment[]> {
+  const query = {
+    ...(filters.mine ? { mine: true } : {}),
+    ...(filters.from ? { from: filters.from } : {}),
+    ...(filters.to ? { to: filters.to } : {}),
+    ...(filters.staffId ? { staff_id: filters.staffId } : {}),
+    ...(filters.limit ? { limit: filters.limit } : {}),
+  };
   const { data, error, response } = await client.GET(
     "/api/v1/booking/appointments/",
     {
-      params: filters.mine ? { query: { mine: true } } : undefined,
+      params: Object.keys(query).length ? { query } : undefined,
       credentials: "same-origin",
       cache: "no-store",
     },
@@ -1482,19 +1531,192 @@ export async function listBookingAppointments(
   return data.items;
 }
 
-/** Renames, (de)activates or links a calendar entry to a team member. */
-export async function updateBookingStaff(
+/** The company's people; without the team screen, one's own entry only. */
+export async function listPeople(
+  query: { mine?: boolean } = {},
+): Promise<Person[]> {
+  const { data, error, response } = await client.GET("/api/v1/booking/staff/", {
+    params: query.mine ? { query: { mine: true } } : undefined,
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (error || !data) throwProblem(error, response);
+  return data.items;
+}
+
+export async function getPerson(staffId: string): Promise<PersonDetail> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/staff/{staff_id}/",
+    {
+      params: { path: { staff_id: staffId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** "Add employee": entry, invitation, services and hours — all or nothing. */
+export async function addPerson(
+  input: PersonCreateInput,
+): Promise<PersonDetail> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/staff/",
+    {
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Name and phone (a person their own phone), or the account it stands for. */
+export async function updatePerson(
   staffId: string,
-  input: components["schemas"]["PatchedStaffUpdate"],
-): Promise<components["schemas"]["Staff"]> {
+  input: PersonUpdateInput,
+): Promise<PersonDetail> {
   const csrfToken = await getCsrfToken();
   const { data, error, response } = await client.PATCH(
-    "/api/v1/booking/catalog/staff/{staff_id}/",
+    "/api/v1/booking/staff/{staff_id}/",
     {
       params: { path: { staff_id: staffId } },
       body: input,
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function setPersonServices(
+  staffId: string,
+  serviceIds: string[],
+): Promise<PersonDetail> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/booking/staff/{staff_id}/services/",
+    {
+      params: { path: { staff_id: staffId } },
+      body: { service_ids: serviceIds },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Replaces the person's week; an empty list clears it. */
+export async function setPersonHours(
+  staffId: string,
+  rules: PersonHoursRule[],
+): Promise<PersonDetail> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/booking/staff/{staff_id}/hours/",
+    {
+      params: { path: { staff_id: staffId } },
+      body: { rules },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function addTimeOff(
+  staffId: string,
+  input: TimeOffInput,
+): Promise<TimeOffCreated> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/staff/{staff_id}/time-off/",
+    {
+      params: { path: { staff_id: staffId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function removeTimeOff(timeOffId: string): Promise<void> {
+  const csrfToken = await getCsrfToken();
+  const { error, response } = await client.DELETE(
+    "/api/v1/booking/time-off/{time_off_id}/",
+    {
+      params: { path: { time_off_id: timeOffId } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !response.ok) throwProblem(error, response);
+}
+
+/** An account for a person added without one; accepting links it. */
+export async function invitePerson(
+  staffId: string,
+  input: PersonInvitationInput,
+): Promise<PersonInvitation> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/staff/{staff_id}/invitation/",
+    {
+      params: { path: { staff_id: staffId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** "Remove from the company"; 409 while the person leads planned visits. */
+export async function endPerson(staffId: string): Promise<PersonDetail> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/staff/{staff_id}/end/",
+    {
+      params: { path: { staff_id: staffId } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function restorePerson(staffId: string): Promise<PersonDetail> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/staff/{staff_id}/restore/",
+    {
+      params: { path: { staff_id: staffId } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Who works, is away and is busy on a day; today without `date`. */
+export async function getPeopleDay(date?: string): Promise<PeopleDay> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/staff-availability/",
+    {
+      params: date ? { query: { date } } : undefined,
+      credentials: "same-origin",
+      cache: "no-store",
     },
   );
   if (error || !data) throwProblem(error, response);
