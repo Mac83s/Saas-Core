@@ -308,7 +308,7 @@ def _content_base(target: dict[str, Any], context: TenantContext) -> dict[str, A
 
 
 def _plan_change_set(document: dict[str, Any], context: TenantContext) -> ChangeSetPlan:
-    from .services import assert_links_within_grant
+    from .services import assert_links_within_grant, default_automation_rel
 
     validate_change_set(document)
     target = document["target"]
@@ -393,6 +393,10 @@ def _plan_change_set(document: dict[str, Any], context: TenantContext) -> Change
         ),
         blocks=resulting,
         base_blocks=blocks,
+    )
+    # In the plan, so the preview shows the `rel` the draft will carry.
+    resulting = default_automation_rel(
+        context, site_id=UUID(target["site_id"]), blocks=resulting, base_blocks=blocks
     )
     return ChangeSetPlan(
         target_kind=target["kind"],

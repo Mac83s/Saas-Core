@@ -70,6 +70,7 @@ from .services import (
     assert_person_blocks,
     assert_person_required,
     assert_within_grant,
+    default_automation_rel,
     emit_draft_saved_event,
 )
 
@@ -453,12 +454,19 @@ def save_entry_draft(
         lambda: entry.current_draft.blocks if entry.current_draft is not None else [],
     )
     if _is_automation(context):
+        base_blocks = entry.current_draft.blocks if entry.current_draft else []
         assert_links_within_grant(
             context,
             site_id=entry.collection.site_id,
             collection_id=entry.collection_id,
             blocks=normalized_blocks,
-            base_blocks=entry.current_draft.blocks if entry.current_draft else [],
+            base_blocks=base_blocks,
+        )
+        normalized_blocks = default_automation_rel(
+            context,
+            site_id=entry.collection.site_id,
+            blocks=normalized_blocks,
+            base_blocks=base_blocks,
         )
     if entry.version != expected_version:
         raise DraftVersionConflict

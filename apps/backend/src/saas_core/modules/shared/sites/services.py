@@ -4,7 +4,8 @@ import hashlib
 import json
 import re
 from collections import Counter
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Iterator
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any
@@ -870,6 +871,16 @@ def assert_links_within_grant(
     if not leaving:
         return
     grant = assert_within_grant(context, site_id=site_id, collection_id=collection_id)
+    allowed = _own_hostnames(context, site_id)
+    allowed |= _hostnames(grant.allowed_link_hosts if grant else [])
+    for href, host in leaving.items():
+        if host not in allowed:
+            raise AutomationLinkHostForbidden(
+                detail=f"{introduced[href]}: grant nie pozwala linkować do {host}."
+            )
+
+
+def _own_hostnames(context: TenantContext, site_id: UUID) -> set[str]:
     # Verified only: a domain typed into the panel is a claim until DNS proves
     # it, and linking there before that may be linking to a stranger's site.
     own = Domain.all_objects.filter(
@@ -877,13 +888,71 @@ def assert_links_within_grant(
         site_id=site_id,
         status=DomainStatus.VERIFIED,
     )
-    allowed = _hostnames(list(own.values_list("hostname", flat=True)))
-    allowed |= _hostnames(grant.allowed_link_hosts if grant else [])
-    for href, host in leaving.items():
-        if host not in allowed:
-            raise AutomationLinkHostForbidden(
-                detail=f"{introduced[href]}: grant nie pozwala linkować do {host}."
-            )
+    return _hostnames(list(own.values_list("hostname", flat=True)))
+
+
+#: Block versions whose links carry `rel` (ADR-061). In older versions and in
+#: other blocks a link has nowhere to say it.
+REL_CAPABLE_BLOCKS = frozenset({
+    ("core.rich_text", 4),
+    ("core.link_list", 2),
+    ("core.footer", 2),
+})
+
+
+def _link_objects(data: Any) -> Iterator[dict[str, Any]]:
+    """Every object in block data that holds a link as `href`."""
+    if isinstance(data, list):
+        for item in data:
+            yield from _link_objects(item)
+    elif isinstance(data, dict):
+        if isinstance(data.get("href"), str):
+            yield data
+        for value in data.values():
+            yield from _link_objects(value)
+
+
+def default_automation_rel(
+    context: TenantContext,
+    *,
+    site_id: UUID,
+    blocks: list[dict[str, Any]],
+    base_blocks: Iterable[Any],
+) -> list[dict[str, Any]]:
+    """An automation's link to another site is `nofollow` unless a person
+    said otherwise (owner decision, ADR-061).
+
+    A link the automation introduces gets `nofollow` when it names no `rel`
+    of its own. A link it keeps from the draft it replaces keeps what the
+    person chose: a person's editorial link stays editorial, and a `rel` the
+    person set is carried over if the automation's copy dropped it. Links to
+    the site itself, paths, anchors, `mailto:` and `tel:` are left alone.
+    """
+    if not _is_automation(context):
+        return blocks
+    base = [
+        item["data"] if isinstance(item, dict) and "data" in item else item
+        for item in base_blocks
+    ]
+    kept: dict[str, str | None] = {}
+    for link in _link_objects(base):
+        kept.setdefault(link["href"], None)
+        if kept[link["href"]] is None and isinstance(link.get("rel"), str):
+            kept[link["href"]] = link["rel"]
+    own = _own_hostnames(context, site_id)
+    result = deepcopy(blocks)
+    for block in result:
+        if (block.get("block_type"), block.get("schema_version")) not in REL_CAPABLE_BLOCKS:
+            continue
+        for link in _link_objects(block.get("data")):
+            host = link_host(link["href"])
+            if host is None or host in own or "rel" in link:
+                continue
+            if link["href"] not in kept:
+                link["rel"] = "nofollow"
+            elif kept[link["href"]] is not None:
+                link["rel"] = kept[link["href"]]
+    return result
 
 
 def _hostnames(values: Any) -> set[str]:
@@ -1161,14 +1230,20 @@ def save_draft(
         .order_by("position")
         .values("block_type", "data"),
     )
+    base_blocks = list(
+        PageBlock.all_objects.filter(
+            organization_id=context.organization_id,
+            page_version_id=page.current_draft_id,
+        ).values("data")
+    )
     assert_links_within_grant(
         context,
         site_id=page.site_id,
         blocks=normalized_blocks,
-        base_blocks=PageBlock.all_objects.filter(
-            organization_id=context.organization_id,
-            page_version_id=page.current_draft_id,
-        ).values("data"),
+        base_blocks=base_blocks,
+    )
+    normalized_blocks = default_automation_rel(
+        context, site_id=page.site_id, blocks=normalized_blocks, base_blocks=base_blocks
     )
     existing = PageVersion.all_objects.filter(
         organization_id=context.organization_id,

@@ -589,3 +589,140 @@ def test_a_collection_grant_speaks_for_its_collection_over_the_site_grant(
     response = post_preview(client, with_block(surface, cta("https://witryna.test/")))
     assert response.status_code == 200, response.content
 
+
+# `rel` (ADR-061): an automation's link to another site does not vouch for it
+# unless a person says so.
+
+
+def prose(*runs: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "type": "core.rich_text",
+        "schema_version": 4,
+        "data": {"content": [{"type": "paragraph", "content": list(runs)}]},
+    }
+
+
+def stored_runs(document: dict[str, Any]) -> list[dict[str, Any]]:
+    from saas_core.modules.shared.sites.models import Page, PageBlock
+
+    page = Page.all_objects.get(pk=document["target"]["page_id"])
+    block = PageBlock.all_objects.get(page_version_id=page.current_draft_id, position=0)
+    return block.data["content"][0]["content"]
+
+
+def test_an_automation_s_outbound_link_is_nofollow_unless_it_says_otherwise(
+    surface: Any,
+) -> None:
+    client = linking(surface, ["partner.test"])
+    document = with_block(
+        surface,
+        prose(
+            {"text": "partner", "href": "https://partner.test/"},
+            {"text": " sklep", "href": "https://partner.test/sklep", "rel": "sponsored"},
+            {"text": " kontakt", "href": "/kontakt/"},
+            {"text": " nasz", "href": f"https://{OWN_HOST}/o-nas/"},
+        ),
+    )
+    preview = post_preview(client, document)
+    assert preview.status_code == 200, preview.content
+    # The preview shows what the draft will carry, `rel` included.
+    assert '"nofollow"' in preview.content.decode()
+    applied = client.post(
+        "/api/v1/sites/changes/apply/", {"change_set": document}, content_type="application/json"
+    )
+    assert applied.status_code == 201, applied.content
+
+    assert stored_runs(document) == [
+        {"text": "partner", "href": "https://partner.test/", "rel": "nofollow"},
+        {"text": " sklep", "href": "https://partner.test/sklep", "rel": "sponsored"},
+        {"text": " kontakt", "href": "/kontakt/"},
+        {"text": " nasz", "href": f"https://{OWN_HOST}/o-nas/"},
+    ]
+
+
+def test_an_automated_rewrite_keeps_what_a_person_chose_for_a_link(surface: Any) -> None:
+    person, _, _, document = surface
+    saved = person.put(
+        f"/api/v1/sites/pages/{document['target']['page_id']}/draft/",
+        {
+            "expected_version": 1,
+            "blocks": [
+                {
+                    "block_type": "core.rich_text",
+                    "schema_version": 4,
+                    "data": prose(
+                        {"text": "polecamy", "href": "https://partner.test/"},
+                        {"text": " reklama", "href": "https://ads.test/", "rel": "sponsored"},
+                    )["data"],
+                }
+            ],
+            "media_asset_ids": [],
+        },
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(person),
+        HTTP_IDEMPOTENCY_KEY="person-rel",
+    )
+    assert saved.status_code == 201, saved.content
+    # A person's own save is never touched.
+    assert stored_runs(document) == [
+        {"text": "polecamy", "href": "https://partner.test/"},
+        {"text": " reklama", "href": "https://ads.test/", "rel": "sponsored"},
+    ]
+    client = linking(surface, [])
+    document["commands"] = [
+        {
+            "command": "block.replace",
+            "position": 0,
+            "block": prose(
+                {"text": "Nadal polecamy", "href": "https://partner.test/"},
+                {"text": " i reklama", "href": "https://ads.test/"},
+            ),
+        }
+    ]
+    document["base"] = person.get("/api/v1/sites/content-base/", document["target"]).json()[
+        "base"
+    ]
+    applied = client.post(
+        "/api/v1/sites/changes/apply/", {"change_set": document}, content_type="application/json"
+    )
+    assert applied.status_code == 201, applied.content
+    # The editorial link stays editorial; the dropped `rel` comes back.
+    assert stored_runs(document) == [
+        {"text": "Nadal polecamy", "href": "https://partner.test/"},
+        {"text": " i reklama", "href": "https://ads.test/", "rel": "sponsored"},
+    ]
+
+
+def test_an_entry_draft_written_by_a_key_gets_the_same_default(surface: Any) -> None:
+    from saas_core.modules.shared.sites.models import ContentCollection, ContentEntry
+
+    person, organization, owner, document = surface
+    collection = create_collection(person, document["target"]["site_id"]).data["id"]
+    entry = create_entry(person, collection, slug="rel", idempotency_key="rel-entry").data["id"]
+    ContentCollection.all_objects.filter(pk=collection).update(automation_policy="automated")
+    client, key = connector(surface, scope="content:draft")
+    ContentAutomationGrant.all_objects.create(
+        organization=organization,
+        credential_id=key.id,
+        collection_id=collection,
+        mode="draft_write",
+        allowed_link_hosts=["partner.test"],
+        created_by=owner,
+    )
+    block = prose({"text": "partner", "href": "https://partner.test/"})
+    written = client.put(
+        f"/api/v1/sites/entries/{entry}/draft/",
+        {
+            "expected_version": 0,
+            "blocks": [
+                {"block_type": block["type"], "schema_version": 4, "data": block["data"]}
+            ],
+        },
+        content_type="application/json",
+        HTTP_IDEMPOTENCY_KEY="rel-entry-draft",
+    )
+    assert written.status_code == 201, written.content
+    stored = ContentEntry.all_objects.get(pk=entry).current_draft.blocks
+    assert stored[0]["data"]["content"][0]["content"] == [
+        {"text": "partner", "href": "https://partner.test/", "rel": "nofollow"}
+    ]
