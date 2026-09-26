@@ -60,12 +60,17 @@ Every service behind an `IsSessionOrApiKey` route asks the grant, reads
 included — `assert_within_grant`, or `_assert_entry_writable` for anything that
 writes into a collection. Creating a collection or an entry once asked nothing,
 so a key hired for one blog could open sections and write articles beside it.
-A listing narrows to what the key's grants cover rather than refusing.
+A listing narrows to what the key's grants cover rather than refusing. When a
+site grant and a collection grant both reach an entry, the collection grant
+decides — mode and link hosts alike — whichever was issued first.
 
 The link allowlist is `assert_links_within_grant` in `services.py`: an
-automation may link only to the site's own hostnames (its non-released
-`Domain` rows) and the grant's `allowed_link_hosts`, exact match after IDNA
-normalization, no implied subdomains; an empty list means internal links only.
+automation may link only to the site's own hostnames (its verified `Domain`
+rows — a pending one is only a claim) and the grant's `allowed_link_hosts`,
+exact match after IDNA normalization, no implied subdomains; an empty list
+means internal links only. `normalize_hostname` lowercases rather than
+casefolds: casefolding makes `straße.de` equal `strasse.de`, two domains a
+browser keeps apart.
 Paths, in-page anchors, `mailto:` and `tel:` have no host and pass. It runs in
 the change-set plan (so preview refuses too, before anything is written) and in
 `save_draft`/`save_entry_draft`, because a key also writes entry drafts
@@ -83,8 +88,9 @@ not get one. `translation.update` carries `title`, `description`,
 position that URL earned; it goes through
 `PUT /api/v1/sites/pages/<id>/url/`, a human session with a mandatory reason.
 
-Capabilities answer with the **narrowest** active grant mode, the command list
-read from `packages/contracts/content-operations/`, and the contract versions.
+Capabilities answer with the **narrowest** active grant mode, each grant's
+scope with its `allowed_link_hosts`, the command list read from
+`packages/contracts/content-operations/`, and the contract versions.
 A capabilities response that disagrees with the contract it describes is worse
 than none, because the client believes it.
 
