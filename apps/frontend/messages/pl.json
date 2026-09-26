@@ -587,6 +587,7 @@
     "rangePlace": "{day}: miejsce pracy",
     "rangeRemove": "{day}: usuń przedział",
     "rangeAdd": "Dodaj godziny: {day}",
+    "rangeAddShort": "Dodaj godziny",
     "hoursSave": "Zapisz godziny pracy",
     "hoursSaved": "Zapisano godziny pracy.",
     "timeOffTitle": "Nieobecności",

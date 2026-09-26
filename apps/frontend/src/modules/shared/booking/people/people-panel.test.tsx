@@ -325,16 +325,22 @@ test("jedna lista ludzi: z kontem i bez, rola, konto i to, co robią dziś", asy
   const { container } = renderPanel();
   const table = await screen.findByRole("table", { name: "Pracownicy firmy" });
   const rows = within(table).getAllByRole("row").slice(1);
-  // Three calendar entries, the owner's and Anna's accounts, one expired invitation.
+  // You first, then the office, the people with an account, without one, and
+  // those still invited — the order of the plan's board 1.
   expect(rows.map((row) => row.querySelector("td")?.textContent)).toEqual([
-    "Marcin Kowalski601 234 567",
-    "Kamil Dudakamil@example.com",
-    "Krzysztof Nowak604 567 890",
     "Jan Wójcik (Ty)jan@example.com",
     "Anna Lewandowskaanna@example.com",
+    "Marcin Kowalski601 234 567",
+    "Krzysztof Nowak604 567 890",
+    "Kamil Dudakamil@example.com",
     "stary@example.com",
   ]);
-  const marcin = within(rows[0]);
+  // Management roles say so; an account without a calendar entry has a card too.
+  expect(within(rows[0]).getByText("Zarządza")).toBeInTheDocument();
+  expect(
+    within(rows[0]).getByRole("link", { name: "Jan Wójcik" }),
+  ).toHaveAttribute("href", "/panel/team/owner");
+  const marcin = within(rows[2]);
   expect(marcin.getByRole("link", { name: "Marcin Kowalski" })).toHaveAttribute(
     "href",
     "/panel/team/s-marcin",
@@ -344,17 +350,12 @@ test("jedna lista ludzi: z kontem i bez, rola, konto i to, co robią dziś", asy
   expect(
     marcin.getByRole("link", { name: "Zadzwoń: Marcin Kowalski" }),
   ).toHaveAttribute("href", "tel:601234567");
+  expect(within(rows[3]).getByText("Bez konta")).toBeInTheDocument();
+  expect(within(rows[3]).getByText("Wolne od 13:00")).toBeInTheDocument();
   expect(
-    within(rows[1]).getByText(/Zaproszenie · ważne do/),
+    within(rows[4]).getByText(/Zaproszenie · ważne do/),
   ).toBeInTheDocument();
-  expect(within(rows[1]).getByText("Nie przyjmuje wizyt")).toBeInTheDocument();
-  expect(within(rows[2]).getByText("Bez konta")).toBeInTheDocument();
-  expect(within(rows[2]).getByText("Wolne od 13:00")).toBeInTheDocument();
-  // Management roles say so; the owner's own row has no card of a calendar entry.
-  expect(within(rows[3]).getByText("Zarządza")).toBeInTheDocument();
-  expect(
-    within(rows[3]).getByRole("link", { name: "Jan Wójcik" }),
-  ).toHaveAttribute("href", "/panel/team/owner");
+  expect(within(rows[4]).getByText("Nie przyjmuje wizyt")).toBeInTheDocument();
   expect(within(rows[5]).getByText("Zaproszenie wygasło")).toBeInTheDocument();
   expect(
     screen.getByText(

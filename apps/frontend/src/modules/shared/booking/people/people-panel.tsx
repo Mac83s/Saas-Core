@@ -73,6 +73,7 @@ import {
 } from "./people";
 
 const MEMBERS_READ = "organization.members.read";
+const collator = new Intl.Collator("pl", { sensitivity: "base" });
 const MEMBERS_MANAGE = "organization.members.manage";
 const MEMBERS_MANAGE_LIMITED = "organization.members.manage_limited";
 const OWNERSHIP_TRANSFER = "organization.ownership.transfer";
@@ -243,7 +244,7 @@ export function PeoplePanel({
         : [],
     [data, userId],
   );
-  const visible = filterPeople(rows, { show, account, role });
+
   const limited = new Set(
     data?.roles.roles.filter((item) => item.limited).map((item) => item.key),
   );
@@ -257,6 +258,23 @@ export function PeoplePanel({
     const found = data?.roles.roles.find((item) => item.key === key);
     return found ? managesTeam(found) : false;
   };
+  // The office first, then the people who work with an account, without one,
+  // and those still invited — the order of the plan's board 1.
+  const rank = (row: PersonRow) =>
+    row.self
+      ? -1
+      : !row.current
+        ? 4
+        : row.member
+          ? managing(row.role)
+            ? 0
+            : 1
+          : row.account === "none"
+            ? 2
+            : 3;
+  const visible = filterPeople(rows, { show, account, role }).sort(
+    (a, b) => rank(a) - rank(b) || collator.compare(a.name, b.name),
+  );
   const days = new Map(
     (data?.booking?.day.items ?? []).map((item) => [item.staff_id, item]),
   );

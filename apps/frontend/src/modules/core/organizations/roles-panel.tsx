@@ -186,9 +186,10 @@ export function RolesPanel({
           {managesTeam(role) ? (
             <Badge variant="secondary">{t("manages")}</Badge>
           ) : null}
-          <Badge variant={role.scope === "system" ? "outline" : "secondary"}>
-            {role.scope === "system" ? t("system") : t("own")}
-          </Badge>
+          {/* System roles are the rule; only the company's own are marked. */}
+          {role.scope === "organization" ? (
+            <Badge variant="outline">{t("own")}</Badge>
+          ) : null}
         </p>
       ),
     },

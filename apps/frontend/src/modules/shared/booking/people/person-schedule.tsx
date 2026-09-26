@@ -23,6 +23,7 @@ import { NativeSelect } from "@saas-core/ui/components/native-select";
 
 import { PanelSection } from "#components/panel/panel-page";
 import { useDataTableLabels } from "#lib/data-table-labels";
+import { wallClock } from "../calendar-time";
 import { problemText, TimeOffDialog } from "./person-dialogs";
 
 type Range = { start: string; end: string; locationId: string };
@@ -130,6 +131,12 @@ export function PersonSchedule({
       timeStyle: "short",
       timeZone: zone,
     });
+  const date = (value: string | number) =>
+    format.dateTime(new Date(value), { dateStyle: "medium", timeZone: zone });
+  // Whole days read as days: "to 7 Oct", not "to 8 Oct, 00:00".
+  const wholeDays = (item: { starts_at: string; ends_at: string }) =>
+    wallClock(item.starts_at, zone).time === "00:00" &&
+    wallClock(item.ends_at, zone).time === "00:00";
   const timeOffColumns: ColumnDef<PersonDetail["time_off"][number], unknown>[] =
     [
       {
@@ -137,13 +144,17 @@ export function PersonSchedule({
         accessorKey: "starts_at",
         header: t("timeOffFrom"),
         meta: { primary: true },
-        cell: ({ row: { original: item } }) => dateTime(item.starts_at),
+        cell: ({ row: { original: item } }) =>
+          wholeDays(item) ? date(item.starts_at) : dateTime(item.starts_at),
       },
       {
         id: "to",
         accessorKey: "ends_at",
         header: t("timeOffTo"),
-        cell: ({ row: { original: item } }) => dateTime(item.ends_at),
+        cell: ({ row: { original: item } }) =>
+          wholeDays(item)
+            ? date(Date.parse(item.ends_at) - 1)
+            : dateTime(item.ends_at),
       },
       {
         id: "reason",
@@ -200,7 +211,7 @@ export function PersonSchedule({
           canEdit && others.length ? (
             <div className="flex items-center gap-2">
               <label
-                className="text-sm text-muted-foreground"
+                className="text-sm whitespace-nowrap text-muted-foreground"
                 htmlFor="hours-copy"
               >
                 {t("copyFrom")}
@@ -232,12 +243,12 @@ export function PersonSchedule({
                 className="grid gap-2 p-3 sm:grid-cols-[8rem_1fr] sm:items-start"
                 key={day}
               >
-                <p className="pt-2 font-medium">
+                <p className="font-medium sm:pt-2">
                   {people18n(`dayLong_${day}`)}
                 </p>
-                <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                   {ranges.length === 0 ? (
-                    <p className="pt-2 text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                       {t("dayOff")}
                     </p>
                   ) : null}
@@ -331,6 +342,9 @@ export function PersonSchedule({
                   })}
                   {canEdit && fallbackPlace ? (
                     <Button
+                      aria-label={t("rangeAdd", {
+                        day: people18n(`dayLong_${day}`),
+                      })}
                       onClick={() =>
                         change(day, [
                           ...ranges,
@@ -347,7 +361,7 @@ export function PersonSchedule({
                       variant="outline"
                     >
                       <PlusIcon aria-hidden="true" />
-                      {t("rangeAdd", { day: people18n(`dayLong_${day}`) })}
+                      {t("rangeAddShort")}
                     </Button>
                   ) : null}
                 </div>

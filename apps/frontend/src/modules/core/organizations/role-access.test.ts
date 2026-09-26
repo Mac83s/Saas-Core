@@ -87,3 +87,17 @@ test("rola bez żadnego obszaru ma tylko podstawowy dostęp", () => {
     roleAccess(["organization.read", "notifications.preferences"], offered),
   ).toEqual({ kind: "basic" });
 });
+
+test("własny grafik nie jest edycją kalendarza, tylko osobnym prawem", () => {
+  const withOwnHours = [...staff, "booking.schedule.own"];
+  const all = [...offered, "booking.schedule.own"];
+  expect(roleAccess(withOwnHours, all)).toEqual({
+    kind: "list",
+    edit: [],
+    view: ["bookings", "farms", "team"],
+    also: ["booking.schedule.own"],
+    none: ["settings", "billing"],
+  });
+  // The owner manages the calendar: lacking "own hours" takes nothing away.
+  expect(roleAccess(owner, all)).toEqual({ kind: "full" });
+});

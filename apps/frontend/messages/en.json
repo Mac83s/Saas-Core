@@ -587,6 +587,7 @@
     "rangePlace": "{day}: place of work",
     "rangeRemove": "{day}: remove the hours",
     "rangeAdd": "Add hours: {day}",
+    "rangeAddShort": "Add hours",
     "hoursSave": "Save the working hours",
     "hoursSaved": "Working hours saved.",
     "timeOffTitle": "Time off",
