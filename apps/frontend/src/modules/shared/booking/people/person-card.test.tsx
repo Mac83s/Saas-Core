@@ -414,6 +414,77 @@ test("moja karta bez wpisu w grafiku mówi, kogo poprosić", async () => {
   expect(api.getPerson).not.toHaveBeenCalled();
 });
 
+test("moja karta zarządu bez wpisu: konto z członkostwa, do grafiku dodaje się sam", async () => {
+  api.listPeople.mockResolvedValue([]);
+  api.listMemberships.mockResolvedValue([
+    {
+      id: "owner",
+      user_id: "user-owner",
+      email: "jan@example.com",
+      first_name: "Jan",
+      last_name: "Wójcik",
+      role: "owner",
+      status: "active",
+      joined_at: "2024-01-15T12:00:00Z",
+      revoked_at: null,
+    },
+  ]);
+  api.addPerson.mockResolvedValue(detail);
+  renderCard("overview", organization("owner", owner), "me");
+  expect(
+    await screen.findByText(/w firmie od 15 stycznia 2024/),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByText(/Nie masz jeszcze wpisu w grafiku firmy/),
+  ).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Edytuj" }));
+  const dialog = await screen.findByRole("dialog", {
+    name: "Edytuj: Jan Wójcik",
+  });
+  fireEvent.click(within(dialog).getByLabelText("Korekcja stada"));
+  fireEvent.click(within(dialog).getByRole("button", { name: "Zapisz" }));
+  await waitFor(() =>
+    expect(api.addPerson).toHaveBeenCalledWith({
+      name: "Jan Wójcik",
+      phone: "",
+      membership_id: "owner",
+      service_ids: [SERVICE],
+    }),
+  );
+});
+
+test("bez kalendarza w planie karta to samo konto: bez edycji i bez grafiku", async () => {
+  const outsidePlan = new ApiProblemError({
+    type: "about:blank",
+    title: "Forbidden",
+    status: 403,
+    code: "entitlement_required",
+    detail: "Moduł nie jest dostępny w planie organizacji.",
+    correlation_id: null,
+  });
+  api.getPerson.mockRejectedValue(outsidePlan);
+  api.getBookingCatalog.mockRejectedValue(outsidePlan);
+  api.listPeople.mockRejectedValue(outsidePlan);
+  renderCard("overview", organization("owner", owner), "marcin");
+  expect(
+    await screen.findByRole("heading", { level: 1, name: "Marcin Kowalski" }),
+  ).toBeInTheDocument();
+  // The role is the core's and stays; the entry would need the calendar.
+  expect(
+    screen.getByRole("button", { name: "Zmień rolę" }),
+  ).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Edytuj" })).toBeNull();
+  cleanup();
+
+  renderCard("overview", organization("viewer", viewer), "me");
+  expect(
+    await screen.findByRole("heading", { level: 1, name: "Jan Wójcik" }),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByText(/Nie masz jeszcze wpisu w grafiku firmy/),
+  ).toBeNull();
+});
+
 test("cudza albo nieistniejąca osoba to jasny komunikat, nie błąd (EN)", async () => {
   api.getPerson.mockRejectedValue(
     new ApiProblemError({

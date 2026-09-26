@@ -62,6 +62,8 @@ type Loaded = {
   people: Person[];
   upcoming: BookingAppointment[];
   members: MembershipSummary[];
+  /** The calendar answered: an installed module is not a bought one. */
+  booking: boolean;
 };
 
 function memberName(member: MembershipSummary): string {
@@ -103,6 +105,7 @@ export function PersonCard({
   const format = useFormatter();
   const labels = useDataTableLabels();
   const me = personId === "me";
+  const userId = user?.id;
   const permissions = new Set(organization?.permissions);
   const canRead = permissions.has(MEMBERS_READ);
   const canManageMembers = permissions.has(MEMBERS_MANAGE);
@@ -136,15 +139,17 @@ export function PersonCard({
         optional(listRoles()),
       ]);
       let detail: PersonDetail | null = null;
+      let mine: Person[] | undefined;
       if (calendarModule) {
-        const entry = me
-          ? (await optional(listPeople({ mine: true })))?.[0]?.id
-          : personId;
+        mine = me ? await optional(listPeople({ mine: true })) : undefined;
+        const entry = me ? mine?.[0]?.id : personId;
         detail = entry ? ((await optional(getPerson(entry))) ?? null) : null;
       }
       const member = detail?.membership_id
         ? members.find((item) => item.id === detail?.membership_id)
-        : members.find((item) => item.id === personId);
+        : members.find((item) =>
+            me ? item.user_id === userId : item.id === personId,
+          );
       if (!detail && !member && !me) {
         setData(null);
         return;
@@ -166,7 +171,13 @@ export function PersonCard({
               }),
             ),
           ])
-        : [undefined, undefined, undefined, undefined];
+        : [
+            // "Edytuj" gives an account its entry, services and all.
+            canBook ? await optional(getBookingCatalog()) : undefined,
+            undefined,
+            undefined,
+            undefined,
+          ];
       setData({
         detail,
         member,
@@ -177,12 +188,22 @@ export function PersonCard({
         people: others ?? [],
         upcoming: (upcoming ?? []).filter((item) => item.status !== "canceled"),
         members,
+        booking: Boolean(detail || mine || catalog),
       });
       setFailed(false);
     } catch {
       setFailed(true);
     }
-  }, [calendarModule, canInvite, canRead, me, personId, today]);
+  }, [
+    calendarModule,
+    canBook,
+    canInvite,
+    canRead,
+    me,
+    personId,
+    today,
+    userId,
+  ]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial load
@@ -206,7 +227,8 @@ export function PersonCard({
   const canSchedule =
     Boolean(detail?.active) &&
     (canBook || (self && permissions.has(SCHEDULE_OWN)));
-  const canEdit = canBook || (self && Boolean(detail));
+  const canEdit =
+    (canBook && Boolean(data?.booking)) || (self && Boolean(detail));
   const limited = new Set(
     data?.roles?.roles.filter((item) => item.limited).map((item) => item.key),
   );
@@ -471,7 +493,9 @@ export function PersonCard({
             ))}
           </ul>
         </nav>
-      ) : me ? (
+      ) : me && data.booking && !canEdit ? (
+        // Management adds itself with "Edytuj"; without the calendar in the
+        // plan there is no schedule to be missing from.
         <p className="text-muted-foreground">{t("noEntry")}</p>
       ) : null}
 

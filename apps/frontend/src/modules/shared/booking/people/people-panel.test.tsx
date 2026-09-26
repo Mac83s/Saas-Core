@@ -637,6 +637,8 @@ test("bez kalendarza w planie: lista kont i samo zaproszenie", async () => {
     within(table).queryByRole("columnheader", { name: "Dziś" }),
   ).toBeNull();
   expect(within(table).getByText("Marcin Kowalski")).toBeInTheDocument();
+  // Installed is not bought: nothing edits an entry the plan has no calendar for.
+  expect(within(table).queryByRole("button", { name: /^Edytuj:/ })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Dodaj pracownika" }));
   const dialog = await screen.findByRole("dialog", {
     name: "Dodaj pracownika",

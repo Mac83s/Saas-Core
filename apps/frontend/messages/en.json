@@ -2483,7 +2483,10 @@
     "site_publish": "Publish the website",
     "farms_read": "View farms",
     "farms_manage": "Manage farms",
-    "booking_schedule_own": "Own hours and time off"
+    "booking_schedule_own": "Own hours and time off",
+    "inventory_read": "View stock",
+    "inventory_use": "Materials for visits from own stock",
+    "inventory_manage": "Manage stock"
   },
   "Farms": {
     "eyebrow": "Farm register",

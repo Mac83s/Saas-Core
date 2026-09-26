@@ -183,11 +183,14 @@ export function PeoplePanel({
   const canTransfer =
     organization?.role === "owner" && permissions.has(OWNERSHIP_TRANSFER);
   const calendarModule = allows(access, { module: "shared.booking" });
-  const canBook = calendarModule && permissions.has(BOOKING_MANAGE);
   const canOwnSchedule = permissions.has(SCHEDULE_OWN);
   const zone = organization?.timezone ?? "UTC";
 
   const [data, setData] = useState<Loaded>();
+  // An installed module is not a bought one: where the plan has no calendar
+  // the list is the accounts, and nothing on it edits a calendar entry.
+  const canBook =
+    calendarModule && permissions.has(BOOKING_MANAGE) && Boolean(data?.booking);
   const [failed, setFailed] = useState(false);
   const [notice, setNotice] = useState("");
   const [problem, setProblem] = useState<string>();
@@ -547,7 +550,7 @@ export function PeoplePanel({
     <PanelPage
       actions={
         // Without an account to send, adding needs the calendar to hold the person.
-        canRead && data && (canInvite || (canBook && data.booking)) ? (
+        canRead && data && (canInvite || canBook) ? (
           <Button onClick={() => setAdding(true)}>
             <UserPlusIcon aria-hidden="true" />
             {t("add")}

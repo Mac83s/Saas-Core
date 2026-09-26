@@ -2483,7 +2483,10 @@
     "site_publish": "Publikacja strony",
     "farms_read": "Podgląd gospodarstw",
     "farms_manage": "Zarządzanie gospodarstwami",
-    "booking_schedule_own": "Własny grafik i nieobecności"
+    "booking_schedule_own": "Własny grafik i nieobecności",
+    "inventory_read": "Podgląd magazynu",
+    "inventory_use": "Materiały do wizyt z własnego zapasu",
+    "inventory_manage": "Prowadzenie magazynu"
   },
   "Farms": {
     "eyebrow": "Rejestr gospodarstw",
