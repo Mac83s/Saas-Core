@@ -82,6 +82,11 @@ the one exception being `core.entry_list` `items[].path` (`is_link_field` names
 it); a test holds every schema field whose pattern accepts a path or an
 `https://` URL to that rule. A person's session is never limited.
 
+A link says how it vouches for its target with `rel` (ADR-061: rich text v4,
+link list v2, footer v2). `default_automation_rel` gives an automation's new
+outbound link `nofollow` and puts back a `rel` a person set; it runs in the
+change-set plan and in both draft saves, next to the host check.
+
 The contract has **no command that changes a published address**, and it will
 not get one. `translation.update` carries `title`, `description`,
 `social_title`, `social_description` — no `slug`. Moving a URL costs the
