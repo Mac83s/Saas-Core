@@ -56,6 +56,12 @@ fail closed. `autonomous` means no per-change approval — it is still bounded b
 resource scope, limits, windows, command and link allowlists, the kill switch
 and the content policy, which can only narrow a grant.
 
+Every service behind an `IsSessionOrApiKey` route asks the grant, reads
+included — `assert_within_grant`, or `_assert_entry_writable` for anything that
+writes into a collection. Creating a collection or an entry once asked nothing,
+so a key hired for one blog could open sections and write articles beside it.
+A listing narrows to what the key's grants cover rather than refusing.
+
 The link allowlist is `assert_links_within_grant` in `services.py`: an
 automation may link only to the site's own hostnames (its non-released
 `Domain` rows) and the grant's `allowed_link_hosts`, exact match after IDNA
@@ -122,8 +128,12 @@ Review each new template against the checklist with screenshots at 390 and
   once made every image on every published page answer 404.
 - **Scheduled publication cannot carry a signed contract.** It expires long
   before the date. `publish_scheduled_entry` rebuilds the context from the
-  stored `scheduled_membership_id`, which also means a person suspended in the
-  meantime does not get one more publication out of the queue.
+  stored `scheduled_membership_id`, or for an integration from
+  `scheduled_credential_id` (a key's membership id is synthetic and would never
+  be found), which also means a person suspended or a key revoked in the
+  meantime does not get one more publication out of the queue. A schedule whose
+  author can no longer be acted for is closed as `failed` with a reason, not
+  left pending for the scan to hand out every minute.
 - **Template media goes through the ordinary media lifecycle** — upload
   completion, malware scan, normalization, variants, quota, audit. There is no
   trusted-file shortcut. Object storage does not roll back with PostgreSQL, so
