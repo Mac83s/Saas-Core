@@ -307,6 +307,28 @@ test("grafik: tydzień zapisuje się w całości, nieobecność to całe dni w s
   expect(
     await screen.findByRole("heading", { name: "Godziny pracy" }),
   ).toBeInTheDocument();
+  const today = () =>
+    screen.getByText("Dziś", { selector: "dt" }).nextElementSibling
+      ?.textContent;
+  expect(today()).toBe("Na wizycie do 12:00");
+  // The visit moved meanwhile: a saved week asks for today again.
+  api.getPeopleDay.mockResolvedValue({
+    date: "2026-09-24",
+    timezone: "Europe/Warsaw",
+    items: [
+      {
+        staff_id: "s-marcin",
+        works: [
+          {
+            starts_at: "2026-09-24T04:00:00Z",
+            ends_at: "2026-09-24T14:00:00Z",
+          },
+        ],
+        time_off: [],
+        busy: [],
+      },
+    ],
+  });
   fireEvent.change(screen.getByLabelText("Poniedziałek: od"), {
     target: { value: "07:00" },
   });
@@ -339,6 +361,7 @@ test("grafik: tydzień zapisuje się w całości, nieobecność to całe dni w s
   expect(
     await screen.findByText("Zapisano godziny pracy."),
   ).toBeInTheDocument();
+  await waitFor(() => expect(today()).toBe("Wolne"));
   expect(screen.getByText("Urlop")).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole("button", { name: "Dodaj nieobecność" }));

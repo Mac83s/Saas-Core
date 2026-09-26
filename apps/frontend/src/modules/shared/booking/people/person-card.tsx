@@ -526,7 +526,14 @@ export function PersonCard({
           canEdit={canSchedule}
           catalog={data.catalog}
           detail={detail}
-          onChanged={(next) => setData({ ...data, detail: next })}
+          onChanged={(next) => {
+            setData({ ...data, detail: next });
+            // Hours and time off move "Dziś"; the rest of the card stands.
+            void getPeopleDay().then(
+              (day) => setData((current) => current && { ...current, day }),
+              () => undefined,
+            );
+          }}
           onNotice={setNotice}
           people={data.people}
           today={today}

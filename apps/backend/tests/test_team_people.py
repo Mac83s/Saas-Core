@@ -256,6 +256,14 @@ def test_an_account_takes_a_seat_of_the_plan_and_a_subcontractor_does_not() -> N
     assert not StaffMember.all_objects.filter(display_name="Piotr").exists()
 
 
+@pytest.mark.parametrize(
+    ("limit", "said"),
+    [(1, "1 konto"), (3, "3 konta"), (5, "5 kont"), (12, "12 kont"), (22, "22 konta")],
+)
+def test_the_refusal_counts_the_accounts_the_way_polish_does(limit: int, said: str) -> None:
+    assert str(SeatLimitReached(limit).detail).startswith(f"Plan pozwala na {said} w panelu.")
+
+
 def test_a_suspended_account_frees_its_seat_and_coming_back_takes_one() -> None:
     owner = membership("zawieszeni")
     seats(owner, 2)

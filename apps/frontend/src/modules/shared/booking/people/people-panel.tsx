@@ -818,7 +818,15 @@ export function PeoplePanel({
                   owner: roleLabel("owner"),
                   admin: roleLabel("admin"),
                 })
-              : t(`${dialog.kind}Description`, { name: current.name })
+              : t(`${dialog.kind}Description`, {
+                  name: current.name,
+                  // What leaving takes away: the visits, the panel, or both.
+                  kind: current.staff
+                    ? ["active", "suspended"].includes(current.account)
+                      ? "both"
+                      : "visits"
+                    : "account",
+                })
           }
           destructive={dialog.kind !== "resume"}
           extra={

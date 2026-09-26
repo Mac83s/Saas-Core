@@ -545,6 +545,12 @@ test("usunięcie z firmy czeka na przeniesienie wizyt", async () => {
   const dialog = await screen.findByRole("dialog", {
     name: "Usunąć z firmy: Marcin Kowalski?",
   });
+  // Says what leaving takes away, and never guesses anyone's gender.
+  expect(
+    within(dialog).getByText(
+      "Marcin Kowalski przestanie przyjmować wizyty, straci dostęp do panelu i trafi do byłych pracowników. To, co ta osoba zapisała, zostaje w historii.",
+    ),
+  ).toBeInTheDocument();
   expect(
     within(dialog).getByRole("link", { name: "Pokaż jej wizyty w kalendarzu" }),
   ).toHaveAttribute("href", "/panel/calendar?view=list&staff=s-marcin");
@@ -564,6 +570,52 @@ test("usunięcie z firmy czeka na przeniesienie wizyt", async () => {
   expect(
     await screen.findByText("Marcin Kowalski nie pracuje już w firmie."),
   ).toBeInTheDocument();
+});
+
+test("osoba bez konta traci tylko wizyty; zawieszenie nie zgaduje płci", async () => {
+  renderPanel();
+  await openRowAction("Krzysztof Nowak", "Usuń z firmy…");
+  const end = await screen.findByRole("dialog", {
+    name: "Usunąć z firmy: Krzysztof Nowak?",
+  });
+  expect(
+    within(end).getByText(
+      "Krzysztof Nowak przestanie przyjmować wizyty i trafi do byłych pracowników. To, co ta osoba zapisała, zostaje w historii.",
+    ),
+  ).toBeInTheDocument();
+  fireEvent.click(within(end).getByRole("button", { name: "Anuluj" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+  await openRowAction("Anna Lewandowska", "Zawieś dostęp…");
+  const suspend = await screen.findByRole("dialog", {
+    name: "Zawiesić dostęp: Anna Lewandowska?",
+  });
+  expect(
+    within(suspend).getByText(/wylogujemy tę osobę ze wszystkich urządzeń/),
+  ).toBeInTheDocument();
+});
+
+test("pełny limit kont: zaproszenie czeka, osoba bez konta nie", async () => {
+  api.getSeatUsage.mockResolvedValue({ used: 3, limit: 3 });
+  renderPanel();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Dodaj pracownika" }),
+  );
+  const dialog = await screen.findByRole("dialog", {
+    name: "Dodaj pracownika",
+  });
+  expect(
+    within(dialog).getByText(
+      "Plan pozwala na 3 konta w panelu i wszystkie są zajęte. Dodaj osobę bez konta albo wybierz wyższy plan.",
+    ),
+  ).toBeInTheDocument();
+  expect(
+    within(dialog).getByRole("button", { name: "Dodaj i wyślij zaproszenie" }),
+  ).toBeDisabled();
+  fireEvent.click(within(dialog).getByRole("radio", { name: /Bez konta/ }));
+  expect(
+    within(dialog).getByRole("button", { name: "Dodaj pracownika" }),
+  ).toBeEnabled();
 });
 
 test("przekazanie organizacji to osobna akcja z ostrzeżeniem", async () => {

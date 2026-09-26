@@ -23,6 +23,15 @@ _accepted: list[InvitationAcceptedHandler] = []
 _seat_limits: list[SeatLimit] = []
 
 
+def _accounts(count: int) -> str:
+    """ "1 konto", "3 konta", "5 kont" — Polish counts its nouns three ways."""
+    if count == 1:
+        return f"{count} konto"
+    if count % 10 in (2, 3, 4) and count % 100 not in (12, 13, 14):
+        return f"{count} konta"
+    return f"{count} kont"
+
+
 class SeatLimitReached(APIException):
     status_code = 409
     default_code = "seat_limit_reached"
@@ -30,7 +39,7 @@ class SeatLimitReached(APIException):
     def __init__(self, limit: int) -> None:
         super().__init__(
             detail=(
-                f"Plan pozwala na {limit} kont w panelu. Pracownika bez konta "
+                f"Plan pozwala na {_accounts(limit)} w panelu. Pracownika bez konta "
                 "dodasz bez limitu, a więcej kont daje wyższy plan."
             ),
             code=self.default_code,
