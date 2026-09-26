@@ -2436,6 +2436,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/{site_id}/metrics/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description Views and inquiries as daily numbers (ADR-060).
+         *
+         *     Reachable with a key only through its own scope, `content:metrics`: a key
+         *     issued to write content does not thereby learn how a customer's site does.
+         */
+        get: operations["sites_metrics_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/{site_id}/navigation/": {
         parameters: {
             query?: never;
@@ -5693,6 +5715,15 @@ export interface components {
             /** Format: uuid */
             reference: string;
         };
+        SiteInquiryCount: {
+            /** Format: date */
+            day: string;
+            path: string;
+            /** Format: uuid */
+            publication_id: string;
+            block_position: number;
+            count: number;
+        };
         SiteInquiryList: {
             items: components["schemas"]["SiteInquiry"][];
             /** Format: uuid */
@@ -5724,6 +5755,17 @@ export interface components {
             supported_locales: string[];
             ready_to_publish: boolean;
             pages: components["schemas"]["PageLocalization"][];
+        };
+        SiteMetrics: {
+            /** Format: uuid */
+            site_id: string;
+            /** Format: date */
+            since: string;
+            /** Format: date */
+            until: string;
+            counter_enabled: boolean;
+            page_views: components["schemas"]["SitePageViewCount"][];
+            inquiries: components["schemas"]["SiteInquiryCount"][];
         };
         SiteNavigation: {
             /** Format: uuid */
@@ -5757,6 +5799,22 @@ export interface components {
             subdomain_label: string;
             default_locale: components["schemas"]["LocaleEnum"];
         };
+        SitePageViewCount: {
+            /** Format: date */
+            day: string;
+            path: string;
+            kind: components["schemas"]["SitePageViewCountKindEnum"];
+            /** Format: uuid */
+            publication_id: string;
+            views: number;
+        };
+        /**
+         * @description * `page` - page
+         *     * `entry` - entry
+         *     * `collection` - collection
+         * @enum {string}
+         */
+        SitePageViewCountKindEnum: "page" | "entry" | "collection";
         SitePublication: {
             /** Format: uuid */
             id: string;
@@ -13696,6 +13754,54 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_metrics_retrieve: {
+        parameters: {
+            query: {
+                since: string;
+                until: string;
+            };
+            header?: never;
+            path: {
+                site_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteMetrics"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

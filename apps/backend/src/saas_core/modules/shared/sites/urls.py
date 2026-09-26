@@ -20,6 +20,7 @@ from .domain_views import (
     SitePlatformDomainView,
 )
 from .inquiry_views import SiteInquiryDetailView, SiteInquiryListView, SiteInquiryReadView
+from .measurement_views import SiteMetricsView
 from .onboarding_views import (
     SiteOnboardingCompleteView,
     SiteOnboardingView,
@@ -69,6 +70,7 @@ urlpatterns = [
         name="template-photo-materialize",
     ),
     path("<uuid:site_id>/appearance/", SiteAppearanceView.as_view(), name="site-appearance"),
+    path("<uuid:site_id>/metrics/", SiteMetricsView.as_view(), name="site-metrics"),
     path("blueprint-catalog/", BlueprintCatalogView.as_view(), name="blueprint-catalog"),
     path("<uuid:site_id>/blueprint-draft/", BlueprintDraftView.as_view(), name="blueprint-draft"),
     path(

@@ -221,6 +221,12 @@ if (
 SITES_AUTONOMOUS_PILOT_ONLY = os.environ.get(
     "SITES_AUTONOMOUS_PILOT_ONLY", "true"
 ).strip().lower() not in {"0", "false", "no"}
+#: Whether the public renderer counts page views (ADR-060). A number with no
+#: visitor behind it, so on by default; the switch is for the day somebody has
+#: to stop counting without a release.
+SITES_PAGE_VIEW_COUNTER_ENABLED = os.environ.get(
+    "SITES_PAGE_VIEW_COUNTER_ENABLED", "true"
+).strip().lower() not in {"0", "false", "no"}
 SITES_ENTRY_INDEX_PAGE_SIZE = int(os.environ.get("SITES_ENTRY_INDEX_PAGE_SIZE", "10"))
 if not 1 <= SITES_ENTRY_INDEX_PAGE_SIZE <= 100:
     raise ImproperlyConfigured("SITES_ENTRY_INDEX_PAGE_SIZE musi być z zakresu 1-100")

@@ -66,6 +66,9 @@ ALLOWED_API_SCOPES = frozenset({
     "content:read",
     "content:draft",
     "content:publish",
+    # How the site does, as numbers (ADR-060) — a separate grant of trust
+    # from reading or writing its content.
+    "content:metrics",
 })
 #: What may travel to a subscriber, per event type. Deliberately the one
 #: place that decides both: the fields a delivery carries and, below, the

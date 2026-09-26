@@ -7049,6 +7049,62 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/{site_id}/metrics/:
+    get:
+      operationId: sites_metrics_retrieve
+      description: |-
+        Views and inquiries as daily numbers (ADR-060).
+
+        Reachable with a key only through its own scope, `content:metrics`: a key
+        issued to write content does not thereby learn how a customer's site does.
+      parameters:
+      - in: query
+        name: since
+        schema:
+          type: string
+          format: date
+        required: true
+      - in: path
+        name: site_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: until
+        schema:
+          type: string
+          format: date
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteMetrics'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/{site_id}/navigation/:
     get:
       operationId: sites_navigation_retrieve
@@ -15874,6 +15930,27 @@ components:
       required:
       - accepted
       - reference
+    SiteInquiryCount:
+      type: object
+      properties:
+        day:
+          type: string
+          format: date
+        path:
+          type: string
+        publication_id:
+          type: string
+          format: uuid
+        block_position:
+          type: integer
+        count:
+          type: integer
+      required:
+      - block_position
+      - count
+      - day
+      - path
+      - publication_id
     SiteInquiryList:
       type: object
       properties:
@@ -15969,6 +16046,35 @@ components:
       - ready_to_publish
       - site_id
       - supported_locales
+    SiteMetrics:
+      type: object
+      properties:
+        site_id:
+          type: string
+          format: uuid
+        since:
+          type: string
+          format: date
+        until:
+          type: string
+          format: date
+        counter_enabled:
+          type: boolean
+        page_views:
+          type: array
+          items:
+            $ref: '#/components/schemas/SitePageViewCount'
+        inquiries:
+          type: array
+          items:
+            $ref: '#/components/schemas/SiteInquiryCount'
+      required:
+      - counter_enabled
+      - inquiries
+      - page_views
+      - since
+      - site_id
+      - until
     SiteNavigation:
       type: object
       properties:
@@ -16063,6 +16169,37 @@ components:
       - step
       - subdomain_label
       - version
+    SitePageViewCount:
+      type: object
+      properties:
+        day:
+          type: string
+          format: date
+        path:
+          type: string
+        kind:
+          $ref: '#/components/schemas/SitePageViewCountKindEnum'
+        publication_id:
+          type: string
+          format: uuid
+        views:
+          type: integer
+      required:
+      - day
+      - kind
+      - path
+      - publication_id
+      - views
+    SitePageViewCountKindEnum:
+      enum:
+      - page
+      - entry
+      - collection
+      type: string
+      description: |-
+        * `page` - page
+        * `entry` - entry
+        * `collection` - collection
     SitePublication:
       type: object
       properties:

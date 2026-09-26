@@ -62,6 +62,8 @@ class PublicSiteNotFound(NotFound):
 
 @dataclass(frozen=True, slots=True)
 class PublicPage:
+    organization_id: Any
+    site_id: Any
     hostname: str
     canonical_hostname: str
     requested_path: str
@@ -186,6 +188,8 @@ def _resolved(
     publication: Any,
 ) -> PublicPage:
     return PublicPage(
+        organization_id=canonical.organization_id,
+        site_id=canonical.site_id,
         hostname=hostname,
         canonical_hostname=canonical.hostname,
         requested_path=path,

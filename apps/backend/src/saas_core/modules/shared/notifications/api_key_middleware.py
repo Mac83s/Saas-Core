@@ -42,6 +42,10 @@ SCOPE_PERMISSIONS: dict[str, frozenset[str]] = {
     "content:read": frozenset({"site.content.edit"}),
     "content:draft": frozenset({"site.content.edit", "media.template.import"}),
     "content:publish": frozenset({"site.content.edit", "site.publish", "media.template.import"}),
+    # Numbers about the site, not its content (ADR-060). The permission is the
+    # one a person needs to see them; what keeps a content key out is the
+    # door below, which accepts only this scope on the metrics route.
+    "content:metrics": frozenset({"site.content.edit"}),
 }
 
 
@@ -208,6 +212,10 @@ def _requested_scopes(request: HttpRequest) -> tuple[str, ...]:
     # This POST computes a diff without applying it. The exception is exact:
     # neither /changes/apply/ nor another POST inherits a read credential.
     preview = request.method == "POST" and request.path == "/api/v1/sites/changes/"
+    # The one read no content scope satisfies: how a site does is not part of
+    # what a key issued to read or write its content was trusted with.
+    if request.path.startswith("/api/v1/sites/") and request.path.endswith("/metrics/"):
+        return ("content:metrics",)
     if request.method in {"GET", "HEAD", "OPTIONS"} or preview:
         return ("content:read", "content:draft", "content:publish")
     if request.path.endswith("/publication/"):

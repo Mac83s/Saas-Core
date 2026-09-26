@@ -12,6 +12,7 @@ from rest_framework.views import APIView
 
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
+from .measurement import COUNT_VIEW_HEADER, record_page_view
 from .public_feeds import (
     render_site_atom,
     render_site_feed,
@@ -79,6 +80,8 @@ class PublicSitePageView(APIView):
             response = Response(status=308)
             response["Location"] = page.redirect_url
             return response
+        if request.META.get(COUNT_VIEW_HEADER) == "1":
+            record_page_view(page)
         return Response(public_page_payload(page))
 
 

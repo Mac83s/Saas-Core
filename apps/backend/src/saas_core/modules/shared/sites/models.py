@@ -1810,6 +1810,43 @@ class SiteInquiry(TenantScopedModel):
         ]
 
 
+class PageViewKind(models.TextChoices):
+    PAGE = "page", "Podstrona"
+    ENTRY = "entry", "Wpis"
+    #: A collection's index or one of its tag archives: a projection, so its
+    #: `publication_id` is the collection's own id.
+    COLLECTION = "collection", "Kolekcja"
+
+
+class PageViewDay(TenantScopedModel):
+    """How many times people opened one published address on one day (ADR-060).
+
+    A number and nothing else: no visitor, no address, no identifier, so there
+    is nobody to ask for consent and nobody to forget. Keyed by publication, so
+    a change can be measured from the publication that made it visible.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    site = models.ForeignKey(Site, on_delete=models.CASCADE, related_name="+")
+    #: The UTC day, like the daily numbers it is compared with.
+    day = models.DateField()
+    path = models.CharField(max_length=500)
+    kind = models.CharField(max_length=16, choices=PageViewKind.choices)
+    publication_id = models.UUIDField()
+    views = models.PositiveBigIntegerField(default=0)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "site_id", "day", "path")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("organization", "site", "day", "path", "publication_id"),
+                name="sites_pageviewday_key_uq",
+            ),
+        ]
+
+
 class AiBadgeSwitch(models.Model):
     """The operator's switch for the visible AI marking (ADR-059 pkt 7).
 
