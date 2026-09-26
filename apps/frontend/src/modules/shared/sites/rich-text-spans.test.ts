@@ -25,6 +25,21 @@ test("normalizacja łączy sąsiadów, usuwa puste i dzieli za długie przebiegi
   expect(parts[0].text).toHaveLength(3999);
 });
 
+test("rodzaj linku: tylko przy linku, tylko nasze wartości, rozdziela przebiegi (ADR-061)", () => {
+  expect(
+    normalizeSpans([
+      { text: "a", href: "https://p.test/", rel: "sponsored" },
+      { text: "b", href: "https://p.test/" },
+      { text: "c", href: "https://p.test/", rel: "follow" as "ugc" },
+      { text: "d", rel: "ugc" },
+    ]),
+  ).toEqual([
+    { text: "a", href: "https://p.test/", rel: "sponsored" },
+    { text: "bc", href: "https://p.test/" },
+    { text: "d" },
+  ]);
+});
+
 test("adresy linków: tylko lista kontraktu", () => {
   for (const href of [
     "/cennik",

@@ -574,7 +574,7 @@ function BlockField<TValues extends FieldValues>({
       >
         {field.options?.map((option) => (
           <option key={option} value={option}>
-            {t(`${field.labelKey}Options.${option}`)}
+            {t(`${field.labelKey}Options.${option || "none"}`)}
           </option>
         ))}
       </NativeSelect>

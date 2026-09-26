@@ -75,6 +75,34 @@ test("keeps marks, links and the text around them", () => {
   expect(roundTrip(content)).toEqual(content);
 });
 
+test("keeps how a link vouches for its target, and only ours (ADR-061)", () => {
+  const content: RichTextNode[] = [
+    {
+      type: "paragraph",
+      content: [
+        { text: "Sklep", href: "https://partner.test/", rel: "sponsored" },
+        { text: " i " },
+        { text: "opinie", href: "https://opinie.test/", rel: "ugc" },
+      ],
+    },
+  ];
+  expect(roundTrip(content)).toEqual(content);
+
+  // The editor's own defaults or a pasted page's rel are not a choice anybody
+  // made here, so they are not stored.
+  const doc = toEditorDoc(content);
+  const run = doc.content![0].content![0];
+  run.marks![0].attrs!.rel = "noopener noreferrer nofollow";
+  expect(fromEditorDoc(doc)[0]).toEqual({
+    type: "paragraph",
+    content: [
+      { text: "Sklep", href: "https://partner.test/" },
+      { text: " i " },
+      { text: "opinie", href: "https://opinie.test/", rel: "ugc" },
+    ],
+  });
+});
+
 test("merges neighbouring runs and splits a run over the contract limit", () => {
   const long = "ą".repeat(4500);
   expect(

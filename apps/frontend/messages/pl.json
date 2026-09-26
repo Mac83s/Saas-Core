@@ -1348,6 +1348,14 @@
     "contactHours": "Godziny kontaktu",
     "linkItems": "Linki",
     "linkDescription": "Opis linku",
+    "linkRel": "Rodzaj linku",
+    "linkRelOptions": {
+      "none": "Redakcyjny — polecamy tę stronę",
+      "sponsored": "Sponsorowany lub partnerski",
+      "ugc": "Od użytkowników (opinie, komentarze)",
+      "nofollow": "Bez polecenia"
+    },
+    "linkRelHint": "Dotyczy linków do innych stron. Wyszukiwarki traktują link redakcyjny jako polecenie; płatny albo partnerski oznacz jako sponsorowany.",
     "contactMode": "Czego formularz wymaga",
     "contactModeOptions": {
       "email": "Napisz do nas — e-mail i wiadomość, telefon opcjonalny",

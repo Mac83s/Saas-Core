@@ -17,7 +17,7 @@ import {
   type RichTextSpan,
 } from "@saas-core/site-blocks";
 
-import { normalizeSpans } from "./rich-text-spans";
+import { linkRelOf, normalizeSpans } from "./rich-text-spans";
 
 type ListStyle = "bullet" | "ordered";
 
@@ -28,7 +28,15 @@ function textNodes(spans: readonly RichTextSpan[]): JSONContent[] {
       ...(span.bold ? [{ type: "bold" }] : []),
       ...(span.italic ? [{ type: "italic" }] : []),
       ...(span.href !== undefined
-        ? [{ type: "link", attrs: { href: span.href } }]
+        ? [
+            {
+              type: "link",
+              attrs: {
+                href: span.href,
+                ...(span.rel ? { rel: span.rel } : {}),
+              },
+            },
+          ]
         : []),
     ];
     return [
@@ -116,8 +124,11 @@ function spans(content: readonly JSONContent[] = []): RichTextSpan[] {
       for (const mark of node.marks ?? []) {
         if (mark.type === "bold") span.bold = true;
         else if (mark.type === "italic") span.italic = true;
-        else if (mark.type === "link" && typeof mark.attrs?.href === "string")
+        else if (mark.type === "link" && typeof mark.attrs?.href === "string") {
           span.href = mark.attrs.href;
+          const rel = linkRelOf(mark.attrs.rel);
+          if (rel) span.rel = rel;
+        }
       }
       return [span];
     }),

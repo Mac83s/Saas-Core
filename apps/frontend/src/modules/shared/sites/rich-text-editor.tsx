@@ -72,6 +72,7 @@ import { fromEditorDoc, toEditorDoc } from "./rich-text-doc";
 import {
   hasBlankLines,
   isRichTextHref,
+  linkRelOf,
   splitParagraph,
 } from "./rich-text-spans";
 import { htmlToRichNodes, plainTextToRichNodes } from "./rich-text-paste";
@@ -889,14 +890,20 @@ function LinkDialog({
   pageAnchors: readonly string[];
 }) {
   const t = useTranslations("Sites.richText");
+  const sites = useTranslations("Sites");
   const common = useTranslations("Common");
   const id = useId();
   const [current] = useState(
     () => editor.getAttributes("link").href as string | undefined,
   );
   const [href, setHref] = useState(current ?? "");
+  const [rel, setRel] = useState<string>(
+    () => linkRelOf(editor.getAttributes("link").rel) ?? "",
+  );
   const [invalid, setInvalid] = useState(false);
   const anchors = [...new Set(pageAnchors)].sort();
+  // How a link vouches for its target matters only on the way to another site.
+  const outbound = href.trim().startsWith("https://");
 
   function apply() {
     const address = href.trim();
@@ -904,16 +911,20 @@ function LinkDialog({
       setInvalid(true);
       return;
     }
+    const attrs = {
+      href: address,
+      rel: (outbound && linkRelOf(rel)) || null,
+    };
     const chain = editor.chain().focus();
     if (editor.state.selection.empty && !editor.isActive("link"))
       chain
         .insertContent({
           type: "text",
           text: address,
-          marks: [{ type: "link", attrs: { href: address } }],
+          marks: [{ type: "link", attrs }],
         })
         .run();
-    else chain.extendMarkRange("link").setLink({ href: address }).run();
+    else chain.extendMarkRange("link").setLink(attrs).run();
     onClose();
   }
 
@@ -957,6 +968,26 @@ function LinkDialog({
           </FieldDescription>
           {invalid && <FieldError>{t("linkInvalid")}</FieldError>}
         </Field>
+        {outbound && (
+          <Field>
+            <FieldLabel htmlFor={`${id}-rel`}>{sites("linkRel")}</FieldLabel>
+            <NativeSelect
+              aria-describedby={`${id}-rel-hint`}
+              id={`${id}-rel`}
+              onChange={(event) => setRel(event.target.value)}
+              value={rel}
+            >
+              {["", "sponsored", "ugc", "nofollow"].map((option) => (
+                <option key={option} value={option}>
+                  {sites(`linkRelOptions.${option || "none"}`)}
+                </option>
+              ))}
+            </NativeSelect>
+            <FieldDescription id={`${id}-rel-hint`}>
+              {sites("linkRelHint")}
+            </FieldDescription>
+          </Field>
+        )}
         {anchors.length > 0 && (
           <Field>
             <FieldLabel htmlFor={`${id}-anchor`}>

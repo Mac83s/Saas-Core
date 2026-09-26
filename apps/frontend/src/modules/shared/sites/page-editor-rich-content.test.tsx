@@ -177,13 +177,13 @@ test("a legacy text opens unchanged in the editor and splits into paragraphs on 
   await waitFor(() => expect(text.textContent).toBe(legacyText));
 
   // Saved untouched, the v1 text becomes one paragraph of the latest version
-  // (v3 only adds optional fields), every character kept.
+  // (v3 and v4 only add optional fields), every character kept.
   save();
   await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
   expect(savedInput().blocks).toEqual([
     {
       block_type: "core.rich_text",
-      schema_version: 3,
+      schema_version: 4,
       data: {
         content: [{ type: "paragraph", content: [{ text: legacyText }] }],
       },

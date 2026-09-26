@@ -1348,6 +1348,14 @@
     "contactHours": "Contact hours",
     "linkItems": "Links",
     "linkDescription": "Link description",
+    "linkRel": "Link type",
+    "linkRelOptions": {
+      "none": "Editorial — we recommend this site",
+      "sponsored": "Sponsored or affiliate",
+      "ugc": "User-generated (reviews, comments)",
+      "nofollow": "No endorsement"
+    },
+    "linkRelHint": "Applies to links to other sites. Search engines read an editorial link as a recommendation; mark a paid or affiliate link as sponsored.",
     "contactMode": "What the form asks for",
     "contactModeOptions": {
       "email": "Write to us — email and message, phone optional",

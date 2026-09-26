@@ -1,7 +1,11 @@
 /** Canonical rich text runs (`core.rich_text` spans): what the editor, the
  *  clipboard normalizer and the stored JSON agree on. */
 
-import type { RichTextNode, RichTextSpan } from "@saas-core/site-blocks";
+import type {
+  LinkRel,
+  RichTextNode,
+  RichTextSpan,
+} from "@saas-core/site-blocks";
 
 const HREF_PATTERN =
   /^(?:\/(?!\/)|https:\/\/|mailto:|tel:|#[a-z][a-z0-9-]{0,63}$)/;
@@ -13,19 +17,38 @@ export function isRichTextHref(href: string): boolean {
   return HREF_PATTERN.test(href);
 }
 
-function span(text: string, marks: Marks, href?: string): RichTextSpan {
+const LINK_RELS: readonly string[] = ["sponsored", "ugc", "nofollow"];
+
+/** How a link vouches for its target (ADR-061), or nothing for an editorial
+ *  link. Anything else — the editor's own defaults, a pasted page's rel — is
+ *  not ours to store. */
+export function linkRelOf(value: unknown): LinkRel | undefined {
+  return typeof value === "string" && LINK_RELS.includes(value)
+    ? (value as LinkRel)
+    : undefined;
+}
+
+function span(
+  text: string,
+  marks: Marks,
+  href?: string,
+  rel?: LinkRel,
+): RichTextSpan {
   return {
     text,
     ...(marks.bold ? { bold: true as const } : {}),
     ...(marks.italic ? { italic: true as const } : {}),
     ...(href !== undefined ? { href } : {}),
+    // Only a link says how it vouches for its target.
+    ...(href !== undefined && rel !== undefined ? { rel } : {}),
   };
 }
 
 const sameAttributes = (a: RichTextSpan, b: RichTextSpan) =>
   Boolean(a.bold) === Boolean(b.bold) &&
   Boolean(a.italic) === Boolean(b.italic) &&
-  a.href === b.href;
+  a.href === b.href &&
+  a.rel === b.rel;
 
 /** The canonical runs: no empty text, no address outside the allowlist,
  *  neighbours with the same attributes merged, text over the contract limit
@@ -40,6 +63,7 @@ export function normalizeSpans(spans: readonly RichTextSpan[]): RichTextSpan[] {
       source.href !== undefined && isRichTextHref(source.href)
         ? source.href
         : undefined,
+      linkRelOf(source.rel),
     );
     const last = merged[merged.length - 1];
     if (last && sameAttributes(last, next)) last.text += next.text;
