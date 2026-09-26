@@ -15,12 +15,18 @@ from django.utils.formats import date_format
 from rest_framework.exceptions import APIException, NotFound, ValidationError
 
 from saas_core.modules.core.identity.models import User
-from saas_core.modules.core.organizations.audit import record_audit
+from saas_core.modules.core.organizations.audit import (
+    audit_snapshot,
+    field_changes,
+    record_audit,
+)
+from saas_core.modules.core.organizations.authorization import OrganizationPermissionDenied
 from saas_core.modules.core.organizations.context import require_tenant_context
 from saas_core.modules.core.organizations.models import (
     Membership,
     MembershipStatus,
     Organization,
+    OrganizationAuditAction,
 )
 from saas_core.modules.core.organizations.tasks import issue_service_task_contract
 from saas_core.modules.shared.billing.api import FeatureOperation
@@ -187,10 +193,15 @@ def _assert_member_of(organization: Organization, membership_id: UUID | None) ->
         raise ValidationError({"membership_id": "Nie ma takiego aktywnego członka zespołu."})
 
 
+#: What the history keeps of a person's entry; name and phone only as "changed".
+_STAFF_FIELDS = ("display_name", "phone", "active")
+
+
 @transaction.atomic
 def update_staff(*, staff_id: UUID, data: dict[str, Any]) -> StaffMember:
-    """Renames, (de)activates or links a calendar entry to a team member."""
-    context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
+    """Renames a calendar entry, sets its phone, (de)activates it or links it to
+    a team member. Management changes any of it; a person their own phone."""
+    context = authorize_entitled(BOOKING_READ, BOOKING_ENABLED)
     organization = Organization.objects.get(pk=context.organization_id)
     staff = (
         StaffMember.all_objects.select_for_update()
@@ -199,8 +210,13 @@ def update_staff(*, staff_id: UUID, data: dict[str, Any]) -> StaffMember:
     )
     if staff is None:
         raise NotFound("Nie ma takiego pracownika kalendarza.")
+    own = staff.membership_id is not None and staff.membership_id == context.membership_id
+    if not context.has_permission(BOOKING_MANAGE) and not (own and set(data) <= {"phone"}):
+        raise OrganizationPermissionDenied
     if "membership_id" in data:
         _assert_member_of(organization, data["membership_id"])
+    before = audit_snapshot(staff, _STAFF_FIELDS)
+    linked = staff.membership_id
     for field, value in data.items():
         setattr(staff, field, value)
     try:
@@ -210,13 +226,28 @@ def update_staff(*, staff_id: UUID, data: dict[str, Any]) -> StaffMember:
         raise ValidationError({
             "membership_id": "Ten członek zespołu ma już swój wpis w kalendarzu."
         }) from error
-    record_audit(
-        organization=organization,
-        action="booking.catalog.changed",
-        actor=User.objects.get(pk=context.actor_id),
-        target_type="staff",
-        target_id=staff.id,
+    actor = User.objects.filter(pk=context.actor_id).first()
+    if staff.membership_id != linked:
+        record_audit(
+            organization=organization,
+            action=OrganizationAuditAction.BOOKING_STAFF_LINKED,
+            actor=actor,
+            target_type="staff",
+            target_id=staff.id,
+            metadata={"linked": staff.membership_id is not None},
+        )
+    changes = field_changes(
+        before, audit_snapshot(staff, _STAFF_FIELDS), private=("display_name", "phone")
     )
+    if changes:
+        record_audit(
+            organization=organization,
+            action=OrganizationAuditAction.BOOKING_STAFF_UPDATED,
+            actor=actor,
+            target_type="staff",
+            target_id=staff.id,
+            metadata={"changes": changes},
+        )
     return staff
 
 
@@ -254,11 +285,13 @@ def list_appointments(
     appointment_kinds: frozenset[str] | set[str] | None = None,
     staff_id: UUID | None = None,
     mine: bool = False,
+    limit: int = 500,
 ) -> list[Appointment]:
     """`mine`: only the calendar entries linked to the caller's membership;
     `staff_id`: only the visits this person leads;
     `appointment_kinds`: only services of these kinds (a vertical's own visits);
-    `starts_until` is exclusive, so one day is `[midnight, next midnight)`."""
+    `starts_until` is exclusive, so one day is `[midnight, next midnight)`;
+    `limit`: at most this many, earliest first (1 answers "is there any")."""
     # A read: it keeps working when the plan has lapsed to read-only.
     context = authorize_entitled(BOOKING_READ, BOOKING_ENABLED, operation=FeatureOperation.READ)
     query = Appointment.all_objects.filter(organization_id=context.organization_id)
@@ -272,7 +305,10 @@ def list_appointments(
         query = query.filter(staff_id=staff_id)
     if mine:
         query = query.filter(staff__membership_id=context.membership_id)
-    return list(query.select_related("customer", "service", "staff", "location", "resource")[:500])
+    limit = max(1, min(limit, 500))
+    return list(
+        query.select_related("customer", "service", "staff", "location", "resource")[:limit]
+    )
 
 
 @transaction.atomic

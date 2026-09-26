@@ -52,6 +52,17 @@ class StaffMember(TenantScopedModel):
         blank=True,
         related_name="+",
     )
+    #: Internal contact: management and the person see it, nobody else (ADR-058 §1).
+    phone = models.CharField(max_length=40, blank=True)
+    #: The invitation of a person added with an e-mail: accepting it links the
+    #: account to this entry, so the office's name and hours stay (ADR-058 §1).
+    invitation = models.ForeignKey(
+        "organizations.Invitation",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -67,6 +78,11 @@ class StaffMember(TenantScopedModel):
                 fields=["organization", "membership"],
                 condition=models.Q(membership__isnull=False),
                 name="booking_staff_org_membership_uq",
+            ),
+            models.UniqueConstraint(
+                fields=["organization", "invitation"],
+                condition=models.Q(invitation__isnull=False),
+                name="booking_staff_org_invitation_uq",
             ),
         ]
 

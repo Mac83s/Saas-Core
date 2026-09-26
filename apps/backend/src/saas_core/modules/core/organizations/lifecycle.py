@@ -19,6 +19,7 @@ from saas_core.modules.core.identity.tokens import digest_secret, issue_bound_to
 from .audit import record_audit
 from .authorization import OrganizationPermissionDenied, authorize
 from .context import TenantContext, set_local_organization_id
+from .joining import announce_invitation_accepted, assert_seat_available
 from .middleware import ACTIVE_ORGANIZATION_SESSION_KEY
 from .models import (
     Invitation,
@@ -89,9 +90,11 @@ class MembershipChange:
     session_revoked: bool
 
 
-def list_memberships() -> list[Membership]:
+def list_memberships(*, include_former: bool = False) -> list[Membership]:
+    """Current members; with `include_former`, also each former member's last
+    membership — for management only, it is staff history (ADR-058 §9)."""
     context = authorize(MEMBERS_READ)
-    return list(
+    current = list(
         Membership.objects.select_related("user", "role")
         .filter(
             organization_id=context.organization_id,
@@ -99,6 +102,20 @@ def list_memberships() -> list[Membership]:
         )
         .order_by("user__email")
     )
+    if not include_former:
+        return current
+    _authorize_member_management()
+    former = (
+        Membership.objects.select_related("user", "role")
+        .filter(
+            organization_id=context.organization_id,
+            status__in=[MembershipStatus.REVOKED, MembershipStatus.LEFT],
+        )
+        .exclude(user_id__in=[member.user_id for member in current])
+        .order_by("user_id", "-revoked_at")
+        .distinct("user_id")
+    )
+    return [*current, *sorted(former, key=lambda member: member.user.email)]
 
 
 def list_invitations() -> list[Invitation]:
@@ -137,6 +154,7 @@ def create_invitation(
         status__in=[MembershipStatus.ACTIVE, MembershipStatus.SUSPENDED],
     ).exists():
         raise InvitationConflict
+    assert_seat_available(context.organization_id)
 
     now = timezone.now()
     stale_invitations = list(
@@ -250,6 +268,7 @@ def accept_invitation(*, request: HttpRequest, token: str) -> Membership:
         target_id=membership.id,
         metadata={"invitation_id": str(invitation.id), "role": invitation.role.key},
     )
+    announce_invitation_accepted(invitation, membership)
     if not request.session.get(ACTIVE_ORGANIZATION_SESSION_KEY):
         request.session[ACTIVE_ORGANIZATION_SESSION_KEY] = str(invitation.organization_id)
         rotate_managed_session(request=request)
@@ -342,8 +361,13 @@ def update_membership(
             metadata={"from": previous_role, "to": role.key},
         )
 
+    status_changed = False
     if membership_status is not None and membership_status != membership.status:
+        status_changed = True
         action = _membership_status_action(membership_status)
+        if membership_status == MembershipStatus.ACTIVE:
+            # A suspended account took no seat; coming back takes one.
+            assert_seat_available(context.organization_id)
         membership.status = membership_status
         membership.revoked_at = (
             timezone.now() if membership_status == MembershipStatus.REVOKED else None
@@ -359,9 +383,10 @@ def update_membership(
 
     if changed:
         membership.save(update_fields=["role", "status", "revoked_at", "updated_at"])
-        revoked = _revoke_user_sessions(membership.user)
-    else:
-        revoked = False
+    # Permissions are read from the role on every request, so a new role works
+    # from the next click without signing anyone out of the phone they work on
+    # (ADR-058 §9). Losing access to the organization still ends the sessions.
+    revoked = _revoke_user_sessions(membership.user) if status_changed else False
     return MembershipChange(membership, revoked)
 
 

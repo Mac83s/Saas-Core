@@ -125,6 +125,21 @@ class MembershipSummarySerializer(serializers.Serializer[dict[str, Any]]):
     role = serializers.CharField()
     status = serializers.CharField()
     joined_at = serializers.DateTimeField()
+    #: When a former member lost access or left; null for a current one.
+    revoked_at = serializers.DateTimeField(allow_null=True)
+
+
+class MembershipListQuerySerializer(serializers.Serializer[dict[str, Any]]):
+    #: Former members too, each with their last membership (management only).
+    include_former = serializers.BooleanField(default=False)
+
+
+class SeatUsageSerializer(serializers.Serializer[dict[str, Any]]):
+    """Accounts that log in against the plan's limit (owner's answer 5)."""
+
+    used = serializers.IntegerField()
+    #: Null: the plan names no limit.
+    limit = serializers.IntegerField(allow_null=True)
 
 
 class MembershipUpdateSerializer(serializers.Serializer[dict[str, Any]]):

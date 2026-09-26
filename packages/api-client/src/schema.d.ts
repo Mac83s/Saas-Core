@@ -504,22 +504,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/booking/catalog/staff/{staff_id}/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch: operations["api_v1_booking_catalog_staff_partial_update"];
-        trace?: never;
-    };
     "/api/v1/booking/customers/{customer_id}/anonymize/": {
         parameters: {
             query?: never;
@@ -731,6 +715,182 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/staff/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description The company's people (ADR-058 §1). The team screen joins them with the
+         *     organization's memberships and invitations; nobody drops off the list.
+         */
+        get: operations["api_v1_booking_staff_list"];
+        put?: never;
+        /**
+         * @description The company's people (ADR-058 §1). The team screen joins them with the
+         *     organization's memberships and invitations; nobody drops off the list.
+         */
+        post: operations["api_v1_booking_staff_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/staff-availability/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Who works, is away and is busy on one day (ADR-058 §9). */
+        get: operations["api_v1_booking_staff_availability_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/staff/{staff_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["api_v1_booking_staff_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["api_v1_booking_staff_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/booking/staff/{staff_id}/end/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description "Remove from the company"; refused while the person leads planned visits. */
+        post: operations["api_v1_booking_staff_end_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/staff/{staff_id}/hours/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * @description The person's week: management always, the person where the product lets
+         *     them (owner's answer 7).
+         */
+        put: operations["api_v1_booking_staff_hours_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/staff/{staff_id}/invitation/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description An account for a person added without one; accepting links it here. */
+        post: operations["api_v1_booking_staff_invitation_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/staff/{staff_id}/restore/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["api_v1_booking_staff_restore_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/staff/{staff_id}/services/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description What the person does; with hours, the calendar offers them for it. */
+        put: operations["api_v1_booking_staff_services_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/staff/{staff_id}/time-off/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["api_v1_booking_staff_time_off_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/time-off/{time_off_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["api_v1_booking_time_off_destroy"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1898,6 +2058,23 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["api_v1_organizations_current_roles_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/organizations/current/seats/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Accounts in use against the plan's limit, for the team screen. */
+        get: operations["api_v1_organizations_current_seats_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/profiles/": {
@@ -3508,6 +3685,13 @@ export interface components {
          * @enum {string}
          */
         AutomationPolicyEnum: "manual" | "proposed" | "automated";
+        AwayInterval: {
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            reason: string | null;
+        };
         /** @description What the panel shows and sends back for the invoice form. */
         BillingDetails: {
             customer_kind: components["schemas"]["CustomerKindEnum"];
@@ -4524,6 +4708,15 @@ export interface components {
             actions: string[];
             items: components["schemas"]["HistoryEntry"][];
         };
+        HoursRuleInput: {
+            weekday: number;
+            /** Format: time */
+            local_start: string;
+            /** Format: time */
+            local_end: string;
+            /** Format: uuid */
+            location_id: string;
+        };
         /**
          * @description * `16:9` - 16:9
          *     * `4:3` - 4:3
@@ -4567,6 +4760,12 @@ export interface components {
             prompt: string;
             aspect: components["schemas"]["ImageGenerationAspectEnum"];
             expected_cost: number;
+        };
+        Interval: {
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
         };
         InventoryAdjustInput: {
             /** Format: uuid */
@@ -4867,6 +5066,8 @@ export interface components {
             status: string;
             /** Format: date-time */
             joined_at: string;
+            /** Format: date-time */
+            revoked_at: string | null;
         };
         /**
          * @description * `active` - active
@@ -5190,16 +5391,16 @@ export interface components {
             timezone?: string;
             currency?: string;
         };
+        PatchedPersonUpdate: {
+            name?: string;
+            phone?: string;
+            /** Format: uuid */
+            membership_id?: string | null;
+        };
         PatchedRoleUpdate: {
             version?: number;
             name?: string;
             permissions?: string[];
-        };
-        PatchedStaffUpdate: {
-            name?: string;
-            active?: boolean;
-            /** Format: uuid */
-            membership_id?: string | null;
         };
         PatchedStockDocumentInput: {
             /** Format: uuid */
@@ -5249,6 +5450,91 @@ export interface components {
          * @enum {string}
          */
         PaymentModeEnum: "stripe" | "simulated";
+        PeopleDay: {
+            /** Format: date */
+            date: string;
+            timezone: string;
+            items: components["schemas"]["PersonDay"][];
+        };
+        /** @description A person of the company as booking keeps them (ADR-058 §1). */
+        Person: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            public_slug: string;
+            /** Format: uuid */
+            membership_id: string | null;
+            /** Format: uuid */
+            invitation_id: string | null;
+            phone: string | null;
+            active: boolean;
+            service_ids: string[];
+            has_hours: boolean;
+            /** Format: date-time */
+            created_at: string;
+        };
+        PersonCreate: {
+            name: string;
+            /** @default  */
+            phone: string;
+            invitation?: components["schemas"]["PersonInvitationInput"] | null;
+            /** Format: uuid */
+            membership_id?: string | null;
+            service_ids?: string[];
+            hours?: components["schemas"]["WeeklyHoursInput"] | null;
+            /** Format: uuid */
+            copy_hours_from?: string | null;
+        };
+        PersonDay: {
+            /** Format: uuid */
+            staff_id: string;
+            works: components["schemas"]["Interval"][];
+            time_off: components["schemas"]["AwayInterval"][];
+            busy: components["schemas"]["Interval"][];
+        };
+        /** @description A person of the company as booking keeps them (ADR-058 §1). */
+        PersonDetail: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            public_slug: string;
+            /** Format: uuid */
+            membership_id: string | null;
+            /** Format: uuid */
+            invitation_id: string | null;
+            phone: string | null;
+            active: boolean;
+            service_ids: string[];
+            has_hours: boolean;
+            /** Format: date-time */
+            created_at: string;
+            hours: components["schemas"]["WorkingHours"][];
+            time_off: components["schemas"]["TimeOff"][];
+        };
+        PersonHoursInput: {
+            rules: components["schemas"]["HoursRuleInput"][];
+        };
+        PersonInvitation: {
+            /** Format: uuid */
+            id: string;
+            /** Format: email */
+            email: string;
+            role: string;
+            status: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        PersonInvitationInput: {
+            /** Format: email */
+            email: string;
+            role: string;
+        };
+        PersonList: {
+            items: components["schemas"]["Person"][];
+        };
+        PersonServicesInput: {
+            service_ids: string[];
+        };
         PlatformDomainChange: {
             label: string;
         };
@@ -5580,6 +5866,11 @@ export interface components {
          * @enum {string}
          */
         ScopeEnum: "system" | "organization";
+        /** @description Accounts that log in against the plan's limit (owner's answer 5). */
+        SeatUsage: {
+            used: number;
+            limit: number | null;
+        };
         Service: {
             /** Format: uuid */
             id: string;
@@ -6055,6 +6346,27 @@ export interface components {
             subject: string;
             html_body: string;
         };
+        TimeOff: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            reason: string | null;
+        };
+        TimeOffCreated: {
+            time_off: components["schemas"]["TimeOff"];
+            conflicts: number;
+        };
+        TimeOffInput: {
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            /** @default  */
+            reason: string;
+        };
         TotpConfirmResult: {
             status: components["schemas"]["TotpConfirmResultStatusEnum"];
             recovery_codes: string[];
@@ -6150,6 +6462,28 @@ export interface components {
         };
         WebhookList: {
             items: components["schemas"]["Webhook"][];
+        };
+        /** @description The same hours on the chosen weekdays, as "Add employee" asks for them. */
+        WeeklyHoursInput: {
+            weekdays: number[];
+            /** Format: time */
+            local_start: string;
+            /** Format: time */
+            local_end: string;
+            /** Format: uuid */
+            location_id?: string | null;
+        };
+        WorkingHours: {
+            /** Format: uuid */
+            id: string;
+            weekday: number;
+            /** Format: time */
+            local_start: string;
+            /** Format: time */
+            local_end: string;
+            /** Format: uuid */
+            location_id: string;
+            location_name: string;
         };
         /**
          * @description * `personal` - personal
@@ -7277,6 +7611,8 @@ export interface operations {
             query?: {
                 /** @description Wizyty zaczynające się od tej chwili: data (północ w strefie organizacji) albo data i czas ISO 8601. */
                 from?: string;
+                /** @description Najwyżej tyle wizyt, od najwcześniejszej (1–500, domyślnie 500). */
+                limit?: number;
                 /** @description Tylko wizyty pracownika kalendarza powiązanego z moim kontem. */
                 mine?: boolean;
                 /** @description Tylko wizyty tej osoby. */
@@ -7514,49 +7850,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MaterialsInput"];
-                };
-            };
-        };
-    };
-    api_v1_booking_catalog_staff_partial_update: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                staff_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["PatchedStaffUpdate"];
-                "application/x-www-form-urlencoded": components["schemas"]["PatchedStaffUpdate"];
-                "multipart/form-data": components["schemas"]["PatchedStaffUpdate"];
-            };
-        };
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Staff"];
-                };
-            };
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDetails"];
-                };
-            };
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };
@@ -7922,6 +8215,492 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["StaffSlotTimeList"];
+                };
+            };
+        };
+    };
+    api_v1_booking_staff_list: {
+        parameters: {
+            query?: {
+                mine?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonList"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_booking_staff_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PersonCreate"];
+                "multipart/form-data": components["schemas"]["PersonCreate"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonDetail"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_booking_staff_availability_retrieve: {
+        parameters: {
+            query?: {
+                /** @description Dzień w strefie organizacji; bez niego: dziś. */
+                date?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PeopleDay"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_booking_staff_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                staff_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonDetail"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_booking_staff_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                staff_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedPersonUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedPersonUpdate"];
+                "multipart/form-data": components["schemas"]["PatchedPersonUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonDetail"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_booking_staff_end_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                staff_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonDetail"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_booking_staff_hours_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                staff_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonHoursInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PersonHoursInput"];
+                "multipart/form-data": components["schemas"]["PersonHoursInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonDetail"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_booking_staff_invitation_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                staff_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonInvitationInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PersonInvitationInput"];
+                "multipart/form-data": components["schemas"]["PersonInvitationInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonInvitation"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_booking_staff_restore_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                staff_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonDetail"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_booking_staff_services_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                staff_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonServicesInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PersonServicesInput"];
+                "multipart/form-data": components["schemas"]["PersonServicesInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonDetail"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_booking_staff_time_off_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                staff_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TimeOffInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["TimeOffInput"];
+                "multipart/form-data": components["schemas"]["TimeOffInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeOffCreated"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_booking_time_off_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                time_off_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };
@@ -11655,7 +12434,9 @@ export interface operations {
     };
     api_v1_organizations_current_members_list: {
         parameters: {
-            query?: never;
+            query?: {
+                include_former?: boolean;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -12001,6 +12782,33 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_organizations_current_seats_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeatUsage"];
+                };
+            };
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

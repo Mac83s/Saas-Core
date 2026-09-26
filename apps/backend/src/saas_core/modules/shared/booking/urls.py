@@ -11,7 +11,6 @@ from .views import (
     BookingSlotDaysView,
     BookingSlotsView,
     BookingSlotTimesView,
-    BookingStaffView,
     CustomerAnonymizeView,
     PublicBookingCatalogView,
     PublicBookingCreateView,
@@ -22,13 +21,34 @@ from .views import (
     SelfServiceCancelView,
     SelfServiceRescheduleView,
     ServiceMaterialsView,
+    StaffAvailabilityView,
+    StaffDetailView,
+    StaffEndView,
+    StaffHoursView,
+    StaffInvitationView,
+    StaffListView,
+    StaffRestoreView,
+    StaffServicesView,
+    StaffTimeOffView,
+    TimeOffDetailView,
 )
 
 app_name = "booking"
 
 urlpatterns = [
     path("catalog/", BookingCatalogView.as_view(), name="catalog"),
-    path("catalog/staff/<uuid:staff_id>/", BookingStaffView.as_view(), name="staff"),
+    path("staff/", StaffListView.as_view(), name="staff-list"),
+    path("staff/<uuid:staff_id>/", StaffDetailView.as_view(), name="staff"),
+    path("staff/<uuid:staff_id>/services/", StaffServicesView.as_view(), name="staff-services"),
+    path("staff/<uuid:staff_id>/hours/", StaffHoursView.as_view(), name="staff-hours"),
+    path("staff/<uuid:staff_id>/time-off/", StaffTimeOffView.as_view(), name="staff-time-off"),
+    path(
+        "staff/<uuid:staff_id>/invitation/", StaffInvitationView.as_view(), name="staff-invitation"
+    ),
+    path("staff/<uuid:staff_id>/end/", StaffEndView.as_view(), name="staff-end"),
+    path("staff/<uuid:staff_id>/restore/", StaffRestoreView.as_view(), name="staff-restore"),
+    path("time-off/<uuid:time_off_id>/", TimeOffDetailView.as_view(), name="time-off"),
+    path("staff-availability/", StaffAvailabilityView.as_view(), name="staff-availability"),
     path("schedule/", BookingScheduleView.as_view(), name="schedule"),
     path("slots/", BookingSlotsView.as_view(), name="slots"),
     path("slots/days/", BookingSlotDaysView.as_view(), name="slot-days"),

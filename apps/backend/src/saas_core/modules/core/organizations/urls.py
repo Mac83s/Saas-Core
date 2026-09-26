@@ -12,6 +12,7 @@ from .views import (
     OwnershipTransferView,
     RoleDetailView,
     RoleListCreateView,
+    SeatUsageView,
 )
 
 urlpatterns = [
@@ -28,6 +29,7 @@ urlpatterns = [
         name="organization-invitation-revoke",
     ),
     path("current/history/", HistoryView.as_view(), name="organization-history"),
+    path("current/seats/", SeatUsageView.as_view(), name="organization-seats"),
     path("current/roles/", RoleListCreateView.as_view(), name="organization-roles"),
     path(
         "current/roles/<slug:role_key>/",

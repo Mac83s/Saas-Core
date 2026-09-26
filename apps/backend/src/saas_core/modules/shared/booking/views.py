@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from django.conf import settings
+from django.http import HttpRequest
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_protect
@@ -31,6 +32,16 @@ from .serializers import (
     CatalogSerializer,
     CustomerAnonymizedSerializer,
     MaterialsInputSerializer,
+    PeopleDaySerializer,
+    PersonCreateSerializer,
+    PersonDetailSerializer,
+    PersonHoursInputSerializer,
+    PersonInvitationInputSerializer,
+    PersonInvitationSerializer,
+    PersonListQuerySerializer,
+    PersonListSerializer,
+    PersonServicesInputSerializer,
+    PersonUpdateSerializer,
     PublicAppointmentCreateSerializer,
     PublicAppointmentSerializer,
     PublicCatalogSerializer,
@@ -39,9 +50,9 @@ from .serializers import (
     SlotDayListSerializer,
     SlotListSerializer,
     SlotTimeListSerializer,
-    StaffSerializer,
     StaffSlotTimeListSerializer,
-    StaffUpdateSerializer,
+    TimeOffCreatedSerializer,
+    TimeOffInputSerializer,
 )
 from .services import (
     BOOKING_ENABLED,
@@ -58,6 +69,21 @@ from .services import (
     set_appointment_materials,
     set_service_materials,
     update_staff,
+)
+from .staff import (
+    Person,
+    PersonDetail,
+    add_person,
+    add_time_off,
+    end_person,
+    invite_person,
+    list_people,
+    people_day,
+    person_detail,
+    remove_time_off,
+    restore_person,
+    set_person_hours,
+    set_person_services,
 )
 
 IDEMPOTENCY = OpenApiParameter("Idempotency-Key", str, OpenApiParameter.HEADER, required=True)
@@ -249,34 +275,6 @@ class BookingCatalogView(APIView):
 
 
 @method_decorator(csrf_protect, name="dispatch")
-class BookingStaffView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    @extend_schema(
-        tags=["booking"],
-        request=StaffUpdateSerializer,
-        responses={
-            200: StaffSerializer,
-            400: ProblemDetailsSerializer,
-            404: ProblemDetailsSerializer,
-        },
-    )
-    def patch(self, request: Request, staff_id: UUID) -> Response:
-        serializer = StaffUpdateSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        data = dict(serializer.validated_data)
-        if "name" in data:
-            data["display_name"] = data.pop("name")
-        staff = update_staff(staff_id=staff_id, data=data)
-        return Response({
-            "id": staff.id,
-            "name": staff.display_name,
-            "public_slug": staff.public_slug,
-            "membership_id": staff.membership_id,
-        })
-
-
-@method_decorator(csrf_protect, name="dispatch")
 class BookingScheduleView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -416,17 +414,28 @@ class AppointmentListCreateView(APIView):
             OpenApiParameter(
                 "staff_id", UUID, OpenApiParameter.QUERY, description="Tylko wizyty tej osoby."
             ),
+            OpenApiParameter(
+                "limit",
+                int,
+                OpenApiParameter.QUERY,
+                description="Najwyżej tyle wizyt, od najwcześniejszej (1–500, domyślnie 500).",
+            ),
         ],
         responses={200: AppointmentListSerializer, 400: ProblemDetailsSerializer},
     )
     def get(self, request: Request) -> Response:
         mine = request.query_params.get("mine", "").lower() in {"1", "true"}
         staff = _staff_query(request)
+        try:
+            limit = int(request.query_params.get("limit", 500))
+        except ValueError as error:
+            raise ParseError("Nieprawidłowy limit wizyt.") from error
         items = list_appointments(
             starts_from=_window_edge(request, "from"),
             starts_until=_window_edge(request, "to"),
             staff_id=staff[0] if staff else None,
             mine=mine,
+            limit=limit,
         )
         return Response({"items": [_appointment_payload(x) for x in items]})
 
@@ -795,3 +804,338 @@ class SelfServiceCancelView(SelfServiceAppointmentView):
             )
             payload = _public_appointment_payload(value)
         return Response(payload)
+
+
+def _person_payload(person: Person) -> dict[str, Any]:
+    staff = person.staff
+    return {
+        "id": staff.id,
+        "name": staff.display_name,
+        "public_slug": staff.public_slug,
+        "membership_id": staff.membership_id,
+        "invitation_id": staff.invitation_id,
+        "phone": staff.phone if person.private else None,
+        "active": staff.active,
+        "service_ids": person.service_ids,
+        "has_hours": person.has_hours,
+        "created_at": staff.created_at,
+    }
+
+
+def _person_detail_payload(detail: PersonDetail) -> dict[str, Any]:
+    private = detail.person.private
+    return {
+        **_person_payload(detail.person),
+        "hours": [
+            {
+                "id": rule.id,
+                "weekday": rule.weekday,
+                "local_start": rule.local_start,
+                "local_end": rule.local_end,
+                "location_id": rule.location_id,
+                "location_name": rule.location.name,
+            }
+            for rule in detail.hours
+        ],
+        "time_off": [
+            {
+                "id": item.id,
+                "starts_at": item.starts_at,
+                "ends_at": item.ends_at,
+                "reason": item.reason if private else None,
+            }
+            for item in detail.time_off
+        ],
+    }
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class StaffListView(APIView):
+    """The company's people (ADR-058 §1). The team screen joins them with the
+    organization's memberships and invitations; nobody drops off the list."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="api_v1_booking_staff_list",
+        tags=["booking"],
+        parameters=[PersonListQuerySerializer],
+        responses={200: PersonListSerializer, 403: ProblemDetailsSerializer},
+    )
+    def get(self, request: Request) -> Response:
+        query = PersonListQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        people = list_people(mine=query.validated_data["mine"])
+        return Response({"items": [_person_payload(person) for person in people]})
+
+    @extend_schema(
+        tags=["booking"],
+        request=PersonCreateSerializer,
+        responses={
+            201: PersonDetailSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = PersonCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        staff = add_person(
+            request=cast(HttpRequest, request),
+            name=data["name"],
+            phone=data["phone"],
+            invitation=data.get("invitation"),
+            membership_id=data.get("membership_id"),
+            service_ids=data["service_ids"],
+            hours=data.get("hours"),
+            copy_hours_from=data.get("copy_hours_from"),
+        )
+        return Response(_person_detail_payload(person_detail(staff.id)), status=201)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class StaffDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        responses={
+            200: PersonDetailSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, request: Request, staff_id: UUID) -> Response:
+        del request
+        return Response(_person_detail_payload(person_detail(staff_id)))
+
+    @extend_schema(
+        tags=["booking"],
+        request=PersonUpdateSerializer,
+        responses={
+            200: PersonDetailSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def patch(self, request: Request, staff_id: UUID) -> Response:
+        serializer = PersonUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = dict(serializer.validated_data)
+        if "name" in data:
+            data["display_name"] = data.pop("name")
+        update_staff(staff_id=staff_id, data=data)
+        return Response(_person_detail_payload(person_detail(staff_id)))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class StaffServicesView(APIView):
+    """What the person does; with hours, the calendar offers them for it."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        request=PersonServicesInputSerializer,
+        responses={
+            200: PersonDetailSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+        },
+    )
+    def put(self, request: Request, staff_id: UUID) -> Response:
+        serializer = PersonServicesInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        detail = set_person_services(
+            staff_id=staff_id, service_ids=serializer.validated_data["service_ids"]
+        )
+        return Response(_person_detail_payload(detail))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class StaffHoursView(APIView):
+    """The person's week: management always, the person where the product lets
+    them (owner's answer 7)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        request=PersonHoursInputSerializer,
+        responses={
+            200: PersonDetailSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+        },
+    )
+    def put(self, request: Request, staff_id: UUID) -> Response:
+        serializer = PersonHoursInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        detail = set_person_hours(staff_id=staff_id, rules=serializer.validated_data["rules"])
+        return Response(_person_detail_payload(detail))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class StaffTimeOffView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        request=TimeOffInputSerializer,
+        responses={
+            201: TimeOffCreatedSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request, staff_id: UUID) -> Response:
+        serializer = TimeOffInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        item, conflicts = add_time_off(staff_id=staff_id, **serializer.validated_data)
+        return Response(
+            {
+                "time_off": {
+                    "id": item.id,
+                    "starts_at": item.starts_at,
+                    "ends_at": item.ends_at,
+                    "reason": item.reason,
+                },
+                "conflicts": conflicts,
+            },
+            status=201,
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class TimeOffDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        responses={204: None, 403: ProblemDetailsSerializer, 404: ProblemDetailsSerializer},
+    )
+    def delete(self, request: Request, time_off_id: UUID) -> Response:
+        del request
+        remove_time_off(time_off_id=time_off_id)
+        return Response(status=204)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class StaffInvitationView(APIView):
+    """An account for a person added without one; accepting links it here."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        request=PersonInvitationInputSerializer,
+        responses={
+            201: PersonInvitationSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request, staff_id: UUID) -> Response:
+        serializer = PersonInvitationInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        invitation = invite_person(
+            request=cast(HttpRequest, request),
+            staff_id=staff_id,
+            email=serializer.validated_data["email"],
+            role=serializer.validated_data["role"],
+        )
+        return Response(
+            {
+                "id": invitation.id,
+                "email": invitation.email,
+                "role": invitation.role.key,
+                "status": invitation.status,
+                "expires_at": invitation.expires_at,
+            },
+            status=201,
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class StaffEndView(APIView):
+    """ "Remove from the company"; refused while the person leads planned visits."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        request=None,
+        responses={
+            200: PersonDetailSerializer,
+            403: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request, staff_id: UUID) -> Response:
+        end_person(request=cast(HttpRequest, request), staff_id=staff_id)
+        return Response(_person_detail_payload(person_detail(staff_id)))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class StaffRestoreView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        request=None,
+        responses={200: PersonDetailSerializer, 403: ProblemDetailsSerializer},
+    )
+    def post(self, request: Request, staff_id: UUID) -> Response:
+        del request
+        restore_person(staff_id=staff_id)
+        return Response(_person_detail_payload(person_detail(staff_id)))
+
+
+class StaffAvailabilityView(APIView):
+    """Who works, is away and is busy on one day (ADR-058 §9)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        parameters=[
+            OpenApiParameter(
+                "date",
+                date,
+                OpenApiParameter.QUERY,
+                description="Dzień w strefie organizacji; bez niego: dziś.",
+            )
+        ],
+        responses={
+            200: PeopleDaySerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, request: Request) -> Response:
+        value = request.query_params.get("date")
+        try:
+            day = date.fromisoformat(value) if value else None
+        except ValueError as error:
+            raise ParseError("Nieprawidłowa data.") from error
+        day, zone, people = people_day(day)
+        return Response({
+            "date": day,
+            "timezone": zone,
+            "items": [
+                {
+                    "staff_id": person.staff_id,
+                    "works": [{"starts_at": a, "ends_at": b} for a, b in person.works],
+                    "time_off": [
+                        {"starts_at": a, "ends_at": b, "reason": reason}
+                        for a, b, reason in person.time_off
+                    ],
+                    "busy": [{"starts_at": a, "ends_at": b} for a, b in person.busy],
+                }
+                for person in people
+            ],
+        })

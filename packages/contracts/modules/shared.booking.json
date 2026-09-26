@@ -6,7 +6,14 @@
   "backend": {
     "djangoApp": "saas_core.modules.shared.booking",
     "urlPrefix": "/api/v1/booking",
-    "permissions": ["booking.appointment.read", "booking.appointment.manage"],
+    "permissions": [
+      "booking.appointment.read",
+      "booking.appointment.manage",
+      "booking.schedule.own"
+    ],
+    "roleGrants": {
+      "staff": ["booking.schedule.own"]
+    },
     "entitlements": ["booking.enabled"],
     "eventSchemas": ["booking.appointment.created.v1"],
     "publicTables": [],

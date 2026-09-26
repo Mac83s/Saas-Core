@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:85fa9c16f51c99d4680f120a4c504807b5b28d029036b38b9a93fb447c5a79db",
+  "profileHash": "sha256:2ca1338eddcdaf102daacc58fe8e2dfcfad9b5dfa4c1472b357235afc0884cc1",
   "schemaVersion": 1,
   "deployment": "business",
   "product": {
@@ -386,8 +386,14 @@
         "urlPrefix": "/api/v1/booking",
         "permissions": [
           "booking.appointment.read",
-          "booking.appointment.manage"
+          "booking.appointment.manage",
+          "booking.schedule.own"
         ],
+        "roleGrants": {
+          "staff": [
+            "booking.schedule.own"
+          ]
+        },
         "entitlements": [
           "booking.enabled"
         ],

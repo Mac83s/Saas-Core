@@ -942,6 +942,11 @@ paths:
         description: 'Wizyty zaczynające się od tej chwili: data (północ w strefie
           organizacji) albo data i czas ISO 8601.'
       - in: query
+        name: limit
+        schema:
+          type: integer
+        description: Najwyżej tyle wizyt, od najwcześniejszej (1–500, domyślnie 500).
+      - in: query
         name: mine
         schema:
           type: boolean
@@ -1210,50 +1215,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MaterialsInput'
-          description: ''
-  /api/v1/booking/catalog/staff/{staff_id}/:
-    patch:
-      operationId: api_v1_booking_catalog_staff_partial_update
-      parameters:
-      - in: path
-        name: staff_id
-        schema:
-          type: string
-          format: uuid
-        required: true
-      tags:
-      - booking
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/PatchedStaffUpdate'
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/PatchedStaffUpdate'
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/PatchedStaffUpdate'
-      security:
-      - cookieAuth: []
-      responses:
-        '200':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Staff'
-          description: ''
-        '400':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-          description: ''
-        '404':
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
           description: ''
   /api/v1/booking/customers/{customer_id}/anonymize/:
     post:
@@ -1728,6 +1689,480 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/StaffSlotTimeList'
+          description: ''
+  /api/v1/booking/staff/:
+    get:
+      operationId: api_v1_booking_staff_list
+      description: |-
+        The company's people (ADR-058 §1). The team screen joins them with the
+        organization's memberships and invitations; nobody drops off the list.
+      parameters:
+      - in: query
+        name: mine
+        schema:
+          type: boolean
+          default: false
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonList'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: api_v1_booking_staff_create
+      description: |-
+        The company's people (ADR-058 §1). The team screen joins them with the
+        organization's memberships and invitations; nobody drops off the list.
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PersonCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PersonCreate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonDetail'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/staff-availability/:
+    get:
+      operationId: api_v1_booking_staff_availability_retrieve
+      description: Who works, is away and is busy on one day (ADR-058 §9).
+      parameters:
+      - in: query
+        name: date
+        schema:
+          type: string
+          format: date
+        description: 'Dzień w strefie organizacji; bez niego: dziś.'
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PeopleDay'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/staff/{staff_id}/:
+    get:
+      operationId: api_v1_booking_staff_retrieve
+      parameters:
+      - in: path
+        name: staff_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonDetail'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    patch:
+      operationId: api_v1_booking_staff_partial_update
+      parameters:
+      - in: path
+        name: staff_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPersonUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPersonUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPersonUpdate'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonDetail'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/staff/{staff_id}/end/:
+    post:
+      operationId: api_v1_booking_staff_end_create
+      description: '"Remove from the company"; refused while the person leads planned
+        visits.'
+      parameters:
+      - in: path
+        name: staff_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonDetail'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/staff/{staff_id}/hours/:
+    put:
+      operationId: api_v1_booking_staff_hours_update
+      description: |-
+        The person's week: management always, the person where the product lets
+        them (owner's answer 7).
+      parameters:
+      - in: path
+        name: staff_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonHoursInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PersonHoursInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PersonHoursInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonDetail'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/staff/{staff_id}/invitation/:
+    post:
+      operationId: api_v1_booking_staff_invitation_create
+      description: An account for a person added without one; accepting links it here.
+      parameters:
+      - in: path
+        name: staff_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonInvitationInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PersonInvitationInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PersonInvitationInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonInvitation'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/staff/{staff_id}/restore/:
+    post:
+      operationId: api_v1_booking_staff_restore_create
+      parameters:
+      - in: path
+        name: staff_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonDetail'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/staff/{staff_id}/services/:
+    put:
+      operationId: api_v1_booking_staff_services_update
+      description: What the person does; with hours, the calendar offers them for
+        it.
+      parameters:
+      - in: path
+        name: staff_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonServicesInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PersonServicesInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PersonServicesInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonDetail'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/staff/{staff_id}/time-off/:
+    post:
+      operationId: api_v1_booking_staff_time_off_create
+      parameters:
+      - in: path
+        name: staff_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TimeOffInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TimeOffInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TimeOffInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeOffCreated'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/time-off/{time_off_id}/:
+    delete:
+      operationId: api_v1_booking_time_off_destroy
+      parameters:
+      - in: path
+        name: time_off_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
           description: ''
   /api/v1/farms/:
     get:
@@ -5110,6 +5545,12 @@ paths:
   /api/v1/organizations/current/members/:
     get:
       operationId: api_v1_organizations_current_members_list
+      parameters:
+      - in: query
+        name: include_former
+        schema:
+          type: boolean
+          default: false
       tags:
       - api
       security:
@@ -5411,6 +5852,27 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/organizations/current/seats/:
+    get:
+      operationId: api_v1_organizations_current_seats_retrieve
+      description: Accounts in use against the plan's limit, for the team screen.
+      tags:
+      - api
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SeatUsage'
+          description: ''
+        '403':
           content:
             application/json:
               schema:
@@ -10478,6 +10940,23 @@ components:
         * `manual` - manual
         * `proposed` - proposed
         * `automated` - automated
+    AwayInterval:
+      type: object
+      properties:
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        reason:
+          type:
+          - string
+          - 'null'
+      required:
+      - ends_at
+      - reason
+      - starts_at
     BillingDetails:
       type: object
       description: What the panel shows and sends back for the invoice form.
@@ -13013,6 +13492,27 @@ components:
       - page
       - page_size
       - total
+    HoursRuleInput:
+      type: object
+      properties:
+        weekday:
+          type: integer
+          maximum: 6
+          minimum: 0
+        local_start:
+          type: string
+          format: time
+        local_end:
+          type: string
+          format: time
+        location_id:
+          type: string
+          format: uuid
+      required:
+      - local_end
+      - local_start
+      - location_id
+      - weekday
     ImageGenerationAspectEnum:
       enum:
       - '16:9'
@@ -13125,6 +13625,18 @@ components:
       - aspect
       - expected_cost
       - prompt
+    Interval:
+      type: object
+      properties:
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+      required:
+      - ends_at
+      - starts_at
     InventoryAdjustInput:
       type: object
       properties:
@@ -13879,12 +14391,18 @@ components:
         joined_at:
           type: string
           format: date-time
+        revoked_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
       required:
       - email
       - first_name
       - id
       - joined_at
       - last_name
+      - revoked_at
       - role
       - status
       - user_id
@@ -14678,6 +15196,21 @@ components:
         currency:
           type: string
           pattern: ^[A-Z]{3}$
+    PatchedPersonUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 160
+          minLength: 1
+        phone:
+          type: string
+          maxLength: 40
+        membership_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
     PatchedRoleUpdate:
       type: object
       properties:
@@ -14692,19 +15225,6 @@ components:
           items:
             type: string
             maxLength: 120
-    PatchedStaffUpdate:
-      type: object
-      properties:
-        name:
-          type: string
-          maxLength: 160
-        active:
-          type: boolean
-        membership_id:
-          type:
-          - string
-          - 'null'
-          format: uuid
     PatchedStockDocumentInput:
       type: object
       properties:
@@ -14815,6 +15335,251 @@ components:
       description: |-
         * `stripe` - stripe
         * `simulated` - simulated
+    PeopleDay:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        timezone:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PersonDay'
+      required:
+      - date
+      - items
+      - timezone
+    Person:
+      type: object
+      description: A person of the company as booking keeps them (ADR-058 §1).
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        public_slug:
+          type: string
+        membership_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        invitation_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        phone:
+          type:
+          - string
+          - 'null'
+        active:
+          type: boolean
+        service_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        has_hours:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - active
+      - created_at
+      - has_hours
+      - id
+      - invitation_id
+      - membership_id
+      - name
+      - phone
+      - public_slug
+      - service_ids
+    PersonCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 160
+          minLength: 1
+        phone:
+          type: string
+          default: ''
+          maxLength: 40
+        invitation:
+          oneOf:
+          - $ref: '#/components/schemas/PersonInvitationInput'
+          - type: 'null'
+        membership_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        service_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        hours:
+          oneOf:
+          - $ref: '#/components/schemas/WeeklyHoursInput'
+          - type: 'null'
+        copy_hours_from:
+          type:
+          - string
+          - 'null'
+          format: uuid
+      required:
+      - name
+    PersonDay:
+      type: object
+      properties:
+        staff_id:
+          type: string
+          format: uuid
+        works:
+          type: array
+          items:
+            $ref: '#/components/schemas/Interval'
+        time_off:
+          type: array
+          items:
+            $ref: '#/components/schemas/AwayInterval'
+        busy:
+          type: array
+          items:
+            $ref: '#/components/schemas/Interval'
+      required:
+      - busy
+      - staff_id
+      - time_off
+      - works
+    PersonDetail:
+      type: object
+      description: A person of the company as booking keeps them (ADR-058 §1).
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        public_slug:
+          type: string
+        membership_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        invitation_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        phone:
+          type:
+          - string
+          - 'null'
+        active:
+          type: boolean
+        service_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        has_hours:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        hours:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkingHours'
+        time_off:
+          type: array
+          items:
+            $ref: '#/components/schemas/TimeOff'
+      required:
+      - active
+      - created_at
+      - has_hours
+      - hours
+      - id
+      - invitation_id
+      - membership_id
+      - name
+      - phone
+      - public_slug
+      - service_ids
+      - time_off
+    PersonHoursInput:
+      type: object
+      properties:
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/HoursRuleInput'
+          maxItems: 70
+      required:
+      - rules
+    PersonInvitation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+        status:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+      required:
+      - email
+      - expires_at
+      - id
+      - role
+      - status
+    PersonInvitationInput:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          maxLength: 64
+          pattern: ^[-a-zA-Z0-9_]+$
+      required:
+      - email
+      - role
+    PersonList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Person'
+      required:
+      - items
+    PersonServicesInput:
+      type: object
+      properties:
+        service_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - service_ids
     PlatformDomainChange:
       type: object
       properties:
@@ -15603,6 +16368,19 @@ components:
       description: |-
         * `system` - system
         * `organization` - organization
+    SeatUsage:
+      type: object
+      description: Accounts that log in against the plan's limit (owner's answer 5).
+      properties:
+        used:
+          type: integer
+        limit:
+          type:
+          - integer
+          - 'null'
+      required:
+      - limit
+      - used
     Service:
       type: object
       properties:
@@ -16777,6 +17555,53 @@ components:
       required:
       - html_body
       - subject
+    TimeOff:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        reason:
+          type:
+          - string
+          - 'null'
+      required:
+      - ends_at
+      - id
+      - reason
+      - starts_at
+    TimeOffCreated:
+      type: object
+      properties:
+        time_off:
+          $ref: '#/components/schemas/TimeOff'
+        conflicts:
+          type: integer
+      required:
+      - conflicts
+      - time_off
+    TimeOffInput:
+      type: object
+      properties:
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        reason:
+          type: string
+          default: ''
+          maxLength: 160
+      required:
+      - ends_at
+      - starts_at
     TotpConfirmResult:
       type: object
       properties:
@@ -16985,6 +17810,60 @@ components:
             $ref: '#/components/schemas/Webhook'
       required:
       - items
+    WeeklyHoursInput:
+      type: object
+      description: The same hours on the chosen weekdays, as "Add employee" asks for
+        them.
+      properties:
+        weekdays:
+          type: array
+          items:
+            type: integer
+            maximum: 6
+            minimum: 0
+          maxItems: 7
+          minItems: 1
+        local_start:
+          type: string
+          format: time
+        local_end:
+          type: string
+          format: time
+        location_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+      required:
+      - local_end
+      - local_start
+      - weekdays
+    WorkingHours:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        weekday:
+          type: integer
+        local_start:
+          type: string
+          format: time
+        local_end:
+          type: string
+          format: time
+        location_id:
+          type: string
+          format: uuid
+        location_name:
+          type: string
+      required:
+      - id
+      - local_end
+      - local_start
+      - location_id
+      - location_name
+      - weekday
     WorkspaceKindEnum:
       enum:
       - personal
