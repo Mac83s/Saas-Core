@@ -244,6 +244,15 @@ def test_hostname_normalization_covers_port_case_unicode_and_injection() -> None
             normalize_hostname(value, allow_port=True)
 
 
+def test_hostname_keeps_the_letters_a_browser_keeps() -> None:
+    """`ß` and final `ς` are letters of their own in IDNA2008, and a browser
+    goes to `straße.de`, not to `strasse.de`. Folding them would make two
+    different registrants' domains compare equal."""
+    assert normalize_hostname("Straße.DE") == "xn--strae-oqa.de"
+    assert normalize_hostname("STRASSE.de") == "strasse.de"
+    assert normalize_hostname("ςa.gr") == "xn--a-xmb.gr"
+
+
 def test_site_creation_reserves_verified_canonical_platform_subdomain() -> None:
     client, organization, _ = domain_client(slug="domain-platform")
 

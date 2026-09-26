@@ -142,7 +142,7 @@ def _grant_summary(context: Any) -> dict[str, Any] | None:
     reading this field — and one that reads `scopes` gets the exact answer per
     resource.
     """
-    from .services import _is_automation
+    from .services import _hostnames, _is_automation
 
     if not _is_automation(context) or context.credential_id is None:
         return None
@@ -170,6 +170,9 @@ def _grant_summary(context: Any) -> dict[str, Any] | None:
                 "expires_at": (
                     grant.expires_at.isoformat() if grant.expires_at else None
                 ),
+                # Read the way the check reads it, so the connector is told
+                # exactly the list it will be held to.
+                "allowed_link_hosts": sorted(_hostnames(grant.allowed_link_hosts)),
             }
             for grant in grants
         ],

@@ -32,7 +32,11 @@ def normalize_hostname(value: str, *, allow_port: bool = False) -> str:
         if not 1 <= port <= 65535:
             raise InvalidHostname("Port hosta jest poza zakresem.")
 
-    hostname = hostname.rstrip(".").casefold()
+    # `lower`, not `casefold`: casefolding turns `ß` into `ss` and final `ς`
+    # into `σ`, which IDNA2008 keeps as letters of their own, so `straße.de`
+    # would compare equal to `strasse.de` although a browser opens another
+    # domain. UTS46 below does the rest of the case mapping the browser does.
+    hostname = hostname.rstrip(".").lower()
     if not hostname or hostname.startswith(".") or ".." in hostname:
         raise InvalidHostname("Hostname ma nieprawidłowe etykiety.")
     try:

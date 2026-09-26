@@ -491,3 +491,101 @@ def test_every_link_field_in_the_block_schemas_is_walked() -> None:
     }
     assert {"href", "ctaHref", "privacy_href", "path"} <= found
     assert {key for key in found if not is_link_field(key)} == set()
+
+
+@pytest.mark.parametrize("status", ["pending", "failed", "disabled"])
+def test_a_domain_the_site_has_not_proven_is_not_its_own_host(surface: Any, status: str) -> None:
+    """Typing a domain into the panel is a claim, not ownership: until DNS
+    proves it, an automation linking there links to a stranger's site."""
+    from saas_core.modules.shared.sites.models import Domain
+
+    _, organization, owner, document = surface
+    client = linking(surface, [])
+    Domain.all_objects.create(
+        organization=organization,
+        site_id=document["target"]["site_id"],
+        hostname="nowa.example.test",
+        kind="custom",
+        status=status,
+        verification_name="_saas-core.nowa.example.test",
+        verification_token="token",
+        created_by=owner,
+        idempotency_key=f"claimed-{status}",
+        request_hash="0" * 64,
+    )
+    response = post_preview(client, with_block(surface, cta("https://nowa.example.test/")))
+    assert response.status_code == 403, response.content
+    assert response.json()["code"] == "automation_link_host_forbidden"
+
+
+@pytest.mark.parametrize(
+    ("href", "allowed"),
+    [
+        ("https://strasse.test/", True),
+        ("https://STRASSE.test/", True),
+        ("https://straße.test/", False),
+        ("https://xn--strae-oqa.test/", False),
+    ],
+)
+def test_a_granted_host_does_not_admit_its_look_alike(
+    surface: Any, href: str, allowed: bool
+) -> None:
+    """A browser opens `straße.test` as `xn--strae-oqa.test`, a different name
+    from `strasse.test`, so granting one must not let a link reach the other."""
+    client = linking(surface, ["strasse.test"])
+    response = post_preview(client, with_block(surface, cta(href)))
+    if allowed:
+        assert response.status_code == 200, response.content
+    else:
+        assert response.status_code == 403, response.content
+
+
+def test_a_collection_grant_speaks_for_its_collection_over_the_site_grant(
+    surface: Any,
+) -> None:
+    """Two grants reach one entry: the site's and the collection's. The one
+    naming the collection is the customer's word on it, whichever was issued
+    first — for the mode as much as for the hosts it may link to."""
+    from saas_core.modules.shared.sites.models import ContentCollection
+
+    person, organization, owner, document = surface
+    collection = create_collection(person, document["target"]["site_id"]).data["id"]
+    entry = create_entry(person, collection, slug="dwa-granty", idempotency_key="two").data["id"]
+    ContentCollection.all_objects.filter(pk=collection).update(automation_policy="automated")
+    client, key = connector(surface, scope="content:draft")
+    # The site grant is the older one, so "first issued wins" would pick it.
+    site_grant = grant_for(surface, key, allowed_link_hosts=["witryna.test"])
+    ContentAutomationGrant.all_objects.create(
+        organization=organization,
+        credential_id=key.id,
+        collection_id=collection,
+        mode="draft_write",
+        allowed_link_hosts=["blog.partner.test"],
+        created_by=owner,
+    )
+
+    def put(href: str, version: int, marker: str) -> Any:
+        return client.put(
+            f"/api/v1/sites/entries/{entry}/draft/",
+            {
+                "expected_version": version,
+                "blocks": [
+                    {"block_type": "core.hero", "schema_version": 1, "data": cta(href)["data"]}
+                ],
+            },
+            content_type="application/json",
+            HTTP_IDEMPOTENCY_KEY=marker,
+        )
+
+    # suggest_only on the site does not silence draft_write on the blog, and
+    # the blog's own host list is the one that applies to it.
+    assert put("https://blog.partner.test/", 0, "two-blog").status_code == 201
+    refused = put("https://witryna.test/", 1, "two-site")
+    assert refused.status_code == 403, refused.content
+    assert refused.json()["code"] == "automation_link_host_forbidden"
+    # The site grant still decides everything the collection grant does not name.
+    site_grant.refresh_from_db()
+    assert site_grant.mode == "suggest_only"
+    response = post_preview(client, with_block(surface, cta("https://witryna.test/")))
+    assert response.status_code == 200, response.content
+

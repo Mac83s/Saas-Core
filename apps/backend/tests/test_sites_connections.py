@@ -405,6 +405,7 @@ def test_a_credential_learns_the_narrowest_mode_it_holds() -> None:
         collection_id=collection.data["id"],
         mode="draft_write",
         expires_at=timezone.now() + timedelta(days=7),
+        allowed_link_hosts=["partner.test"],
         created_by=user,
     )
     ContentAutomationGrant.all_objects.create(
@@ -425,6 +426,12 @@ def test_a_credential_learns_the_narrowest_mode_it_holds() -> None:
         "draft_write",
         "suggest_only",
     ]
+    # The hosts it may link to, per resource: without them a connector learns
+    # the list one refused change set at a time.
+    assert {scope["kind"]: scope["allowed_link_hosts"] for scope in grant["scopes"]} == {
+        "collection": ["partner.test"],
+        "site": [],
+    }
 
 
 def test_a_credential_hired_for_nothing_is_told_so_plainly() -> None:
