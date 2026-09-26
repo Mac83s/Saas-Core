@@ -10,12 +10,14 @@ exactly one.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from typing import Any, cast
 from uuid import uuid7
 
 from django.db import transaction
 from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.utils import timezone
 from rest_framework.permissions import BasePermission
 
 from saas_core.modules.core.organizations.context import (
@@ -24,8 +26,10 @@ from saas_core.modules.core.organizations.context import (
     set_local_organization_id,
 )
 from saas_core.modules.core.organizations.models import Organization, OrganizationStatus
+from saas_core.modules.core.organizations.tasks import InvalidTenantTaskContext
+from saas_core.observability import correlation_id
 
-from .models import ApiKey
+from .models import ApiKey, ApiKeyCredentialRoute
 from .services import authenticate_api_key
 
 API_KEY_PRINCIPAL = "api_key"
@@ -134,6 +138,64 @@ class ApiKeyTenantContextMiddleware:
             cast(Any, request).tenant_context = context
             with activate_tenant_context(context):
                 return self.get_response(request)
+
+
+@contextmanager
+def deferred_api_key_context(
+    *,
+    organization_id: Any,
+    credential_id: Any,
+    required_scope: str,
+    causation_id: str,
+) -> Iterator[TenantContext]:
+    """Acts as a key that authorised something which runs much later.
+
+    The key counterpart of `deferred_tenant_context`: the same question the
+    middleware asks on every request, asked again when the moment comes, so a
+    key revoked, expired or narrowed in the meantime gets nothing more out of
+    the queue (ADR-035 §6). The grant is not checked here — the domain call
+    does that, as it does for a request.
+    """
+    route = ApiKeyCredentialRoute.objects.filter(
+        api_key_id=credential_id,
+        organization_id=organization_id,
+        revoked_at__isnull=True,
+    ).first()
+    if (
+        route is None
+        or required_scope not in route.scopes
+        or (route.expires_at is not None and route.expires_at <= timezone.now())
+    ):
+        raise InvalidTenantTaskContext(f"{causation_id}: klucz nie jest już ważny.")
+    correlation_token = correlation_id.set(str(uuid7()))
+    try:
+        with transaction.atomic():
+            # Same order as the middleware: the tenant setting first, or the
+            # organization and the key are invisible to the app role.
+            set_local_organization_id(route.organization_id)
+            api_key = ApiKey.all_objects.filter(
+                pk=route.api_key_id, revoked_at__isnull=True
+            ).first()
+            if api_key is None or not Organization.objects.filter(
+                pk=route.organization_id, status=OrganizationStatus.ACTIVE
+            ).exists():
+                raise InvalidTenantTaskContext(f"{causation_id}: klucz nie jest już ważny.")
+            permissions: set[str] = set()
+            for scope in route.scopes:
+                permissions |= SCOPE_PERMISSIONS.get(scope, frozenset())
+            context = TenantContext(
+                organization_id=route.organization_id,
+                membership_id=uuid7(),
+                actor_id=api_key.created_by_id,
+                role_key="integration",
+                permissions=frozenset(permissions),
+                principal_kind=API_KEY_PRINCIPAL,
+                credential_id=api_key.id,
+            )
+            with activate_tenant_context(context):
+                yield context
+    finally:
+        correlation_id.reset(correlation_token)
 
 
 def _requested_scopes(request: HttpRequest) -> tuple[str, ...]:
