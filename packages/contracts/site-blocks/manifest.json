@@ -15,11 +15,12 @@
     },
     {
       "type": "core.rich_text",
-      "latestVersion": 3,
+      "latestVersion": 4,
       "schemas": {
         "1": "core.rich_text.v1.schema.json",
         "2": "core.rich_text.v2.schema.json",
-        "3": "core.rich_text.v3.schema.json"
+        "3": "core.rich_text.v3.schema.json",
+        "4": "core.rich_text.v4.schema.json"
       }
     },
     {
@@ -51,9 +52,10 @@
     },
     {
       "type": "core.link_list",
-      "latestVersion": 1,
+      "latestVersion": 2,
       "schemas": {
-        "1": "core.link_list.v1.schema.json"
+        "1": "core.link_list.v1.schema.json",
+        "2": "core.link_list.v2.schema.json"
       }
     },
     {
@@ -79,9 +81,10 @@
     },
     {
       "type": "core.footer",
-      "latestVersion": 1,
+      "latestVersion": 2,
       "schemas": {
-        "1": "core.footer.v1.schema.json"
+        "1": "core.footer.v1.schema.json",
+        "2": "core.footer.v2.schema.json"
       }
     },
     {

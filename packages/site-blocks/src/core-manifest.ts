@@ -13,6 +13,7 @@ import faqV2Schema from "@saas-core/contracts/site-blocks/core.faq.v2.schema.jso
 import featureListV4Schema from "@saas-core/contracts/site-blocks/core.feature_list.v4.schema.json";
 import richTextV2Schema from "@saas-core/contracts/site-blocks/core.rich_text.v2.schema.json";
 import richTextV3Schema from "@saas-core/contracts/site-blocks/core.rich_text.v3.schema.json";
+import richTextV4Schema from "@saas-core/contracts/site-blocks/core.rich_text.v4.schema.json";
 import quoteV1Schema from "@saas-core/contracts/site-blocks/core.quote.v1.schema.json";
 import productV1Schema from "@saas-core/contracts/site-blocks/core.product.v1.schema.json";
 import productV2Schema from "@saas-core/contracts/site-blocks/core.product.v2.schema.json";
@@ -25,6 +26,7 @@ import {
 import {
   migrateRichTextV1ToV2,
   migrateRichTextV2ToV3,
+  migrateRichTextV3ToV4,
   RichTextBlock,
 } from "./rich-text-block";
 import {
@@ -39,11 +41,13 @@ import { renderImage } from "./ai-badge";
 import contactV1Schema from "@saas-core/contracts/site-blocks/core.contact.v1.schema.json";
 import contactV2Schema from "@saas-core/contracts/site-blocks/core.contact.v2.schema.json";
 import linkListV1Schema from "@saas-core/contracts/site-blocks/core.link_list.v1.schema.json";
+import linkListV2Schema from "@saas-core/contracts/site-blocks/core.link_list.v2.schema.json";
 import entryListV1Schema from "@saas-core/contracts/site-blocks/core.entry_list.v1.schema.json";
 import bookingV1Schema from "@saas-core/contracts/site-blocks/core.booking.v1.schema.json";
 import faqV1Schema from "@saas-core/contracts/site-blocks/core.faq.v1.schema.json";
 import featureListV1Schema from "@saas-core/contracts/site-blocks/core.feature_list.v1.schema.json";
 import footerV1Schema from "@saas-core/contracts/site-blocks/core.footer.v1.schema.json";
+import footerV2Schema from "@saas-core/contracts/site-blocks/core.footer.v2.schema.json";
 import heroV1Schema from "@saas-core/contracts/site-blocks/core.hero.v1.schema.json";
 import heroV2Schema from "@saas-core/contracts/site-blocks/core.hero.v2.schema.json";
 import heroV3Schema from "@saas-core/contracts/site-blocks/core.hero.v3.schema.json";
@@ -51,8 +55,10 @@ import pricingV1Schema from "@saas-core/contracts/site-blocks/core.pricing.v1.sc
 import richTextV1Schema from "@saas-core/contracts/site-blocks/core.rich_text.v1.schema.json";
 import testimonialsV1Schema from "@saas-core/contracts/site-blocks/core.testimonials.v1.schema.json";
 
+import { linkRel } from "./link-rel";
 import type {
   BlockComponentProps,
+  BlockFieldDefinition,
   BookingV1Data,
   ContactV1Data,
   EntryListV1Data,
@@ -71,6 +77,15 @@ import type {
 function externalRel(href: string): "noreferrer" | undefined {
   return href.startsWith("https://") ? "noreferrer" : undefined;
 }
+
+/** How a link vouches for its target (ADR-061). The empty first option is an
+ *  editorial link: nothing stored, the way every link rendered before. */
+const LINK_REL_FIELD: BlockFieldDefinition = {
+  path: ["rel"],
+  kind: "choice",
+  labelKey: "linkRel",
+  options: ["", "sponsored", "ugc", "nofollow"],
+};
 
 /** The address a published asset is served from on the site's own host.
  *
@@ -423,7 +438,7 @@ function FooterBlock({ data, editor }: BlockComponentProps) {
                 editor ? "span" : "a",
                 {
                   href: editor ? undefined : link.href,
-                  rel: externalRel(link.href),
+                  rel: editor ? undefined : linkRel(link.href, link.rel),
                 },
                 text(["links", String(index), "label"], link.label),
               ),
@@ -574,13 +589,18 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
     },
     {
       type: "core.rich_text",
-      latestVersion: 3,
+      latestVersion: 4,
       schemas: [
         { version: 1, schema: richTextV1Schema },
         { version: 2, schema: richTextV2Schema },
         { version: 3, schema: richTextV3Schema },
+        { version: 4, schema: richTextV4Schema },
       ],
-      migrators: { 1: migrateRichTextV1ToV2, 2: migrateRichTextV2ToV3 },
+      migrators: {
+        1: migrateRichTextV1ToV2,
+        2: migrateRichTextV2ToV3,
+        3: migrateRichTextV3ToV4,
+      },
       component: RichTextBlock,
       catalog: {
         category: "about",
@@ -788,9 +808,13 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
     },
     {
       type: "core.link_list",
-      latestVersion: 1,
-      schemas: [{ version: 1, schema: linkListV1Schema }],
-      migrators: {},
+      latestVersion: 2,
+      schemas: [
+        { version: 1, schema: linkListV1Schema },
+        { version: 2, schema: linkListV2Schema },
+      ],
+      // v2 only adds the optional `rel` (ADR-061).
+      migrators: { 1: (data) => ({ ...data }) },
       component: LinkListSection,
       catalog: {
         category: "contact",
@@ -805,6 +829,7 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
             item: [
               { path: ["label"], kind: "text", labelKey: "linkLabel" },
               { path: ["href"], kind: "url", labelKey: "linkHref" },
+              LINK_REL_FIELD,
               {
                 path: ["description"],
                 kind: "textarea",
@@ -902,9 +927,13 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
     },
     {
       type: "core.footer",
-      latestVersion: 1,
-      schemas: [{ version: 1, schema: footerV1Schema }],
-      migrators: {},
+      latestVersion: 2,
+      schemas: [
+        { version: 1, schema: footerV1Schema },
+        { version: 2, schema: footerV2Schema },
+      ],
+      // v2 only adds the optional `rel` (ADR-061).
+      migrators: { 1: (data) => ({ ...data }) },
       component: FooterBlock,
       catalog: {
         category: "footer",
@@ -918,6 +947,7 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
             item: [
               { path: ["label"], kind: "text", labelKey: "linkLabel" },
               { path: ["href"], kind: "url", labelKey: "linkHref" },
+              LINK_REL_FIELD,
             ],
           },
         ],

@@ -12,6 +12,7 @@ export {
   pageTemplateBlocks,
   templatePreviewAssetId,
 } from "./page-templates";
+export { linkRel } from "./link-rel";
 export { createSiteBlockRegistry, defineSiteBlockManifest } from "./registry";
 export {
   designTokenClassName,

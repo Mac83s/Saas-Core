@@ -132,11 +132,14 @@ describe("section template contract", () => {
       )!;
       expect(template.version).toBe(2);
       expect(template.layout).toBe(previous.layout);
-      // Each on the newest schema of its block type.
+      // Each on the newest schema of its block type when v7 was cut. Rich
+      // text v4 came later and only adds a link's optional `rel` (ADR-061),
+      // so these templates reach it through the identity migrator.
       expect(template.schemaVersion).toBe(
-        coreSiteBlockManifest.blocks.find(
-          (block) => block.type === template.blockType,
-        )!.latestVersion,
+        { "core.rich_text": 3 }[template.blockType] ??
+          coreSiteBlockManifest.blocks.find(
+            (block) => block.type === template.blockType,
+          )!.latestVersion,
       );
       expect(template.conversion).toEqual({
         stage: expect.stringMatching(

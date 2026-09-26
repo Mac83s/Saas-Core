@@ -212,10 +212,13 @@ function assertFieldPath(
     );
   } else if (
     field.kind === "choice" &&
-    JSON.stringify(field.options) !== JSON.stringify(node.enum)
+    JSON.stringify(
+      field.options?.[0] === "" ? field.options.slice(1) : field.options,
+    ) !== JSON.stringify(node.enum)
   ) {
     // The select offers exactly what the contract allows, in its order (the
-    // first is what absent means).
+    // first is what absent means). A leading "" offers absence itself, for a
+    // value that is optional rather than one of the enum's.
     throw new InvalidBlockManifestError(
       `Opcje pola ${field.path.join(".")} w ${definition.type} różnią się od schematu.`,
     );

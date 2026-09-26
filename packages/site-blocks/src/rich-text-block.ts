@@ -1,6 +1,7 @@
 import { Fragment, createElement as h, type ReactNode } from "react";
 
 import { plainBlockText } from "./block-text";
+import { linkRel } from "./link-rel";
 import { renderImage } from "./ai-badge";
 import { monogram, picture } from "./editorial-blocks";
 
@@ -24,6 +25,12 @@ export function migrateRichTextV1ToV2(data: Readonly<JsonObject>): JsonObject {
 
 /** v3 only adds optional fields, so v2 data is already valid v3 data. */
 export function migrateRichTextV2ToV3(data: Readonly<JsonObject>): JsonObject {
+  return { ...data };
+}
+
+/** v4 only lets a link say how it vouches for its target (`rel`, ADR-061), so
+ *  v3 data is already valid v4 data. */
+export function migrateRichTextV3ToV4(data: Readonly<JsonObject>): JsonObject {
   return { ...data };
 }
 
@@ -63,7 +70,7 @@ function spans(
         {
           className: "site-prose__link",
           href: context.editor ? undefined : span.href,
-          rel: context.editor ? undefined : externalRel(span.href),
+          rel: context.editor ? undefined : linkRel(span.href, span.rel),
         },
         node,
       );

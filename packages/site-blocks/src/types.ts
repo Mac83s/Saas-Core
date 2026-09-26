@@ -121,11 +121,17 @@ export type RichTextV1Data = JsonObject & {
 };
 
 /** One inline run. Marks are flags, links an allowlisted href; never HTML. */
+/** How a link vouches for its target (ADR-061); absent means an editorial
+ *  link, one the site recommends. */
+export type LinkRel = "sponsored" | "ugc" | "nofollow";
+
 export type RichTextSpan = {
   text: string;
   bold?: true;
   italic?: true;
   href?: string;
+  /** rich text v4 onwards, and only on a linked run. */
+  rel?: LinkRel;
 };
 export type RichTextListItem = {
   content: RichTextSpan[];
@@ -281,7 +287,7 @@ export type LinkListV1Data = JsonObject & {
   title?: string;
   text?: string;
   layout?: "buttons" | "icons" | "cards" | "list" | "split" | "band";
-  links: { label: string; href: string; description?: string }[];
+  links: { label: string; href: string; description?: string; rel?: LinkRel }[];
 };
 
 export type ContactFormV1Data = JsonObject & {
@@ -328,7 +334,8 @@ export type BookingV1Data = JsonObject & {
 
 export type FooterV1Data = JsonObject & {
   text: string;
-  links?: { label: string; href: string }[];
+  /** `rel` from footer v2 onwards. */
+  links?: { label: string; href: string; rel?: LinkRel }[];
 };
 
 export type EntryListV1Data = JsonObject & {
@@ -395,7 +402,8 @@ export interface BlockFieldDefinition {
   /** Present exactly when `kind` is `"list"`: the shape of a single entry. */
   readonly item?: readonly BlockFieldDefinition[];
   /** Present exactly when `kind` is `"choice"`: the allowed values; the first
-   *  is what an absent value means. Labels live in the panel's messages. */
+   *  is what an absent value means, and `""` as the first offers absence
+   *  itself. Labels live in the panel's messages. */
   readonly options?: readonly string[];
   /** On `kind: "media"`: the slot claims a real person (a quote's portrait, an
    *  author's photo), so the panel offers no AI images. The backend refuses

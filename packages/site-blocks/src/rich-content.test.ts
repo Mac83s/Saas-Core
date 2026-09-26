@@ -167,7 +167,7 @@ describe("core.rich_text v2", () => {
     // v1 -> v2 -> v3: the v3 step only copies.
     expect(migrated).toEqual({
       block_type: "core.rich_text",
-      schema_version: 3,
+      schema_version: 4,
       data: {
         content: [
           {

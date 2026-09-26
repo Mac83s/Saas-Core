@@ -1,5 +1,6 @@
 import { createElement as h, type ReactElement } from "react";
 import { plainBlockText } from "./block-text";
+import { linkRel } from "./link-rel";
 import { renderImage } from "./ai-badge";
 import type {
   BlockComponentProps,
@@ -237,10 +238,7 @@ export function LinkListSection({ data, editor }: BlockComponentProps) {
             {
               className: "site-links__link",
               href: editor ? undefined : link.href,
-              rel:
-                !editor && link.href.startsWith("https://")
-                  ? "noreferrer"
-                  : undefined,
+              rel: editor ? undefined : linkRel(link.href, link.rel),
             },
             h(
               "span",
