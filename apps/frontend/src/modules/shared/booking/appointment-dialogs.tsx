@@ -319,6 +319,7 @@ export function NewAppointmentDialog({
   canUseInventory = false,
   catalog,
   day,
+  staffId = "",
   onCreated,
   onOpenChange,
   open,
@@ -329,6 +330,8 @@ export function NewAppointmentDialog({
   catalog: BookingCatalog;
   /** The day the calendar shows; the form starts there unless it is past. */
   day: string;
+  /** The person the calendar is filtered to: the form starts with them. */
+  staffId?: string;
   onCreated: (appointment: BookingAppointment) => void;
   onOpenChange: (open: boolean) => void;
   open: boolean;
@@ -353,6 +356,7 @@ export function NewAppointmentDialog({
           catalog={catalog}
           day={day}
           onCreated={onCreated}
+          staffId={staffId}
           zone={zone}
         />
       </DialogContent>
@@ -365,12 +369,14 @@ function NewAppointmentForm({
   catalog,
   day,
   onCreated,
+  staffId: chosenStaff,
   zone,
 }: {
   canUseInventory: boolean;
   catalog: BookingCatalog;
   day: string;
   onCreated: (appointment: BookingAppointment) => void;
+  staffId: string;
   zone: string;
 }) {
   const t = useTranslations("Calendar");
@@ -408,7 +414,9 @@ function NewAppointmentForm({
     defaultValues: {
       service_id: only(catalog.services),
       location_id: only(catalog.locations),
-      staff_id: "",
+      staff_id: catalog.staff.some((item) => item.id === chosenStaff)
+        ? chosenStaff
+        : "",
       date: day < today ? today : day,
       time: "",
       display_name: "",

@@ -43,6 +43,9 @@ vi.mock("@saas-core/api-client", async (original) => ({
   ...api,
 }));
 vi.mock("#i18n/navigation", () => ({ Link: "a" }));
+// The calendar reads its view from the address (plan: phase 2).
+const address = vi.hoisted(() => ({ params: new URLSearchParams() }));
+vi.mock("next/navigation", () => ({ useSearchParams: () => address.params }));
 
 const ALEX = "22222222-2222-4222-8222-222222222222";
 const BEA = "22222222-2222-4222-8222-333333333333";
@@ -119,6 +122,8 @@ const completed = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  address.params = new URLSearchParams();
+  window.history.replaceState(null, "", "/panel/calendar");
   vi.useFakeTimers({ toFake: ["Date"], shouldAdvanceTime: true });
   vi.setSystemTime(new Date("2026-08-19T10:00:00Z"));
   api.getBookingCatalog.mockResolvedValue(catalog);
@@ -197,6 +202,12 @@ test("views, navigation and filters show the right appointments", async () => {
     screen.getByRole("heading", { level: 2, name: /^August 17\W+23, 2026$/ }),
   ).not.toBeNull();
   expect(screen.getByText("Anna Nowak")).not.toBeNull();
+  // Only the week on screen; whether there is any visit at all is asked apart.
+  expect(api.listBookingAppointments).toHaveBeenCalledWith({
+    from: "2026-08-17",
+    to: "2026-08-24",
+  });
+  expect(api.listBookingAppointments).toHaveBeenCalledWith({ limit: 1 });
 
   fireEvent.change(screen.getByLabelText("Staff member"), {
     target: { value: BEA },
@@ -238,10 +249,41 @@ test("views, navigation and filters show the right appointments", async () => {
     target: { value: "mine" },
   });
   await waitFor(() =>
-    expect(api.listBookingAppointments).toHaveBeenLastCalledWith({
+    expect(api.listBookingAppointments).toHaveBeenCalledWith({
       mine: true,
+      from: "2026-08-19",
+      to: "2026-08-20",
     }),
   );
+  expect(window.location.search).toBe("?view=day&staff=mine");
+});
+
+test("the view, the day and the person come from the address and go back to it", async () => {
+  address.params = new URLSearchParams(
+    `view=list&date=2026-08-21&staff=${BEA}`,
+  );
+  renderCalendar();
+  const table = await screen.findByRole("table", {
+    name: "Visits: August 2026",
+  });
+  // A person's card links here: only their visits, in the month's list.
+  expect(within(table).getByText("Anna Nowak")).not.toBeNull();
+  expect(within(table).queryByText("Jan Kowalski")).toBeNull();
+  expect(api.listBookingAppointments).toHaveBeenCalledWith({
+    from: "2026-08-01",
+    to: "2026-09-01",
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Week" }));
+  expect(window.location.search).toBe(`?date=2026-08-21&staff=${BEA}`);
+});
+
+test("planning a visit from a person's card opens the form with them chosen", async () => {
+  address.params = new URLSearchParams(`new=1&staff=${ALEX}`);
+  renderCalendar();
+  const form = await screen.findByRole("dialog", { name: "New appointment" });
+  expect(
+    (within(form).getByLabelText("Staff member") as HTMLSelectElement).value,
+  ).toBe(ALEX);
 });
 
 test("the list is the month as a table, and a row opens the visit", async () => {
@@ -314,8 +356,9 @@ test("an appointment opens its details and is canceled only after confirmation",
       within(details).getByRole("heading", { name: "Jan Kowalski" }),
     ),
   );
+  // The change reloads the week and the "any visit at all" question.
   await waitFor(() =>
-    expect(api.listBookingAppointments).toHaveBeenCalledTimes(2),
+    expect(api.listBookingAppointments).toHaveBeenCalledTimes(4),
   );
 });
 

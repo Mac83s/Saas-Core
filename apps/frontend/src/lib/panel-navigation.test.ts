@@ -35,6 +35,33 @@ const OWNER = {
 };
 
 describe("sekcje menu", () => {
+  it("Zespół to Pracownicy i Role; karta osoby świeci się pod Pracownikami", () => {
+    const team: PanelAccess = {
+      ...OWNER,
+      permissions: ["organization.members.read"],
+    };
+    const tabs = sectionTabs("/panel/team/s-marcin/schedule", team);
+    expect(tabs?.map((tab) => tab.href)).toEqual([
+      "/panel/team",
+      "/panel/team/roles",
+    ]);
+    expect(currentPage("/panel/team/s-marcin/schedule", tabs!)).toBe(
+      "/panel/team",
+    );
+    expect(currentPage("/panel/team/roles", tabs!)).toBe("/panel/team/roles");
+    const entry = panelNavigation(team).company.find(
+      (item) => item.labelKey === "team",
+    )!;
+    expect(entry.pages?.map((page) => page.labelKey)).toEqual([
+      "teamPeople",
+      "teamRoles",
+    ]);
+    // A trimmer without the team screen has no tabs to be shown either.
+    expect(
+      sectionTabs("/panel/team/me", { ...OWNER, permissions: [] }),
+    ).toBeNull();
+  });
+
   it("SEO jest zakładką Strony, a jej menu świeci się na obu", () => {
     const tabs = sectionTabs("/panel/seo/search-console", OWNER);
     expect(tabs?.map((tab) => tab.href)).toEqual([

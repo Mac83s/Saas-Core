@@ -2,6 +2,7 @@
 
 import { useState, useSyncExternalStore } from "react";
 import {
+  IdCardIcon,
   LogOutIcon,
   MoonIcon,
   SettingsIcon,
@@ -72,7 +73,11 @@ export function PanelHeader({
               <span className="max-sm:sr-only">{t(action.labelKey)}</span>
             </Link>
           ) : null}
-          <AccountMenu user={user} />
+          <AccountMenu
+            // One's own card needs a company to be a person of.
+            myCard={access.permissions !== null}
+            user={user}
+          />
         </div>
       </div>
     </header>
@@ -210,8 +215,10 @@ function LocaleToggle() {
 
 function AccountMenu({
   user,
+  myCard,
 }: {
   user: Pick<UserSummary, "email" | "first_name" | "last_name">;
+  myCard: boolean;
 }) {
   const t = useTranslations("DashboardNav");
   const panel = useTranslations("Panel");
@@ -259,6 +266,12 @@ function AccountMenu({
           </DropdownMenuLabel>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
+        {myCard ? (
+          <DropdownMenuLinkItem render={<Link href="/panel/team/me" />}>
+            <IdCardIcon aria-hidden="true" />
+            {t("myCard")}
+          </DropdownMenuLinkItem>
+        ) : null}
         <DropdownMenuLinkItem render={<Link href="/panel/settings/account" />}>
           <SettingsIcon aria-hidden="true" />
           {t("accountSettings")}

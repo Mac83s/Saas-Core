@@ -1709,9 +1709,6 @@ export async function restorePerson(staffId: string): Promise<PersonDetail> {
   return data;
 }
 
-/** @deprecated The team screen's card links accounts now (`updatePerson`). */
-export const updateBookingStaff = updatePerson;
-
 /** Who works, is away and is busy on a day; today without `date`. */
 export async function getPeopleDay(date?: string): Promise<PeopleDay> {
   const { data, error, response } = await client.GET(
