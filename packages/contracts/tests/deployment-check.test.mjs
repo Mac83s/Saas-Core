@@ -15,7 +15,11 @@ import { toPublicDeployment } from "../scripts/deployment-render.mjs";
 // Every fixture repository lives in tmp and is removed after the file runs;
 // without it each run leaked ~14 MB per typed profile (8.5 GB in /tmp by 25.09).
 const temporaryRoots = [];
-after(() => Promise.all(temporaryRoots.map((root) => rm(root, { recursive: true, force: true }))));
+after(() =>
+  Promise.all(
+    temporaryRoots.map((root) => rm(root, { recursive: true, force: true })),
+  ),
+);
 const temporaryRoot = async (prefix) => {
   const root = await mkdtemp(path.join(tmpdir(), prefix));
   temporaryRoots.push(root);
@@ -39,9 +43,10 @@ test("profil business składa wszystkie moduły Shared bez verticala", async () 
     "core.identity",
     "core.organizations",
     "shared.billing",
+    "shared.media",
     "shared.notifications",
     "shared.sites",
-    "shared.media",
+    "shared.image-generation",
     "shared.profiles",
     "shared.booking",
     "shared.seo",
