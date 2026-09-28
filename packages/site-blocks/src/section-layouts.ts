@@ -3,6 +3,11 @@ import { createElement as h, type ReactElement } from "react";
 import { plainBlockText } from "./block-text";
 import { renderImage } from "./ai-badge";
 import { withSecondaryAction } from "./editorial-blocks";
+import {
+  FEATURE_LIST_V5_LAYOUTS,
+  featureListAction,
+  featureListV5Body,
+} from "./feature-list-layouts";
 
 import type {
   BlockEditor,
@@ -10,6 +15,7 @@ import type {
   BlockTextRenderer,
   FaqV1Data,
   FeatureListV4Data,
+  FeatureListV5Data,
   HeroV6Data,
   JsonObject,
 } from "./types";
@@ -71,7 +77,10 @@ export function renderSectionLayout(
   if (
     typeof layout !== "string" ||
     (layout === "classic" &&
-      !(type === "core.feature_list" && (data.image || data.lead || data.note)))
+      !(
+        type === "core.feature_list" &&
+        (data.image || data.lead || data.note || data.action)
+      ))
   )
     return null;
   const props = {
@@ -187,7 +196,20 @@ export function renderSectionLayout(
     );
   }
   if (type === "core.feature_list") {
-    const offer = data as FeatureListV4Data;
+    const offer = data as FeatureListV5Data;
+    // Built per layout: the editor adapter records every text it renders.
+    const note = featureListNote(offer, text, editor);
+    const action = featureListAction(offer, text, editor);
+    const v5 = FEATURE_LIST_V5_LAYOUTS.find((name) => name === layout);
+    if (v5)
+      return h(
+        "section",
+        props,
+        featureListIntro(offer, text, editor),
+        ...featureListV5Body(v5, offer, text, editor, note, action),
+      );
+    // After the v5 layouts, which draw no photo: an image renderer records
+    // what it is handed.
     const photo = offer.image
       ? h(
           "div",
@@ -204,8 +226,6 @@ export function renderSectionLayout(
           ),
         )
       : null;
-    // Built per layout: the editor adapter records every text it renders.
-    const note = featureListNote(offer, text, editor);
     if (layout === "specification" || layout === "coverage") {
       return h(
         "section",
@@ -227,6 +247,7 @@ export function renderSectionLayout(
           ),
         ),
         note,
+        action,
       );
     }
     const ordered = [
@@ -290,6 +311,7 @@ export function renderSectionLayout(
               note,
             )
           : null,
+        action,
       );
     }
     return h(
@@ -299,6 +321,7 @@ export function renderSectionLayout(
       photo,
       list,
       note,
+      action,
     );
   }
   return null;

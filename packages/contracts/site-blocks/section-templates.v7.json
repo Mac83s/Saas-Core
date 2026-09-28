@@ -14223,6 +14223,1402 @@
         "stage": "interest",
         "primaryAction": true
       }
+    },
+    {
+      "id": "core.feature_list_scope_comparison",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 5,
+      "layout": "scope_comparison",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Porównanie zakresów",
+          "description": "Dwa lub trzy zakresy współpracy obok siebie, porównane w tych samych wierszach. Na telefonie każdy wiersz jest kartą. Bez cen — tylko to, co obejmuje każdy zakres.",
+          "usage": "Układ: porównanie zakresów. Środek strony usługi, gdy klient wybiera między wariantami. Kolumny to zakresy (najwyżej trzy), wiersze to cechy porównania; przycisk prowadzi do rozmowy o wyborze."
+        },
+        "en": {
+          "name": "Scope comparison",
+          "description": "Two or three ways of working side by side, compared row by row. On a phone each row becomes a card. No prices — only what each scope covers.",
+          "usage": "Layout: scope comparison. Body of a service page, where a client chooses between options. Columns are the scopes (three at most), rows are what you compare; the button leads to a conversation about the choice."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["reassurance", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 300,
+        "mediaAspectRatio": null
+      },
+      "contentProfiles": ["M"],
+      "readingPattern": "reference",
+      "styleAffinities": ["technical", "expert", "mosaic"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "interest",
+        "primaryAction": true
+      },
+      "seed": {
+        "pl": {
+          "title": "Który zakres współpracy wybrać?",
+          "lead": "Trzy sposoby współpracy obok siebie. Porównaj, co obejmuje każdy z nich, i wybierz ten, który pasuje do Twojej sytuacji.",
+          "columns": [
+            {
+              "title": "Konsultacja",
+              "text": "Jedno spotkanie i zalecenia na piśmie"
+            },
+            {
+              "title": "Projekt",
+              "text": "Od rozpoznania do gotowego efektu"
+            },
+            {
+              "title": "Stała opieka",
+              "text": "Wsparcie po zakończeniu projektu"
+            }
+          ],
+          "items": [
+            {
+              "title": "Dla kogo",
+              "values": {
+                "first": "Gdy chcesz sprawdzić kierunek, zanim zaczniesz",
+                "second": "Gdy masz konkretny cel i termin",
+                "third": "Gdy efekt już działa i ma działać dalej"
+              }
+            },
+            {
+              "title": "Co obejmuje",
+              "values": {
+                "first": "Rozmowę, analizę materiałów i listę zaleceń",
+                "second": "Plan, realizację i odbiór efektu",
+                "third": "Regularne przeglądy i pomoc przy zmianach"
+              }
+            },
+            {
+              "title": "Czas trwania",
+              "values": {
+                "first": "[Uzupełnij: czas konsultacji]",
+                "second": "[Uzupełnij: typowy czas projektu]",
+                "third": "[Uzupełnij: okres współpracy]"
+              }
+            },
+            {
+              "title": "Po Twojej stronie",
+              "values": {
+                "first": "Opis sytuacji i pytania",
+                "second": "Akceptacja kolejnych etapów",
+                "third": "Zgłaszanie potrzeb i zmian"
+              }
+            },
+            {
+              "title": "Co zostaje u Ciebie",
+              "values": {
+                "first": "Zalecenia, z których skorzystasz sam",
+                "second": "Gotowy efekt z dokumentacją",
+                "third": "Aktualny efekt i historia zmian"
+              }
+            }
+          ],
+          "note": {
+            "title": "Nie wiesz, który zakres wybrać?",
+            "text": "Zacznij od krótkiej rozmowy. Po kilku pytaniach podpowiemy, który zakres ma sens w Twojej sytuacji."
+          },
+          "action": {
+            "label": "Zapytaj, który zakres wybrać",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "scope_comparison"
+        },
+        "en": {
+          "title": "Which way of working suits you?",
+          "lead": "Three ways of working side by side. Compare what each one covers and choose the one that fits your situation.",
+          "columns": [
+            {
+              "title": "Consultation",
+              "text": "One meeting and written recommendations"
+            },
+            {
+              "title": "Project",
+              "text": "From assessment to a finished result"
+            },
+            {
+              "title": "Ongoing care",
+              "text": "Support after the project ends"
+            }
+          ],
+          "items": [
+            {
+              "title": "Who it is for",
+              "values": {
+                "first": "When you want to check the direction before you start",
+                "second": "When you have a clear goal and a deadline",
+                "third": "When the result works and has to keep working"
+              }
+            },
+            {
+              "title": "What it covers",
+              "values": {
+                "first": "A conversation, a review of your materials and a list of recommendations",
+                "second": "A plan, the work itself and a handover",
+                "third": "Regular reviews and help with changes"
+              }
+            },
+            {
+              "title": "How long it takes",
+              "values": {
+                "first": "[Fill in: length of the consultation]",
+                "second": "[Fill in: typical project length]",
+                "third": "[Fill in: length of the arrangement]"
+              }
+            },
+            {
+              "title": "Your part",
+              "values": {
+                "first": "Describing the situation and asking questions",
+                "second": "Approving each stage",
+                "third": "Telling us about needs and changes"
+              }
+            },
+            {
+              "title": "What you keep",
+              "values": {
+                "first": "Recommendations you can act on yourself",
+                "second": "The finished result with documentation",
+                "third": "An up-to-date result and a record of changes"
+              }
+            }
+          ],
+          "note": {
+            "title": "Not sure which one to choose?",
+            "text": "Start with a short conversation. After a few questions we will suggest the scope that makes sense for you."
+          },
+          "action": {
+            "label": "Ask which scope to choose",
+            "href": "mailto:contact@example.com"
+          },
+          "layout": "scope_comparison"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_shared_roles",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 5,
+      "layout": "shared_roles",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Po Twojej stronie i po naszej",
+          "description": "Etapy współpracy, a przy każdym dwa tory: co robi klient, a co Ty. Na szerokim ekranie tory stoją obok siebie, na telefonie jeden pod drugim.",
+          "usage": "Układ: podział ról na etapach. Środek strony usługi, zwykle po ofercie. Nazwy torów wpisz w kolumnach; przy każdym etapie uzupełnij oba tory."
+        },
+        "en": {
+          "name": "Your part and ours",
+          "description": "The stages of working together, each with two lanes: what the client does and what you do. On a wide screen the lanes sit side by side, on a phone one under the other.",
+          "usage": "Layout: shared roles along the stages. Body of a service page, usually after the offer. Name the lanes in the columns; fill in both lanes at each stage."
+        }
+      },
+      "goals": ["explain_process"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["reassurance", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 300,
+        "mediaAspectRatio": null
+      },
+      "contentProfiles": ["M"],
+      "readingPattern": "scan",
+      "styleAffinities": ["expert", "technical", "organic"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "interest",
+        "primaryAction": false
+      },
+      "seed": {
+        "pl": {
+          "title": "Kto co robi na każdym etapie",
+          "lead": "Jasny podział zadań oszczędza czas obu stronom. Tak dzielimy pracę od pierwszej rozmowy do odbioru.",
+          "columns": [
+            {
+              "title": "Po Twojej stronie"
+            },
+            {
+              "title": "Po naszej stronie"
+            }
+          ],
+          "items": [
+            {
+              "title": "Pierwsza rozmowa",
+              "values": {
+                "first": "Opisujesz cel i termin, na którym Ci zależy.",
+                "second": "Dopytujemy o szczegóły i mówimy wprost, czy możemy pomóc."
+              }
+            },
+            {
+              "title": "Propozycja",
+              "values": {
+                "first": "Sprawdzasz zakres i zadajesz pytania.",
+                "second": "Przygotowujemy opis zakresu, etapów i terminów."
+              }
+            },
+            {
+              "title": "Realizacja",
+              "values": {
+                "first": "Odpowiadasz na pytania i akceptujesz kolejne etapy.",
+                "second": "Wykonujemy pracę i informujemy o postępach."
+              }
+            },
+            {
+              "title": "Odbiór",
+              "values": {
+                "first": "Oglądasz efekt i zgłaszasz uwagi.",
+                "second": "Wprowadzamy poprawki z uzgodnionego zakresu i przekazujemy efekt."
+              }
+            }
+          ],
+          "layout": "shared_roles"
+        },
+        "en": {
+          "title": "Who does what at each stage",
+          "lead": "A clear split of tasks saves time on both sides. This is how we share the work from the first conversation to the handover.",
+          "columns": [
+            {
+              "title": "Your part"
+            },
+            {
+              "title": "Our part"
+            }
+          ],
+          "items": [
+            {
+              "title": "First conversation",
+              "values": {
+                "first": "You describe the goal and the deadline that matters to you.",
+                "second": "We ask about the details and tell you plainly whether we can help."
+              }
+            },
+            {
+              "title": "Proposal",
+              "values": {
+                "first": "You check the scope and ask questions.",
+                "second": "We describe the scope, the stages and the dates."
+              }
+            },
+            {
+              "title": "The work",
+              "values": {
+                "first": "You answer questions and approve each stage.",
+                "second": "We do the work and keep you posted."
+              }
+            },
+            {
+              "title": "Handover",
+              "values": {
+                "first": "You review the result and share your remarks.",
+                "second": "We make the agreed corrections and hand the result over."
+              }
+            }
+          ],
+          "layout": "shared_roles"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_scope_limits",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 5,
+      "layout": "scope_limits",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "W zakresie i poza zakresem",
+          "description": "Dwie grupy obok siebie: co usługa obejmuje, a czego nie. Pierwsza grupa ma znaczniki ✓, kolejne ✕. Uprzedza nieporozumienia, zanim klient zapyta.",
+          "usage": "Układ: zakres i jego granice. Środek strony usługi, przed pytaniami. Grupę zaczyna pozycja z wypełnionym polem „Grupa”; pierwsza grupa to zakres, kolejne — to, czego nie obejmuje."
+        },
+        "en": {
+          "name": "In scope and out of scope",
+          "description": "Two groups side by side: what the service covers and what it does not. The first group gets ✓ marks, the next ✕. It settles misunderstandings before the client asks.",
+          "usage": "Layout: scope and its limits. Body of a service page, before the questions. An item with the “Group” field filled starts a group; the first group is the scope, the next ones what it does not cover."
+        }
+      },
+      "goals": ["explain_offer", "answer_questions"],
+      "composition": {
+        "role": "reassurance",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact", "reassurance"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "contentGuidance": {
+        "minItems": 4,
+        "maxItems": 12,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 300,
+        "mediaAspectRatio": null
+      },
+      "contentProfiles": ["M"],
+      "readingPattern": "scan",
+      "styleAffinities": ["expert", "technical", "premium"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "objection",
+        "primaryAction": false
+      },
+      "seed": {
+        "pl": {
+          "title": "Co obejmuje usługa, a czego nie",
+          "lead": "Wolimy powiedzieć to od razu, niż rozczarować po fakcie. Jeśli potrzebujesz czegoś spoza listy, zapytaj — powiemy, kto może pomóc.",
+          "items": [
+            {
+              "group": "W zakresie usługi",
+              "title": "Rozpoznanie sytuacji",
+              "text": "Sprawdzamy stan wyjściowy i materiały, które już masz."
+            },
+            {
+              "title": "Plan działań",
+              "text": "Opisujemy kolejne kroki i to, co będzie efektem każdego z nich."
+            },
+            {
+              "title": "Realizacja uzgodnionego zakresu",
+              "text": "Wykonujemy dokładnie to, co zapisaliśmy w propozycji."
+            },
+            {
+              "title": "Przekazanie efektu",
+              "text": "Razem z dokumentacją, z której skorzystasz także bez nas."
+            },
+            {
+              "group": "Poza zakresem",
+              "title": "Prace spoza propozycji",
+              "text": "Każdą zmianę zakresu omawiamy, zanim ją wprowadzimy."
+            },
+            {
+              "title": "[Uzupełnij: usługa, której nie świadczycie]",
+              "text": "Napisz, kto może w tym pomóc."
+            },
+            {
+              "title": "Stała opieka po zakończeniu",
+              "text": "To osobna usługa — zapytaj o nią przy odbiorze."
+            }
+          ],
+          "layout": "scope_limits"
+        },
+        "en": {
+          "title": "What the service covers, and what it does not",
+          "lead": "We would rather say it now than disappoint you later. If you need something that is not on the list, ask — we will tell you who can help.",
+          "items": [
+            {
+              "group": "Included",
+              "title": "Assessing the situation",
+              "text": "We check the starting point and the materials you already have."
+            },
+            {
+              "title": "A plan of action",
+              "text": "We describe the next steps and what each of them will deliver."
+            },
+            {
+              "title": "Doing the agreed work",
+              "text": "Exactly what we wrote down in the proposal."
+            },
+            {
+              "title": "Handing over the result",
+              "text": "Together with documentation you can use without us."
+            },
+            {
+              "group": "Not included",
+              "title": "Work outside the proposal",
+              "text": "We discuss every change of scope before we make it."
+            },
+            {
+              "title": "[Fill in: a service you do not offer]",
+              "text": "Say who can help with it."
+            },
+            {
+              "title": "Ongoing care after the handover",
+              "text": "That is a separate service — ask about it at the handover."
+            }
+          ],
+          "layout": "scope_limits"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_staged_preparation",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 5,
+      "layout": "staged_preparation",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Przygotowanie w etapach",
+          "description": "Lista przygotowań podzielona na etapy w czasie, np. tydzień wcześniej, dzień wcześniej, w dniu spotkania. Przy punkcie może stać krótka uwaga.",
+          "usage": "Układ: przygotowanie w etapach. Środek strony usługi lub poradnik, zwykle przed kontaktem. Etap zaczyna pozycja z wypełnionym polem „Grupa”."
+        },
+        "en": {
+          "name": "Preparation in stages",
+          "description": "A preparation checklist split into stages in time, e.g. a week before, the day before, on the day. A point may carry a short note.",
+          "usage": "Layout: preparation in stages. Body of a service page or a guide, usually before contact. An item with the “Group” field filled starts a stage."
+        }
+      },
+      "goals": ["explain_process"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact", "reassurance"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 12,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 300,
+        "mediaAspectRatio": null
+      },
+      "contentProfiles": ["M"],
+      "readingPattern": "scan",
+      "styleAffinities": ["expert", "organic", "editorial"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "interest",
+        "primaryAction": false
+      },
+      "seed": {
+        "pl": {
+          "title": "Jak się przygotować",
+          "lead": "Przygotowanie rozłożone w czasie to spokojniejszy dzień spotkania. Odhaczaj kolejne punkty, gdy będą gotowe.",
+          "items": [
+            {
+              "group": "Tydzień wcześniej",
+              "title": "Zbierz dokumenty",
+              "text": "Wszystko, co dotyczy sprawy: umowy, notatki i wcześniejsze ustalenia."
+            },
+            {
+              "title": "Spisz pytania",
+              "text": "Łatwiej o nich pamiętać, gdy masz je przed sobą na kartce."
+            },
+            {
+              "group": "Dzień wcześniej",
+              "title": "Potwierdź termin",
+              "text": "Jeśli coś się zmieniło, daj znać — ustalimy nowy."
+            },
+            {
+              "title": "Sprawdź dojazd",
+              "text": "[Uzupełnij: jak dojechać i gdzie zaparkować]"
+            },
+            {
+              "group": "W dniu spotkania",
+              "title": "Zabierz dokumenty i pytania",
+              "note": "Spóźnisz się? Zadzwoń, zanim minie umówiona godzina."
+            },
+            {
+              "title": "Zarezerwuj czas",
+              "text": "[Uzupełnij: ile trwa spotkanie]"
+            }
+          ],
+          "layout": "staged_preparation"
+        },
+        "en": {
+          "title": "How to prepare",
+          "lead": "Preparing over a few days makes the day of the meeting calmer. Tick off each point once it is ready.",
+          "items": [
+            {
+              "group": "A week before",
+              "title": "Gather your documents",
+              "text": "Everything that concerns the matter: contracts, notes and earlier arrangements."
+            },
+            {
+              "title": "Write down your questions",
+              "text": "They are easier to remember when you have them on paper."
+            },
+            {
+              "group": "The day before",
+              "title": "Confirm the date",
+              "text": "If anything has changed, let us know — we will agree a new one."
+            },
+            {
+              "title": "Check how to get here",
+              "text": "[Fill in: how to get here and where to park]"
+            },
+            {
+              "group": "On the day",
+              "title": "Bring the documents and questions",
+              "note": "Running late? Call before the agreed time has passed."
+            },
+            {
+              "title": "Keep the time free",
+              "text": "[Fill in: how long the meeting takes]"
+            }
+          ],
+          "layout": "staged_preparation"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_instruction_notes",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 5,
+      "layout": "instruction_notes",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Instrukcja z uwagą przy kroku",
+          "description": "Numerowane kroki, a przy tych, w których łatwo o błąd, wyróżniona uwaga. Uwaga stoi przy swoim kroku, nie w osobnym panelu.",
+          "usage": "Układ: instrukcja z uwagami przy krokach. Poradnik, strona pomocy albo wpis. Uwagę wpisz w polu „Uwaga przy pozycji” tylko tam, gdzie naprawdę jest potrzebna."
+        },
+        "en": {
+          "name": "Instructions with a note at the step",
+          "description": "Numbered steps; where a mistake is easy, the step carries a highlighted note. The note stays with its step, not in a separate panel.",
+          "usage": "Layout: instructions with notes at the steps. A guide, a help page or an entry. Fill in “Note at the item” only where it is really needed."
+        }
+      },
+      "goals": ["explain_process"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["reassurance", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 12,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 400,
+        "mediaAspectRatio": null
+      },
+      "contentProfiles": ["M", "L"],
+      "readingPattern": "linear",
+      "styleAffinities": ["technical", "editorial", "expert"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "interest",
+        "primaryAction": false
+      },
+      "seed": {
+        "pl": {
+          "title": "Krok po kroku",
+          "lead": "Wykonuj kroki po kolei. Przy niektórych znajdziesz uwagę — to miejsca, w których najłatwiej o pomyłkę.",
+          "items": [
+            {
+              "title": "Przygotuj miejsce pracy",
+              "text": "Uprzątnij blat i zapewnij dobre światło."
+            },
+            {
+              "title": "Sprawdź, czy masz wszystkie elementy",
+              "text": "Porównaj zawartość z listą w instrukcji producenta.",
+              "note": "Brakuje elementu? Przerwij i skontaktuj się z nami, zanim przejdziesz dalej."
+            },
+            {
+              "title": "Złóż całość wstępnie",
+              "text": "Połącz elementy, ale nie dokręcaj połączeń do końca.",
+              "note": "Połączenia dokręcone za wcześnie utrudniają wyrównanie całości."
+            },
+            {
+              "title": "Wyrównaj i dokręć",
+              "text": "Sprawdź ustawienie, a potem dokręcaj połączenia po kolei."
+            },
+            {
+              "title": "Sprawdź działanie",
+              "text": "[Uzupełnij: jak sprawdzić, że wszystko działa]"
+            }
+          ],
+          "layout": "instruction_notes"
+        },
+        "en": {
+          "title": "Step by step",
+          "lead": "Follow the steps in order. Some of them carry a note — those are the places where a mistake is easiest.",
+          "items": [
+            {
+              "title": "Prepare your workspace",
+              "text": "Clear the worktop and make sure there is good light."
+            },
+            {
+              "title": "Check that you have every part",
+              "text": "Compare the contents with the list in the manufacturer's instructions.",
+              "note": "A part is missing? Stop and get in touch before you go on."
+            },
+            {
+              "title": "Put it together loosely",
+              "text": "Join the parts, but do not tighten the joints fully yet.",
+              "note": "Joints tightened too early make it hard to align the whole."
+            },
+            {
+              "title": "Align and tighten",
+              "text": "Check the alignment, then tighten the joints one by one."
+            },
+            {
+              "title": "Check that it works",
+              "text": "[Fill in: how to check that everything works]"
+            }
+          ],
+          "layout": "instruction_notes"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_fit_check",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 5,
+      "layout": "fit_check",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Sprawdź, czy to dla Ciebie",
+          "description": "Kilka sytuacji, w których klient może się rozpoznać, a pod nimi werdykt z przyciskiem. Decyzja i następny krok w jednym miejscu.",
+          "usage": "Układ: samoocena z wezwaniem. Środek lub koniec strony usługi. Pozycje pisz z perspektywy klienta; w uwadze napisz, co zrobić, gdy się rozpoznaje."
+        },
+        "en": {
+          "name": "Is this for you?",
+          "description": "A few situations a client may recognise, followed by a verdict with a button. The decision and the next step in one place.",
+          "usage": "Layout: self-check with a call to action. Middle or end of a service page. Write the points from the client's point of view; in the note say what to do if they recognise themselves."
+        }
+      },
+      "goals": ["explain_offer", "start_conversation"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact", "reassurance"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 120,
+        "bodyMaxCharacters": 300,
+        "mediaAspectRatio": null
+      },
+      "contentProfiles": ["S", "M"],
+      "readingPattern": "scan",
+      "styleAffinities": ["expert", "product", "organic"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "action",
+        "primaryAction": true
+      },
+      "seed": {
+        "pl": {
+          "title": "Czy ta usługa jest dla Ciebie?",
+          "lead": "Przejrzyj poniższe punkty. Jeśli rozpoznajesz w nich swoją sytuację, to dobry moment na rozmowę.",
+          "items": [
+            {
+              "title": "Masz konkretny cel, ale brakuje Ci czasu, żeby zająć się nim samodzielnie."
+            },
+            {
+              "title": "Chcesz wiedzieć z góry, co zostanie zrobione i kiedy."
+            },
+            {
+              "title": "Wolisz jedną osobę do kontaktu zamiast kilku wykonawców."
+            },
+            {
+              "title": "Zależy Ci na efekcie, z którego skorzystasz także bez nas."
+            }
+          ],
+          "note": {
+            "title": "Rozpoznajesz się w dwóch punktach lub więcej?",
+            "text": "Opisz krótko swoją sytuację. Odpowiemy, czy i jak możemy pomóc — bez zobowiązań."
+          },
+          "action": {
+            "label": "Opisz swoją sytuację",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "fit_check"
+        },
+        "en": {
+          "title": "Is this service for you?",
+          "lead": "Look through the points below. If you recognise your situation in them, it is a good moment to talk.",
+          "items": [
+            {
+              "title": "You have a clear goal but no time to deal with it yourself."
+            },
+            {
+              "title": "You want to know in advance what will be done and when."
+            },
+            {
+              "title": "You would rather have one contact person than several contractors."
+            },
+            {
+              "title": "You want a result you can use without us, too."
+            }
+          ],
+          "note": {
+            "title": "Recognise yourself in two points or more?",
+            "text": "Describe your situation briefly. We will tell you whether and how we can help — with no obligation."
+          },
+          "action": {
+            "label": "Describe your situation",
+            "href": "mailto:contact@example.com"
+          },
+          "layout": "fit_check"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_medicine_visit_preparation",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 5,
+      "layout": "staged_preparation",
+      "kind": "industry",
+      "industries": ["medicine"],
+      "labels": {
+        "pl": {
+          "name": "Przygotowanie do wizyty (gabinet)",
+          "description": "Co pacjent ma przygotować kilka dni przed wizytą, dzień wcześniej i w dniu wizyty. Zamiast zaleceń medycznych — miejsca do uzupełnienia przez gabinet.",
+          "usage": "Układ: przygotowanie w etapach. Strona usługi gabinetu, przed kontaktem lub rezerwacją. Zalecenia dotyczące badań wpisuje lekarz; szablon ich nie zgaduje."
+        },
+        "en": {
+          "name": "Preparing for the visit (practice)",
+          "description": "What a patient should prepare a few days before the visit, the day before and on the day. Instead of medical advice — places for the practice to fill in.",
+          "usage": "Layout: preparation in stages. A practice's service page, before contact or booking. The doctor writes any advice on tests; the template does not guess it."
+        }
+      },
+      "goals": ["explain_process"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact", "reassurance"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 12,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 300,
+        "mediaAspectRatio": null
+      },
+      "contentProfiles": ["M"],
+      "readingPattern": "scan",
+      "styleAffinities": ["expert", "organic"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "interest",
+        "primaryAction": false
+      },
+      "seed": {
+        "pl": {
+          "title": "Jak przygotować się do wizyty",
+          "lead": "Dobre przygotowanie skraca wizytę i pozwala skupić się na tym, co najważniejsze. Oto, o czym warto pamiętać.",
+          "items": [
+            {
+              "group": "Kilka dni przed wizytą",
+              "title": "Zbierz wyniki badań",
+              "text": "Także starsze — pozwalają porównać zmiany w czasie."
+            },
+            {
+              "title": "Spisz przyjmowane leki",
+              "text": "Z dawkami, razem z suplementami i lekami bez recepty."
+            },
+            {
+              "group": "Dzień przed wizytą",
+              "title": "Sprawdź, czy wizyta wymaga przygotowania",
+              "text": "[Uzupełnij: np. czy przyjść na czczo]"
+            },
+            {
+              "title": "Zapisz objawy i pytania",
+              "text": "Od kiedy trwają, co je nasila, co przynosi ulgę."
+            },
+            {
+              "group": "W dniu wizyty",
+              "title": "Zabierz potrzebne dokumenty",
+              "text": "[Uzupełnij: dokument tożsamości, skierowanie lub inne dokumenty]"
+            },
+            {
+              "title": "Przyjdź kilka minut wcześniej",
+              "text": "Na rejestrację i wypełnienie formularzy.",
+              "note": "Nie możesz przyjść? Odwołaj wizytę jak najwcześniej — termin trafi do innej osoby."
+            }
+          ],
+          "layout": "staged_preparation"
+        },
+        "en": {
+          "title": "How to prepare for your visit",
+          "lead": "Good preparation shortens the visit and leaves time for what matters most. Here is what to remember.",
+          "items": [
+            {
+              "group": "A few days before",
+              "title": "Gather your test results",
+              "text": "Older ones too — they show how things have changed."
+            },
+            {
+              "title": "List the medicines you take",
+              "text": "With doses, including supplements and over-the-counter medicines."
+            },
+            {
+              "group": "The day before",
+              "title": "Check whether the visit needs preparation",
+              "text": "[Fill in: e.g. whether to come fasting]"
+            },
+            {
+              "title": "Write down symptoms and questions",
+              "text": "Since when, what makes them worse, what brings relief."
+            },
+            {
+              "group": "On the day",
+              "title": "Bring the documents you need",
+              "text": "[Fill in: ID, referral or other documents]"
+            },
+            {
+              "title": "Come a few minutes early",
+              "text": "For registration and forms.",
+              "note": "Cannot come? Cancel as early as you can — someone else will get the slot."
+            }
+          ],
+          "layout": "staged_preparation"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_medicine_visit_types",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 5,
+      "layout": "scope_comparison",
+      "kind": "industry",
+      "industries": ["medicine"],
+      "labels": {
+        "pl": {
+          "name": "Rodzaje wizyt (gabinet)",
+          "description": "Pierwsza wizyta, kontrolna i konsultacja online w jednej tabeli: kiedy wybrać, jak przebiega, co przygotować. Bez cen; czasy wizyt uzupełnia gabinet.",
+          "usage": "Układ: porównanie zakresów. Strona usług gabinetu, gdy pacjent wybiera rodzaj wizyty. Przycisk prowadzi do rejestracji — wpisz prawdziwy numer."
+        },
+        "en": {
+          "name": "Types of visit (practice)",
+          "description": "A first visit, a follow-up and an online consultation in one table: when to choose each, how it goes, what to prepare. No prices; the practice fills in the durations.",
+          "usage": "Layout: scope comparison. A practice's services page, when a patient chooses the type of visit. The button leads to the reception — enter the real number."
+        }
+      },
+      "goals": ["explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact", "reassurance"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 300,
+        "mediaAspectRatio": null
+      },
+      "contentProfiles": ["M"],
+      "readingPattern": "reference",
+      "styleAffinities": ["expert", "organic"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "interest",
+        "primaryAction": true
+      },
+      "seed": {
+        "pl": {
+          "title": "Rodzaje wizyt — co obejmuje każda z nich",
+          "lead": "Wybierz wizytę, która odpowiada Twojej sytuacji. Jeśli nie masz pewności, rejestracja pomoże wybrać.",
+          "columns": [
+            {
+              "title": "Pierwsza wizyta",
+              "text": "Nowy problem albo pierwsza konsultacja"
+            },
+            {
+              "title": "Wizyta kontrolna",
+              "text": "Po leczeniu lub badaniach"
+            },
+            {
+              "title": "Konsultacja online",
+              "text": "Gdy nie jest potrzebne badanie w gabinecie"
+            }
+          ],
+          "items": [
+            {
+              "title": "Kiedy wybrać",
+              "values": {
+                "first": "Gdy zgłaszasz się z nowym problemem",
+                "second": "Gdy wracasz z wynikami lub po leczeniu",
+                "third": "Gdy chcesz omówić wyniki lub dalsze kroki"
+              }
+            },
+            {
+              "title": "Jak przebiega",
+              "values": {
+                "first": "Rozmowa, badanie i plan dalszego postępowania",
+                "second": "Omówienie wyników i ocena postępów",
+                "third": "Rozmowa przez wideo lub telefon"
+              }
+            },
+            {
+              "title": "Czas trwania",
+              "values": {
+                "first": "[Uzupełnij: czas wizyty]",
+                "second": "[Uzupełnij: czas wizyty]",
+                "third": "[Uzupełnij: czas konsultacji]"
+              }
+            },
+            {
+              "title": "Co przygotować",
+              "values": {
+                "first": "Wyniki badań i listę leków",
+                "second": "Wyniki zleconych badań",
+                "third": "Wyniki przesłane przed konsultacją"
+              }
+            }
+          ],
+          "action": {
+            "label": "Zadzwoń do rejestracji",
+            "href": "tel:+48000000000"
+          },
+          "layout": "scope_comparison"
+        },
+        "en": {
+          "title": "Types of visit — what each one covers",
+          "lead": "Choose the visit that fits your situation. If you are not sure, the reception will help you choose.",
+          "columns": [
+            {
+              "title": "First visit",
+              "text": "A new problem or a first consultation"
+            },
+            {
+              "title": "Follow-up visit",
+              "text": "After treatment or tests"
+            },
+            {
+              "title": "Online consultation",
+              "text": "When no examination in person is needed"
+            }
+          ],
+          "items": [
+            {
+              "title": "When to choose it",
+              "values": {
+                "first": "When you come with a new problem",
+                "second": "When you come back with results or after treatment",
+                "third": "When you want to discuss results or next steps"
+              }
+            },
+            {
+              "title": "How it goes",
+              "values": {
+                "first": "A conversation, an examination and a plan",
+                "second": "Discussing results and progress",
+                "third": "A video or phone call"
+              }
+            },
+            {
+              "title": "How long it takes",
+              "values": {
+                "first": "[Fill in: length of the visit]",
+                "second": "[Fill in: length of the visit]",
+                "third": "[Fill in: length of the consultation]"
+              }
+            },
+            {
+              "title": "What to prepare",
+              "values": {
+                "first": "Test results and a list of medicines",
+                "second": "Results of the tests you were given",
+                "third": "Results sent before the consultation"
+              }
+            }
+          ],
+          "action": {
+            "label": "Call the reception",
+            "href": "tel:+48000000000"
+          },
+          "layout": "scope_comparison"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_agriculture_visit_flow",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 5,
+      "layout": "shared_roles",
+      "kind": "industry",
+      "industries": ["agriculture"],
+      "labels": {
+        "pl": {
+          "name": "Przebieg wizyty w gospodarstwie",
+          "description": "Etapy wizyty od umówienia terminu do zaleceń, a przy każdym dwa tory: co robi gospodarstwo, a co ekipa. Rolnik wie, czego się spodziewać i co przygotować.",
+          "usage": "Układ: podział ról na etapach. Strona usługi terenowej, po ofercie. Uzupełnij, co przywozicie i co zostaje po wizycie."
+        },
+        "en": {
+          "name": "How a farm visit goes",
+          "description": "The stages of a visit from booking to recommendations, each with two lanes: what the farm does and what your team does. The farmer knows what to expect and what to prepare.",
+          "usage": "Layout: shared roles along the stages. A field service page, after the offer. Fill in what you bring and what the farm gets after the visit."
+        }
+      },
+      "goals": ["explain_process"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["reassurance", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 8,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 300,
+        "mediaAspectRatio": null
+      },
+      "contentProfiles": ["M"],
+      "readingPattern": "scan",
+      "styleAffinities": ["organic", "expert"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "interest",
+        "primaryAction": false
+      },
+      "seed": {
+        "pl": {
+          "title": "Jak przebiega wizyta w gospodarstwie",
+          "lead": "Wizyta idzie sprawnie, gdy obie strony wiedzą, co do nich należy. Oto podział zadań od umówienia terminu do zaleceń.",
+          "columns": [
+            {
+              "title": "Po stronie gospodarstwa"
+            },
+            {
+              "title": "Po naszej stronie"
+            }
+          ],
+          "items": [
+            {
+              "title": "Umówienie terminu",
+              "values": {
+                "first": "Podajesz liczbę zwierząt i dogodny termin.",
+                "second": "Potwierdzamy termin i mówimy, jak przygotować stanowisko."
+              }
+            },
+            {
+              "title": "Przed przyjazdem",
+              "values": {
+                "first": "Przygotowujesz stanowisko i zwierzęta.",
+                "second": "[Uzupełnij: co przywozicie ze sobą]"
+              }
+            },
+            {
+              "title": "W trakcie pracy",
+              "values": {
+                "first": "Zapewniasz osobę, która pomoże przy zwierzętach.",
+                "second": "Pracujemy w ustalonej kolejności i na bieżąco mówimy, co widzimy."
+              }
+            },
+            {
+              "title": "Po wizycie",
+              "values": {
+                "first": "Stosujesz zalecenia i obserwujesz zwierzęta.",
+                "second": "[Uzupełnij: co przekazujecie po wizycie, np. raport]"
+              }
+            }
+          ],
+          "layout": "shared_roles"
+        },
+        "en": {
+          "title": "How a visit to your farm goes",
+          "lead": "A visit runs smoothly when both sides know their part. Here is who does what, from booking to recommendations.",
+          "columns": [
+            {
+              "title": "The farm's part"
+            },
+            {
+              "title": "Our part"
+            }
+          ],
+          "items": [
+            {
+              "title": "Booking",
+              "values": {
+                "first": "You tell us how many animals and which dates suit you.",
+                "second": "We confirm the date and tell you how to prepare the working area."
+              }
+            },
+            {
+              "title": "Before we arrive",
+              "values": {
+                "first": "You prepare the working area and the animals.",
+                "second": "[Fill in: what you bring with you]"
+              }
+            },
+            {
+              "title": "During the work",
+              "values": {
+                "first": "You provide someone to help with the animals.",
+                "second": "We work in the agreed order and tell you what we see as we go."
+              }
+            },
+            {
+              "title": "After the visit",
+              "values": {
+                "first": "You follow the recommendations and watch the animals.",
+                "second": "[Fill in: what you hand over after the visit, e.g. a report]"
+              }
+            }
+          ],
+          "layout": "shared_roles"
+        }
+      }
+    },
+    {
+      "id": "core.feature_list_agriculture_station_setup",
+      "version": 1,
+      "blockType": "core.feature_list",
+      "schemaVersion": 5,
+      "layout": "instruction_notes",
+      "kind": "industry",
+      "industries": ["agriculture"],
+      "labels": {
+        "pl": {
+          "name": "Przygotuj stanowisko (gospodarstwo)",
+          "description": "Kilka kroków, które gospodarstwo wykonuje przed przyjazdem ekipy, z uwagą przy krokach, o których łatwo zapomnieć. Krótsza wizyta i mniej stresu dla zwierząt.",
+          "usage": "Układ: instrukcja z uwagami przy krokach. Strona usługi terenowej lub wiadomość przed wizytą. Uzupełnij wymagania swojego sprzętu: miejsce, prąd, woda."
+        },
+        "en": {
+          "name": "Prepare the working area (farm)",
+          "description": "A few steps the farm takes before the team arrives, with notes at the steps that are easy to forget. A shorter visit and less stress for the animals.",
+          "usage": "Layout: instructions with notes at the steps. A field service page or a message before the visit. Fill in what your equipment needs: space, power, water."
+        }
+      },
+      "goals": ["explain_process"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact", "reassurance"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 10,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 400,
+        "mediaAspectRatio": null
+      },
+      "contentProfiles": ["M"],
+      "readingPattern": "linear",
+      "styleAffinities": ["organic", "technical"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "interest",
+        "primaryAction": false
+      },
+      "seed": {
+        "pl": {
+          "title": "Przygotuj stanowisko przed naszym przyjazdem",
+          "lead": "Dobrze przygotowane miejsce to krótsza wizyta i mniej stresu dla zwierząt. Wystarczy kilka kroków.",
+          "items": [
+            {
+              "title": "Wybierz miejsce pracy",
+              "text": "Równe, suche podłoże z dojazdem dla samochodu.",
+              "note": "[Uzupełnij: ile miejsca potrzebujecie]"
+            },
+            {
+              "title": "Zapewnij prąd i wodę",
+              "text": "Gniazdko w zasięgu przedłużacza i dostęp do wody do mycia sprzętu.",
+              "note": "Nie ma prądu na miejscu? Powiedz o tym przy umawianiu terminu."
+            },
+            {
+              "title": "Przygotuj zwierzęta",
+              "text": "Oddziel zwierzęta, których dotyczy wizyta, i trzymaj je blisko stanowiska."
+            },
+            {
+              "title": "Wyznacz osobę do pomocy",
+              "text": "Kogoś, kto zna zwierzęta i pomoże je prowadzić."
+            },
+            {
+              "title": "Przygotuj listę zwierząt",
+              "text": "Numery i uwagi, np. o kulawiźnie albo wcześniejszym leczeniu."
+            }
+          ],
+          "layout": "instruction_notes"
+        },
+        "en": {
+          "title": "Prepare the working area before we arrive",
+          "lead": "A well-prepared area means a shorter visit and less stress for the animals. A few steps are enough.",
+          "items": [
+            {
+              "title": "Choose the working area",
+              "text": "Level, dry ground that a car can reach.",
+              "note": "[Fill in: how much space you need]"
+            },
+            {
+              "title": "Provide power and water",
+              "text": "A socket within reach of an extension lead and water for washing equipment.",
+              "note": "No power on site? Tell us when you book."
+            },
+            {
+              "title": "Prepare the animals",
+              "text": "Separate the animals the visit is for and keep them close to the working area."
+            },
+            {
+              "title": "Choose someone to help",
+              "text": "A person who knows the animals and can help move them."
+            },
+            {
+              "title": "Prepare a list of the animals",
+              "text": "Numbers and remarks, e.g. about lameness or earlier treatment."
+            }
+          ],
+          "layout": "instruction_notes"
+        }
+      }
     }
   ]
 }

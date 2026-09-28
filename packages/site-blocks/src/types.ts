@@ -236,6 +236,26 @@ export type FeatureListV4Data = FeatureListV1Data & {
   note?: { title?: string; text: string };
 };
 
+/** v5 (phase 4, F4-P1): an item may start a group, carry a note and fill up to
+ *  three columns (`values` under fixed keys: the editor has no list in a
+ *  list); the section may name its columns and link on with one action. */
+export type FeatureListV5Data = JsonObject & {
+  image?: { asset_id: string; alt: string };
+  title?: string;
+  layout?: string;
+  lead?: string;
+  note?: { title?: string; text: string };
+  items: {
+    title: string;
+    text?: string;
+    group?: string;
+    note?: string;
+    values?: { first?: string; second?: string; third?: string };
+  }[];
+  columns?: { title: string; text?: string }[];
+  action?: { label: string; href: string };
+};
+
 export type QuoteV1Data = JsonObject & {
   layout?: "portrait";
   quote: string;

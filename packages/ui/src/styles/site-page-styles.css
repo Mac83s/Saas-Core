@@ -388,7 +388,15 @@
 .site-theme.site-style--mosaic
   .site-block
   :is(
-    .site-section--feature_list li,
+    .site-section--feature_list
+      li:not(
+        :is(
+            .site-section__group,
+            .site-section__checks,
+            .site-section--instruction_notes
+          )
+          li
+      ),
     .site-block--feature-list li,
     .site-section--cards li,
     .site-product__uses li,
@@ -449,9 +457,20 @@
 }
 .site-theme.site-style--mosaic
   .site-block
-  .site-section__commentary
+  :is(.site-section__commentary, .site-section__verdict)
   > .site-section__note {
   box-shadow: none;
+}
+/* feature_list v5: a group or a stage is the card, the checked items and an
+   instruction's steps inside are not (card rule above). */
+.site-theme.site-style--mosaic
+  .site-block.site-section--scope_limits
+  .site-section__group {
+  background: var(--site-style-card);
+  box-shadow: var(--site-style-shadow);
+}
+.site-theme.site-style--mosaic .site-block .site-section__lanes {
+  padding-inline: clamp(1.25rem, 2.5cqw, 1.5rem);
 }
 .site-theme.site-style--mosaic .site-block.site-section--faq > div {
   display: grid;

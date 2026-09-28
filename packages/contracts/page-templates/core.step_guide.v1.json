@@ -1,0 +1,904 @@
+{
+  "id": "core.step_guide",
+  "version": 1,
+  "category": "article",
+  "industries": [],
+  "labels": {
+    "pl": {
+      "name": "Poradnik krok po kroku",
+      "description": "Długi poradnik, który prowadzi do zgłoszenia: cel, co przygotować, kroki z uwagami, czego unikać, lista kontrolna, materiały, co dzieje się dalej, pytania i formularz. Przykład: przygotowanie urządzenia do naprawy; wymień treści demonstracyjne przed publikacją."
+    },
+    "en": {
+      "name": "Step-by-step guide",
+      "description": "A long guide that leads to a request: the goal, what to prepare, steps with notes, what to avoid, a checklist, resources, what happens next, questions and a form. Example: preparing a device for repair; replace the demonstration content before publishing."
+    }
+  },
+  "requiredEntitlements": ["sites.enabled"],
+  "pagePresentation": {
+    "schemaVersion": 2,
+    "width": "contained",
+    "style": "technical"
+  },
+  "conversion": {
+    "goal": "inquiry",
+    "stages": [
+      "attention",
+      "interest",
+      "interest",
+      "interest",
+      "objection",
+      "action",
+      "proof",
+      "objection",
+      "objection",
+      "action"
+    ]
+  },
+  "blocks": [
+    {
+      "block_type": "core.hero",
+      "schema_version": 6,
+      "data": {
+        "title": "Jak przygotować urządzenie do naprawy — krok po kroku",
+        "text": "Dobrze przygotowany sprzęt to szybsza diagnoza, bez ryzyka utraty danych i bez uszkodzeń w drodze. Ten poradnik przeprowadzi Cię przez wszystko, co warto zrobić przed oddaniem urządzenia do serwisu.",
+        "action": {
+          "label": "Zgłoś naprawę",
+          "href": "#kontakt"
+        },
+        "secondaryAction": {
+          "label": "Przejdź do kroków",
+          "href": "#kroki"
+        },
+        "layout": "split"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "wide"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 3,
+      "data": {
+        "layout": "summary_box",
+        "eyebrow": "Poradnik",
+        "title": "Po co to przygotowanie",
+        "content": [
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Większość opóźnień w naprawie nie wynika z samej usterki, tylko z braków: nie ma opisu problemu, urządzenie jest zablokowane albo przyjechało źle zapakowane."
+              }
+            ]
+          },
+          {
+            "type": "paragraph",
+            "content": [
+              {
+                "text": "Kilka kroków po Twojej stronie oszczędza dni oczekiwania. Poniżej znajdziesz, co przygotować, jak to zrobić krok po kroku i czego unikać."
+              }
+            ]
+          }
+        ],
+        "aside": {
+          "title": "W skrócie",
+          "content": [
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "Czas:",
+                      "bold": true
+                    },
+                    {
+                      "text": " [Uzupełnij: ile zwykle zajmuje przygotowanie]"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Będzie potrzebne:",
+                      "bold": true
+                    },
+                    {
+                      "text": " kopia danych, opis usterki, karton z wypełnieniem."
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Na końcu:",
+                      "bold": true
+                    },
+                    {
+                      "text": " lista kontrolna przed wysyłką."
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "surface": "muted"
+      }
+    },
+    {
+      "block_type": "core.feature_list",
+      "schema_version": 5,
+      "data": {
+        "title": "Co przygotować, zanim zaczniesz",
+        "lead": "Zbierz te rzeczy wcześniej, a samo przygotowanie urządzenia zajmie chwilę.",
+        "items": [
+          {
+            "group": "Dane i dostęp",
+            "title": "Nośnik na kopię zapasową",
+            "text": "Dysk zewnętrzny, pendrive albo miejsce w chmurze."
+          },
+          {
+            "title": "Kod lub hasło odblokowania",
+            "text": "Będzie potrzebne, żeby sprawdzić urządzenie po naprawie.",
+            "note": "Kod podasz nam osobno — nie przyklejaj go do urządzenia."
+          },
+          {
+            "group": "Akcesoria",
+            "title": "Ładowarka lub zasilacz",
+            "text": "Dołącz, jeśli usterka może ich dotyczyć, np. urządzenie się nie ładuje."
+          },
+          {
+            "group": "Opakowanie",
+            "title": "Karton i wypełnienie",
+            "text": "Najlepiej oryginalne opakowanie albo karton większy o kilka centymetrów z każdej strony."
+          }
+        ],
+        "layout": "staged_preparation"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "anchor": "przygotowanie"
+      }
+    },
+    {
+      "block_type": "core.feature_list",
+      "schema_version": 5,
+      "data": {
+        "title": "Przygotowanie krok po kroku",
+        "lead": "Wykonaj kroki po kolei. Uwagi przy niektórych z nich pokazują, gdzie najłatwiej o pomyłkę.",
+        "items": [
+          {
+            "title": "Zrób kopię zapasową danych",
+            "text": "Skopiuj zdjęcia, dokumenty i wszystko, czego nie chcesz stracić.",
+            "note": "[Uzupełnij: czy naprawa może usunąć dane i co wtedy robicie]"
+          },
+          {
+            "title": "Opisz usterkę",
+            "text": "Kiedy się pojawia, co wtedy robisz, jakie komunikaty widzisz. Im dokładniej, tym krótsza diagnoza."
+          },
+          {
+            "title": "Wyłącz blokady konta",
+            "text": "Wyloguj się z konta producenta i wyłącz funkcje typu „znajdź moje urządzenie”.",
+            "note": "Bez tego nie sprawdzimy urządzenia po naprawie — trzeba będzie na Ciebie czekać."
+          },
+          {
+            "title": "Wyjmij karty i akcesoria",
+            "text": "Karty SIM i pamięci, etui, szkła ochronne i naklejki, których nie chcesz stracić."
+          },
+          {
+            "title": "Zapakuj urządzenie",
+            "text": "Owiń je, włóż do kartonu i wypełnij wolne miejsca.",
+            "note": "Potrząśnij zamkniętym kartonem — urządzenie nie powinno się w nim przesuwać."
+          },
+          {
+            "title": "Przekaż urządzenie",
+            "text": "[Uzupełnij: adres serwisu, godziny przyjmowania albo sposób wysyłki]"
+          }
+        ],
+        "layout": "instruction_notes"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "anchor": "kroki"
+      }
+    },
+    {
+      "block_type": "core.feature_list",
+      "schema_version": 5,
+      "data": {
+        "title": "Co pomaga, a czego unikać",
+        "lead": "Najczęstsze błędy przy oddawaniu sprzętu do naprawy — i to, co robić zamiast nich.",
+        "items": [
+          {
+            "group": "Tak warto",
+            "title": "Opisz usterkę własnymi słowami",
+            "text": "Nie musisz znać przyczyny — wystarczy, co widzisz i kiedy."
+          },
+          {
+            "title": "Zachowaj dowód zakupu",
+            "text": "Przyda się, jeśli naprawa może być gwarancyjna."
+          },
+          {
+            "title": "Zapisz numer seryjny",
+            "text": "Łatwiej wtedy potwierdzić, że odbierasz swoje urządzenie."
+          },
+          {
+            "group": "Tego unikaj",
+            "title": "Nie rozkręcaj urządzenia samodzielnie",
+            "text": "Ślady otwarcia utrudniają diagnozę. [Uzupełnij: czy mogą wpłynąć na gwarancję]"
+          },
+          {
+            "title": "Nie wysyłaj urządzenia ze spuchniętą baterią",
+            "text": "Taka bateria może się zapalić w transporcie. Zadzwoń — powiemy, co zrobić."
+          },
+          {
+            "title": "Nie pakuj bez wypełnienia",
+            "text": "Sam karton nie chroni przed uderzeniami."
+          }
+        ],
+        "layout": "scope_limits"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "surface": "muted"
+      }
+    },
+    {
+      "block_type": "core.feature_list",
+      "schema_version": 5,
+      "data": {
+        "title": "Lista kontrolna przed wysyłką",
+        "lead": "Sprawdź każdy punkt, zanim zakleisz karton.",
+        "items": [
+          {
+            "title": "Kopia zapasowa danych jest zrobiona."
+          },
+          {
+            "title": "Opis usterki jest gotowy."
+          },
+          {
+            "title": "Blokady konta są wyłączone."
+          },
+          {
+            "title": "Karty i akcesoria są wyjęte."
+          },
+          {
+            "title": "Urządzenie nie przesuwa się w kartonie."
+          }
+        ],
+        "note": {
+          "title": "Wszystko gotowe?",
+          "text": "Zgłoś naprawę przez formularz. Odpowiemy, jak przekazać nam urządzenie."
+        },
+        "action": {
+          "label": "Zgłoś naprawę",
+          "href": "#kontakt"
+        },
+        "layout": "fit_check"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.rich_text",
+      "schema_version": 3,
+      "data": {
+        "layout": "resources",
+        "eyebrow": "Materiały",
+        "title": "Materiały, które się przydadzą",
+        "lead": "Instrukcje, do których warto zajrzeć przed przygotowaniem sprzętu.",
+        "content": [
+          {
+            "type": "list",
+            "style": "bullet",
+            "items": [
+              {
+                "content": [
+                  {
+                    "text": "Jak zrobić kopię zapasową",
+                    "bold": true,
+                    "href": "/pomoc/kopia-zapasowa/"
+                  },
+                  {
+                    "text": " — [Uzupełnij: dla jakich urządzeń]"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Jak wyłączyć blokadę konta producenta",
+                    "bold": true,
+                    "href": "/pomoc/blokada-konta/"
+                  },
+                  {
+                    "text": " — [Uzupełnij: dla jakich systemów]"
+                  }
+                ]
+              },
+              {
+                "content": [
+                  {
+                    "text": "Warunki gwarancji i naprawy",
+                    "bold": true,
+                    "href": "/pomoc/warunki/"
+                  },
+                  {
+                    "text": " — [Uzupełnij: link do regulaminu serwisu]"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard"
+      }
+    },
+    {
+      "block_type": "core.feature_list",
+      "schema_version": 5,
+      "data": {
+        "title": "Co dzieje się po zgłoszeniu",
+        "lead": "Po wysłaniu formularza wiesz, co należy do Ciebie, a co do nas — na każdym etapie.",
+        "columns": [
+          {
+            "title": "Po Twojej stronie"
+          },
+          {
+            "title": "Po stronie serwisu"
+          }
+        ],
+        "items": [
+          {
+            "title": "Zgłoszenie",
+            "values": {
+              "first": "Opisujesz urządzenie i usterkę w formularzu.",
+              "second": "Odpowiadamy, jak przekazać nam sprzęt."
+            }
+          },
+          {
+            "title": "Diagnoza",
+            "values": {
+              "first": "Czekasz na wycenę.",
+              "second": "Sprawdzamy usterkę i przygotowujemy wycenę."
+            }
+          },
+          {
+            "title": "Decyzja",
+            "values": {
+              "first": "Akceptujesz wycenę albo rezygnujesz z naprawy.",
+              "second": "Naprawiamy dopiero po Twojej akceptacji."
+            }
+          },
+          {
+            "title": "Odbiór",
+            "values": {
+              "first": "Odbierasz urządzenie i sprawdzasz, czy działa.",
+              "second": "Oddajemy sprzęt z opisem wykonanych prac."
+            }
+          }
+        ],
+        "layout": "shared_roles"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "surface": "muted"
+      }
+    },
+    {
+      "block_type": "core.faq",
+      "schema_version": 3,
+      "data": {
+        "layout": "accordion",
+        "title": "Częste pytania",
+        "items": [
+          {
+            "question": "Ile kosztuje diagnoza?",
+            "answer": "[Uzupełnij: cena diagnozy albo informacja, że jest bezpłatna przy wykonaniu naprawy]."
+          },
+          {
+            "question": "Jak długo trwa naprawa?",
+            "answer": "Zależy od usterki i dostępności części. [Uzupełnij: typowy czas naprawy]."
+          },
+          {
+            "question": "Co z moimi danymi?",
+            "answer": "Zrób kopię zapasową przed oddaniem sprzętu. [Uzupełnij: jak chronicie dane klientów podczas naprawy]."
+          },
+          {
+            "question": "Mogę przynieść urządzenie osobiście?",
+            "answer": "[Uzupełnij: adres i godziny przyjmowania sprzętu]."
+          },
+          {
+            "question": "Co, jeśli naprawa się nie opłaca?",
+            "answer": "Przed naprawą dostaniesz wycenę i sam decydujesz. [Uzupełnij: czy diagnoza jest wtedy płatna i jak odbierasz urządzenie]."
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "anchor": "pytania"
+      }
+    },
+    {
+      "block_type": "core.contact_form",
+      "schema_version": 2,
+      "data": {
+        "layout": "split",
+        "contact": "email",
+        "locale": "pl",
+        "title": "Zgłoś naprawę",
+        "text": "Napisz, jakie to urządzenie i co się z nim dzieje. Odpowiemy [Uzupełnij: w jakim czasie], jak przekazać nam sprzęt.",
+        "submit_label": "Zgłoś naprawę",
+        "success_message": "Dziękujemy! Zgłoszenie dotarło do serwisu. Odpowiemy e-mailem.",
+        "privacy_label": "Informacje o prywatności"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "surface": "muted",
+        "anchor": "kontakt"
+      }
+    }
+  ],
+  "localizedBlocks": {
+    "en": [
+      {
+        "block_type": "core.hero",
+        "schema_version": 6,
+        "data": {
+          "title": "How to prepare a device for repair — step by step",
+          "text": "A well-prepared device means a faster diagnosis, no risk of losing data and no damage on the way. This guide takes you through everything worth doing before you hand a device in for repair.",
+          "action": {
+            "label": "Book a repair",
+            "href": "#contact"
+          },
+          "secondaryAction": {
+            "label": "Go to the steps",
+            "href": "#steps"
+          },
+          "layout": "split"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "wide"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {
+          "layout": "summary_box",
+          "eyebrow": "Guide",
+          "title": "Why prepare at all",
+          "content": [
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "Most delays in a repair do not come from the fault itself but from what is missing: no description of the problem, a locked device or one that arrived badly packed."
+                }
+              ]
+            },
+            {
+              "type": "paragraph",
+              "content": [
+                {
+                  "text": "A few steps on your side save days of waiting. Below you will find what to prepare, how to do it step by step and what to avoid."
+                }
+              ]
+            }
+          ],
+          "aside": {
+            "title": "In short",
+            "content": [
+              {
+                "type": "list",
+                "style": "bullet",
+                "items": [
+                  {
+                    "content": [
+                      {
+                        "text": "Time:",
+                        "bold": true
+                      },
+                      {
+                        "text": " [Fill in: how long preparation usually takes]"
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "You will need:",
+                        "bold": true
+                      },
+                      {
+                        "text": " a backup, a description of the fault, a box with padding."
+                      }
+                    ]
+                  },
+                  {
+                    "content": [
+                      {
+                        "text": "At the end:",
+                        "bold": true
+                      },
+                      {
+                        "text": " a checklist before you send it."
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "surface": "muted"
+        }
+      },
+      {
+        "block_type": "core.feature_list",
+        "schema_version": 5,
+        "data": {
+          "title": "What to prepare before you start",
+          "lead": "Gather these things first, and preparing the device itself takes a moment.",
+          "items": [
+            {
+              "group": "Data and access",
+              "title": "Somewhere to back up",
+              "text": "An external drive, a USB stick or cloud storage."
+            },
+            {
+              "title": "The unlock code or password",
+              "text": "We need it to check the device after the repair.",
+              "note": "Give us the code separately — do not stick it on the device."
+            },
+            {
+              "group": "Accessories",
+              "title": "Charger or power supply",
+              "text": "Include it if the fault may involve it, e.g. the device does not charge."
+            },
+            {
+              "group": "Packaging",
+              "title": "A box and padding",
+              "text": "Ideally the original packaging, or a box a few centimetres larger on every side."
+            }
+          ],
+          "layout": "staged_preparation"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "anchor": "preparation"
+        }
+      },
+      {
+        "block_type": "core.feature_list",
+        "schema_version": 5,
+        "data": {
+          "title": "Preparation step by step",
+          "lead": "Follow the steps in order. The notes at some of them show where a mistake is easiest.",
+          "items": [
+            {
+              "title": "Back up your data",
+              "text": "Copy photos, documents and anything you do not want to lose.",
+              "note": "[Fill in: whether the repair may erase data and what you do then]"
+            },
+            {
+              "title": "Describe the fault",
+              "text": "When it happens, what you are doing at the time, which messages you see. The more precise, the shorter the diagnosis."
+            },
+            {
+              "title": "Turn off account locks",
+              "text": "Sign out of the manufacturer's account and turn off features like “find my device”.",
+              "note": "Without this we cannot check the device after the repair — it will have to wait for you."
+            },
+            {
+              "title": "Remove cards and accessories",
+              "text": "SIM and memory cards, cases, screen protectors and stickers you want to keep."
+            },
+            {
+              "title": "Pack the device",
+              "text": "Wrap it, put it in the box and fill the empty space.",
+              "note": "Shake the closed box — the device should not move inside."
+            },
+            {
+              "title": "Hand the device over",
+              "text": "[Fill in: the service address, opening hours or how to ship it]"
+            }
+          ],
+          "layout": "instruction_notes"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "anchor": "steps"
+        }
+      },
+      {
+        "block_type": "core.feature_list",
+        "schema_version": 5,
+        "data": {
+          "title": "What helps, and what to avoid",
+          "lead": "The most common mistakes when handing in a device for repair — and what to do instead.",
+          "items": [
+            {
+              "group": "Worth doing",
+              "title": "Describe the fault in your own words",
+              "text": "You do not need to know the cause — what you see and when is enough."
+            },
+            {
+              "title": "Keep the proof of purchase",
+              "text": "It helps if the repair may be covered by warranty."
+            },
+            {
+              "title": "Note the serial number",
+              "text": "It makes it easier to confirm you are collecting your own device."
+            },
+            {
+              "group": "Avoid",
+              "title": "Do not open the device yourself",
+              "text": "Signs of opening make diagnosis harder. [Fill in: whether they may affect the warranty]"
+            },
+            {
+              "title": "Do not send a device with a swollen battery",
+              "text": "Such a battery may catch fire in transit. Call us — we will tell you what to do."
+            },
+            {
+              "title": "Do not pack without padding",
+              "text": "A box alone does not protect against knocks."
+            }
+          ],
+          "layout": "scope_limits"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "surface": "muted"
+        }
+      },
+      {
+        "block_type": "core.feature_list",
+        "schema_version": 5,
+        "data": {
+          "title": "Checklist before you send it",
+          "lead": "Check every point before you seal the box.",
+          "items": [
+            {
+              "title": "Your data is backed up."
+            },
+            {
+              "title": "The fault description is ready."
+            },
+            {
+              "title": "Account locks are turned off."
+            },
+            {
+              "title": "Cards and accessories are removed."
+            },
+            {
+              "title": "The device does not move in the box."
+            }
+          ],
+          "note": {
+            "title": "All set?",
+            "text": "Book the repair through the form. We will reply with how to hand the device over."
+          },
+          "action": {
+            "label": "Book a repair",
+            "href": "#contact"
+          },
+          "layout": "fit_check"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.rich_text",
+        "schema_version": 3,
+        "data": {
+          "layout": "resources",
+          "eyebrow": "Resources",
+          "title": "Resources that will help",
+          "lead": "Instructions worth reading before you prepare the device.",
+          "content": [
+            {
+              "type": "list",
+              "style": "bullet",
+              "items": [
+                {
+                  "content": [
+                    {
+                      "text": "How to make a backup",
+                      "bold": true,
+                      "href": "/help/backup/"
+                    },
+                    {
+                      "text": " — [Fill in: for which devices]"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "How to turn off the manufacturer's account lock",
+                      "bold": true,
+                      "href": "/help/account-lock/"
+                    },
+                    {
+                      "text": " — [Fill in: for which systems]"
+                    }
+                  ]
+                },
+                {
+                  "content": [
+                    {
+                      "text": "Warranty and repair terms",
+                      "bold": true,
+                      "href": "/help/terms/"
+                    },
+                    {
+                      "text": " — [Fill in: link to the service terms]"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard"
+        }
+      },
+      {
+        "block_type": "core.feature_list",
+        "schema_version": 5,
+        "data": {
+          "title": "What happens after you book",
+          "lead": "Once you send the form, you know what is yours to do and what is ours — at every stage.",
+          "columns": [
+            {
+              "title": "Your part"
+            },
+            {
+              "title": "The service's part"
+            }
+          ],
+          "items": [
+            {
+              "title": "Booking",
+              "values": {
+                "first": "You describe the device and the fault in the form.",
+                "second": "We reply with how to hand the device over."
+              }
+            },
+            {
+              "title": "Diagnosis",
+              "values": {
+                "first": "You wait for the quote.",
+                "second": "We check the fault and prepare a quote."
+              }
+            },
+            {
+              "title": "Decision",
+              "values": {
+                "first": "You accept the quote or decide not to repair.",
+                "second": "We only repair after you accept."
+              }
+            },
+            {
+              "title": "Collection",
+              "values": {
+                "first": "You collect the device and check that it works.",
+                "second": "We hand it back with a description of the work done."
+              }
+            }
+          ],
+          "layout": "shared_roles"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "surface": "muted"
+        }
+      },
+      {
+        "block_type": "core.faq",
+        "schema_version": 3,
+        "data": {
+          "layout": "accordion",
+          "title": "Frequent questions",
+          "items": [
+            {
+              "question": "How much does the diagnosis cost?",
+              "answer": "[Fill in: the price of the diagnosis, or that it is free when you go ahead with the repair]."
+            },
+            {
+              "question": "How long does a repair take?",
+              "answer": "It depends on the fault and on parts. [Fill in: typical repair time]."
+            },
+            {
+              "question": "What about my data?",
+              "answer": "Back it up before you hand the device in. [Fill in: how you protect customers' data during a repair]."
+            },
+            {
+              "question": "Can I bring the device in person?",
+              "answer": "[Fill in: the address and opening hours for drop-off]."
+            },
+            {
+              "question": "What if the repair is not worth it?",
+              "answer": "You get a quote before any repair and you decide. [Fill in: whether the diagnosis is then paid and how you collect the device]."
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "anchor": "questions"
+        }
+      },
+      {
+        "block_type": "core.contact_form",
+        "schema_version": 2,
+        "data": {
+          "layout": "split",
+          "contact": "email",
+          "locale": "en",
+          "title": "Book a repair",
+          "text": "Tell us what the device is and what is wrong with it. We will reply [Fill in: how soon] with how to hand it over.",
+          "submit_label": "Book a repair",
+          "success_message": "Thank you! Your request has reached the service. We will reply by e-mail.",
+          "privacy_label": "Privacy information"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "surface": "muted",
+          "anchor": "contact"
+        }
+      }
+    ]
+  },
+  "media": [
+    {
+      "id": "electronics",
+      "source": "assets/electronics-workshop.png",
+      "filename": "electronics-workshop.png",
+      "contentType": "image/png",
+      "sha256": "4c2d226103ee37783e586345b7c3dac12088e47210c079b6be1b54666a1c6eb8"
+    }
+  ],
+  "mediaBindings": [
+    {
+      "blockPosition": 0,
+      "mediaId": "electronics",
+      "alt": {
+        "pl": "Płytka elektroniki na niebieskiej macie warsztatowej, w tle oscyloskop i multimetr",
+        "en": "An electronics board on a blue workbench mat, with an oscilloscope and a multimeter behind it"
+      }
+    }
+  ]
+}

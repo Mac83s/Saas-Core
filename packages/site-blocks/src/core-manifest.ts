@@ -11,6 +11,7 @@ import heroV6Schema from "@saas-core/contracts/site-blocks/core.hero.v6.schema.j
 import featureListV2Schema from "@saas-core/contracts/site-blocks/core.feature_list.v2.schema.json";
 import faqV2Schema from "@saas-core/contracts/site-blocks/core.faq.v2.schema.json";
 import featureListV4Schema from "@saas-core/contracts/site-blocks/core.feature_list.v4.schema.json";
+import featureListV5Schema from "@saas-core/contracts/site-blocks/core.feature_list.v5.schema.json";
 import richTextV2Schema from "@saas-core/contracts/site-blocks/core.rich_text.v2.schema.json";
 import richTextV3Schema from "@saas-core/contracts/site-blocks/core.rich_text.v3.schema.json";
 import richTextV4Schema from "@saas-core/contracts/site-blocks/core.rich_text.v4.schema.json";
@@ -34,6 +35,7 @@ import {
   featureListNote,
   renderSectionLayout,
 } from "./section-layouts";
+import { featureListAction } from "./feature-list-layouts";
 import { ContactSection, LinkListSection } from "./contact-link-sections";
 import { createElement } from "react";
 import { renderImage } from "./ai-badge";
@@ -63,7 +65,7 @@ import type {
   ContactV1Data,
   EntryListV1Data,
   FaqV1Data,
-  FeatureListV4Data,
+  FeatureListV5Data,
   FooterV1Data,
   HeroV1Data,
   HeroV2Data,
@@ -160,7 +162,7 @@ function FeatureListBlock({
     imageRenderer,
   );
   if (variant) return variant;
-  const featureList = data as FeatureListV4Data;
+  const featureList = data as FeatureListV5Data;
   return createElement(
     "section",
     {
@@ -191,6 +193,7 @@ function FeatureListBlock({
       ),
     ),
     featureListNote(featureList, text, editor),
+    featureListAction(featureList, text, editor),
   );
 }
 
@@ -666,18 +669,22 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
     },
     {
       type: "core.feature_list",
-      latestVersion: 4,
+      latestVersion: 5,
       schemas: [
         { version: 1, schema: featureListV1Schema },
         { version: 2, schema: featureListV2Schema },
         { version: 3, schema: featureListV3Schema },
         { version: 4, schema: featureListV4Schema },
+        { version: 5, schema: featureListV5Schema },
       ],
       migrators: {
         1: (data) => ({ ...data }),
         2: (data) => ({ ...data }),
         // v4 only adds optional fields (lead, note) and two layouts.
         3: (data) => ({ ...data }),
+        // v5 only adds optional fields (columns, action, an item's group,
+        // note and values) and six layouts.
+        4: (data) => ({ ...data }),
       },
       component: FeatureListBlock,
       catalog: {
@@ -695,16 +702,44 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
           },
           { path: ["image", "alt"], kind: "text", labelKey: "imageAlt" },
           {
+            path: ["columns"],
+            kind: "list",
+            labelKey: "featureColumns",
+            item: [
+              { path: ["title"], kind: "text", labelKey: "columnTitle" },
+              { path: ["text"], kind: "textarea", labelKey: "columnText" },
+            ],
+          },
+          {
             path: ["items"],
             kind: "list",
             labelKey: "featureItems",
             item: [
+              { path: ["group"], kind: "text", labelKey: "itemGroup" },
               { path: ["title"], kind: "text", labelKey: "featureTitle" },
               { path: ["text"], kind: "textarea", labelKey: "text" },
+              {
+                path: ["values", "first"],
+                kind: "text",
+                labelKey: "itemValueFirst",
+              },
+              {
+                path: ["values", "second"],
+                kind: "text",
+                labelKey: "itemValueSecond",
+              },
+              {
+                path: ["values", "third"],
+                kind: "text",
+                labelKey: "itemValueThird",
+              },
+              { path: ["note"], kind: "textarea", labelKey: "itemNote" },
             ],
           },
           { path: ["note", "title"], kind: "text", labelKey: "noteTitle" },
           { path: ["note", "text"], kind: "textarea", labelKey: "noteText" },
+          { path: ["action", "label"], kind: "text", labelKey: "actionLabel" },
+          { path: ["action", "href"], kind: "url", labelKey: "actionHref" },
         ],
       },
     },

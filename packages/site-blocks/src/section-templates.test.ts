@@ -112,7 +112,6 @@ describe("section template contract", () => {
   });
 
   it("v7 appends version 2 of the eight phase-2 layouts: conversion-ready, no invented proof", () => {
-    expect(coreSectionTemplates()).toHaveLength(128);
     expect(coreSectionTemplates().slice(0, 120)).toEqual(v6Catalog.templates);
     const phaseTwo = [
       "core.rich_text_column",
@@ -124,7 +123,7 @@ describe("section template contract", () => {
       "core.quote_portrait",
       "core.product_showcase",
     ];
-    const added = coreSectionTemplates().slice(120);
+    const added = coreSectionTemplates().slice(120, 128);
     expect(added.map((template) => template.id)).toEqual(phaseTwo);
     for (const template of added) {
       const previous = v6Catalog.templates.find(
@@ -133,10 +132,15 @@ describe("section template contract", () => {
       expect(template.version).toBe(2);
       expect(template.layout).toBe(previous.layout);
       // Each on the newest schema of its block type when v7 was cut. Rich
-      // text v4 came later and only adds a link's optional `rel` (ADR-061),
-      // so these templates reach it through the identity migrator.
+      // text v4 (a link's optional `rel`, ADR-061) and feature_list v5 (F4-P1)
+      // came later; these templates reach them through identity migrators.
       expect(template.schemaVersion).toBe(
-        { "core.rich_text": 3 }[template.blockType] ??
+        (
+          { "core.rich_text": 3, "core.feature_list": 4 } as Record<
+            string,
+            number
+          >
+        )[template.blockType] ??
           coreSiteBlockManifest.blocks.find(
             (block) => block.type === template.blockType,
           )!.latestVersion,
@@ -161,17 +165,100 @@ describe("section template contract", () => {
     });
   });
 
+  it("v7 appends F4-P1: six list layouts on feature_list v5 and four add-ons for a practice and a farm", () => {
+    expect(coreSectionTemplates()).toHaveLength(138);
+    const added = coreSectionTemplates().slice(128);
+    expect(
+      added.map((template) => [
+        template.id,
+        template.layout,
+        template.industries.join(),
+      ]),
+    ).toEqual([
+      ["core.feature_list_scope_comparison", "scope_comparison", ""],
+      ["core.feature_list_shared_roles", "shared_roles", ""],
+      ["core.feature_list_scope_limits", "scope_limits", ""],
+      ["core.feature_list_staged_preparation", "staged_preparation", ""],
+      ["core.feature_list_instruction_notes", "instruction_notes", ""],
+      ["core.feature_list_fit_check", "fit_check", ""],
+      [
+        "core.feature_list_medicine_visit_preparation",
+        "staged_preparation",
+        "medicine",
+      ],
+      [
+        "core.feature_list_medicine_visit_types",
+        "scope_comparison",
+        "medicine",
+      ],
+      [
+        "core.feature_list_agriculture_visit_flow",
+        "shared_roles",
+        "agriculture",
+      ],
+      [
+        "core.feature_list_agriculture_station_setup",
+        "instruction_notes",
+        "agriculture",
+      ],
+    ]);
+    for (const template of added) {
+      expect(template).toMatchObject({
+        version: 1,
+        blockType: "core.feature_list",
+        schemaVersion: 5,
+      });
+      expect(template.conversion).toBeDefined();
+      for (const locale of ["pl", "en"] as const) {
+        const seed = template.seed[locale] as {
+          items: { group?: string; note?: string; values?: object }[];
+          columns?: unknown[];
+          action?: { href: string };
+        };
+        // The EN seed is the same section in another language.
+        const other = template.seed[
+          locale === "pl" ? "en" : "pl"
+        ] as typeof seed;
+        expect(seed.items.map((item) => [!!item.group, !!item.note])).toEqual(
+          other.items.map((item) => [!!item.group, !!item.note]),
+        );
+        expect(seed.columns?.length).toBe(other.columns?.length);
+        // A library section may land on a page without a #kontakt section:
+        // only page recipes link to anchors (F4-P1).
+        if (seed.action) expect(seed.action.href).not.toMatch(/^#/);
+        // Facts are the owner's: no price, and the numbers are placeholders.
+        expect(JSON.stringify(seed)).not.toMatch(/\d+\s?(zł|PLN|EUR|€)/);
+      }
+    }
+    // A layout with columns or groups gets them in its seed.
+    const seed = (id: string) =>
+      added.find((template) => template.id === id)!.seed.pl as {
+        columns?: unknown[];
+        items: { group?: string; note?: string }[];
+      };
+    expect(seed("core.feature_list_scope_comparison").columns).toHaveLength(3);
+    expect(seed("core.feature_list_shared_roles").columns).toHaveLength(2);
+    expect(
+      seed("core.feature_list_scope_limits").items.filter((item) => item.group),
+    ).toHaveLength(2);
+    expect(
+      seed("core.feature_list_instruction_notes").items.some(
+        (item) => item.note,
+      ),
+    ).toBe(true);
+  });
+
   it("offers the newest version of each template, one per id, in catalogue order", () => {
     const offered = offeredSectionTemplates();
-    expect(offered).toHaveLength(120);
-    // A revision keeps its predecessor's place in the library.
-    expect(offered.map((template) => template.id)).toEqual(
-      v6Catalog.templates.map((template) => template.id),
-    );
-    expect(new Set(offered.map((template) => template.id)).size).toBe(120);
-    expect(new Set(offered.map((template) => template.id))).toEqual(
-      new Set(v6Catalog.templates.map((template) => template.id)),
-    );
+    expect(offered).toHaveLength(130);
+    // A revision keeps its predecessor's place in the library; new ids follow.
+    expect(offered.map((template) => template.id)).toEqual([
+      ...v6Catalog.templates.map((template) => template.id),
+      ...coreSectionTemplates()
+        .slice(128)
+        .map((template) => template.id),
+    ]);
+    expect(new Set(offered.map((template) => template.id)).size).toBe(130);
     for (const template of offered)
       expect(template.version).toBe(
         Math.max(
@@ -246,11 +333,15 @@ describe("section template contract", () => {
     expect(medicine.filter((item) => item.kind === "default")).toEqual(
       all.filter((item) => item.kind === "default"),
     );
-    expect(medicine.filter((item) => item.kind === "industry")).toHaveLength(4);
-    for (const industry of ["medicine", "agriculture", "electronics"]) {
+    expect(medicine.filter((item) => item.kind === "industry")).toHaveLength(6);
+    for (const [industry, count] of [
+      ["medicine", 6],
+      ["agriculture", 6],
+      ["electronics", 4],
+    ] as const) {
       expect(
         all.filter((item) => item.industries.some((tag) => tag === industry)),
-      ).toHaveLength(4);
+      ).toHaveLength(count);
     }
     expect(
       availableSectionTemplates(registry, { ...context, entitlements: [] }),
@@ -277,7 +368,7 @@ describe("section template contract", () => {
     };
     const before = structuredClone(original);
     const changed = replaceSectionLayout(original, template, registry);
-    expect(changed.schema_version).toBe(4);
+    expect(changed.schema_version).toBe(5);
     expect(changed.data).toEqual({ ...before.data, layout: "cards" });
     expect(original).toEqual(before);
     expect(() =>

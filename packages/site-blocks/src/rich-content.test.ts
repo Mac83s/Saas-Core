@@ -1060,7 +1060,7 @@ describe("feature_list v4", () => {
     for (const layout of layouts) {
       const block: SiteBlock = {
         block_type: "core.feature_list",
-        schema_version: 4,
+        schema_version: 5,
         data: layout ? { ...data, layout } : data,
       };
       const html = renderToStaticMarkup(registry.render(block, "b"));
@@ -1103,6 +1103,167 @@ describe("feature_list v4", () => {
     ).toContain(
       '<ol><li><span class="site-section__step" aria-hidden="true">01</span>',
     );
+  });
+});
+
+describe("feature_list v5", () => {
+  const block = (data: JsonObject): SiteBlock => ({
+    block_type: "core.feature_list",
+    schema_version: 5,
+    data,
+  });
+  const offer: JsonObject = {
+    title: "Zakresy",
+    lead: "Porównaj.",
+    columns: [
+      { title: "Konsultacja", text: "Jedno spotkanie" },
+      { title: "Projekt" },
+    ],
+    items: [
+      { title: "Dla kogo", values: { first: "Na start", second: "Z celem" } },
+      {
+        group: "Po wszystkim",
+        title: "Efekt",
+        text: "Co zostaje",
+        note: "Uwaga przy pozycji",
+        values: { second: "Dokumentacja" },
+      },
+    ],
+    note: { title: "Nie wiesz?", text: "Zapytaj." },
+    action: { label: "Zapytaj", href: "mailto:kontakt@example.com" },
+  };
+
+  it("keeps a v4 block exactly as it was: the migrator copies its data", () => {
+    const v4: SiteBlock = {
+      block_type: "core.feature_list",
+      schema_version: 4,
+      data: { title: "Oferta", items: [{ title: "A" }], layout: "cards" },
+    };
+    expect(registry.migrate(v4)).toEqual({ ...v4, schema_version: 5 });
+    expect(renderToStaticMarkup(registry.render(v4, "b"))).toBe(
+      renderToStaticMarkup(registry.render({ ...v4, schema_version: 5 }, "b")),
+    );
+  });
+
+  it("compares scopes in a table that keeps its roles as cards, rows in their groups", () => {
+    const html = renderToStaticMarkup(
+      registry.render(block({ ...offer, layout: "scope_comparison" }), "b"),
+    );
+    expect(html).toContain(
+      '<thead role="rowgroup"><tr role="row"><td role="cell"></td><th scope="col" role="columnheader"><span class="site-section__column-title">Konsultacja</span><span class="site-section__column-text">Jedno spotkanie</span></th><th scope="col" role="columnheader"><span class="site-section__column-title">Projekt</span></th></tr></thead>',
+    );
+    // A missing value is a dash nobody reads out, under its column's name.
+    expect(html).toContain(
+      '<tr role="row" class="site-section__table-group"><th colSpan="3" scope="rowgroup" role="rowheader">Po wszystkim</th></tr>',
+    );
+    expect(html).toContain(
+      '<td role="cell" data-label="Konsultacja"><span aria-hidden="true">—</span></td><td role="cell" data-label="Projekt">Dokumentacja</td>',
+    );
+    // The item note belongs to the step layouts, not the table.
+    expect(html).not.toContain("Uwaga przy pozycji");
+    expect(html).toMatch(
+      /<aside class="site-section__note">.*<\/aside><a class="site-section__action" href="mailto:kontakt@example.com">Zapytaj<\/a><\/section>$/,
+    );
+  });
+
+  it("puts two lanes along the stages, each cell under its lane's name", () => {
+    const html = renderToStaticMarkup(
+      registry.render(block({ ...offer, layout: "shared_roles" }), "b"),
+    );
+    expect(html).toContain(
+      '<div class="site-section__lanes" aria-hidden="true"><p><strong>Konsultacja</strong><span>Jedno spotkanie</span></p><p><strong>Projekt</strong></p></div>',
+    );
+    // The second stage has no value in the first lane; its other lane keeps
+    // its column (`data-lane`).
+    expect(html).toContain(
+      '<div class="site-section__role-stage"><h3>Efekt</h3><p>Co zostaje</p></div><div class="site-section__lane" data-lane="second"><p class="site-section__lane-label">Projekt</p><p>Dokumentacja</p></div>',
+    );
+    // In the editor the lane names are editable once, in the head row.
+    const editor = renderToStaticMarkup(
+      registry.render(block({ ...offer, layout: "shared_roles" }), "b", {
+        text: (_path, value) => value,
+      }),
+    );
+    expect(editor).toContain('<div class="site-section__lanes"><p>');
+  });
+
+  it("splits items into groups where a group title starts one", () => {
+    const items: JsonObject[] = [
+      { title: "Bez grupy" },
+      { group: "W zakresie", title: "A" },
+      { title: "B" },
+      { group: "Poza zakresem", title: "C", note: "Uwaga" },
+    ];
+    const limits = renderToStaticMarkup(
+      registry.render(block({ items, layout: "scope_limits" }), "b"),
+    );
+    expect(limits).toContain(
+      '<div class="site-section__groups"><div class="site-section__group"><div><ul><li><h4>Bez grupy</h4></li></ul></div></div><div class="site-section__group"><div><h3>W zakresie</h3><ul><li><h4>A</h4></li><li><h4>B</h4></li></ul></div></div><div class="site-section__group"><div><h3>Poza zakresem</h3><ul><li><h4>C</h4></li></ul></div></div></div>',
+    );
+    const stages = renderToStaticMarkup(
+      registry.render(block({ items, layout: "staged_preparation" }), "b"),
+    );
+    expect(stages).toContain(
+      '<li class="site-section__group"><span class="site-section__step" aria-hidden="true">03</span><div><h3>Poza zakresem</h3><ul><li><h4>C</h4><p class="site-section__item-note" role="note">Uwaga</p></li></ul></div></li></ol>',
+    );
+  });
+
+  it("keeps a step's note at its step and ends a self-check with the verdict and the action", () => {
+    const steps = renderToStaticMarkup(
+      registry.render(block({ ...offer, layout: "instruction_notes" }), "b"),
+    );
+    expect(steps).toContain(
+      '<li><span class="site-section__step" aria-hidden="true">02</span><div><h3>Efekt</h3><p>Co zostaje</p><p class="site-section__item-note" role="note">Uwaga przy pozycji</p></div></li>',
+    );
+    const check = renderToStaticMarkup(
+      registry.render(block({ ...offer, layout: "fit_check" }), "b"),
+    );
+    expect(check).toMatch(
+      /<\/ul><div class="site-section__verdict"><aside class="site-section__note"><h3>Nie wiesz\?<\/h3><p>Zapytaj.<\/p><\/aside><a class="site-section__action" href="mailto:kontakt@example.com">Zapytaj<\/a><\/div><\/section>$/,
+    );
+  });
+
+  it("gives every layout the action, the legacy list included", () => {
+    for (const layout of [undefined, "cards", "specification", "steps_notes"]) {
+      const html = renderToStaticMarkup(
+        registry.render(
+          block({
+            items: [{ title: "A" }],
+            action: { label: "Dalej", href: "#kontakt" },
+            ...(layout ? { layout } : {}),
+          }),
+          "b",
+        ),
+      );
+      expect(html).toContain(
+        '<a class="site-section__action" href="#kontakt">Dalej</a></section>',
+      );
+    }
+    const external = renderToStaticMarkup(
+      registry.render(
+        block({
+          items: [{ title: "A" }],
+          action: { label: "Dalej", href: "https://example.org/" },
+        }),
+        "b",
+      ),
+    );
+    expect(external).toContain('href="https://example.org/" rel="noreferrer"');
+  });
+
+  it("renders every text of every v5 layout once in the editor", () => {
+    for (const layout of [
+      "scope_comparison",
+      "shared_roles",
+      "scope_limits",
+      "staged_preparation",
+      "instruction_notes",
+      "fit_check",
+    ]) {
+      const paths = editorPaths(block({ ...offer, layout }));
+      expect(new Set(paths).size, layout).toBe(paths.length);
+      expect(paths, layout).toContain("action.label");
+    }
   });
 });
 

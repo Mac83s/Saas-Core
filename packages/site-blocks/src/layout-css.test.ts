@@ -17,8 +17,9 @@ const STRUCTURAL: Record<string, readonly string[]> = {
   // Chapters in `.site-section__parts`.
   "core.rich_text": ["two_parts"],
   // The base picture-beside-list arrangement; the other image layouts
-  // override it.
-  "core.feature_list": ["image_left"],
+  // override it. The comparison and the two lanes are drawn by
+  // `.site-section__table` and `.site-section__roles`.
+  "core.feature_list": ["image_left", "scope_comparison", "shared_roles"],
   // `<details>` elements are the accordion.
   "core.faq": ["accordion"],
   // Drawn by `__rule`, `__dots` and `__shape`; `space` is the gap alone.
