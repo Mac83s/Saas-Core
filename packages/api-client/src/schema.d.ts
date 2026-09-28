@@ -737,6 +737,119 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/booking/setup/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Ustawienia › Usługi i grafik: everything, switched-off items included. */
+        get: operations["api_v1_booking_setup_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/locations/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["api_v1_booking_setup_locations_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/locations/{location_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["api_v1_booking_setup_locations_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/booking/setup/resources/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["api_v1_booking_setup_resources_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/resources/{resource_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["api_v1_booking_setup_resources_partial_update"];
+        trace?: never;
+    };
+    "/api/v1/booking/setup/services/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["api_v1_booking_setup_services_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/setup/services/{service_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["api_v1_booking_setup_services_partial_update"];
+        trace?: never;
+    };
     "/api/v1/booking/slots/": {
         parameters: {
             query?: never;
@@ -5625,10 +5738,35 @@ export interface components {
             /** Format: uuid */
             membership_id?: string | null;
         };
+        PatchedPlaceInput: {
+            name?: string;
+            address?: string;
+            active?: boolean;
+        };
+        PatchedResourceInput: {
+            name?: string;
+            active?: boolean;
+        };
         PatchedRoleUpdate: {
             version?: number;
             name?: string;
             permissions?: string[];
+        };
+        /** @description A new service, or — sent partially — a change to one. */
+        PatchedServiceInput: {
+            name?: string;
+            duration_minutes?: number;
+            buffer_before_minutes?: number;
+            buffer_after_minutes?: number;
+            minimum_notice_minutes?: number;
+            staff_count?: number;
+            public_staff_choice?: components["schemas"]["PublicStaffChoiceEnum"];
+            active?: boolean;
+            appointment_kind?: string;
+            staff_ids?: string[];
+            location_ids?: string[];
+            resource_ids?: string[];
+            materials?: components["schemas"]["MaterialInput"][];
         };
         PatchedStockDocumentInput: {
             /** Format: uuid */
@@ -5769,6 +5907,18 @@ export interface components {
         };
         PersonServicesInput: {
             service_ids: string[];
+        };
+        PlaceInput: {
+            name: string;
+            address?: string;
+            active?: boolean;
+        };
+        PlaceSetup: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            address: string;
+            active: boolean;
         };
         PlatformDomainChange: {
             label: string;
@@ -5999,6 +6149,13 @@ export interface components {
             } | null;
             ai_media_ids: string[];
         };
+        /**
+         * @description * `none` - Nikogo
+         *     * `team` - Zespół
+         *     * `person` - Osobę
+         * @enum {string}
+         */
+        PublicStaffChoiceEnum: "none" | "team" | "person";
         PublicationAuthor: {
             /** Format: uuid */
             id: string;
@@ -6077,6 +6234,16 @@ export interface components {
             id: string;
             name: string;
             kind: string;
+        };
+        ResourceInput: {
+            name: string;
+            active?: boolean;
+        };
+        ResourceSetup: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            active: boolean;
         };
         /**
          * @description * `page` - page
@@ -6158,6 +6325,41 @@ export interface components {
             materials?: components["schemas"]["MaterialInput"][];
             takes_materials?: boolean;
         };
+        /** @description A new service, or — sent partially — a change to one. */
+        ServiceInput: {
+            name: string;
+            duration_minutes: number;
+            buffer_before_minutes?: number;
+            buffer_after_minutes?: number;
+            minimum_notice_minutes?: number;
+            staff_count?: number;
+            public_staff_choice?: components["schemas"]["PublicStaffChoiceEnum"];
+            active?: boolean;
+            appointment_kind?: string;
+            staff_ids?: string[];
+            location_ids?: string[];
+            resource_ids?: string[];
+            materials?: components["schemas"]["MaterialInput"][];
+        };
+        /** @description A service as Ustawienia › Usługi i grafik edits it (team phase 3c). */
+        ServiceSetup: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            appointment_kind: string;
+            duration_minutes: number;
+            buffer_before_minutes: number;
+            buffer_after_minutes: number;
+            minimum_notice_minutes: number;
+            staff_count: number;
+            public_staff_choice: string;
+            active: boolean;
+            staff_ids: string[];
+            location_ids: string[];
+            resource_ids: string[];
+            materials: components["schemas"]["MaterialInput"][];
+            takes_materials: boolean;
+        };
         SessionSummary: {
             /** Format: uuid */
             id: string;
@@ -6169,6 +6371,17 @@ export interface components {
             /** Format: date-time */
             expires_at: string;
             current: boolean;
+        };
+        Setup: {
+            services: components["schemas"]["ServiceSetup"][];
+            locations: components["schemas"]["PlaceSetup"][];
+            resources: components["schemas"]["ResourceSetup"][];
+            staff: components["schemas"]["SetupPerson"][];
+        };
+        SetupPerson: {
+            /** Format: uuid */
+            id: string;
+            name: string;
         };
         /**
          * @description * `info` - info
@@ -8583,6 +8796,229 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicAppointment"];
+                };
+            };
+        };
+    };
+    api_v1_booking_setup_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Setup"];
+                };
+            };
+        };
+    };
+    api_v1_booking_setup_locations_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaceInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PlaceInput"];
+                "multipart/form-data": components["schemas"]["PlaceInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaceSetup"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_booking_setup_locations_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                location_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedPlaceInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedPlaceInput"];
+                "multipart/form-data": components["schemas"]["PatchedPlaceInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlaceSetup"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_booking_setup_resources_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResourceInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ResourceInput"];
+                "multipart/form-data": components["schemas"]["ResourceInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceSetup"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_booking_setup_resources_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resource_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedResourceInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedResourceInput"];
+                "multipart/form-data": components["schemas"]["PatchedResourceInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResourceSetup"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_booking_setup_services_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServiceInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["ServiceInput"];
+                "multipart/form-data": components["schemas"]["ServiceInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceSetup"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_booking_setup_services_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                service_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedServiceInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedServiceInput"];
+                "multipart/form-data": components["schemas"]["PatchedServiceInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServiceSetup"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };

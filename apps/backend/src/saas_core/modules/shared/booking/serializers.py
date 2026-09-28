@@ -4,6 +4,8 @@ from typing import Any
 
 from rest_framework import serializers
 
+from .models import StaffChoice
+
 
 class CatalogCreateSerializer(serializers.Serializer[dict[str, Any]]):
     kind = serializers.ChoiceField(choices=("location", "staff", "service", "resource"))
@@ -263,6 +265,90 @@ class TeamUpdateSerializer(serializers.Serializer[dict[str, Any]]):
     member_ids = serializers.ListField(
         child=serializers.UUIDField(), max_length=100, required=False
     )
+
+
+class ServiceSetupSerializer(serializers.Serializer[dict[str, Any]]):
+    """A service as Ustawienia › Usługi i grafik edits it (team phase 3c)."""
+
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    appointment_kind = serializers.CharField()
+    duration_minutes = serializers.IntegerField()
+    buffer_before_minutes = serializers.IntegerField()
+    buffer_after_minutes = serializers.IntegerField()
+    minimum_notice_minutes = serializers.IntegerField()
+    staff_count = serializers.IntegerField()
+    public_staff_choice = serializers.CharField()
+    active = serializers.BooleanField()
+    #: Who does it; the places it is offered at; the resources a visit takes
+    #: one of.
+    staff_ids = serializers.ListField(child=serializers.UUIDField())
+    location_ids = serializers.ListField(child=serializers.UUIDField())
+    resource_ids = serializers.ListField(child=serializers.UUIDField())
+    materials = MaterialInputSerializer(many=True)
+    #: False when the visit's module takes its own material (ADR-055).
+    takes_materials = serializers.BooleanField()
+
+
+class PlaceSetupSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    address = serializers.CharField()
+    active = serializers.BooleanField()
+
+
+class ResourceSetupSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    active = serializers.BooleanField()
+
+
+class SetupPersonSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+
+
+class SetupSerializer(serializers.Serializer[dict[str, Any]]):
+    services = ServiceSetupSerializer(many=True)
+    locations = PlaceSetupSerializer(many=True)
+    resources = ResourceSetupSerializer(many=True)
+    staff = SetupPersonSerializer(many=True)
+
+
+class ServiceInputSerializer(serializers.Serializer[dict[str, Any]]):
+    """A new service, or — sent partially — a change to one."""
+
+    name = serializers.CharField(max_length=160)
+    duration_minutes = serializers.IntegerField(min_value=5, max_value=1440)
+    buffer_before_minutes = serializers.IntegerField(min_value=0, max_value=1440, required=False)
+    buffer_after_minutes = serializers.IntegerField(min_value=0, max_value=1440, required=False)
+    minimum_notice_minutes = serializers.IntegerField(
+        min_value=0, max_value=60 * 24 * 90, required=False
+    )
+    staff_count = serializers.IntegerField(min_value=1, max_value=10, required=False)
+    public_staff_choice = serializers.ChoiceField(choices=StaffChoice.choices, required=False)
+    active = serializers.BooleanField(required=False)
+    #: A new service only: the kind of visit a module provides (ADR-050).
+    appointment_kind = serializers.CharField(max_length=64, required=False, allow_blank=True)
+    staff_ids = serializers.ListField(child=serializers.UUIDField(), max_length=100, required=False)
+    location_ids = serializers.ListField(
+        child=serializers.UUIDField(), max_length=50, required=False
+    )
+    resource_ids = serializers.ListField(
+        child=serializers.UUIDField(), max_length=50, required=False
+    )
+    materials = MaterialInputSerializer(many=True, required=False)
+
+
+class PlaceInputSerializer(serializers.Serializer[dict[str, Any]]):
+    name = serializers.CharField(max_length=160)
+    address = serializers.CharField(max_length=240, required=False, allow_blank=True)
+    active = serializers.BooleanField(required=False)
+
+
+class ResourceInputSerializer(serializers.Serializer[dict[str, Any]]):
+    name = serializers.CharField(max_length=160)
+    active = serializers.BooleanField(required=False)
 
 
 class CustomerAnonymizedSerializer(serializers.Serializer[dict[str, Any]]):

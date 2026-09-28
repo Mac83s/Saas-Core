@@ -1679,6 +1679,231 @@ paths:
               schema:
                 $ref: '#/components/schemas/PublicAppointment'
           description: ''
+  /api/v1/booking/setup/:
+    get:
+      operationId: api_v1_booking_setup_retrieve
+      description: 'Ustawienia › Usługi i grafik: everything, switched-off items included.'
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Setup'
+          description: ''
+  /api/v1/booking/setup/locations/:
+    post:
+      operationId: api_v1_booking_setup_locations_create
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaceInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PlaceInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PlaceInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaceSetup'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/locations/{location_id}/:
+    patch:
+      operationId: api_v1_booking_setup_locations_partial_update
+      parameters:
+      - in: path
+        name: location_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedPlaceInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedPlaceInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedPlaceInput'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaceSetup'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/resources/:
+    post:
+      operationId: api_v1_booking_setup_resources_create
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourceInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ResourceInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ResourceInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceSetup'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/resources/{resource_id}/:
+    patch:
+      operationId: api_v1_booking_setup_resources_partial_update
+      parameters:
+      - in: path
+        name: resource_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedResourceInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedResourceInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedResourceInput'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResourceSetup'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/services/:
+    post:
+      operationId: api_v1_booking_setup_services_create
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ServiceInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ServiceInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ServiceInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceSetup'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/setup/services/{service_id}/:
+    patch:
+      operationId: api_v1_booking_setup_services_partial_update
+      parameters:
+      - in: path
+        name: service_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedServiceInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedServiceInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedServiceInput'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceSetup'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/booking/slots/:
     get:
       operationId: api_v1_booking_slots_retrieve
@@ -15793,6 +16018,25 @@ components:
           - string
           - 'null'
           format: uuid
+    PatchedPlaceInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        address:
+          type: string
+          maxLength: 240
+        active:
+          type: boolean
+    PatchedResourceInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        active:
+          type: boolean
     PatchedRoleUpdate:
       type: object
       properties:
@@ -15807,6 +16051,62 @@ components:
           items:
             type: string
             maxLength: 120
+    PatchedServiceInput:
+      type: object
+      description: A new service, or — sent partially — a change to one.
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        duration_minutes:
+          type: integer
+          maximum: 1440
+          minimum: 5
+        buffer_before_minutes:
+          type: integer
+          maximum: 1440
+          minimum: 0
+        buffer_after_minutes:
+          type: integer
+          maximum: 1440
+          minimum: 0
+        minimum_notice_minutes:
+          type: integer
+          maximum: 129600
+          minimum: 0
+        staff_count:
+          type: integer
+          maximum: 10
+          minimum: 1
+        public_staff_choice:
+          $ref: '#/components/schemas/PublicStaffChoiceEnum'
+        active:
+          type: boolean
+        appointment_kind:
+          type: string
+          maxLength: 64
+        staff_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
+        location_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 50
+        resource_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 50
+        materials:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaterialInput'
     PatchedStockDocumentInput:
       type: object
       properties:
@@ -16192,6 +16492,36 @@ components:
             format: uuid
       required:
       - service_ids
+    PlaceInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        address:
+          type: string
+          maxLength: 240
+        active:
+          type: boolean
+      required:
+      - name
+    PlaceSetup:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        address:
+          type: string
+        active:
+          type: boolean
+      required:
+      - active
+      - address
+      - id
+      - name
     PlatformDomainChange:
       type: object
       properties:
@@ -16769,6 +17099,16 @@ components:
       - social_title
       - title
       - x_default
+    PublicStaffChoiceEnum:
+      enum:
+      - none
+      - team
+      - person
+      type: string
+      description: |-
+        * `none` - Nikogo
+        * `team` - Zespół
+        * `person` - Osobę
     PublicationAuthor:
       type: object
       properties:
@@ -16961,6 +17301,30 @@ components:
       - id
       - kind
       - name
+    ResourceInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        active:
+          type: boolean
+      required:
+      - name
+    ResourceSetup:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        active:
+          type: boolean
+      required:
+      - active
+      - id
+      - name
     ResourceTypeEnum:
       enum:
       - page
@@ -17140,6 +17504,128 @@ components:
       - public_slug
       - public_staff_choice
       - staff_count
+    ServiceInput:
+      type: object
+      description: A new service, or — sent partially — a change to one.
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        duration_minutes:
+          type: integer
+          maximum: 1440
+          minimum: 5
+        buffer_before_minutes:
+          type: integer
+          maximum: 1440
+          minimum: 0
+        buffer_after_minutes:
+          type: integer
+          maximum: 1440
+          minimum: 0
+        minimum_notice_minutes:
+          type: integer
+          maximum: 129600
+          minimum: 0
+        staff_count:
+          type: integer
+          maximum: 10
+          minimum: 1
+        public_staff_choice:
+          $ref: '#/components/schemas/PublicStaffChoiceEnum'
+        active:
+          type: boolean
+        appointment_kind:
+          type: string
+          maxLength: 64
+        staff_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
+        location_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 50
+        resource_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 50
+        materials:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaterialInput'
+      required:
+      - duration_minutes
+      - name
+    ServiceSetup:
+      type: object
+      description: A service as Ustawienia › Usługi i grafik edits it (team phase
+        3c).
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        appointment_kind:
+          type: string
+        duration_minutes:
+          type: integer
+        buffer_before_minutes:
+          type: integer
+        buffer_after_minutes:
+          type: integer
+        minimum_notice_minutes:
+          type: integer
+        staff_count:
+          type: integer
+        public_staff_choice:
+          type: string
+        active:
+          type: boolean
+        staff_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        location_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        resource_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        materials:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaterialInput'
+        takes_materials:
+          type: boolean
+      required:
+      - active
+      - appointment_kind
+      - buffer_after_minutes
+      - buffer_before_minutes
+      - duration_minutes
+      - id
+      - location_ids
+      - materials
+      - minimum_notice_minutes
+      - name
+      - public_staff_choice
+      - resource_ids
+      - staff_count
+      - staff_ids
+      - takes_materials
     SessionSummary:
       type: object
       properties:
@@ -17166,6 +17652,41 @@ components:
       - expires_at
       - id
       - last_seen_at
+    Setup:
+      type: object
+      properties:
+        services:
+          type: array
+          items:
+            $ref: '#/components/schemas/ServiceSetup'
+        locations:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlaceSetup'
+        resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/ResourceSetup'
+        staff:
+          type: array
+          items:
+            $ref: '#/components/schemas/SetupPerson'
+      required:
+      - locations
+      - resources
+      - services
+      - staff
+    SetupPerson:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - name
     SeverityEnum:
       enum:
       - info

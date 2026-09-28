@@ -254,6 +254,17 @@ export type SeatUsage = components["schemas"]["SeatUsage"];
 export type StaffTeam = components["schemas"]["Team"];
 export type StaffTeamInput = components["schemas"]["TeamInput"];
 export type StaffTeamUpdate = components["schemas"]["PatchedTeamUpdate"];
+/** Ustawienia › Usługi i grafik: switched-off items included (team phase 3c). */
+export type BookingSetup = components["schemas"]["Setup"];
+export type ServiceSetup = components["schemas"]["ServiceSetup"];
+export type PlaceSetup = components["schemas"]["PlaceSetup"];
+export type ResourceSetup = components["schemas"]["ResourceSetup"];
+export type ServiceSetupInput = components["schemas"]["ServiceInput"];
+export type ServiceSetupUpdate = components["schemas"]["PatchedServiceInput"];
+export type PlaceSetupInput = components["schemas"]["PlaceInput"];
+export type PlaceSetupUpdate = components["schemas"]["PatchedPlaceInput"];
+export type ResourceSetupInput = components["schemas"]["ResourceInput"];
+export type ResourceSetupUpdate = components["schemas"]["PatchedResourceInput"];
 /** A visit in „Do przydzielenia”, with the customer's contact. */
 export type QueueItem = components["schemas"]["QueueItem"];
 export type BookingOverview = components["schemas"]["Overview"];
@@ -1704,6 +1715,117 @@ export async function updateTeam(
     "/api/v1/booking/teams/{team_id}/",
     {
       params: { path: { team_id: teamId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function getBookingSetup(): Promise<BookingSetup> {
+  const { data, error, response } = await client.GET("/api/v1/booking/setup/", {
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createSetupService(
+  input: ServiceSetupInput,
+): Promise<ServiceSetup> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/setup/services/",
+    {
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function updateSetupService(
+  serviceId: string,
+  input: ServiceSetupUpdate,
+): Promise<ServiceSetup> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PATCH(
+    "/api/v1/booking/setup/services/{service_id}/",
+    {
+      params: { path: { service_id: serviceId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createSetupLocation(
+  input: PlaceSetupInput,
+): Promise<PlaceSetup> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/setup/locations/",
+    {
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function updateSetupLocation(
+  locationId: string,
+  input: PlaceSetupUpdate,
+): Promise<PlaceSetup> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PATCH(
+    "/api/v1/booking/setup/locations/{location_id}/",
+    {
+      params: { path: { location_id: locationId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createSetupResource(
+  input: ResourceSetupInput,
+): Promise<ResourceSetup> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/setup/resources/",
+    {
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function updateSetupResource(
+  resourceId: string,
+  input: ResourceSetupUpdate,
+): Promise<ResourceSetup> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PATCH(
+    "/api/v1/booking/setup/resources/{resource_id}/",
+    {
+      params: { path: { resource_id: resourceId } },
       body: input,
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },

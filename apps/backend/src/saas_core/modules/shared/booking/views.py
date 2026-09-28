@@ -47,12 +47,19 @@ from .serializers import (
     PersonListSerializer,
     PersonServicesInputSerializer,
     PersonUpdateSerializer,
+    PlaceInputSerializer,
+    PlaceSetupSerializer,
     PublicAppointmentCreateSerializer,
     PublicAppointmentSerializer,
     PublicCatalogSerializer,
     QueueSerializer,
     RescheduleSerializer,
+    ResourceInputSerializer,
+    ResourceSetupSerializer,
     ScheduleCreateSerializer,
+    ServiceInputSerializer,
+    ServiceSetupSerializer,
+    SetupSerializer,
     SlotDayListSerializer,
     SlotListSerializer,
     SlotTimeListSerializer,
@@ -80,6 +87,7 @@ from .services import (
     set_service_materials,
     update_staff,
 )
+from .setup import ServiceSetup, list_setup, save_location, save_resource, save_service
 from .staff import (
     Person,
     PersonDetail,
@@ -1370,3 +1378,151 @@ class AppointmentCrewView(APIView):
             principal_ref=str(context.actor_id),
         )
         return Response(_appointment_payload(value))
+
+
+def _service_setup_payload(value: ServiceSetup) -> dict[str, Any]:
+    service = value.service
+    return {
+        "id": service.id,
+        "name": service.name,
+        "appointment_kind": service.appointment_kind,
+        "duration_minutes": service.duration_minutes,
+        "buffer_before_minutes": service.buffer_before_minutes,
+        "buffer_after_minutes": service.buffer_after_minutes,
+        "minimum_notice_minutes": service.minimum_notice_minutes,
+        "staff_count": service.staff_count,
+        "public_staff_choice": service.public_staff_choice,
+        "active": service.active,
+        "staff_ids": value.staff_ids,
+        "location_ids": value.location_ids,
+        "resource_ids": value.resource_ids,
+        "materials": service.materials,
+        "takes_materials": stock.takes_materials(service.appointment_kind),
+    }
+
+
+def _place_payload(value: Location) -> dict[str, Any]:
+    return {"id": value.id, "name": value.name, "address": value.address, "active": value.active}
+
+
+def _resource_payload(value: Resource) -> dict[str, Any]:
+    return {"id": value.id, "name": value.name, "active": value.active}
+
+
+class BookingSetupView(APIView):
+    """Ustawienia › Usługi i grafik: everything, switched-off items included."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(tags=["booking"], responses={200: SetupSerializer})
+    def get(self, request: Request) -> Response:
+        del request
+        value = list_setup()
+        return Response({
+            "services": [_service_setup_payload(item) for item in value.services],
+            "locations": [_place_payload(item) for item in value.locations],
+            "resources": [_resource_payload(item) for item in value.resources],
+            "staff": [{"id": item.id, "name": item.display_name} for item in value.staff],
+        })
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SetupServiceListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        request=ServiceInputSerializer,
+        responses={201: ServiceSetupSerializer, 400: ProblemDetailsSerializer},
+    )
+    def post(self, request: Request) -> Response:
+        s = ServiceInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        value = save_service(service_id=None, data=dict(s.validated_data))
+        return Response(_service_setup_payload(value), status=201)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SetupServiceDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        request=ServiceInputSerializer,
+        responses={200: ServiceSetupSerializer, 400: ProblemDetailsSerializer},
+    )
+    def patch(self, request: Request, service_id: UUID) -> Response:
+        s = ServiceInputSerializer(data=request.data, partial=True)
+        s.is_valid(raise_exception=True)
+        value = save_service(service_id=service_id, data=dict(s.validated_data))
+        return Response(_service_setup_payload(value))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SetupLocationListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        request=PlaceInputSerializer,
+        responses={201: PlaceSetupSerializer, 400: ProblemDetailsSerializer},
+    )
+    def post(self, request: Request) -> Response:
+        s = PlaceInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        return Response(
+            _place_payload(save_location(location_id=None, data=dict(s.validated_data))),
+            status=201,
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SetupLocationDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        request=PlaceInputSerializer,
+        responses={200: PlaceSetupSerializer, 400: ProblemDetailsSerializer},
+    )
+    def patch(self, request: Request, location_id: UUID) -> Response:
+        s = PlaceInputSerializer(data=request.data, partial=True)
+        s.is_valid(raise_exception=True)
+        return Response(
+            _place_payload(save_location(location_id=location_id, data=dict(s.validated_data)))
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SetupResourceListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        request=ResourceInputSerializer,
+        responses={201: ResourceSetupSerializer, 400: ProblemDetailsSerializer},
+    )
+    def post(self, request: Request) -> Response:
+        s = ResourceInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        return Response(
+            _resource_payload(save_resource(resource_id=None, data=dict(s.validated_data))),
+            status=201,
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SetupResourceDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        request=ResourceInputSerializer,
+        responses={200: ResourceSetupSerializer, 400: ProblemDetailsSerializer},
+    )
+    def patch(self, request: Request, resource_id: UUID) -> Response:
+        s = ResourceInputSerializer(data=request.data, partial=True)
+        s.is_valid(raise_exception=True)
+        return Response(
+            _resource_payload(save_resource(resource_id=resource_id, data=dict(s.validated_data)))
+        )
