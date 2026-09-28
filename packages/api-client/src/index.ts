@@ -1957,6 +1957,25 @@ export async function restorePerson(staffId: string): Promise<PersonDetail> {
   return data;
 }
 
+/** „Pokazuj klientom”: the person's name on the booking form, or not. */
+export async function setPersonPublic(
+  staffId: string,
+  input: { shown: boolean; name?: string },
+): Promise<PersonDetail> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/booking/staff/{staff_id}/public/",
+    {
+      params: { path: { staff_id: staffId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
 /** Who works, is away and is busy on a day; today without `date`. */
 export async function getPeopleDay(date?: string): Promise<PeopleDay> {
   const { data, error, response } = await client.GET(
@@ -2117,9 +2136,17 @@ export async function getPublicBookingCatalog(
 }
 
 /** Days with a free start, for the customer's day picker (ADR-058 §5). */
+/** A customer's „Do kogo?”: the team or the person shown to customers. */
+export type BookingPublicChoice = { team_id?: string; person_id?: string };
+
 export async function getPublicBookingDays(
   publicSlug: string,
-  query: { service_id: string; location_id: string; from: string; to: string },
+  query: {
+    service_id: string;
+    location_id: string;
+    from: string;
+    to: string;
+  } & BookingPublicChoice,
 ): Promise<string[]> {
   const { data, error, response } = await client.GET(
     "/api/v1/booking/public/{public_slug}/days/",
@@ -2132,7 +2159,11 @@ export async function getPublicBookingDays(
 /** Free starts of one day, each once; who takes it is the server's pick. */
 export async function getPublicBookingTimes(
   publicSlug: string,
-  query: { service_id: string; location_id: string; date: string },
+  query: {
+    service_id: string;
+    location_id: string;
+    date: string;
+  } & BookingPublicChoice,
 ): Promise<BookingSlotTimeList["items"]> {
   const { data, error, response } = await client.GET(
     "/api/v1/booking/public/{public_slug}/times/",

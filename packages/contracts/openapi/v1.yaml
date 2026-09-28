@@ -1404,6 +1404,12 @@ paths:
           type: string
           format: uuid
         required: true
+      - in: query
+        name: person_id
+        schema:
+          type: string
+          format: uuid
+        description: Osoba wybrana przez klienta (usługa z wyborem osoby).
       - in: path
         name: public_slug
         schema:
@@ -1415,6 +1421,12 @@ paths:
           type: string
           format: uuid
         required: true
+      - in: query
+        name: team_id
+        schema:
+          type: string
+          format: uuid
+        description: Zespół wybrany przez klienta (usługa z wyborem zespołu).
       - in: query
         name: to
         schema:
@@ -1494,6 +1506,12 @@ paths:
           type: string
           format: uuid
         required: true
+      - in: query
+        name: person_id
+        schema:
+          type: string
+          format: uuid
+        description: Osoba wybrana przez klienta (usługa z wyborem osoby).
       - in: path
         name: public_slug
         schema:
@@ -1505,6 +1523,12 @@ paths:
           type: string
           format: uuid
         required: true
+      - in: query
+        name: team_id
+        schema:
+          type: string
+          format: uuid
+        description: Zespół wybrany przez klienta (usługa z wyborem zespołu).
       tags:
       - public-booking
       security:
@@ -2362,6 +2386,47 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/staff/{staff_id}/public/:
+    put:
+      operationId: api_v1_booking_staff_public_update
+      description: '„Pokazuj klientom”: the person''s name on the booking form, or
+        not.'
+      parameters:
+      - in: path
+        name: staff_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonPublicInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PersonPublicInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PersonPublicInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonDetail'
+          description: ''
+        '403':
           content:
             application/json:
               schema:
@@ -16284,6 +16349,10 @@ components:
           items:
             type: string
             format: uuid
+        public_name:
+          type:
+          - string
+          - 'null'
         created_at:
           type: string
           format: date-time
@@ -16296,6 +16365,7 @@ components:
       - membership_id
       - name
       - phone
+      - public_name
       - public_slug
       - service_ids
       - team_ids
@@ -16403,6 +16473,10 @@ components:
           items:
             type: string
             format: uuid
+        public_name:
+          type:
+          - string
+          - 'null'
         created_at:
           type: string
           format: date-time
@@ -16424,6 +16498,7 @@ components:
       - membership_id
       - name
       - phone
+      - public_name
       - public_slug
       - service_ids
       - team_ids
@@ -16482,6 +16557,16 @@ components:
             $ref: '#/components/schemas/Person'
       required:
       - items
+    PersonPublicInput:
+      type: object
+      properties:
+        shown:
+          type: boolean
+        name:
+          type: string
+          maxLength: 160
+      required:
+      - shown
     PersonServicesInput:
       type: object
       properties:
@@ -16859,8 +16944,9 @@ components:
         * `complained` - complained
     PublicAppointment:
       type: object
-      description: 'What the customer sees of their visit: no people, no stock (ADR-058
-        §8).'
+      description: |-
+        What the customer sees of their visit: no stock, and of the people
+        only the team they chose or a name shown to customers (ADR-058 §8).
       properties:
         id:
           type: string
@@ -16879,21 +16965,32 @@ components:
           type: string
         status:
           type: string
+        team_name:
+          type:
+          - string
+          - 'null'
+        person_name:
+          type:
+          - string
+          - 'null'
         self_service_token:
           type: string
       required:
       - ends_at
       - id
       - location_name
+      - person_name
       - service_name
       - starts_at
       - status
+      - team_name
       - timezone
     PublicAppointmentCreate:
       type: object
       description: |-
-        The customer names the service, place and time; who takes the visit, the
-        room it needs and the stock it uses are the server's (ADR-058 §4).
+        The customer names the service, place and time, and — where the service
+        lets them — a team or a person shown to customers; everything else is the
+        server's (ADR-058 §4, §8).
       properties:
         service_id:
           type: string
@@ -16906,6 +17003,19 @@ components:
           format: date-time
         customer:
           $ref: '#/components/schemas/CustomerInput'
+        team_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        person_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        customer_notes:
+          type: string
+          maxLength: 500
       required:
       - customer
       - location_id
@@ -16913,8 +17023,9 @@ components:
       - starts_at
     PublicCatalog:
       type: object
-      description: 'The catalogue without the team: who works here is not listed (ADR-058
-        §8).'
+      description: |-
+        The catalogue without the staff list: only teams by name and people the
+        company shows its customers (ADR-058 §8).
       properties:
         locations:
           type: array
@@ -16923,18 +17034,74 @@ components:
         services:
           type: array
           items:
-            $ref: '#/components/schemas/PublicService'
+            $ref: '#/components/schemas/PublicChoiceService'
         resources:
           type: array
           items:
             $ref: '#/components/schemas/Resource'
+        teams:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicName'
+        people:
+          type: array
+          items:
+            $ref: '#/components/schemas/PublicName'
         timezone:
           type: string
       required:
       - locations
+      - people
       - resources
       - services
+      - teams
       - timezone
+    PublicChoiceService:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        public_slug:
+          type: string
+        duration_minutes:
+          type: integer
+        appointment_kind:
+          type: string
+        staff_choice:
+          type: string
+        team_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        person_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - appointment_kind
+      - duration_minutes
+      - id
+      - name
+      - person_ids
+      - public_slug
+      - staff_choice
+      - team_ids
+    PublicName:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - name
     PublicNavigationLink:
       type: object
       properties:
@@ -16990,26 +17157,6 @@ components:
       - quotas
       - trial_days
       - unit_amount_minor
-    PublicService:
-      type: object
-      properties:
-        id:
-          type: string
-          format: uuid
-        name:
-          type: string
-        public_slug:
-          type: string
-        duration_minutes:
-          type: integer
-        appointment_kind:
-          type: string
-      required:
-      - appointment_kind
-      - duration_minutes
-      - id
-      - name
-      - public_slug
     PublicSitePage:
       type: object
       properties:

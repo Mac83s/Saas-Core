@@ -96,13 +96,18 @@ class AppointmentCreateSerializer(serializers.Serializer[dict[str, Any]]):
 
 
 class PublicAppointmentCreateSerializer(serializers.Serializer[dict[str, Any]]):
-    """The customer names the service, place and time; who takes the visit, the
-    room it needs and the stock it uses are the server's (ADR-058 §4)."""
+    """The customer names the service, place and time, and — where the service
+    lets them — a team or a person shown to customers; everything else is the
+    server's (ADR-058 §4, §8)."""
 
     service_id = serializers.UUIDField()
     location_id = serializers.UUIDField()
     starts_at = serializers.DateTimeField()
     customer = CustomerInputSerializer()
+    team_id = serializers.UUIDField(required=False, allow_null=True)
+    person_id = serializers.UUIDField(required=False, allow_null=True)
+    #: „Uwagi”: for the company's eyes only, never in an e-mail (answer 1A).
+    customer_notes = serializers.CharField(max_length=500, required=False, allow_blank=True)
 
 
 class RescheduleSerializer(serializers.Serializer[dict[str, Any]]):
@@ -163,7 +168,8 @@ class AppointmentSerializer(serializers.Serializer[dict[str, Any]]):
 
 
 class PublicAppointmentSerializer(serializers.Serializer[dict[str, Any]]):
-    """What the customer sees of their visit: no people, no stock (ADR-058 §8)."""
+    """What the customer sees of their visit: no stock, and of the people
+    only the team they chose or a name shown to customers (ADR-058 §8)."""
 
     id = serializers.UUIDField()
     starts_at = serializers.DateTimeField()
@@ -172,6 +178,10 @@ class PublicAppointmentSerializer(serializers.Serializer[dict[str, Any]]):
     service_name = serializers.CharField()
     location_name = serializers.CharField()
     status = serializers.CharField()
+    #: The team the customer chose, by name.
+    team_name = serializers.CharField(allow_null=True)
+    #: „Przyjmie Cię”: the lead's name when it is shown to customers.
+    person_name = serializers.CharField(allow_null=True)
     self_service_token = serializers.CharField(required=False)
 
 
@@ -417,6 +427,19 @@ class PublicServiceSerializer(serializers.Serializer[dict[str, Any]]):
     appointment_kind = serializers.CharField()
 
 
+class PublicChoiceServiceSerializer(PublicServiceSerializer):
+    #: „Do kogo?”: none, a team or a person (answer 2, 24.09).
+    staff_choice = serializers.CharField()
+    #: The teams able to take it, or the people shown to customers who do it.
+    team_ids = serializers.ListField(child=serializers.UUIDField())
+    person_ids = serializers.ListField(child=serializers.UUIDField())
+
+
+class PublicNameSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+
+
 class ServiceSerializer(PublicServiceSerializer):
     #: How many people one visit needs (ADR-058 §2).
     staff_count = serializers.IntegerField()
@@ -442,11 +465,14 @@ class CatalogSerializer(serializers.Serializer[dict[str, Any]]):
 
 
 class PublicCatalogSerializer(serializers.Serializer[dict[str, Any]]):
-    """The catalogue without the team: who works here is not listed (ADR-058 §8)."""
+    """The catalogue without the staff list: only teams by name and people the
+    company shows its customers (ADR-058 §8)."""
 
     locations = LocationSerializer(many=True)
-    services = PublicServiceSerializer(many=True)
+    services = PublicChoiceServiceSerializer(many=True)
     resources = ResourceSerializer(many=True)
+    teams = PublicNameSerializer(many=True)
+    people = PublicNameSerializer(many=True)
     #: The organization's zone: the days and times offered are its wall clock.
     timezone = serializers.CharField()
 
@@ -470,7 +496,15 @@ class PersonSerializer(serializers.Serializer[dict[str, Any]]):
     has_hours = serializers.BooleanField()
     #: The teams the person belongs to (ADR-058 §2).
     team_ids = serializers.ListField(child=serializers.UUIDField())
+    #: „Pokazuj klientom”: the name customers see; null: not shown (ADR-058 §8).
+    public_name = serializers.CharField(allow_null=True)
     created_at = serializers.DateTimeField()
+
+
+class PersonPublicInputSerializer(serializers.Serializer[dict[str, Any]]):
+    shown = serializers.BooleanField()
+    #: The name for customers, e.g. with a title; empty: the person's own.
+    name = serializers.CharField(max_length=160, required=False, allow_blank=True)
 
 
 class PersonListSerializer(serializers.Serializer[dict[str, Any]]):

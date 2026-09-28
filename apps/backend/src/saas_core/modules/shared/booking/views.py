@@ -24,6 +24,7 @@ from . import materials as stock
 from .availability import _zone, available_days, available_slots, available_times
 from .dispatch import assign_crew, candidates, overview, queue
 from .models import Location, PublicBookingRoute, Resource, SelfServiceRoute, Service
+from .public import public_choices, public_people, shown_to_customer
 from .security import public_booking_context, token_digest
 from .serializers import (
     AppointmentCreateSerializer,
@@ -45,6 +46,7 @@ from .serializers import (
     PersonInvitationSerializer,
     PersonListQuerySerializer,
     PersonListSerializer,
+    PersonPublicInputSerializer,
     PersonServicesInputSerializer,
     PersonUpdateSerializer,
     PlaceInputSerializer,
@@ -101,6 +103,7 @@ from .staff import (
     remove_time_off,
     restore_person,
     set_person_hours,
+    set_person_public,
     set_person_services,
 )
 from .teams import create_team, delete_team, list_teams, member_ids, update_team
@@ -132,6 +135,22 @@ NEED_QUERY = OpenApiParameter(
         "równą jej długości — wszystkie wybrane."
     ),
 )
+
+
+CHOICE_QUERY = [
+    OpenApiParameter(
+        "team_id",
+        UUID,
+        OpenApiParameter.QUERY,
+        description="Zespół wybrany przez klienta (usługa z wyborem zespołu).",
+    ),
+    OpenApiParameter(
+        "person_id",
+        UUID,
+        OpenApiParameter.QUERY,
+        description="Osoba wybrana przez klienta (usługa z wyborem osoby).",
+    ),
+]
 
 
 class BookingThrottle(AnonRateThrottle):
@@ -206,7 +225,9 @@ def _queue_payload(value: Any) -> dict[str, Any]:
 
 
 def _public_appointment_payload(value: Any, token: str | None = None) -> dict[str, Any]:
-    """The customer's own visit: not who does it, nor the company's stock sheet."""
+    """The customer's own visit: not the company's stock sheet, and of the
+    people only what the customer chose or may see (ADR-058 §8)."""
+    team, person = shown_to_customer(value)
     return {
         "id": value.id,
         "starts_at": value.starts_at,
@@ -215,6 +236,8 @@ def _public_appointment_payload(value: Any, token: str | None = None) -> dict[st
         "service_name": value.service_name,
         "location_name": value.location.name,
         "status": value.status,
+        "team_name": team,
+        "person_name": person,
         **({"self_service_token": token} if token else {}),
     }
 
@@ -235,6 +258,19 @@ def _staff_query(request: Request) -> list[UUID] | None:
     values = request.query_params.getlist("staff_id")
     try:
         return [UUID(value) for value in values] if values else None
+    except ValueError as error:
+        raise ParseError("Nieprawidłowe parametry terminów.") from error
+
+
+def _choice_query(request: Request) -> tuple[UUID | None, UUID | None]:
+    """The team or person a customer chose on the public form, if any."""
+
+    def one(name: str) -> UUID | None:
+        value = request.query_params.get(name)
+        return UUID(value) if value else None
+
+    try:
+        return one("team_id"), one("person_id")
     except ValueError as error:
         raise ParseError("Nieprawidłowe parametry terminów.") from error
 
@@ -701,7 +737,18 @@ class PublicBookingCatalogView(APIView):
                 "services": list(Service.all_objects.filter(organization_id=org)),
                 "resources": list(Resource.all_objects.filter(organization_id=org)),
             }
-            return Response({**_catalog_payload(value, public=True), "timezone": _zone().key})
+            payload = _catalog_payload(value, public=True)
+            choices = public_choices(org, [x for x in value["services"] if x.active])
+            kinds = {x.id: x.public_staff_choice for x in value["services"]}
+            for item in payload["services"]:
+                teams, people = choices.services.get(item["id"], ([], []))
+                item.update(staff_choice=kinds[item["id"]], team_ids=teams, person_ids=people)
+            return Response({
+                **payload,
+                "teams": [{"id": key, "name": name} for key, name in choices.teams],
+                "people": [{"id": key, "name": name} for key, name in choices.people],
+                "timezone": _zone().key,
+            })
 
 
 class PublicBookingSlotsView(APIView):
@@ -751,16 +798,27 @@ class PublicBookingDaysView(APIView):
     throttle_classes = [BookingThrottle]
 
     @extend_schema(
-        tags=["public-booking"], parameters=DAYS_QUERY, responses={200: SlotDayListSerializer}
+        tags=["public-booking"],
+        parameters=[*DAYS_QUERY, *CHOICE_QUERY],
+        responses={200: SlotDayListSerializer},
     )
     def get(self, request: Request, public_slug: str) -> Response:
         route = _route(public_slug)
         service, location, (start, end) = _slot_query(request, "from", "to")
+        team, person = _choice_query(request)
         with public_booking_context(route.organization_id):
             authorize_entitled("booking.public.read", BOOKING_ENABLED)
+            staff, need = public_people(
+                route.organization_id, service, team_id=team, person_id=person
+            )
             return Response({
                 "items": available_days(
-                    service_id=service, location_id=location, from_date=start, to_date=end
+                    service_id=service,
+                    location_id=location,
+                    from_date=start,
+                    to_date=end,
+                    staff_ids=staff,
+                    need=need,
                 )
             })
 
@@ -773,17 +831,29 @@ class PublicBookingTimesView(APIView):
     throttle_classes = [BookingThrottle]
 
     @extend_schema(
-        tags=["public-booking"], parameters=TIMES_QUERY, responses={200: SlotTimeListSerializer}
+        tags=["public-booking"],
+        parameters=[*TIMES_QUERY, *CHOICE_QUERY],
+        responses={200: SlotTimeListSerializer},
     )
     def get(self, request: Request, public_slug: str) -> Response:
         route = _route(public_slug)
         service, location, (day,) = _slot_query(request, "date")
+        team, person = _choice_query(request)
         with public_booking_context(route.organization_id):
             authorize_entitled("booking.public.read", BOOKING_ENABLED)
+            staff, need = public_people(
+                route.organization_id, service, team_id=team, person_id=person
+            )
             return Response({
                 "items": [
                     {"starts_at": item.starts_at, "ends_at": item.ends_at}
-                    for item in available_times(service_id=service, location_id=location, day=day)
+                    for item in available_times(
+                        service_id=service,
+                        location_id=location,
+                        day=day,
+                        staff_ids=staff,
+                        need=need,
+                    )
                 ]
             })
 
@@ -806,10 +876,18 @@ class PublicBookingCreateView(APIView):
         s.is_valid(raise_exception=True)
         data = dict(s.validated_data)
         customer = data.pop("customer")
+        team = data.pop("team_id", None)
+        person = data.pop("person_id", None)
+        notes = data.pop("customer_notes", "").strip()
         with public_booking_context(route.organization_id):
             authorize_entitled("booking.public.manage", BOOKING_ENABLED)
+            # A choice the service does not offer is refused, not dropped.
+            public_people(route.organization_id, data["service_id"], team_id=team, person_id=person)
             result = create_appointment(
                 **data,
+                team_id=team,
+                requested_staff_id=person,
+                customer_notes=notes,
                 customer_data=customer,
                 idempotency_key=_idem(request),
                 principal_ref="public",
@@ -906,6 +984,7 @@ def _person_payload(person: Person) -> dict[str, Any]:
         "service_ids": person.service_ids,
         "has_hours": person.has_hours,
         "team_ids": person.team_ids,
+        "public_name": person.public_name,
         "created_at": staff.created_at,
     }
 
@@ -1181,6 +1260,24 @@ class StaffRestoreView(APIView):
     def post(self, request: Request, staff_id: UUID) -> Response:
         del request
         restore_person(staff_id=staff_id)
+        return Response(_person_detail_payload(person_detail(staff_id)))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class StaffPublicView(APIView):
+    """„Pokazuj klientom”: the person's name on the booking form, or not."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        request=PersonPublicInputSerializer,
+        responses={200: PersonDetailSerializer, 403: ProblemDetailsSerializer},
+    )
+    def put(self, request: Request, staff_id: UUID) -> Response:
+        s = PersonPublicInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        set_person_public(staff_id=staff_id, **s.validated_data)
         return Response(_person_detail_payload(person_detail(staff_id)))
 
 

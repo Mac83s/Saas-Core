@@ -1011,6 +1011,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/booking/staff/{staff_id}/public/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description „Pokazuj klientom”: the person's name on the booking form, or not. */
+        put: operations["api_v1_booking_staff_public_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/booking/staff/{staff_id}/restore/": {
         parameters: {
             query?: never;
@@ -5841,6 +5858,7 @@ export interface components {
             service_ids: string[];
             has_hours: boolean;
             team_ids: string[];
+            public_name: string | null;
             /** Format: date-time */
             created_at: string;
         };
@@ -5879,6 +5897,7 @@ export interface components {
             service_ids: string[];
             has_hours: boolean;
             team_ids: string[];
+            public_name: string | null;
             /** Format: date-time */
             created_at: string;
             hours: components["schemas"]["WorkingHours"][];
@@ -5904,6 +5923,10 @@ export interface components {
         };
         PersonList: {
             items: components["schemas"]["Person"][];
+        };
+        PersonPublicInput: {
+            shown: boolean;
+            name?: string;
         };
         PersonServicesInput: {
             service_ids: string[];
@@ -6046,7 +6069,10 @@ export interface components {
          * @enum {string}
          */
         ProviderStatusStatusEnum: "delivered" | "bounced" | "complained";
-        /** @description What the customer sees of their visit: no people, no stock (ADR-058 §8). */
+        /**
+         * @description What the customer sees of their visit: no stock, and of the people
+         *     only the team they chose or a name shown to customers (ADR-058 §8).
+         */
         PublicAppointment: {
             /** Format: uuid */
             id: string;
@@ -6058,11 +6084,14 @@ export interface components {
             service_name: string;
             location_name: string;
             status: string;
+            team_name: string | null;
+            person_name: string | null;
             self_service_token?: string;
         };
         /**
-         * @description The customer names the service, place and time; who takes the visit, the
-         *     room it needs and the stock it uses are the server's (ADR-058 §4).
+         * @description The customer names the service, place and time, and — where the service
+         *     lets them — a team or a person shown to customers; everything else is the
+         *     server's (ADR-058 §4, §8).
          */
         PublicAppointmentCreate: {
             /** Format: uuid */
@@ -6072,13 +6101,39 @@ export interface components {
             /** Format: date-time */
             starts_at: string;
             customer: components["schemas"]["CustomerInput"];
+            /** Format: uuid */
+            team_id?: string | null;
+            /** Format: uuid */
+            person_id?: string | null;
+            customer_notes?: string;
         };
-        /** @description The catalogue without the team: who works here is not listed (ADR-058 §8). */
+        /**
+         * @description The catalogue without the staff list: only teams by name and people the
+         *     company shows its customers (ADR-058 §8).
+         */
         PublicCatalog: {
             locations: components["schemas"]["Location"][];
-            services: components["schemas"]["PublicService"][];
+            services: components["schemas"]["PublicChoiceService"][];
             resources: components["schemas"]["Resource"][];
+            teams: components["schemas"]["PublicName"][];
+            people: components["schemas"]["PublicName"][];
             timezone: string;
+        };
+        PublicChoiceService: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            public_slug: string;
+            duration_minutes: number;
+            appointment_kind: string;
+            staff_choice: string;
+            team_ids: string[];
+            person_ids: string[];
+        };
+        PublicName: {
+            /** Format: uuid */
+            id: string;
+            name: string;
         };
         PublicNavigationLink: {
             /** Format: uuid */
@@ -6100,14 +6155,6 @@ export interface components {
             quotas: {
                 [key: string]: number;
             };
-        };
-        PublicService: {
-            /** Format: uuid */
-            id: string;
-            name: string;
-            public_slug: string;
-            duration_minutes: number;
-            appointment_kind: string;
         };
         PublicSitePage: {
             /** Format: uuid */
@@ -8567,7 +8614,11 @@ export interface operations {
             query: {
                 from: string;
                 location_id: string;
+                /** @description Osoba wybrana przez klienta (usługa z wyborem osoby). */
+                person_id?: string;
                 service_id: string;
+                /** @description Zespół wybrany przez klienta (usługa z wyborem zespołu). */
+                team_id?: string;
                 to: string;
             };
             header?: never;
@@ -8619,7 +8670,11 @@ export interface operations {
             query: {
                 date: string;
                 location_id: string;
+                /** @description Osoba wybrana przez klienta (usługa z wyborem osoby). */
+                person_id?: string;
                 service_id: string;
+                /** @description Zespół wybrany przez klienta (usługa z wyborem zespołu). */
+                team_id?: string;
             };
             header?: never;
             path: {
@@ -9428,6 +9483,41 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_booking_staff_public_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                staff_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonPublicInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["PersonPublicInput"];
+                "multipart/form-data": components["schemas"]["PersonPublicInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonDetail"];
+                };
+            };
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

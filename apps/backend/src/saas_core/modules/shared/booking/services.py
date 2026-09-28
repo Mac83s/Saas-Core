@@ -1200,6 +1200,11 @@ def anonymize_customer(customer_id: UUID) -> Customer:
     customer.contact_hash = hashlib.sha256(f"anon:{customer.id}".encode()).hexdigest()
     customer.anonymized_at = timezone.now()
     customer.save()
+    # What the customer wrote about the visit goes too (answer 1A, 28.09):
+    # in a clinic it can be about their health.
+    Appointment.all_objects.filter(customer=customer).exclude(customer_notes="").update(
+        customer_notes=""
+    )
     record_audit(
         organization=Organization.objects.get(pk=context.organization_id),
         action="booking.customer.anonymized",

@@ -488,11 +488,30 @@ def test_the_customer_gets_no_staff_data_from_any_public_answer(
         "service_id": str(configured["service"].id),
         "location_id": str(configured["location"].id),
     }
-    visit = {"id", "starts_at", "ends_at", "timezone", "service_name", "location_name", "status"}
+    visit = {
+        "id",
+        "starts_at",
+        "ends_at",
+        "timezone",
+        "service_name",
+        "location_name",
+        "status",
+        "team_name",
+        "person_name",
+    }
 
     listing = client.get(f"{url}/")
     assert listing.status_code == 200
-    assert set(listing.json()) == {"locations", "services", "resources", "timezone"}
+    assert set(listing.json()) == {
+        "locations",
+        "services",
+        "resources",
+        "teams",
+        "people",
+        "timezone",
+    }
+    # Nobody is shown to customers here, so no team and no person is listed.
+    assert (listing.json()["teams"], listing.json()["people"]) == ([], [])
     # The days and times offered are the organization's wall clock.
     assert listing.json()["timezone"] == "Europe/Warsaw"
     # The contract names exactly what is sent: no team, no stock lines.
@@ -837,9 +856,10 @@ def test_a_booking_without_an_email_address_changes_without_queueing_anything(
             idempotency_key="cancel-phone",
             principal_ref=str(member.user_id),
         )
-        assert NotificationMessage.all_objects.filter(
-            causation_id=f"booking:{appointment.id}"
-        ).count() == 0
+        assert (
+            NotificationMessage.all_objects.filter(causation_id=f"booking:{appointment.id}").count()
+            == 0
+        )
 
 
 def test_every_appointment_transition_reaches_a_registered_observer(

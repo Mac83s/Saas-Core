@@ -42,6 +42,12 @@ from saas_core.modules.core.organizations.permissions import (
     MEMBERS_READ,
 )
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
+from saas_core.modules.shared.profiles.api import (
+    create_person_profile,
+    person_names,
+    remove_person_profile,
+    rename_person_profile,
+)
 
 from .availability import _rule_on, _valid_instants, _zone
 from .crew import take_off
@@ -78,6 +84,8 @@ class Person:
     private: bool
     #: The standing groups the person belongs to (ADR-058 §2).
     team_ids: list[UUID] = field(default_factory=list)
+    #: „Pokazuj klientom”: the name customers see, or None (ADR-058 §8).
+    public_name: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,6 +159,7 @@ def _people(context: TenantContext, staff: list[StaffMember]) -> list[Person]:
         .values_list("staff_id", "team_id")
     ):
         teams.setdefault(staff_id, []).append(team_id)
+    names = person_names(context.organization_id, (item.profile_id for item in staff))
     management = _management(context)
     return [
         Person(
@@ -159,6 +168,7 @@ def _people(context: TenantContext, staff: list[StaffMember]) -> list[Person]:
             item.id in with_hours,
             management or _own(context, item),
             teams.get(item.id, []),
+            names.get(item.profile_id) if item.profile_id else None,
         )
         for item in staff
     ]
@@ -579,6 +589,42 @@ def end_person(*, request: HttpRequest, staff_id: UUID) -> StaffMember:
 
 
 @transaction.atomic
+@transaction.atomic
+def set_person_public(*, staff_id: UUID, shown: bool, name: str = "") -> StaffMember:
+    """„Pokazuj klientom”: the person's name on the booking form and in the
+    customer's confirmation, or nowhere (ADR-036 §4, ADR-058 §8).
+
+    Turning it off removes the public profile: a name is never left behind
+    on the public side for someone the office took off it.
+    """
+    context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
+    staff = _locked(context, staff_id)
+    was = staff.profile_id is not None
+    public = name.strip() or staff.display_name
+    if shown and staff.profile_id is not None:
+        rename_person_profile(context.organization_id, staff.profile_id, name=public)
+    elif shown:
+        staff.profile = create_person_profile(
+            context.organization_id, name=public, membership_id=staff.membership_id
+        )
+        staff.save(update_fields=["profile", "updated_at"])
+    elif staff.profile_id is not None:
+        profile_id = staff.profile_id
+        staff.profile = None
+        staff.save(update_fields=["profile", "updated_at"])
+        remove_person_profile(context.organization_id, profile_id)
+    if shown != was:
+        record_audit(
+            organization=Organization.objects.get(pk=context.organization_id),
+            action=OrganizationAuditAction.BOOKING_STAFF_PUBLIC_CHANGED,
+            actor=_actor(context),
+            target_type="staff",
+            target_id=staff.id,
+            metadata={"shown": shown},
+        )
+    return staff
+
+
 def restore_person(*, staff_id: UUID) -> StaffMember:
     """Back on the team, without the account: that takes a new invitation."""
     context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)

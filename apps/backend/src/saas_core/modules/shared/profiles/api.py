@@ -6,7 +6,11 @@ header, a copy of an e-mail) asks here instead of reading the private models.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from uuid import UUID
+
+from django.core.exceptions import ValidationError as DjangoValidationError
+from rest_framework.exceptions import ValidationError
 
 from saas_core.modules.core.organizations.models import BillingProfile, Organization
 
@@ -33,4 +37,66 @@ def organization_contact(organization_id: UUID) -> dict[str, str]:
     }
 
 
-__all__ = ["organization_contact"]
+def _saved(profile: PublicProfile) -> PublicProfile:
+    try:
+        profile.full_clean(exclude=["organization"], validate_unique=False)
+    except DjangoValidationError as error:
+        raise ValidationError({"name": error.messages}) from error
+    profile.save()
+    return profile
+
+
+def create_person_profile(
+    organization_id: UUID, *, name: str, membership_id: UUID | None
+) -> PublicProfile:
+    """A person the company shows its customers, made by the calendar's
+    „Pokazuj klientom” (ADR-036 §4, ADR-058 §8). The caller has authorized
+    the action; this module keeps what a person profile is."""
+    return _saved(
+        PublicProfile(
+            organization_id=organization_id,
+            subject_kind=ProfileSubjectKind.PERSON,
+            display_name=name,
+            membership_id=membership_id,
+        )
+    )
+
+
+def rename_person_profile(organization_id: UUID, profile_id: UUID, *, name: str) -> None:
+    profile = PublicProfile.all_objects.get(
+        organization_id=organization_id, pk=profile_id, subject_kind=ProfileSubjectKind.PERSON
+    )
+    if profile.display_name != name:
+        profile.display_name = name
+        profile.version += 1
+        _saved(profile)
+
+
+def remove_person_profile(organization_id: UUID, profile_id: UUID) -> None:
+    """Turning „Pokazuj klientom” off: the name leaves the public side."""
+    PublicProfile.all_objects.filter(
+        organization_id=organization_id, pk=profile_id, subject_kind=ProfileSubjectKind.PERSON
+    ).delete()
+
+
+def person_names(organization_id: UUID, profile_ids: Iterable[UUID | None]) -> dict[UUID, str]:
+    """The names people are shown to customers under, by profile."""
+    wanted = {profile_id for profile_id in profile_ids if profile_id is not None}
+    if not wanted:
+        return {}
+    return dict(
+        PublicProfile.all_objects.filter(
+            organization_id=organization_id,
+            pk__in=wanted,
+            subject_kind=ProfileSubjectKind.PERSON,
+        ).values_list("id", "display_name")
+    )
+
+
+__all__ = [
+    "create_person_profile",
+    "organization_contact",
+    "person_names",
+    "remove_person_profile",
+    "rename_person_profile",
+]
