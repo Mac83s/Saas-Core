@@ -80,6 +80,14 @@ export function VersionHistory({
       ].name;
       return t("versions.origin.template", { name: name ?? id });
     }
+    if (version.origin === "own_template") {
+      // "name@version"; a template's name may itself hold an "@".
+      const at = version.origin_ref.lastIndexOf("@");
+      return t("versions.origin.own_template", {
+        name: at > 0 ? version.origin_ref.slice(0, at) : version.origin_ref,
+        number: at > 0 ? version.origin_ref.slice(at + 1) : "",
+      });
+    }
     if (version.origin === "restore")
       return t("versions.origin.restore", { number: version.origin_ref });
     if (version.automation) return t("versions.origin.automation");

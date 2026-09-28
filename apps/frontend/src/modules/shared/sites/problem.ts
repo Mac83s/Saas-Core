@@ -48,6 +48,14 @@ export function sitesErrorMessage(error: unknown, t: Translate): string {
       return t("invalidSectionPresentation");
     case "invalid_page_presentation":
       return t("invalidPagePresentation");
+    case "site_template_name_taken":
+      return t("ownTemplates.nameTaken");
+    case "site_template_limit_reached":
+      return t("ownTemplates.limitReachedShort");
+    case "site_template_version_conflict":
+      return t("ownTemplates.versionConflict");
+    case "site_template_not_found":
+      return t("ownTemplates.notFound");
     default:
       return typeof error.problem.detail === "string"
         ? error.problem.detail

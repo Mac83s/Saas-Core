@@ -40,6 +40,7 @@ from .views import (
     ContentProposalDiscardView,
     ContentProposalListView,
     OperationStatusView,
+    OwnTemplateImportView,
     PageDraftPreviewView,
     PageDraftView,
     PageListCreateView,
@@ -58,6 +59,10 @@ from .views import (
     SitePurposeView,
     SiteRedirectListView,
     SiteRedirectView,
+    SiteTemplateArchiveView,
+    SiteTemplateListCreateView,
+    SiteTemplateVersionCreateView,
+    SiteTemplateView,
 )
 
 app_name = "sites"
@@ -244,6 +249,23 @@ urlpatterns = [
         "pages/<uuid:page_id>/template-import/",
         PageTemplateImportView.as_view(),
         name="page-template-import",
+    ),
+    path("templates/", SiteTemplateListCreateView.as_view(), name="template-list-create"),
+    path("templates/<uuid:template_id>/", SiteTemplateView.as_view(), name="template-detail"),
+    path(
+        "templates/<uuid:template_id>/archive/",
+        SiteTemplateArchiveView.as_view(),
+        name="template-archive",
+    ),
+    path(
+        "templates/<uuid:template_id>/versions/",
+        SiteTemplateVersionCreateView.as_view(),
+        name="template-version-create",
+    ),
+    path(
+        "pages/<uuid:page_id>/own-template-import/",
+        OwnTemplateImportView.as_view(),
+        name="page-own-template-import",
     ),
     path(
         "pages/<uuid:page_id>/versions/",

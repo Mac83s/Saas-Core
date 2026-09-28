@@ -10186,6 +10186,76 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/pages/{page_id}/own-template-import/:
+    post:
+      operationId: sites_page_own_template_import
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: Klucz bezpiecznego ponowienia mutacji w zakresie organizacji
+          i użytkownika.
+        required: true
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OwnTemplateImport'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/OwnTemplateImport'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/OwnTemplateImport'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageDraft'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageDraft'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/pages/{page_id}/policy/:
     put:
       operationId: sites_page_policy_set
@@ -10987,6 +11057,246 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/templates/:
+    get:
+      operationId: sites_templates_list
+      parameters:
+      - in: query
+        name: kind
+        schema:
+          type: string
+          enum:
+          - page
+          - section
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteTemplateList'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    post:
+      operationId: sites_templates_create
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: Klucz bezpiecznego ponowienia mutacji w zakresie organizacji
+          i użytkownika.
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SiteTemplateCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SiteTemplateCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SiteTemplateCreate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteTemplate'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteTemplate'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/templates/{template_id}/:
+    patch:
+      operationId: sites_templates_update
+      parameters:
+      - in: path
+        name: template_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedSiteTemplateUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedSiteTemplateUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedSiteTemplateUpdate'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteTemplate'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/templates/{template_id}/archive/:
+    post:
+      operationId: sites_templates_archive
+      parameters:
+      - in: path
+        name: template_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/templates/{template_id}/versions/:
+    post:
+      operationId: sites_templates_version_create
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: Klucz bezpiecznego ponowienia mutacji w zakresie organizacji
+          i użytkownika.
+        required: true
+      - in: path
+        name: template_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SiteTemplateVersionCreate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/SiteTemplateVersionCreate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/SiteTemplateVersionCreate'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteTemplate'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteTemplate'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
           content:
             application/json:
               schema:
@@ -15045,6 +15355,14 @@ components:
         * `treatment` - Zabieg
         * `medication` - Lek lub szczepienie
         * `visit` - Wizyta specjalisty
+    KindFd3Enum:
+      enum:
+      - section
+      - page
+      type: string
+      description: |-
+        * `section` - section
+        * `page` - page
     LayoutEnum:
       enum:
       - card
@@ -15614,6 +15932,22 @@ components:
       - bookable_staff
       - teams
       - waiting
+    OwnTemplateImport:
+      type: object
+      properties:
+        expected_version:
+          type: integer
+          minimum: 0
+        template_id:
+          type: string
+          format: uuid
+        template_version:
+          type: integer
+          minimum: 1
+      required:
+      - expected_version
+      - template_id
+      - template_version
     OwnershipTransfer:
       type: object
       properties:
@@ -16347,6 +16681,16 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MaterialInput'
+    PatchedSiteTemplateUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 120
+        description:
+          type: string
+          default: ''
+          maxLength: 500
     PatchedStockDocumentInput:
       type: object
       properties:
@@ -18608,6 +18952,164 @@ components:
       - purpose
       - slug
       - updated_at
+    SiteTemplate:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: '#/components/schemas/KindFd3Enum'
+        name:
+          type: string
+        description:
+          type: string
+        created_by:
+          $ref: '#/components/schemas/PublicationAuthor'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        version:
+          $ref: '#/components/schemas/SiteTemplateVersion'
+      required:
+      - created_at
+      - created_by
+      - description
+      - id
+      - kind
+      - name
+      - updated_at
+      - version
+    SiteTemplateBlock:
+      type: object
+      properties:
+        block_type:
+          type: string
+        schema_version:
+          type: integer
+        data: {}
+        decoration:
+          oneOf:
+          - {}
+          - type: 'null'
+        presentation:
+          oneOf:
+          - {}
+          - type: 'null'
+      required:
+      - block_type
+      - data
+      - schema_version
+    SiteTemplateCreate:
+      type: object
+      properties:
+        blocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/PageBlockInput'
+        page_presentation:
+          oneOf:
+          - {}
+          - type: 'null'
+        media_asset_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
+        source_page_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        kind:
+          $ref: '#/components/schemas/KindFd3Enum'
+        name:
+          type: string
+          maxLength: 120
+        description:
+          type: string
+          default: ''
+          maxLength: 500
+      required:
+      - blocks
+      - kind
+      - name
+    SiteTemplateList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SiteTemplate'
+        limit:
+          type:
+          - integer
+          - 'null'
+      required:
+      - items
+      - limit
+    SiteTemplateVersion:
+      type: object
+      properties:
+        number:
+          type: integer
+        blocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/SiteTemplateBlock'
+        page_presentation:
+          oneOf:
+          - {}
+          - type: 'null'
+        media_asset_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        created_by:
+          $ref: '#/components/schemas/PublicationAuthor'
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - blocks
+      - created_at
+      - created_by
+      - media_asset_ids
+      - number
+      - page_presentation
+    SiteTemplateVersionCreate:
+      type: object
+      properties:
+        blocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/PageBlockInput'
+        page_presentation:
+          oneOf:
+          - {}
+          - type: 'null'
+        media_asset_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
+        source_page_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        expected_version:
+          type: integer
+          minimum: 1
+      required:
+      - blocks
+      - expected_version
     Slot:
       type: object
       properties:

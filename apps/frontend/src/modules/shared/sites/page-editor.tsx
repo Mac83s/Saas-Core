@@ -36,6 +36,7 @@ import {
   getImageGenerationOffer,
   getPageDraft,
   getPageDraftPreview,
+  importOwnPageTemplate,
   importPageTemplate,
   restorePageVersion,
   type PageVersionSummary,
@@ -47,6 +48,7 @@ import {
   type ImageGenerationOffer,
   type MediaAsset,
   type PageDraft,
+  type SiteTemplate,
   type PageSummary,
   type PageTranslation,
 } from "@saas-core/api-client";
@@ -130,6 +132,7 @@ import { VersionHistory } from "./version-history";
 import { PageEditorContext } from "./page-editor-context";
 import { pageTemplatePreview } from "./template-media-preview";
 import { SectionLibrary, SectionLibraryContent } from "./section-library";
+import { OwnPageTemplates, SaveAsTemplate } from "./own-templates";
 import {
   PagePresentationFields,
   type PagePresentation,
@@ -417,8 +420,9 @@ export function PageEditor({
     request: number;
   }>();
   const [metadataOpen, setMetadataOpen] = useState(false);
-  const [replacementTemplate, setReplacementTemplate] =
-    useState<PageTemplate | null>(null);
+  const [replacementTemplate, setReplacementTemplate] = useState<
+    PageTemplate | SiteTemplate | null
+  >(null);
   const [selectedSection, setSelectedSection] = useState(0);
   const activeSection = Math.min(
     selectedSection,
@@ -442,23 +446,38 @@ export function PageEditor({
   const templateLocale = interfaceLocale === "en" ? "en" : "pl";
 
   const applyTemplate = useCallback(
-    async (template: PageTemplate) => {
+    async (template: PageTemplate | SiteTemplate) => {
       if (!draft) return;
-      const input = {
-        expected_version: draft.version,
-        template_id: template.id,
-        template_version: template.version,
-        locale: templateLocale,
-      } as const;
       setLoading(true);
       setProblem(undefined);
       setDraftConflict(false);
       try {
-        const imported = await importPageTemplate(
-          page.id,
-          input,
-          mutationKey(templateReceipt, `template-${page.id}`, input),
-        );
+        let imported: PageDraft;
+        if ("labels" in template) {
+          const input = {
+            expected_version: draft.version,
+            template_id: template.id,
+            template_version: template.version,
+            locale: templateLocale,
+          } as const;
+          imported = await importPageTemplate(
+            page.id,
+            input,
+            mutationKey(templateReceipt, `template-${page.id}`, input),
+          );
+        } else {
+          // The organization's own page (F4-B): its content, as saved.
+          const input = {
+            expected_version: draft.version,
+            template_id: template.id,
+            template_version: template.version.number,
+          };
+          imported = await importOwnPageTemplate(
+            page.id,
+            input,
+            mutationKey(templateReceipt, `own-template-${page.id}`, input),
+          );
+        }
         templateReceipt.current = undefined;
         setDraft(imported);
         const values = draftValues(imported);
@@ -1098,6 +1117,27 @@ export function PageEditor({
                               <p className="text-sm text-muted-foreground">
                                 {t("startFromTemplateDescription")}
                               </p>
+                              <SaveAsTemplate
+                                kind="page"
+                                triggerLabel={t("ownTemplates.savePage")}
+                                disabled={loading || blocks.fields.length === 0}
+                                blocks={() => draftForm.getValues("blocks")}
+                                pagePresentation={() =>
+                                  draftForm.getValues("page_presentation")
+                                }
+                                sourcePageId={page.id}
+                              />
+                              <OwnPageTemplates
+                                disabled={loading}
+                                onUse={(template) => {
+                                  if (blocks.fields.length)
+                                    setReplacementTemplate(template);
+                                  else void applyTemplate(template);
+                                }}
+                              />
+                              <h3 className="text-sm font-semibold">
+                                {t("ownTemplates.readyGroup")}
+                              </h3>
                               <ul className="grid gap-4">
                                 {pageTemplates.map((template) => (
                                   <li key={template.id}>
@@ -1215,6 +1255,17 @@ export function PageEditor({
                                 >
                                   {t("studio.duplicate")}
                                 </Button>
+                                <SaveAsTemplate
+                                  kind="section"
+                                  triggerLabel={t("ownTemplates.saveSection")}
+                                  disabled={loading}
+                                  blocks={() => [
+                                    draftForm.getValues(
+                                      `blocks.${activeSection}`,
+                                    ),
+                                  ]}
+                                  sourcePageId={page.id}
+                                />
                                 <SectionLibrary
                                   onBusyChange={setLoading}
                                   triggerLabel={t("studio.insertAfter")}

@@ -736,6 +736,74 @@ class PageVersionListSerializer(serializers.Serializer[dict[str, Any]]):
     next_cursor = serializers.UUIDField(allow_null=True)
 
 
+class SiteTemplateContentSerializer(serializers.Serializer[dict[str, Any]]):
+    # Up to 20 sections, like a page recipe; the service checks per kind.
+    blocks = PageBlockInputSerializer(many=True, allow_empty=False)
+    page_presentation = serializers.JSONField(required=False, allow_null=True, default=None)
+    media_asset_ids = serializers.ListField(
+        child=serializers.UUIDField(), allow_empty=True, default=list, max_length=100
+    )
+    source_page_id = serializers.UUIDField(required=False, allow_null=True, default=None)
+
+
+class SiteTemplateCreateSerializer(SiteTemplateContentSerializer):
+    kind = serializers.ChoiceField(choices=("section", "page"))
+    name = serializers.CharField(max_length=120, trim_whitespace=True)
+    description = serializers.CharField(
+        max_length=500, required=False, allow_blank=True, default=""
+    )
+
+
+class SiteTemplateVersionCreateSerializer(SiteTemplateContentSerializer):
+    expected_version = serializers.IntegerField(min_value=1)
+
+
+class SiteTemplateUpdateSerializer(serializers.Serializer[dict[str, Any]]):
+    name = serializers.CharField(max_length=120, trim_whitespace=True)
+    description = serializers.CharField(max_length=500, allow_blank=True, default="")
+
+
+class SiteTemplateBlockSerializer(serializers.Serializer[dict[str, Any]]):
+    block_type = serializers.CharField()
+    schema_version = serializers.IntegerField()
+    data = serializers.JSONField()  # type: ignore[assignment]
+    decoration = serializers.JSONField(required=False, allow_null=True)
+    presentation = serializers.JSONField(required=False, allow_null=True)
+
+
+class SiteTemplateVersionSerializer(serializers.Serializer[dict[str, Any]]):
+    number = serializers.IntegerField()
+    blocks = SiteTemplateBlockSerializer(many=True)
+    page_presentation = serializers.JSONField(allow_null=True)
+    media_asset_ids = serializers.ListField(child=serializers.UUIDField())
+    created_by = PublicationAuthorSerializer()
+    created_at = serializers.DateTimeField()
+
+
+class SiteTemplateSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    kind = serializers.ChoiceField(choices=("section", "page"))
+    name = serializers.CharField()
+    description = serializers.CharField(allow_blank=True)
+    created_by = PublicationAuthorSerializer()
+    created_at = serializers.DateTimeField()
+    updated_at = serializers.DateTimeField()
+    # The newest version: what the library draws and inserts.
+    version = SiteTemplateVersionSerializer()
+
+
+class SiteTemplateListSerializer(serializers.Serializer[dict[str, Any]]):
+    items = SiteTemplateSerializer(many=True)
+    # The plan's limit of active templates; null when the plan sets none.
+    limit = serializers.IntegerField(allow_null=True)
+
+
+class OwnTemplateImportSerializer(serializers.Serializer[dict[str, Any]]):
+    expected_version = serializers.IntegerField(min_value=0)
+    template_id = serializers.UUIDField()
+    template_version = serializers.IntegerField(min_value=1)
+
+
 class SitePublicationSerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     site_id = serializers.UUIDField()

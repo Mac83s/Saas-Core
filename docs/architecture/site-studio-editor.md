@@ -322,3 +322,40 @@ przy publikacji. Formularz i lokalna historia cofania zaczynają od
 przywróconej wersji, jak po imporcie szablonu. Okno podmiany szablonu całej
 strony mówi teraz, że obecna wersja zostaje w historii.
 
+## Szablony firmy — F4-B, 2026-09-28
+
+Organizacja zapisuje własne szablony: jedną sekcję albo całą stronę (odpowiedzi
+właściciela 1a–4a). Szablon to kopia **z treścią i zdjęciami** — nie przepis z
+przykładami. Widzą go wszyscy, którzy edytują strony organizacji
+(`site.content.edit`: właściciel, administrator, kierownik); ci sami go
+zapisują, zmieniają nazwę i archiwizują.
+
+- Model: `SiteTemplate` (rodzaj `section`/`page`, nazwa unikalna wśród
+  aktywnych, opis, `current_version`, `archived_at`) i niezmienne
+  `SiteTemplateVersion` (sekcje, wygląd strony tylko dla szablonu strony,
+  zdjęcia, `source_page_id`). Obie tabele mają wymuszone RLS; wersje są
+  append-only z wyjątkiem usuwania organizacji (migracja sites 0038). Zdjęcia
+  wersji są trzymane referencją mediów `sites.template_version` (media 0009).
+- API: `GET/POST /api/v1/sites/templates/` (lista z `limit` planu),
+  `PATCH …/<id>/` (nazwa, opis — bez nowej wersji), `POST …/<id>/archive/`,
+  `POST …/<id>/versions/` (`expected_version`, 409
+  `site_template_version_conflict`),
+  `POST /api/v1/sites/pages/<id>/own-template-import/` (tylko szablon strony;
+  nowa wersja strony z `origin=own_template`, `origin_ref="<nazwa>@<wersja>"`).
+  Każda mutacja ma klucz idempotencji i wpis audytu `sites.template.*` /
+  `sites.page.own_template_imported`.
+- Limit planu: kwota `sites.templates.max` liczy aktywne (niezarchiwizowane)
+  szablony; plan bez tej kwoty nie ma limitu. Liczby per plan nie są jeszcze
+  opublikowane — do tego czasu limitu nie ma nigdzie.
+- Studio: „Zapisz jako szablon firmy” w panelu zaznaczonej sekcji i „Zapisz tę
+  stronę jako szablon firmy” w narzędziu „Szablony” — nowy szablon albo nowa
+  wersja istniejącego (to, co jest w edytorze, także niezapisane). Biblioteka
+  sekcji ma na górze grupę „Szablony firmy” (filtrowaną wyszukiwaniem i
+  kategorią), narzędzie „Szablony” — szablony stron firmy nad gotowymi. Przy
+  każdym: miniatura w kroju strony, wersja i autor, „Zmień nazwę”,
+  „Zarchiwizuj”. Użycie szablonu strony na stronie z treścią wymaga tego samego
+  potwierdzenia co gotowy szablon; poprzednia wersja zostaje w historii.
+- Strona zbudowana z szablonu jest kopią: nowa wersja szablonu ani archiwizacja
+  jej nie zmieniają. Zdjęcie usunięte z biblioteki mediów po zapisaniu
+  szablonu sprawi, że import szablonu strony odmówi
+  (`site_media_reference_unavailable`) — dopasowanie przy podmianie to F4-C.

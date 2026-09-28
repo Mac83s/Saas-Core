@@ -36,6 +36,15 @@ from .inventory import inventory_etag, read_inventory
 from .localization import LocaleResolution, SiteLocalizationReport
 from .models import Page, PageBlock, PageTranslation, Publication, Site
 from .operations import read_operation_status
+from .own_templates import (
+    OwnTemplate,
+    archive_site_template,
+    create_site_template,
+    import_own_page_template,
+    list_site_templates,
+    save_site_template_version,
+    update_site_template,
+)
 from .serializers import (
     AutomationConnectionSerializer,
     ChangeSetApplySerializer,
@@ -52,6 +61,7 @@ from .serializers import (
     DraftSaveSerializer,
     GrantRevokeSerializer,
     OperationStatusSerializer,
+    OwnTemplateImportSerializer,
     PageCreateSerializer,
     PageDraftSerializer,
     PageListSerializer,
@@ -79,6 +89,11 @@ from .serializers import (
     SiteRedirectSerializer,
     SiteRollbackSerializer,
     SiteSummarySerializer,
+    SiteTemplateCreateSerializer,
+    SiteTemplateListSerializer,
+    SiteTemplateSerializer,
+    SiteTemplateUpdateSerializer,
+    SiteTemplateVersionCreateSerializer,
 )
 from .services import (
     PageDraft,
@@ -425,6 +440,176 @@ class PageVersionRestoreView(APIView):
         result = restore_page_version(
             page_id=page_id,
             version_id=version_id,
+            **serializer.validated_data,
+            idempotency_key=request.headers.get("Idempotency-Key", ""),
+        )
+        return Response(
+            _draft_summary(page_id),
+            status=(status.HTTP_201_CREATED if result.created else status.HTTP_200_OK),
+        )
+
+
+def _own_template(item: OwnTemplate) -> dict[str, Any]:
+    template, version = item.template, item.version
+    return {
+        "id": template.id,
+        "kind": template.kind,
+        "name": template.name,
+        "description": template.description,
+        "created_by": {"id": template.created_by_id, "email": template.created_by.email},
+        "created_at": template.created_at,
+        "updated_at": template.updated_at,
+        "version": {
+            "number": version.number,
+            "blocks": version.blocks,
+            "page_presentation": version.page_presentation,
+            "media_asset_ids": version.media_asset_ids,
+            "created_by": {"id": version.created_by_id, "email": version.created_by.email},
+            "created_at": version.created_at,
+        },
+    }
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SiteTemplateListCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_templates_list",
+        tags=["sites"],
+        parameters=[
+            OpenApiParameter(
+                "kind", str, OpenApiParameter.QUERY, required=False, enum=["section", "page"]
+            )
+        ],
+        responses={200: SiteTemplateListSerializer, 403: ProblemDetailsSerializer},
+    )
+    def get(self, request: Request) -> Response:
+        kind = request.query_params.get("kind")
+        items, limit = list_site_templates(
+            kind=kind if kind in ("section", "page") else None
+        )
+        return Response({"items": [_own_template(item) for item in items], "limit": limit})
+
+    @extend_schema(
+        operation_id="sites_templates_create",
+        tags=["sites"],
+        parameters=[IDEMPOTENCY_PARAMETER],
+        request=SiteTemplateCreateSerializer,
+        responses={
+            200: SiteTemplateSerializer,
+            201: SiteTemplateSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = SiteTemplateCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = create_site_template(
+            **serializer.validated_data,
+            idempotency_key=request.headers.get("Idempotency-Key", ""),
+        )
+        return Response(
+            _own_template(result.value),
+            status=(status.HTTP_201_CREATED if result.created else status.HTTP_200_OK),
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SiteTemplateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_templates_update",
+        tags=["sites"],
+        request=SiteTemplateUpdateSerializer,
+        responses={
+            200: SiteTemplateSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def patch(self, request: Request, template_id: UUID) -> Response:
+        serializer = SiteTemplateUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        updated = update_site_template(template_id=template_id, **serializer.validated_data)
+        return Response(_own_template(updated))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SiteTemplateArchiveView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_templates_archive",
+        tags=["sites"],
+        request=None,
+        responses={204: None, 403: ProblemDetailsSerializer, 404: ProblemDetailsSerializer},
+    )
+    def post(self, _request: Request, template_id: UUID) -> Response:
+        archive_site_template(template_id=template_id)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class SiteTemplateVersionCreateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_templates_version_create",
+        tags=["sites"],
+        parameters=[IDEMPOTENCY_PARAMETER],
+        request=SiteTemplateVersionCreateSerializer,
+        responses={
+            200: SiteTemplateSerializer,
+            201: SiteTemplateSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request, template_id: UUID) -> Response:
+        serializer = SiteTemplateVersionCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = save_site_template_version(
+            template_id=template_id,
+            **serializer.validated_data,
+            idempotency_key=request.headers.get("Idempotency-Key", ""),
+        )
+        return Response(
+            _own_template(result.value),
+            status=(status.HTTP_201_CREATED if result.created else status.HTTP_200_OK),
+        )
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class OwnTemplateImportView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_page_own_template_import",
+        tags=["sites"],
+        parameters=[IDEMPOTENCY_PARAMETER],
+        request=OwnTemplateImportSerializer,
+        responses={
+            200: PageDraftSerializer,
+            201: PageDraftSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request, page_id: UUID) -> Response:
+        serializer = OwnTemplateImportSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = import_own_page_template(
+            page_id=page_id,
             **serializer.validated_data,
             idempotency_key=request.headers.get("Idempotency-Key", ""),
         )

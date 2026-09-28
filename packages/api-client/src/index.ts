@@ -168,6 +168,12 @@ export type PageList = components["schemas"]["PageList"];
 export type PageDraft = components["schemas"]["PageDraft"];
 export type PageVersionSummary = components["schemas"]["PageVersionSummary"];
 export type PageVersionList = components["schemas"]["PageVersionList"];
+export type SiteTemplate = components["schemas"]["SiteTemplate"];
+export type SiteTemplateList = components["schemas"]["SiteTemplateList"];
+export type SiteTemplateCreateInput =
+  components["schemas"]["SiteTemplateCreate"];
+export type SiteTemplateVersionCreateInput =
+  components["schemas"]["SiteTemplateVersionCreate"];
 export type DraftSaveInput = components["schemas"]["DraftSave"];
 export type PageTemplateImportInput =
   components["schemas"]["PageTemplateImport"];
@@ -1240,6 +1246,120 @@ export async function getPageDraftPreview(
       params: { path: { page_id: pageId, version_id: versionId } },
       credentials: "same-origin",
       cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** The organization's own templates (F4-B) with their newest version, and
+ *  the plan's limit of active ones (null: none). */
+export async function listSiteTemplates(
+  kind?: "section" | "page",
+): Promise<SiteTemplateList> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/templates/",
+    {
+      params: { query: kind ? { kind } : {} },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function createSiteTemplate(
+  input: SiteTemplateCreateInput,
+  idempotencyKey: string,
+): Promise<SiteTemplate> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/templates/",
+    {
+      params: { header: { "Idempotency-Key": idempotencyKey } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function saveSiteTemplateVersion(
+  templateId: string,
+  input: SiteTemplateVersionCreateInput,
+  idempotencyKey: string,
+): Promise<SiteTemplate> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/templates/{template_id}/versions/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { template_id: templateId },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function updateSiteTemplate(
+  templateId: string,
+  input: { name: string; description: string },
+): Promise<SiteTemplate> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PATCH(
+    "/api/v1/sites/templates/{template_id}/",
+    {
+      params: { path: { template_id: templateId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function archiveSiteTemplate(templateId: string): Promise<void> {
+  const csrfToken = await getCsrfToken();
+  const { error, response } = await client.POST(
+    "/api/v1/sites/templates/{template_id}/archive/",
+    {
+      params: { path: { template_id: templateId } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !response.ok) throwProblem(error, response);
+}
+
+export async function importOwnPageTemplate(
+  pageId: string,
+  input: {
+    expected_version: number;
+    template_id: string;
+    template_version: number;
+  },
+  idempotencyKey: string,
+): Promise<PageDraft> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/pages/{page_id}/own-template-import/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { page_id: pageId },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
     },
   );
   if (error || !data) throwProblem(error, response);

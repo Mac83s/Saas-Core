@@ -36,6 +36,7 @@ import {
 import { product } from "../../../product";
 import { sectionPreview } from "./template-media-preview";
 import { registry, editableBlocks, type BlockFormValues } from "./block-form";
+import { OwnSectionTemplates } from "./own-templates";
 
 /** Library order and category filter: the families interleave in this order. */
 const BLOCK_TYPES = [
@@ -347,6 +348,13 @@ export function SectionLibraryContent({
         </details>
       </div>
       {!selected && feedback}
+      <OwnSectionTemplates
+        query={query}
+        blockType={blockType}
+        compact={compact}
+        disabled={busy}
+        onAdd={onAdd}
+      />
       <div
         className={
           compact ? "grid gap-3" : "grid gap-4 sm:grid-cols-2 lg:grid-cols-3"

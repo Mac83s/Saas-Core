@@ -3431,6 +3431,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/pages/{page_id}/own-template-import/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sites_page_own_template_import"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/pages/{page_id}/policy/": {
         parameters: {
             query?: never;
@@ -3705,6 +3721,70 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["sites_template_photo_materialize"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/templates/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["sites_templates_list"];
+        put?: never;
+        post: operations["sites_templates_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/templates/{template_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["sites_templates_update"];
+        trace?: never;
+    };
+    "/api/v1/sites/templates/{template_id}/archive/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sites_templates_archive"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/templates/{template_id}/versions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sites_templates_version_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5319,6 +5399,12 @@ export interface components {
          */
         KindA87Enum: "note" | "alert" | "treatment" | "medication" | "visit";
         /**
+         * @description * `section` - section
+         *     * `page` - page
+         * @enum {string}
+         */
+        KindFd3Enum: "section" | "page";
+        /**
          * @description * `card` - Wizytówka
          *     * `cover` - Ze zdjęciem na całą szerokość
          *     * `compact` - Zwięzła
@@ -5554,6 +5640,12 @@ export interface components {
             bookable_staff: number;
             teams: number;
             waiting: number | null;
+        };
+        OwnTemplateImport: {
+            expected_version: number;
+            /** Format: uuid */
+            template_id: string;
+            template_version: number;
         };
         OwnershipTransfer: {
             /** Format: uuid */
@@ -5837,6 +5929,11 @@ export interface components {
             location_ids?: string[];
             resource_ids?: string[];
             materials?: components["schemas"]["MaterialInput"][];
+        };
+        PatchedSiteTemplateUpdate: {
+            name?: string;
+            /** @default  */
+            description: string;
         };
         PatchedStockDocumentInput: {
             /** Format: uuid */
@@ -6717,6 +6814,58 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+        };
+        SiteTemplate: {
+            /** Format: uuid */
+            id: string;
+            kind: components["schemas"]["KindFd3Enum"];
+            name: string;
+            description: string;
+            created_by: components["schemas"]["PublicationAuthor"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            version: components["schemas"]["SiteTemplateVersion"];
+        };
+        SiteTemplateBlock: {
+            block_type: string;
+            schema_version: number;
+            data: unknown;
+            decoration?: unknown | null;
+            presentation?: unknown | null;
+        };
+        SiteTemplateCreate: {
+            blocks: components["schemas"]["PageBlockInput"][];
+            page_presentation?: unknown | null;
+            media_asset_ids?: string[];
+            /** Format: uuid */
+            source_page_id?: string | null;
+            kind: components["schemas"]["KindFd3Enum"];
+            name: string;
+            /** @default  */
+            description: string;
+        };
+        SiteTemplateList: {
+            items: components["schemas"]["SiteTemplate"][];
+            limit: number | null;
+        };
+        SiteTemplateVersion: {
+            number: number;
+            blocks: components["schemas"]["SiteTemplateBlock"][];
+            page_presentation: unknown | null;
+            media_asset_ids: string[];
+            created_by: components["schemas"]["PublicationAuthor"];
+            /** Format: date-time */
+            created_at: string;
+        };
+        SiteTemplateVersionCreate: {
+            blocks: components["schemas"]["PageBlockInput"][];
+            page_presentation?: unknown | null;
+            media_asset_ids?: string[];
+            /** Format: uuid */
+            source_page_id?: string | null;
+            expected_version: number;
         };
         Slot: {
             /** Format: date-time */
@@ -17842,6 +17991,76 @@ export interface operations {
             };
         };
     };
+    sites_page_own_template_import: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia mutacji w zakresie organizacji i użytkownika. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OwnTemplateImport"];
+                "application/x-www-form-urlencoded": components["schemas"]["OwnTemplateImport"];
+                "multipart/form-data": components["schemas"]["OwnTemplateImport"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageDraft"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageDraft"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     sites_page_policy_set: {
         parameters: {
             query?: never;
@@ -18658,6 +18877,260 @@ export interface operations {
                 };
             };
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_templates_list: {
+        parameters: {
+            query?: {
+                kind?: "page" | "section";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteTemplateList"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_templates_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia mutacji w zakresie organizacji i użytkownika. */
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteTemplateCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["SiteTemplateCreate"];
+                "multipart/form-data": components["schemas"]["SiteTemplateCreate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteTemplate"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteTemplate"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_templates_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedSiteTemplateUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedSiteTemplateUpdate"];
+                "multipart/form-data": components["schemas"]["PatchedSiteTemplateUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteTemplate"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_templates_archive: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_templates_version_create: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia mutacji w zakresie organizacji i użytkownika. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteTemplateVersionCreate"];
+                "application/x-www-form-urlencoded": components["schemas"]["SiteTemplateVersionCreate"];
+                "multipart/form-data": components["schemas"]["SiteTemplateVersionCreate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteTemplate"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteTemplate"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

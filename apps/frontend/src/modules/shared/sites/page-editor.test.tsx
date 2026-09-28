@@ -48,7 +48,10 @@ const heroVersion = registry.definitions.get("core.hero")?.latestVersion;
 
 const {
   completeMediaUpload,
+  createSiteTemplate,
   getImageGenerationOffer,
+  importOwnPageTemplate,
+  listSiteTemplates,
   materializeTemplatePhoto,
   getPageDraft,
   getPageDraftPreview,
@@ -63,6 +66,9 @@ const {
   savePageTranslation,
 } = vi.hoisted(() => ({
   completeMediaUpload: vi.fn(),
+  createSiteTemplate: vi.fn(),
+  importOwnPageTemplate: vi.fn(),
+  listSiteTemplates: vi.fn(),
   getImageGenerationOffer: vi.fn(),
   materializeTemplatePhoto: vi.fn(),
   getPageDraft: vi.fn(),
@@ -86,6 +92,9 @@ vi.mock("../../../product", () => ({ product: {} }));
 vi.mock("@saas-core/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@saas-core/api-client")>()),
   completeMediaUpload,
+  createSiteTemplate,
+  importOwnPageTemplate,
+  listSiteTemplates,
   getImageGenerationOffer,
   materializeTemplatePhoto,
   getMediaAssetPreview: vi
@@ -157,6 +166,7 @@ const translation = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  listSiteTemplates.mockResolvedValue({ items: [], limit: null });
   getImageGenerationOffer.mockResolvedValue({ ...offer, available: false });
   materializeTemplatePhoto.mockResolvedValue({
     asset_id: "019ff20d-a000-7000-8000-000000000099",
@@ -2064,3 +2074,147 @@ test("portret przy cytacie nie oferuje obrazów AI, hero oznacza je dopiskiem", 
   expect(polishMessages.Sites.aiSuffix).toBe(" · AI");
   expect(englishMessages.Sites.aiSuffix).toBe(" · AI");
 });
+
+const templateAuthor = {
+  id: "019ff20d-a000-7000-8000-0000000000f9",
+  email: "ania@example.test",
+};
+
+function ownTemplate(kind: "section" | "page", name: string, number = 1) {
+  return {
+    id:
+      kind === "section"
+        ? "019ff20d-a000-7000-8000-0000000000f1"
+        : "019ff20d-a000-7000-8000-0000000000f2",
+    kind,
+    name,
+    description: "",
+    created_by: templateAuthor,
+    created_at: "2026-09-28T12:00:00Z",
+    updated_at: "2026-09-28T12:00:00Z",
+    version: {
+      number,
+      blocks: [
+        {
+          block_type: "core.hero",
+          schema_version: heroVersion,
+          data: { title: "Z szablonu firmy", text: "Opis" },
+        },
+      ],
+      page_presentation: null,
+      media_asset_ids: [],
+      created_by: templateAuthor,
+      created_at: "2026-09-28T12:00:00Z",
+    },
+  };
+}
+
+test("zapisuje zaznaczoną sekcję jako szablon firmy, nie zapisując strony", async () => {
+  createSiteTemplate.mockResolvedValue(ownTemplate("section", "Oferta"));
+  renderEditor(
+    "pl",
+    polishMessages,
+    vi.fn().mockResolvedValue(undefined),
+    true,
+  );
+  await screen.findByLabelText("Nagłówek");
+  const own = polishMessages.Sites.ownTemplates;
+  fireEvent.click(screen.getByRole("button", { name: own.saveSection }));
+  const dialog = await screen.findByRole("dialog", {
+    name: own.saveSectionTitle,
+  });
+  fireEvent.change(within(dialog).getByLabelText(own.name), {
+    target: { value: "Oferta" },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: own.save }));
+
+  await waitFor(() => expect(createSiteTemplate).toHaveBeenCalledOnce());
+  expect(createSiteTemplate.mock.calls[0]).toEqual([
+    {
+      kind: "section",
+      name: "Oferta",
+      description: "",
+      blocks: [
+        {
+          block_type: "core.hero",
+          schema_version: heroVersion,
+          data: {
+            layout: "classic",
+            title: "Stary nagłówek",
+            text: "Opis hero",
+          },
+        },
+      ],
+      page_presentation: null,
+      media_asset_ids: [],
+      source_page_id: page.id,
+    },
+    expect.any(String),
+  ]);
+  expect(
+    await within(dialog).findByText(
+      "Zapisano szablon „Oferta”. Znajdziesz go w bibliotece w grupie „Szablony firmy”.",
+    ),
+  ).toHaveAttribute("role", "status");
+  // The template dialog's form is not the page's: nothing saved there.
+  expect(savePageDraft).not.toHaveBeenCalled();
+});
+
+test.each([
+  ["pl", polishMessages],
+  ["en", englishMessages],
+] as const)(
+  "a company page template replaces the content after confirmation (%s)",
+  async (locale, messages) => {
+    listSiteTemplates.mockImplementation(async (kind?: string) => ({
+      items: kind === "page" ? [ownTemplate("page", "Strona usługi", 2)] : [],
+      limit: null,
+    }));
+    importOwnPageTemplate.mockResolvedValue({
+      ...draft,
+      version: 2,
+      draft_id: "019ff20d-a000-7000-8000-0000000000f3",
+      blocks: [
+        {
+          ...draft.blocks[0],
+          schema_version: heroVersion,
+          data: { title: "Z szablonu firmy", text: "Opis" },
+        },
+      ],
+    });
+    renderEditor(locale, messages, vi.fn().mockResolvedValue(undefined), true);
+    await screen.findByLabelText(locale === "pl" ? "Nagłówek" : "Heading");
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.Sites.studio.pageTemplates }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name:
+          locale === "pl"
+            ? "Użyj szablonu firmy „Strona usługi”"
+            : "Use the company template “Strona usługi”",
+      }),
+    );
+    const confirmation = screen.getByRole("dialog", {
+      name: messages.Sites.studio.replaceTitle,
+    });
+    expect(importOwnPageTemplate).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(confirmation).getByRole("button", {
+        name: messages.Sites.studio.replaceConfirm,
+      }),
+    );
+    await waitFor(() => expect(importOwnPageTemplate).toHaveBeenCalledOnce());
+    expect(importOwnPageTemplate.mock.calls[0]).toEqual([
+      page.id,
+      {
+        expected_version: 1,
+        template_id: "019ff20d-a000-7000-8000-0000000000f2",
+        template_version: 2,
+      },
+      expect.any(String),
+    ]);
+    expect(await screen.findByDisplayValue("Z szablonu firmy")).toBeDefined();
+    expect(savePageDraft).not.toHaveBeenCalled();
+  },
+);

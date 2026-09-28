@@ -1779,6 +1779,99 @@ class SiteAppearanceRevision(TenantScopedModel):
         ]
 
 
+class SiteTemplateKind(models.TextChoices):
+    SECTION = "section", "Sekcja"
+    PAGE = "page", "Strona"
+
+
+class SiteTemplate(TenantScopedModel):
+    """An organization's own template (F4-B, owner's answers 1a–3a): a section
+    or a whole page saved with its content and photos, for everyone in the
+    organization. The row holds the name and the newest version's number;
+    the content lives in immutable `SiteTemplateVersion`s, and pages built
+    from a template are copies that no later version changes."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    kind = models.CharField(max_length=8, choices=SiteTemplateKind.choices)
+    name = models.CharField(max_length=120)
+    description = models.CharField(max_length=500, blank=True)
+    current_version = models.PositiveIntegerField(default=0)
+    archived_at = models.DateTimeField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    idempotency_key = models.CharField(max_length=120)
+    request_hash = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "kind", "name")
+        constraints = [
+            # One active template of a kind per name: two "Oferta" would be
+            # indistinguishable in the library.
+            models.UniqueConstraint(
+                fields=["organization", "kind", "name"],
+                condition=models.Q(archived_at__isnull=True),
+                name="sites_template_org_kind_name_uq",
+            ),
+            models.UniqueConstraint(
+                fields=["organization", "created_by", "idempotency_key"],
+                name="sites_template_org_actor_idem_uq",
+            ),
+        ]
+
+
+class SiteTemplateVersion(TenantScopedModel):
+    """One immutable version of an own template: its blocks exactly as a draft
+    stores them, the page's look for a page template, and the photos it uses
+    (kept alive by media references owned by this version)."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    template = models.ForeignKey(SiteTemplate, on_delete=models.PROTECT, related_name="versions")
+    number = models.PositiveIntegerField()
+    blocks = models.JSONField(default=list)
+    page_presentation = models.JSONField(null=True, blank=True, default=None)
+    media_asset_ids = models.JSONField(default=list)
+    content_hash = models.CharField(max_length=64)
+    # The page it was saved from, for the history; a plain id, not a link.
+    source_page_id = models.UUIDField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+"
+    )
+    idempotency_key = models.CharField(max_length=120)
+    request_hash = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "template_id", "number")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "template", "number"],
+                name="sites_template_version_number_uq",
+            ),
+            models.UniqueConstraint(
+                fields=["organization", "template", "created_by", "idempotency_key"],
+                name="sites_template_version_idem_uq",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(number__gte=1), name="sites_template_version_number_ck"
+            ),
+        ]
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        if not self._state.adding:
+            raise ValidationError("Wersja szablonu jest niemutowalna.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args: Any, **kwargs: Any) -> tuple[int, dict[str, int]]:
+        raise ValidationError("Wersja szablonu jest niemutowalna.")
+
+
 class SiteInquiry(TenantScopedModel):
     """An inbound message accepted by a particular published contact form."""
 
