@@ -19,6 +19,7 @@ import {
   generatedAspect,
 } from "../image-generation/generate-image-dialog";
 import { PageEditorContext } from "./page-editor-context";
+import { LayoutChooser } from "./layout-chooser";
 import {
   useFieldArray,
   useWatch,
@@ -340,6 +341,18 @@ export function BlockFields<TValues extends FieldValues>({
               {t("sectionLibrary.preservesContent")}
             </p>
           )}
+          <LayoutChooser
+            type={type}
+            data={data ?? {}}
+            layouts={layouts}
+            current={String(selectedLayout)}
+            locale={locale}
+            onChoose={(layout) =>
+              form.setValue(layoutPath, layout as never, {
+                shouldDirty: true,
+              })
+            }
+          />
           {hidden.length > 0 && (
             <p className="text-sm" role="status">
               {t("sectionLibrary.hiddenFields", {

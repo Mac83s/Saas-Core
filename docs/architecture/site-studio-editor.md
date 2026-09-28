@@ -53,6 +53,13 @@ pozycję. Ctrl+Z, Ctrl+Shift+Z i Ctrl+Y cofają i ponawiają zmiany strony z
 dowolnego miejsca studia; pole tekstowe zachowuje własne cofanie, a edytor
 tekstu już kieruje je do historii strony.
 
+Przy „Układ sekcji” przycisk „Porównaj układy z Twoją treścią” (F3-Z2) otwiera
+okno z miniaturą każdego układu tej sekcji narysowaną z jej własnych danych, w
+kroju tej strony. Zdjęcia są w miniaturach tylko zaznaczone (bez pobierania
+dziesiątek kopii), a przy każdym układzie stoi, czego z Twojej treści nie
+pokaże (`hiddenFields`). Nic się nie zmienia do wyboru „Użyj tego układu”;
+wybór jest tym samym jednym krokiem undo co zmiana w liście.
+
 ## Tekst w miejscu
 
 `registry.render(block, key, editor?, imageRenderer?)` przyjmuje opcjonalny adapter kodu panelu.

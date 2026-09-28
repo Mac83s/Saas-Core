@@ -727,6 +727,58 @@ test("pola innego układu czekają, aż układ ich użyje, a wypełnione zostaj�
   expect(screen.getByLabelText(sites.itemGroup)).toBeDefined();
 });
 
+test("porównanie układów pokazuje własną treść w każdym układzie i zmienia dopiero po wyborze", async () => {
+  getPageDraft.mockResolvedValue({
+    ...draft,
+    blocks: [
+      {
+        id: "019ff20d-a000-7000-8000-000000000022",
+        position: 0,
+        block_type: "core.feature_list",
+        schema_version: 5,
+        data: {
+          title: "Nasza oferta",
+          layout: "cards",
+          items: [{ title: "Pierwsza usługa", note: "Uwaga do usługi" }],
+        },
+      },
+    ],
+  });
+  renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
+  await screen.findByLabelText("Nagłówek");
+  const library = polishMessages.Sites.sectionLibrary;
+  fireEvent.click(screen.getByRole("button", { name: library.compareLayouts }));
+  const dialog = await screen.findByRole("dialog", {
+    name: library.compareLayouts,
+  });
+  // Every layout is a card; the section's own title is in the miniatures.
+  const cards = within(dialog).getAllByRole("listitem");
+  expect(cards.length).toBeGreaterThan(20);
+  expect(dialog.textContent).toContain("Nasza oferta");
+  expect(within(dialog).getByText(library.currentLayout)).toBeDefined();
+  // Before choosing, each card says what its layout would leave out.
+  const steps = cards.find((card) =>
+    within(card).queryByText("Instrukcja z uwagą przy kroku"),
+  )!;
+  expect(steps.textContent).toContain(library.layoutShowsAll);
+  // Nothing changed yet: the select still says cards.
+  expect(screen.getByLabelText("Układ sekcji")).toHaveValue("cards");
+  fireEvent.click(
+    within(steps).getByRole("button", {
+      name: library.useLayoutNamed.replace(
+        "{name}",
+        "Instrukcja z uwagą przy kroku",
+      ),
+    }),
+  );
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(screen.getByLabelText("Układ sekcji")).toHaveValue(
+    "instruction_notes",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Cofnij" }));
+  expect(screen.getByLabelText("Układ sekcji")).toHaveValue("cards");
+});
+
 test("biblioteka EN pokazuje opis, dostępny podgląd i angielską treść", async () => {
   renderEditor("en", englishMessages, vi.fn().mockResolvedValue(undefined));
   await screen.findByLabelText("Heading");
