@@ -16,6 +16,11 @@ import en from "../../../../messages/en.json";
 import pl from "../../../../messages/pl.json";
 import { SectionLibraryContent } from "./section-library";
 
+// Core's library opens on all trades; a product may set its own
+// (`siteIndustry`, section-library-industry.test.tsx). Pinned here so a
+// product's slot does not change what these tests count.
+vi.mock("../../../product", () => ({ product: {} }));
+
 vi.mock("@saas-core/api-client", async (original) => ({
   ...(await original<typeof import("@saas-core/api-client")>()),
   materializeTemplatePhoto: vi.fn(),

@@ -74,6 +74,11 @@ const {
   savePageTranslation: vi.fn(),
 }));
 
+// Core's library opens on all trades; a product may set its own
+// (`siteIndustry`, section-library-industry.test.tsx). Pinned here so a
+// product's slot does not change what these tests count.
+vi.mock("../../../product", () => ({ product: {} }));
+
 vi.mock("@saas-core/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@saas-core/api-client")>()),
   completeMediaUpload,
