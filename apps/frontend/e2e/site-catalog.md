@@ -131,3 +131,30 @@ je usuwa (`cleanup`; w logu `site-catalog cleanup: {...}` z
 `.runtime/playwright-deps` — samo `pnpm exec playwright test` na WSL nie
 uruchamia przeglądarki. Gdy `.runtime/playwright/` po przebiegu w kontenerze
 należy do roota, dodaj `--output <katalog>`. Trwa ok. 15 s.
+
+## Test studia strony (`sites-publication.spec.ts`)
+
+Prowadzi prawdziwe Site Studio od zera do opublikowanej i przywróconej
+strony: onboarding witryny w panelu (adres, dane, utworzenie), nowa podstrona,
+szablon całej strony „Jedna usługa — konkret” (sekcje i zdjęcie), metadane
+strony, a na płótnie: edycja nagłówka wybranej sekcji w miejscu (Enter
+zatwierdza), przeniesienie sekcji strzałką na uchwycie, „+” przed pierwszą
+sekcją i „Dodaj sekcję na końcu strony”, Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y z
+fokusem na płótnie, widok „Telefon” i z powrotem, „Zmień zdjęcie” otwierające
+pole „Obraz” w panelu edycji. Potem „Zapisz stronę” i odczyt draftu z API
+(kolejność bloków, nagłówek), publikacja, sprawdzenie opublikowanej strony pod
+jej własnym hostem (przeglądarka jak w `site-catalog.spec.ts`), druga
+publikacja ze zmienionym nagłówkiem i przywrócenie pierwszej publikacji
+(„Przywróć jako nową publikację”); draft zostaje nietknięty. Zero błędów JS w
+panelu i na opublikowanej stronie.
+
+Lokalnie (stos na `:8080`, Docker na tym samym hoście):
+
+```bash
+cd apps/frontend
+SITE_STUDIO_E2E=1 pnpm test:e2e e2e/sites-publication.spec.ts --output <katalog>
+```
+
+Bez `SITE_STUDIO_E2E=1` test jest pomijany. Konto
+`w6-e2e-studio-<losowe>@example.test` zakłada i usuwa `site-catalog-run.sh`
+(`prepare` / `cleanup`), jak w teście edytora tekstu.
