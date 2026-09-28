@@ -296,3 +296,85 @@ test("more than three sections to finish fold into a list that opens on demand",
   expect(folded!.querySelector("summary")).toHaveTextContent("Pokaż 4 sekcje");
   expect(within(list).getAllByRole("button")).toHaveLength(4);
 });
+
+test.each([
+  { locale: "pl", messages: polishMessages },
+  { locale: "en", messages: englishMessages },
+] as const)(
+  "$locale: sample contact details and a link to a missing section are named, and lead to their section",
+  async ({ locale, messages }) => {
+    getPageDraft.mockResolvedValue(
+      draftWith([
+        {
+          block_type: "core.feature_list",
+          schema_version: 5,
+          data: {
+            title: "Zakresy",
+            items: [{ title: "Konsultacja" }],
+            action: { label: "Zapytaj", href: "#kontakt" },
+          },
+        },
+        {
+          block_type: "core.contact",
+          schema_version: 2,
+          data: {
+            title: "Kontakt",
+            email: "kontakt@example.com",
+            phone: "+48 000 000 000",
+          },
+        },
+      ]),
+    );
+    renderEditor(locale, messages);
+    const leftovers = messages.Sites.studio.leftovers;
+    fireEvent.click(
+      await screen.findByRole("button", { name: messages.Sites.studio.forms }),
+    );
+    const samples = leftovers.samples.replace(
+      "{values}",
+      "kontakt@example.com, +48 000 000 000",
+    );
+    expect(await screen.findByText(samples)).toHaveAttribute("role", "status");
+    expect(
+      screen.getByText(
+        locale === "pl"
+          ? "Link prowadzi do miejsca, którego nie ma na tej stronie: #kontakt."
+          : "A link leads to a place this page does not have: #kontakt.",
+      ),
+    ).toHaveAttribute("role", "status");
+    // Guidance only: nothing about template leftovers is an alert.
+    expect(screen.queryByRole("alert")).toBeNull();
+    const dead = screen.getByRole("list", {
+      name: leftovers.deadAnchorsSections,
+    });
+    expect(within(dead).getByRole("button")).toHaveAccessibleName(
+      "1. Zakresy #kontakt",
+    );
+    fireEvent.click(
+      within(
+        screen.getByRole("list", { name: leftovers.samplesSections }),
+      ).getByRole("button", { name: "2. Kontakt" }),
+    );
+    const inspector = screen.getByRole("complementary", {
+      name: messages.Sites.studio.inspector,
+    });
+    await waitFor(() =>
+      expect(within(inspector).getByRole("heading")).toHaveTextContent(
+        messages.Sites.contactBlock,
+      ),
+    );
+    // Typing a real address clears the sample part.
+    fireEvent.change(
+      within(inspector).getByLabelText(messages.Sites.contactEmail),
+      { target: { value: "biuro@firma.pl" } },
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          leftovers.samples.replace("{values}", "+48 000 000 000"),
+        ),
+      ).toBeDefined(),
+    );
+  },
+  45_000,
+);

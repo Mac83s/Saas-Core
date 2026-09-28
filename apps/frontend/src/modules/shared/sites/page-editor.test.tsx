@@ -659,7 +659,7 @@ test("biblioteka filtruje branżę, zachowuje bazę i zapisuje wybraną sekcję"
   await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
   expect(savePageDraft.mock.calls[0]?.[1].blocks[1]).toMatchObject({
     block_type: "core.feature_list",
-    schema_version: 4,
+    schema_version: 5,
     data: {
       layout: "care_path",
       items: [
@@ -683,6 +683,43 @@ test("zmiana układu zachowuje tekst istniejącej sekcji", async () => {
     schema_version: heroVersion,
     data: { title: "Stary nagłówek", text: "Opis hero", layout: "split" },
   });
+});
+
+test("pola innego układu czekają, aż układ ich użyje, a wypełnione zostają widoczne", async () => {
+  getPageDraft.mockResolvedValue({
+    ...draft,
+    blocks: [
+      {
+        id: "019ff20d-a000-7000-8000-000000000022",
+        position: 0,
+        block_type: "core.feature_list",
+        schema_version: 5,
+        data: {
+          title: "Oferta",
+          layout: "cards",
+          items: [{ title: "Pierwsza", note: "Uwaga do pierwszej" }],
+        },
+      },
+    ],
+  });
+  renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
+  await screen.findByLabelText("Nagłówek");
+  const sites = polishMessages.Sites;
+  // Cards show no columns and no group: the inspector does not ask for them.
+  expect(screen.queryByText(sites.featureColumns)).toBeNull();
+  expect(screen.queryByLabelText(sites.itemGroup)).toBeNull();
+  expect(screen.queryByLabelText(sites.itemValueFirst)).toBeNull();
+  // A note already written stays editable, and the switch says it is hidden.
+  expect(screen.getByLabelText(sites.itemNote)).toHaveValue(
+    "Uwaga do pierwszej",
+  );
+  expect(screen.getByRole("status")).toHaveTextContent(sites.itemNote);
+  fireEvent.change(screen.getByLabelText("Układ sekcji"), {
+    target: { value: "scope_comparison" },
+  });
+  expect(await screen.findByText(sites.featureColumns)).toBeDefined();
+  expect(screen.getByLabelText(sites.itemValueThird)).toBeDefined();
+  expect(screen.getByLabelText(sites.itemGroup)).toBeDefined();
 });
 
 test("biblioteka EN pokazuje opis, dostępny podgląd i angielską treść", async () => {

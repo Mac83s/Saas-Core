@@ -34,6 +34,7 @@ import {
   coreSiteBlockManifest,
   createSiteBlockRegistry,
   ensureUniqueAnchors,
+  fieldsOfOtherLayouts,
   hiddenFields,
   InvalidBlockDataError,
   offeredSectionTemplates,
@@ -250,19 +251,21 @@ export function BlockFields<TValues extends FieldValues>({
     control: form.control,
     name: `${prefix}.data` as Path<TValues>,
   }) as JsonObject | undefined;
+  // Judged on what a save would send: the form pads every optional field
+  // with "" (a blank `action.href`, a blank note), which the schema refuses.
   const hidden = useMemo(
     () =>
       data
-        ? hiddenFields(
-            {
-              block_type: type,
-              schema_version:
-                registry.definitions.get(type)?.latestVersion ?? 1,
-              data,
-            },
-            registry,
-          )
+        ? hiddenFields(blockPayload({ block_type: type, data }), registry)
         : [],
+    [data, type],
+  );
+  // Fields only another layout shows stay out of the way while empty.
+  const elsewhere = useMemo(
+    () =>
+      data
+        ? fieldsOfOtherLayouts({ block_type: type, data }, registry)
+        : new Set<string>(),
     [data, type],
   );
   const layoutPath = `${prefix}.data.layout` as Path<TValues>;
@@ -423,17 +426,24 @@ export function BlockFields<TValues extends FieldValues>({
         <p className="text-sm text-muted-foreground">{t("formDeliveryHint")}</p>
       )}
       <FieldGroup>
-        {(option?.fields ?? []).map((field) => (
-          <BlockField
-            assets={assets}
-            blockIndex={index}
-            field={field}
-            form={form}
-            key={field.path.join(".")}
-            onMediaUploaded={onMediaUploaded}
-            pathPrefix={`${prefix}.data`}
-          />
-        ))}
+        {(option?.fields ?? [])
+          .filter(
+            (field) =>
+              !elsewhere.has(field.path.join(".")) ||
+              !isEmptyValue(data && readAt(data, field.path)),
+          )
+          .map((field) => (
+            <BlockField
+              assets={assets}
+              blockIndex={index}
+              elsewhere={elsewhere}
+              field={field}
+              form={form}
+              key={field.path.join(".")}
+              onMediaUploaded={onMediaUploaded}
+              pathPrefix={`${prefix}.data`}
+            />
+          ))}
       </FieldGroup>
     </fieldset>
   );
@@ -459,9 +469,13 @@ function fieldErrorMessage<TValues extends FieldValues>(
   return typeof message === "string" ? message : undefined;
 }
 
+const isEmptyValue = (value: JsonValue | undefined) =>
+  value === undefined || pruneEmpty(value) === undefined;
+
 function BlockField<TValues extends FieldValues>({
   assets = [],
   blockIndex,
+  elsewhere,
   field,
   form,
   onMediaUploaded,
@@ -469,6 +483,8 @@ function BlockField<TValues extends FieldValues>({
 }: {
   assets?: readonly MediaAsset[];
   blockIndex: number;
+  /** From `fieldsOfOtherLayouts`, for the fields of a list's entries. */
+  elsewhere?: ReadonlySet<string>;
   field: BlockFieldDefinition;
   form: UseFormReturn<TValues>;
   onMediaUploaded?: () => void;
@@ -513,6 +529,7 @@ function BlockField<TValues extends FieldValues>({
       <BlockListField
         assets={assets}
         blockIndex={blockIndex}
+        elsewhere={elsewhere}
         field={field}
         form={form}
         name={name}
@@ -605,12 +622,14 @@ function BlockField<TValues extends FieldValues>({
 function BlockListField<TValues extends FieldValues>({
   assets = [],
   blockIndex,
+  elsewhere,
   field,
   form,
   name,
 }: {
   assets?: readonly MediaAsset[];
   blockIndex: number;
+  elsewhere?: ReadonlySet<string>;
   field: BlockFieldDefinition;
   form: UseFormReturn<TValues>;
   name: string;
@@ -622,6 +641,18 @@ function BlockListField<TValues extends FieldValues>({
   });
   const item = field.item ?? [];
   const error = fieldErrorMessage(form, name);
+  const stored = useWatch({
+    control: form.control,
+    name: name as Path<TValues>,
+  }) as JsonValue[] | undefined;
+  // An entry's field that only another layout shows stays out while empty.
+  const shown = (nested: BlockFieldDefinition, entryIndex: number) => {
+    const entry = stored?.[entryIndex];
+    return (
+      !elsewhere?.has(`${field.path.join(".")}.${nested.path.join(".")}`) ||
+      !isEmptyValue(isObject(entry) ? readAt(entry, nested.path) : undefined)
+    );
+  };
 
   return (
     <fieldset className="space-y-3 rounded-lg border border-dashed p-3">
@@ -640,16 +671,18 @@ function BlockListField<TValues extends FieldValues>({
             </Button>
           </div>
           <FieldGroup>
-            {item.map((nested) => (
-              <BlockField
-                assets={assets}
-                blockIndex={blockIndex}
-                field={nested}
-                form={form}
-                key={nested.path.join(".")}
-                pathPrefix={`${name}.${entryIndex}`}
-              />
-            ))}
+            {item
+              .filter((nested) => shown(nested, entryIndex))
+              .map((nested) => (
+                <BlockField
+                  assets={assets}
+                  blockIndex={blockIndex}
+                  field={nested}
+                  form={form}
+                  key={nested.path.join(".")}
+                  pathPrefix={`${name}.${entryIndex}`}
+                />
+              ))}
           </FieldGroup>
         </div>
       ))}

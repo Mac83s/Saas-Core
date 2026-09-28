@@ -52,6 +52,13 @@ export type ProductExtension = {
   messages?: Partial<Record<"pl" | "en", Messages>>;
   /** Copy for the marketing pages; without it they show the generic product. */
   marketing?: ProductContent;
+  /**
+   * The industry the site section library opens with — an industry id of the
+   * section catalogue (`medicine`, `agriculture`, `electronics`), so a
+   * product's customer sees the sections of their trade first. The person may
+   * choose another or all of them; without it the library shows all.
+   */
+  siteIndustry?: string;
 };
 
 /**

@@ -32,7 +32,11 @@ export {
   replaceSectionLayout,
 } from "./section-templates";
 export type { SectionTemplate, CatalogLocale } from "./section-templates";
-export { hiddenFields, type HiddenField } from "./hidden-fields";
+export {
+  fieldsOfOtherLayouts,
+  hiddenFields,
+  type HiddenField,
+} from "./hidden-fields";
 
 export {
   pagePresentationClassName,
@@ -51,6 +55,8 @@ export { sectionDecorationPresets } from "./section-decoration-presets";
 export type { SectionDecorationPreset } from "./section-decoration-presets";
 export type { SeparatorV1Data } from "./separator-block";
 export {
+  deadAnchorLinks,
+  sampleData,
   unfilledPlaceholders,
   blockAssetIds,
   ensureUniqueAnchors,
@@ -59,4 +65,8 @@ export {
   richTextAnchorSlug,
   setAtPath,
 } from "./rich-text";
-export type { UnfilledPlaceholder } from "./rich-text";
+export type {
+  DeadAnchorLink,
+  SampleDataUse,
+  UnfilledPlaceholder,
+} from "./rich-text";

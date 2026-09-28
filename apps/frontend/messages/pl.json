@@ -1343,6 +1343,14 @@
         "sections": "Sekcje z miejscami do uzupełnienia",
         "showSections": "{count, plural, few {Pokaż # sekcje} many {Pokaż # sekcji} other {Pokaż # sekcji}}",
         "count": "{count, plural, one {# miejsce do uzupełnienia} few {# miejsca do uzupełnienia} many {# miejsc do uzupełnienia} other {# miejsca do uzupełnienia}}"
+      },
+      "leftovers": {
+        "samples": "Na stronie zostały przykładowe dane kontaktowe z szablonu: {values}.",
+        "samplesHint": "Wpisz swój adres e-mail i numer telefonu — pod przykładowe dane nikt się z Tobą nie skontaktuje.",
+        "samplesSections": "Sekcje z przykładowymi danymi",
+        "deadAnchors": "{count, plural, one {Link prowadzi do miejsca, którego nie ma na tej stronie: {anchors}.} few {# linki prowadzą do miejsc, których nie ma na tej stronie: {anchors}.} many {# linków prowadzi do miejsc, których nie ma na tej stronie: {anchors}.} other {# linku prowadzi do miejsc, których nie ma na tej stronie: {anchors}.}}",
+        "deadAnchorsHint": "Dodaj sekcję z tą kotwicą (np. formularz z kotwicą „kontakt”) albo zmień adres linku.",
+        "deadAnchorsSections": "Sekcje z linkami donikąd"
       }
     },
     "uploadAndCrop": "Wgraj i skadruj",
@@ -1560,6 +1568,14 @@
     "asideContent": "Treść panelu faktów",
     "noteTitle": "Tytuł uwagi",
     "noteText": "Treść uwagi",
+    "featureColumns": "Kolumny (porównanie, tory)",
+    "columnTitle": "Nazwa kolumny",
+    "columnText": "Opis kolumny",
+    "itemGroup": "Grupa (zaczyna nową grupę od tej pozycji)",
+    "itemValueFirst": "Wartość w 1. kolumnie",
+    "itemValueSecond": "Wartość w 2. kolumnie",
+    "itemValueThird": "Wartość w 3. kolumnie",
+    "itemNote": "Uwaga przy pozycji",
     "quoteText": "Treść cytatu",
     "quoteAuthor": "Autor wypowiedzi",
     "quoteRole": "Rola lub funkcja autora",

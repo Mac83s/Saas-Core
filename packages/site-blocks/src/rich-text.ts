@@ -249,3 +249,80 @@ export function unfilledPlaceholders(
   });
   return found;
 }
+
+/** Contact data a template ships for demonstration: addresses at the
+ *  reserved example.com / .org / .net domains (RFC 2606) and the
+ *  +48 000 000 000 number. Left on a published page, a visitor writes to
+ *  nobody. */
+const SAMPLE_DATA =
+  /(?:[\w.+-]+@)?(?<![\w-])(?:[\w-]+\.)*example\.(?:com|org|net)\b(?:\/\S*)?|\+48[\s-]?0{3}[\s-]?0{3}[\s-]?0{3}/gi;
+
+export interface SampleDataUse {
+  readonly blockIndex: number;
+  readonly path: readonly string[];
+  /** The value as written, e.g. "kontakt@example.com". */
+  readonly text: string;
+}
+
+/** Guidance, like `unfilledPlaceholders`: demonstration contact data still on
+ *  the page, wherever it is written (an e-mail field, a button's `mailto:`,
+ *  a link in text). */
+export function sampleData(
+  blocks: readonly { data: JsonObject }[],
+): SampleDataUse[] {
+  const found: SampleDataUse[] = [];
+  blocks.forEach((block, blockIndex) => {
+    const visit = (value: JsonValue, path: string[]): void => {
+      if (typeof value === "string") {
+        for (const match of value.matchAll(SAMPLE_DATA))
+          found.push({ blockIndex, path, text: match[0] });
+      } else if (Array.isArray(value)) {
+        value.forEach((child, index) => visit(child, [...path, String(index)]));
+      } else if (value !== null && typeof value === "object") {
+        for (const [key, child] of Object.entries(value))
+          visit(child, [...path, key]);
+      }
+    };
+    visit(block.data, []);
+  });
+  return found;
+}
+
+export interface DeadAnchorLink {
+  readonly blockIndex: number;
+  readonly path: readonly string[];
+  /** The link as written, e.g. "#kontakt". */
+  readonly href: string;
+}
+
+/** In-page links (`#anchor`) no section or heading on this page carries —
+ *  typically a library section's button added to a page without the section
+ *  it points to. A link field is `href`, `…Href` or `…_href`. */
+export function deadAnchorLinks(
+  blocks: readonly Pick<SiteBlock, "block_type" | "data" | "presentation">[],
+): DeadAnchorLink[] {
+  // Anchors need only a block's type, data and presentation.
+  const anchors = new Set(richTextAnchors(blocks as readonly SiteBlock[]));
+  const found: DeadAnchorLink[] = [];
+  blocks.forEach((block, blockIndex) => {
+    const visit = (value: JsonValue, path: string[]): void => {
+      if (Array.isArray(value)) {
+        value.forEach((child, index) => visit(child, [...path, String(index)]));
+      } else if (value !== null && typeof value === "object") {
+        for (const [key, child] of Object.entries(value)) {
+          const link = key === "href" || /(?:Href|_href)$/.test(key);
+          if (
+            link &&
+            typeof child === "string" &&
+            child.startsWith("#") &&
+            !anchors.has(child.slice(1))
+          )
+            found.push({ blockIndex, path: [...path, key], href: child });
+          else visit(child, [...path, key]);
+        }
+      }
+    };
+    visit(block.data, []);
+  });
+  return found;
+}

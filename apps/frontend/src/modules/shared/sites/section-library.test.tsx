@@ -94,7 +94,7 @@ test("limits initial thumbnail rendering and exposes the remaining catalogue", (
   );
   expect(screen.getAllByRole("article")).toHaveLength(12);
   fireEvent.click(
-    screen.getByRole("button", { name: "Show more layouts (108 remaining)" }),
+    screen.getByRole("button", { name: "Show more layouts (118 remaining)" }),
   );
   expect(screen.getAllByRole("article")).toHaveLength(24);
   fireEvent.change(screen.getByLabelText("Category"), {
@@ -137,7 +137,11 @@ test.each(["pl", "en"] as const)(
         value: locale === "pl" ? "  KONSULTACJI  " : "  CONSULTATION  ",
       },
     });
-    expect(screen.getAllByRole("article")).toHaveLength(2);
+    // With F4-P1 the practice's visit types mention the online consultation
+    // (in English the word matches, in Polish its form does not).
+    expect(screen.getAllByRole("article")).toHaveLength(
+      locale === "pl" ? 2 : 3,
+    );
     expect(
       screen.getByRole("button", {
         name:

@@ -1343,6 +1343,14 @@
         "sections": "Sections with places to fill in",
         "showSections": "{count, plural, one {Show # section} other {Show # sections}}",
         "count": "{count, plural, one {# place to fill in} other {# places to fill in}}"
+      },
+      "leftovers": {
+        "samples": "Sample contact details from a template are still on this page: {values}.",
+        "samplesHint": "Enter your own e-mail address and phone number — nobody will reach you through the sample ones.",
+        "samplesSections": "Sections with sample details",
+        "deadAnchors": "{count, plural, one {A link leads to a place this page does not have: {anchors}.} other {# links lead to places this page does not have: {anchors}.}}",
+        "deadAnchorsHint": "Add a section with that anchor (e.g. a form with the anchor “contact”) or change the link's address.",
+        "deadAnchorsSections": "Sections with links to nowhere"
       }
     },
     "uploadAndCrop": "Upload and crop",
@@ -1560,6 +1568,14 @@
     "asideContent": "Fact panel content",
     "noteTitle": "Note title",
     "noteText": "Note text",
+    "featureColumns": "Columns (comparison, lanes)",
+    "columnTitle": "Column name",
+    "columnText": "Column description",
+    "itemGroup": "Group (starts a new group at this item)",
+    "itemValueFirst": "Value in column 1",
+    "itemValueSecond": "Value in column 2",
+    "itemValueThird": "Value in column 3",
+    "itemNote": "Note at the item",
     "quoteText": "Quote text",
     "quoteAuthor": "Speaker",
     "quoteRole": "Speaker's role",

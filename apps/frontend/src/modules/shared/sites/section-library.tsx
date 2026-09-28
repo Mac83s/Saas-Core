@@ -33,6 +33,7 @@ import {
   ApiProblemError,
   materializeTemplatePhoto,
 } from "@saas-core/api-client";
+import { product } from "../../../product";
 import { sectionPreview } from "./template-media-preview";
 import { registry, editableBlocks, type BlockFormValues } from "./block-form";
 
@@ -133,7 +134,13 @@ export function SectionLibraryContent({
     };
   }, []);
   const [query, setQuery] = useState("");
-  const [industry, setIndustry] = useState("");
+  // The product's trade first (decision 4a, 24.09); an id the catalogue does
+  // not know would filter nothing, so it falls back to all.
+  const [industry, setIndustry] = useState(() =>
+    sectionIndustries().some((item) => item.id === product.siteIndustry)
+      ? (product.siteIndustry ?? "")
+      : "",
+  );
   const [blockType, setBlockType] = useState("");
   const [selected, setSelected] = useState<SectionTemplate | null>(null);
   const [mobile, setMobile] = useState(false);
