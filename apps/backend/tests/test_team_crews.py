@@ -15,6 +15,13 @@ from rest_framework.exceptions import ValidationError
 
 from saas_core.modules.core.organizations.models import Membership
 from saas_core.modules.shared.booking import services
+from saas_core.modules.shared.booking.api import (
+    crew_member_filter,
+    crew_people,
+    join_visit_crew,
+    leave_visit_crew,
+    on_crew,
+)
 from saas_core.modules.shared.booking.availability import available_days, available_times
 from saas_core.modules.shared.booking.crew import CrewChanged, PersonUnavailable
 from saas_core.modules.shared.booking.dispatch import assign_crew, candidates, overview, queue
@@ -309,6 +316,45 @@ def test_a_helper_finds_the_visit_among_their_own() -> None:
         assert [item.id for item in list_appointments(staff_id=second.id)] == [visit.id]
     with tenant(colleague):
         assert [item.id for item in list_appointments(mine=True)] == [visit.id]
+
+
+def test_joining_a_visit_under_way_blocks_the_time_and_frees_the_other_visit() -> None:
+    owner = membership("ekipa-dolacza")
+    configured = crew(owner, people=3, need=1)
+    first, second, _ = configured["staff"]
+    colleague = member_of(owner, "dolacza@example.test", "staff")
+    with tenant(owner):
+        StaffMember.all_objects.filter(pk=second.id).update(membership=colleague)
+    running = book(owner, configured, 9, "trwa", staff_ids=[first.id])
+    # The helper's own visit at the same hour, which they leave to join.
+    own = book(owner, configured, 9, "wlasna", staff_ids=[second.id])
+    since = running.starts_at + timedelta(minutes=20)
+    with tenant(owner):
+        assert join_visit_crew(appointment_id=running.id, staff_id=second.id, since=since)
+        # A second tap changes nothing.
+        assert not join_visit_crew(appointment_id=running.id, staff_id=second.id, since=since)
+        running.refresh_from_db()
+        own.refresh_from_db()
+        assert [(p.name, p.lead) for p in crew_people(running)] == [
+            (first.display_name, True),
+            (second.display_name, False),
+        ]
+        joined = AppointmentStaffAllocation.all_objects.get(
+            appointment=running, staff=second, active=True
+        )
+        assert joined.occupied_range.lower == since
+        assert on_crew(running.id, colleague.id)
+        # The visit the helper would have missed waits for somebody else.
+        assert (own.needs_assignment, own.queue_reason) == (True, "joined")
+        # The helper finds the visit they joined among their own; the one they
+        # left keeps their name as its lead until the office staffs it.
+        mine = Appointment.all_objects.filter(crew_member_filter(colleague.id)).distinct()
+        assert set(mine.values_list("id", flat=True)) == {running.id, own.id}
+        assert leave_visit_crew(appointment_id=running.id, staff_id=second.id)
+        assert not leave_visit_crew(appointment_id=running.id, staff_id=first.id)
+        running.refresh_from_db()
+        assert [p.staff_id for p in crew_people(running)] == [first.id]
+        assert not on_crew(running.id, colleague.id)
 
 
 def test_who_is_free_for_a_visit_and_why_not() -> None:

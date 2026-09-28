@@ -10,6 +10,14 @@ puts the public surface in `api.py`, and everything else is private.
 app registry without importing a private model.
 """
 
+from .crew import (
+    CrewPerson,
+    crew_member_filter,
+    crew_people,
+    join_visit_crew,
+    leave_visit_crew,
+    on_crew,
+)
 from .models import AppointmentStatus
 from .observers import (
     CANCELED,
@@ -53,12 +61,18 @@ __all__ = [
     "AppointmentStatus",
     "BookingIdempotencyConflict",
     "CreatedAppointment",
+    "CrewPerson",
     "SlotUnavailable",
     "appointment_for_tenant",
     "cancel_appointment",
     "complete_appointment",
     "create_appointment",
+    "crew_member_filter",
+    "crew_people",
+    "join_visit_crew",
+    "leave_visit_crew",
     "list_appointments",
+    "on_crew",
     "register_appointment_observer",
     "reschedule_appointment",
     "staff_for_membership",

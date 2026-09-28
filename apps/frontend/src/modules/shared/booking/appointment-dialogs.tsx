@@ -216,7 +216,7 @@ const minutes = (time: string) =>
  * named crew's slot carries a resource free for all of them — the visit takes
  * one — and `resource`, when given, is the only one that counts.
  */
-function crewSlots(
+export function crewSlots(
   slots: Slot[] | undefined,
   crew: string[],
   need: number,

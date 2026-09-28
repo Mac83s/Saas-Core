@@ -16,6 +16,7 @@ from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from django.db import IntegrityError, OperationalError, transaction
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework.exceptions import APIException, ValidationError
 
@@ -222,6 +223,108 @@ def set_crew(
         if change.lead_before != change.lead_after:
             notify.customer_person_changed(appointment, previous_lead_id=change.lead_before)
     return change
+
+
+@dataclass(frozen=True, slots=True)
+class CrewPerson:
+    staff_id: UUID
+    name: str
+    membership_id: UUID | None
+    lead: bool
+
+
+def crew_people(appointment: Appointment) -> list[CrewPerson]:
+    """Who is on the visit, the lead first — for a product's own screens."""
+    ids = crew_of(appointment)
+    people = {person.id: person for person in StaffMember.all_objects.filter(pk__in=ids)}
+    return [
+        CrewPerson(
+            key, people[key].display_name, people[key].membership_id, key == appointment.staff_id
+        )
+        for key in ids
+        if key in people
+    ]
+
+
+def crew_member_filter(membership_id: UUID | None, *, through: str = "") -> Q:
+    """Rows whose visit has this account on it: as the lead, or with its time
+    blocked (ADR-058 §2). `through` is the path to the appointment, e.g.
+    ``"appointment__"``; a join through allocations may repeat rows, so the
+    caller takes `.distinct()`."""
+    return Q(**{f"{through}staff__membership_id": membership_id}) | Q(**{
+        f"{through}staff_allocations__active": True,
+        f"{through}staff_allocations__staff__membership_id": membership_id,
+    })
+
+
+def on_crew(appointment_id: UUID, membership_id: UUID | None) -> bool:
+    """Whether this account has the visit's time blocked."""
+    return (
+        membership_id is not None
+        and AppointmentStaffAllocation.all_objects.filter(
+            appointment_id=appointment_id, active=True, staff__membership_id=membership_id
+        ).exists()
+    )
+
+
+@transaction.atomic
+def join_visit_crew(*, appointment_id: UUID, staff_id: UUID, since: datetime) -> bool:
+    """Somebody joins a visit under way — a product's „Dołącz” (answer 3A of
+    28.09): their time is blocked from `since` to the visit's end, and a visit
+    of theirs in that time loses them and waits in „Do przydzielenia”.
+
+    The caller authorized the action; the schedule is not asked, because the
+    person is already there. Says whether anything changed.
+    """
+    context = require_tenant_context()
+    appointment = (
+        Appointment.all_objects.select_for_update()
+        .filter(organization_id=context.organization_id, pk=appointment_id)
+        .first()
+    )
+    staff = StaffMember.all_objects.filter(
+        organization_id=context.organization_id, pk=staff_id, active=True
+    ).first()
+    if appointment is None or staff is None or appointment.status != AppointmentStatus.CONFIRMED:
+        return False
+    crew = crew_of(appointment)
+    if staff.id in crew:
+        return False
+    take_off(staff, since=since, until=appointment.occupied_until, reason=QueueReason.JOINED)
+    set_crew(
+        appointment,
+        [*crew, staff.id],
+        lead_id=appointment.staff_id if appointment.staff_id in crew else None,
+        auto=None,
+        check=False,
+        since=since,
+    )
+    return True
+
+
+@transaction.atomic
+def leave_visit_crew(*, appointment_id: UUID, staff_id: UUID) -> bool:
+    """A helper leaves the visit's crew; the lead stays, and so does a visit
+    that would be left with nobody."""
+    context = require_tenant_context()
+    appointment = (
+        Appointment.all_objects.select_for_update()
+        .filter(organization_id=context.organization_id, pk=appointment_id)
+        .first()
+    )
+    if appointment is None or staff_id == appointment.staff_id:
+        return False
+    crew = crew_of(appointment)
+    if staff_id not in crew:
+        return False
+    set_crew(
+        appointment,
+        [person for person in crew if person != staff_id],
+        lead_id=appointment.staff_id if appointment.staff_id in crew else None,
+        auto=None,
+        check=False,
+    )
+    return True
 
 
 def take_off(staff: StaffMember, *, since: datetime, until: datetime | None, reason: str) -> int:
