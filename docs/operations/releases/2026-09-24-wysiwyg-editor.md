@@ -69,9 +69,10 @@ wdrażany commit jest zawsze przodkiem `main`.
 
 ## Uwagi
 
-- Test e2e edytora w repozytorium jeszcze nie istnieje (jsdom nie pisze w
-  `contentEditable`, e2e repo zakłada lokalny stos) — follow-up memex do
-  30.09; do tego czasu interakcje pilnuje skrypt odbioru wydania.
+- Test e2e edytora w repozytorium: od 2026-09-28
+  `apps/frontend/e2e/site-rich-text-editor.spec.ts` (uruchamianie:
+  `apps/frontend/e2e/site-catalog.md`, „Test edytora tekstu”) — zamyka
+  follow-up memex z terminem 30.09.
 - Błędy walidacji edytora to jeden komunikat pod polem (pierwszy błąd
   treści), bez wskazania, którego elementu dotyczą.
 - Po Ctrl+B i Enter nowy akapit pisze się dalej pogrubieniem (jak w edytorach

@@ -105,3 +105,29 @@ pierwszym) i na końcu test pada z ich listą:
   dziecku `main` (jedno dziecko = jedna sekcja);
 - liczba wyrenderowanych sekcji równa liczbie szablonów na stronie (inaczej
   zrzuty sekcji nie pasowałyby do szablonów).
+
+## Test edytora tekstu (`site-rich-text-editor.spec.ts`)
+
+Prowadzi edytor WYSIWYG (TipTap, ADR-056) w prawdziwym panelu na działającym
+stosie — jsdom nie pisze w `contentEditable`, więc tylko tu sprawdzane są:
+pisanie, Ctrl+B, nowy śródtytuł H2 z kotwicą (niezmienną po zmianie tekstu),
+Tab na liście i odmowa trzeciego poziomu, link `#kontakt` z okna linku
+(podpowiada kotwice strony), F8 zastępujące `[Uzupełnij: …]`, wklejka z Worda
+(zdarzenie `paste` z HTML-em Worda), pisanie na pełnym ekranie w kroju strony,
+Ctrl+Z, Ctrl+Shift+Z i Ctrl+Y jako cofanie strony z zachowaniem kursora, zapis
+„Zapisz stronę” i dokładny JSON bloku odczytany z API, zero błędów JS.
+
+Lokalnie (stos na `:8080`, Docker na tym samym hoście):
+
+```bash
+cd apps/frontend
+SITE_EDITOR_E2E=1 pnpm test:e2e e2e/site-rich-text-editor.spec.ts
+```
+
+Bez `SITE_EDITOR_E2E=1` test jest pomijany. Spec sam zakłada konto
+`w6-e2e-editor-<losowe>@example.test` (`site-catalog-run.sh prepare`) i zawsze
+je usuwa (`cleanup`; w logu `site-catalog cleanup: {...}` z
+`accountRemoved: true`). `pnpm test:e2e` dokłada biblioteki Chromium z
+`.runtime/playwright-deps` — samo `pnpm exec playwright test` na WSL nie
+uruchamia przeglądarki. Gdy `.runtime/playwright/` po przebiegu w kontenerze
+należy do roota, dodaj `--output <katalog>`. Trwa ok. 15 s.
