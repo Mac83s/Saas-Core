@@ -35,6 +35,13 @@ concurrency are both harder than they look.
   oldest calendar entry.
 - **An appointment keeps a snapshot** of its time and service name. Editing the
   catalogue or the schedule later must not rewrite what a customer booked.
+- **The people on a visit change only through `crew.set_crew`** (ADR-058,
+  phase 3): booking, the office's assignment, a move, an absence, a person
+  leaving, a product's join or leave. It keeps the invariant — the lead has an
+  active allocation or the visit is a vacancy — bumps `crew_version` and tells
+  the people. A product uses `booking.api` (`join_visit_crew`,
+  `leave_visit_crew`, `crew_people`, `crew_member_filter`); writing an
+  allocation directly leaves a lead nobody blocked and a queue that lies.
 
 ## Conflicts
 
