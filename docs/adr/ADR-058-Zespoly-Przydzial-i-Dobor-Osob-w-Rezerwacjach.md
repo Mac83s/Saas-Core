@@ -218,7 +218,9 @@ planie memex i w decyzji `zespo-faza-3-uwagi-klienta-zawsze-zmiana-osoby-z`.
 - §2: skład wizyty zmienia **wyłącznie** `crew.set_crew` — tworzenie, przydział
   biura, przełożenie, nieobecność, odejście, dołączenie i opuszczenie wizyty w
   produkcie. Niezmiennik: prowadzący (`Appointment.staff`, NOT NULL) ma
-  aktywną alokację albo wizyta jest wakatem (`needs_assignment`). Wizyta
+  aktywną alokację albo wizyta jest wakatem (`needs_assignment`); prowadzący
+  zdjęty z wakatu zostaje tylko nazwą — „Moje”, filtr osoby i
+  `crew_member_filter` liczą go wyłącznie przez zablokowany czas. Wizyta
   zapamiętuje `staff_required` z chwili rezerwacji; każda zmiana podbija
   `crew_version`, a przydział biura podaje wersję, którą widział (409
   `crew_changed` z nazwiskiem osoby, która zmieniła skład).
