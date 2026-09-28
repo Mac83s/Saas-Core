@@ -971,6 +971,7 @@ class StaffListView(APIView):
             service_ids=data["service_ids"],
             hours=data.get("hours"),
             copy_hours_from=data.get("copy_hours_from"),
+            team_ids=data.get("team_ids"),
         )
         return Response(_person_detail_payload(person_detail(staff.id)), status=201)
 

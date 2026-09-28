@@ -257,7 +257,7 @@ def register_templates() -> None:
         "booking.staff_unassigned",
         {"pl": "Zmiana w Twoim kalendarzu", "en": "A change in your calendar"},
         {
-            "pl": "<p>{organization_name}: nie jedziesz już na wizytę {starts_at}.</p>" + look_pl,
+            "pl": "<p>{organization_name}: usunięto Cię z wizyty {starts_at}.</p>" + look_pl,
             "en": "<p>{organization_name}: you are no longer on the visit at {starts_at}.</p>"
             + look_en,
         },

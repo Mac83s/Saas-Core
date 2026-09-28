@@ -250,6 +250,17 @@ export type TimeOffCreated = components["schemas"]["TimeOffCreated"];
 /** Who works, is away and is busy on one day (ADR-058 §9). */
 export type PeopleDay = components["schemas"]["PeopleDay"];
 export type SeatUsage = components["schemas"]["SeatUsage"];
+/** A standing group of people, e.g. a crew (ADR-058 §2). */
+export type StaffTeam = components["schemas"]["Team"];
+export type StaffTeamInput = components["schemas"]["TeamInput"];
+export type StaffTeamUpdate = components["schemas"]["PatchedTeamUpdate"];
+/** A visit in „Do przydzielenia”, with the customer's contact. */
+export type QueueItem = components["schemas"]["QueueItem"];
+export type BookingOverview = components["schemas"]["Overview"];
+/** One person for one visit: free, or why not (ADR-058 §9). */
+export type CrewCandidate = components["schemas"]["Candidate"];
+export type CrewInput = components["schemas"]["CrewInput"];
+export type CrewMember = components["schemas"]["CrewMember"];
 
 export type LoginResult =
   { kind: "authenticated"; user: UserSummary } | { kind: "mfa_required" };
@@ -1659,6 +1670,121 @@ export async function removeTimeOff(timeOffId: string): Promise<void> {
     },
   );
   if (error || !response.ok) throwProblem(error, response);
+}
+
+export async function listTeams(): Promise<StaffTeam[]> {
+  const { data, error, response } = await client.GET("/api/v1/booking/teams/", {
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (error || !data) throwProblem(error, response);
+  return data.items;
+}
+
+export async function createTeam(input: StaffTeamInput): Promise<StaffTeam> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/teams/",
+    {
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function updateTeam(
+  teamId: string,
+  input: StaffTeamUpdate,
+): Promise<StaffTeam> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PATCH(
+    "/api/v1/booking/teams/{team_id}/",
+    {
+      params: { path: { team_id: teamId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function deleteTeam(teamId: string): Promise<void> {
+  const csrfToken = await getCsrfToken();
+  const { error, response } = await client.DELETE(
+    "/api/v1/booking/teams/{team_id}/",
+    {
+      params: { path: { team_id: teamId } },
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !response.ok) throwProblem(error, response);
+}
+
+/** Vacancies and the system's picks the office looks at (ADR-058 §3). */
+export async function getBookingQueue(): Promise<QueueItem[]> {
+  const { data, error, response } = await client.GET("/api/v1/booking/queue/", {
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (error || !data) throwProblem(error, response);
+  return data.items;
+}
+
+export async function getBookingOverview(): Promise<BookingOverview> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/overview/",
+    { credentials: "same-origin", cache: "no-store" },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+export async function getCrewCandidates(
+  appointmentId: string,
+  query: { everyone?: boolean } = {},
+): Promise<CrewCandidate[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/appointments/{appointment_id}/candidates/",
+    {
+      params: {
+        path: { appointment_id: appointmentId },
+        ...(query.everyone ? { query: { everyone: true } } : {}),
+      },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data.items;
+}
+
+/** Exactly these people on the visit; the same ones again is „Zostaw”. */
+export async function assignCrew(
+  appointmentId: string,
+  input: CrewInput,
+  idempotencyKey: string,
+): Promise<BookingAppointment> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/booking/appointments/{appointment_id}/crew/",
+    {
+      params: {
+        path: { appointment_id: appointmentId },
+        header: { "Idempotency-Key": idempotencyKey },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
 }
 
 /** An account for a person added without one; accepting links it. */

@@ -448,6 +448,8 @@ class PersonCreateSerializer(serializers.Serializer[dict[str, Any]]):
     hours = WeeklyHoursInputSerializer(required=False, allow_null=True)
     #: "Hours like …": another person's week instead of `hours`.
     copy_hours_from = serializers.UUIDField(required=False, allow_null=True)
+    #: The teams the person joins (ADR-058 §2).
+    team_ids = serializers.ListField(child=serializers.UUIDField(), required=False, max_length=50)
 
 
 class PersonUpdateSerializer(serializers.Serializer[dict[str, Any]]):

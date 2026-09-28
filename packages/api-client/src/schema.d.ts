@@ -5717,6 +5717,7 @@ export interface components {
             hours?: components["schemas"]["WeeklyHoursInput"] | null;
             /** Format: uuid */
             copy_hours_from?: string | null;
+            team_ids?: string[];
         };
         PersonDay: {
             /** Format: uuid */

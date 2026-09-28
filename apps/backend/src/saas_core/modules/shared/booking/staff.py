@@ -54,6 +54,7 @@ from .models import (
     ServiceLocation,
     ServiceStaff,
     StaffMember,
+    StaffTeam,
     StaffTeamMember,
     TimeOff,
 )
@@ -349,9 +350,11 @@ def add_person(
     service_ids: list[UUID] | None = None,
     hours: dict[str, Any] | None = None,
     copy_hours_from: UUID | None = None,
+    team_ids: list[UUID] | None = None,
 ) -> StaffMember:
-    """Adds an employee: the entry, the invitation when there is an e-mail, and
-    the services and hours when the person takes visits — all of it or nothing.
+    """Adds an employee: the entry, the invitation when there is an e-mail, the
+    services and hours when the person takes visits, and the teams they join —
+    all of it or nothing.
 
     The invitation goes through the organization's own rules (who may invite
     whom, the plan's accounts), so a dispatcher adds a subcontractor without
@@ -392,6 +395,13 @@ def add_person(
     )
     if rules:
         _set_hours(staff, rules)
+    teams = list(dict.fromkeys(team_ids or []))
+    if StaffTeam.all_objects.filter(organization=organization, pk__in=teams).count() != len(teams):
+        raise ValidationError({"team_ids": "Nie ma takiego zespołu."})
+    StaffTeamMember.all_objects.bulk_create([
+        StaffTeamMember(organization=organization, team_id=team_id, staff=staff)
+        for team_id in teams
+    ])
     record_audit(
         organization=organization,
         action=OrganizationAuditAction.BOOKING_STAFF_ADDED,

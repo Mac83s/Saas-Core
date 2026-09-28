@@ -24,6 +24,7 @@ from saas_core.modules.shared.booking.models import (
     AvailabilityRule,
     Service,
     StaffMember,
+    StaffTeam,
     TimeOff,
 )
 from saas_core.modules.shared.booking.security import public_booking_context
@@ -34,13 +35,13 @@ from saas_core.modules.shared.booking.services import (
     list_appointments,
     reschedule_appointment,
 )
-from saas_core.modules.shared.booking.staff import add_time_off
+from saas_core.modules.shared.booking.staff import add_person, add_time_off, list_people
 from saas_core.modules.shared.booking.teams import create_team, delete_team, update_team
 from saas_core.modules.shared.notifications.models import AppNotification, NotificationMessage
 from test_booking import _no_delivery, membership, tenant
 from test_booking_slots import at, team
 from test_organization_lifecycle import authenticated_member, csrf_value
-from test_team_people import bookable, member_of
+from test_team_people import acting, bookable, member_of
 from test_tenant_context import authenticated_client
 
 pytestmark = pytest.mark.django_db
@@ -351,6 +352,21 @@ def test_teams_are_named_once_and_never_touch_booked_visits() -> None:
     visit.refresh_from_db()
     assert visit.requested_team_id is None
     assert set(people_on(visit)) == {first.id, second.id}
+
+
+def test_a_new_person_joins_the_teams_named_and_only_the_companys_own() -> None:
+    owner = membership("ekipa-nowy")
+    stranger = membership("ekipa-obcy")
+    crew(owner)
+    foreign = StaffTeam.all_objects.create(organization=stranger.organization, name="Obcy")
+    with tenant(owner):
+        north = create_team(name="Brygada Północ", member_ids=[])
+        piotr = add_person(request=acting(owner), name="Piotr", team_ids=[north.id, north.id])
+        assert {item.staff.id: item.team_ids for item in list_people()}[piotr.id] == [north.id]
+        # Another company's team is not there to join, and nobody is added.
+        with pytest.raises(ValidationError):
+            add_person(request=acting(owner), name="Obcy", team_ids=[foreign.id])
+    assert not StaffMember.all_objects.filter(display_name="Obcy").exists()
 
 
 def test_the_queue_and_what_the_menu_needs() -> None:

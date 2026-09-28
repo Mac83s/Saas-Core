@@ -16033,6 +16033,12 @@ components:
           - string
           - 'null'
           format: uuid
+        team_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 50
       required:
       - name
     PersonDay:
