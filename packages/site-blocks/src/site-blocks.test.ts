@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import legacyHero from "@saas-core/contracts/site-blocks/fixtures/core.hero.v1.json";
+import templateManifest from "@saas-core/contracts/page-templates/manifest.json";
 
 import {
   availablePageTemplates,
@@ -298,7 +299,17 @@ describe("page templates", () => {
       "core.premium_service",
       "core.studio_manifesto",
       "core.case_study",
+      "core.step_guide",
     ]);
+    // The panel loads every recipe the manifest lists, at its latest version
+    // (a recipe added to the manifest alone would be importable, not offered).
+    expect(
+      corePageTemplates().map(({ id, version }) => `${id}@${version}`),
+    ).toEqual(
+      templateManifest.templates.map(
+        ({ id, latestVersion }) => `${id}@${latestVersion}`,
+      ),
+    );
     // Retired recipes stay loadable (import by id) but are never offered.
     const retired = corePageTemplates().filter(({ id }) =>
       isRetiredPageTemplate(id),
