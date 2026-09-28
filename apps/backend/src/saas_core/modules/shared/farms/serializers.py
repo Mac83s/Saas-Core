@@ -144,6 +144,19 @@ class AnimalHealthInputSerializer(serializers.Serializer[Any]):
     photos = serializers.ListField(child=serializers.UUIDField(), required=False)
 
 
+class AnimalHealthCorrectionInputSerializer(serializers.Serializer[Any]):
+    """A hand-written entry corrected or withdrawn by its author (ADR-062).
+
+    `reason` is required unless the entry is the keeper's private note.
+    """
+
+    action = serializers.ChoiceField(choices=("replace", "withdraw"))
+    reason = serializers.CharField(max_length=240, allow_blank=True, required=False, default="")
+    kind = serializers.ChoiceField(choices=HealthEntryKind.choices, required=False)
+    occurred_on = serializers.DateField(required=False)
+    summary = serializers.CharField(max_length=240, allow_blank=True, required=False, default="")
+
+
 class FarmActivationCodeSerializer(serializers.Serializer[Any]):
     """The code is returned once, when it is issued; only its digest is kept."""
 

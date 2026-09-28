@@ -2804,6 +2804,70 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/farms/animals/{animal_id}/health/{entry_id}/corrections/:
+    post:
+      operationId: farms_animal_health_correct
+      description: 'A correction of one entry of the animal''s file: its next revision.'
+      parameters:
+      - in: path
+        name: animal_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: entry_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - farms
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnimalHealthCorrectionInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/AnimalHealthCorrectionInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AnimalHealthCorrectionInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnimalHealthEntry'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/farms/health/{entry_id}/photos/{media_id}/:
     get:
       operationId: farms_health_photo
@@ -10294,20 +10358,6 @@ paths:
           description: ''
 components:
   schemas:
-    ActionEnum:
-      enum:
-      - disable
-      - enable
-      - release
-      - set_canonical
-      - verify
-      type: string
-      description: |-
-        * `disable` - disable
-        * `enable` - enable
-        * `release` - release
-        * `set_canonical` - set_canonical
-        * `verify` - verify
     ActiveOrganization:
       type: object
       properties:
@@ -10402,6 +10452,38 @@ components:
       - withdrawal_meat_until
       - withdrawal_milk_until
       - working_number
+    AnimalHealthCorrectionInput:
+      type: object
+      description: |-
+        A hand-written entry corrected or withdrawn by its author (ADR-062).
+
+        `reason` is required unless the entry is the keeper's private note.
+      properties:
+        action:
+          $ref: '#/components/schemas/AnimalHealthCorrectionInputActionEnum'
+        reason:
+          type: string
+          default: ''
+          maxLength: 240
+        kind:
+          $ref: '#/components/schemas/KindA87Enum'
+        occurred_on:
+          type: string
+          format: date
+        summary:
+          type: string
+          default: ''
+          maxLength: 240
+      required:
+      - action
+    AnimalHealthCorrectionInputActionEnum:
+      enum:
+      - replace
+      - withdraw
+      type: string
+      description: |-
+        * `replace` - replace
+        * `withdraw` - withdraw
     AnimalHealthEntry:
       type: object
       description: One entry of an animal's history, as the keeper reads it.
@@ -10496,7 +10578,7 @@ components:
       properties:
         kind:
           allOf:
-          - $ref: '#/components/schemas/AnimalHealthInputKindEnum'
+          - $ref: '#/components/schemas/KindA87Enum'
           default: note
         occurred_on:
           type: string
@@ -10517,20 +10599,6 @@ components:
             format: uuid
       required:
       - summary
-    AnimalHealthInputKindEnum:
-      enum:
-      - note
-      - alert
-      - treatment
-      - medication
-      - visit
-      type: string
-      description: |-
-        * `note` - Notatka
-        * `alert` - Uwaga
-        * `treatment` - Zabieg
-        * `medication` - Lek lub szczepienie
-        * `visit` - Wizyta specjalisty
     AnimalInput:
       type: object
       properties:
@@ -12615,9 +12683,23 @@ components:
       type: object
       properties:
         action:
-          $ref: '#/components/schemas/ActionEnum'
+          $ref: '#/components/schemas/DomainActionActionEnum'
       required:
       - action
+    DomainActionActionEnum:
+      enum:
+      - disable
+      - enable
+      - release
+      - set_canonical
+      - verify
+      type: string
+      description: |-
+        * `disable` - disable
+        * `enable` - enable
+        * `release` - release
+        * `set_canonical` - set_canonical
+        * `verify` - verify
     DomainCreate:
       type: object
       properties:
@@ -14146,6 +14228,20 @@ components:
       - id
       - role
       - status
+    KindA87Enum:
+      enum:
+      - note
+      - alert
+      - treatment
+      - medication
+      - visit
+      type: string
+      description: |-
+        * `note` - Notatka
+        * `alert` - Uwaga
+        * `treatment` - Zabieg
+        * `medication` - Lek lub szczepienie
+        * `visit` - Wizyta specjalisty
     LayoutEnum:
       enum:
       - card

@@ -1062,6 +1062,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/farms/animals/{animal_id}/health/{entry_id}/corrections/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description A correction of one entry of the animal's file: its next revision. */
+        post: operations["farms_animal_health_correct"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/farms/health/{entry_id}/photos/{media_id}/": {
         parameters: {
             query?: never;
@@ -3435,15 +3452,6 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /**
-         * @description * `disable` - disable
-         *     * `enable` - enable
-         *     * `release` - release
-         *     * `set_canonical` - set_canonical
-         *     * `verify` - verify
-         * @enum {string}
-         */
-        ActionEnum: "disable" | "enable" | "release" | "set_canonical" | "verify";
         ActiveOrganization: {
             /** Format: uuid */
             organization_id: string;
@@ -3475,6 +3483,27 @@ export interface components {
             /** Format: date-time */
             readonly updated_at: string;
         };
+        /**
+         * @description A hand-written entry corrected or withdrawn by its author (ADR-062).
+         *
+         *     `reason` is required unless the entry is the keeper's private note.
+         */
+        AnimalHealthCorrectionInput: {
+            action: components["schemas"]["AnimalHealthCorrectionInputActionEnum"];
+            /** @default  */
+            reason: string;
+            kind?: components["schemas"]["KindA87Enum"];
+            /** Format: date */
+            occurred_on?: string;
+            /** @default  */
+            summary: string;
+        };
+        /**
+         * @description * `replace` - replace
+         *     * `withdraw` - withdraw
+         * @enum {string}
+         */
+        AnimalHealthCorrectionInputActionEnum: "replace" | "withdraw";
         /** @description One entry of an animal's history, as the keeper reads it. */
         AnimalHealthEntry: {
             /** Format: uuid */
@@ -3513,7 +3542,7 @@ export interface components {
         /** @description An entry written here by hand. `source` belongs to the server. */
         AnimalHealthInput: {
             /** @default note */
-            kind: components["schemas"]["AnimalHealthInputKindEnum"];
+            kind: components["schemas"]["KindA87Enum"];
             /** Format: date */
             occurred_on?: string;
             summary: string;
@@ -3524,15 +3553,6 @@ export interface components {
             private: boolean;
             photos?: string[];
         };
-        /**
-         * @description * `note` - Notatka
-         *     * `alert` - Uwaga
-         *     * `treatment` - Zabieg
-         *     * `medication` - Lek lub szczepienie
-         *     * `visit` - Wizyta specjalisty
-         * @enum {string}
-         */
-        AnimalHealthInputKindEnum: "note" | "alert" | "treatment" | "medication" | "visit";
         AnimalInput: {
             /** Format: uuid */
             farm_id: string;
@@ -4357,8 +4377,17 @@ export interface components {
          */
         DataExportCreateKindEnum: "notification_deliveries" | "webhook_deliveries";
         DomainAction: {
-            action: components["schemas"]["ActionEnum"];
+            action: components["schemas"]["DomainActionActionEnum"];
         };
+        /**
+         * @description * `disable` - disable
+         *     * `enable` - enable
+         *     * `release` - release
+         *     * `set_canonical` - set_canonical
+         *     * `verify` - verify
+         * @enum {string}
+         */
+        DomainActionActionEnum: "disable" | "enable" | "release" | "set_canonical" | "verify";
         DomainCreate: {
             hostname: string;
         };
@@ -4962,6 +4991,15 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
+        /**
+         * @description * `note` - Notatka
+         *     * `alert` - Uwaga
+         *     * `treatment` - Zabieg
+         *     * `medication` - Lek lub szczepienie
+         *     * `visit` - Wizyta specjalisty
+         * @enum {string}
+         */
+        KindA87Enum: "note" | "alert" | "treatment" | "medication" | "visit";
         /**
          * @description * `card` - Wizytówka
          *     * `cover` - Ze zdjęciem na całą szerokość
@@ -9436,6 +9474,66 @@ export interface operations {
                 };
             };
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    farms_animal_health_correct: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                animal_id: string;
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnimalHealthCorrectionInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["AnimalHealthCorrectionInput"];
+                "multipart/form-data": components["schemas"]["AnimalHealthCorrectionInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnimalHealthEntry"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

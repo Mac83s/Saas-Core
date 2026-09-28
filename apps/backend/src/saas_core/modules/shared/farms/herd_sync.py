@@ -301,7 +301,7 @@ def _write_revision(
     source: str,
     reference: str,
     values: dict[str, Any],
-    correction: str,
+    correction: str | None,
     corrected_by: str,
     require_current: bool,
 ) -> tuple[AnimalHealthEntry | None, bool]:
@@ -311,7 +311,9 @@ def _write_revision(
     correction an existing entry stays as it is — a replay, or a second close
     of a visit, cannot change what the reader already has. With one, a
     different content becomes the next revision pointing at the entry it
-    replaces, and that one is marked retracted, not removed.
+    replaces, and that one is marked retracted, not removed. `correction` is the
+    reason; None means "not a correction", and an empty reason is still one — a
+    keeper's private note is corrected without explaining it to anybody.
     """
     lineage = AnimalHealthEntry.all_objects.filter(
         organization_id=organization_id, animal=animal, source=source, source_reference=reference
@@ -319,7 +321,7 @@ def _write_revision(
     current = lineage.filter(retracted_at__isnull=True).select_for_update().first()
     if current is None and require_current:
         return None, False
-    if current is not None and (not correction or _same(current, values)):
+    if current is not None and (correction is None or _same(current, values)):
         return current, False
     latest = lineage.aggregate(latest=Max("revision"))["latest"]
     if current is not None:
@@ -331,8 +333,8 @@ def _write_revision(
         source_reference=reference,
         revision=0 if latest is None else latest + 1,
         corrects=current,
-        correction_reason=correction,
-        corrected_by=corrected_by if correction else "",
+        correction_reason=correction or "",
+        corrected_by=corrected_by if correction is not None else "",
         **values,
     )
     return entry, True
@@ -392,7 +394,7 @@ def publish_health_entry(
                 "withdrawal_milk_until": withdrawal_milk_until,
                 "withdrawal_meat_until": withdrawal_meat_until,
             },
-            correction=correction,
+            correction=correction or None,
             corrected_by=corrected_by,
             require_current=require_current,
         )
@@ -471,7 +473,7 @@ def record_own_health_entry(
             "withdrawal_milk_until": withdrawal_milk_until,
             "withdrawal_meat_until": withdrawal_meat_until,
         },
-        correction=correction,
+        correction=correction or None,
         corrected_by=corrected_by,
         require_current=False,
     )

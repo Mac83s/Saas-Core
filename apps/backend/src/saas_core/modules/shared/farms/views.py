@@ -20,6 +20,7 @@ from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 
 from .herd_sync import list_farm_visits, push_herd, read_entry_photo
 from .serializers import (
+    AnimalHealthCorrectionInputSerializer,
     AnimalHealthEntrySerializer,
     AnimalHealthInputSerializer,
     AnimalInputSerializer,
@@ -38,6 +39,7 @@ from .serializers import (
     SpeciesListSerializer,
 )
 from .services import (
+    correct_health_entry,
     create_animal,
     create_farm,
     get_farm,
@@ -226,6 +228,29 @@ class AnimalHealthView(APIView):
             data=dict(serializer.validated_data),
         )
         return Response(AnimalHealthEntrySerializer(entry).data, status=201)
+
+
+class AnimalHealthCorrectionView(APIView):
+    """A correction of one entry of the animal's file: its next revision."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=AnimalHealthCorrectionInputSerializer,
+        responses={200: AnimalHealthEntrySerializer, 409: ProblemDetailsSerializer, **ERRORS},
+        operation_id="farms_animal_health_correct",
+        tags=["farms"],
+    )
+    def post(self, request: Request, animal_id: UUID, entry_id: UUID) -> Response:
+        serializer = AnimalHealthCorrectionInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        entry = correct_health_entry(
+            request=cast(HttpRequest, request),
+            animal_id=animal_id,
+            entry_id=entry_id,
+            data=dict(serializer.validated_data),
+        )
+        return Response(AnimalHealthEntrySerializer(entry).data)
 
 
 class AnimalHealthPhotoView(APIView):

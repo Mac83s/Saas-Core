@@ -1656,3 +1656,151 @@ def test_only_the_register_consents_to_the_companys_schedule() -> None:
 
     with tenant(without_the_register(farmer)) as request, pytest.raises(PermissionDenied):
         set_share_schedule(request=request, share_id=share.id, allowed=True)
+
+
+def test_an_entry_is_corrected_by_its_author_as_its_next_revision() -> None:
+    """Decyzja z 28.09 (1b, odpowiedzi 1a–3a): każdy wpis ma „Popraw” i „Wycofaj”;
+    poprawka to nowa wersja, poprzednia zostaje; powód obowiązkowy, gdy wpis mógł
+    ktoś przeczytać; poprawia tylko autor."""
+    from datetime import date  # noqa: PLC0415
+
+    from rest_framework.exceptions import ValidationError  # noqa: PLC0415
+
+    from saas_core.modules.core.organizations.models import (  # noqa: PLC0415
+        OrganizationAuditEntry,
+    )
+    from saas_core.modules.shared.farms.api import (  # noqa: PLC0415
+        farm_animals,
+        publish_health_entry,
+        record_own_health_entry,
+    )
+    from saas_core.modules.shared.farms.services import (  # noqa: PLC0415
+        EntryConflict,
+        correct_health_entry,
+        create_animal,
+        create_farm,
+        list_health_entries,
+        record_health_entry,
+    )
+    from saas_core.modules.shared.farms.sharing import (  # noqa: PLC0415
+        issue_activation_code,
+        redeem_activation_code,
+    )
+
+    company = membership("firma-poprawki")
+    farmer = membership("rolnik-poprawki")
+    with tenant(company) as request:
+        card = create_farm(request=request, data={"name": "Gospodarstwo Poprawki"})
+        cow = create_animal(
+            request=request, farm_id=card.id, data={"national_id": "PL005432177001"}
+        )
+        code, _ = issue_activation_code(request=request, farm_id=card.id)
+    with tenant(farmer) as request:
+        taken = redeem_activation_code(request=request, code=code)
+        (keeper_cow,) = list(farm_animals(farmer.organization_id, taken["farm"].id))
+    with tenant(company):
+        published = publish_health_entry(
+            animal=cow,
+            occurred_on=date(2026, 9, 20),
+            source="hoofcare.visit",
+            reference="visit-poprawki",
+            summary="Korekcja: DD M2.",
+        )
+        assert published is not None
+
+    with tenant(farmer) as request:
+        note = record_health_entry(
+            request=request,
+            animal_id=keeper_cow.id,
+            data={"kind": "note", "summary": "Kuleje na lewą tylną."},
+        )
+        correct = {"request": request, "animal_id": keeper_cow.id, "entry_id": note.id}
+        # Somebody may have read it: no reason, no correction.
+        with pytest.raises(ValidationError):
+            correct_health_entry(**correct, data={"action": "replace", "summary": "Kuleje."})
+        fixed = correct_health_entry(
+            **correct,
+            data={
+                "action": "replace",
+                "summary": "Kuleje na prawą tylną.",
+                "reason": "Pomyliłem nogę",
+            },
+        )
+        assert (fixed.revision, fixed.corrects_id, fixed.correction_reason) == (
+            1,
+            note.id,
+            "Pomyliłem nogę",
+        )
+        # The replaced one is marked, not changed nor gone — and cannot be corrected again.
+        with pytest.raises(EntryConflict) as again:
+            correct_health_entry(**correct, data={"action": "withdraw", "reason": "x"})
+        assert again.value.get_codes() == "entry_already_corrected"
+        withdrawn = correct_health_entry(
+            request=request,
+            animal_id=keeper_cow.id,
+            entry_id=fixed.id,
+            data={"action": "withdraw", "reason": "Już nie kuleje"},
+        )
+        assert withdrawn.summary == "Wycofano: Kuleje na prawą tylną."
+        assert withdrawn.details["withdrawn"] is True
+        history = {e.id: e for e in list_health_entries(animal_id=keeper_cow.id)}
+        assert history[note.id].summary == "Kuleje na lewą tylną."
+        assert history[note.id].retracted_at is not None
+        assert history[fixed.id].retracted_at is not None
+        assert history[withdrawn.id].retracted_at is None
+
+        # A private note is the keeper's alone: corrected without a reason.
+        private = record_health_entry(
+            request=request,
+            animal_id=keeper_cow.id,
+            data={"kind": "note", "summary": "Sąsiad chce kupić.", "private": True},
+        )
+        quiet = correct_health_entry(
+            request=request,
+            animal_id=keeper_cow.id,
+            entry_id=private.id,
+            data={"action": "replace", "summary": "Sąsiad chce kupić dwie."},
+        )
+        assert (quiet.revision, quiet.private, quiet.correction_reason) == (1, True, "")
+        # The same text again writes nothing new.
+        same = correct_health_entry(
+            request=request,
+            animal_id=keeper_cow.id,
+            entry_id=quiet.id,
+            data={"action": "replace", "summary": "Sąsiad chce kupić dwie."},
+        )
+        assert same.id == quiet.id
+
+        # The company's entry in the keeper's register is the company's to correct.
+        entries = list_health_entries(animal_id=keeper_cow.id)
+        (theirs,) = [e for e in entries if e.author_is_external]
+        with pytest.raises(EntryConflict) as foreign:
+            correct_health_entry(
+                request=request,
+                animal_id=keeper_cow.id,
+                entry_id=theirs.id,
+                data={"action": "withdraw", "reason": "Nieprawda"},
+            )
+        assert foreign.value.get_codes() == "entry_of_another_author"
+        assert OrganizationAuditEntry.objects.filter(
+            organization_id=farmer.organization_id, action="farms.animal.health_corrected"
+        ).count() == 3
+
+    with tenant(company) as request:
+        # What a module wrote is corrected in that module, not in the file.
+        own = record_own_health_entry(
+            animal=cow,
+            occurred_on=date(2026, 9, 20),
+            source="hoofcare.medication",
+            reference="wpis-poprawki",
+            summary="Podano: lek.",
+        )
+        assert own is not None
+        with pytest.raises(EntryConflict) as module:
+            correct_health_entry(
+                request=request,
+                animal_id=cow.id,
+                entry_id=own.id,
+                data={"action": "withdraw", "reason": "Pomyłka"},
+            )
+        assert module.value.get_codes() == "entry_from_module"

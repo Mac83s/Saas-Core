@@ -2819,6 +2819,8 @@ export async function listFarmAnimals(
 
 export type FarmAnimalHealthEntry = components["schemas"]["AnimalHealthEntry"];
 export type FarmAnimalHealthInput = components["schemas"]["AnimalHealthInput"];
+export type FarmAnimalHealthCorrection =
+  components["schemas"]["AnimalHealthCorrectionInput"];
 
 /** The animal's file, newest first — filters run on the server (ADR-051 pt 8). */
 export async function listFarmAnimalHealth(
@@ -2882,6 +2884,27 @@ export async function createFarmAnimalHealth(
     "/api/v1/farms/animals/{animal_id}/health/",
     {
       params: { path: { animal_id: animalId } },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** A hand-written entry corrected or withdrawn by its author: the next
+ * revision, never a rewrite (ADR-062). */
+export async function correctFarmAnimalHealth(
+  animalId: string,
+  entryId: string,
+  input: FarmAnimalHealthCorrection,
+): Promise<FarmAnimalHealthEntry> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/farms/animals/{animal_id}/health/{entry_id}/corrections/",
+    {
+      params: { path: { animal_id: animalId, entry_id: entryId } },
       body: input,
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },

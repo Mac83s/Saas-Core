@@ -18,7 +18,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import Count, Max, Q, QuerySet
 from django.http import HttpRequest
 from django.utils import timezone
-from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.exceptions import APIException, NotFound, ValidationError
 
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import (
@@ -357,6 +357,107 @@ def record_health_entry(
         request, context.organization_id, OrganizationAuditAction.ANIMAL_HEALTH_RECORDED, animal
     )
     return entry
+
+
+class EntryConflict(APIException):
+    """An entry that cannot be corrected here, now or by this organization."""
+
+    status_code = 409
+    default_detail = "Tego wpisu nie da się tu poprawić."
+    default_code = "entry_not_correctable"
+
+
+@transaction.atomic
+def correct_health_entry(
+    *, request: HttpRequest, animal_id: UUID, entry_id: UUID, data: dict[str, Any]
+) -> AnimalHealthEntry:
+    """A hand-written entry corrected or withdrawn by its author (ADR-062).
+
+    Never a rewrite (owner, 28.09): the next revision points at the entry it
+    replaces, which stays in the history struck through. Only the organization
+    that wrote the entry corrects it — a keeper disagreeing with a company's
+    entry writes a note of their own, and the other way round. The reason is
+    required whenever somebody else may have read the entry; a keeper's
+    private note is theirs alone (answer 1A). Who and when come from here, not
+    from the device.
+    """
+    from .herd_sync import _write_revision  # noqa: PLC0415
+
+    context = authorize_entitled(FARMS_MANAGE, FARMS_ENABLED)
+    entry = (
+        AnimalHealthEntry.all_objects.select_for_update()
+        .filter(organization_id=context.organization_id, animal_id=animal_id, id=entry_id)
+        .select_related("animal")
+        .first()
+    )
+    if entry is None:
+        raise NotFound("Nie ma takiego wpisu.")
+    if entry.author_organization_id != context.organization_id:
+        raise EntryConflict(
+            "Wpis poprawia tylko ten, kto go dodał. Dopisz własną notatkę.",
+            code="entry_of_another_author",
+        )
+    if entry.source != MANUAL_SOURCE:
+        raise EntryConflict(
+            "Ten wpis poprawia się tam, gdzie powstał — np. w wizycie.",
+            code="entry_from_module",
+        )
+    if entry.retracted_at is not None:
+        raise EntryConflict(
+            "Ten wpis został już poprawiony. Odśwież kartotekę.",
+            code="entry_already_corrected",
+        )
+    reason = (data.get("reason") or "").strip()
+    if not reason and not entry.private:
+        raise ValidationError(
+            {"reason": "Podaj powód poprawki — ten wpis mógł już ktoś przeczytać."},
+            code="correction_reason_required",
+        )
+    withdraw = data["action"] == "withdraw"
+    if not withdraw and not (data.get("summary") or "").strip():
+        raise ValidationError({"summary": "Podaj treść poprawionego wpisu."})
+    user = cast(User, request.user)
+    name = f"{user.first_name} {user.last_name}".strip() or user.email
+    corrected, written = _write_revision(
+        organization_id=context.organization_id,
+        animal=entry.animal,
+        source=entry.source,
+        reference=entry.source_reference,
+        values={
+            "kind": entry.kind if withdraw else data.get("kind") or entry.kind,
+            "occurred_on": data.get("occurred_on") or entry.occurred_on,
+            "author_name": name,
+            "author_organization_id": context.organization_id,
+            "author_organization_name": entry.author_organization_name,
+            "summary": ("Wycofano: " + entry.summary)[:240]
+            if withdraw
+            else data["summary"].strip(),
+            "details": {**entry.details, "withdrawn": True} if withdraw else entry.details,
+            "photos": list(entry.photos),
+            "withdrawal_milk_until": None if withdraw else entry.withdrawal_milk_until,
+            "withdrawal_meat_until": None if withdraw else entry.withdrawal_meat_until,
+            # A private note stays private in every revision.
+            "private": entry.private,
+        },
+        correction=reason,
+        corrected_by=name,
+        require_current=True,
+    )
+    assert corrected is not None
+    if written:
+        audit_farm(
+            request,
+            context.organization_id,
+            OrganizationAuditAction.ANIMAL_HEALTH_CORRECTED,
+            entry.animal,
+            metadata={
+                "entry_id": str(corrected.id),
+                "revision": corrected.revision,
+                "withdrawn": withdraw,
+            },
+        )
+    corrected.author_is_external = False
+    return corrected
 
 
 def _organization_name(organization_id: UUID) -> str:

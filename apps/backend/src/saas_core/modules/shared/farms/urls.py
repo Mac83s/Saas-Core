@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     AnimalDetailView,
+    AnimalHealthCorrectionView,
     AnimalHealthPhotoView,
     AnimalHealthView,
     AnimalListCreateView,
@@ -26,6 +27,11 @@ urlpatterns = [
         "animals/<uuid:animal_id>/health/",
         AnimalHealthView.as_view(),
         name="farms-animal-health",
+    ),
+    path(
+        "animals/<uuid:animal_id>/health/<uuid:entry_id>/corrections/",
+        AnimalHealthCorrectionView.as_view(),
+        name="farms-animal-health-correction",
     ),
     path(
         "health/<uuid:entry_id>/photos/<uuid:media_id>/",
