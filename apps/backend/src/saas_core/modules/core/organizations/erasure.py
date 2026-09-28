@@ -27,7 +27,7 @@ from typing import Any
 from django.apps import apps
 from django.core.exceptions import ValidationError
 from django.db import DatabaseError, ProgrammingError, connection, transaction
-from django.db.models import ForeignKey, JSONField, Model
+from django.db.models import ForeignKey, JSONField, Model, Q, QuerySet
 
 from saas_core.modules.core.identity.models import User
 
@@ -159,6 +159,31 @@ def _break_reference_cycles(organization_id: uuid.UUID) -> None:
             continue
 
 
+def _delete_self_referencing_leaves(model: type[Model], rows: QuerySet[Model]) -> int:
+    """Delete the rows no other row of the same table points at.
+
+    A table whose rows point at each other through a protected, append-only
+    link — a rollback publication at the one it restores — refuses a delete of
+    all of them at once, and the guard refuses nulling the link. Its leaves can
+    always go; each pass frees the next ones, so a chain empties newest first.
+    """
+    links = [
+        field
+        for field in model._meta.fields
+        if isinstance(field, ForeignKey) and field.related_model is model
+    ]
+    if not links:
+        return 0
+    referenced = Q()
+    for field in links:
+        referenced |= Q(
+            pk__in=rows.filter(**{f"{field.name}__isnull": False}).values(field.attname)
+        )
+    with transaction.atomic():
+        deleted, _by_model = rows.exclude(referenced).delete()
+    return deleted
+
+
 def row_counts(organization_id: uuid.UUID) -> dict[str, int]:
     """What is there to erase, per table. Also the proof afterwards: all zero."""
     counts: dict[str, int] = {}
@@ -189,9 +214,7 @@ def erase_organization(
     slug = organization.slug
     with transaction.atomic():
         set_local_organization_id(organization_id)
-        with activate_tenant_context(_erasure_context(organization_id)), _erasing(
-            organization_id
-        ):
+        with activate_tenant_context(_erasure_context(organization_id)), _erasing(organization_id):
             Organization.objects.select_for_update().get(pk=organization_id)
             check_erasure_preconditions(organization_id)
             counts = row_counts(organization_id)
@@ -209,6 +232,11 @@ def erase_organization(
                             deleted, _by_model = rows.delete()
                     except (ProgrammingError, DatabaseError):
                         blocked.append((model, field_name))
+                        try:
+                            if _delete_self_referencing_leaves(model, rows):
+                                progressed = True
+                        except (ProgrammingError, DatabaseError):
+                            pass
                         continue
                     if deleted:
                         progressed = True
