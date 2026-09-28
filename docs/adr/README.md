@@ -57,6 +57,7 @@ rejestr z `Plan/SaaS-Core-06-Rejestr-Decyzji.md`.
 | [ADR-059](ADR-059-Generowanie-Obrazow-AI-i-Pochodzenie-Mediow.md) | generowanie obrazów AI, pochodzenie mediów i odznaka z przełącznikiem operatora | Accepted |
 | [ADR-060](ADR-060-Licznik-Odslon-i-Agregat-Zapytan-Witryny.md) | licznik odsłon po stronie serwera i agregat zapytań witryny dla pomiaru, zakres `content:metrics` | Accepted |
 | [ADR-061](ADR-061-Rodzaj-Linku-rel-w-Blokach.md) | rodzaj linku (`rel`: sponsored, ugc, nofollow) w tekście, listach linków i stopce; `nofollow` domyślnie dla linków automatyzacji | Accepted |
+| [ADR-062](ADR-062-Korekty-Wpisow-Kartoteki-Zwierzecia.md) | wpis kartoteki zwierzęcia nie jest nadpisywany ani kasowany: korekta to następna wersja z powodem, zastąpiona ma `retracted_at`; wyzwalacz append-only, powiadomienie hodowcy | Accepted |
 
 Każda zmiana decyzji tworzy nowy ADR. Całkowicie zastąpiony dokument otrzymuje
 status `Superseded`; przy częściowym zastąpieniu nowy ADR wskazuje dokładny

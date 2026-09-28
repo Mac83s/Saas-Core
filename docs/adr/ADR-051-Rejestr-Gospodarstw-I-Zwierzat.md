@@ -115,11 +115,11 @@ wspólne dla kilku aplikacji rolniczych muszą leżeć w warstwie `shared`.
   sprzedać. Zwierzę jest „w karencji”, dopóki któryś wpis trwa — liczone z
   wpisów przy liście zwierząt, nie flaga, którą ktoś musiałby zdejmować.
 - Wertykał pisze taki wpis w rejestrze rolnika (`publish_health_entry`) i na
-  własnej karcie zwierzęcia (`record_own_health_entry`, cofany przez
-  `drop_own_health_entry`); cofnięty po publikacji wpis zdejmuje z rejestru
-  `unpublish_health_entry` (ta sama bramka udziału co publikacja). Karta firmy
-  nie pokazuje drugi raz kopii z rejestru (ten sam autor, źródło i
-  identyfikator). Odznaka „w karencji” na karcie firmy liczy wpisy firmy; wpisy
+  własnej karcie zwierzęcia (`record_own_health_entry`). Od 28.09 (ADR-062)
+  nic nie jest kasowane ani nadpisywane: korekta to następna wersja wpisu z
+  powodem, zastąpiona zostaje z `retracted_at`, a cofnięty wpis na karcie firmy
+  oznacza `retract_own_health_entry`. Karta firmy nie pokazuje drugi raz kopii
+  z rejestru (ten sam autor, źródło, identyfikator i wersja). Odznaka „w karencji” na karcie firmy liczy wpisy firmy; wpisy
   innych autorów w rejestrze rolnika widać w historii karty, nie w odznace.
 - Decyzja właściciela z 25.09 (faza 9 planu magazynu, 3a): hodowca i firma
   widzą „w karencji do …” na liście zwierząt i na karcie.
