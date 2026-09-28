@@ -140,6 +140,8 @@ function headline(
     date: String(payload.ends_at ?? ""),
     farm: String(payload.farm_name ?? ""),
     count: Number(payload.count ?? 0),
+    company: String(payload.company_name ?? ""),
+    reason: String(payload.reason ?? ""),
   };
   switch (item.kind) {
     case "billing.trial_ending":
@@ -148,6 +150,8 @@ function headline(
       return t("billingGraceEnding", values);
     case "farms.herd_review":
       return t("farmsHerdReview", values);
+    case "farms.health_corrected":
+      return t("farmsHealthCorrected", values);
     default:
       return t("unknown");
   }

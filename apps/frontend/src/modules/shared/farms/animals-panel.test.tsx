@@ -143,6 +143,11 @@ beforeEach(() => {
       summary: "Korekcja: DD M2 na LH, kontrola za 14 dni.",
       details: {},
       published_at: "2026-09-18T10:00:00Z",
+      revision: 0,
+      corrects_id: null,
+      correction_reason: "",
+      corrected_by: "",
+      retracted_at: null,
     },
   ]);
   api.getFarmHealthPhoto.mockResolvedValue(new Blob(["webp"]));
@@ -161,6 +166,11 @@ beforeEach(() => {
     summary: "Kuleje na prawą tylną.",
     details: {},
     published_at: "2026-09-20T10:00:00Z",
+    revision: 0,
+    corrects_id: null,
+    correction_reason: "",
+    corrected_by: "",
+    retracted_at: null,
   });
   sections.length = 0;
   api.listFarmAnimals.mockResolvedValue(HERD);
@@ -585,4 +595,68 @@ test("zwierzę w karencji ma czerwoną odznakę z końcem karencji mleka i mięs
     ),
   ).toBeInTheDocument();
   expect(within(second).queryByText(/Karencja/)).toBeNull();
+});
+
+test("korekta nie kasuje wpisu: stary jest przekreślony, nowy mówi dlaczego", async () => {
+  const base = {
+    animal_id: "a3",
+    kind: "medication",
+    occurred_on: "2026-09-18",
+    source: "hoofcare.medication",
+    source_reference: "e1",
+    author_name: "Piotr Korektor",
+    author_organization_name: "Korekcja Testowa",
+    author_is_external: true,
+    private: false,
+    photos: [],
+    details: {},
+    published_at: "2026-09-18T10:00:00Z",
+  };
+  api.listFarmAnimalHealth.mockResolvedValue([
+    {
+      ...base,
+      id: "h2",
+      revision: 1,
+      corrects_id: "h1",
+      correction_reason: "Pomyłka krowy",
+      corrected_by: "Beata Biurowa",
+      retracted_at: null,
+      summary: "Wycofano: Oksytetracyklina.",
+      withdrawal_milk_until: null,
+      withdrawal_meat_until: null,
+    },
+    {
+      ...base,
+      id: "h1",
+      revision: 0,
+      corrects_id: null,
+      correction_reason: "",
+      corrected_by: "",
+      retracted_at: "2026-09-19T08:30:00Z",
+      summary: "Podano: Oksytetracyklina.",
+      withdrawal_milk_until: "2026-10-01T10:00:00Z",
+      withdrawal_meat_until: null,
+    },
+  ]);
+  renderPanel();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "PL005432100002" }),
+  );
+  const dialog = await screen.findByRole("dialog", { name: "PL005432100002" });
+
+  const old = await within(dialog).findByText("Podano: Oksytetracyklina.");
+  expect(old).toHaveClass("line-through");
+  expect(
+    within(dialog).getByText("Nieaktualny od 19 wrz 2026, 10:30"),
+  ).toBeVisible();
+  // Karencja wycofanego wpisu już nie obowiązuje, więc jej nie pokazujemy.
+  expect(within(dialog).queryByText(/Karencja/)).toBeNull();
+  expect(
+    within(dialog).getByText("Wycofano: Oksytetracyklina."),
+  ).not.toHaveClass("line-through");
+  expect(within(dialog).getByText("Korekta")).toBeVisible();
+  expect(
+    within(dialog).getByText("Powód: Pomyłka krowy · Beata Biurowa"),
+  ).toBeVisible();
+  await checkAxe();
 });

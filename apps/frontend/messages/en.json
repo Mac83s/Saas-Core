@@ -2276,7 +2276,8 @@
     "billingTrialEnding": "The trial of the {plan} plan ends {date}. We will take the first payment after that date.",
     "billingGraceEnding": "The payment for the {plan} plan failed. Nothing changes until {date}, after that the account becomes read-only.",
     "unknown": "New notification",
-    "farmsHerdReview": "{count, plural, one {# animal} other {# animals}} in {farm} are waiting for you to look at them."
+    "farmsHerdReview": "{count, plural, one {# animal} other {# animals}} in {farm} are waiting for you to look at them.",
+    "farmsHealthCorrected": "{company} corrected the animal records at {farm}: {reason}"
   },
   "Credits": {
     "eyebrow": "Subscription",
@@ -2686,7 +2687,12 @@
     "saved": "Saved: {tag}.",
     "withdrawal": "Withdrawal: {parts}",
     "withdrawalMilk": "milk until {until}",
-    "withdrawalMeat": "meat until {until}"
+    "withdrawalMeat": "meat until {until}",
+    "entryRetracted": "Superseded on {date}",
+    "entryCorrection": "Correction",
+    "entryAddition": "Addition",
+    "correctionReason": "Reason: {reason}",
+    "correctionReasonBy": "Reason: {reason} · {name}"
   },
   "MediaCrop": {
     "title": "Crop the photo",

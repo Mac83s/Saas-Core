@@ -2276,7 +2276,8 @@
     "billingTrialEnding": "Okres próbny planu {plan} kończy się {date}. Po tej dacie pobierzemy pierwszą opłatę.",
     "billingGraceEnding": "Płatność za plan {plan} nie przeszła. Do {date} nic się nie zmienia, potem konto przejdzie w tryb tylko do odczytu.",
     "unknown": "Nowe powiadomienie",
-    "farmsHerdReview": "{count, plural, one {# sztuka} few {# sztuki} many {# sztuk} other {# sztuk}} w gospodarstwie {farm} czeka na Twoje przejrzenie."
+    "farmsHerdReview": "{count, plural, one {# sztuka} few {# sztuki} many {# sztuk} other {# sztuk}} w gospodarstwie {farm} czeka na Twoje przejrzenie.",
+    "farmsHealthCorrected": "Korekta kartoteki w gospodarstwie {farm} od {company}: {reason}"
   },
   "Credits": {
     "eyebrow": "Abonament",
@@ -2686,7 +2687,12 @@
     "saved": "Zapisano: {tag}.",
     "withdrawal": "Karencja: {parts}",
     "withdrawalMilk": "mleko do {until}",
-    "withdrawalMeat": "mięso do {until}"
+    "withdrawalMeat": "mięso do {until}",
+    "entryRetracted": "Nieaktualny od {date}",
+    "entryCorrection": "Korekta",
+    "entryAddition": "Uzupełnienie",
+    "correctionReason": "Powód: {reason}",
+    "correctionReasonBy": "Powód: {reason} · {name}"
   },
   "MediaCrop": {
     "title": "Kadr zdjęcia",
