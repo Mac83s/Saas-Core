@@ -353,9 +353,13 @@ def test_joining_a_visit_under_way_blocks_the_time_and_frees_the_other_visit() -
         # The visit the helper would have missed waits for somebody else.
         assert (own.needs_assignment, own.queue_reason) == (True, "joined")
         # The helper finds the visit they joined among their own; the one they
-        # left keeps their name as its lead until the office staffs it.
+        # left only keeps their name as its lead until the office staffs it.
         mine = Appointment.all_objects.filter(crew_member_filter(colleague.id)).distinct()
-        assert set(mine.values_list("id", flat=True)) == {running.id, own.id}
+        assert set(mine.values_list("id", flat=True)) == {running.id}
+        assert [item.id for item in list_appointments(staff_id=second.id)] == [running.id]
+    with tenant(colleague):
+        assert [item.id for item in list_appointments(mine=True)] == [running.id]
+    with tenant(owner):
         assert leave_visit_crew(appointment_id=running.id, staff_id=second.id)
         assert not leave_visit_crew(appointment_id=running.id, staff_id=first.id)
         running.refresh_from_db()

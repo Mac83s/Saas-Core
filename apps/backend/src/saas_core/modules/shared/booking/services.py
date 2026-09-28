@@ -310,10 +310,11 @@ def _on_visit(
     allocated: Q, *, staff_id: UUID | None = None, membership_id: UUID | None = None
 ) -> Q:
     """On the visit: its lead, somebody with its time blocked, or — once it is
-    called off and nobody's time is — somebody who had it."""
+    called off and nobody's time is — somebody who had it. A lead taken off a
+    visit that now waits for somebody else is not on it: only their name is."""
     lead = Q(staff_id=staff_id) if staff_id else Q(staff__membership_id=membership_id)
     return (
-        lead
+        (lead & Q(needs_assignment=False))
         | (allocated & Q(staff_allocations__active=True))
         | (allocated & Q(status=AppointmentStatus.CANCELED))
     )

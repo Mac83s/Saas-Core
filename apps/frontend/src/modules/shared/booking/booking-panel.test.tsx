@@ -815,6 +815,23 @@ test("a visit's crew shows on its card and in its details, and the office staffs
   );
 });
 
+test("a lead taken off a visit that waits for somebody else is not on it any more", async () => {
+  api.listBookingAppointments.mockResolvedValue([
+    {
+      ...appointment,
+      needs_assignment: true,
+      queue_reason: "time_off",
+      crew: [],
+    },
+  ]);
+  renderCalendar();
+  await screen.findByRole("button", { name: /Jan Kowalski/ });
+  fireEvent.change(screen.getByLabelText("Staff member"), {
+    target: { value: ALEX },
+  });
+  expect(screen.queryByRole("button", { name: /Jan Kowalski/ })).toBeNull();
+});
+
 test("a visit for two is free only when both are, and books the crew named", async () => {
   const pair = {
     ...catalog.services[0],

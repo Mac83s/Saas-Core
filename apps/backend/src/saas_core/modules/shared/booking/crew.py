@@ -248,10 +248,14 @@ def crew_people(appointment: Appointment) -> list[CrewPerson]:
 
 def crew_member_filter(membership_id: UUID | None, *, through: str = "") -> Q:
     """Rows whose visit has this account on it: as the lead, or with its time
-    blocked (ADR-058 §2). `through` is the path to the appointment, e.g.
-    ``"appointment__"``; a join through allocations may repeat rows, so the
-    caller takes `.distinct()`."""
-    return Q(**{f"{through}staff__membership_id": membership_id}) | Q(**{
+    blocked (ADR-058 §2). A lead taken off a visit that waits for somebody else
+    keeps only their name on it, so a vacancy counts the blocked time alone.
+    `through` is the path to the appointment, e.g. ``"appointment__"``; a join
+    through allocations may repeat rows, so the caller takes `.distinct()`."""
+    return Q(**{
+        f"{through}staff__membership_id": membership_id,
+        f"{through}needs_assignment": False,
+    }) | Q(**{
         f"{through}staff_allocations__active": True,
         f"{through}staff_allocations__staff__membership_id": membership_id,
     })

@@ -67,8 +67,10 @@ const focusRing =
   "outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
 
 /** On the visit as the server counts it for „Moje wizyty”: lead or crew. */
+// A lead taken off a visit that waits for somebody else only leaves their
+// name on it (ADR-058 §2).
 const onVisit = (item: BookingAppointment, staffId: string) =>
-  item.staff_id === staffId ||
+  (item.staff_id === staffId && !item.needs_assignment) ||
   item.crew.some((person) => person.staff_id === staffId);
 
 /** The lead and how many more: a card has room for one name. */
