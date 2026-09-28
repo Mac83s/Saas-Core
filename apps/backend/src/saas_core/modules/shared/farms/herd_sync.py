@@ -21,14 +21,17 @@ What makes this a door rather than a hole:
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
 from datetime import date, datetime
 from typing import Any
 from uuid import UUID
 
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db import DatabaseError, transaction
-from django.db.models import Q
+from django.db.models import Max, Q
 from django.http import HttpRequest
 from django.utils import timezone
 from rest_framework.exceptions import NotFound
@@ -39,9 +42,14 @@ from saas_core.modules.core.organizations.context import (
     require_tenant_context,
     set_local_organization_id,
 )
-from saas_core.modules.core.organizations.models import OrganizationAuditAction
+from saas_core.modules.core.organizations.models import (
+    Membership,
+    MembershipStatus,
+    OrganizationAuditAction,
+)
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 from saas_core.modules.shared.media.api import MEDIA_READ, read_media_preview
+from saas_core.modules.shared.notifications.api import notify_in_app
 
 from .models import (
     Animal,
@@ -255,6 +263,81 @@ def _diverges(existing: Animal | None, values: dict[str, Any]) -> bool:
     return any(getattr(existing, field) != value for field, value in values.items())
 
 
+#: What makes two revisions the same entry. A correction that says nothing new
+#: writes nothing: a card saved twice, or a retry, leaves one revision.
+_CONTENT = (
+    "kind",
+    "occurred_on",
+    "author_name",
+    "author_organization_id",
+    "author_organization_name",
+    "summary",
+    "details",
+    "photos",
+    "withdrawal_milk_until",
+    "withdrawal_meat_until",
+)
+
+#: The keeper's inbox learns about a correction of what a company published.
+CORRECTION_NOTIFICATION = "farms.health_corrected"
+
+
+def _same(entry: AnimalHealthEntry, values: dict[str, Any]) -> bool:
+    """Field by field: dates and moments compare as values (a moment in Warsaw
+    time is the same moment in UTC), JSON as the database hands it back."""
+    for field in _CONTENT:
+        ours, theirs = getattr(entry, field), values[field]
+        if field in ("details", "photos"):
+            theirs = json.loads(json.dumps(theirs, cls=DjangoJSONEncoder))
+        if ours != theirs:
+            return False
+    return True
+
+
+def _write_revision(
+    *,
+    organization_id: UUID,
+    animal: Animal,
+    source: str,
+    reference: str,
+    values: dict[str, Any],
+    correction: str,
+    corrected_by: str,
+    require_current: bool,
+) -> tuple[AnimalHealthEntry | None, bool]:
+    """The entry in force for (source, reference), and whether this wrote it.
+
+    An entry is never rewritten nor deleted (decision of 28.09). Without a
+    correction an existing entry stays as it is — a replay, or a second close
+    of a visit, cannot change what the reader already has. With one, a
+    different content becomes the next revision pointing at the entry it
+    replaces, and that one is marked retracted, not removed.
+    """
+    lineage = AnimalHealthEntry.all_objects.filter(
+        organization_id=organization_id, animal=animal, source=source, source_reference=reference
+    )
+    current = lineage.filter(retracted_at__isnull=True).select_for_update().first()
+    if current is None and require_current:
+        return None, False
+    if current is not None and (not correction or _same(current, values)):
+        return current, False
+    latest = lineage.aggregate(latest=Max("revision"))["latest"]
+    if current is not None:
+        lineage.filter(pk=current.pk).update(retracted_at=timezone.now())
+    entry = AnimalHealthEntry.all_objects.create(
+        organization_id=organization_id,
+        animal=animal,
+        source=source,
+        source_reference=reference,
+        revision=0 if latest is None else latest + 1,
+        corrects=current,
+        correction_reason=correction,
+        corrected_by=corrected_by if correction else "",
+        **values,
+    )
+    return entry, True
+
+
 def publish_health_entry(
     *,
     animal: Animal,
@@ -268,14 +351,20 @@ def publish_health_entry(
     photos: list[str] | None = None,
     withdrawal_milk_until: datetime | None = None,
     withdrawal_meat_until: datetime | None = None,
+    correction: str = "",
+    corrected_by: str = "",
+    require_current: bool = False,
 ) -> AnimalHealthEntry | None:
     """One entry in the farmer's register about an animal (ADR-051 pt 8).
 
     Called by a vertical while the company's context is active; the animal is
     the company's own, and its counterpart in the register is found by tag.
     The entry names its author and its day, so it is its own audit trail.
-    Publishing the same source reference twice rewrites the one row, so a
-    corrected visit corrects the history instead of doubling it.
+
+    Publishing again changes nothing the keeper already has. A `correction`
+    (the reason, as the keeper reads it) publishes the next revision instead
+    and tells the keeper's people; `require_current` corrects only what the
+    register holds — a withdrawal of something never published says nothing.
     """
     share = share_for_publishing(animal.organization_id, animal.farm_id)
     if share is None:
@@ -286,12 +375,12 @@ def publish_health_entry(
             # The register does not know this cow; the herd write is what puts
             # it there, and without it there is nothing to hang a history on.
             return None
-        entry, _ = AnimalHealthEntry.all_objects.update_or_create(
+        entry, written = _write_revision(
             organization_id=context.organization_id,
             animal=mirrored,
             source=source,
-            source_reference=reference,
-            defaults={
+            reference=reference,
+            values={
                 "kind": kind,
                 "occurred_on": occurred_on,
                 "author_name": author_name or share.company_name,
@@ -303,30 +392,40 @@ def publish_health_entry(
                 "withdrawal_milk_until": withdrawal_milk_until,
                 "withdrawal_meat_until": withdrawal_meat_until,
             },
+            correction=correction,
+            corrected_by=corrected_by,
+            require_current=require_current,
         )
+        if written and correction:
+            _tell_the_keeper(context.organization_id, share, mirrored, correction)
         return entry
 
 
-def unpublish_health_entry(*, animal: Animal, source: str, reference: str) -> None:
-    """Takes back what `publish_health_entry` wrote: an entry its author undid.
-
-    Same gate as publishing — the share with the keeper's consent; without it
-    there is nothing of the company's in the register to take back.
-    """
-    share = share_for_publishing(animal.organization_id, animal.farm_id)
-    if share is None:
-        return
-    with transaction.atomic(), registry_door(share) as context:
-        mirrored = _registry_animal(context, share, animal)
-        if mirrored is None:
-            return
-        AnimalHealthEntry.all_objects.filter(
-            organization_id=context.organization_id,
-            animal=mirrored,
-            source=source,
-            source_reference=reference,
-            author_organization_id=share.company_organization_id,
-        ).delete()
+def _tell_the_keeper(
+    organization_id: UUID, share: FarmShare, animal: Animal, correction: str
+) -> None:
+    """One message per farm, day and reason: a visit corrected on ten cows is
+    one thing to read, not ten (decision 2A of 28.09)."""
+    digest = hashlib.sha256(correction.encode()).hexdigest()[:12]
+    key = f"farms-health-corrected:{animal.farm_id}:{timezone.localdate().isoformat()}:{digest}"
+    payload = {
+        "farm_id": str(animal.farm_id),
+        "farm_name": animal.farm.name,
+        "company_name": share.company_name,
+        "national_id": animal.national_id,
+        "reason": correction,
+    }
+    for membership in Membership.objects.select_related("role").filter(
+        organization_id=organization_id, status=MembershipStatus.ACTIVE
+    ):
+        if FARMS_MANAGE in (membership.role.permissions or []):
+            notify_in_app(
+                organization_id=organization_id,
+                user_id=membership.user_id,
+                kind=CORRECTION_NOTIFICATION,
+                payload=payload,
+                idempotency_key=key,
+            )
 
 
 def record_own_health_entry(
@@ -341,23 +440,26 @@ def record_own_health_entry(
     details: dict[str, Any] | None = None,
     withdrawal_milk_until: datetime | None = None,
     withdrawal_meat_until: datetime | None = None,
-) -> AnimalHealthEntry:
+    correction: str = "",
+    corrected_by: str = "",
+) -> AnimalHealthEntry | None:
     """The same kind of entry on the company's own card of the animal.
 
     What a company did to an animal belongs on its own card too, shared farm
-    or not — a medicine and its withdrawal most of all. Same key as
-    publishing, so writing again rewrites the one row; on a shared card the
-    register's copy of it is not shown a second time (`list_health_entries`).
+    or not — a medicine and its withdrawal most of all. Same key and the same
+    rule as publishing: writing again changes nothing, a correction writes the
+    next revision. On a shared card the register's copy of a revision is not
+    shown a second time (`list_health_entries`).
     """
     from saas_core.modules.core.organizations.models import Organization  # noqa: PLC0415
 
     organization = Organization.objects.get(pk=animal.organization_id)
-    entry, _ = AnimalHealthEntry.all_objects.update_or_create(
+    entry, _ = _write_revision(
         organization_id=animal.organization_id,
         animal=animal,
         source=source,
-        source_reference=reference,
-        defaults={
+        reference=reference,
+        values={
             "kind": kind,
             "occurred_on": occurred_on,
             "author_name": author_name or organization.name,
@@ -365,21 +467,27 @@ def record_own_health_entry(
             "author_organization_name": organization.name,
             "summary": summary,
             "details": details or {},
+            "photos": [],
             "withdrawal_milk_until": withdrawal_milk_until,
             "withdrawal_meat_until": withdrawal_meat_until,
         },
+        correction=correction,
+        corrected_by=corrected_by,
+        require_current=False,
     )
     return entry
 
 
-def drop_own_health_entry(*, animal: Animal, source: str, reference: str) -> None:
-    """An entry the company takes back (an undone record) leaves its own card."""
+def retract_own_health_entry(*, animal: Animal, source: str, reference: str) -> None:
+    """An entry the company took back (an undone record) stays on its own card,
+    marked retracted: it no longer counts, a withdrawal period included."""
     AnimalHealthEntry.all_objects.filter(
         organization_id=animal.organization_id,
         animal=animal,
         source=source,
         source_reference=reference,
-    ).delete()
+        retracted_at__isnull=True,
+    ).update(retracted_at=timezone.now())
 
 
 def read_entry_photo(*, entry_id: UUID, media_id: UUID) -> bytes:

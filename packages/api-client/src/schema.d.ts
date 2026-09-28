@@ -3502,6 +3502,13 @@ export interface components {
             withdrawal_meat_until: string | null;
             /** Format: date-time */
             published_at: string;
+            revision: number;
+            /** Format: uuid */
+            corrects_id: string | null;
+            correction_reason: string;
+            corrected_by: string;
+            /** Format: date-time */
+            retracted_at: string | null;
         };
         /** @description An entry written here by hand. `source` belongs to the server. */
         AnimalHealthInput: {

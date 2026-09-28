@@ -13,12 +13,11 @@ from django.db.models import QuerySet
 from django.http import HttpRequest
 
 from .herd_sync import (
-    drop_own_health_entry,
     list_farm_visits,
     publish_farm_visit,
     publish_health_entry,
     record_own_health_entry,
-    unpublish_health_entry,
+    retract_own_health_entry,
 )
 from .models import (
     Animal,
@@ -100,7 +99,6 @@ __all__ = [
     "HealthEntryKind",
     "Farm",
     "animal_for_tenant",
-    "drop_own_health_entry",
     "farm_animals",
     "farm_for_tenant",
     "normalize_identifier",
@@ -111,5 +109,5 @@ __all__ = [
     "publish_health_entry",
     "record_own_health_entry",
     "resolve_animal",
-    "unpublish_health_entry",
+    "retract_own_health_entry",
 ]

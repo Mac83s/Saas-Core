@@ -553,20 +553,31 @@ def test_a_company_publishes_the_animals_history_into_the_farmers_register() -> 
             details={"limbs": ["LH"], "lesions": ["DD"]},
         )
         assert published is not None
-        # The same visit published again corrects the entry instead of adding one.
-        publish_health_entry(
-            animal=cow,
-            occurred_on=date(2026, 9, 20),
-            source="hoofcare.visit",
-            reference="visit-1",
-            summary="Korekcja: DD M2 na LH, kontrola za 21 dni.",
-        )
+        later = {
+            "animal": cow,
+            "occurred_on": date(2026, 9, 20),
+            "source": "hoofcare.visit",
+            "reference": "visit-1",
+            "summary": "Korekcja: DD M2 na LH, kontrola za 21 dni.",
+        }
+        # Published again, the visit changes nothing the keeper already has
+        # (decision of 28.09) — a change is a correction, the next revision.
+        publish_health_entry(**later)
+        publish_health_entry(**later, correction="Kontrola przesunięta", corrected_by="Anna Biuro")
 
     with tenant(farmer):
-        (entry,) = list_health_entries(animal_id=registry_animal.id)
+        entries = list_health_entries(animal_id=registry_animal.id)
+        (entry,) = [item for item in entries if item.retracted_at is None]
         assert entry.summary.endswith("kontrola za 21 dni.")
         assert entry.author_name == "firma-historia"
         assert entry.details == {}
+        assert (entry.correction_reason, entry.corrected_by) == (
+            "Kontrola przesunięta",
+            "Anna Biuro",
+        )
+        (replaced,) = [item for item in entries if item.retracted_at is not None]
+        assert replaced.summary.endswith("kontrola za 14 dni.")
+        assert entry.corrects_id == replaced.id
 
     with tenant(farmer) as request:
         revoke_share(request=request, share_id=share.id)
@@ -582,7 +593,7 @@ def test_a_company_publishes_the_animals_history_into_the_farmers_register() -> 
             is None
         )
     with tenant(farmer):
-        assert len(list_health_entries(animal_id=registry_animal.id)) == 1
+        assert len(list_health_entries(animal_id=registry_animal.id)) == 2
 
 
 def test_the_animals_file_is_a_feed_of_kinds_with_its_own_notes() -> None:
@@ -728,11 +739,10 @@ def test_a_medicine_keeps_the_cow_in_withdrawal_on_both_cards_until_it_runs_out(
     from django.utils import timezone  # noqa: PLC0415
 
     from saas_core.modules.shared.farms.api import (  # noqa: PLC0415
-        drop_own_health_entry,
         farm_animals,
         publish_health_entry,
         record_own_health_entry,
-        unpublish_health_entry,
+        retract_own_health_entry,
     )
     from saas_core.modules.shared.farms.models import (  # noqa: PLC0415
         AnimalHealthEntry,
@@ -748,6 +758,7 @@ def test_a_medicine_keeps_the_cow_in_withdrawal_on_both_cards_until_it_runs_out(
         issue_activation_code,
         redeem_activation_code,
     )
+    from saas_core.modules.shared.notifications.models import AppNotification  # noqa: PLC0415
 
     company = membership("firma-karencja")
     farmer = membership("rolnik-karencja")
@@ -790,21 +801,117 @@ def test_a_medicine_keeps_the_cow_in_withdrawal_on_both_cards_until_it_runs_out(
         assert (keeper_cow.withdrawal_milk_until, keeper_cow.withdrawal_meat_until) == (milk, meat)
 
     with tenant(company):
-        # Over: milk ran out, meat still runs.
-        AnimalHealthEntry.all_objects.filter(
-            organization_id=company.organization_id, source=medicine["source"]
-        ).update(withdrawal_milk_until=now - timedelta(hours=1))
+        # A correction shortens the milk withdrawal (decision 2A of 28.09): the
+        # next revision counts, the first one stays in the history, retracted.
+        reason = "Karencja mleka według ulotki"
+        shorter = {**medicine, "withdrawal_milk_until": now - timedelta(hours=1)}
+        record_own_health_entry(**shorter, correction=reason, corrected_by="Beata Biurowa")
+        publish_health_entry(**shorter, correction=reason, corrected_by="Beata Biurowa")
         (listed,) = list_animals()
         assert (listed.withdrawal_milk_until, listed.withdrawal_meat_until) == (None, meat)
-        # An undone record leaves the company's card, and the register.
-        drop_own_health_entry(animal=cow, source=medicine["source"], reference="wpis-1")
-        assert not AnimalHealthEntry.all_objects.filter(
+        own = AnimalHealthEntry.all_objects.filter(
             organization_id=company.organization_id, source=medicine["source"]
-        ).exists()
-        unpublish_health_entry(animal=cow, source=medicine["source"], reference="wpis-1")
+        ).order_by("revision")
+        assert [(entry.revision, entry.retracted_at is not None) for entry in own] == [
+            (0, True),
+            (1, False),
+        ]
+        assert own[1].corrects_id == own[0].id
+        # The same correction again, or a plain publish, writes nothing new.
+        record_own_health_entry(**shorter, correction=reason, corrected_by="Beata Biurowa")
+        publish_health_entry(**medicine)
+        assert own.count() == 2
+        # An undone record stays on the company's card, retracted: nothing
+        # there holds the cow any more.
+        retract_own_health_entry(animal=cow, source=medicine["source"], reference="wpis-1")
+        (listed,) = list_animals()
+        assert (listed.withdrawal_milk_until, listed.withdrawal_meat_until) == (None, None)
+        assert own.count() == 2
+    with tenant(farmer):
+        (keeper_cow,) = list_animals()
+        assert (keeper_cow.withdrawal_milk_until, keeper_cow.withdrawal_meat_until) == (None, meat)
+        history = list_health_entries(animal_id=registry_cow.id)
+        assert sorted((e.revision, e.retracted_at is not None) for e in history) == [
+            (0, True),
+            (1, False),
+        ]
+        corrected = next(e for e in history if e.revision == 1)
+        assert (corrected.correction_reason, corrected.corrected_by) == (reason, "Beata Biurowa")
+        # The keeper's people are told, once for the farm, the day and the reason.
+        notices = AppNotification.all_objects.filter(
+            organization_id=farmer.organization_id, kind="farms.health_corrected"
+        )
+        assert notices.count() == 1
+        assert notices.get().payload["reason"] == reason
+
+    with tenant(company):
+        # A withdrawal of the medicine: the register keeps both, the cow is free.
+        withdrawn = {
+            **medicine,
+            "summary": "Wycofano: Oksytetracyklina — pomyłka krowy.",
+            "withdrawal_milk_until": None,
+            "withdrawal_meat_until": None,
+        }
+        publish_health_entry(
+            **withdrawn,
+            correction="Pomyłka krowy",
+            corrected_by="Beata Biurowa",
+            require_current=True,
+        )
+        # Nothing to correct where nothing was published.
+        assert (
+            publish_health_entry(
+                **{**withdrawn, "reference": "nigdy-nie-bylo"},
+                correction="Pomyłka krowy",
+                require_current=True,
+            )
+            is None
+        )
     with tenant(farmer):
         (keeper_cow,) = list_animals()
         assert keeper_cow.withdrawal_meat_until is None
+        assert AnimalHealthEntry.all_objects.filter(
+            organization_id=farmer.organization_id, source=medicine["source"]
+        ).count() == 3
+
+
+def test_a_written_health_entry_is_neither_rewritten_nor_deleted() -> None:
+    """Decyzja z 28.09: po zapisie wolno tylko oznaczyć wpis jako wycofany;
+    pilnuje tego baza, nie tylko kod — kasuje wyłącznie usunięcie organizacji."""
+    from datetime import date  # noqa: PLC0415
+
+    from django.db import DatabaseError, transaction  # noqa: PLC0415
+    from django.utils import timezone  # noqa: PLC0415
+
+    from saas_core.modules.shared.farms.api import record_own_health_entry  # noqa: PLC0415
+    from saas_core.modules.shared.farms.models import AnimalHealthEntry  # noqa: PLC0415
+    from saas_core.modules.shared.farms.services import (  # noqa: PLC0415
+        create_animal,
+        create_farm,
+    )
+
+    company = membership("firma-bez-nadpisywania")
+    with tenant(company) as request:
+        card = create_farm(request=request, data={"name": "Gospodarstwo Stałe"})
+        cow = create_animal(
+            request=request, farm_id=card.id, data={"national_id": "PL005432155001"}
+        )
+        record_own_health_entry(
+            animal=cow,
+            occurred_on=date.today(),
+            source="hoofcare.medication",
+            reference="wpis-stały",
+            summary="Podano: lek.",
+        )
+        rows = AnimalHealthEntry.all_objects.filter(organization_id=company.organization_id)
+        with pytest.raises(DatabaseError), transaction.atomic():
+            rows.update(summary="Podano: coś innego.")
+        with pytest.raises(DatabaseError), transaction.atomic():
+            rows.delete()
+        rows.update(retracted_at=timezone.now())
+        with pytest.raises(DatabaseError), transaction.atomic():
+            rows.update(retracted_at=None)
+        assert rows.get().summary == "Podano: lek."
 
 
 def test_what_a_company_writes_waits_for_the_keeper_to_look_at_it() -> None:

@@ -222,16 +222,18 @@ def list_animals(
 
 def with_withdrawal(query: QuerySet[Animal]) -> QuerySet[Animal]:
     """Until when each animal is in withdrawal, milk and meat, from its entries
-    that still run; None when none does."""
+    that still run; None when none does. A retracted entry no longer counts: a
+    medicine recorded on the wrong cow does not hold that cow (decision of 28.09)."""
     now = timezone.now()
+    in_force = Q(health_entries__retracted_at__isnull=True)
     return query.annotate(
         withdrawal_milk_until=Max(
             "health_entries__withdrawal_milk_until",
-            filter=Q(health_entries__withdrawal_milk_until__gt=now),
+            filter=in_force & Q(health_entries__withdrawal_milk_until__gt=now),
         ),
         withdrawal_meat_until=Max(
             "health_entries__withdrawal_meat_until",
-            filter=Q(health_entries__withdrawal_meat_until__gt=now),
+            filter=in_force & Q(health_entries__withdrawal_meat_until__gt=now),
         ),
     )
 
@@ -275,9 +277,11 @@ def list_health_entries(
     # door lives one layer above these use cases.
     from .herd_sync import registry_health_entries  # noqa: PLC0415
 
-    # What this company wrote on its own card and also published is one entry.
+    # What this company wrote on its own card and also published is one entry
+    # — per revision: a correction the register holds and the card does not
+    # (a withdrawal published after the visit) still shows.
     own = {
-        (entry.source, entry.source_reference)
+        (entry.source, entry.source_reference, entry.revision)
         for entry in entries
         if entry.author_organization_id == context.organization_id
     }
@@ -286,7 +290,7 @@ def list_health_entries(
         for entry in registry_health_entries(animal_id)
         if not (
             entry.author_organization_id == context.organization_id
-            and (entry.source, entry.source_reference) in own
+            and (entry.source, entry.source_reference, entry.revision) in own
         )
         and _matches(entry, kinds=kinds, author=author, since=since, until=until, context=context)
     )

@@ -171,15 +171,40 @@ class AnimalHealthEntry(TenantScopedModel):
     withdrawal_milk_until = models.DateTimeField(null=True, blank=True)
     withdrawal_meat_until = models.DateTimeField(null=True, blank=True)
     published_at = models.DateTimeField(auto_now=True)
+    #: An entry is never rewritten once written (decision of 28.09): a correction
+    #: is the next revision of the same (source, reference), pointing at the one
+    #: it replaces, which stays in the history marked `retracted_at`.
+    revision = models.PositiveSmallIntegerField(default=0)
+    corrects = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.RESTRICT,
+        related_name="corrections",
+    )
+    #: Why this revision exists, as the keeper reads it; empty for the first.
+    correction_reason = models.CharField(max_length=240, blank=True)
+    #: Who corrected it, as the keeper would name them — not always the author.
+    corrected_by = models.CharField(max_length=160, blank=True)
+    #: Set once, when a later revision replaces this one. Only the entries that
+    #: are not retracted count, a withdrawal period included.
+    retracted_at = models.DateTimeField(null=True, blank=True)
     all_objects = models.Manager()
 
     class Meta:
         ordering = ("organization_id", "-occurred_on", "-published_at")
         constraints = [
             models.UniqueConstraint(
+                fields=["organization", "animal", "source", "source_reference", "revision"],
+                name="farms_health_revision_uq",
+            ),
+            # One revision in force per entry: two writers correcting the same
+            # entry at once collide here instead of both staying current.
+            models.UniqueConstraint(
                 fields=["organization", "animal", "source", "source_reference"],
-                name="farms_health_source_uq",
-            )
+                condition=models.Q(retracted_at__isnull=True),
+                name="farms_health_current_uq",
+            ),
         ]
         indexes = [
             models.Index(fields=["organization", "animal"], name="farms_health_animal_idx"),

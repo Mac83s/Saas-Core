@@ -124,6 +124,13 @@ class AnimalHealthEntrySerializer(serializers.Serializer[Any]):
     withdrawal_milk_until = serializers.DateTimeField(allow_null=True)
     withdrawal_meat_until = serializers.DateTimeField(allow_null=True)
     published_at = serializers.DateTimeField()
+    #: Corrections (decision of 28.09): the entry this revision replaces, why and
+    #: by whom; a replaced entry stays in the history with `retracted_at`.
+    revision = serializers.IntegerField()
+    corrects_id = serializers.UUIDField(allow_null=True)
+    correction_reason = serializers.CharField()
+    corrected_by = serializers.CharField()
+    retracted_at = serializers.DateTimeField(allow_null=True)
 
 
 class AnimalHealthInputSerializer(serializers.Serializer[Any]):

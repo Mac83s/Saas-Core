@@ -10453,10 +10453,29 @@ components:
         published_at:
           type: string
           format: date-time
+        revision:
+          type: integer
+        corrects_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        correction_reason:
+          type: string
+        corrected_by:
+          type: string
+        retracted_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
       required:
       - animal_id
       - author_name
       - author_organization_name
+      - corrected_by
+      - correction_reason
+      - corrects_id
       - details
       - id
       - kind
@@ -10464,6 +10483,8 @@ components:
       - photos
       - private
       - published_at
+      - retracted_at
+      - revision
       - source
       - source_reference
       - summary
