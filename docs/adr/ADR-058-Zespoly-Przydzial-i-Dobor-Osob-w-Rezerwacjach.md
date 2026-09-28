@@ -209,6 +209,43 @@ odpowiedzi właściciela z 26.09 są w planie memex i w decyzji
   `staff_has_upcoming_appointments`), dopóki osoba prowadzi zaplanowane
   wizyty; w fazie 3 zamieni się to w wakat.
 
+## Ustalenia fazy 3 (28.09.2026)
+
+Faza 3 (zespoły, wiele osób na wizycie, przydział, formularz „Do kogo?”)
+doprecyzowała §1–§3, §5, §8 i §9; odpowiedzi właściciela 1A–4A z 28.09 są w
+planie memex i w decyzji `zespo-faza-3-uwagi-klienta-zawsze-zmiana-osoby-z`.
+
+- §2: skład wizyty zmienia **wyłącznie** `crew.set_crew` — tworzenie, przydział
+  biura, przełożenie, nieobecność, odejście, dołączenie i opuszczenie wizyty w
+  produkcie. Niezmiennik: prowadzący (`Appointment.staff`, NOT NULL) ma
+  aktywną alokację albo wizyta jest wakatem (`needs_assignment`). Wizyta
+  zapamiętuje `staff_required` z chwili rezerwacji; każda zmiana podbija
+  `crew_version`, a przydział biura podaje wersję, którą widział (409
+  `crew_changed` z nazwiskiem osoby, która zmieniła skład).
+- §3: „Dobrano automatycznie” tylko, gdy system miał wybór, a osób nie
+  wskazał nikt z firmy; takie wizyty i wakaty czekają w „Do przydzielenia”
+  z powodem (strona, przełożenie przez klienta, nieobecność, odejście, za mało
+  osób, dołączenie do innej wizyty) i czasem. Nieobecność i „Usuń z firmy”
+  zdejmują osobę z wizyt — reszta składu zachowuje swój czas.
+- Produkt dokłada osoby przez `booking.api`: `join_visit_crew` (dołączenie do
+  trwającej wizyty blokuje czas od chwili dołączenia do końca wizyty, a
+  kolidująca wizyta tej osoby traci ją i czeka jako wakat — odpowiedź 3A),
+  `leave_visit_crew`, `crew_people`, `crew_member_filter`, `on_crew`.
+- §5: terminy — w panelu i na stronie — liczą `Service.staff_count` osób naraz;
+  wybrany zespół albo osoba zawężają, kogo liczyć.
+- §1, §8: „Pokazuj klientom” tworzy profil osoby w `profiles` (przez jego
+  `api.py`) z nazwą dla klientów; wyłączenie go usuwa. Klient widzi zespół,
+  który wybrał, albo „Przyjmie Cię” (prowadzący z profilem) — nigdy listy
+  pracowników. Zmiana osoby, którą klient wybrał albo widział, wysyła mu krótki
+  e-mail bez nazwisk (2A).
+- Uwagi klienta (`Appointment.customer_notes`, 1A) są we wszystkich produktach,
+  widzi je tylko panel przy wizycie; nie trafiają do e-maili, logów ani
+  historii zmian, a anonimizacja klienta je czyści.
+- §9: strony przydziału („Do przydzielenia”, „Zespoły”) pokazują się, gdy
+  wizyty przyjmują co najmniej dwie osoby albo coś czeka / zespół istnieje —
+  liczone z danych, nie z nazwy produktu. Ustawienia › Usługi i grafik
+  edytują usługi, miejsca i zasoby; osoby i ich godziny są w Zespół.
+
 ## Wdrożenie
 
 Fazy żyją w planie memex. Faza 1 (bez widocznych zmian): §4, §5, §6, §7 i §8
