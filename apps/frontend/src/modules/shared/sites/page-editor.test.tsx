@@ -1006,6 +1006,124 @@ test("the contextual library inserts between sections and undo restores the orig
   );
 });
 
+test("the canvas's + inserts above the first section and at the end, each one undo step", async () => {
+  renderEditor(
+    "pl",
+    polishMessages,
+    vi.fn().mockResolvedValue(undefined),
+    true,
+  );
+  await screen.findByLabelText("Nagłówek");
+  const studio = polishMessages.Sites.studio;
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: studio.insertBefore.replace("{number}", "1"),
+    }),
+  );
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Dodaj: Karty usług" }),
+  );
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  fireEvent.click(screen.getByRole("button", { name: studio.insertAtEnd }));
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Dodaj: Klasyczne FAQ",
+    }),
+  );
+  const sections = () =>
+    screen
+      .getAllByRole("button", { name: /Edytuj sekcję/ })
+      .map((button) => button.getAttribute("aria-label"));
+  await waitFor(() => expect(sections()).toHaveLength(3));
+  expect(sections()[0]).toMatch(/^Edytuj sekcję 1: Oferta/);
+  expect(sections()[1]).toMatch(/^Edytuj sekcję 2: Hero/);
+  expect(sections()[2]).toMatch(/^Edytuj sekcję 3: FAQ/);
+  fireEvent.click(screen.getByRole("button", { name: studio.undo }));
+  expect(sections()).toHaveLength(2);
+  fireEvent.click(screen.getByRole("button", { name: studio.undo }));
+  expect(sections()).toEqual([expect.stringMatching(/^Edytuj sekcję 1: Hero/)]);
+});
+
+test("„Zmień zdjęcie” on the canvas opens the inspector at the section's photo", async () => {
+  const photo = "019ff20d-a000-7000-8000-0000000000d1";
+  listMediaAssets.mockResolvedValue({
+    items: [
+      {
+        id: photo,
+        original_filename: "pracownia.jpg",
+        declared_mime: "image/jpeg",
+        expected_size: 10,
+        actual_size: 10,
+        state: "ready",
+        ai_origin: "",
+        upload_expires_at: "2026-09-24T12:00:00Z",
+        created_at: "2026-09-24T12:00:00Z",
+      },
+    ],
+    next_cursor: null,
+  });
+  getPageDraft.mockResolvedValue({
+    ...draft,
+    blocks: [
+      {
+        ...draft.blocks[0],
+        schema_version: heroVersion,
+        data: {
+          title: "Oferta",
+          image: { asset_id: photo, alt: "Pracownia" },
+          layout: "split",
+        },
+      },
+    ],
+    media_asset_ids: [photo],
+  });
+  renderEditor(
+    "pl",
+    polishMessages,
+    vi.fn().mockResolvedValue(undefined),
+    true,
+  );
+  await screen.findByLabelText("Nagłówek");
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: polishMessages.Sites.studio.changeImageNamed.replace(
+        "{alt}",
+        "Pracownia",
+      ),
+    }),
+  );
+  const select = screen.getByLabelText(polishMessages.Sites.imageAsset);
+  await waitFor(() => expect(select).toHaveFocus());
+  expect(select).toHaveValue(photo);
+});
+
+test("Ctrl+Z and Ctrl+Y outside a text field are the page's undo and redo", async () => {
+  renderEditor(
+    "pl",
+    polishMessages,
+    vi.fn().mockResolvedValue(undefined),
+    true,
+  );
+  await screen.findByLabelText("Nagłówek");
+  fireEvent.click(screen.getByRole("button", { name: "Powiel sekcję" }));
+  const count = () =>
+    screen.getAllByRole("button", { name: /Edytuj sekcję/ }).length;
+  expect(count()).toBe(2);
+  const canvas = screen.getByTestId("live-canvas");
+  fireEvent.keyDown(canvas, { key: "z", ctrlKey: true });
+  expect(count()).toBe(1);
+  fireEvent.keyDown(canvas, { key: "y", ctrlKey: true });
+  expect(count()).toBe(2);
+  fireEvent.keyDown(canvas, { key: "Z", ctrlKey: true, shiftKey: true });
+  expect(count()).toBe(2);
+  // In a text field Ctrl+Z is the field's own.
+  fireEvent.keyDown(screen.getByLabelText("Nagłówek"), {
+    key: "z",
+    ctrlKey: true,
+  });
+  expect(count()).toBe(2);
+});
+
 test.each(["pl", "en"] as const)(
   "studio rail inserts after the selection and shares undo (%s)",
   async (locale) => {

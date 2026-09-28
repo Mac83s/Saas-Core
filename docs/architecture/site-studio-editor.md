@@ -40,6 +40,19 @@ bloku w bocznym panelu wstawia go za wybraną sekcją, wybiera nowy blok i
 pozostaje jednym krokiem undo. W formularzach dodawanie działa nadal na końcu.
 Nie ma osobnego modelu treści dla bocznego panelu.
 
+Na płótnie (F3-Z1, 2026-09-28) w szczelinie przed każdą sekcją i pod ostatnią
+stoi przycisk „+”: niewidoczny, dopóki szczelina nie jest wskazana albo
+przycisk nie ma fokusu (na ekranie dotykowym zawsze widoczny). Otwiera to samo
+okno biblioteki i wstawia sekcję dokładnie w tym miejscu — także nad pierwszą —
+jako jeden krok undo. Nad zdjęciem wybranej sekcji stoi „Zmień zdjęcie”:
+otwiera inspektor na polu tego zdjęcia (wybór z biblioteki mediów, wgranie z
+kadrowaniem, generator), a dla ilustracji w tekście — na edytorze tego tekstu;
+na telefonie przełącza na panel ustawień. Pole wskazuje ścieżka zdjęcia w
+danych sekcji, więc powtarzalne listy (galeria produktu) trafiają we właściwą
+pozycję. Ctrl+Z, Ctrl+Shift+Z i Ctrl+Y cofają i ponawiają zmiany strony z
+dowolnego miejsca studia; pole tekstowe zachowuje własne cofanie, a edytor
+tekstu już kieruje je do historii strony.
+
 ## Tekst w miejscu
 
 `registry.render(block, key, editor?, imageRenderer?)` przyjmuje opcjonalny adapter kodu panelu.

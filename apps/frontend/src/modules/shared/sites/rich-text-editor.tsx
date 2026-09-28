@@ -589,7 +589,11 @@ function PathEditor({
   );
 
   return (
-    <Field className="rich-text-editor" data-invalid={Boolean(error)}>
+    <Field
+      className="rich-text-editor"
+      data-field-name={name}
+      data-invalid={Boolean(error)}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         {/* The text is a contentEditable element, which a label cannot
             target: it takes its name from aria-labelledby, a click focuses

@@ -229,6 +229,109 @@
   width: 1.5rem;
   height: 1.5rem;
 }
+/* A "+" in the gap before a section: a thin line with a round button in the
+   middle, quiet until the gap is hovered or the button focused (always on a
+   touch screen). It sits over the section's top edge, so the page keeps its
+   real spacing. */
+.studio-insert {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 11;
+  display: flex;
+  justify-content: center;
+  height: 0;
+}
+.studio-insert--last {
+  position: relative;
+  height: 2.5rem;
+  align-items: center;
+}
+.studio-insert::before {
+  content: "";
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  top: 0;
+  border-top: 2px dashed #247b70;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.studio-insert--last::before {
+  top: 50%;
+}
+.studio-insert button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-top: -0.875rem;
+  border: 1px solid #b3d4cd;
+  border-radius: 999px;
+  background: #fff;
+  color: #155e55;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.studio-insert--last button {
+  margin-top: 0;
+}
+.studio-insert button svg {
+  width: 1rem;
+  height: 1rem;
+}
+.studio-section:hover > .studio-insert button,
+.studio-section:hover > .studio-insert::before,
+.studio-insert:hover button,
+.studio-insert:hover::before,
+.studio-insert:focus-within button,
+.studio-insert:focus-within::before,
+.studio-insert--last button {
+  opacity: 1;
+}
+.studio-insert button:focus-visible {
+  outline: 2px solid #247b70;
+  outline-offset: 2px;
+}
+@media (hover: none) {
+  .studio-insert button {
+    opacity: 1;
+  }
+}
+/* "Zmień zdjęcie" over a picture of the selected section. */
+.studio-media {
+  position: relative;
+  display: block;
+}
+.studio-media__change {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2rem;
+  padding: 0.25rem 0.625rem;
+  border: 1px solid #b3d4cd;
+  border-radius: 999px;
+  background: #fff;
+  color: #155e55;
+  font:
+    500 0.8125rem/1.2 system-ui,
+    sans-serif;
+  box-shadow: 0 1px 4px #0000001f;
+}
+.studio-media__change svg {
+  width: 1rem;
+  height: 1rem;
+}
+.studio-media__change:focus-visible {
+  outline: 2px solid #247b70;
+  outline-offset: 2px;
+}
 .studio-empty-page {
   display: grid;
   gap: 1rem;
@@ -317,7 +420,9 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .studio-section-handle {
+  .studio-section-handle,
+  .studio-insert::before,
+  .studio-insert button {
     transition: none;
   }
 }

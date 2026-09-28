@@ -449,6 +449,12 @@ export function BlockFields<TValues extends FieldValues>({
   );
 }
 
+/** The DOM id of a field's control in the inspector, from its form name
+ *  (`blocks.<i>.data.<path>`): the canvas opens the inspector at it. */
+export function blockFieldId(blockIndex: number, name: string): string {
+  return `block-${blockIndex}-${name.replace(/[^a-zA-Z0-9]+/g, "-")}`;
+}
+
 /** RHF addresses nested values by dot path, and the catalogue field path is
  *  exactly that path inside `data`. */
 function fieldName(pathPrefix: string, path: readonly string[]): string {
@@ -492,7 +498,7 @@ function BlockField<TValues extends FieldValues>({
 }) {
   const t = useTranslations("Sites");
   const name = fieldName(pathPrefix, field.path);
-  const id = `block-${blockIndex}-${name.replace(/[^a-zA-Z0-9]+/g, "-")}`;
+  const id = blockFieldId(blockIndex, name);
   const error = fieldErrorMessage(form, name);
   // A portrait or an author's photo claims a real person: never generated.
   const offer = useContext(PageEditorContext)?.imageGeneration;

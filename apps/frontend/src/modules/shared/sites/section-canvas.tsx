@@ -35,10 +35,12 @@ import {
   PaletteIcon,
   LayoutTemplateIcon,
   PanelRightIcon,
+  ImageIcon,
 } from "lucide-react";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
 import {
+  blockFieldId,
   blockOptions,
   blockPayload,
   registry,
@@ -78,6 +80,9 @@ export function SectionCanvas({
   blockIds,
   onMove,
   onTextChange,
+  onInsertAt,
+  onChangeImage,
+  focusField,
   disabled,
 }: {
   ref?: Ref<SectionCanvasHandle>;
@@ -88,6 +93,14 @@ export function SectionCanvas({
   onMove: (from: number, to: number) => void;
   disabled: boolean;
   onTextChange: (index: number, path: readonly string[], value: string) => void;
+  /** A "+" between sections, above the first and after the last: the page
+   *  editor opens the library for that position. */
+  onInsertAt?: (position: number) => void;
+  /** "Zmień zdjęcie" over a picture of the selected section. */
+  onChangeImage?: (index: number, assetId: string) => void;
+  /** Opens the inspector at this field (`blocks.<i>.data.<path>`); a new
+   *  `request` repeats it for the same field. */
+  focusField?: { name: string; request: number };
   selected: number;
   onSelect: (index: number) => void;
   inspector: ReactNode;
@@ -107,16 +120,49 @@ export function SectionCanvas({
   const [leftPanel, setLeftPanel] = useState<
     "outline" | "library" | "templates" | "appearance"
   >(blocks.length ? "outline" : "templates");
+  // A new inspector request (an invalid field, a photo to change) shows the
+  // inspector on a phone until the person picks another panel.
+  const focusRequest = focusField?.request ?? 0;
   const [mobileNavigationState, setMobileNavigationState] = useState<{
     panel: "left" | "canvas" | "inspector";
     request: number;
-  }>({ panel: "canvas", request: inspectorRequest });
+    focus: number;
+  }>({ panel: "canvas", request: inspectorRequest, focus: focusRequest });
   const mobilePanel =
-    mobileNavigationState.request === inspectorRequest
+    mobileNavigationState.request === inspectorRequest &&
+    mobileNavigationState.focus === focusRequest
       ? mobileNavigationState.panel
       : "inspector";
   const setMobilePanel = (panel: "left" | "canvas" | "inspector") =>
-    setMobileNavigationState({ panel, request: inspectorRequest });
+    setMobileNavigationState({
+      panel,
+      request: inspectorRequest,
+      focus: focusRequest,
+    });
+  useEffect(() => {
+    if (!focusField) return;
+    // After the inspector has rendered the selected section's fields.
+    const frame = requestAnimationFrame(() => {
+      const root = inspectorRef.current;
+      const [, index] = focusField.name.split(".");
+      const own = root?.querySelector<HTMLElement>(
+        `#${CSS.escape(blockFieldId(Number(index), focusField.name))}`,
+      );
+      // A picture inside rich text belongs to its field's editor.
+      const writer = Array.from(
+        root?.querySelectorAll<HTMLElement>("[data-field-name]") ?? [],
+      ).find((field) =>
+        focusField.name.startsWith(`${field.dataset.fieldName}.`),
+      );
+      const target =
+        own ?? writer?.querySelector<HTMLElement>("[contenteditable]");
+      target?.scrollIntoView?.({ block: "center" });
+      target?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+    // Only a new request moves the focus.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusField?.request]);
   useEffect(() => {
     if (!inspectorRequest) return;
     const frame = requestAnimationFrame(() =>
@@ -375,7 +421,26 @@ export function SectionCanvas({
                           },
                         }
                       : undefined,
-                    renderPrivateMedia,
+                    selected === index && onChangeImage && !disabled
+                      ? (image, element) => (
+                          <span className="studio-media">
+                            {renderPrivateMedia(image, element)}
+                            <button
+                              type="button"
+                              className="studio-media__change"
+                              aria-label={t("studio.changeImageNamed", {
+                                alt: image.alt,
+                              })}
+                              onClick={() =>
+                                onChangeImage(index, image.asset_id)
+                              }
+                            >
+                              <ImageIcon aria-hidden="true" />
+                              {t("studio.changeImage")}
+                            </button>
+                          </span>
+                        )
+                      : renderPrivateMedia,
                   );
                 } catch {
                   rendered = (
@@ -394,6 +459,13 @@ export function SectionCanvas({
                     data-section-index={index}
                     className={`studio-section ${selected === index ? "studio-section--selected" : ""}`}
                   >
+                    {onInsertAt ? (
+                      <InsertPoint
+                        label={t("studio.insertBefore", { number: index + 1 })}
+                        disabled={disabled}
+                        onInsert={() => onInsertAt(index)}
+                      />
+                    ) : null}
                     <div className="studio-section-handle">
                       <button
                         type="button"
@@ -430,6 +502,14 @@ export function SectionCanvas({
                 );
               }}
             </ReorderList>
+            {onInsertAt && blocks.length > 0 ? (
+              <InsertPoint
+                label={t("studio.insertAtEnd")}
+                disabled={disabled}
+                last
+                onInsert={() => onInsertAt(blocks.length)}
+              />
+            ) : null}
             {appearance && (
               <div inert aria-hidden="true">
                 {renderSiteFooter(appearance)}
@@ -484,6 +564,34 @@ export function SectionCanvas({
           </Button>
         ))}
       </nav>
+    </div>
+  );
+}
+
+/** A "+" in the gap before a section (or after the last one): quiet until
+ *  the gap is hovered or the button focused, always there on touch. */
+function InsertPoint({
+  label,
+  disabled,
+  last = false,
+  onInsert,
+}: {
+  label: string;
+  disabled: boolean;
+  last?: boolean;
+  onInsert: () => void;
+}) {
+  return (
+    <div className={`studio-insert ${last ? "studio-insert--last" : ""}`}>
+      <button
+        type="button"
+        aria-label={label}
+        title={label}
+        disabled={disabled}
+        onClick={onInsert}
+      >
+        <PlusIcon aria-hidden="true" />
+      </button>
     </div>
   );
 }

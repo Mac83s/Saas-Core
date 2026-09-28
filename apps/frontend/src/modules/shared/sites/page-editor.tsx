@@ -284,6 +284,25 @@ export function TemplateOption({
   );
 }
 
+/** Where a picture sits in a section's data, as the form addresses it:
+ *  `["image", "asset_id"]`, `["images", "0", "asset_id"]` or a figure inside
+ *  rich text. The first match: a section rarely shows one photo twice. */
+function assetPath(value: unknown, assetId: string): string[] | undefined {
+  if (Array.isArray(value)) {
+    for (const [index, item] of value.entries()) {
+      const found = assetPath(item, assetId);
+      if (found) return [String(index), ...found];
+    }
+  } else if (value !== null && typeof value === "object") {
+    for (const [key, item] of Object.entries(value)) {
+      if (key === "asset_id" && item === assetId) return [key];
+      const found = assetPath(item, assetId);
+      if (found) return [key, ...found];
+    }
+  }
+  return undefined;
+}
+
 export function PageEditor({
   onChanged,
   onExitStateChange,
@@ -382,6 +401,12 @@ export function PageEditor({
   const [mediaProblem, setMediaProblem] = useState<string>();
   const [metadataProblem, setMetadataProblem] = useState<string>();
   const [inspectorRequest, setInspectorRequest] = useState(0);
+  // The canvas's "+" and "Zmień zdjęcie": where to insert, which field to open.
+  const [insertAt, setInsertAt] = useState<number | null>(null);
+  const [focusField, setFocusField] = useState<{
+    name: string;
+    request: number;
+  }>();
   const [metadataOpen, setMetadataOpen] = useState(false);
   const [replacementTemplate, setReplacementTemplate] =
     useState<PageTemplate | null>(null);
@@ -811,6 +836,27 @@ export function PageEditor({
             >
               <form
                 className="studio-editor-form"
+                onKeyDown={(event) => {
+                  // The page's undo from anywhere in the studio; a text field
+                  // keeps its own, and the rich-text editor routes to this one.
+                  if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+                  if (loading || draftForm.formState.isSubmitting) return;
+                  const target = event.target as HTMLElement;
+                  if (
+                    target.closest(
+                      'input, textarea, select, [contenteditable="true"]',
+                    )
+                  )
+                    return;
+                  const key = event.key.toLowerCase();
+                  if (key === "z" && !event.shiftKey) {
+                    event.preventDefault();
+                    history.undo();
+                  } else if ((key === "z" && event.shiftKey) || key === "y") {
+                    event.preventDefault();
+                    history.redo();
+                  }
+                }}
                 onSubmit={(event) => {
                   void draftForm.handleSubmit(handleSaveDraft, (errors) => {
                     const first = Object.keys(errors.blocks ?? {}).find((key) =>
@@ -958,159 +1004,191 @@ export function PageEditor({
                     )}
 
                     {visual && draft ? (
-                      <SectionCanvas
-                        ref={canvas}
-                        unfilled={unfilled}
-                        inspectorRequest={inspectorRequest}
-                        appearance={appearance}
-                        navigation={navigation}
-                        pagePresentation={pagePresentation}
-                        appearanceControls={
-                          <div className="space-y-6">
-                            {appearanceControls}
-                            {pageLook}
-                          </div>
-                        }
-                        templates={
-                          <div className="space-y-4">
-                            <p className="text-sm text-muted-foreground">
-                              {t("startFromTemplateDescription")}
-                            </p>
-                            <ul className="grid gap-4">
-                              {pageTemplates.map((template) => (
-                                <li key={template.id}>
-                                  <TemplateOption
-                                    closeLabel={common("close")}
-                                    loading={loading}
-                                    locale={templateLocale}
-                                    onApply={() => {
-                                      if (blocks.fields.length)
-                                        setReplacementTemplate(template);
-                                      else void applyTemplate(template);
-                                    }}
-                                    previewLabel={t("previewTemplate")}
-                                    previewTitle={t("previewNamedTemplate", {
-                                      name: template.labels[templateLocale]
-                                        .name,
-                                    })}
-                                    template={template}
-                                    thumbnailLabel={t("templateThumbnail", {
-                                      name: template.labels[templateLocale]
-                                        .name,
-                                    })}
-                                    useLabel={t("useNamedTemplate", {
-                                      name: template.labels[templateLocale]
-                                        .name,
-                                    })}
-                                  />
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        }
-                        emptyState={
-                          <div className="studio-empty-page">
-                            <h2>{t("startFromTemplate")}</h2>
-                            <p>{t("studio.emptyCanvas")}</p>
-                          </div>
-                        }
-                        library={
-                          <>
-                            <details className="rounded-lg border p-3">
-                              <summary className="cursor-pointer text-sm font-medium">
-                                {t("studio.emptyBlock")}
-                              </summary>
-                              <div className="pt-3">{blockPicker(true)}</div>
-                            </details>
-                            <SectionLibraryContent
-                              onBusyChange={setLoading}
-                              compact
-                              onAdd={(block) =>
-                                addSection(block, activeSection + 1)
-                              }
-                            />
-                          </>
-                        }
-                        blocks={liveBlocks}
-                        onTextChange={(index, path, value) => {
-                          if (loading || draftForm.formState.isSubmitting)
-                            return;
-                          draftForm.setValue(
-                            `blocks.${index}.data.${path.join(".")}`,
-                            value,
-                            { shouldDirty: true, shouldValidate: true },
-                          );
-                          if (
-                            !blockFormSchema.safeParse(
-                              draftForm.getValues(`blocks.${index}`),
-                            ).success
-                          ) {
-                            requestAnimationFrame(() =>
-                              draftForm.setFocus(
-                                `blocks.${index}.data.${path.join(".")}`,
-                              ),
-                            );
+                      <>
+                        <SectionLibrary
+                          open={insertAt !== null}
+                          onOpenChange={(open) => {
+                            if (!open) setInsertAt(null);
+                          }}
+                          onBusyChange={setLoading}
+                          onAdd={(block) => {
+                            if (insertAt !== null) addSection(block, insertAt);
+                          }}
+                        />
+                        <SectionCanvas
+                          ref={canvas}
+                          unfilled={unfilled}
+                          inspectorRequest={inspectorRequest}
+                          appearance={appearance}
+                          navigation={navigation}
+                          pagePresentation={pagePresentation}
+                          appearanceControls={
+                            <div className="space-y-6">
+                              {appearanceControls}
+                              {pageLook}
+                            </div>
                           }
-                        }}
-                        blockIds={blocks.fields.map((field) => field.id)}
-                        disabled={loading || draftForm.formState.isSubmitting}
-                        onMove={(from, to) => {
-                          blocks.move(from, to);
-                          setSelectedSection(to);
-                        }}
-                        selected={activeSection}
-                        onSelect={setSelectedSection}
-                        inspector={
-                          blocks.fields.length > 0 ? (
+                          templates={
+                            <div className="space-y-4">
+                              <p className="text-sm text-muted-foreground">
+                                {t("startFromTemplateDescription")}
+                              </p>
+                              <ul className="grid gap-4">
+                                {pageTemplates.map((template) => (
+                                  <li key={template.id}>
+                                    <TemplateOption
+                                      closeLabel={common("close")}
+                                      loading={loading}
+                                      locale={templateLocale}
+                                      onApply={() => {
+                                        if (blocks.fields.length)
+                                          setReplacementTemplate(template);
+                                        else void applyTemplate(template);
+                                      }}
+                                      previewLabel={t("previewTemplate")}
+                                      previewTitle={t("previewNamedTemplate", {
+                                        name: template.labels[templateLocale]
+                                          .name,
+                                      })}
+                                      template={template}
+                                      thumbnailLabel={t("templateThumbnail", {
+                                        name: template.labels[templateLocale]
+                                          .name,
+                                      })}
+                                      useLabel={t("useNamedTemplate", {
+                                        name: template.labels[templateLocale]
+                                          .name,
+                                      })}
+                                    />
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          }
+                          emptyState={
+                            <div className="studio-empty-page">
+                              <h2>{t("startFromTemplate")}</h2>
+                              <p>{t("studio.emptyCanvas")}</p>
+                            </div>
+                          }
+                          library={
                             <>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => {
-                                  const current = draftForm.getValues("blocks");
-                                  // The copy's headings get anchors of their own.
-                                  const [copy] = withUniqueAnchors(
-                                    [structuredClone(current[activeSection])],
-                                    current,
-                                  );
-                                  blocks.insert(activeSection + 1, copy);
-                                  setSelectedSection(activeSection + 1);
-                                }}
-                              >
-                                {t("studio.duplicate")}
-                              </Button>
-                              <SectionLibrary
+                              <details className="rounded-lg border p-3">
+                                <summary className="cursor-pointer text-sm font-medium">
+                                  {t("studio.emptyBlock")}
+                                </summary>
+                                <div className="pt-3">{blockPicker(true)}</div>
+                              </details>
+                              <SectionLibraryContent
                                 onBusyChange={setLoading}
-                                triggerLabel={t("studio.insertAfter")}
+                                compact
                                 onAdd={(block) =>
                                   addSection(block, activeSection + 1)
                                 }
                               />
-                              <BlockFields
-                                assets={assets}
-                                form={draftForm}
-                                index={activeSection}
-                                key={blocks.fields[activeSection].id}
-                                type={blocks.fields[activeSection].block_type}
-                                isFirst={activeSection === 0}
-                                isLast={
-                                  activeSection === blocks.fields.length - 1
-                                }
-                                onMediaUploaded={refreshAssets}
-                                moveUp={() => {
-                                  blocks.swap(activeSection, activeSection - 1);
-                                  setSelectedSection(activeSection - 1);
-                                }}
-                                moveDown={() => {
-                                  blocks.swap(activeSection, activeSection + 1);
-                                  setSelectedSection(activeSection + 1);
-                                }}
-                                onRemove={() => blocks.remove(activeSection)}
-                              />
                             </>
-                          ) : null
-                        }
-                      />
+                          }
+                          blocks={liveBlocks}
+                          onTextChange={(index, path, value) => {
+                            if (loading || draftForm.formState.isSubmitting)
+                              return;
+                            draftForm.setValue(
+                              `blocks.${index}.data.${path.join(".")}`,
+                              value,
+                              { shouldDirty: true, shouldValidate: true },
+                            );
+                            if (
+                              !blockFormSchema.safeParse(
+                                draftForm.getValues(`blocks.${index}`),
+                              ).success
+                            ) {
+                              requestAnimationFrame(() =>
+                                draftForm.setFocus(
+                                  `blocks.${index}.data.${path.join(".")}`,
+                                ),
+                              );
+                            }
+                          }}
+                          blockIds={blocks.fields.map((field) => field.id)}
+                          disabled={loading || draftForm.formState.isSubmitting}
+                          onMove={(from, to) => {
+                            blocks.move(from, to);
+                            setSelectedSection(to);
+                          }}
+                          onInsertAt={setInsertAt}
+                          focusField={focusField}
+                          onChangeImage={(index, assetId) => {
+                            const path = assetPath(
+                              draftForm.getValues(`blocks.${index}.data`),
+                              assetId,
+                            );
+                            if (!path) return;
+                            setFocusField((previous) => ({
+                              name: `blocks.${index}.data.${path.join(".")}`,
+                              request: (previous?.request ?? 0) + 1,
+                            }));
+                          }}
+                          selected={activeSection}
+                          onSelect={setSelectedSection}
+                          inspector={
+                            blocks.fields.length > 0 ? (
+                              <>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  onClick={() => {
+                                    const current =
+                                      draftForm.getValues("blocks");
+                                    // The copy's headings get anchors of their own.
+                                    const [copy] = withUniqueAnchors(
+                                      [structuredClone(current[activeSection])],
+                                      current,
+                                    );
+                                    blocks.insert(activeSection + 1, copy);
+                                    setSelectedSection(activeSection + 1);
+                                  }}
+                                >
+                                  {t("studio.duplicate")}
+                                </Button>
+                                <SectionLibrary
+                                  onBusyChange={setLoading}
+                                  triggerLabel={t("studio.insertAfter")}
+                                  onAdd={(block) =>
+                                    addSection(block, activeSection + 1)
+                                  }
+                                />
+                                <BlockFields
+                                  assets={assets}
+                                  form={draftForm}
+                                  index={activeSection}
+                                  key={blocks.fields[activeSection].id}
+                                  type={blocks.fields[activeSection].block_type}
+                                  isFirst={activeSection === 0}
+                                  isLast={
+                                    activeSection === blocks.fields.length - 1
+                                  }
+                                  onMediaUploaded={refreshAssets}
+                                  moveUp={() => {
+                                    blocks.swap(
+                                      activeSection,
+                                      activeSection - 1,
+                                    );
+                                    setSelectedSection(activeSection - 1);
+                                  }}
+                                  moveDown={() => {
+                                    blocks.swap(
+                                      activeSection,
+                                      activeSection + 1,
+                                    );
+                                    setSelectedSection(activeSection + 1);
+                                  }}
+                                  onRemove={() => blocks.remove(activeSection)}
+                                />
+                              </>
+                            ) : null
+                          }
+                        />
+                      </>
                     ) : (
                       <>
                         {blocks.fields.map((field, index) => (

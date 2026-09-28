@@ -59,18 +59,28 @@ const tokens = {
   spacing: "comfortable",
 } as const;
 
+/** A dialog with its own trigger button, or — given `open` — one the caller
+ *  opens (the canvas's "+" between sections) and closes on `onOpenChange`. */
 export function SectionLibrary({
   onAdd,
   triggerLabel,
   onBusyChange,
+  open: openProp,
+  onOpenChange,
 }: {
   onAdd: (block: BlockFormValues) => void;
   triggerLabel?: string;
   onBusyChange?: (busy: boolean) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const t = useTranslations("Sites.sectionLibrary");
   const common = useTranslations("Common");
-  const [open, setOpen] = useState(false);
+  const [ownOpen, setOwnOpen] = useState(false);
+  const controlled = openProp !== undefined;
+  const open = controlled ? openProp : ownOpen;
+  const setOpen = (next: boolean) =>
+    controlled ? onOpenChange?.(next) : setOwnOpen(next);
   const [busy, setBusy] = useState(false);
   return (
     <Dialog
@@ -79,9 +89,11 @@ export function SectionLibrary({
         if (!busy) setOpen(next);
       }}
     >
-      <DialogTrigger render={<Button type="button" variant="outline" />}>
-        {triggerLabel ?? t("open")}
-      </DialogTrigger>
+      {controlled ? null : (
+        <DialogTrigger render={<Button type="button" variant="outline" />}>
+          {triggerLabel ?? t("open")}
+        </DialogTrigger>
+      )}
       <DialogContent
         className="max-h-[90vh] overflow-y-auto sm:max-w-6xl"
         closeLabel={common("close")}
