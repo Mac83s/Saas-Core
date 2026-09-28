@@ -20,6 +20,7 @@ import {
   CircleIcon,
   UserXIcon,
   XCircleIcon,
+  XIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -34,6 +35,7 @@ import {
   type BookingAppointment,
   type BookingCatalog,
   type BookingSlotList,
+  type StaffTeam,
 } from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
@@ -57,6 +59,7 @@ import {
 } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
+import { Textarea } from "@saas-core/ui/components/textarea";
 import { cn } from "@saas-core/ui/lib/utils";
 
 import {
@@ -66,6 +69,7 @@ import {
   wallClock,
   zonedInstant,
 } from "./calendar-time";
+import { CrewDialog } from "./dispatch/crew-dialog";
 import {
   draftsOf,
   materialsInput,
@@ -207,10 +211,54 @@ const minutes = (time: string) =>
   Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
 
 /**
+ * One slot per start at which the visit's people are free (ADR-058 §5): every
+ * one of `crew` when the office named them, else any `need` of those free. A
+ * named crew's slot carries a resource free for all of them — the visit takes
+ * one — and `resource`, when given, is the only one that counts.
+ */
+function crewSlots(
+  slots: Slot[] | undefined,
+  crew: string[],
+  need: number,
+  resource?: string | null,
+): Slot[] | undefined {
+  if (!slots) return undefined;
+  const starts = new Map<string, Slot[]>();
+  for (const slot of slots) {
+    if (resource !== undefined && slot.resource_id !== resource) continue;
+    const list = starts.get(slot.starts_at);
+    if (list) list.push(slot);
+    else starts.set(slot.starts_at, [slot]);
+  }
+  const result: Slot[] = [];
+  for (const list of starts.values()) {
+    const match = crew.length
+      ? list.find(
+          (slot) =>
+            slot.staff_id === crew[0] &&
+            crew.every((id) =>
+              list.some(
+                (other) =>
+                  other.staff_id === id &&
+                  other.resource_id === slot.resource_id,
+              ),
+            ),
+        )
+      : new Set(list.map((slot) => slot.staff_id)).size >= need
+        ? list[0]
+        : undefined;
+    if (match) result.push(match);
+  }
+  return result;
+}
+
+/**
  * Says before saving whether the chosen time is free, and offers the free
- * times nearest to it — or the next free day's first time.
+ * times nearest to it — or the next free day's first time. With `crew`, a
+ * free time names who it is free for and offers the crew's other common times.
  */
 function SlotHint({
+  crew,
   day,
   idle,
   onPick,
@@ -219,6 +267,8 @@ function SlotHint({
   time,
   zone,
 }: {
+  /** The names of the people the times were checked for together. */
+  crew?: string[];
   day: string;
   idle: string;
   onPick: (slot: Slot) => void;
@@ -231,6 +281,7 @@ function SlotHint({
   const t = useTranslations("Calendar");
   const locale = useLocale();
   const messageId = useId();
+  const othersId = useId();
   const match = findSlot(slots, day, time, zone);
   // One chip per start time, even when several people are free at it.
   const dayFree = (slots ?? []).filter(
@@ -239,6 +290,18 @@ function SlotHint({
       all.findIndex((other) => other.starts_at === slot.starts_at) === index,
   );
   const next = slots?.find((slot) => wallClock(slot.starts_at, zone).day > day);
+  const others =
+    match && crew?.length
+      ? (slots ?? [])
+          .filter(
+            (slot, index, all) =>
+              slot.starts_at !== match.starts_at &&
+              wallClock(slot.starts_at, zone).day >= day &&
+              all.findIndex((other) => other.starts_at === slot.starts_at) ===
+                index,
+          )
+          .slice(0, 4)
+      : [];
 
   let message = idle;
   let tone = "text-muted-foreground";
@@ -249,7 +312,9 @@ function SlotHint({
     tone = "text-destructive";
   } else if (!slots) message = idle;
   else if (match) {
-    message = t("slotFree");
+    message = crew?.length
+      ? t("slotFreeFor", { names: crew.join(", ") })
+      : t("slotFree");
     tone = "text-success-foreground";
   } else if (dayFree.length) {
     message = time ? t("slotBusy") : t("freeTimes");
@@ -276,29 +341,39 @@ function SlotHint({
       timeZone: zone,
     }).format(new Date(slot.starts_at));
 
+  const group = (items: Slot[], labelledBy: string) => (
+    <div
+      aria-labelledby={labelledBy}
+      className="flex flex-wrap gap-2"
+      role="group"
+    >
+      {items.map((slot) => (
+        <Button
+          className="px-3 tabular-nums"
+          key={slot.starts_at}
+          onClick={() => onPick(slot)}
+          type="button"
+          variant="outline"
+        >
+          {label(slot)}
+        </Button>
+      ))}
+    </div>
+  );
+
   return (
     <div className="space-y-2 rounded-lg border bg-muted/40 p-3">
       <p aria-live="polite" className={cn("text-sm", tone)} id={messageId}>
         {message}
       </p>
-      {chips.length ? (
-        <div
-          aria-labelledby={messageId}
-          className="flex flex-wrap gap-2"
-          role="group"
-        >
-          {chips.map((slot) => (
-            <Button
-              className="px-3 tabular-nums"
-              key={slot.starts_at}
-              onClick={() => onPick(slot)}
-              type="button"
-              variant="outline"
-            >
-              {label(slot)}
-            </Button>
-          ))}
-        </div>
+      {chips.length ? group(chips, messageId) : null}
+      {others.length ? (
+        <>
+          <p className="text-sm text-muted-foreground" id={othersId}>
+            {t(crew && crew.length > 1 ? "otherCommonTimes" : "otherFreeTimes")}
+          </p>
+          {group(others, othersId)}
+        </>
       ) : null}
     </div>
   );
@@ -307,12 +382,12 @@ function SlotHint({
 type NewValues = {
   service_id: string;
   location_id: string;
-  staff_id: string;
   date: string;
   time: string;
   display_name: string;
   email: string;
   phone: string;
+  notes: string;
 };
 
 export function NewAppointmentDialog({
@@ -324,6 +399,7 @@ export function NewAppointmentDialog({
   onOpenChange,
   open,
   restoreFocus,
+  teams = [],
   zone,
 }: {
   canUseInventory?: boolean;
@@ -336,6 +412,8 @@ export function NewAppointmentDialog({
   onOpenChange: (open: boolean) => void;
   open: boolean;
   restoreFocus: FocusTarget;
+  /** The company's teams: choosing one names its members at once. */
+  teams?: StaffTeam[];
   zone: string;
 }) {
   const t = useTranslations("Calendar");
@@ -357,6 +435,7 @@ export function NewAppointmentDialog({
           day={day}
           onCreated={onCreated}
           staffId={staffId}
+          teams={teams}
           zone={zone}
         />
       </DialogContent>
@@ -370,6 +449,7 @@ function NewAppointmentForm({
   day,
   onCreated,
   staffId: chosenStaff,
+  teams,
   zone,
 }: {
   canUseInventory: boolean;
@@ -377,6 +457,7 @@ function NewAppointmentForm({
   day: string;
   onCreated: (appointment: BookingAppointment) => void;
   staffId: string;
+  teams: StaffTeam[];
   zone: string;
 }) {
   const t = useTranslations("Calendar");
@@ -388,18 +469,23 @@ function NewAppointmentForm({
   const [idempotencyKey] = useState(() => crypto.randomUUID());
   const [version, setVersion] = useState(0);
   const [problem, setProblem] = useState<string>();
+  // Who does it, the lead first; nobody named = the server picks (ADR-058 §4).
+  const [crew, setCrew] = useState<string[]>(() =>
+    catalog.staff.some((item) => item.id === chosenStaff) ? [chosenStaff] : [],
+  );
+  const [fromTeam, setFromTeam] = useState("");
   const schema = useMemo(
     () =>
       z
         .object({
           service_id: z.string().min(1, t("required")),
           location_id: z.string().min(1, t("required")),
-          staff_id: z.string(),
           date: z.string().min(1, t("required")),
           time: z.string().min(1, t("required")),
           display_name: z.string().trim().min(1, t("required")).max(160),
           email: z.union([z.literal(""), z.email(t("invalidEmail"))]),
           phone: z.string().trim().max(40),
+          notes: z.string().trim().max(500, t("notesTooLong")),
         })
         .refine((values) => values.email || values.phone, {
           message: t("contactRequired"),
@@ -414,19 +500,17 @@ function NewAppointmentForm({
     defaultValues: {
       service_id: only(catalog.services),
       location_id: only(catalog.locations),
-      staff_id: catalog.staff.some((item) => item.id === chosenStaff)
-        ? chosenStaff
-        : "",
       date: day < today ? today : day,
       time: "",
       display_name: "",
       email: "",
       phone: "",
+      notes: "",
     },
   });
-  const [serviceId, locationId, staffId, date, time] = useWatch({
+  const [serviceId, locationId, date, time] = useWatch({
     control: form.control,
-    name: ["service_id", "location_id", "staff_id", "date", "time"],
+    name: ["service_id", "location_id", "date", "time"],
   });
   const search = useFreeSlots(serviceId, locationId, date, version);
   const materials = useTranslations("BookingMaterials");
@@ -437,9 +521,19 @@ function NewAppointmentForm({
   // Its module takes the material itself (ADR-055): the calendar offers none.
   const takesMaterials = canUseInventory && chosen?.takes_materials !== false;
   const drafts = edited ?? draftsOf(chosen?.materials);
-  const slots = search.slots?.filter(
-    (slot) => !staffId || slot.staff_id === staffId,
+  const need = chosen?.staff_count ?? 1;
+  const slots = crewSlots(search.slots, crew, need);
+  const names = new Map(catalog.staff.map((item) => [item.id, item.name]));
+  // Who the search found free at the chosen time: the add list says so.
+  const freeNow = new Set(
+    (search.slots ?? [])
+      .filter((slot) => {
+        const local = wallClock(slot.starts_at, zone);
+        return local.day === date && local.time === time;
+      })
+      .map((slot) => slot.staff_id),
   );
+  const checked = Boolean(time && search.slots);
   const errors = form.formState.errors;
 
   function pick(slot: Slot) {
@@ -450,24 +544,47 @@ function NewAppointmentForm({
     form.setFocus("time");
   }
 
+  function add(value: string) {
+    const team = teams.find((item) => `team:${item.id}` === value);
+    if (!team) {
+      if (!crew.includes(value)) setCrew([...crew, value]);
+      setFromTeam("");
+      return;
+    }
+    // A team is the crew: as many of its people as the service needs, the
+    // ones free at the chosen time first.
+    const members = team.member_ids
+      .filter((id) => names.has(id))
+      .sort((a, b) => Number(freeNow.has(b)) - Number(freeNow.has(a)));
+    setCrew(members.slice(0, need));
+    setFromTeam(team.name);
+  }
+
+  function remove(id: string) {
+    const next = crew.filter((item) => item !== id);
+    setCrew(next);
+    if (!next.length) setFromTeam("");
+  }
+
   async function submit(values: NewValues) {
-    // A chosen person books with the slot's resource: the API accepts only a
-    // staff member and resource that are free at that instant. "Any staff"
-    // names neither — the server picks the least busy pair (ADR-058 §4).
+    // Named people book with a resource free for all of them: the API accepts
+    // only people and a resource free at that instant. Nobody named names
+    // neither — the server picks the least busy (ADR-058 §4).
     const slot = findSlot(slots, values.date, values.time, zone);
     if (!slot) {
       form.setError("time", { message: t("pickFreeTime") });
       return;
     }
     setProblem(undefined);
+    const notes = values.notes.trim();
     try {
       onCreated(
         await createBookingAppointment(
           {
             service_id: values.service_id,
             location_id: values.location_id,
-            ...(values.staff_id
-              ? { staff_id: slot.staff_id, resource_id: slot.resource_id }
+            ...(crew.length
+              ? { staff_ids: crew, resource_id: slot.resource_id }
               : {}),
             starts_at: slot.starts_at,
             customer: {
@@ -476,6 +593,7 @@ function NewAppointmentForm({
               phone: values.phone.trim(),
               locale: locale === "en" ? "en" : "pl",
             },
+            ...(notes ? { customer_notes: notes } : {}),
             ...(edited && takesMaterials
               ? { materials: materialsInput(edited) }
               : {}),
@@ -496,7 +614,7 @@ function NewAppointmentForm({
   return (
     <form className="space-y-6" noValidate onSubmit={form.handleSubmit(submit)}>
       <FieldSet>
-        <FieldLegend>{t("when")}</FieldLegend>
+        <FieldLegend>{t("serviceAndPlace")}</FieldLegend>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field data-invalid={Boolean(errors.service_id)}>
             <FieldLabel htmlFor="appointment-service">
@@ -514,6 +632,11 @@ function NewAppointmentForm({
                 </option>
               ))}
             </NativeSelect>
+            {need > 1 ? (
+              <FieldDescription>
+                {t("serviceNeeds", { count: need })}
+              </FieldDescription>
+            ) : null}
             <FieldError errors={[errors.service_id]} />
           </Field>
           {/* One place needs no question; the form picks it. */}
@@ -537,43 +660,151 @@ function NewAppointmentForm({
               <FieldError errors={[errors.location_id]} />
             </Field>
           ) : null}
-          <Field>
-            <FieldLabel htmlFor="appointment-staff">{t("staff")}</FieldLabel>
-            <NativeSelect id="appointment-staff" {...form.register("staff_id")}>
-              <option value="">{t("anyStaff")}</option>
-              {catalog.staff.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
+        </div>
+      </FieldSet>
+      {/* One person needs no question either: the server takes them. */}
+      {catalog.staff.length > 1 ? (
+        <FieldSet>
+          <FieldLegend>{t("crewLegend")}</FieldLegend>
+          {fromTeam ? (
+            <p className="text-sm">{t("crewFromTeam", { team: fromTeam })}</p>
+          ) : null}
+          {crew.length ? (
+            <ul aria-label={t("crewChosen")} className="flex flex-wrap gap-2">
+              {crew.map((id, index) => {
+                const name = names.get(id) ?? id;
+                return (
+                  <li
+                    className="flex items-center gap-1 rounded-lg border bg-muted/40 py-0.5 pr-0.5 pl-2 text-sm"
+                    key={id}
+                  >
+                    {/* The ring picks who leads, as in „Zmień osoby”. */}
+                    <label className="flex items-center gap-1.5 pointer-coarse:min-h-11">
+                      <input
+                        aria-label={t("crewLeadFor", { name })}
+                        checked={index === 0}
+                        className="size-4"
+                        name="appointment-lead"
+                        onChange={() =>
+                          setCrew([id, ...crew.filter((item) => item !== id)])
+                        }
+                        type="radio"
+                      />
+                      {index === 0 ? (
+                        <span
+                          aria-hidden="true"
+                          className="text-xs font-semibold"
+                        >
+                          {t("crewLeadShort")}
+                        </span>
+                      ) : null}
+                      <span className="pr-1">{name}</span>
+                    </label>
+                    <Button
+                      aria-label={t("crewRemoveFor", { name })}
+                      className="pointer-coarse:size-11"
+                      onClick={() => remove(id)}
+                      size="icon-xs"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <XIcon aria-hidden="true" />
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="text-sm">{t("crewAutoOn")}</p>
+          )}
+          <div className="flex flex-wrap items-center gap-2">
+            <NativeSelect
+              aria-label={t("crewAdd")}
+              onChange={(event) => {
+                if (event.target.value) add(event.target.value);
+              }}
+              value=""
+            >
+              <option value="">{t("crewAdd")}</option>
+              {teams.length ? (
+                <optgroup label={t("crewTeams")}>
+                  {teams.map((item) => (
+                    <option key={item.id} value={`team:${item.id}`}>
+                      {t("crewTeamOption", {
+                        name: item.name,
+                        count: item.member_ids.length,
+                      })}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null}
+              <optgroup label={t("crewPeople")}>
+                {catalog.staff
+                  .filter((item) => !crew.includes(item.id))
+                  .map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {checked
+                        ? t(
+                            freeNow.has(item.id) ? "crewFreeAt" : "crewBusyAt",
+                            {
+                              name: item.name,
+                              time,
+                            },
+                          )
+                        : item.name}
+                    </option>
+                  ))}
+              </optgroup>
             </NativeSelect>
-          </Field>
-          <div className="grid grid-cols-2 gap-4">
-            <Field data-invalid={Boolean(errors.date)}>
-              <FieldLabel htmlFor="appointment-date">{t("date")}</FieldLabel>
-              <Input
-                aria-invalid={Boolean(errors.date)}
-                id="appointment-date"
-                min={today}
-                type="date"
-                {...form.register("date")}
-              />
-              <FieldError errors={[errors.date]} />
-            </Field>
-            <Field data-invalid={Boolean(errors.time)}>
-              <FieldLabel htmlFor="appointment-time">{t("time")}</FieldLabel>
-              <Input
-                aria-invalid={Boolean(errors.time)}
-                id="appointment-time"
-                step={300}
-                type="time"
-                {...form.register("time")}
-              />
-              <FieldError errors={[errors.time]} />
-            </Field>
+            {crew.length ? (
+              <Button
+                onClick={() => {
+                  setCrew([]);
+                  setFromTeam("");
+                }}
+                type="button"
+                variant="outline"
+              >
+                {t("crewAuto")}
+              </Button>
+            ) : null}
           </div>
+          <FieldDescription>{t("crewAutoHint")}</FieldDescription>
+          {crew.length && crew.length < need ? (
+            <p className="text-sm text-warning-foreground">
+              {t("crewShort", { count: need - crew.length })}
+            </p>
+          ) : null}
+        </FieldSet>
+      ) : null}
+      <FieldSet>
+        <FieldLegend>{t("when")}</FieldLegend>
+        <div className="grid grid-cols-2 gap-4 sm:max-w-sm">
+          <Field data-invalid={Boolean(errors.date)}>
+            <FieldLabel htmlFor="appointment-date">{t("date")}</FieldLabel>
+            <Input
+              aria-invalid={Boolean(errors.date)}
+              id="appointment-date"
+              min={today}
+              type="date"
+              {...form.register("date")}
+            />
+            <FieldError errors={[errors.date]} />
+          </Field>
+          <Field data-invalid={Boolean(errors.time)}>
+            <FieldLabel htmlFor="appointment-time">{t("time")}</FieldLabel>
+            <Input
+              aria-invalid={Boolean(errors.time)}
+              id="appointment-time"
+              step={300}
+              type="time"
+              {...form.register("time")}
+            />
+            <FieldError errors={[errors.time]} />
+          </Field>
         </div>
         <SlotHint
+          crew={crew.length ? crew.map((id) => names.get(id) ?? id) : undefined}
           day={date}
           idle={t("slotsIdle")}
           onPick={pick}
@@ -625,6 +856,18 @@ function NewAppointmentForm({
           </Field>
         </div>
         <FieldDescription>{t("contactHint")}</FieldDescription>
+        <Field data-invalid={Boolean(errors.notes)}>
+          <FieldLabel htmlFor="appointment-notes">{t("notes")}</FieldLabel>
+          <Textarea
+            aria-invalid={Boolean(errors.notes)}
+            id="appointment-notes"
+            maxLength={500}
+            rows={2}
+            {...form.register("notes")}
+          />
+          <FieldDescription>{t("notesHint")}</FieldDescription>
+          <FieldError errors={[errors.notes]} />
+        </Field>
       </FieldSet>
       {takesMaterials ? (
         <FieldSet>
@@ -665,6 +908,7 @@ export function AppointmentDialog({
   onOpenChange,
   open,
   restoreFocus,
+  teams = [],
   zone,
 }: {
   appointment?: BookingAppointment;
@@ -675,6 +919,8 @@ export function AppointmentDialog({
   onOpenChange: (open: boolean) => void;
   open: boolean;
   restoreFocus: FocusTarget;
+  /** The company's teams, for „Zmień osoby”. */
+  teams?: StaffTeam[];
   zone: string;
 }) {
   const common = useTranslations("Common");
@@ -693,11 +939,68 @@ export function AppointmentDialog({
             catalog={catalog}
             key={appointment.id}
             onChanged={onChanged}
+            teams={teams}
             zone={zone}
           />
         ) : null}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Who is on the visit, the lead named as such once there are several. */
+export function crewNames(appointment: BookingAppointment, t: Translate) {
+  const { crew } = appointment;
+  return crew.length > 1
+    ? crew
+        .map((person) =>
+          person.lead ? t("crewLeadName", { name: person.name }) : person.name,
+        )
+        .join(", ")
+    : (crew[0]?.name ?? "");
+}
+
+/** „Wakat” and „Dobrano automatycznie”: only a planned visit is either. */
+export function CrewBadges({
+  appointment,
+  short = false,
+}: {
+  appointment: BookingAppointment;
+  /** The narrow cards: the word short, the whole of it still spoken. */
+  short?: boolean;
+}) {
+  const t = useTranslations("Calendar");
+  if (appointment.status !== "confirmed") return null;
+  if (appointment.needs_assignment) {
+    const missing = Math.max(
+      appointment.staff_required - appointment.crew.length,
+      1,
+    );
+    return (
+      <Badge variant="destructive">
+        {short ? (
+          <>
+            <span aria-hidden="true">{t("vacancyShort")}</span>
+            <span className="sr-only">{t("vacancy", { count: missing })}</span>
+          </>
+        ) : (
+          t("vacancy", { count: missing })
+        )}
+      </Badge>
+    );
+  }
+  if (!appointment.auto_assigned) return null;
+  return (
+    <Badge variant="secondary">
+      {short ? (
+        <>
+          <span aria-hidden="true">{t("autoShort")}</span>
+          <span className="sr-only">{t("auto")}</span>
+        </>
+      ) : (
+        t("auto")
+      )}
+    </Badge>
   );
 }
 
@@ -707,6 +1010,7 @@ function AppointmentDetails({
   canUseInventory,
   catalog,
   onChanged,
+  teams,
   zone,
 }: {
   appointment: BookingAppointment;
@@ -714,19 +1018,38 @@ function AppointmentDetails({
   canUseInventory: boolean;
   catalog?: BookingCatalog;
   onChanged: (appointment: BookingAppointment) => void;
+  teams: StaffTeam[];
   zone: string;
 }) {
   const t = useTranslations("Calendar");
   const locale = useLocale();
   const [notice, setNotice] = useState("");
+  // The button that opened „Zmień osoby”; set while the dialog is open.
+  const [changing, setChanging] = useState<HTMLElement>();
   const title = useRef<HTMLHeadingElement>(null);
   const when = formatWhen(appointment, locale, zone);
+  const requested =
+    appointment.requested_team?.name ??
+    (appointment.requested_staff_id
+      ? catalog?.staff.find(
+          (item) => item.id === appointment.requested_staff_id,
+        )?.name
+      : undefined);
   const rows = [
     [t("service"), appointment.service_name],
-    [t("staff"), appointment.staff_name],
+    [
+      appointment.crew.length > 1 ? t("crew") : t("staff"),
+      crewNames(appointment, t) || t("crewNobody"),
+    ],
+    [t("customerChoice"), requested],
     [t("location"), appointment.location_name],
     [t("resource"), appointment.resource_name],
   ].filter((row): row is [string, string] => Boolean(row[1]));
+  // A lone person has nobody to swap with — unless the visit lost them.
+  const crewChangeable =
+    canManage &&
+    appointment.status === "confirmed" &&
+    ((catalog?.staff.length ?? 0) > 1 || appointment.needs_assignment);
 
   return (
     <>
@@ -738,8 +1061,9 @@ function AppointmentDetails({
       </DialogHeader>
       <dl className="grid grid-cols-[auto_1fr] items-center gap-x-6 gap-y-2 text-sm">
         <dt className="text-muted-foreground">{t("statusLabel")}</dt>
-        <dd>
+        <dd className="flex flex-wrap gap-2">
           <StatusBadge status={appointment.status} />
+          <CrewBadges appointment={appointment} />
         </dd>
         {rows.map(([label, value]) => (
           <Fragment key={label}>
@@ -747,7 +1071,41 @@ function AppointmentDetails({
             <dd className="font-medium">{value}</dd>
           </Fragment>
         ))}
+        {appointment.customer_notes ? (
+          <>
+            <dt className="self-start text-muted-foreground">{t("notes")}</dt>
+            <dd className="whitespace-pre-line">
+              {appointment.customer_notes}
+            </dd>
+          </>
+        ) : null}
       </dl>
+      {crewChangeable ? (
+        <div>
+          <Button
+            onClick={(event) => setChanging(event.currentTarget)}
+            type="button"
+            variant="outline"
+          >
+            {t(appointment.needs_assignment ? "assignCrew" : "changeCrew")}
+          </Button>
+        </div>
+      ) : null}
+      {changing ? (
+        <CrewDialog
+          appointment={appointment}
+          finalFocus={changing}
+          onConflict={() => onChanged(appointment)}
+          onOpenChange={(open) => (open ? undefined : setChanging(undefined))}
+          onSaved={(updated) => {
+            setChanging(undefined);
+            setNotice(t("crewSaved"));
+            onChanged(updated);
+          }}
+          teams={teams}
+          zone={zone}
+        />
+      ) : null}
       {appointment.takes_materials !== false &&
       (appointment.materials?.length || (canUseInventory && canManage)) ? (
         <VisitMaterials
@@ -1117,12 +1475,12 @@ function RescheduleForm({
           (item) => item.name === appointment.resource_name,
         )?.id;
   const search = useFreeSlots(serviceId, locationId, day);
-  // A move keeps the staff member and resource; only the time changes.
-  const slots = search.slots?.filter(
-    (slot) =>
-      slot.staff_id === appointment.staff_id &&
-      (resourceId === undefined || slot.resource_id === resourceId),
-  );
+  // A move keeps the people and the resource; only the time changes, and the
+  // whole crew has to be free at the new one.
+  const crew = appointment.crew.length
+    ? appointment.crew.map((person) => person.staff_id)
+    : [appointment.staff_id];
+  const slots = crewSlots(search.slots, crew, crew.length, resourceId);
 
   async function save(event: FormEvent) {
     event.preventDefault();
@@ -1178,6 +1536,11 @@ function RescheduleForm({
       </div>
       {serviceId && locationId ? (
         <SlotHint
+          crew={
+            appointment.crew.length > 1
+              ? appointment.crew.map((person) => person.name)
+              : undefined
+          }
           day={day}
           idle=""
           onPick={(slot) => {

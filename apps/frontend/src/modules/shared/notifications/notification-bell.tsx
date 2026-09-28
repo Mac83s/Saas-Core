@@ -21,6 +21,8 @@ import {
   DialogTrigger,
 } from "@saas-core/ui/components/dialog";
 
+import { Link } from "#i18n/navigation";
+
 // How often the bell asks. Billing warnings arrive on a scheduler, so anything
 // faster only costs requests; anything slower and somebody can miss the last
 // day of a grace period while sitting in the panel.
@@ -100,7 +102,19 @@ export function NotificationBell() {
                   className={item.read_at ? "py-3" : "bg-muted/40 px-2 py-3"}
                   key={item.id}
                 >
-                  <p className="text-sm font-medium">{headline(item, t)}</p>
+                  <p className="text-sm font-medium">
+                    {calendarDay(item) ? (
+                      <Link
+                        className="hover:underline"
+                        href={`/panel/calendar?view=day&date=${calendarDay(item)}`}
+                        onClick={() => setOpen(false)}
+                      >
+                        {headline(item, t, format)}
+                      </Link>
+                    ) : (
+                      headline(item, t, format)
+                    )}
+                  </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {format.dateTime(new Date(item.created_at), {
                       dateStyle: "medium",
@@ -133,8 +147,18 @@ export function NotificationBell() {
 function headline(
   item: AppNotification,
   t: ReturnType<typeof useTranslations<"NotificationBell">>,
+  format: ReturnType<typeof useFormatter>,
 ): string {
   const payload = (item.payload ?? {}) as Record<string, unknown>;
+  // A visit's time as the business keeps it, not as the reader's device does.
+  const at = (value: unknown) =>
+    value
+      ? format.dateTime(new Date(String(value)), {
+          dateStyle: "medium",
+          timeStyle: "short",
+          timeZone: String(payload.timezone || "UTC"),
+        })
+      : "";
   const values = {
     plan: String(payload.plan_name ?? ""),
     date: String(payload.ends_at ?? ""),
@@ -142,6 +166,9 @@ function headline(
     count: Number(payload.count ?? 0),
     company: String(payload.company_name ?? ""),
     reason: String(payload.reason ?? ""),
+    service: String(payload.service_name ?? ""),
+    when: at(payload.starts_at),
+    before: at(payload.previous_starts_at),
   };
   switch (item.kind) {
     case "billing.trial_ending":
@@ -152,7 +179,29 @@ function headline(
       return t("farmsHerdReview", values);
     case "farms.health_corrected":
       return t("farmsHealthCorrected", values);
+    case "booking.assigned":
+      return t("bookingAssigned", values);
+    case "booking.unassigned":
+      return t("bookingUnassigned", values);
+    case "booking.moved":
+      return t("bookingMoved", values);
+    case "booking.canceled":
+      return t("bookingCanceled", values);
     default:
       return t("unknown");
   }
+}
+
+/** The calendar day a visit's notice opens, in the business's own zone. */
+function calendarDay(item: AppNotification): string | null {
+  if (!item.kind.startsWith("booking.")) return null;
+  const payload = (item.payload ?? {}) as Record<string, unknown>;
+  if (!payload.starts_at) return null;
+  // en-CA writes a date as YYYY-MM-DD, the calendar's own address format.
+  return new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: String(payload.timezone || "UTC"),
+  }).format(new Date(String(payload.starts_at)));
 }

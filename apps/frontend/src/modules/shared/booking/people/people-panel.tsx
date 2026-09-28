@@ -22,6 +22,7 @@ import {
   listMemberships,
   listPeople,
   listRoles,
+  listTeams,
   restorePerson,
   revokeInvitation,
   transferOwnership,
@@ -34,6 +35,7 @@ import {
   type Person,
   type RoleCatalog,
   type SeatUsage,
+  type StaffTeam,
 } from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
@@ -53,6 +55,7 @@ import { ChangeRoleDialog } from "../../../core/organizations/role-dialog";
 import { managesTeam } from "../../../core/organizations/role-groups";
 import { useRoleLabel } from "../../../core/organizations/role-labels";
 import { wallClock } from "../calendar-time";
+import { TeamNames } from "../teams/team-names";
 import { AddPersonDialog } from "./add-person-dialog";
 import {
   ConfirmDialog,
@@ -84,6 +87,7 @@ type Booking = {
   catalog: BookingCatalog;
   people: Person[];
   day: PeopleDay;
+  teams: StaffTeam[];
 };
 type Loaded = {
   members: MembershipSummary[];
@@ -197,6 +201,7 @@ export function PeoplePanel({
   const [show, setShow] = useState<ShowFilter>("current");
   const [account, setAccount] = useState<AccountFilter>("");
   const [role, setRole] = useState("");
+  const [teamFilter, setTeamFilter] = useState("");
   const [adding, setAdding] = useState(false);
   const [dialog, setDialog] = useState<Dialog>();
   const [returnTo, setReturnTo] = useState<HTMLElement | null>(null);
@@ -213,8 +218,19 @@ export function PeoplePanel({
         listRoles(),
         getSeatUsage().catch(() => null),
         calendarModule
-          ? Promise.all([getBookingCatalog(), listPeople(), getPeopleDay()])
-              .then(([catalog, people, day]) => ({ catalog, people, day }))
+          ? Promise.all([
+              getBookingCatalog(),
+              listPeople(),
+              getPeopleDay(),
+              // Teams are a help on this list, never a reason for it to fail.
+              listTeams().catch(() => []),
+            ])
+              .then(([catalog, people, day, teams]) => ({
+                catalog,
+                people,
+                day,
+                teams,
+              }))
               .catch((error: unknown) => {
                 if (withoutCalendar(error)) return null;
                 throw error;
@@ -275,9 +291,10 @@ export function PeoplePanel({
           : row.account === "none"
             ? 2
             : 3;
-  const visible = filterPeople(rows, { show, account, role }).sort(
-    (a, b) => rank(a) - rank(b) || collator.compare(a.name, b.name),
-  );
+  const teams = data?.booking?.teams ?? [];
+  const visible = filterPeople(rows, { show, account, role })
+    .filter((row) => !teamFilter || row.staff?.team_ids.includes(teamFilter))
+    .sort((a, b) => rank(a) - rank(b) || collator.compare(a.name, b.name));
   const days = new Map(
     (data?.booking?.day.items ?? []).map((item) => [item.staff_id, item]),
   );
@@ -508,6 +525,18 @@ export function PeoplePanel({
         </>
       ),
     },
+    ...(teams.length
+      ? [
+          {
+            id: "teams",
+            header: t("colTeams"),
+            enableSorting: false,
+            cell: ({ row: { original: row } }) => (
+              <TeamNames ids={row.staff?.team_ids ?? []} teams={teams} />
+            ),
+          } satisfies ColumnDef<PersonRow, unknown>,
+        ]
+      : []),
     ...(data?.booking
       ? [
           {
@@ -590,6 +619,7 @@ export function PeoplePanel({
                   setShow("current");
                   setAccount("");
                   setRole("");
+                  setTeamFilter("");
                 }}
                 variant="outline"
               >
@@ -650,6 +680,21 @@ export function PeoplePanel({
                     </option>
                   ))}
                 </DataTableFilter>
+                {teams.length ? (
+                  <DataTableFilter
+                    id="people-team"
+                    label={t("team")}
+                    onChange={(event) => setTeamFilter(event.target.value)}
+                    value={teamFilter}
+                  >
+                    <option value="">{t("teamAll")}</option>
+                    {teams.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </DataTableFilter>
+                ) : null}
               </>
             }
           />
@@ -684,7 +729,11 @@ export function PeoplePanel({
         <AddPersonDialog
           booking={
             data.booking
-              ? { catalog: data.booking.catalog, people: data.booking.people }
+              ? {
+                  catalog: data.booking.catalog,
+                  people: data.booking.people,
+                  teams: data.booking.teams,
+                }
               : null
           }
           canBook={canBook}

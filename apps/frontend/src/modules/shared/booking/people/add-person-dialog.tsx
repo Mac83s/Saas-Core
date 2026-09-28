@@ -13,6 +13,7 @@ import {
   type Person,
   type RoleCatalog,
   type SeatUsage,
+  type StaffTeam,
 } from "@saas-core/api-client";
 import { Button } from "@saas-core/ui/components/button";
 import {
@@ -58,6 +59,7 @@ type Values = {
   to: string;
   locationId: string;
   copyFrom: string;
+  teamIds: string[];
 };
 
 const WEEK = [0, 1, 2, 3, 4, 5, 6];
@@ -81,8 +83,12 @@ export function AddPersonDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** The calendar's services, places and people; null without booking. */
-  booking: { catalog: BookingCatalog; people: Person[] } | null;
+  /** The calendar's services, places, people and teams; null without booking. */
+  booking: {
+    catalog: BookingCatalog;
+    people: Person[];
+    teams?: StaffTeam[];
+  } | null;
   /** booking.appointment.manage: add people and their hours. */
   canBook: boolean;
   /** Full or limited member management: send invitations. */
@@ -104,6 +110,7 @@ export function AddPersonDialog({
   const firstRole = groups.work[0]?.key ?? groups.management[0]?.key ?? "";
   const locations = calendar?.catalog.locations ?? [];
   const services = calendar?.catalog.services ?? [];
+  const teams = calendar?.teams ?? [];
   // A person the office set by hand keeps that choice when the role changes.
   const [visitsTouched, setVisitsTouched] = useState(false);
 
@@ -123,6 +130,7 @@ export function AddPersonDialog({
           to: z.string(),
           locationId: z.string(),
           copyFrom: z.string(),
+          teamIds: z.array(z.string()),
         })
         .superRefine((values, context) => {
           const issue = (path: keyof Values, message: string) =>
@@ -157,22 +165,25 @@ export function AddPersonDialog({
     to: "16:00",
     locationId: locations.length === 1 ? locations[0].id : "",
     copyFrom: "",
+    teamIds: [],
   };
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: defaults,
   });
-  const [access, role, takesVisits, weekdays, serviceIds, copyFrom] = useWatch({
-    control: form.control,
-    name: [
-      "access",
-      "role",
-      "takesVisits",
-      "weekdays",
-      "serviceIds",
-      "copyFrom",
-    ],
-  });
+  const [access, role, takesVisits, weekdays, serviceIds, copyFrom, teamIds] =
+    useWatch({
+      control: form.control,
+      name: [
+        "access",
+        "role",
+        "takesVisits",
+        "weekdays",
+        "serviceIds",
+        "copyFrom",
+        "teamIds",
+      ],
+    });
   const errors = form.formState.errors;
   const full =
     access === "invite" &&
@@ -228,6 +239,7 @@ export function AddPersonDialog({
                 }
               : null,
           copy_hours_from: visits && values.copyFrom ? values.copyFrom : null,
+          team_ids: values.teamIds,
         });
       } else if (invitation) {
         await createInvitation(invitation);
@@ -546,6 +558,36 @@ export function AddPersonDialog({
                   {t("visitsSetupFirst")}
                 </p>
               )}
+            </FieldSet>
+          ) : null}
+
+          {teams.length ? (
+            <FieldSet>
+              <FieldLegend>{t("legendTeams")}</FieldLegend>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {teams.map((team) => (
+                  <label
+                    className="flex min-h-11 items-center gap-2 text-sm"
+                    key={team.id}
+                  >
+                    <input
+                      checked={teamIds.includes(team.id)}
+                      className="size-4"
+                      onChange={(event) =>
+                        form.setValue(
+                          "teamIds",
+                          event.target.checked
+                            ? [...teamIds, team.id]
+                            : teamIds.filter((id) => id !== team.id),
+                        )
+                      }
+                      type="checkbox"
+                    />
+                    {team.name}
+                  </label>
+                ))}
+              </div>
+              <FieldDescription>{t("teamsHint")}</FieldDescription>
             </FieldSet>
           ) : null}
 

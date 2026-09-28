@@ -20,6 +20,7 @@ import { PublicBookingFlow } from "./public-booking-flow";
 import { SelfServiceBooking } from "./self-service-booking";
 
 const api = vi.hoisted(() => ({
+  assignCrew: vi.fn(),
   cancelBookingAppointment: vi.fn(),
   completeBookingAppointment: vi.fn(),
   listInventoryBalances: vi.fn(),
@@ -29,11 +30,13 @@ const api = vi.hoisted(() => ({
   createPublicBookingAppointment: vi.fn(),
   getBookingCatalog: vi.fn(),
   getBookingSlots: vi.fn(),
+  getCrewCandidates: vi.fn(),
   getPublicBookingCatalog: vi.fn(),
   getPublicBookingDays: vi.fn(),
   getPublicBookingTimes: vi.fn(),
   getSelfServiceBooking: vi.fn(),
   listBookingAppointments: vi.fn(),
+  listTeams: vi.fn(),
   rescheduleBookingAppointment: vi.fn(),
   rescheduleSelfServiceBooking: vi.fn(),
 }));
@@ -70,6 +73,8 @@ const catalog = {
       public_slug: "consultation",
       duration_minutes: 30,
       appointment_kind: "",
+      staff_count: 1,
+      public_staff_choice: "none",
     },
     {
       id: "33333333-3333-4333-8333-444444444444",
@@ -77,6 +82,8 @@ const catalog = {
       public_slug: "check-up",
       duration_minutes: 60,
       appointment_kind: "",
+      staff_count: 1,
+      public_staff_choice: "none",
     },
   ],
   resources: [{ id: ROOM, name: "Room", kind: "room" }],
@@ -96,6 +103,16 @@ const appointment = {
   staff_membership_id: null,
   location_name: "Centrum",
   resource_name: "Room",
+  crew: [{ staff_id: ALEX, name: "Alex", membership_id: null, lead: true }],
+  staff_required: 1,
+  needs_assignment: false,
+  auto_assigned: false,
+  crew_version: 1,
+  queue_reason: "",
+  queued_at: null,
+  requested_team: null,
+  requested_staff_id: null,
+  customer_notes: "",
 };
 // What a customer is shown: when and where, never who (ADR-058 §8).
 const publicAppointment = {
@@ -118,6 +135,7 @@ const completed = {
   staff_id: BEA,
   staff_name: "Bea",
   resource_name: null,
+  crew: [{ staff_id: BEA, name: "Bea", membership_id: null, lead: true }],
 };
 
 beforeEach(() => {
@@ -134,6 +152,7 @@ beforeEach(() => {
     timezone: "Europe/Warsaw",
   });
   api.listBookingAppointments.mockResolvedValue([appointment, completed]);
+  api.listTeams.mockResolvedValue([]);
   api.getPublicBookingDays.mockResolvedValue(["2026-08-20"]);
   api.getPublicBookingTimes.mockResolvedValue([
     { starts_at: "2026-08-20T08:00:00Z", ends_at: "2026-08-20T08:30:00Z" },
@@ -281,9 +300,11 @@ test("planning a visit from a person's card opens the form with them chosen", as
   address.params = new URLSearchParams(`new=1&staff=${ALEX}`);
   renderCalendar();
   const form = await screen.findByRole("dialog", { name: "New appointment" });
+  const chosen = within(form).getByRole("list", { name: "Chosen people" });
+  expect(within(chosen).getByText("Alex")).not.toBeNull();
   expect(
-    (within(form).getByLabelText("Staff member") as HTMLSelectElement).value,
-  ).toBe(ALEX);
+    within(chosen).getByRole("radio", { name: "Leads: Alex" }),
+  ).toBeChecked();
 });
 
 test("the list is the month as a table, and a row opens the visit", async () => {
@@ -335,6 +356,11 @@ test("an appointment opens its details and is canceled only after confirmation",
     name: "Cancel this appointment?",
   });
   expect(api.cancelBookingAppointment).not.toHaveBeenCalled();
+  // The reload after the change brings the visit as the server keeps it now.
+  api.listBookingAppointments.mockResolvedValue([
+    { ...appointment, status: "canceled" },
+    completed,
+  ]);
   fireEvent.click(
     within(confirm).getByRole("button", { name: "Yes, cancel it" }),
   );
@@ -373,8 +399,10 @@ test("a visit's products can change until it is completed, which takes them off 
     unit_price_minor: 4000,
     currency: "PLN",
   };
-  api.listBookingAppointments.mockResolvedValue([
-    { ...appointment, materials: [oil] },
+  // The server's copy of the visit: every reload brings what was saved.
+  let visit = { ...appointment, materials: [oil] };
+  api.listBookingAppointments.mockImplementation(async () => [
+    visit,
     completed,
   ]);
   api.listInventoryItems.mockResolvedValue([
@@ -384,16 +412,17 @@ test("a visit's products can change until it is completed, which takes them off 
     { item_id: OIL, available: "1.000" },
   ]);
   api.setBookingAppointmentMaterials.mockImplementation(
-    (_id: string, materials: { quantity: string }[]) =>
-      Promise.resolve({
-        ...appointment,
+    async (_id: string, materials: { quantity: string }[]) => {
+      visit = {
+        ...visit,
         materials: [{ ...oil, quantity: materials[0].quantity }],
-      }),
+      };
+      return visit;
+    },
   );
-  api.completeBookingAppointment.mockResolvedValue({
-    ...appointment,
-    status: "completed",
-    materials: [oil],
+  api.completeBookingAppointment.mockImplementation(async () => {
+    visit = { ...visit, status: "completed", materials: [oil] };
+    return visit;
   });
   renderCalendar({ canUseInventory: true });
   fireEvent.click(await screen.findByRole("button", { name: /Jan Kowalski/ }));
@@ -586,7 +615,7 @@ test("a chosen staff member books with the resource that goes with them", async 
   fireEvent.change(within(dialog).getByLabelText("Service"), {
     target: { value: catalog.services[0].id },
   });
-  fireEvent.change(within(dialog).getByLabelText("Staff member"), {
+  fireEvent.change(within(dialog).getByLabelText("Add a person or a team…"), {
     target: { value: ALEX },
   });
   fireEvent.change(within(dialog).getByLabelText("Date"), {
@@ -595,7 +624,7 @@ test("a chosen staff member books with the resource that goes with them", async 
   fireEvent.change(within(dialog).getByLabelText("Time"), {
     target: { value: "09:00" },
   });
-  expect(await within(dialog).findByText("This time is free.")).not.toBeNull();
+  expect(await within(dialog).findByText("Free for: Alex.")).not.toBeNull();
   fireEvent.change(within(dialog).getByLabelText("Full name"), {
     target: { value: "Ewa Zielińska" },
   });
@@ -608,7 +637,7 @@ test("a chosen staff member books with the resource that goes with them", async 
   await waitFor(() => expect(api.createBookingAppointment).toHaveBeenCalled());
   // The office chose Alex: the booking names Alex and Alex's room.
   expect(api.createBookingAppointment.mock.calls[0][0]).toMatchObject({
-    staff_id: ALEX,
+    staff_ids: [ALEX],
     resource_id: ROOM,
     starts_at: "2026-08-20T07:00:00Z",
   });
@@ -685,6 +714,202 @@ test("rescheduling offers the staff member's own free times", async () => {
   expect(
     await within(details).findByText(/Moved to Tue, December 1/),
   ).not.toBeNull();
+});
+
+const TEAM = "88888888-8888-4888-8888-888888888888";
+const CARL = "22222222-2222-4222-8222-444444444444";
+
+const candidate = (
+  staffId: string,
+  name: string,
+  extra: Record<string, unknown> = {},
+) => ({
+  staff_id: staffId,
+  name,
+  team_ids: [TEAM],
+  account: "active",
+  phone: null,
+  does_service: true,
+  state: "free",
+  until: null,
+  hours: [],
+  on_visit: false,
+  lead: false,
+  day_visits: 0,
+  day_minutes: 0,
+  next_free: null,
+  ...extra,
+});
+
+test("a visit's crew shows on its card and in its details, and the office staffs it", async () => {
+  const short = {
+    ...appointment,
+    staff_required: 3,
+    needs_assignment: true,
+    crew_version: 4,
+    crew: [
+      { staff_id: ALEX, name: "Alex", membership_id: null, lead: true },
+      { staff_id: BEA, name: "Bea", membership_id: null, lead: false },
+    ],
+    requested_team: { id: TEAM, name: "North" },
+    customer_notes: "Gate code 1234",
+  };
+  api.listBookingAppointments.mockResolvedValue([short, completed]);
+  api.listTeams.mockResolvedValue([
+    { id: TEAM, name: "North", member_ids: [ALEX, BEA, CARL] },
+  ]);
+  api.getCrewCandidates.mockResolvedValue([
+    candidate(ALEX, "Alex", { on_visit: true, lead: true }),
+    candidate(BEA, "Bea", { on_visit: true }),
+    candidate(CARL, "Carl"),
+  ]);
+  api.assignCrew.mockResolvedValue({
+    ...short,
+    needs_assignment: false,
+    crew_version: 5,
+    crew: [
+      ...short.crew,
+      { staff_id: CARL, name: "Carl", membership_id: null, lead: false },
+    ],
+  });
+  renderCalendar();
+  const card = await screen.findByRole("button", { name: /Jan Kowalski/ });
+  // One name and a count for the eye, every name for a screen reader.
+  expect(within(card).getByText("Alex +1")).not.toBeNull();
+  expect(
+    within(card).getByText("Consultation, Alex (lead), Bea"),
+  ).not.toBeNull();
+  expect(within(card).getByText("Vacancy: 1 person missing")).not.toBeNull();
+  // Bea helps on the visit she does not lead: her filter shows it too.
+  fireEvent.change(screen.getByLabelText("Staff member"), {
+    target: { value: BEA },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /Jan Kowalski/ }));
+  const details = await screen.findByRole("dialog", { name: "Jan Kowalski" });
+  expect(within(details).getByText("Alex (lead), Bea")).not.toBeNull();
+  expect(within(details).getByText("North")).not.toBeNull();
+  expect(within(details).getByText("Gate code 1234")).not.toBeNull();
+  expect((await axe.run(details)).violations).toHaveLength(0);
+
+  fireEvent.click(
+    within(details).getByRole("button", { name: "Assign people…" }),
+  );
+  const crew = await screen.findByRole("dialog", {
+    name: "Assign — Jan Kowalski",
+  });
+  fireEvent.click(
+    await within(crew).findByRole("checkbox", { name: "Pick: Carl" }),
+  );
+  fireEvent.click(within(crew).getByRole("button", { name: "Save crew" }));
+  expect(await within(details).findByText("Crew saved.")).not.toBeNull();
+  // The version the office looked at: a change made meanwhile is refused.
+  expect(api.assignCrew).toHaveBeenCalledWith(
+    short.id,
+    {
+      staff_ids: [ALEX, BEA, CARL],
+      lead_id: ALEX,
+      expected_version: 4,
+      notify: true,
+    },
+    expect.stringMatching(/^[0-9a-f-]{36}$/),
+  );
+});
+
+test("a visit for two is free only when both are, and books the crew named", async () => {
+  const pair = {
+    ...catalog.services[0],
+    id: "33333333-3333-4333-8333-555555555555",
+    name: "Pair work",
+    staff_count: 2,
+  };
+  const slot = (startsAt: string, staffId: string) => ({
+    starts_at: startsAt,
+    ends_at: new Date(Date.parse(startsAt) + 30 * 60_000).toISOString(),
+    staff_id: staffId,
+    resource_id: ROOM,
+  });
+  api.getBookingCatalog.mockResolvedValue({ ...catalog, services: [pair] });
+  api.listTeams.mockResolvedValue([
+    { id: TEAM, name: "North", member_ids: [ALEX, BEA] },
+  ]);
+  api.getBookingSlots.mockResolvedValue({
+    items: [
+      slot("2026-08-20T07:00:00Z", ALEX),
+      slot("2026-08-20T07:00:00Z", BEA),
+      slot("2026-08-20T08:00:00Z", ALEX),
+      slot("2026-08-21T07:00:00Z", ALEX),
+      slot("2026-08-21T07:00:00Z", BEA),
+    ],
+  });
+  api.createBookingAppointment.mockResolvedValue({
+    ...appointment,
+    customer_name: "Ewa Zielińska",
+  });
+  renderCalendar();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "New appointment" }),
+  );
+  const dialog = await screen.findByRole("dialog", { name: "New appointment" });
+  expect(
+    within(dialog).getByText("This service needs 2 people."),
+  ).not.toBeNull();
+  expect(
+    within(dialog).getByText("We will pick automatically."),
+  ).not.toBeNull();
+  fireEvent.change(within(dialog).getByLabelText("Date"), {
+    target: { value: "2026-08-20" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Time"), {
+    target: { value: "10:00" },
+  });
+  // Only Alex is free at 10:00; two are needed.
+  expect(await within(dialog).findByText(/This time is taken/)).not.toBeNull();
+  const add = within(dialog).getByLabelText("Add a person or a team…");
+  expect(within(add).getByText("Alex — free at 10:00")).not.toBeNull();
+  expect(within(add).getByText("Bea — not available at 10:00")).not.toBeNull();
+
+  fireEvent.change(add, { target: { value: `team:${TEAM}` } });
+  expect(
+    within(dialog).getByText("Chosen from the team: North"),
+  ).not.toBeNull();
+  const chosen = within(dialog).getByRole("list", { name: "Chosen people" });
+  fireEvent.click(within(chosen).getByRole("button", { name: "Remove: Bea" }));
+  expect(
+    within(dialog).getByText(
+      "1 person missing — the visit goes to “To assign”.",
+    ),
+  ).not.toBeNull();
+  fireEvent.change(add, { target: { value: BEA } });
+  fireEvent.click(within(dialog).getByRole("button", { name: /^09:00/ }));
+  expect(
+    await within(dialog).findByText("Free for: Alex, Bea."),
+  ).not.toBeNull();
+  expect(
+    within(dialog).getByText("Other times that suit them all:"),
+  ).not.toBeNull();
+  expect(within(dialog).getByRole("button", { name: /Aug 21/ })).not.toBeNull();
+  expect((await axe.run(dialog)).violations).toHaveLength(0);
+
+  fireEvent.change(within(dialog).getByLabelText("Full name"), {
+    target: { value: "Ewa Zielińska" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Phone"), {
+    target: { value: "+48 600 100 200" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Notes"), {
+    target: { value: "  Gate code 1234 " },
+  });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Save appointment" }),
+  );
+  await waitFor(() => expect(api.createBookingAppointment).toHaveBeenCalled());
+  expect(api.createBookingAppointment.mock.calls[0][0]).toMatchObject({
+    service_id: pair.id,
+    staff_ids: [ALEX, BEA],
+    resource_id: ROOM,
+    starts_at: "2026-08-20T07:00:00Z",
+    customer_notes: "Gate code 1234",
+  });
 });
 
 test("an empty calendar invites the first appointment, or the setup first", async () => {

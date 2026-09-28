@@ -49,6 +49,11 @@ const NAMED_TEMPLATES = new Set([
   "billing.trial_ending",
   "billing.grace_ending",
   "product.update",
+  "booking.staff_assigned",
+  "booking.staff_unassigned",
+  "booking.staff_moved",
+  "booking.staff_canceled",
+  "booking.person_changed",
 ]);
 const NAMED_VARIABLES = new Set([
   "organization_name",
@@ -57,6 +62,9 @@ const NAMED_VARIABLES = new Set([
   "message",
   "plan_name",
   "ends_at",
+  "previous_starts_at",
+  "panel_url",
+  "manage_url",
 ]);
 
 /**

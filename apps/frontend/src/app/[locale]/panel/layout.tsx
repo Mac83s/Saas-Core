@@ -10,13 +10,14 @@ import { PanelMain, PanelWidthProvider } from "#components/panel/panel-width";
 import { SectionTabs } from "#components/panel/section-tabs";
 import { billingAttention } from "#lib/billing-attention";
 import {
+  getServerBookingOverview,
   getServerCurrentOrganization,
   getServerCustomerBillingOverview,
   getServerOrganizations,
   getServerUser,
 } from "#lib/server-auth";
 import { typeRole, typeText } from "#lib/organization-types";
-import { panelAccess, type PanelAccess } from "#lib/panel-navigation";
+import { allows, panelAccess, type PanelAccess } from "#lib/panel-navigation";
 import { PANEL_WIDTH_COOKIE } from "#lib/panel-width";
 import {
   SidebarInset,
@@ -47,7 +48,7 @@ export default async function PanelLayout({
   // saying who it is (ADR-050) instead of landing in an empty panel.
   if (organizations.length === 0) redirect(`${prefix}/onboarding`);
 
-  const access = panelAccess(organization);
+  const access = await withBooking(panelAccess(organization));
   const typeRoleInfo = typeRole(
     organization?.organization_type,
     organization?.role,
@@ -93,4 +94,29 @@ async function ownerBillingAttention(access: PanelAccess) {
     return null;
   const billing = await getServerCustomerBillingOverview();
   return billing ? billingAttention(billing.subscription, Date.now()) : null;
+}
+
+/**
+ * Who takes visits and what waits (ADR-058): the dispatch pages show only
+ * where there is somebody to choose between, and the queue carries its count.
+ */
+async function withBooking(access: PanelAccess): Promise<PanelAccess> {
+  if (
+    !allows(access, {
+      module: "shared.booking",
+      permission: "booking.appointment.read",
+    })
+  )
+    return access;
+  const overview = await getServerBookingOverview();
+  return overview
+    ? {
+        ...access,
+        booking: {
+          bookableStaff: overview.bookable_staff,
+          teams: overview.teams,
+          waiting: overview.waiting,
+        },
+      }
+    : access;
 }

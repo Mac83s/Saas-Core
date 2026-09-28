@@ -34,6 +34,7 @@ const { api, router } = vi.hoisted(() => ({
     listMemberships: vi.fn(),
     listPeople: vi.fn(),
     listRoles: vi.fn(),
+    listTeams: vi.fn(),
     restorePerson: vi.fn(),
     revokeInvitation: vi.fn(),
     transferOwnership: vi.fn(),
@@ -273,6 +274,7 @@ beforeEach(() => {
       },
     ],
   });
+  api.listTeams.mockResolvedValue([]);
   api.addPerson.mockResolvedValue({});
   api.createInvitation.mockResolvedValue({});
   api.updateMembership.mockResolvedValue({});
@@ -439,11 +441,62 @@ test("dodaje podwykonawcę bez konta z usługami i godzinami w jednym kroku", as
         location_id: PLACE,
       },
       copy_hours_from: null,
+      team_ids: [],
     }),
   );
   expect(
     await screen.findByText("Dodano do zespołu: Krzysztof Nowak."),
   ).toBeInTheDocument();
+});
+
+test("zespoły: kolumna, filtr i wybór przy dodawaniu osoby", async () => {
+  api.listTeams.mockResolvedValue([
+    { id: "t-north", name: "Brygada Północ", member_ids: ["s-marcin"] },
+    { id: "t-care", name: "Kontrole", member_ids: ["s-marcin"] },
+  ]);
+  api.listPeople.mockResolvedValue([
+    person("s-marcin", "Marcin Kowalski", {
+      membership_id: "marcin",
+      phone: "601 234 567",
+      team_ids: ["t-north", "t-care"],
+    }),
+    person("s-krzysztof", "Krzysztof Nowak", { phone: "604 567 890" }),
+  ]);
+  renderPanel();
+  const table = await screen.findByRole("table", { name: "Pracownicy firmy" });
+  const marcin = (await within(table).findByText("Marcin Kowalski")).closest(
+    "tr",
+  )!;
+  // The first team by name, the rest counted for the eye and named aloud.
+  expect(within(marcin).getByText("Brygada Północ")).toBeInTheDocument();
+  expect(within(marcin).getByText("oraz Kontrole")).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("Zespół"), {
+    target: { value: "t-care" },
+  });
+  expect(within(table).queryByText("Krzysztof Nowak")).toBeNull();
+  expect(within(table).getByText("Marcin Kowalski")).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Dodaj pracownika" }));
+  const dialog = await screen.findByRole("dialog", {
+    name: "Dodaj pracownika",
+  });
+  fireEvent.click(within(dialog).getByLabelText(/Bez konta/));
+  fireEvent.change(within(dialog).getByLabelText("Imię i nazwisko"), {
+    target: { value: "Piotr Wiśniewski" },
+  });
+  fireEvent.click(within(dialog).getByLabelText("Brygada Północ"));
+  await expectAccessible(dialog);
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Dodaj pracownika" }),
+  );
+  await waitFor(() =>
+    expect(api.addPerson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Piotr Wiśniewski",
+        team_ids: ["t-north"],
+      }),
+    ),
+  );
 });
 
 test("z kontem: rola robocza domyślnie, zaproszenie i czytelny konflikt", async () => {

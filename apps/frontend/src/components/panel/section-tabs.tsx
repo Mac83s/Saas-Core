@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 
+import { PageCount } from "#components/panel/app-sidebar";
 import { Link, usePathname } from "#i18n/navigation";
 import {
   currentPage,
@@ -31,12 +32,13 @@ export function SectionTabs({ access }: { access: PanelAccess }) {
               <Link
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "-mb-px flex min-h-11 items-center border-b-2 border-transparent px-3 text-sm font-medium whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
+                  "-mb-px flex min-h-11 items-center gap-2 border-b-2 border-transparent px-3 text-sm font-medium whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
                   active && "border-primary text-foreground",
                 )}
                 href={tab.href}
               >
                 {t(tab.labelKey)}
+                <PageCount count={tab.count} />
               </Link>
             </li>
           );

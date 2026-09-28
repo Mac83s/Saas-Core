@@ -262,3 +262,83 @@ describe("podstrony w menu (ADR-057)", () => {
     expect(messages?.pages).toBeUndefined();
   });
 });
+
+describe("przydział wizyt w menu (ADR-058)", () => {
+  const OFFICE: PanelAccess = {
+    ...OWNER,
+    modules: [...OWNER.modules, "shared.booking"],
+    permissions: [
+      "organization.members.read",
+      "booking.appointment.read",
+      "booking.appointment.manage",
+    ],
+    isOwner: false,
+  };
+  const calendar = (access: PanelAccess) =>
+    panelNavigation(access).work.find((item) => item.labelKey === "calendar");
+  const team = (access: PanelAccess) =>
+    panelNavigation(access).company.find((item) => item.labelKey === "team");
+
+  it("jedna osoba przyjmuje wizyty: nie ma kogo przydzielać ani grupować", () => {
+    const alone = {
+      ...OFFICE,
+      booking: { bookableStaff: 1, teams: 0, waiting: 0 },
+    };
+    expect(calendar(alone)?.pages).toBeUndefined();
+    expect(team(alone)?.pages?.map((page) => page.href)).toEqual([
+      "/panel/team",
+      "/panel/team/roles",
+    ]);
+  });
+
+  it("kilka osób: Do przydzielenia z licznikiem i Zespoły", () => {
+    const office = {
+      ...OFFICE,
+      booking: { bookableStaff: 3, teams: 0, waiting: 2 },
+    };
+    expect(
+      calendar(office)?.pages?.map((page) => [page.href, page.count]),
+    ).toEqual([
+      ["/panel/calendar", undefined],
+      ["/panel/calendar/queue", 2],
+    ]);
+    expect(
+      sectionTabs("/panel/calendar/queue", office)?.map((tab) => tab.count),
+    ).toEqual([undefined, 2]);
+    expect(team(office)?.pages?.map((page) => page.href)).toEqual([
+      "/panel/team",
+      "/panel/team/teams",
+      "/panel/team/roles",
+    ]);
+  });
+
+  it("wizyta czeka albo zespół jest: strona zostaje przy jednej osobie", () => {
+    const leftover = {
+      ...OFFICE,
+      booking: { bookableStaff: 1, teams: 1, waiting: 1 },
+    };
+    expect(calendar(leftover)?.pages?.map((page) => page.href)).toEqual([
+      "/panel/calendar",
+      "/panel/calendar/queue",
+    ]);
+    expect(team(leftover)?.pages?.map((page) => page.href)).toContain(
+      "/panel/team/teams",
+    );
+  });
+
+  it("bez zarządzania wizytami nie ma kolejki, bez kalendarza nic z tego", () => {
+    const worker = {
+      ...OFFICE,
+      permissions: ["organization.members.read", "booking.appointment.read"],
+      booking: { bookableStaff: 3, teams: 1, waiting: null },
+    };
+    expect(calendar(worker)?.pages).toBeUndefined();
+    expect(team(worker)?.pages?.map((page) => page.href)).toContain(
+      "/panel/team/teams",
+    );
+    expect(calendar(OFFICE)?.pages).toBeUndefined();
+    expect(team(OFFICE)?.pages?.map((page) => page.href)).not.toContain(
+      "/panel/team/teams",
+    );
+  });
+});

@@ -48,15 +48,47 @@ export type PanelSectionTab = Pick<
   | "permission"
   | "ownerOnly"
   | "organizationTypes"
->;
+> & {
+  /**
+   * Choosing between people only makes sense when more than one takes visits
+   * (ADR-058: with one lekarka the dispatch pages hide themselves, counted
+   * from the data, not from the product). "queue" also shows while something
+   * waits; "teams" while a team exists.
+   */
+  dispatch?: "queue" | "teams";
+  /** A number beside the label, e.g. visits waiting in „Do przydzielenia”. */
+  count?: number;
+};
 
 export const PANEL_SECTIONS = {
-  // Zespoły (phase 3) and Wydajność (phase 5) join here (ADR-058).
+  calendar: [
+    {
+      href: "/panel/calendar",
+      labelKey: "calendar",
+      module: "shared.booking",
+      permission: "booking.appointment.read",
+    },
+    {
+      href: "/panel/calendar/queue",
+      labelKey: "calendarQueue",
+      module: "shared.booking",
+      permission: "booking.appointment.manage",
+      dispatch: "queue",
+    },
+  ],
+  // Wydajność (phase 5) joins here (ADR-058).
   team: [
     {
       href: "/panel/team",
       labelKey: "teamPeople",
       permission: "organization.members.read",
+    },
+    {
+      href: "/panel/team/teams",
+      labelKey: "teamTeams",
+      module: "shared.booking",
+      permission: "booking.appointment.read",
+      dispatch: "teams",
     },
     {
       href: "/panel/team/roles",
@@ -179,6 +211,8 @@ export type PanelAccess = {
   /** A limited role of the organization's type (ADR-050). */
   limited: boolean;
   organizationType?: string;
+  /** Who takes visits and what waits (GET /booking/overview/); none without the calendar. */
+  booking?: { bookableStaff: number; teams: number; waiting: number | null };
 };
 
 export function panelAccess(
@@ -203,6 +237,7 @@ const WORK: PanelNavItem[] = [
     group: "work",
     module: "shared.booking",
     permission: "booking.appointment.read",
+    section: "calendar",
   },
   {
     href: "/panel/farms",
@@ -303,9 +338,18 @@ export function allows(
     | "notForLimited"
     | "anyAccess"
     | "organizationTypes"
-  >,
+  > & { dispatch?: PanelSectionTab["dispatch"] },
 ): boolean {
   if (item.module && !access.modules.includes(item.module)) return false;
+  if (item.dispatch) {
+    const booking = access.booking;
+    if (!booking) return false;
+    const choosing = booking.bookableStaff >= 2;
+    if (item.dispatch === "queue" && !choosing && !booking.waiting)
+      return false;
+    if (item.dispatch === "teams" && !choosing && booking.teams === 0)
+      return false;
+  }
   if (
     item.anyAccess &&
     !item.anyAccess.some((feature) => allows(access, feature))
@@ -341,9 +385,9 @@ export function panelNavigation(access: PanelAccess): {
     items.flatMap((item) => {
       if (!allows(access, item)) return [];
       if (!item.section) return [item];
-      const pages = PANEL_SECTIONS[item.section].filter((tab) =>
-        allows(access, tab),
-      );
+      const pages = PANEL_SECTIONS[item.section]
+        .filter((tab) => allows(access, tab))
+        .map((tab) => withCount(access, tab));
       if (pages.length === 0) return [];
       // One page is the entry itself: nothing to unfold.
       return [
@@ -365,6 +409,11 @@ export function panelNavigation(access: PanelAccess): {
   };
 }
 
+function withCount(access: PanelAccess, tab: PanelSectionTab): PanelSectionTab {
+  const waiting = access.booking?.waiting;
+  return tab.dispatch === "queue" && waiting ? { ...tab, count: waiting } : tab;
+}
+
 /** The tabs of the section `pathname` is in, when there is more than one. */
 export function sectionTabs(
   pathname: string,
@@ -372,7 +421,9 @@ export function sectionTabs(
 ): PanelSectionTab[] | null {
   for (const tabs of Object.values(PANEL_SECTIONS) as PanelSectionTab[][]) {
     if (!tabs.some((tab) => matches(pathname, tab.href))) continue;
-    const visible = tabs.filter((tab) => allows(access, tab));
+    const visible = tabs
+      .filter((tab) => allows(access, tab))
+      .map((tab) => withCount(access, tab));
     return visible.length > 1 ? visible : null;
   }
   return null;

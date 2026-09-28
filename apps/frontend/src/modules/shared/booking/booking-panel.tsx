@@ -16,8 +16,10 @@ import {
   ApiProblemError,
   getBookingCatalog,
   listBookingAppointments,
+  listTeams,
   type BookingAppointment,
   type BookingCatalog,
+  type StaffTeam,
 } from "@saas-core/api-client";
 import { Button, buttonVariants } from "@saas-core/ui/components/button";
 import {
@@ -33,6 +35,8 @@ import { Link } from "#i18n/navigation";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import {
   AppointmentDialog,
+  CrewBadges,
+  crewNames,
   NewAppointmentDialog,
   StatusBadge,
   STATUSES,
@@ -62,6 +66,18 @@ type OpenAppointment = (
 const focusRing =
   "outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
 
+/** On the visit as the server counts it for „Moje wizyty”: lead or crew. */
+const onVisit = (item: BookingAppointment, staffId: string) =>
+  item.staff_id === staffId ||
+  item.crew.some((person) => person.staff_id === staffId);
+
+/** The lead and how many more: a card has room for one name. */
+function crewShort(item: BookingAppointment) {
+  const [lead, ...rest] = item.crew;
+  if (!lead) return "";
+  return rest.length ? `${lead.name} +${rest.length}` : lead.name;
+}
+
 /**
  * The team's appointments by day, week or month. Services, staff and working
  * hours are set up in Settings; this screen only links there.
@@ -89,6 +105,7 @@ export function BookingPanel({
   const params = useSearchParams();
   const asked = (name: string) => params?.get(name) ?? "";
   const [catalog, setCatalog] = useState<BookingCatalog>();
+  const [teams, setTeams] = useState<StaffTeam[]>([]);
   const [appointments, setAppointments] = useState<BookingAppointment[]>();
   const [hasAny, setHasAny] = useState(false);
   const [problem, setProblem] = useState<"load" | "plan" | "access">();
@@ -132,7 +149,7 @@ export function BookingPanel({
   const byDay = useMemo(() => {
     const days = new Map<string, BookingAppointment[]>();
     for (const item of appointments ?? []) {
-      if (chosenStaff && item.staff_id !== chosenStaff) continue;
+      if (chosenStaff && !onVisit(item, chosenStaff)) continue;
       if (serviceFilter && item.service_name !== serviceFilter) continue;
       const day = wallClock(item.starts_at, zone).day;
       const list = days.get(day);
@@ -184,11 +201,22 @@ export function BookingPanel({
       getBookingCatalog(),
       listBookingAppointments({ ...(mine ? { mine } : {}), from, to: until }),
       listBookingAppointments({ limit: 1 }),
+      // Teams only help whoever plans; without them the forms still work.
+      canManage ? listTeams().catch(() => []) : Promise.resolve([]),
     ])
-      .then(([nextCatalog, nextAppointments, first]) => {
+      .then(([nextCatalog, nextAppointments, first, nextTeams]) => {
         if (!current) return;
         setCatalog(nextCatalog);
+        setTeams(nextTeams);
         setAppointments(nextAppointments);
+        // The open visit as it is now: a crew saved from elsewhere has a new
+        // version, and the details must save with that one.
+        setSelected((current) =>
+          current
+            ? (nextAppointments.find((item) => item.id === current.id) ??
+              current)
+            : current,
+        );
         setHasAny(first.length > 0);
         setProblem(undefined);
       })
@@ -206,7 +234,7 @@ export function BookingPanel({
     return () => {
       current = false;
     };
-  }, [from, mine, reloads, until]);
+  }, [canManage, from, mine, reloads, until]);
 
   const title =
     view === "day"
@@ -331,7 +359,17 @@ export function BookingPanel({
     },
     { id: "customer", accessorKey: "customer_name", header: t("customer") },
     { id: "service", accessorKey: "service_name", header: t("service") },
-    { id: "staff", accessorKey: "staff_name", header: t("staff") },
+    {
+      id: "staff",
+      accessorFn: (item) => crewNames(item, t),
+      header: t("crew"),
+      cell: ({ row: { original: item } }) => (
+        <span className="flex flex-wrap items-center gap-2">
+          {crewNames(item, t) || t("crewNobody")}
+          <CrewBadges appointment={item} />
+        </span>
+      ),
+    },
     {
       id: "status",
       accessorFn: (item) => statusLabel(t, item.status),
@@ -372,7 +410,11 @@ export function BookingPanel({
         labels={{ ...labels, empty: t("noAppointmentsMonth") }}
         searchable
         searchText={(item) =>
-          [item.customer_name, item.service_name, item.staff_name].join(" ")
+          [
+            item.customer_name,
+            item.service_name,
+            ...item.crew.map((person) => person.name),
+          ].join(" ")
         }
         toolbar={filters}
       />
@@ -663,6 +705,7 @@ export function BookingPanel({
         onOpenChange={setDetailsOpen}
         open={detailsOpen}
         restoreFocus={restoreFocus}
+        teams={teams}
         zone={zone}
       />
       {catalog ? (
@@ -685,6 +728,7 @@ export function BookingPanel({
           onOpenChange={setCreating}
           open={creating}
           restoreFocus={restoreFocus}
+          teams={teams}
           zone={zone}
         />
       ) : null}
@@ -795,12 +839,13 @@ function AppointmentCard({
   wide?: boolean;
   zone: string;
 }) {
+  const t = useTranslations("Calendar");
   const locale = useLocale();
-  const details = [
-    appointment.service_name,
-    appointment.staff_name,
-    wide ? appointment.location_name : null,
-  ].filter(Boolean);
+  const place = wide ? appointment.location_name : null;
+  // The crew gets a line of its own: a narrow week column still says who.
+  const details = [appointment.service_name, place];
+  // „+1” is for the eye; a screen reader hears every name.
+  const spoken = [appointment.service_name, crewNames(appointment, t), place];
   return (
     <button
       className={cn(
@@ -834,10 +879,22 @@ function AppointmentCard({
           {appointment.customer_name}
         </span>{" "}
         <span className="block truncate text-xs text-muted-foreground">
-          {details.join(" · ")}
+          <span aria-hidden="true">{details.filter(Boolean).join(" · ")}</span>
+          <span className="sr-only">{spoken.filter(Boolean).join(", ")}</span>
         </span>
+        {appointment.crew.length ? (
+          <span
+            aria-hidden="true"
+            className="block truncate text-xs text-muted-foreground"
+          >
+            {crewShort(appointment)}
+          </span>
+        ) : null}
       </span>{" "}
-      <StatusBadge status={appointment.status} />
+      <span className="flex flex-wrap gap-1">
+        <StatusBadge status={appointment.status} />{" "}
+        <CrewBadges appointment={appointment} short={!wide} />
+      </span>
     </button>
   );
 }
@@ -880,7 +937,13 @@ function MonthAppointment({
       </span>{" "}
       <span className="truncate">{appointment.customer_name}</span>
       <span className="sr-only">
-        {`, ${statusLabel(t, appointment.status)}, ${appointment.service_name}, ${appointment.staff_name}`}
+        {`, ${[
+          statusLabel(t, appointment.status),
+          appointment.service_name,
+          crewNames(appointment, t),
+        ]
+          .filter(Boolean)
+          .join(", ")}`}
       </span>
     </button>
   );

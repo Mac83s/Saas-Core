@@ -17,6 +17,7 @@ const { getNotificationInbox, markNotificationsRead } = vi.hoisted(() => ({
   markNotificationsRead: vi.fn(),
 }));
 
+vi.mock("#i18n/navigation", () => ({ Link: "a" }));
 vi.mock("@saas-core/api-client", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@saas-core/api-client")>()),
   getNotificationInbox,
@@ -100,4 +101,45 @@ test("pusta skrzynka nie krzyczy licznikiem", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Powiadomienia" }));
 
   expect(await screen.findByText("Nie ma nic nowego.")).not.toBeNull();
+});
+
+test("wizyty w dzwonku: zdanie w strefie firmy i link do dnia w kalendarzu", async () => {
+  const visit = (kind: string, extra: Record<string, unknown> = {}) => ({
+    ...trialEnding,
+    id: `01a07000-0000-7000-8000-${kind.length.toString().padStart(12, "0")}`,
+    kind,
+    severity: "info" as const,
+    // 23:30 in Warsaw on 30 September is already 1 October's date there.
+    payload: {
+      appointment_id: "01a07000-0000-7000-8000-00000000000a",
+      starts_at: "2026-09-30T22:30:00Z",
+      timezone: "Europe/Warsaw",
+      service_name: "Korekcja stada",
+      ...extra,
+    },
+  });
+  getNotificationInbox.mockResolvedValue({
+    unread: 2,
+    items: [
+      visit("booking.assigned"),
+      visit("booking.moved", { previous_starts_at: "2026-09-29T06:00:00Z" }),
+    ],
+  });
+  renderBell();
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Powiadomienia, nieprzeczytane: 2",
+    }),
+  );
+  const assigned = await screen.findByRole("link", {
+    name: "Przydzielono Cię do wizyty: Korekcja stada, 1 paź 2026, 00:30.",
+  });
+  expect(assigned.getAttribute("href")).toBe(
+    "/panel/calendar?view=day&date=2026-10-01",
+  );
+  expect(
+    screen.getByRole("link", {
+      name: "Wizyta Korekcja stada z 29 wrz 2026, 08:00 jest teraz 1 paź 2026, 00:30.",
+    }),
+  ).not.toBeNull();
 });

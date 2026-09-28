@@ -14,6 +14,7 @@ import {
   listMemberships,
   listPeople,
   listRoles,
+  listTeams,
   type BookingAppointment,
   type BookingCatalog,
   type InvitationSummary,
@@ -23,6 +24,7 @@ import {
   type Person,
   type PersonDetail,
   type RoleCatalog,
+  type StaffTeam,
   type UserSummary,
 } from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
@@ -62,6 +64,7 @@ type Loaded = {
   people: Person[];
   upcoming: BookingAppointment[];
   members: MembershipSummary[];
+  teams: StaffTeam[];
   /** The calendar answered: an installed module is not a bought one. */
   booking: boolean;
 };
@@ -158,7 +161,7 @@ export function PersonCard({
         !member && detail?.invitation_id
           ? invitations.find((item) => item.id === detail?.invitation_id)
           : undefined;
-      const [catalog, day, others, upcoming] = detail
+      const [catalog, day, others, upcoming, teams] = detail
         ? await Promise.all([
             optional(getBookingCatalog()),
             optional(getPeopleDay()),
@@ -170,10 +173,14 @@ export function PersonCard({
                 to: addDays(today, 14),
               }),
             ),
+            detail.team_ids.length
+              ? optional(listTeams())
+              : Promise.resolve(undefined),
           ])
         : [
             // "Edytuj" gives an account its entry, services and all.
             canBook ? await optional(getBookingCatalog()) : undefined,
+            undefined,
             undefined,
             undefined,
             undefined,
@@ -188,6 +195,7 @@ export function PersonCard({
         people: others ?? [],
         upcoming: (upcoming ?? []).filter((item) => item.status !== "canceled"),
         members,
+        teams: teams ?? [],
         booking: Boolean(detail || mine || catalog),
       });
       setFailed(false);
@@ -316,6 +324,17 @@ export function PersonCard({
       ),
     ],
     [t("account"), account()],
+    ...(detail?.team_ids.length
+      ? ([
+          [
+            t("teams"),
+            data?.teams
+              .filter((team) => detail.team_ids.includes(team.id))
+              .map((team) => team.name)
+              .join(", ") || "—",
+          ],
+        ] satisfies [string, ReactNode][])
+      : []),
     ...(detail
       ? ([
           [

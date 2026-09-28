@@ -3,6 +3,7 @@ import "server-only";
 import { cookies } from "next/headers";
 
 import type {
+  BookingOverview,
   CustomerBillingOverview,
   OrganizationSummary,
   UserSummary,
@@ -26,6 +27,11 @@ export async function getServerOrganizations(): Promise<OrganizationSummary[]> {
 
 export async function getServerCustomerBillingOverview(): Promise<CustomerBillingOverview | null> {
   return serverGet<CustomerBillingOverview>("/api/v1/billing/overview/");
+}
+
+/** Who takes visits and what waits, for the menu (ADR-058); null without the calendar. */
+export async function getServerBookingOverview(): Promise<BookingOverview | null> {
+  return serverGet<BookingOverview>("/api/v1/booking/overview/");
 }
 
 async function serverGet<T>(path: string): Promise<T | null> {

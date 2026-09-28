@@ -173,12 +173,25 @@ function NavEntry({ item }: { item: PanelNavEntry }) {
                 onClick={closeMobile}
               >
                 <span className="truncate">{t(sub.labelKey)}</span>
+                <PageCount count={sub.count} />
               </Link>
             </li>
           ))}
         </ul>
       ) : null}
     </li>
+  );
+}
+
+/** How many wait on a page, e.g. „Do przydzielenia · 3”; nothing at zero. */
+export function PageCount({ count }: { count?: number }) {
+  const t = useTranslations("DashboardNav");
+  if (!count) return null;
+  return (
+    <span className="ml-auto rounded-full bg-primary/10 px-2 text-xs font-medium text-primary tabular-nums">
+      <span aria-hidden="true">{count}</span>
+      <span className="sr-only">{t("waiting", { count })}</span>
+    </span>
   );
 }
 

@@ -30,6 +30,7 @@ const api = vi.hoisted(() => ({
   listMemberships: vi.fn(),
   listPeople: vi.fn(),
   listRoles: vi.fn(),
+  listTeams: vi.fn(),
   removeTimeOff: vi.fn(),
   setPersonHours: vi.fn(),
   setPersonServices: vi.fn(),
@@ -259,6 +260,11 @@ function renderCard(
 }
 
 test("karta: dane, dziś, grafik i najbliższe wizyty z drogą do kalendarza", async () => {
+  api.getPerson.mockResolvedValue({ ...detail, team_ids: ["t-north"] });
+  api.listTeams.mockResolvedValue([
+    { id: "t-north", name: "Brygada Północ", member_ids: ["s-marcin"] },
+    { id: "t-south", name: "Brygada Południe", member_ids: [] },
+  ]);
   const { container } = renderCard();
   expect(
     await screen.findByRole("heading", { level: 1, name: "Marcin Kowalski" }),
@@ -273,6 +279,8 @@ test("karta: dane, dziś, grafik i najbliższe wizyty z drogą do kalendarza", a
   );
   expect(facts.getByText("marcin@example.com")).toBeInTheDocument();
   expect(facts.getByText("Na wizycie do 12:00")).toBeInTheDocument();
+  expect(facts.getByText("Brygada Północ")).toBeInTheDocument();
+  expect(facts.queryByText("Brygada Południe")).toBeNull();
   expect(facts.getByText("Korekcja stada")).toBeInTheDocument();
   expect(facts.getByText("Pn–Pt 06:00–16:00 · Baza")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Przegląd" })).toHaveAttribute(
