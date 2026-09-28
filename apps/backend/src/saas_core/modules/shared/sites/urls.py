@@ -48,6 +48,8 @@ from .views import (
     PageTranslationView,
     PageTypeView,
     PageUrlView,
+    PageVersionListView,
+    PageVersionRestoreView,
     SiteListCreateView,
     SiteLocalizationReportView,
     SiteNavigationView,
@@ -242,6 +244,16 @@ urlpatterns = [
         "pages/<uuid:page_id>/template-import/",
         PageTemplateImportView.as_view(),
         name="page-template-import",
+    ),
+    path(
+        "pages/<uuid:page_id>/versions/",
+        PageVersionListView.as_view(),
+        name="page-version-list",
+    ),
+    path(
+        "pages/<uuid:page_id>/versions/<uuid:version_id>/restore/",
+        PageVersionRestoreView.as_view(),
+        name="page-version-restore",
     ),
     path(
         "pages/<uuid:page_id>/preview/<uuid:version_id>/",

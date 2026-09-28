@@ -56,6 +56,8 @@ const {
   initiateMediaUpload,
   listMediaAssets,
   listPageTranslations,
+  listPageVersions,
+  restorePageVersion,
   requestImageGeneration,
   savePageDraft,
   savePageTranslation,
@@ -69,6 +71,8 @@ const {
   initiateMediaUpload: vi.fn(),
   listMediaAssets: vi.fn(),
   listPageTranslations: vi.fn(),
+  listPageVersions: vi.fn(),
+  restorePageVersion: vi.fn(),
   requestImageGeneration: vi.fn(),
   savePageDraft: vi.fn(),
   savePageTranslation: vi.fn(),
@@ -93,6 +97,8 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   initiateMediaUpload,
   listMediaAssets,
   listPageTranslations,
+  listPageVersions,
+  restorePageVersion,
   requestImageGeneration,
   savePageDraft,
   savePageTranslation,
@@ -777,6 +783,88 @@ test("porównanie układów pokazuje własną treść w każdym układzie i zmie
   );
   fireEvent.click(screen.getByRole("button", { name: "Cofnij" }));
   expect(screen.getByLabelText("Układ sekcji")).toHaveValue("cards");
+});
+
+test("historia wersji pokazuje pochodzenie, podgląd i przywraca wersję jako nową", async () => {
+  const author = {
+    id: "019ff20d-a000-7000-8000-0000000000e0",
+    email: "ania@example.test",
+  };
+  listPageVersions.mockResolvedValue({
+    items: [
+      {
+        id: draft.draft_id,
+        number: 2,
+        origin: "template",
+        origin_ref: "core.step_guide@1",
+        created_by: author,
+        automation: false,
+        block_count: 10,
+        current: true,
+        created_at: "2026-09-28T12:00:00Z",
+      },
+      {
+        id: "019ff20d-a000-7000-8000-0000000000e1",
+        number: 1,
+        origin: "save",
+        origin_ref: "",
+        created_by: author,
+        automation: false,
+        block_count: 1,
+        current: false,
+        created_at: "2026-09-27T12:00:00Z",
+      },
+    ],
+    next_cursor: null,
+  });
+  restorePageVersion.mockResolvedValue({
+    ...draft,
+    version: 3,
+    draft_id: "019ff20d-a000-7000-8000-0000000000e2",
+    blocks: [
+      {
+        ...draft.blocks[0],
+        schema_version: heroVersion,
+        data: { title: "Pierwsza wersja" },
+      },
+    ],
+  });
+  const onChanged = vi.fn().mockResolvedValue(undefined);
+  renderEditor("pl", polishMessages, onChanged);
+  await screen.findByLabelText("Nagłówek");
+  const versions = polishMessages.Sites.versions;
+  fireEvent.click(screen.getByRole("button", { name: versions.open }));
+  const dialog = await screen.findByRole("dialog", { name: versions.title });
+  expect(
+    await within(dialog).findByText("Szablon: Poradnik krok po kroku"),
+  ).toBeDefined();
+  expect(within(dialog).getByText(versions.origin.save)).toBeDefined();
+  expect(
+    within(dialog).getByRole("button", { name: "Przywróć wersję 2" }),
+  ).toBeDisabled();
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Przywróć wersję 1" }),
+  );
+  expect(within(dialog).getByText("Przywrócić wersję 1?")).toBeDefined();
+  // No unsaved edits: nothing to warn about.
+  expect(within(dialog).queryByText(versions.confirmDirty)).toBeNull();
+  const confirm = within(dialog).getAllByRole("button", {
+    name: "Przywróć wersję 1",
+  });
+  fireEvent.click(confirm[0]!);
+  await waitFor(() => expect(restorePageVersion).toHaveBeenCalledOnce());
+  expect(restorePageVersion.mock.calls[0]?.slice(0, 3)).toEqual([
+    page.id,
+    "019ff20d-a000-7000-8000-0000000000e1",
+    { expected_version: 1 },
+  ]);
+  expect(
+    await screen.findByText("Przywrócono wersję 1 jako wersję 3."),
+  ).toHaveAttribute("role", "status");
+  expect(screen.getByLabelText("Nagłówek")).toHaveValue("Pierwsza wersja");
+  expect(onChanged).toHaveBeenCalled();
+  // The restore is a server boundary: nothing local to undo.
+  expect(screen.getByRole("button", { name: "Cofnij" })).toBeDisabled();
 });
 
 test("biblioteka EN pokazuje opis, dostępny podgląd i angielską treść", async () => {

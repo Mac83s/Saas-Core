@@ -37,6 +37,8 @@ import {
   getPageDraft,
   getPageDraftPreview,
   importPageTemplate,
+  restorePageVersion,
+  type PageVersionSummary,
   initiateMediaUpload,
   listMediaAssets,
   listPageTranslations,
@@ -124,6 +126,7 @@ import {
   unfilledBySection,
 } from "./placeholder-banner";
 import { useDraftHistory } from "./draft-history";
+import { VersionHistory } from "./version-history";
 import { PageEditorContext } from "./page-editor-context";
 import { pageTemplatePreview } from "./template-media-preview";
 import { SectionLibrary, SectionLibraryContent } from "./section-library";
@@ -360,6 +363,9 @@ export function PageEditor({
   const translationReceipt = useRef<MutationReceipt | undefined>(undefined);
   const uploadReceipt = useRef<MutationReceipt | undefined>(undefined);
   const templateReceipt = useRef<MutationReceipt | undefined>(undefined);
+  const restoreReceipt = useRef<MutationReceipt | undefined>(undefined);
+  // "Przywrócono wersję …": said once after a restore, until the next edit.
+  const [restoredNotice, setRestoredNotice] = useState<string>();
 
   const draftForm = useForm<DraftValues>({
     resolver: zodResolver(draftSchema),
@@ -480,6 +486,47 @@ export function PageEditor({
     },
     [draft, draftForm, onChanged, page.id, t, templateLocale],
   );
+
+  /** A new version with an earlier version's content (F4-A); the form and its
+   *  history start over from it, like after a template import. */
+  async function restoreVersion(version: PageVersionSummary) {
+    if (!draft) return;
+    const input = { expected_version: draft.version };
+    setLoading(true);
+    setProblem(undefined);
+    setDraftConflict(false);
+    try {
+      const restored = await restorePageVersion(
+        page.id,
+        version.id,
+        input,
+        mutationKey(restoreReceipt, `restore-${page.id}-${version.id}`, input),
+      );
+      restoreReceipt.current = undefined;
+      setDraft(restored);
+      draftForm.reset(draftValues(restored));
+      setPreview(undefined);
+      setRestoredNotice(
+        t("versions.restored", {
+          from: version.number,
+          number: restored.version,
+        }),
+      );
+      setAssets((await listMediaAssets()).items);
+      await onChanged();
+    } catch (error) {
+      if (
+        error instanceof ApiProblemError &&
+        error.problem.code === "draft_version_conflict"
+      ) {
+        setDraftConflict(true);
+        return;
+      }
+      setProblem(sitesErrorMessage(error, t));
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const applyLoadedData = useCallback(
     (
@@ -659,12 +706,14 @@ export function PageEditor({
     }
   };
 
-  async function showPreview() {
-    if (!draft?.draft_id) return;
+  /** The saved draft, or — from the history — any earlier version. */
+  async function showPreview(versionId?: string) {
+    const target = versionId ?? draft?.draft_id;
+    if (!target) return;
     setLoading(true);
     setProblem(undefined);
     try {
-      setPreview(await getPageDraftPreview(page.id, draft.draft_id));
+      setPreview(await getPageDraftPreview(page.id, target));
     } catch (error) {
       setProblem(sitesErrorMessage(error, t));
     } finally {
@@ -825,6 +874,11 @@ export function PageEditor({
           {problem}
         </div>
       )}
+      {restoredNotice && !draftForm.formState.isDirty && (
+        <p className="rounded-lg border bg-muted/40 p-3 text-sm" role="status">
+          {restoredNotice}
+        </p>
+      )}
 
       <Card className="studio-editor-main">
         <CardContent className="studio-editor-content">
@@ -944,6 +998,13 @@ export function PageEditor({
                     >
                       {t("studio.pageSettings")}
                     </Button>
+                    <VersionHistory
+                      pageId={page.id}
+                      dirty={draftForm.formState.isDirty}
+                      disabled={loading || !draft?.draft_id}
+                      onPreview={(version) => void showPreview(version.id)}
+                      onRestore={restoreVersion}
+                    />
                     <div className="studio-save-actions">
                       <Button disabled={loading || draftConflict} type="submit">
                         <SaveIcon aria-hidden="true" />
@@ -1230,7 +1291,11 @@ export function PageEditor({
           closeLabel={common("close")}
           className="max-h-[92dvh] overflow-y-auto sm:max-w-[95vw]"
         >
-          <DialogTitle>{t("preview")}</DialogTitle>
+          <DialogTitle>
+            {preview && preview.draft_id !== draft?.draft_id
+              ? t("versions.previewNamed", { number: preview.version })
+              : t("preview")}
+          </DialogTitle>
           <DialogDescription>{t("previewDescription")}</DialogDescription>
           <Card>
             <CardHeader>

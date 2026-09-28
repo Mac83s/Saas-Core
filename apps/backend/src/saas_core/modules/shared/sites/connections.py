@@ -433,7 +433,7 @@ def accept_proposal(*, proposal_id: UUID, review_token: str) -> dict[str, Any]:
 def discard_proposal(*, proposal_id: UUID) -> dict[str, Any]:
     """Reject a current proposal using a fresh immutable draft; retain its history."""
     from .collections import save_entry_draft
-    from .services import save_draft
+    from .services import VERSION_ORIGIN_PROPOSAL_REJECTED, save_draft
 
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
     assert_person_required(context, "Odrzucenie propozycji")
@@ -473,6 +473,8 @@ def discard_proposal(*, proposal_id: UUID) -> dict[str, Any]:
             media_asset_ids=list(media),
             idempotency_key=f"proposal-reject-{proposal.id}",
             page_presentation=_page_presentation(previous),
+            origin=VERSION_ORIGIN_PROPOSAL_REJECTED,
+            origin_ref=str(previous.number) if previous is not None else "",
         )
         restored_version = saved.value.number
     else:

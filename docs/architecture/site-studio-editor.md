@@ -303,3 +303,22 @@ normalizacja zapisu nie przycina spacji wewnątrz przebiegów. Szczegóły:
 (zakładka Wygląd, pod wyglądem witryny) należy do formularza draftu: cofanie,
 stan niezapisany i ochrona wyjścia obejmują go automatycznie, a zapis wysyła
 `page_presentation` tylko po zmianie. Kontrakt i zasady: [site-rich-content.md](site-rich-content.md).
+
+## Historia wersji strony — F4-A, 2026-09-28
+
+Każdy zapis strony jest niezmienną wersją (`PageVersion`, append-only). Od
+F4-A wersja pamięta, skąd się wzięła (`origin`: zapis w edytorze, szablon,
+przywrócenie, zmiana z połączonej aplikacji, odrzucona propozycja; `origin_ref`:
+`core.step_guide@1` albo numer przywróconej wersji; migracja sites 0037, starsze
+wersje mają pusty `origin`). Przycisk „Historia wersji” w pasku studia pokazuje
+wersje od najnowszej: numer, pochodzenie, autora (e-mail), datę, liczbę sekcji;
+„Podgląd” otwiera chroniony podgląd tej wersji, „Przywróć” — po potwierdzeniu —
+tworzy **nową** wersję z sekcjami, zdjęciami i wyglądem wybranej
+(`POST /api/v1/sites/pages/<id>/versions/<version_id>/restore/`, ten sam
+`save_draft`, `expected_version` i klucz idempotencji, wpis audytu
+`sites.page.version_restored`). Nic nie jest nadpisywane, więc przywrócenie
+cofa się, przywracając inną wersję; opublikowana strona zmienia się dopiero
+przy publikacji. Formularz i lokalna historia cofania zaczynają od
+przywróconej wersji, jak po imporcie szablonu. Okno podmiany szablonu całej
+strony mówi teraz, że obecna wersja zostaje w historii.
+

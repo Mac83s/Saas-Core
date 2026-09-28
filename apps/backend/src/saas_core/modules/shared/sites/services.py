@@ -8,12 +8,12 @@ from collections.abc import Callable, Iterable, Iterator
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Any
+from typing import Any, cast
 from uuid import UUID, uuid7
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 from rest_framework.exceptions import APIException, NotFound, ValidationError
 
@@ -100,6 +100,13 @@ PAGE_URL_CHANGED = "sites.page.url_changed"
 REDIRECT_DELETED = "sites.redirect.deleted"
 PAGE_AUTOMATION_POLICY_SET = "sites.page.automation_policy_set"
 PAGE_TEMPLATE_IMPORTED = "sites.page.template_imported"
+PAGE_VERSION_RESTORED = "sites.page.version_restored"
+# `PageVersion.origin`: how a version came to be (the page's history, F4-A).
+VERSION_ORIGIN_SAVE = "save"
+VERSION_ORIGIN_TEMPLATE = "template"
+VERSION_ORIGIN_RESTORE = "restore"
+VERSION_ORIGIN_CHANGE_SET = "change_set"
+VERSION_ORIGIN_PROPOSAL_REJECTED = "proposal_rejected"
 SITE_PUBLISHED_EVENT = "sites.site.published"
 #: A rollback is a publication in mechanism and the opposite of one in meaning.
 #: Sending it as `sites.site.published` left a subscriber unable to tell that
@@ -651,6 +658,90 @@ def read_site_audit_target(*, site_id: UUID) -> dict[str, str]:
     return {"site_id": str(site.id), "name": site.slug, "root_url": f"https://{domain.hostname}/"}
 
 
+def list_page_versions(
+    *,
+    page_id: UUID,
+    cursor: UUID | None,
+    limit: int,
+) -> tuple[list[PageVersion], UUID | None]:
+    """The page's versions, newest first, with how many sections each has
+    (`block_count`). The history a person restores from (F4-A)."""
+    context = authorize_entitled(
+        SITE_CONTENT_EDIT,
+        SITES_ENABLED,
+        operation=FeatureOperation.READ,
+    )
+    page = Page.all_objects.filter(pk=page_id, organization_id=context.organization_id).first()
+    if page is None:
+        raise PageNotFound
+    assert_within_grant(context, site_id=page.site_id)
+    queryset = (
+        PageVersion.all_objects.filter(organization_id=context.organization_id, page_id=page.id)
+        .select_related("created_by", "page")
+        .annotate(block_count=models.Count("blocks"))
+    )
+    if cursor is not None:
+        cursor_version = queryset.filter(pk=cursor).first()
+        if cursor_version is None:
+            raise PageVersionNotFound
+        queryset = queryset.filter(number__lt=cursor_version.number)
+    # Annotated rows are still versions; `block_count` rides along.
+    rows = cast(list[PageVersion], list(queryset.order_by("-number")[: limit + 1]))
+    next_cursor = rows[limit - 1].id if len(rows) > limit else None
+    return rows[:limit], next_cursor
+
+
+@transaction.atomic
+def restore_page_version(
+    *,
+    page_id: UUID,
+    version_id: UUID,
+    expected_version: int,
+    idempotency_key: str,
+) -> MutationResult[PageVersion]:
+    """A new draft version with an earlier version's sections, media and page
+    look. Nothing is rewritten: the versions in between stay in the history,
+    so a restore can itself be undone by restoring again."""
+    source = get_draft_preview(page_id=page_id, version_id=version_id)
+    assert source.version is not None
+    number = source.version.number
+    result = save_draft(
+        page_id=page_id,
+        expected_version=expected_version,
+        blocks=[
+            {
+                "block_type": block.block_type,
+                "schema_version": block.schema_version,
+                "data": block.data,
+                **({"decoration": block.decoration} if block.decoration is not None else {}),
+                **({"presentation": block.presentation} if block.presentation is not None else {}),
+            }
+            for block in source.blocks
+        ],
+        media_asset_ids=list(source.media_asset_ids),
+        idempotency_key=idempotency_key,
+        request_context={"restored_from": number},
+        page_presentation=source.version.presentation,
+        origin=VERSION_ORIGIN_RESTORE,
+        origin_ref=str(number),
+    )
+    if result.created:
+        context = require_tenant_context()
+        record_audit(
+            organization=Organization.objects.get(pk=context.organization_id),
+            action=PAGE_VERSION_RESTORED,
+            actor=User.objects.get(pk=context.actor_id),
+            target_type="page_version",
+            target_id=result.value.id,
+            metadata={
+                "page_id": str(page_id),
+                "restored_from": number,
+                "version": result.value.number,
+            },
+        )
+    return result
+
+
 def get_draft_preview(*, page_id: UUID, version_id: UUID) -> PageDraft:
     context = authorize_entitled(
         SITE_CONTENT_EDIT,
@@ -1160,6 +1251,8 @@ def save_draft(
     idempotency_key: str,
     request_context: dict[str, Any] | None = None,
     page_presentation: dict[str, Any] | None = UNSET,
+    origin: str = VERSION_ORIGIN_SAVE,
+    origin_ref: str = "",
 ) -> MutationResult[PageVersion]:
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
     normalized_key = _idempotency_key(idempotency_key)
@@ -1282,6 +1375,8 @@ def save_draft(
         content_hash=content_hash,
         created_by_credential=context.credential_id if _is_automation(context) else None,
         presentation=page_presentation,
+        origin=origin,
+        origin_ref=origin_ref[:160],
     )
     PageBlock.all_objects.bulk_create([
         PageBlock(
@@ -1412,6 +1507,8 @@ def import_page_template(
             media_asset_ids=[item.asset.id for item in materializations],
             idempotency_key=idempotency_key,
             request_context=request_context,
+            origin=VERSION_ORIGIN_TEMPLATE,
+            origin_ref=f"{template.id}@{template.version}",
             # A recipe without its own page presentation keeps the current one.
             **(
                 {"page_presentation": template.page_presentation}

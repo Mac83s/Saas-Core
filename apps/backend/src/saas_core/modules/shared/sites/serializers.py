@@ -713,6 +713,29 @@ class PublicationAuthorSerializer(serializers.Serializer[dict[str, Any]]):
     email = serializers.EmailField()
 
 
+class PageVersionRestoreSerializer(serializers.Serializer[dict[str, Any]]):
+    expected_version = serializers.IntegerField(min_value=0)
+
+
+class PageVersionSummarySerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    number = serializers.IntegerField()
+    # save, template, restore, change_set, proposal_rejected; "" before 2026-09-28.
+    origin = serializers.CharField(allow_blank=True)
+    # `core.step_guide@1` for a template, the source number for a restore.
+    origin_ref = serializers.CharField(allow_blank=True)
+    created_by = PublicationAuthorSerializer()
+    automation = serializers.BooleanField()
+    block_count = serializers.IntegerField()
+    current = serializers.BooleanField()
+    created_at = serializers.DateTimeField()
+
+
+class PageVersionListSerializer(serializers.Serializer[dict[str, Any]]):
+    items = PageVersionSummarySerializer(many=True)
+    next_cursor = serializers.UUIDField(allow_null=True)
+
+
 class SitePublicationSerializer(serializers.Serializer[dict[str, Any]]):
     id = serializers.UUIDField()
     site_id = serializers.UUIDField()

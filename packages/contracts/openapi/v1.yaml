@@ -10586,6 +10586,125 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/pages/{page_id}/versions/:
+    get:
+      operationId: sites_page_versions_list
+      parameters:
+      - in: query
+        name: cursor
+        schema:
+          type: string
+          format: uuid
+      - in: query
+        name: limit
+        schema:
+          type: integer
+        description: Liczba elementów od 1 do 100; domyślnie 50.
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageVersionList'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/pages/{page_id}/versions/{version_id}/restore/:
+    post:
+      operationId: sites_page_version_restore
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: Klucz bezpiecznego ponowienia mutacji w zakresie organizacji
+          i użytkownika.
+        required: true
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: version_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PageVersionRestore'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PageVersionRestore'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PageVersionRestore'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageDraft'
+          description: ''
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageDraft'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/proposals/:
     get:
       operationId: sites_content_proposals_list
@@ -15889,6 +16008,62 @@ components:
       - locale
       - reason
       - slug
+    PageVersionList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PageVersionSummary'
+        next_cursor:
+          type:
+          - string
+          - 'null'
+          format: uuid
+      required:
+      - items
+      - next_cursor
+    PageVersionRestore:
+      type: object
+      properties:
+        expected_version:
+          type: integer
+          minimum: 0
+      required:
+      - expected_version
+    PageVersionSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: integer
+        origin:
+          type: string
+        origin_ref:
+          type: string
+        created_by:
+          $ref: '#/components/schemas/PublicationAuthor'
+        automation:
+          type: boolean
+        block_count:
+          type: integer
+        current:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - automation
+      - block_count
+      - created_at
+      - created_by
+      - current
+      - id
+      - number
+      - origin
+      - origin_ref
     PasswordResetConfirm:
       type: object
       properties:

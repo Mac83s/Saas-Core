@@ -738,6 +738,12 @@ class PageVersion(TenantScopedModel):
     created_by_credential = models.UUIDField(null=True, blank=True)
     # Page-local presentation (page-presentation.v1); NULL inherits the site's.
     presentation = models.JSONField(null=True, blank=True, default=None)
+    # How the version came to be, for the page's history (F4-A): a save in the
+    # panel, a template, a restored version, a change set, a rejected proposal.
+    # Empty for versions older than the column. `origin_ref` names the source:
+    # `core.step_guide@1`, the restored version's number.
+    origin = models.CharField(max_length=24, blank=True, default="")
+    origin_ref = models.CharField(max_length=160, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
 
     all_objects = models.Manager()

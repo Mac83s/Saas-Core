@@ -579,7 +579,13 @@ def _apply_change_set(
     approval_token: str | None,
 ) -> dict[str, Any]:
     from .collections import get_entry_draft, save_entry_draft
-    from .services import _is_automation, get_draft, save_draft, save_page_translation
+    from .services import (
+        VERSION_ORIGIN_CHANGE_SET,
+        _is_automation,
+        get_draft,
+        save_draft,
+        save_page_translation,
+    )
 
     authorized = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
     if authorized != context:
@@ -627,6 +633,7 @@ def _apply_change_set(
             media_asset_ids=list(draft.media_asset_ids),
             idempotency_key=idempotency_key,
             request_context={"change_set": document},
+            origin=VERSION_ORIGIN_CHANGE_SET,
         )
         if plan.translation_fields:
             translation = PageTranslation.all_objects.filter(

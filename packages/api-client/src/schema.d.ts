@@ -3550,6 +3550,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/pages/{page_id}/versions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["sites_page_versions_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/pages/{page_id}/versions/{version_id}/restore/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sites_page_version_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/proposals/": {
         parameters: {
             query?: never;
@@ -5672,6 +5704,27 @@ export interface components {
             locale: components["schemas"]["LocaleEnum"];
             slug: string;
             reason: string;
+        };
+        PageVersionList: {
+            items: components["schemas"]["PageVersionSummary"][];
+            /** Format: uuid */
+            next_cursor: string | null;
+        };
+        PageVersionRestore: {
+            expected_version: number;
+        };
+        PageVersionSummary: {
+            /** Format: uuid */
+            id: string;
+            number: number;
+            origin: string;
+            origin_ref: string;
+            created_by: components["schemas"]["PublicationAuthor"];
+            automation: boolean;
+            block_count: number;
+            current: boolean;
+            /** Format: date-time */
+            created_at: string;
         };
         PasswordResetConfirm: {
             token: string;
@@ -18154,6 +18207,118 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SiteRedirect"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_page_versions_list: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                /** @description Liczba elementów od 1 do 100; domyślnie 50. */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageVersionList"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_page_version_restore: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia mutacji w zakresie organizacji i użytkownika. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                page_id: string;
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PageVersionRestore"];
+                "application/x-www-form-urlencoded": components["schemas"]["PageVersionRestore"];
+                "multipart/form-data": components["schemas"]["PageVersionRestore"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageDraft"];
+                };
+            };
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageDraft"];
                 };
             };
             400: {

@@ -62,6 +62,8 @@ from .serializers import (
     PageTranslationSerializer,
     PageTypeSerializer,
     PageUrlChangeSerializer,
+    PageVersionListSerializer,
+    PageVersionRestoreSerializer,
     ProposalAcceptResultSerializer,
     ProposalAcceptSerializer,
     ProposalDiscardResultSerializer,
@@ -91,11 +93,13 @@ from .services import (
     get_site_navigation,
     import_page_template,
     list_page_translations,
+    list_page_versions,
     list_pages,
     list_site_publications,
     list_site_redirects,
     list_sites,
     publish_site,
+    restore_page_version,
     revoke_automation_grant,
     rollback_site,
     save_draft,
@@ -370,6 +374,66 @@ def _navigation_summary(navigation: SiteNavigation) -> dict[str, Any]:
     }
 
 
+class PageVersionListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_page_versions_list",
+        tags=["sites"],
+        parameters=[CURSOR_PARAMETER, LIMIT_PARAMETER],
+        responses={
+            200: PageVersionListSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, request: Request, page_id: UUID) -> Response:
+        query = CursorQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        items, next_cursor = list_page_versions(
+            page_id=page_id,
+            cursor=query.validated_data.get("cursor"),
+            limit=query.validated_data["limit"],
+        )
+        return Response({
+            "items": [_version_summary(version) for version in items],
+            "next_cursor": next_cursor,
+        })
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class PageVersionRestoreView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_page_version_restore",
+        tags=["sites"],
+        parameters=[IDEMPOTENCY_PARAMETER],
+        request=PageVersionRestoreSerializer,
+        responses={
+            200: PageDraftSerializer,
+            201: PageDraftSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request, page_id: UUID, version_id: UUID) -> Response:
+        serializer = PageVersionRestoreSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = restore_page_version(
+            page_id=page_id,
+            version_id=version_id,
+            **serializer.validated_data,
+            idempotency_key=request.headers.get("Idempotency-Key", ""),
+        )
+        return Response(
+            _draft_summary(page_id),
+            status=(status.HTTP_201_CREATED if result.created else status.HTTP_200_OK),
+        )
+
+
 class PageDraftPreviewView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -607,6 +671,20 @@ def _publication_summary(publication: Publication) -> dict[str, Any]:
             "email": publication.created_by.email,
         },
         "created_at": publication.created_at,
+    }
+
+
+def _version_summary(version: Any) -> dict[str, Any]:
+    return {
+        "id": version.id,
+        "number": version.number,
+        "origin": version.origin,
+        "origin_ref": version.origin_ref,
+        "created_by": {"id": version.created_by_id, "email": version.created_by.email},
+        "automation": version.created_by_credential is not None,
+        "block_count": version.block_count,
+        "current": version.page.current_draft_id == version.id,
+        "created_at": version.created_at,
     }
 
 

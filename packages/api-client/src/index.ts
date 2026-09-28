@@ -166,6 +166,8 @@ export type PageSummary = components["schemas"]["PageSummary"];
 export type PageCreateInput = components["schemas"]["PageCreate"];
 export type PageList = components["schemas"]["PageList"];
 export type PageDraft = components["schemas"]["PageDraft"];
+export type PageVersionSummary = components["schemas"]["PageVersionSummary"];
+export type PageVersionList = components["schemas"]["PageVersionList"];
 export type DraftSaveInput = components["schemas"]["DraftSave"];
 export type PageTemplateImportInput =
   components["schemas"]["PageTemplateImport"];
@@ -1238,6 +1240,50 @@ export async function getPageDraftPreview(
       params: { path: { page_id: pageId, version_id: versionId } },
       credentials: "same-origin",
       cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** The page's versions, newest first; `cursor` continues after the last. */
+export async function listPageVersions(
+  pageId: string,
+  cursor?: string,
+): Promise<PageVersionList> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/pages/{page_id}/versions/",
+    {
+      params: {
+        path: { page_id: pageId },
+        query: { limit: 20, ...(cursor ? { cursor } : {}) },
+      },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** A new draft version with an earlier version's content; nothing else changes. */
+export async function restorePageVersion(
+  pageId: string,
+  versionId: string,
+  input: { expected_version: number },
+  idempotencyKey: string,
+): Promise<PageDraft> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/pages/{page_id}/versions/{version_id}/restore/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { page_id: pageId, version_id: versionId },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
     },
   );
   if (error || !data) throwProblem(error, response);
