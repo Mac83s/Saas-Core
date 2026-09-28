@@ -74,6 +74,15 @@
 .site-contact-form :is(input, textarea)[aria-invalid="true"] {
   border-color: #b42318;
 }
+/* The submit button wraps its label like any action: a long label in spaced
+   capitals (the premium style) pushed the form past a 320 px screen. */
+.site-contact-form .site-section__action {
+  max-width: 100%;
+  height: auto;
+  min-height: 2.75rem;
+  white-space: normal;
+  text-align: center;
+}
 .site-contact-form__error {
   color: #b42318;
   font-size: 0.875rem;
