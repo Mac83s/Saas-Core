@@ -63,6 +63,32 @@ cichu; pomyłkę poprawia dodatkowy wpis nawiązujący do pierwotnego.
 - Zdjęcia nadal są odwołaniami do mediów autora (decyzja z 20.09): wersja nie
   kopiuje plików.
 
+## Uzupełnienie 2026-09-28: „Popraw” i „Wycofaj” przy każdym wpisie
+
+Właściciel 28.09 (1b, potem 1a 2a 3a): formularz poprawki ma być przy każdym
+wpisie, także przy notatce, którą rolnik dopisał sam.
+
+- `POST /api/v1/farms/animals/{animal_id}/health/{entry_id}/corrections/`
+  (`action`: `replace` albo `withdraw`, `reason`, przy `replace` rodzaj i treść)
+  zapisuje następną wersję przez to samo `_write_revision`. Wycofanie to wersja
+  z „Wycofano: …” i `details.withdrawn`.
+- **Poprawia tylko autor** — organizacja, która wpis napisała (`409
+  entry_of_another_author`); rolnik, który nie zgadza się z wpisem firmy,
+  dopisuje własną notatkę. Uprawnienie: `farms.manage` tej organizacji.
+- Tak poprawia się wpisy ręczne (`farms.manual`). Wpis zapisany przez moduł
+  (np. wizyta HoofCare) poprawia się w tym module (`409 entry_from_module`), bo
+  tam jest jego źródło: noga, kod, materiał, lek, raport.
+- **Powód** jest obowiązkowy, gdy wpis mógł przeczytać ktoś inny (każdy poza
+  prywatną notatką rolnika — 1a); przy prywatnej notatce opcjonalny, a wersja i
+  tak powstaje. Wersja zastąpiona nie da się poprawić drugi raz (`409
+  entry_already_corrected`). Ta sama treść nie tworzy wersji.
+- Kto i kiedy — z serwera; w historii zmian `farms.animal.health_corrected`
+  (migracja organizations 0050). Prywatność przechodzi na każdą wersję.
+- **Widok (2a):** na liście bieżąca wersja, poprzednie po rozwinięciu
+  „Poprawiony · historia (n)”, przekreślone.
+- Dane samego zwierzęcia (kolczyk, imię, status) nie są wersjonowane (3a):
+  ich zmiany zapisuje historia zmian — kto, kiedy, było → jest.
+
 ## Alternatywy odrzucone
 
 - **Kasowanie przez zadeklarowane drzwi** (wariant rozważany 28.09 rano) — lista
