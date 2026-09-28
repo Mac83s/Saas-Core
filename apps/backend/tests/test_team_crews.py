@@ -14,6 +14,7 @@ from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
 from saas_core.modules.core.organizations.models import Membership
+from saas_core.modules.core.organizations.tasks import tenant_task_context
 from saas_core.modules.shared.booking import services
 from saas_core.modules.shared.booking.api import (
     crew_member_filter,
@@ -302,6 +303,11 @@ def test_the_people_on_a_visit_hear_about_it_and_whoever_acted_does_not() -> Non
         ).exists()
         visit.refresh_from_db()
         assert (visit.needs_assignment, visit.auto_assigned) == (False, False)
+    # Signed as the organization's own job, which delivery has to open.
+    with tenant_task_context(
+        mail.signed_tenant_context, expected_causation_id=f"email:{mail.id}"
+    ) as context:
+        assert context.role_key == "booking_notify"
 
 
 def test_a_helper_finds_the_visit_among_their_own() -> None:

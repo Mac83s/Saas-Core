@@ -264,6 +264,9 @@ def _service_context(contract: TenantTaskContract) -> TenantContext:
         "public_booking": {"booking.public.read", "booking.public.manage"},
         "public_site_inquiry": {"sites.inquiry.submit"},
         "booking_reminder": {"booking.reminder.send"},
+        # Booking's mails to the people on a visit (ADR-058 §9): sent on the
+        # organization's own account, with no permission of their own.
+        "booking_notify": set(),
     }
     allowed = allowed_scopes.get(contract.role_key)
     if (
