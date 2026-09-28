@@ -91,6 +91,7 @@ const detail = {
   active: true,
   service_ids: [SERVICE],
   has_hours: true,
+  team_ids: [],
   created_at: "2025-03-10T12:00:00Z",
   hours: [0, 1, 2, 3, 4].map((weekday) => ({
     id: `rule-${weekday}`,
@@ -386,9 +387,7 @@ test("grafik: tydzień zapisuje się w całości, nieobecność to całe dni w s
     }),
   );
   expect(
-    await screen.findByText(
-      /W tym czasie Marcin Kowalski ma zaplanowane wizyty \(1\)/,
-    ),
+    await screen.findByText(/Wizyty w tym czasie \(1\) czekają na obsadzenie/),
   ).toBeInTheDocument();
 
   // In time order: the new absence (30.09) comes before the holiday (5.10).

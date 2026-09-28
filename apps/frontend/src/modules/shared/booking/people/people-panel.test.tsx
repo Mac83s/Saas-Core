@@ -118,6 +118,7 @@ function person(id: string, name: string, over: Record<string, unknown> = {}) {
     active: true,
     service_ids: [SERVICE],
     has_hours: true,
+    team_ids: [],
     created_at: "2025-03-10T12:00:00Z",
     ...over,
   };
@@ -539,7 +540,7 @@ test("zmiana roli w grupach Zarządzanie i Praca działa od razu", async () => {
   await waitFor(() => expect(trigger).toHaveFocus());
 });
 
-test("usunięcie z firmy czeka na przeniesienie wizyt", async () => {
+test("usunięcie z firmy zostawia wizyty jako wakaty do obsadzenia", async () => {
   renderPanel();
   await openRowAction("Marcin Kowalski", "Usuń z firmy…");
   const dialog = await screen.findByRole("dialog", {
@@ -552,21 +553,15 @@ test("usunięcie z firmy czeka na przeniesienie wizyt", async () => {
     ),
   ).toBeInTheDocument();
   expect(
+    within(dialog).getByText(
+      /Zaplanowane wizyty tej osoby zostaną w kalendarzu jako wakaty/,
+    ),
+  ).toBeInTheDocument();
+  expect(
     within(dialog).getByRole("link", { name: "Pokaż jej wizyty w kalendarzu" }),
   ).toHaveAttribute("href", "/panel/calendar?view=list&staff=s-marcin");
-  api.endPerson.mockRejectedValueOnce(
-    problem(
-      409,
-      "staff_has_upcoming_appointments",
-      "Marcin Kowalski prowadzi zaplanowane wizyty (2). Przenieś je w kalendarzu, zanim zakończysz współpracę.",
-    ),
-  );
   fireEvent.click(within(dialog).getByRole("button", { name: "Usuń z firmy" }));
-  expect(
-    await within(dialog).findByText(/prowadzi zaplanowane wizyty \(2\)/),
-  ).toBeInTheDocument();
-  fireEvent.click(within(dialog).getByRole("button", { name: "Usuń z firmy" }));
-  await waitFor(() => expect(api.endPerson).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(api.endPerson).toHaveBeenCalledTimes(1));
   expect(
     await screen.findByText("Marcin Kowalski nie pracuje już w firmie."),
   ).toBeInTheDocument();
