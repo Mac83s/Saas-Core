@@ -22,7 +22,7 @@ are `Plan/Wdrozenie/15-Typy-Organizacji-i-Rejestr-Gospodarstw.md`.
 | plans per type | `apps/backend/src/saas_core/modules/shared/billing/plan_offer.py` |
 | system roles per type | `apps/backend/src/saas_core/modules/core/organizations/role_catalog.py` (written after every `migrate` by `post_migrate`) |
 | an organization's own roles | `apps/backend/src/saas_core/modules/core/organizations/custom_roles.py`, API `current/roles/`, page `apps/frontend/src/modules/core/organizations/roles-panel.tsx` |
-| service templates | `serviceTemplates` of a type, offered in `apps/frontend/src/modules/shared/booking/booking-configuration.tsx`; the visit kind is checked against the type's modules in booking's `create_catalog_item` |
+| service templates | `serviceTemplates` of a type, offered in `apps/frontend/src/modules/shared/booking/booking-settings.tsx`; the visit kind is checked against the type's modules in booking's `_assert_appointment_kind_available` (called from `setup.save_service` and `create_catalog_item`) |
 | frontend | `apps/frontend/src/lib/organization-types.ts` (`modulesFor`, `selfSignupTypes`), onboarding at `apps/frontend/src/app/[locale]/(auth)/onboarding/page.tsx` |
 
 ## Adding or changing a type in a product
