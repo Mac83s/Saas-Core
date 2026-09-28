@@ -326,10 +326,48 @@ test.describe("Site catalogue screenshots (F4-P0a)", () => {
               const problems = await visitor.evaluate((primary) => {
                 const found: string[] = [];
                 const { scrollWidth } = document.documentElement;
-                if (scrollWidth > window.innerWidth + 1)
+                if (scrollWidth > window.innerWidth + 1) {
+                  // Name the innermost elements that reach past the edge,
+                  // skipping what a clipping ancestor hides (decorations):
+                  // the number alone says nothing about what to fix.
+                  const past = (element: Element) =>
+                    element.getBoundingClientRect().right >
+                    window.innerWidth + 1;
+                  const clipped = (element: Element) => {
+                    for (
+                      let parent = element.parentElement;
+                      parent && parent !== document.body;
+                      parent = parent.parentElement
+                    )
+                      if (
+                        getComputedStyle(parent).overflowX !== "visible" &&
+                        !past(parent)
+                      )
+                        return true;
+                    return false;
+                  };
+                  const culprits = Array.from(
+                    document.querySelectorAll("main *"),
+                  )
+                    .filter(
+                      (element) =>
+                        past(element) &&
+                        !clipped(element) &&
+                        !Array.from(element.children).some(past),
+                    )
+                    .slice(0, 3)
+                    .map((element) => {
+                      const classes = Array.from(element.classList);
+                      const named =
+                        classes.find((name) => name.startsWith("site-")) ??
+                        classes[0];
+                      const block = element.closest("[data-block-type]");
+                      return `${element.tagName.toLowerCase()}${named ? `.${named}` : ""} in ${block?.getAttribute("data-block-type") ?? "?"}@${block?.getAttribute("data-section-layout") ?? "-"}`;
+                    });
                   found.push(
-                    `horizontal overflow: scrollWidth ${scrollWidth} > ${window.innerWidth}`,
+                    `horizontal overflow: scrollWidth ${scrollWidth} > ${window.innerWidth} (${culprits.join(", ") || "outside main"})`,
                   );
+                }
                 for (const link of document.querySelectorAll('a[href^="#"]')) {
                   const href = link.getAttribute("href")!;
                   if (
