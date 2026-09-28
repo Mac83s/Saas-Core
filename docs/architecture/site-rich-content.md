@@ -13,7 +13,7 @@ karty biblioteki.
 | Rodzina katalogu | Typ i wersja | Uzasadnienie |
 |---|---|---|
 | Treści redakcyjne | `core.rich_text` v2 | ten sam tekst redakcyjny, teraz strukturalny |
-| Listy i objaśniane kroki | `core.feature_list` v4 | lista pozycji z objaśnieniem; v4 dodaje wstęp, panel uwag i dłuższe opisy |
+| Listy i objaśniane kroki | `core.feature_list` v4, v5 | lista pozycji z objaśnieniem; v4 dodaje wstęp, panel uwag i dłuższe opisy, v5 kolumny, grupy, uwagi przy pozycjach i działanie sekcji (F4-P1) |
 | Cytaty redakcyjne | `core.quote` v1 | cytowana wypowiedź z autorem i źródłem; nie jest opinią klienta, nie ma oceny |
 | Prezentacje produktu | `core.product` v1 | produkt z fotografiami, parametrami i zastosowaniami; bez ceny, stanu i koszyka |
 
@@ -336,3 +336,99 @@ najmniej jeden blok `action` i przechodzi listę kontrolną konwersji. W
 manifeście szablonów `retired: true` ukrywa osiem dawnych szablonów w galerii
 i w katalogu blueprintów; ich pliki zostają, strony już z nich zbudowane się
 nie zmieniają, a import przez API po identyfikatorze nadal działa.
+
+## Faza 4, paczka F4-P1 — listy, poradnik, gabinet i gospodarstwo (2026-09-28)
+
+### `core.feature_list` v5
+
+v5 dodaje wyłącznie pola opcjonalne i sześć układów; migrator v4→v5 kopiuje
+dane, więc stare strony renderują się bajt w bajt tak samo.
+
+| Pole | Znaczenie | Które układy je pokazują |
+|---|---|---|
+| `columns[]` (1–3: `title`, `text`) | nazwy kolumn porównania albo torów | `scope_comparison`, `shared_roles` (dwie pierwsze) |
+| `items[].values.{first,second,third}` | wartość pozycji w 1., 2. i 3. kolumnie | jak wyżej |
+| `items[].group` | pozycja z tym polem zaczyna nową grupę o tym tytule | `scope_limits`, `staged_preparation`, wiersze grup w `scope_comparison` |
+| `items[].note` | uwaga przy tej pozycji (`role="note"`) | `instruction_notes`, `staged_preparation` |
+| `action` (`label`, `href`) | jedno działanie sekcji; `href` jak w hero v6 (także `#kotwica`) | wszystkie układy, także klasyczna lista |
+
+Wartości kolumn mają **stałe klucze** zamiast listy w liście: edytor nie ma
+listy w liście, a porównanie świadomie kończy się na trzech opcjach. Grupy
+to runy pozycji — tytuł wpisuje się raz, przy pierwszej pozycji grupy.
+
+Sześć układów (każdy zmienia organizację informacji, nie tylko wygląd):
+
+- `scope_comparison` — tabela zakresów (kolumny × wiersze); na telefonie
+  (kontener < 48 rem) każdy wiersz jest kartą, a wartość stoi pod nazwą swojej
+  kolumny (`data-label`). Jawne role ARIA trzymają semantykę tabeli, gdy CSS
+  zmienia `display`. Bez cen.
+- `shared_roles` — etapy, a przy każdym dwa tory („po Twojej stronie / po
+  naszej”); nazwy torów raz nad listą na szerokim ekranie, przy każdej
+  komórce na telefonie (dla czytnika zawsze).
+- `scope_limits` — grupy obok siebie: pierwsza to zakres (✓), kolejne to, czego
+  usługa nie obejmuje (✕).
+- `staged_preparation` — grupy jako kolejne etapy w czasie, pozycje jako lista
+  do odhaczenia z uwagami.
+- `instruction_notes` — numerowane kroki połączone linią; uwaga stoi przy
+  swoim kroku.
+- `fit_check` — sytuacje, w których klient się rozpoznaje, i werdykt z
+  działaniem sekcji w jednym panelu.
+
+Nowe układy nie rysują zdjęcia sekcji (edytor mówi wtedy „Ten układ nie
+pokazuje: …”). Ikony ✓/✕/! to treść generowana CSS z pustym tekstem
+alternatywnym — znaczenie niesie tytuł grupy albo rola `note`.
+
+### Katalog v7: 138 wpisów, 130 w bibliotece
+
+Do v7 dopisano 10 wpisów na `feature_list` v5: sześć układów domyślnych i
+cztery dodatki branżowe na tych samych układach (medycyna: przygotowanie do
+wizyty — `staged_preparation`, rodzaje wizyt — `scope_comparison`; rolnictwo:
+przebieg wizyty w gospodarstwie — `shared_roles`, przygotowanie stanowiska —
+`instruction_notes`). Seedy nie niosą cen ani liczb — czasy trwania i
+wymagania to miejsca `[Uzupełnij: …]`. **Sekcja z biblioteki nie linkuje do
+`#kotwicy`** (strona, na którą trafi, może nie mieć takiej sekcji): działanie
+sekcji to `mailto:` lub `tel:` z danymi przykładowymi, a `#kontakt` mają tylko
+recepty stron, które zawierają formularz z tą kotwicą.
+
+### Recepta `core.step_guide` v1 — „Poradnik krok po kroku”
+
+Dziesięć bloków w stylu `technical`: otwarcie (cel) → „w skrócie” → co
+przygotować (`staged_preparation`) → kroki z uwagami (`instruction_notes`) →
+co pomaga, czego unikać (`scope_limits`) → lista kontrolna z działaniem
+(`fit_check`) → materiały → co dzieje się po zgłoszeniu (`shared_roles`) →
+pytania → formularz (`#kontakt`). Przykład: przygotowanie urządzenia do
+naprawy, na ilustracji warsztatu elektroniki. Galeria oferuje 10 stron.
+
+### Ostrzeżenia edytora o pozostałościach z szablonów
+
+Pasek nad płótnem i formularzami (ten sam, co dla `[Uzupełnij: …]`) mówi też o:
+
+- **danych przykładowych** — adresach w domenach `example.com/.org/.net`
+  (RFC 2606) i numerze `+48 000 000 000`, gdziekolwiek stoją (pole e-mail,
+  `mailto:`, `tel:`, link w tekście) — `sampleData()`;
+- **linkach donikąd** — `#kotwica`, której nie nosi żadna sekcja ani
+  śródtytuł tej strony — `deadAnchorLinks()`.
+
+To wskazówki, nie bramka: zapis i publikacja pozostają otwarte. Każda sekcja z
+listy przenosi do inspektora tej sekcji.
+
+### Inspektor pokazuje pola swojego układu
+
+`fieldsOfOtherLayouts()` wylicza pola bloku, których bieżący układ nie
+pokazuje, a pokazuje je inny układ tego bloku (render bloku z wypełnionymi
+wszystkimi polami, po jednym dla każdego układu; wynik w pamięci podręcznej
+na typ i układ). Inspektor pomija takie pole, **dopóki jest puste** — lista
+kart nie pyta o kolumny porównania; wypełnione zostaje i trafia do komunikatu
+„Ten układ nie pokazuje: …”. Pole, którego nie pokazuje żaden układ (np.
+etykiety formularza rysowane przez jego renderer), nie jest nigdy pomijane.
+Komunikat o ukrytych polach liczy się teraz z danych, które wysłałby zapis
+(bez pustych pól): wcześniej puste pola formularza (np. pusta treść uwagi)
+unieważniały blok i komunikat nie pojawiał się nigdy dla list v4.
+
+### Domyślna branża biblioteki z produktu
+
+`ProductExtension.siteIndustry` (slot `apps/frontend/src/product/index.ts`)
+ustawia branżę, od której otwiera się biblioteka sekcji (decyzja 4a z 24.09:
+HoofCare — `agriculture`, MedPlano — `medicine`). Użytkownik może wybrać inną
+albo wszystkie; nieznany identyfikator oznacza „wszystkie”. Rdzeń i Business
+nie ustawiają branży.

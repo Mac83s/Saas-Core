@@ -132,6 +132,14 @@ The acceptance checklist is in `docs/architecture/site-section-catalog.md`
 Review each new template against the checklist with screenshots at 390 and
 1440 px before it enters the catalogue.
 
+A **library section never links to `#anchor`**: the page it lands on may not
+have that section. Its action is `mailto:`/`tel:` sample data, which the
+editor names as a leftover (`sampleData`, like `[Uzupełnij: …]`); only a page
+recipe that carries the target section links to it, and the editor names any
+`#anchor` the page lacks (`deadAnchorLinks`). A catalogue list compares at
+most three options: `feature_list` v5 keeps column values under fixed keys
+(`values.first|second|third`) because the editor has no list inside a list.
+
 ## Traps
 
 - **Reading media before setting the tenant.** `media_mediaasset` forces RLS, so

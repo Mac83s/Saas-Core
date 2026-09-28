@@ -59,6 +59,15 @@ stałej listy; proporcje obejmują 1:1, 4:5 i 16:9. Decyzja właściciela (2a,
 24.09): chowamy tylko karty zastąpione nowszą wersją, o dawnych rodzinach
 decydujemy przy raporcie fazy 4.
 
+Od 2026-09-28 (F4-P1) v7 ma 138 wpisów, biblioteka oferuje 130: dopisano
+sześć układów list na `core.feature_list` v5 (porównanie zakresów, po Twojej
+stronie i po naszej, w zakresie i poza zakresem, przygotowanie w etapach,
+instrukcja z uwagą przy kroku, „sprawdź, czy to dla Ciebie”) i cztery dodatki
+branżowe (medycyna: przygotowanie do wizyty, rodzaje wizyt; rolnictwo:
+przebieg wizyty w gospodarstwie, przygotowanie stanowiska). Sekcja biblioteki
+nie linkuje do `#kotwicy` — tylko recepty stron, które mają sekcję z tą
+kotwicą. Kontrakt: [site-rich-content.md](site-rich-content.md#faza-4-paczka-f4-p1--listy-poradnik-gabinet-i-gospodarstwo-2026-09-28).
+
 Zmiana układu w edytorze nie usuwa treści. Gdy wybrany układ nie pokazuje
 wypełnionego pola, które pokazuje inny układ tego bloku, pod przełącznikiem
 pojawia się jego nazwa („Ten układ nie pokazuje: …”) — `hiddenFields()` w
