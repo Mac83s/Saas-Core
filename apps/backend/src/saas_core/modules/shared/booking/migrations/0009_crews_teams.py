@@ -11,7 +11,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
     dependencies = [
         ("booking", "0008_grant_schedule_own"),
-        ("organizations", "0050_crews_teams"),
+        ("organizations", "0051_audit_crews_teams"),
         ("profiles", "0004_publish_profiles_feature"),
     ]
 
