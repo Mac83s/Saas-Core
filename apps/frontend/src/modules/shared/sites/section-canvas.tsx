@@ -85,6 +85,7 @@ export function SectionCanvas({
   onInsertAt,
   onChangeImage,
   focusField,
+  revision = 0,
   disabled,
 }: {
   ref?: Ref<SectionCanvasHandle>;
@@ -103,6 +104,11 @@ export function SectionCanvas({
   /** Opens the inspector at this field (`blocks.<i>.data.<path>`); a new
    *  `request` repeats it for the same field. */
   focusField?: { name: string; request: number };
+  /** Bumped when the server replaces the whole page (a template, a restored
+   *  version): the canvas is drawn afresh. Chromium, given new sections and a
+   *  new page width on the canvas's size container in one frame, left the
+   *  sections unpainted until the next layout rebuild (28.09, Chrome 151). */
+  revision?: number;
   selected: number;
   onSelect: (index: number) => void;
   inspector: ReactNode;
@@ -349,6 +355,7 @@ export function SectionCanvas({
         </div>
         <div className="studio-stage-scroll">
           <div
+            key={revision}
             ref={canvasRef}
             tabIndex={-1}
             role="region"

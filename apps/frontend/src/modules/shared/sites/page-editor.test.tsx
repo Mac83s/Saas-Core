@@ -314,13 +314,15 @@ test("importuje szablon do wersjonowanego draftu przez API", async () => {
   renderEditor("pl", polishMessages, onChanged, true);
 
   // An empty page offers templates instead of a bare "no sections" message.
-  fireEvent.click(
-    await screen.findByRole("button", {
-      name: `Użyj szablonu ${firstTemplate.labels.pl.name}`,
-    }),
-  );
+  const templateButton = await screen.findByRole("button", {
+    name: `Użyj szablonu ${firstTemplate.labels.pl.name}`,
+  });
+  const emptyCanvas = screen.getByTestId("live-canvas");
+  fireEvent.click(templateButton);
 
   expect(await screen.findByDisplayValue(/Twoje imię/)).not.toBeNull();
+  // The whole page came from the server: the canvas is drawn afresh.
+  expect(screen.getByTestId("live-canvas")).not.toBe(emptyCanvas);
   expect(importPageTemplate).toHaveBeenCalledOnce();
   expect(importPageTemplate.mock.calls[0]?.[0]).toBe(page.id);
   expect(importPageTemplate.mock.calls[0]?.[1]).toEqual({

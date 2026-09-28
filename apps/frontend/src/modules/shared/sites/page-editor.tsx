@@ -367,6 +367,8 @@ export function PageEditor({
   const uploadReceipt = useRef<MutationReceipt | undefined>(undefined);
   const templateReceipt = useRef<MutationReceipt | undefined>(undefined);
   const restoreReceipt = useRef<MutationReceipt | undefined>(undefined);
+  // A whole page from the server redraws the canvas (SectionCanvas `revision`).
+  const [canvasRevision, setCanvasRevision] = useState(0);
   // "Przywrócono wersję …": said once after a restore, until the next edit.
   const [restoredNotice, setRestoredNotice] = useState<string>();
 
@@ -487,6 +489,7 @@ export function PageEditor({
           ...values,
           blocks: withUniqueAnchors(values.blocks, []),
         });
+        setCanvasRevision((revision) => revision + 1);
         setPreview(undefined);
         setAssets((await listMediaAssets()).items);
         await onChanged();
@@ -524,6 +527,7 @@ export function PageEditor({
       restoreReceipt.current = undefined;
       setDraft(restored);
       draftForm.reset(draftValues(restored));
+      setCanvasRevision((revision) => revision + 1);
       setPreview(undefined);
       setRestoredNotice(
         t("versions.restored", {
@@ -621,6 +625,7 @@ export function PageEditor({
       const current = await getPageDraft(page.id);
       setDraft(current);
       draftForm.reset(draftValues(current));
+      setCanvasRevision((revision) => revision + 1);
       setDraftConflict(false);
       setPreview(undefined);
     } catch (error) {
@@ -1100,6 +1105,7 @@ export function PageEditor({
                         />
                         <SectionCanvas
                           ref={canvas}
+                          revision={canvasRevision}
                           unfilled={unfilled}
                           inspectorRequest={inspectorRequest}
                           appearance={appearance}
