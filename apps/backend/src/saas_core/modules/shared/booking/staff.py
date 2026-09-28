@@ -7,7 +7,7 @@ invitations; the calendar books a person by their services and hours.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from itertools import pairwise
 from typing import Any
@@ -17,7 +17,7 @@ from django.db import IntegrityError, transaction
 from django.http import HttpRequest
 from django.utils import timezone
 from django.utils.text import slugify
-from rest_framework.exceptions import APIException, NotFound, ValidationError
+from rest_framework.exceptions import NotFound, ValidationError
 
 from saas_core.modules.core.identity.models import User
 from saas_core.modules.core.organizations.audit import record_audit
@@ -44,16 +44,17 @@ from saas_core.modules.core.organizations.permissions import (
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 
 from .availability import _rule_on, _valid_instants, _zone
+from .crew import take_off
 from .models import (
-    Appointment,
     AppointmentStaffAllocation,
-    AppointmentStatus,
     AvailabilityRule,
     Location,
+    QueueReason,
     Service,
     ServiceLocation,
     ServiceStaff,
     StaffMember,
+    StaffTeamMember,
     TimeOff,
 )
 from .services import BOOKING_ENABLED, BOOKING_MANAGE, BOOKING_READ, _assert_member_of
@@ -66,20 +67,6 @@ SCHEDULE_OWN = "booking.schedule.own"
 _FOLD = str.maketrans({"ł": "l", "Ł": "L"})
 
 
-class StaffHasUpcomingAppointments(APIException):
-    status_code = 409
-    default_code = "staff_has_upcoming_appointments"
-
-    def __init__(self, name: str, count: int) -> None:
-        super().__init__(
-            detail=(
-                f"{name} prowadzi zaplanowane wizyty ({count}). Przenieś je w "
-                "kalendarzu, zanim zakończysz współpracę."
-            ),
-            code=self.default_code,
-        )
-
-
 @dataclass(frozen=True, slots=True)
 class Person:
     staff: StaffMember
@@ -88,6 +75,8 @@ class Person:
     has_hours: bool
     #: Phone and reasons of absence: management and the person only (ADR-058 §9).
     private: bool
+    #: The standing groups the person belongs to (ADR-058 §2).
+    team_ids: list[UUID] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,6 +141,15 @@ def _people(context: TenantContext, staff: list[StaffMember]) -> list[Person]:
             organization_id=context.organization_id, staff_id__in=ids, active=True
         ).values_list("staff_id", flat=True)
     )
+    teams: dict[UUID, list[UUID]] = {}
+    for staff_id, team_id in (
+        StaffTeamMember.all_objects.filter(
+            organization_id=context.organization_id, staff_id__in=ids
+        )
+        .order_by("team__name", "team_id")
+        .values_list("staff_id", "team_id")
+    ):
+        teams.setdefault(staff_id, []).append(team_id)
     management = _management(context)
     return [
         Person(
@@ -159,6 +157,7 @@ def _people(context: TenantContext, staff: list[StaffMember]) -> list[Person]:
             services.get(item.id, []),
             item.id in with_hours,
             management or _own(context, item),
+            teams.get(item.id, []),
         )
         for item in staff
     ]
@@ -456,8 +455,11 @@ def set_person_hours(*, staff_id: UUID, rules: list[dict[str, Any]]) -> PersonDe
 def add_time_off(
     *, staff_id: UUID, starts_at: datetime, ends_at: datetime, reason: str = ""
 ) -> tuple[TimeOff, int]:
-    """The absence, and how many of the person's visits it runs into — those
-    stay where they are until someone moves them (a vacancy in phase 3)."""
+    """The absence, and how many of the person's planned visits it ran into.
+
+    The person comes off those visits and each becomes a vacancy in
+    „Do przydzielenia” (ADR-058 §3); whoever else is on them keeps their time.
+    """
     context, staff = _schedule_context(staff_id)
     if ends_at <= starts_at:
         raise ValidationError({"ends_at": "Koniec nieobecności musi być po jej początku."})
@@ -468,17 +470,7 @@ def add_time_off(
         ends_at=ends_at,
         reason=reason,
     )
-    conflicts = (
-        AppointmentStaffAllocation.all_objects.filter(
-            organization_id=context.organization_id,
-            staff=staff,
-            active=True,
-            occupied_range__overlap=(starts_at, ends_at),
-        )
-        .values("appointment_id")
-        .distinct()
-        .count()
-    )
+    conflicts = take_off(staff, since=starts_at, until=ends_at, reason=QueueReason.TIME_OFF)
     record_audit(
         organization=Organization.objects.get(pk=context.organization_id),
         action=OrganizationAuditAction.BOOKING_STAFF_TIME_OFF_ADDED,
@@ -539,18 +531,12 @@ def invite_person(*, request: HttpRequest, staff_id: UUID, email: str, role: str
 @transaction.atomic
 def end_person(*, request: HttpRequest, staff_id: UUID) -> StaffMember:
     """Removes a person from the company: they stop taking visits and lose their
-    account and an invitation still waiting. Refused while they lead planned
-    visits (owner's answer, 26.09) — phase 3 turns those into vacancies."""
+    account and an invitation still waiting. Their planned visits become
+    vacancies in „Do przydzielenia” (ADR-058 §3, announced 26.09); the others
+    on those visits keep their time."""
     context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
     staff = _locked(context, staff_id)
-    upcoming = Appointment.all_objects.filter(
-        organization_id=context.organization_id,
-        staff=staff,
-        status=AppointmentStatus.CONFIRMED,
-        ends_at__gt=timezone.now(),
-    ).count()
-    if upcoming:
-        raise StaffHasUpcomingAppointments(staff.display_name, upcoming)
+    take_off(staff, since=timezone.now(), until=None, reason=QueueReason.ENDED)
     if (
         staff.membership_id is not None
         and Membership.objects.filter(

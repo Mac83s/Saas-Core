@@ -103,15 +103,21 @@ def available_days(
     from_date: date,
     to_date: date,
     staff_ids: Sequence[UUID] | None = None,
+    need: int = 1,
     now: datetime | None = None,
 ) -> list[date]:
-    """Days with a free start; each day stops at its first one (ADR-058 §5)."""
+    """Days with a free start for `need` people at once (ADR-058 §5).
+
+    One person: the day stops at its first free start. More: a start counts
+    when that many of the people are free for it, so the day is walked until
+    one does — never further, and never capped in its middle.
+    """
     _check_horizon(from_date, to_date)
     schedule = _search(service_id, location_id, from_date, to_date, staff_ids=staff_ids, now=now)
     if schedule is None:
         return []
     days = (from_date + timedelta(days=n) for n in range((to_date - from_date).days + 1))
-    return [day for day in days if next(_day_slots(schedule, day), None) is not None]
+    return [day for day in days if _has_start(schedule, day, need)]
 
 
 def available_times(
@@ -120,9 +126,11 @@ def available_times(
     location_id: UUID,
     day: date,
     staff_ids: Sequence[UUID] | None = None,
+    need: int = 1,
     now: datetime | None = None,
 ) -> list[AvailableTime]:
-    """Every free start of one day, once, sorted by UTC, with who can take it."""
+    """Every free start of one day, once, sorted by UTC, with who can take it;
+    only the starts at least `need` of them are free for."""
     schedule = _search(service_id, location_id, day, day, staff_ids=staff_ids, now=now)
     if schedule is None:
         return []
@@ -130,7 +138,19 @@ def available_times(
     for slot in _day_slots(schedule, day):
         entry = times.setdefault(slot.starts_at, AvailableTime(slot.starts_at, slot.ends_at, {}))
         entry.staff.setdefault(slot.staff_id, slot.resource_id)
-    return [times[key] for key in sorted(times)]
+    return [times[key] for key in sorted(times) if len(times[key].staff) >= need]
+
+
+def _has_start(schedule: _Schedule, day: date, need: int) -> bool:
+    if need <= 1:
+        return next(_day_slots(schedule, day), None) is not None
+    free: dict[datetime, set[UUID]] = {}
+    for slot in _day_slots(schedule, day):
+        people = free.setdefault(slot.starts_at, set())
+        people.add(slot.staff_id)
+        if len(people) >= need:
+            return True
+    return False
 
 
 def free_at(
@@ -195,6 +215,92 @@ def validate_start(
             ignore_appointment_id=ignore_appointment_id,
         )
     )
+
+
+@dataclass(frozen=True, slots=True)
+class WindowStatus:
+    """Where a person stands for one visit's time (ADR-058 §9, „kto jest wolny”).
+
+    `state`: free, busy (another visit), time_off, off_schedule (the day's
+    hours do not cover the visit) or inactive. `until` says when the blocking
+    thing ends; `hours` are the day's working ranges for `off_schedule`. The
+    reason of an absence is never here: it may be about health.
+    """
+
+    state: str
+    until: datetime | None = None
+    hours: tuple[tuple[datetime, datetime], ...] = ()
+
+
+def window_status(
+    *,
+    staff_id: UUID,
+    location_id: UUID,
+    starts_at: datetime,
+    ends_at: datetime,
+    occupied_from: datetime,
+    occupied_until: datetime,
+    ignore_appointment_id: UUID | None = None,
+) -> WindowStatus:
+    """Whether a person can be put on a visit that already has its time.
+
+    Unlike a booking's start this ignores the service's minimum notice and the
+    five-minute grid: the office staffs a visit at the time it was booked, even
+    one that begins in ten minutes. The hours still have to cover it — the
+    office does not schedule anybody outside their day.
+    """
+    context = require_tenant_context()
+    zone = _zone()
+    blocking_time_off = (
+        TimeOff.all_objects.filter(
+            organization_id=context.organization_id,
+            staff_id=staff_id,
+            starts_at__lt=occupied_until,
+            ends_at__gt=occupied_from,
+        )
+        .order_by("-ends_at")
+        .values_list("ends_at", flat=True)
+        .first()
+    )
+    if blocking_time_off is not None:
+        return WindowStatus("time_off", until=blocking_time_off)
+    busy = AppointmentStaffAllocation.all_objects.filter(
+        organization_id=context.organization_id,
+        staff_id=staff_id,
+        active=True,
+        occupied_range__overlap=(occupied_from, occupied_until),
+    )
+    if ignore_appointment_id is not None:
+        busy = busy.exclude(appointment_id=ignore_appointment_id)
+    taken = [allocation.upper for allocation in busy.values_list("occupied_range", flat=True)]
+    if taken:
+        return WindowStatus("busy", until=max(taken))
+    hours = work_hours(
+        staff_id=staff_id, location_id=location_id, day=starts_at.astimezone(zone).date()
+    )
+    if not any(start <= starts_at and ends_at <= end for start, end in hours):
+        return WindowStatus("off_schedule", hours=tuple(hours))
+    return WindowStatus("free")
+
+
+def work_hours(*, staff_id: UUID, location_id: UUID, day: date) -> list[tuple[datetime, datetime]]:
+    """One person's working ranges on one local day at one place, in UTC."""
+    context = require_tenant_context()
+    zone = _zone()
+    ranges: list[tuple[datetime, datetime]] = []
+    for rule in AvailabilityRule.all_objects.filter(
+        organization_id=context.organization_id,
+        staff_id=staff_id,
+        location_id=location_id,
+        active=True,
+    ):
+        if not _rule_on(rule, day):
+            continue
+        starts = _valid_instants(day, rule.local_start, zone)
+        ends = _valid_instants(day, rule.local_end, zone)
+        if starts and ends:
+            ranges.append((min(starts), max(ends)))
+    return sorted(ranges)
 
 
 def _check_horizon(from_date: date, to_date: date) -> None:

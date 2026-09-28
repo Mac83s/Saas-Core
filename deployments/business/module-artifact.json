@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:2ca1338eddcdaf102daacc58fe8e2dfcfad9b5dfa4c1472b357235afc0884cc1",
+  "profileHash": "sha256:a5bb8a565794a41c433c8f2ae8330402060545ba3c13d70d678d26f1a4bf4548",
   "schemaVersion": 1,
   "deployment": "business",
   "product": {
@@ -379,7 +379,8 @@
       "layer": "shared",
       "dependsOn": [
         "core.organizations",
-        "shared.notifications"
+        "shared.notifications",
+        "shared.profiles"
       ],
       "backend": {
         "djangoApp": "saas_core.modules.shared.booking",

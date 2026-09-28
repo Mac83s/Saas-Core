@@ -1037,6 +1037,34 @@ paths:
               schema:
                 $ref: '#/components/schemas/Appointment'
           description: ''
+  /api/v1/booking/appointments/{appointment_id}/candidates/:
+    get:
+      operationId: api_v1_booking_appointments_candidates_retrieve
+      description: Who is free for one visit, and why not when they are not (ADR-058
+        §9).
+      parameters:
+      - in: path
+        name: appointment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: everyone
+        schema:
+          type: boolean
+          default: false
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CandidateList'
+          description: ''
   /api/v1/booking/appointments/{appointment_id}/complete/:
     post:
       operationId: api_v1_booking_appointments_complete_create
@@ -1063,6 +1091,58 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Appointment'
+          description: ''
+  /api/v1/booking/appointments/{appointment_id}/crew/:
+    post:
+      operationId: api_v1_booking_appointments_crew_create
+      description: Puts exactly these people on a visit; the same people again is
+        „Zostaw”.
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: appointment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrewInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CrewInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CrewInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
           description: ''
   /api/v1/booking/appointments/{appointment_id}/materials/:
     put:
@@ -1236,6 +1316,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CustomerAnonymized'
+          description: ''
+  /api/v1/booking/overview/:
+    get:
+      operationId: api_v1_booking_overview_retrieve
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Overview'
           description: ''
   /api/v1/booking/public/{public_slug}/:
     get:
@@ -1421,6 +1515,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SlotTimeList'
+          description: ''
+  /api/v1/booking/queue/:
+    get:
+      operationId: api_v1_booking_queue_retrieve
+      description: '„Do przydzielenia”: vacancies and people the system chose (ADR-058
+        §3).'
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Queue'
           description: ''
   /api/v1/booking/schedule/:
     post:
@@ -1622,6 +1732,12 @@ paths:
           format: uuid
         required: true
       - in: query
+        name: need
+        schema:
+          type: integer
+        description: Ile osób naraz musi być wolnych (1–10, domyślnie 1); z listą
+          osób równą jej długości — wszystkie wybrane.
+      - in: query
         name: service_id
         schema:
           type: string
@@ -1630,9 +1746,11 @@ paths:
       - in: query
         name: staff_id
         schema:
-          type: string
-          format: uuid
-        description: Tylko terminy tej osoby.
+          type: array
+          items:
+            type: string
+            format: uuid
+        description: Tylko terminy tych osób (parametr można powtórzyć).
       - in: query
         name: to
         schema:
@@ -1668,6 +1786,12 @@ paths:
           format: uuid
         required: true
       - in: query
+        name: need
+        schema:
+          type: integer
+        description: Ile osób naraz musi być wolnych (1–10, domyślnie 1); z listą
+          osób równą jej długości — wszystkie wybrane.
+      - in: query
         name: service_id
         schema:
           type: string
@@ -1676,9 +1800,11 @@ paths:
       - in: query
         name: staff_id
         schema:
-          type: string
-          format: uuid
-        description: Tylko terminy tej osoby.
+          type: array
+          items:
+            type: string
+            format: uuid
+        description: Tylko terminy tych osób (parametr można powtórzyć).
       tags:
       - booking
       security:
@@ -2135,6 +2261,107 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/booking/teams/:
+    get:
+      operationId: api_v1_booking_teams_list
+      description: Standing groups of people (ADR-058 §2).
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamList'
+          description: ''
+    post:
+      operationId: api_v1_booking_teams_create
+      description: Standing groups of people (ADR-058 §2).
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TeamInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TeamInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TeamInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/teams/{team_id}/:
+    patch:
+      operationId: api_v1_booking_teams_partial_update
+      parameters:
+      - in: path
+        name: team_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTeamUpdate'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedTeamUpdate'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedTeamUpdate'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+    delete:
+      operationId: api_v1_booking_teams_destroy
+      parameters:
+      - in: path
+        name: team_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
   /api/v1/booking/time-off/{time_off_id}/:
     delete:
       operationId: api_v1_booking_time_off_destroy
@@ -10788,16 +11015,56 @@ components:
           type:
           - string
           - 'null'
+        crew:
+          type: array
+          items:
+            $ref: '#/components/schemas/CrewMember'
+        staff_required:
+          type: integer
+        needs_assignment:
+          type: boolean
+        auto_assigned:
+          type: boolean
+        crew_version:
+          type: integer
+        queue_reason:
+          type: string
+        queued_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        requested_team:
+          oneOf:
+          - $ref: '#/components/schemas/TeamRef'
+          - type: 'null'
+        requested_staff_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        customer_notes:
+          type: string
       required:
+      - auto_assigned
+      - crew
+      - crew_version
       - customer_name
+      - customer_notes
       - ends_at
       - id
       - location_name
+      - needs_assignment
+      - queue_reason
+      - queued_at
+      - requested_staff_id
+      - requested_team
       - resource_name
       - service_name
       - staff_id
       - staff_membership_id
       - staff_name
+      - staff_required
       - starts_at
       - status
       - timezone
@@ -10808,6 +11075,17 @@ components:
           type: string
           format: uuid
         staff_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        staff_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 10
+        team_id:
           type:
           - string
           - 'null'
@@ -10829,6 +11107,9 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/MaterialInput'
+        customer_notes:
+          type: string
+          maxLength: 500
       required:
       - customer
       - location_id
@@ -11371,6 +11652,76 @@ components:
           type: boolean
       required:
       - accepted
+    Candidate:
+      type: object
+      description: One person for one visit („kto jest wolny”, ADR-058 §9).
+      properties:
+        staff_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        team_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        account:
+          type: string
+        phone:
+          type:
+          - string
+          - 'null'
+        does_service:
+          type: boolean
+        state:
+          type: string
+        until:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        hours:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkRange'
+        on_visit:
+          type: boolean
+        lead:
+          type: boolean
+        day_visits:
+          type: integer
+        day_minutes:
+          type: integer
+        next_free:
+          type:
+          - string
+          - 'null'
+          format: date-time
+      required:
+      - account
+      - day_minutes
+      - day_visits
+      - does_service
+      - hours
+      - lead
+      - name
+      - next_free
+      - on_visit
+      - phone
+      - staff_id
+      - state
+      - team_ids
+      - until
+    CandidateList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Candidate'
+      required:
+      - items
     Catalog:
       type: object
       properties:
@@ -12452,6 +12803,49 @@ components:
         * `succeeded` - succeeded
         * `failed` - failed
         * `canceled` - canceled
+    CrewInput:
+      type: object
+      properties:
+        staff_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 10
+        lead_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        expected_version:
+          type: integer
+          minimum: 0
+        notify:
+          type: boolean
+          default: true
+      required:
+      - expected_version
+      - staff_ids
+    CrewMember:
+      type: object
+      properties:
+        staff_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        membership_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        lead:
+          type: boolean
+      required:
+      - lead
+      - membership_id
+      - name
+      - staff_id
     CsrfToken:
       type: object
       properties:
@@ -14796,6 +15190,21 @@ components:
       - timezone
       - version
       - workspace_kind
+    Overview:
+      type: object
+      properties:
+        bookable_staff:
+          type: integer
+        teams:
+          type: integer
+        waiting:
+          type:
+          - integer
+          - 'null'
+      required:
+      - bookable_staff
+      - teams
+      - waiting
     OwnershipTransfer:
       type: object
       properties:
@@ -15490,6 +15899,18 @@ components:
           type: string
         active:
           type: boolean
+    PatchedTeamUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        member_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
     PatchedUserUpdate:
       type: object
       description: What a person may change about themselves from the panel.
@@ -15558,6 +15979,11 @@ components:
             format: uuid
         has_hours:
           type: boolean
+        team_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
         created_at:
           type: string
           format: date-time
@@ -15572,6 +15998,7 @@ components:
       - phone
       - public_slug
       - service_ids
+      - team_ids
     PersonCreate:
       type: object
       properties:
@@ -15665,6 +16092,11 @@ components:
             format: uuid
         has_hours:
           type: boolean
+        team_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
         created_at:
           type: string
           format: date-time
@@ -15688,6 +16120,7 @@ components:
       - phone
       - public_slug
       - service_ids
+      - team_ids
       - time_off
     PersonHoursInput:
       type: object
@@ -16352,6 +16785,121 @@ components:
         * `customer` - customer
         * `platform_marketing` - platform_marketing
         * `platform_blog` - platform_blog
+    Queue:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueueItem'
+      required:
+      - items
+    QueueItem:
+      type: object
+      description: A visit in „Do przydzielenia”, with what the office phones or reads.
+      properties:
+        id:
+          type: string
+          format: uuid
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        timezone:
+          type: string
+        service_name:
+          type: string
+        status:
+          type: string
+        customer_name:
+          type: string
+        staff_id:
+          type: string
+          format: uuid
+        staff_name:
+          type: string
+        staff_membership_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        location_name:
+          type: string
+        resource_name:
+          type:
+          - string
+          - 'null'
+        materials:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaterialLine'
+        takes_materials:
+          type: boolean
+        self_service_token:
+          type:
+          - string
+          - 'null'
+        crew:
+          type: array
+          items:
+            $ref: '#/components/schemas/CrewMember'
+        staff_required:
+          type: integer
+        needs_assignment:
+          type: boolean
+        auto_assigned:
+          type: boolean
+        crew_version:
+          type: integer
+        queue_reason:
+          type: string
+        queued_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        requested_team:
+          oneOf:
+          - $ref: '#/components/schemas/TeamRef'
+          - type: 'null'
+        requested_staff_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        customer_notes:
+          type: string
+        customer_phone:
+          type: string
+        customer_email:
+          type: string
+      required:
+      - auto_assigned
+      - crew
+      - crew_version
+      - customer_email
+      - customer_name
+      - customer_notes
+      - customer_phone
+      - ends_at
+      - id
+      - location_name
+      - needs_assignment
+      - queue_reason
+      - queued_at
+      - requested_staff_id
+      - requested_team
+      - resource_name
+      - service_name
+      - staff_id
+      - staff_membership_id
+      - staff_name
+      - staff_required
+      - starts_at
+      - status
+      - timezone
     ReasonEnum:
       enum:
       - available
@@ -16568,6 +17116,10 @@ components:
           type: integer
         appointment_kind:
           type: string
+        staff_count:
+          type: integer
+        public_staff_choice:
+          type: string
         materials:
           type: array
           items:
@@ -16580,6 +17132,8 @@ components:
       - id
       - name
       - public_slug
+      - public_staff_choice
+      - staff_count
     SessionSummary:
       type: object
       properties:
@@ -17740,6 +18294,58 @@ components:
           maxLength: 500
       required:
       - reason
+    Team:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        member_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - id
+      - member_ids
+      - name
+    TeamInput:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        member_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 100
+      required:
+      - member_ids
+      - name
+    TeamList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Team'
+      required:
+      - items
+    TeamRef:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+      required:
+      - id
+      - name
     TemplateCatalog:
       type: object
       properties:
@@ -18092,6 +18698,18 @@ components:
       - local_end
       - local_start
       - weekdays
+    WorkRange:
+      type: object
+      properties:
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+      required:
+      - ends_at
+      - starts_at
     WorkingHours:
       type: object
       properties:

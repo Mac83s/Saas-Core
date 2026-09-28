@@ -8,6 +8,7 @@ from django.contrib.postgres.constraints import ExclusionConstraint
 from django.contrib.postgres.fields import DateTimeRangeField, RangeOperators
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models.functions import Lower
 
 from saas_core.modules.core.organizations.tenancy import TenantScopedModel
 
@@ -17,6 +18,25 @@ class AppointmentStatus(models.TextChoices):
     COMPLETED = "completed", "Zakończona"
     CANCELED = "canceled", "Anulowana"
     NO_SHOW = "no_show", "Nieobecność"
+
+
+class StaffChoice(models.TextChoices):
+    """What a customer may pick on the public form (ADR-058 §8, answer 2)."""
+
+    NONE = "none", "Nikogo"
+    TEAM = "team", "Zespół"
+    PERSON = "person", "Osobę"
+
+
+class QueueReason(models.TextChoices):
+    """Why a visit waits in „Do przydzielenia” (ADR-058 §3)."""
+
+    PUBLIC = "public", "Rezerwacja ze strony"
+    MOVED = "moved", "Klient przełożył wizytę"
+    TIME_OFF = "time_off", "Nieobecność"
+    ENDED = "ended", "Odejście z firmy"
+    SHORT = "short", "Za mało osób"
+    JOINED = "joined", "Osoba dołączyła do innej wizyty"
 
 
 class Location(TenantScopedModel):
@@ -63,6 +83,15 @@ class StaffMember(TenantScopedModel):
         blank=True,
         related_name="+",
     )
+    #: „Pokazuj klientom”: the person's public profile, the only way a
+    #: customer learns a name (ADR-036 §4, ADR-058 §8). None = internal only.
+    profile = models.ForeignKey(
+        "profiles.PublicProfile",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -84,6 +113,41 @@ class StaffMember(TenantScopedModel):
                 condition=models.Q(invitation__isnull=False),
                 name="booking_staff_org_invitation_uq",
             ),
+        ]
+
+
+class StaffTeam(TenantScopedModel):
+    """A standing group of people, e.g. a crew that drives out together.
+
+    Choosing a team for a visit takes as many of its free members as the
+    service needs (ADR-058 §2). Changing a team never touches booked visits.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    name = models.CharField(max_length=160)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    all_objects = models.Manager()
+
+    class Meta:
+        ordering = ("organization_id", "name", "id")
+        constraints = [
+            # Customers pick a team by its name, so two teams may not share one.
+            models.UniqueConstraint(
+                models.F("organization"), Lower("name"), name="booking_team_org_name_uq"
+            ),
+        ]
+
+
+class StaffTeamMember(TenantScopedModel):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    team = models.ForeignKey(StaffTeam, on_delete=models.CASCADE, related_name="members")
+    staff = models.ForeignKey(StaffMember, on_delete=models.PROTECT, related_name="team_links")
+    all_objects = models.Manager()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["team", "staff"], name="booking_team_member_uq"),
         ]
 
 
@@ -124,6 +188,14 @@ class Service(TenantScopedModel):
     #: jest zależnością rezerwacji, więc bez kluczy obcych — sprawdza je
     #: `materials.py`, gdy moduł magazynu jest w profilu.
     materials = models.JSONField(default=list, blank=True)
+    #: How many people one visit needs; each of them has the time blocked
+    #: (ADR-058 §2). A visit keeps the number it was booked with.
+    staff_count = models.PositiveSmallIntegerField(default=1)
+    #: What the public form asks: nobody, a team, or a person — a person only
+    #: when one does the visit (answer 2, 24.09).
+    public_staff_choice = models.CharField(
+        max_length=8, choices=StaffChoice, default=StaffChoice.NONE
+    )
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -138,6 +210,15 @@ class Service(TenantScopedModel):
             models.CheckConstraint(
                 condition=models.Q(duration_minutes__gte=5, duration_minutes__lte=1440),
                 name="booking_service_duration_ck",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(staff_count__gte=1, staff_count__lte=10),
+                name="booking_service_staff_count_ck",
+            ),
+            models.CheckConstraint(
+                condition=~models.Q(public_staff_choice=StaffChoice.PERSON)
+                | models.Q(staff_count=1),
+                name="booking_service_person_choice_ck",
             ),
         ]
 
@@ -303,6 +384,31 @@ class Appointment(TenantScopedModel):
     self_service_expires_at = models.DateTimeField()
     reminder_due_at = models.DateTimeField(null=True, blank=True)
     reminder_sent_at = models.DateTimeField(null=True, blank=True)
+    #: The people the visit was booked for (the service's number then): a
+    #: later change of the service does not rewrite a booked visit.
+    staff_required = models.PositiveSmallIntegerField(default=1)
+    #: A vacancy: fewer active people than required, or the lead has none
+    #: (absence, leaving, too few people) — ADR-058 §3.
+    needs_assignment = models.BooleanField(default=False)
+    #: The system chose the people and nobody from the company has looked yet.
+    auto_assigned = models.BooleanField(default=False)
+    #: Bumped by every change of the people; an assignment names the version it
+    #: saw, so two offices cannot overwrite each other (ADR-058 §9).
+    crew_version = models.PositiveIntegerField(default=0)
+    #: The customer's choice on the public form, kept for the queue and for
+    #: the customer's own rescheduling.
+    requested_team = models.ForeignKey(
+        "StaffTeam", on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    requested_staff = models.ForeignKey(
+        StaffMember, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    queue_reason = models.CharField(max_length=16, choices=QueueReason, blank=True)
+    queued_at = models.DateTimeField(null=True, blank=True)
+    #: What the customer wrote („Uwagi”, answer 1A of 28.09). It may be health
+    #: data: shown in the panel with the visit, never in an e-mail, a log or the
+    #: history of changes; anonymization clears it.
+    customer_notes = models.CharField(max_length=500, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     all_objects = models.Manager()
@@ -322,7 +428,12 @@ class Appointment(TenantScopedModel):
         indexes = [
             models.Index(
                 fields=["organization", "starts_at", "status"], name="booking_appt_calendar_idx"
-            )
+            ),
+            models.Index(
+                fields=["organization", "starts_at"],
+                condition=models.Q(needs_assignment=True) | models.Q(auto_assigned=True),
+                name="booking_appt_queue_idx",
+            ),
         ]
 
 

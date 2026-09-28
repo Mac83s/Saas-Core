@@ -421,6 +421,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/booking/appointments/{appointment_id}/candidates/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Who is free for one visit, and why not when they are not (ADR-058 §9). */
+        get: operations["api_v1_booking_appointments_candidates_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/booking/appointments/{appointment_id}/complete/": {
         parameters: {
             query?: never;
@@ -432,6 +449,23 @@ export interface paths {
         put?: never;
         /** @description Wizyta się odbyła: produkty schodzą z magazynu (RW, WZ). */
         post: operations["api_v1_booking_appointments_complete_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/appointments/{appointment_id}/crew/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Puts exactly these people on a visit; the same people again is „Zostaw”. */
+        post: operations["api_v1_booking_appointments_crew_create"];
         delete?: never;
         options?: never;
         head?: never;
@@ -520,6 +554,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/booking/overview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["api_v1_booking_overview_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/booking/public/{public_slug}/": {
         parameters: {
             query?: never;
@@ -598,6 +648,23 @@ export interface paths {
         };
         /** @description Free starts of one day, once each: who is free is the company's business. */
         get: operations["api_v1_booking_public_times_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/queue/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description „Do przydzielenia”: vacancies and people the system chose (ADR-058 §3). */
+        get: operations["api_v1_booking_queue_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -878,6 +945,40 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/teams/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Standing groups of people (ADR-058 §2). */
+        get: operations["api_v1_booking_teams_list"];
+        put?: never;
+        /** @description Standing groups of people (ADR-058 §2). */
+        post: operations["api_v1_booking_teams_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/teams/{team_id}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["api_v1_booking_teams_destroy"];
+        options?: never;
+        head?: never;
+        patch: operations["api_v1_booking_teams_partial_update"];
         trace?: never;
     };
     "/api/v1/booking/time-off/{time_off_id}/": {
@@ -3628,12 +3729,27 @@ export interface components {
             materials?: components["schemas"]["MaterialLine"][];
             takes_materials?: boolean;
             self_service_token?: string | null;
+            crew: components["schemas"]["CrewMember"][];
+            staff_required: number;
+            needs_assignment: boolean;
+            auto_assigned: boolean;
+            crew_version: number;
+            queue_reason: string;
+            /** Format: date-time */
+            queued_at: string | null;
+            requested_team: components["schemas"]["TeamRef"] | null;
+            /** Format: uuid */
+            requested_staff_id: string | null;
+            customer_notes: string;
         };
         AppointmentCreate: {
             /** Format: uuid */
             service_id: string;
             /** Format: uuid */
             staff_id?: string | null;
+            staff_ids?: string[];
+            /** Format: uuid */
+            team_id?: string | null;
             /** Format: uuid */
             location_id: string;
             /** Format: uuid */
@@ -3642,6 +3758,7 @@ export interface components {
             starts_at: string;
             customer: components["schemas"]["CustomerInput"];
             materials?: components["schemas"]["MaterialInput"][];
+            customer_notes?: string;
         };
         AppointmentList: {
             items: components["schemas"]["Appointment"][];
@@ -3837,6 +3954,29 @@ export interface components {
         };
         CallbackResult: {
             accepted: boolean;
+        };
+        /** @description One person for one visit („kto jest wolny”, ADR-058 §9). */
+        Candidate: {
+            /** Format: uuid */
+            staff_id: string;
+            name: string;
+            team_ids: string[];
+            account: string;
+            phone: string | null;
+            does_service: boolean;
+            state: string;
+            /** Format: date-time */
+            until: string | null;
+            hours: components["schemas"]["WorkRange"][];
+            on_visit: boolean;
+            lead: boolean;
+            day_visits: number;
+            day_minutes: number;
+            /** Format: date-time */
+            next_free: string | null;
+        };
+        CandidateList: {
+            items: components["schemas"]["Candidate"][];
         };
         Catalog: {
             locations: components["schemas"]["Location"][];
@@ -4291,6 +4431,22 @@ export interface components {
          * @enum {string}
          */
         CreditPurchaseStatusEnum: "pending" | "succeeded" | "failed" | "canceled";
+        CrewInput: {
+            staff_ids: string[];
+            /** Format: uuid */
+            lead_id?: string | null;
+            expected_version: number;
+            /** @default true */
+            notify: boolean;
+        };
+        CrewMember: {
+            /** Format: uuid */
+            staff_id: string;
+            name: string;
+            /** Format: uuid */
+            membership_id: string | null;
+            lead: boolean;
+        };
         CsrfToken: {
             csrf_token: string;
         };
@@ -5232,6 +5388,11 @@ export interface components {
             permissions: string[];
             active: boolean;
         };
+        Overview: {
+            bookable_staff: number;
+            teams: number;
+            waiting: number | null;
+        };
         OwnershipTransfer: {
             /** Format: uuid */
             membership_id: string;
@@ -5506,6 +5667,10 @@ export interface components {
             notes?: string;
             active?: boolean;
         };
+        PatchedTeamUpdate: {
+            name?: string;
+            member_ids?: string[];
+        };
         /** @description What a person may change about themselves from the panel. */
         PatchedUserUpdate: {
             first_name?: string;
@@ -5537,6 +5702,7 @@ export interface components {
             active: boolean;
             service_ids: string[];
             has_hours: boolean;
+            team_ids: string[];
             /** Format: date-time */
             created_at: string;
         };
@@ -5573,6 +5739,7 @@ export interface components {
             active: boolean;
             service_ids: string[];
             has_hours: boolean;
+            team_ids: string[];
             /** Format: date-time */
             created_at: string;
             hours: components["schemas"]["WorkingHours"][];
@@ -5844,6 +6011,46 @@ export interface components {
          * @enum {string}
          */
         PurposeEnum: "customer" | "platform_marketing" | "platform_blog";
+        Queue: {
+            items: components["schemas"]["QueueItem"][];
+        };
+        /** @description A visit in „Do przydzielenia”, with what the office phones or reads. */
+        QueueItem: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            timezone: string;
+            service_name: string;
+            status: string;
+            customer_name: string;
+            /** Format: uuid */
+            staff_id: string;
+            staff_name: string;
+            /** Format: uuid */
+            staff_membership_id: string | null;
+            location_name: string;
+            resource_name: string | null;
+            materials?: components["schemas"]["MaterialLine"][];
+            takes_materials?: boolean;
+            self_service_token?: string | null;
+            crew: components["schemas"]["CrewMember"][];
+            staff_required: number;
+            needs_assignment: boolean;
+            auto_assigned: boolean;
+            crew_version: number;
+            queue_reason: string;
+            /** Format: date-time */
+            queued_at: string | null;
+            requested_team: components["schemas"]["TeamRef"] | null;
+            /** Format: uuid */
+            requested_staff_id: string | null;
+            customer_notes: string;
+            customer_phone: string;
+            customer_email: string;
+        };
         /**
          * @description * `available` - available
          *     * `invalid` - invalid
@@ -5945,6 +6152,8 @@ export interface components {
             public_slug: string;
             duration_minutes: number;
             appointment_kind: string;
+            staff_count: number;
+            public_staff_choice: string;
             materials?: components["schemas"]["MaterialInput"][];
             takes_materials?: boolean;
         };
@@ -6423,6 +6632,24 @@ export interface components {
         SupportRetry: {
             reason: string;
         };
+        Team: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            member_ids: string[];
+        };
+        TeamInput: {
+            name: string;
+            member_ids: string[];
+        };
+        TeamList: {
+            items: components["schemas"]["Team"][];
+        };
+        TeamRef: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+        };
         TemplateCatalog: {
             items: components["schemas"]["TemplateItem"][];
         };
@@ -6575,6 +6802,12 @@ export interface components {
             local_end: string;
             /** Format: uuid */
             location_id?: string | null;
+        };
+        WorkRange: {
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
         };
         WorkingHours: {
             /** Format: uuid */
@@ -7797,6 +8030,29 @@ export interface operations {
             };
         };
     };
+    api_v1_booking_appointments_candidates_retrieve: {
+        parameters: {
+            query?: {
+                everyone?: boolean;
+            };
+            header?: never;
+            path: {
+                appointment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateList"];
+                };
+            };
+        };
+    };
     api_v1_booking_appointments_complete_create: {
         parameters: {
             query?: never;
@@ -7816,6 +8072,51 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Appointment"];
+                };
+            };
+        };
+    };
+    api_v1_booking_appointments_crew_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                appointment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CrewInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["CrewInput"];
+                "multipart/form-data": components["schemas"]["CrewInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };
@@ -7978,6 +8279,25 @@ export interface operations {
             };
         };
     };
+    api_v1_booking_overview_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Overview"];
+                };
+            };
+        };
+    };
     api_v1_booking_public_retrieve: {
         parameters: {
             query?: never;
@@ -8101,6 +8421,25 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SlotTimeList"];
+                };
+            };
+        };
+    };
+    api_v1_booking_queue_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Queue"];
                 };
             };
         };
@@ -8276,9 +8615,11 @@ export interface operations {
             query: {
                 from: string;
                 location_id: string;
+                /** @description Ile osób naraz musi być wolnych (1–10, domyślnie 1); z listą osób równą jej długości — wszystkie wybrane. */
+                need?: number;
                 service_id: string;
-                /** @description Tylko terminy tej osoby. */
-                staff_id?: string;
+                /** @description Tylko terminy tych osób (parametr można powtórzyć). */
+                staff_id?: string[];
                 to: string;
             };
             header?: never;
@@ -8302,9 +8643,11 @@ export interface operations {
             query: {
                 date: string;
                 location_id: string;
+                /** @description Ile osób naraz musi być wolnych (1–10, domyślnie 1); z listą osób równą jej długości — wszystkie wybrane. */
+                need?: number;
                 service_id: string;
-                /** @description Tylko terminy tej osoby. */
-                staff_id?: string;
+                /** @description Tylko terminy tych osób (parametr można powtórzyć). */
+                staff_id?: string[];
             };
             header?: never;
             path?: never;
@@ -8763,6 +9106,113 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_booking_teams_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamList"];
+                };
+            };
+        };
+    };
+    api_v1_booking_teams_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["TeamInput"];
+                "multipart/form-data": components["schemas"]["TeamInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Team"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_booking_teams_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    api_v1_booking_teams_partial_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PatchedTeamUpdate"];
+                "application/x-www-form-urlencoded": components["schemas"]["PatchedTeamUpdate"];
+                "multipart/form-data": components["schemas"]["PatchedTeamUpdate"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Team"];
+                };
+            };
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

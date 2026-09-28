@@ -2,11 +2,15 @@ from django.urls import path
 
 from .views import (
     AppointmentCancelView,
+    AppointmentCandidatesView,
     AppointmentCompleteView,
+    AppointmentCrewView,
     AppointmentListCreateView,
     AppointmentMaterialsView,
     AppointmentRescheduleView,
     BookingCatalogView,
+    BookingOverviewView,
+    BookingQueueView,
     BookingScheduleView,
     BookingSlotDaysView,
     BookingSlotsView,
@@ -30,6 +34,8 @@ from .views import (
     StaffRestoreView,
     StaffServicesView,
     StaffTimeOffView,
+    TeamDetailView,
+    TeamListView,
     TimeOffDetailView,
 )
 
@@ -49,6 +55,20 @@ urlpatterns = [
     path("staff/<uuid:staff_id>/restore/", StaffRestoreView.as_view(), name="staff-restore"),
     path("time-off/<uuid:time_off_id>/", TimeOffDetailView.as_view(), name="time-off"),
     path("staff-availability/", StaffAvailabilityView.as_view(), name="staff-availability"),
+    path("teams/", TeamListView.as_view(), name="teams"),
+    path("teams/<uuid:team_id>/", TeamDetailView.as_view(), name="team"),
+    path("queue/", BookingQueueView.as_view(), name="queue"),
+    path("overview/", BookingOverviewView.as_view(), name="overview"),
+    path(
+        "appointments/<uuid:appointment_id>/candidates/",
+        AppointmentCandidatesView.as_view(),
+        name="candidates",
+    ),
+    path(
+        "appointments/<uuid:appointment_id>/crew/",
+        AppointmentCrewView.as_view(),
+        name="crew",
+    ),
     path("schedule/", BookingScheduleView.as_view(), name="schedule"),
     path("slots/", BookingSlotsView.as_view(), name="slots"),
     path("slots/days/", BookingSlotDaysView.as_view(), name="slot-days"),

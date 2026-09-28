@@ -528,6 +528,14 @@ class OrganizationAuditAction(models.TextChoices):
     BOOKING_STAFF_TIME_OFF_REMOVED = "booking.staff.time_off_removed", "Usunięto nieobecność"
     BOOKING_STAFF_ENDED = "booking.staff.ended", "Zakończono współpracę"
     BOOKING_STAFF_RESTORED = "booking.staff.restored", "Przywrócono pracownika"
+    BOOKING_STAFF_PUBLIC_CHANGED = (
+        "booking.staff.public_changed",
+        "Zmieniono widoczność pracownika dla klientów",
+    )
+    BOOKING_TEAM_CREATED = "booking.team.created", "Utworzono zespół"
+    BOOKING_TEAM_UPDATED = "booking.team.updated", "Zmieniono zespół"
+    BOOKING_TEAM_DELETED = "booking.team.deleted", "Usunięto zespół"
+    BOOKING_APPOINTMENT_CREW_CHANGED = "booking.appointment.crew_changed", "Zmieniono skład wizyty"
 
 
 class OrganizationAuditEntry(models.Model):

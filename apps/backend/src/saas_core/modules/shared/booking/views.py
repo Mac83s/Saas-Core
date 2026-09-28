@@ -22,16 +22,21 @@ from saas_core.modules.shared.billing.authorization import authorize_entitled
 
 from . import materials as stock
 from .availability import _zone, available_days, available_slots, available_times
+from .dispatch import assign_crew, candidates, overview, queue
 from .models import Location, PublicBookingRoute, Resource, SelfServiceRoute, Service
 from .security import public_booking_context, token_digest
 from .serializers import (
     AppointmentCreateSerializer,
     AppointmentListSerializer,
     AppointmentSerializer,
+    CandidateListSerializer,
+    CandidateQuerySerializer,
     CatalogCreateSerializer,
     CatalogSerializer,
+    CrewInputSerializer,
     CustomerAnonymizedSerializer,
     MaterialsInputSerializer,
+    OverviewSerializer,
     PeopleDaySerializer,
     PersonCreateSerializer,
     PersonDetailSerializer,
@@ -45,12 +50,17 @@ from .serializers import (
     PublicAppointmentCreateSerializer,
     PublicAppointmentSerializer,
     PublicCatalogSerializer,
+    QueueSerializer,
     RescheduleSerializer,
     ScheduleCreateSerializer,
     SlotDayListSerializer,
     SlotListSerializer,
     SlotTimeListSerializer,
     StaffSlotTimeListSerializer,
+    TeamInputSerializer,
+    TeamListSerializer,
+    TeamSerializer,
+    TeamUpdateSerializer,
     TimeOffCreatedSerializer,
     TimeOffInputSerializer,
 )
@@ -85,6 +95,7 @@ from .staff import (
     set_person_hours,
     set_person_services,
 )
+from .teams import create_team, delete_team, list_teams, member_ids, update_team
 
 IDEMPOTENCY = OpenApiParameter("Idempotency-Key", str, OpenApiParameter.HEADER, required=True)
 SLOT_QUERY = [
@@ -98,7 +109,20 @@ DAYS_QUERY = [
 ]
 TIMES_QUERY = [*SLOT_QUERY, OpenApiParameter("date", date, OpenApiParameter.QUERY, required=True)]
 STAFF_QUERY = OpenApiParameter(
-    "staff_id", UUID, OpenApiParameter.QUERY, description="Tylko terminy tej osoby."
+    "staff_id",
+    UUID,
+    OpenApiParameter.QUERY,
+    many=True,
+    description="Tylko terminy tych osób (parametr można powtórzyć).",
+)
+NEED_QUERY = OpenApiParameter(
+    "need",
+    int,
+    OpenApiParameter.QUERY,
+    description=(
+        "Ile osób naraz musi być wolnych (1–10, domyślnie 1); z listą osób "
+        "równą jej długości — wszystkie wybrane."
+    ),
 )
 
 
@@ -111,6 +135,24 @@ def _idem(request: Request) -> str:
     if not value or len(value) > 160:
         raise ParseError("Wymagany jest prawidłowy Idempotency-Key.")
     return value
+
+
+def _crew_payload(value: Any) -> list[dict[str, Any]]:
+    """Everybody on the visit, the lead first; for a called-off visit, who was."""
+    allocations = list(value.staff_allocations.all())
+    active = [item for item in allocations if item.active]
+    rows = active or (allocations if value.status == "canceled" else [])
+    people = list({item.staff_id: item.staff for item in rows}.values())
+    people.sort(key=lambda person: (person.id != value.staff_id,))
+    return [
+        {
+            "staff_id": person.id,
+            "name": person.display_name,
+            "membership_id": person.membership_id,
+            "lead": person.id == value.staff_id,
+        }
+        for person in people
+    ]
 
 
 def _appointment_payload(value: Any, token: str | None = None) -> dict[str, Any]:
@@ -130,6 +172,28 @@ def _appointment_payload(value: Any, token: str | None = None) -> dict[str, Any]
         "materials": value.materials,
         "takes_materials": stock.takes_materials(value.service.appointment_kind),
         **({"self_service_token": token} if token else {}),
+        "crew": _crew_payload(value),
+        "staff_required": value.staff_required,
+        "needs_assignment": value.needs_assignment,
+        "auto_assigned": value.auto_assigned,
+        "crew_version": value.crew_version,
+        "queue_reason": value.queue_reason,
+        "queued_at": value.queued_at,
+        "requested_team": (
+            {"id": value.requested_team.id, "name": value.requested_team.name}
+            if value.requested_team
+            else None
+        ),
+        "requested_staff_id": value.requested_staff_id,
+        "customer_notes": value.customer_notes,
+    }
+
+
+def _queue_payload(value: Any) -> dict[str, Any]:
+    return {
+        **_appointment_payload(value),
+        "customer_phone": value.customer.phone,
+        "customer_email": value.customer.email,
     }
 
 
@@ -160,11 +224,21 @@ def _slot_query(request: Request, *dates: str) -> tuple[UUID, UUID, list[date]]:
 
 
 def _staff_query(request: Request) -> list[UUID] | None:
-    value = request.query_params.get("staff_id")
+    values = request.query_params.getlist("staff_id")
     try:
-        return [UUID(value)] if value else None
+        return [UUID(value) for value in values] if values else None
     except ValueError as error:
         raise ParseError("Nieprawidłowe parametry terminów.") from error
+
+
+def _need_query(request: Request) -> int:
+    try:
+        need = int(request.query_params.get("need", 1))
+    except ValueError as error:
+        raise ParseError("Nieprawidłowa liczba osób.") from error
+    if not 1 <= need <= 10:
+        raise ParseError("Nieprawidłowa liczba osób.")
+    return need
 
 
 def _window_edge(request: Request, name: str) -> datetime | None:
@@ -224,6 +298,8 @@ def _catalog_payload(value: dict[str, list[Any]], *, public: bool = False) -> di
                     {}
                     if public
                     else {
+                        "staff_count": x.staff_count,
+                        "public_staff_choice": x.public_staff_choice,
                         "materials": x.materials,
                         # A module that takes its own material (HoofCare) has none here.
                         "takes_materials": stock.takes_materials(x.appointment_kind),
@@ -334,12 +410,13 @@ class BookingSlotDaysView(APIView):
 
     @extend_schema(
         tags=["booking"],
-        parameters=[*DAYS_QUERY, STAFF_QUERY],
+        parameters=[*DAYS_QUERY, STAFF_QUERY, NEED_QUERY],
         responses={200: SlotDayListSerializer},
     )
     def get(self, request: Request) -> Response:
         service, location, (start, end) = _slot_query(request, "from", "to")
         staff = _staff_query(request)
+        need = _need_query(request)
         authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
         return Response({
             "items": available_days(
@@ -348,6 +425,7 @@ class BookingSlotDaysView(APIView):
                 from_date=start,
                 to_date=end,
                 staff_ids=staff,
+                need=need,
             )
         })
 
@@ -359,12 +437,13 @@ class BookingSlotTimesView(APIView):
 
     @extend_schema(
         tags=["booking"],
-        parameters=[*TIMES_QUERY, STAFF_QUERY],
+        parameters=[*TIMES_QUERY, STAFF_QUERY, NEED_QUERY],
         responses={200: StaffSlotTimeListSerializer},
     )
     def get(self, request: Request) -> Response:
         service, location, (day,) = _slot_query(request, "date")
         staff = _staff_query(request)
+        need = _need_query(request)
         authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
         return Response({
             "items": [
@@ -377,7 +456,7 @@ class BookingSlotTimesView(APIView):
                     ],
                 }
                 for item in available_times(
-                    service_id=service, location_id=location, day=day, staff_ids=staff
+                    service_id=service, location_id=location, day=day, staff_ids=staff, need=need
                 )
             ]
         })
@@ -818,6 +897,7 @@ def _person_payload(person: Person) -> dict[str, Any]:
         "active": staff.active,
         "service_ids": person.service_ids,
         "has_hours": person.has_hours,
+        "team_ids": person.team_ids,
         "created_at": staff.created_at,
     }
 
@@ -1139,3 +1219,153 @@ class StaffAvailabilityView(APIView):
                 for person in people
             ],
         })
+
+
+def _team_payload(team: Any) -> dict[str, Any]:
+    return {"id": team.id, "name": team.name, "member_ids": member_ids(team)}
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class TeamListView(APIView):
+    """Standing groups of people (ADR-058 §2)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        operation_id="api_v1_booking_teams_list",
+        responses={200: TeamListSerializer},
+    )
+    def get(self, request: Request) -> Response:
+        del request
+        return Response({"items": [_team_payload(team) for team in list_teams()]})
+
+    @extend_schema(
+        tags=["booking"],
+        request=TeamInputSerializer,
+        responses={201: TeamSerializer, 400: ProblemDetailsSerializer},
+    )
+    def post(self, request: Request) -> Response:
+        s = TeamInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        team = create_team(**s.validated_data)
+        return Response(_team_payload(team), status=201)
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class TeamDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        request=TeamUpdateSerializer,
+        responses={200: TeamSerializer, 400: ProblemDetailsSerializer},
+    )
+    def patch(self, request: Request, team_id: UUID) -> Response:
+        s = TeamUpdateSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        team = update_team(team_id=team_id, **s.validated_data)
+        return Response(_team_payload(team))
+
+    @extend_schema(tags=["booking"], responses={204: None})
+    def delete(self, request: Request, team_id: UUID) -> Response:
+        del request
+        delete_team(team_id=team_id)
+        return Response(status=204)
+
+
+class BookingQueueView(APIView):
+    """„Do przydzielenia”: vacancies and people the system chose (ADR-058 §3)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(tags=["booking"], responses={200: QueueSerializer})
+    def get(self, request: Request) -> Response:
+        del request
+        return Response({"items": [_queue_payload(item) for item in queue()]})
+
+
+class BookingOverviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(tags=["booking"], responses={200: OverviewSerializer})
+    def get(self, request: Request) -> Response:
+        del request
+        value = overview()
+        return Response({
+            "bookable_staff": value.bookable_staff,
+            "teams": value.teams,
+            "waiting": value.waiting,
+        })
+
+
+class AppointmentCandidatesView(APIView):
+    """Who is free for one visit, and why not when they are not (ADR-058 §9)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        parameters=[CandidateQuerySerializer],
+        responses={200: CandidateListSerializer},
+    )
+    def get(self, request: Request, appointment_id: UUID) -> Response:
+        query = CandidateQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+        items = candidates(appointment_id=appointment_id, everyone=query.validated_data["everyone"])
+        return Response({
+            "items": [
+                {
+                    "staff_id": item.staff.id,
+                    "name": item.staff.display_name,
+                    "team_ids": item.team_ids,
+                    "account": item.account,
+                    "phone": item.staff.phone or None,
+                    "does_service": item.does_service,
+                    "state": item.status.state,
+                    "until": item.status.until,
+                    "hours": [
+                        {"starts_at": start, "ends_at": end} for start, end in item.status.hours
+                    ],
+                    "on_visit": item.on_visit,
+                    "lead": item.lead,
+                    "day_visits": item.day_visits,
+                    "day_minutes": item.day_minutes,
+                    "next_free": item.next_free,
+                }
+                for item in items
+            ]
+        })
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class AppointmentCrewView(APIView):
+    """Puts exactly these people on a visit; the same people again is „Zostaw”."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        parameters=[IDEMPOTENCY],
+        request=CrewInputSerializer,
+        responses={
+            200: AppointmentSerializer,
+            400: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request, appointment_id: UUID) -> Response:
+        s = CrewInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        data = s.validated_data
+        context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
+        value = assign_crew(
+            appointment_id=appointment_id,
+            staff_ids=data["staff_ids"],
+            lead_id=data.get("lead_id"),
+            expected_version=data["expected_version"],
+            notify_staff=data["notify"],
+            idempotency_key=_idem(request),
+            principal_ref=str(context.actor_id),
+        )
+        return Response(_appointment_payload(value))

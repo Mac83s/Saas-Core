@@ -38,15 +38,16 @@ from saas_core.modules.shared.billing.models import (
     SubscriptionState,
 )
 from saas_core.modules.shared.booking.models import (
+    Appointment,
+    AppointmentStaffAllocation,
     AvailabilityRule,
     Location,
     Service,
     ServiceLocation,
     StaffMember,
 )
-from saas_core.modules.shared.booking.services import cancel_appointment, update_staff
+from saas_core.modules.shared.booking.services import update_staff
 from saas_core.modules.shared.booking.staff import (
-    StaffHasUpcomingAppointments,
     add_person,
     add_time_off,
     end_person,
@@ -457,11 +458,14 @@ def test_an_absence_counts_the_visits_it_runs_into_and_hides_its_reason() -> Non
             staff.id: "L4"
         }
         assert person_detail(staff.id).time_off == [item]
+        # The person comes off the visit, which waits for somebody else.
+        visit = Appointment.all_objects.get(pk=created.appointment.id)
+        assert (visit.needs_assignment, visit.queue_reason) == (True, "time_off")
     with tenant(worker):
         _, _, rows = people_day(day)
         # A colleague sees the absence, never why: an illness is health data.
         assert [row.time_off[0][2] for row in rows if row.time_off] == [None]
-        assert [row.busy for row in rows if row.staff_id == staff.id][0]
+        assert [row.busy for row in rows if row.staff_id == staff.id] == [[]]
     entry = OrganizationAuditEntry.objects.get(action="booking.staff.time_off_added")
     assert "L4" not in str(entry.metadata)
 
@@ -492,7 +496,7 @@ def test_the_days_hours_are_instants_on_the_night_the_clocks_go_back() -> None:
     ]
 
 
-def test_removing_a_person_waits_for_their_visits_then_takes_the_account() -> None:
+def test_removing_a_person_leaves_their_visits_as_vacancies_and_takes_the_account() -> None:
     owner = membership("koniec")
     configured = catalog(owner)
     staff: Any = configured["staff"]
@@ -501,15 +505,14 @@ def test_removing_a_person_waits_for_their_visits_then_takes_the_account() -> No
         update_staff(staff_id=staff.id, data={"membership_id": worker.id})
     created = create(owner, configured)
     with tenant(owner):
-        with pytest.raises(StaffHasUpcomingAppointments, match=r"\(1\)"):
-            end_person(request=acting(owner), staff_id=staff.id)
-        cancel_appointment(
-            appointment_id=created.appointment.id,
-            idempotency_key="odwolanie",
-            principal_ref=str(owner.user_id),
-        )
+        # Phase 2 refused this; the visit now waits in „Do przydzielenia”.
         ended = end_person(request=acting(owner), staff_id=staff.id)
         assert ended.active is False
+        visit = Appointment.all_objects.get(pk=created.appointment.id)
+        assert (visit.needs_assignment, visit.queue_reason) == (True, "ended")
+        assert not AppointmentStaffAllocation.all_objects.filter(
+            appointment=visit, active=True
+        ).exists()
         worker.refresh_from_db()
         assert worker.status == MembershipStatus.REVOKED
         # Back on the team, without the account: that takes a new invitation.

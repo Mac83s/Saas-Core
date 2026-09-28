@@ -79,12 +79,18 @@ class AppointmentCreateSerializer(serializers.Serializer[dict[str, Any]]):
     service_id = serializers.UUIDField()
     #: Omitted: the server picks the least busy free person (ADR-058 §4).
     staff_id = serializers.UUIDField(required=False, allow_null=True)
+    #: The people, the lead first; fewer than the service needs make a vacancy.
+    staff_ids = serializers.ListField(child=serializers.UUIDField(), required=False, max_length=10)
+    #: Choose only among this team's free members (with no people named).
+    team_id = serializers.UUIDField(required=False, allow_null=True)
     location_id = serializers.UUIDField()
     resource_id = serializers.UUIDField(required=False, allow_null=True)
     starts_at = serializers.DateTimeField()
     customer = CustomerInputSerializer()
     #: Pominięte: produkty z usługi. Podane: dokładnie te (wymaga inventory.use).
     materials = MaterialInputSerializer(many=True, required=False)
+    #: „Uwagi”: what the customer wants the company to know (never in an e-mail).
+    customer_notes = serializers.CharField(required=False, allow_blank=True, max_length=500)
 
 
 class PublicAppointmentCreateSerializer(serializers.Serializer[dict[str, Any]]):
@@ -99,6 +105,19 @@ class PublicAppointmentCreateSerializer(serializers.Serializer[dict[str, Any]]):
 
 class RescheduleSerializer(serializers.Serializer[dict[str, Any]]):
     starts_at = serializers.DateTimeField()
+
+
+class CrewMemberSerializer(serializers.Serializer[dict[str, Any]]):
+    staff_id = serializers.UUIDField()
+    name = serializers.CharField()
+    #: The person's account, for "my visits" (null: no account).
+    membership_id = serializers.UUIDField(allow_null=True)
+    lead = serializers.BooleanField()
+
+
+class TeamRefSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
 
 
 class AppointmentSerializer(serializers.Serializer[dict[str, Any]]):
@@ -120,6 +139,25 @@ class AppointmentSerializer(serializers.Serializer[dict[str, Any]]):
     #: False, gdy materiał tej wizyty rozlicza jej moduł (ADR-055) albo nie ma magazynu.
     takes_materials = serializers.BooleanField(required=False)
     self_service_token = serializers.CharField(required=False, allow_null=True)
+    #: Everybody on the visit, the lead first (ADR-058 §2).
+    crew = CrewMemberSerializer(many=True)
+    #: How many people the visit was booked for.
+    staff_required = serializers.IntegerField()
+    #: A vacancy: fewer people than required, or no lead.
+    needs_assignment = serializers.BooleanField()
+    #: The system chose the people; the office has not looked yet.
+    auto_assigned = serializers.BooleanField()
+    #: Name it in an assignment (`expected_version`).
+    crew_version = serializers.IntegerField()
+    #: Why it waits in „Do przydzielenia”, and since when.
+    queue_reason = serializers.CharField()
+    queued_at = serializers.DateTimeField(allow_null=True)
+    #: The team the customer chose (null also once that team was removed).
+    requested_team = TeamRefSerializer(allow_null=True)
+    #: The person the customer chose on the public form.
+    requested_staff_id = serializers.UUIDField(allow_null=True)
+    #: „Uwagi” from the customer. Panel only; never in an e-mail.
+    customer_notes = serializers.CharField()
 
 
 class PublicAppointmentSerializer(serializers.Serializer[dict[str, Any]]):
@@ -137,6 +175,94 @@ class PublicAppointmentSerializer(serializers.Serializer[dict[str, Any]]):
 
 class AppointmentListSerializer(serializers.Serializer[dict[str, Any]]):
     items = AppointmentSerializer(many=True)
+
+
+class QueueItemSerializer(AppointmentSerializer):
+    """A visit in „Do przydzielenia”, with what the office phones or reads."""
+
+    customer_phone = serializers.CharField()
+    customer_email = serializers.CharField()
+
+
+class QueueSerializer(serializers.Serializer[dict[str, Any]]):
+    items = QueueItemSerializer(many=True)
+
+
+class OverviewSerializer(serializers.Serializer[dict[str, Any]]):
+    #: People who take visits: an active entry with a service and hours.
+    bookable_staff = serializers.IntegerField()
+    teams = serializers.IntegerField()
+    #: Visits in „Do przydzielenia”; null for whoever may not assign.
+    waiting = serializers.IntegerField(allow_null=True)
+
+
+class CrewInputSerializer(serializers.Serializer[dict[str, Any]]):
+    #: Exactly the people who should be on the visit; the same ones again is „Zostaw”.
+    staff_ids = serializers.ListField(child=serializers.UUIDField(), max_length=10)
+    #: One of `staff_ids`; omitted: the first of them.
+    lead_id = serializers.UUIDField(required=False, allow_null=True)
+    #: The `crew_version` the office looked at (ADR-058 §9).
+    expected_version = serializers.IntegerField(min_value=0)
+    #: „Powiadom pracowników”: in the app and by e-mail.
+    notify = serializers.BooleanField(default=True)
+
+
+class WorkRangeSerializer(serializers.Serializer[dict[str, Any]]):
+    starts_at = serializers.DateTimeField()
+    ends_at = serializers.DateTimeField()
+
+
+class CandidateSerializer(serializers.Serializer[dict[str, Any]]):
+    """One person for one visit („kto jest wolny”, ADR-058 §9)."""
+
+    staff_id = serializers.UUIDField()
+    name = serializers.CharField()
+    team_ids = serializers.ListField(child=serializers.UUIDField())
+    #: active, suspended, invited or none.
+    account = serializers.CharField()
+    #: Null for whoever may not see it (management and the person only).
+    phone = serializers.CharField(allow_null=True)
+    does_service = serializers.BooleanField()
+    #: free, busy, time_off, off_schedule — never the reason of an absence.
+    state = serializers.CharField()
+    until = serializers.DateTimeField(allow_null=True)
+    hours = WorkRangeSerializer(many=True)
+    on_visit = serializers.BooleanField()
+    lead = serializers.BooleanField()
+    day_visits = serializers.IntegerField()
+    day_minutes = serializers.IntegerField()
+    next_free = serializers.DateTimeField(allow_null=True)
+
+
+class CandidateListSerializer(serializers.Serializer[dict[str, Any]]):
+    items = CandidateSerializer(many=True)
+
+
+class CandidateQuerySerializer(serializers.Serializer[dict[str, Any]]):
+    #: Everybody in the company, not only who does the service („Pokaż: Wszyscy”).
+    everyone = serializers.BooleanField(default=False)
+
+
+class TeamSerializer(serializers.Serializer[dict[str, Any]]):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    member_ids = serializers.ListField(child=serializers.UUIDField())
+
+
+class TeamListSerializer(serializers.Serializer[dict[str, Any]]):
+    items = TeamSerializer(many=True)
+
+
+class TeamInputSerializer(serializers.Serializer[dict[str, Any]]):
+    name = serializers.CharField(max_length=160)
+    member_ids = serializers.ListField(child=serializers.UUIDField(), max_length=100)
+
+
+class TeamUpdateSerializer(serializers.Serializer[dict[str, Any]]):
+    name = serializers.CharField(max_length=160, required=False)
+    member_ids = serializers.ListField(
+        child=serializers.UUIDField(), max_length=100, required=False
+    )
 
 
 class CustomerAnonymizedSerializer(serializers.Serializer[dict[str, Any]]):
@@ -206,6 +332,10 @@ class PublicServiceSerializer(serializers.Serializer[dict[str, Any]]):
 
 
 class ServiceSerializer(PublicServiceSerializer):
+    #: How many people one visit needs (ADR-058 §2).
+    staff_count = serializers.IntegerField()
+    #: What the public form lets a customer choose: none, team or person.
+    public_staff_choice = serializers.CharField()
     #: Produkty z magazynu, które wizyta tej usługi zabiera.
     materials = MaterialInputSerializer(many=True, required=False)
     #: False, gdy materiał tej usługi rozlicza jej moduł (ADR-055) albo nie ma magazynu.
@@ -252,6 +382,8 @@ class PersonSerializer(serializers.Serializer[dict[str, Any]]):
     #: The services the person does; with hours, that is "takes visits".
     service_ids = serializers.ListField(child=serializers.UUIDField())
     has_hours = serializers.BooleanField()
+    #: The teams the person belongs to (ADR-058 §2).
+    team_ids = serializers.ListField(child=serializers.UUIDField())
     created_at = serializers.DateTimeField()
 
 

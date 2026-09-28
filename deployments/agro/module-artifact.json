@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:14b0be703b060f4f566b1b2eb3223e789e06cecbd985b8c9a2a486b83d2633d1",
+  "profileHash": "sha256:2b747b27d640d223dd9205e74e14c1fce5b0ff5e56756aa538134302506bf7c5",
   "schemaVersion": 1,
   "deployment": "agro",
   "product": {
@@ -380,7 +380,8 @@
       "layer": "shared",
       "dependsOn": [
         "core.organizations",
-        "shared.notifications"
+        "shared.notifications",
+        "shared.profiles"
       ],
       "backend": {
         "djangoApp": "saas_core.modules.shared.booking",

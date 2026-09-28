@@ -2,7 +2,7 @@
   "id": "shared.booking",
   "layer": "shared",
   "version": 1,
-  "dependsOn": ["core.organizations", "shared.notifications"],
+  "dependsOn": ["core.organizations", "shared.notifications", "shared.profiles"],
   "backend": {
     "djangoApp": "saas_core.modules.shared.booking",
     "urlPrefix": "/api/v1/booking",

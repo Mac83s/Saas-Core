@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta
+from datetime import datetime, timedelta
 from typing import Any
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
-from django.db import DatabaseError, IntegrityError, OperationalError, connection, transaction
+from django.db import IntegrityError, OperationalError, connection, transaction
+from django.db.models import Prefetch, Q, QuerySet
 from django.utils import timezone, translation
 from django.utils.formats import date_format
 from rest_framework.exceptions import APIException, NotFound, ValidationError
@@ -35,7 +37,9 @@ from saas_core.modules.shared.notifications.security import decrypt_secret, encr
 from saas_core.modules.shared.notifications.services import queue_email
 
 from . import materials as stock
+from . import notify
 from .availability import free_at, validate_start
+from .crew import PersonUnavailable, allocate, crew_of, least_loaded, lost_slot_race, set_crew
 from .models import (
     Appointment,
     AppointmentResourceAllocation,
@@ -47,6 +51,7 @@ from .models import (
     Customer,
     Location,
     PublicBookingRoute,
+    QueueReason,
     ReminderRoute,
     Resource,
     SelfServiceRoute,
@@ -55,6 +60,8 @@ from .models import (
     ServiceResource,
     ServiceStaff,
     StaffMember,
+    StaffTeam,
+    StaffTeamMember,
     TimeOff,
 )
 from .observers import (
@@ -75,21 +82,6 @@ from .security import (
 BOOKING_READ = "booking.appointment.read"
 BOOKING_MANAGE = "booking.appointment.manage"
 BOOKING_ENABLED = "booking.enabled"
-
-
-#: SQLSTATE of a deadlock. Two bookings racing for one slot insert their
-#: allocations at the same moment, and each exclusion check then waits for the
-#: other's uncommitted row; PostgreSQL breaks the cycle by aborting one of them.
-#: For that one it is the same outcome as the exclusion violation it would have
-#: hit a millisecond later, so it must reach the caller as a slot conflict, not
-#: as a 500.
-_DEADLOCK_DETECTED = "40P01"
-
-
-def _lost_slot_race(error: DatabaseError) -> bool:
-    return isinstance(error, IntegrityError) or (
-        getattr(error.__cause__, "sqlstate", None) == _DEADLOCK_DETECTED
-    )
 
 
 class AppointmentNotChangeable(APIException):
@@ -287,8 +279,8 @@ def list_appointments(
     mine: bool = False,
     limit: int = 500,
 ) -> list[Appointment]:
-    """`mine`: only the calendar entries linked to the caller's membership;
-    `staff_id`: only the visits this person leads;
+    """`mine`: only the visits the caller's calendar entry is on;
+    `staff_id`: only the visits this person is on — leading or helping;
     `appointment_kinds`: only services of these kinds (a vertical's own visits);
     `starts_until` is exclusive, so one day is `[midnight, next midnight)`;
     `limit`: at most this many, earliest first (1 answers "is there any")."""
@@ -302,12 +294,40 @@ def list_appointments(
     if appointment_kinds is not None:
         query = query.filter(service__appointment_kind__in=appointment_kinds)
     if staff_id:
-        query = query.filter(staff_id=staff_id)
+        query = query.filter(_on_visit(Q(staff_allocations__staff_id=staff_id), staff_id=staff_id))
     if mine:
-        query = query.filter(staff__membership_id=context.membership_id)
+        query = query.filter(
+            _on_visit(
+                Q(staff_allocations__staff__membership_id=context.membership_id),
+                membership_id=context.membership_id,
+            )
+        )
     limit = max(1, min(limit, 500))
-    return list(
-        query.select_related("customer", "service", "staff", "location", "resource")[:limit]
+    return list(with_crew(query.distinct())[:limit])
+
+
+def _on_visit(
+    allocated: Q, *, staff_id: UUID | None = None, membership_id: UUID | None = None
+) -> Q:
+    """On the visit: its lead, somebody with its time blocked, or — once it is
+    called off and nobody's time is — somebody who had it."""
+    lead = Q(staff_id=staff_id) if staff_id else Q(staff__membership_id=membership_id)
+    return (
+        lead
+        | (allocated & Q(staff_allocations__active=True))
+        | (allocated & Q(status=AppointmentStatus.CANCELED))
+    )
+
+
+def with_crew(query: QuerySet[Appointment]) -> QuerySet[Appointment]:
+    """Everything a panel row of a visit reads, in a fixed number of queries."""
+    return query.select_related(
+        "customer", "service", "staff", "location", "resource", "requested_team"
+    ).prefetch_related(
+        Prefetch(
+            "staff_allocations",
+            queryset=AppointmentStaffAllocation.all_objects.select_related("staff").order_by("id"),
+        )
     )
 
 
@@ -316,6 +336,9 @@ def create_appointment(
     *,
     service_id: UUID,
     staff_id: UUID | None = None,
+    staff_ids: Sequence[UUID] | None = None,
+    team_id: UUID | None = None,
+    requested_staff_id: UUID | None = None,
     location_id: UUID,
     resource_id: UUID | None = None,
     starts_at: datetime,
@@ -324,6 +347,7 @@ def create_appointment(
     principal_ref: str,
     walk_in_minutes: int | None = None,
     materials: list[dict[str, Any]] | None = None,
+    customer_notes: str = "",
 ) -> CreatedAppointment:
     """Books a free slot, or — with `walk_in_minutes` — records work already under way.
 
@@ -338,21 +362,35 @@ def create_appointment(
     reminder (the visit is happening now) and the confirmation mail (the
     customer is watching the person who would send it).
 
-    Without `staff_id` the server picks the person (ADR-058 §4), together with
-    a required resource when the caller named none; see `_least_loaded`. The
-    browser never decides who gets the visit.
+    The people: `staff_ids` (the lead first) or `staff_id` name them;
+    `requested_staff_id` is the person a customer chose on the public form;
+    `team_id` limits the choice to a team. Without names the server picks as
+    many of the least loaded free people as the service needs (ADR-058 §2–§4)
+    — the browser never decides who gets the visit. Fewer named people than the
+    service needs make a vacancy the office staffs from „Do przydzielenia”.
     """
     context = require_tenant_context()
+    named = list(
+        dict.fromkeys(
+            staff_ids
+            or ([staff_id] if staff_id else [])
+            or ([requested_staff_id] if requested_staff_id else [])
+        )
+    )
     request_hash = _hash({
         "service_id": str(service_id),
         # The request, not the pick: a retry of "anybody" finds its booking.
-        "staff_id": str(staff_id) if staff_id else None,
+        "staff_id": str(named[0]) if len(named) == 1 else None,
         "location_id": str(location_id),
         "resource_id": str(resource_id),
         "starts_at": starts_at.isoformat(),
         "customer": customer_data,
         "walk_in_minutes": walk_in_minutes,
         **({"materials": materials} if materials is not None else {}),
+        **({"staff_ids": [str(person) for person in named]} if len(named) > 1 else {}),
+        **({"team_id": str(team_id)} if team_id else {}),
+        **({"requested": True} if requested_staff_id else {}),
+        **({"notes": customer_notes} if customer_notes else {}),
     })
     with connection.cursor() as cursor:
         # One key at a time: a retry sent while the first request still runs
@@ -381,16 +419,27 @@ def create_appointment(
             False,
         )
     service = Service.all_objects.filter(pk=service_id, active=True).first()
-    staff = StaffMember.all_objects.filter(pk=staff_id, active=True).first() if staff_id else None
+    people = {
+        person.id: person for person in StaffMember.all_objects.filter(pk__in=named, active=True)
+    }
     location = Location.all_objects.filter(pk=location_id, active=True).first()
     resource = (
         Resource.all_objects.filter(pk=resource_id, active=True).first() if resource_id else None
     )
+    team = StaffTeam.all_objects.filter(pk=team_id).first() if team_id else None
     # A walk-in is entered by whoever is doing the work, so it always names them.
-    if not service or not location or (not staff and (staff_id or walk_in_minutes is not None)):
+    if (
+        not service
+        or not location
+        or len(people) != len(named)
+        or (team_id and team is None)
+        or (walk_in_minutes is not None and len(named) != 1)
+    ):
         raise NotFound("Konfiguracja rezerwacji nie istnieje.")
     if (
-        staff and not ServiceStaff.all_objects.filter(service=service, staff=staff).exists()
+        named
+        and ServiceStaff.all_objects.filter(service=service, staff_id__in=named).count()
+        != len(named)
     ) or not ServiceLocation.all_objects.filter(service=service, location=location).exists():
         raise SlotUnavailable
     required = list(
@@ -408,32 +457,48 @@ def create_appointment(
         (resource is not None and resource.id not in required)
         # Nobody named: the pick below takes a required resource along, but
         # never instead of one the caller named and that is gone.
-        or (resource is None and (staff is not None or resource_id))
+        or (resource is None and (named or resource_id))
     ):
         raise SlotUnavailable
     organization = Organization.objects.get(pk=context.organization_id)
-    chosen_resource_id = resource.id if resource else None
-    choices = [(staff.id, chosen_resource_id)] if staff else []
+    need = 1 if walk_in_minutes is not None else service.staff_count
+    resources: list[UUID | None] = [resource.id if resource else None]
+    candidates = list(named)
+    chose = False
     if walk_in_minutes is None:
-        if staff is None:
-            choices = _least_loaded(
-                organization,
-                starts_at,
-                free_at(
+        if named:
+            for person in named:
+                if not validate_start(
                     service=service,
                     location=location,
                     starts_at=starts_at,
-                    resource_ids=[resource.id] if resource else None,
-                ),
+                    staff_id=person,
+                    resource_id=resources[0],
+                ):
+                    raise SlotUnavailable
+        else:
+            eligible = (
+                list(
+                    StaffTeamMember.all_objects.filter(team=team).values_list("staff_id", flat=True)
+                )
+                if team
+                else None
             )
-        elif not validate_start(
-            service=service,
-            location=location,
-            starts_at=starts_at,
-            staff_id=staff.id,
-            resource_id=chosen_resource_id,
-        ):
-            raise SlotUnavailable
+            pairs = free_at(
+                service=service,
+                location=location,
+                starts_at=starts_at,
+                staff_ids=eligible,
+                resource_ids=[resource.id] if resource else None,
+            )
+            free = list(dict.fromkeys(person for person, _ in pairs))
+            if len(free) < need:
+                raise SlotUnavailable
+            candidates = least_loaded(organization, starts_at, free)
+            if resource is None:
+                resources = list(dict.fromkeys(item for _, item in pairs))
+            # Worth a look by the office only when there was a choice to make.
+            chose = len(free) > need
     elif walk_in_minutes <= 0:
         raise ValidationError({"walk_in_minutes": "Podaj, na jak długo zająć okno."})
     email = customer_data.get("email", "").strip().lower()
@@ -472,49 +537,90 @@ def create_appointment(
     occupied_until = ends_at + timedelta(minutes=after)
     token, digest = issue_self_service_token()
     expires = timezone.now() + timedelta(days=settings.BOOKING_SELF_SERVICE_TTL_DAYS)
-    lost: DatabaseError | None = None
-    for chosen_staff_id, chosen_resource_id in choices:
-        # A savepoint per candidate: losing this person to a concurrent booking
-        # (the exclusion constraint, or a deadlock over it) leaves the next one.
-        try:
-            with transaction.atomic():
-                appointment = Appointment.all_objects.create(
-                    organization=organization,
-                    customer=customer,
-                    service=service,
-                    staff_id=chosen_staff_id,
-                    location=location,
-                    resource_id=chosen_resource_id,
-                    starts_at=starts_at,
-                    ends_at=ends_at,
-                    occupied_from=occupied_from,
-                    occupied_until=occupied_until,
-                    timezone=organization.timezone,
-                    service_name=service.name,
-                    materials=lines,
-                    self_service_token_ciphertext=encrypt_secret(token),
-                    self_service_expires_at=expires,
-                )
-                AppointmentStaffAllocation.all_objects.create(
-                    organization=organization,
-                    appointment=appointment,
-                    staff_id=chosen_staff_id,
-                    occupied_range=(occupied_from, occupied_until),
-                )
-                if chosen_resource_id:
-                    AppointmentResourceAllocation.all_objects.create(
-                        organization=organization,
-                        appointment=appointment,
-                        resource_id=chosen_resource_id,
-                        occupied_range=(occupied_from, occupied_until),
-                    )
-            break
-        except (IntegrityError, OperationalError) as error:
-            if not _lost_slot_race(error):
-                raise
-            lost = error
-    else:
-        raise SlotUnavailable from lost
+    lookup = {
+        person.id: person
+        for person in StaffMember.all_objects.filter(pk__in=candidates, active=True)
+    }
+    # One savepoint for the visit; inside it, one per person and per resource.
+    # Losing a person to a concurrent booking (the exclusion constraint, or a
+    # deadlock over it) leaves the next one; a named person is not replaced.
+    try:
+        with transaction.atomic():
+            appointment = Appointment.all_objects.create(
+                organization=organization,
+                customer=customer,
+                service=service,
+                staff_id=candidates[0],
+                location=location,
+                starts_at=starts_at,
+                ends_at=ends_at,
+                occupied_from=occupied_from,
+                occupied_until=occupied_until,
+                timezone=organization.timezone,
+                service_name=service.name,
+                materials=lines,
+                self_service_token_ciphertext=encrypt_secret(token),
+                self_service_expires_at=expires,
+                staff_required=max(need, 1),
+                requested_team=team,
+                requested_staff_id=requested_staff_id,
+                customer_notes=customer_notes.strip()[:500],
+            )
+            taken: list[UUID] = []
+            for person_id in candidates:
+                if len(taken) >= need and not named:
+                    break
+                try:
+                    allocate(appointment, lookup[person_id])
+                except PersonUnavailable:
+                    if named:
+                        raise
+                    continue
+                taken.append(person_id)
+            if not taken or (not named and len(taken) < need):
+                raise SlotUnavailable
+            for resource_option in resources:
+                if resource_option is None:
+                    break
+                try:
+                    with transaction.atomic():
+                        AppointmentResourceAllocation.all_objects.create(
+                            organization=organization,
+                            appointment=appointment,
+                            resource_id=resource_option,
+                            occupied_range=(occupied_from, occupied_until),
+                        )
+                except (IntegrityError, OperationalError) as error:
+                    if not lost_slot_race(error):
+                        raise
+                    continue
+                appointment.resource_id = resource_option
+                break
+            else:
+                if resources and resources[0] is not None:
+                    raise SlotUnavailable
+    except PersonUnavailable as error:
+        raise SlotUnavailable from error
+    vacancy = len(taken) < appointment.staff_required
+    auto = chose and not vacancy and context.principal_kind != "membership"
+    appointment.staff_id = taken[0]
+    appointment.needs_assignment = vacancy
+    appointment.auto_assigned = auto
+    appointment.crew_version = 1
+    if vacancy or auto:
+        appointment.queue_reason = QueueReason.PUBLIC if auto else QueueReason.SHORT
+        appointment.queued_at = timezone.now()
+    appointment.save(
+        update_fields=[
+            "staff",
+            "resource",
+            "needs_assignment",
+            "auto_assigned",
+            "crew_version",
+            "queue_reason",
+            "queued_at",
+        ]
+    )
     AppointmentStatusHistory.all_objects.create(
         organization=organization,
         appointment=appointment,
@@ -558,8 +664,12 @@ def create_appointment(
         actor=User.objects.filter(pk=context.actor_id).first(),
         target_type="appointment",
         target_id=appointment.id,
-        metadata={"starts_at": starts_at.isoformat()},
+        metadata={
+            "starts_at": starts_at.isoformat(),
+            "staff": [str(person) for person in taken],
+        },
     )
+    notify.staff_assigned(appointment, taken)
     _announce(
         AppointmentChange(
             change=CREATED,
@@ -579,6 +689,13 @@ def create_appointment(
 def reschedule_appointment(
     *, appointment_id: UUID, starts_at: datetime, idempotency_key: str, principal_ref: str
 ) -> Appointment:
+    """Moves a visit with its people.
+
+    From the panel the whole crew has to be free at the new time, or the move
+    names who is not. A customer moving their own visit gets the times their
+    choice allows; when they chose nobody, whoever cannot come is replaced by
+    the least loaded free person and the office sees it in „Do przydzielenia”.
+    """
     context = require_tenant_context()
     appointment = Appointment.all_objects.select_for_update().filter(pk=appointment_id).first()
     if not appointment or appointment.status != AppointmentStatus.CONFIRMED:
@@ -592,51 +709,108 @@ def reschedule_appointment(
         if existing.request_hash != request_hash:
             raise BookingIdempotencyConflict
         return appointment
+    service = appointment.service
+    crew = crew_of(appointment)
+    customer_move = context.principal_kind != "membership"
+
+    def free(person: UUID) -> bool:
+        return validate_start(
+            service=service,
+            location=appointment.location,
+            starts_at=starts_at,
+            staff_id=person,
+            resource_id=appointment.resource_id,
+            ignore_appointment_id=appointment.id,
+        )
+
+    kept = [person for person in crew if free(person)]
+    dropped = [person for person in crew if person not in kept]
+    if dropped and not customer_move:
+        names = StaffMember.all_objects.filter(pk__in=dropped).order_by("display_name")
+        raise PersonUnavailable(", ".join(person.display_name for person in names))
+    if appointment.requested_staff_id is not None and customer_move and dropped:
+        # The customer chose this person; the move follows them or does not happen.
+        raise SlotUnavailable
     AppointmentStaffAllocation.all_objects.filter(appointment=appointment, active=True).update(
         active=False
     )
     AppointmentResourceAllocation.all_objects.filter(appointment=appointment, active=True).update(
         active=False
     )
-    if not validate_start(
-        service=appointment.service,
-        location=appointment.location,
-        starts_at=starts_at,
-        staff_id=appointment.staff_id,
-        resource_id=appointment.resource_id,
-        ignore_appointment_id=appointment.id,
-    ):
-        raise SlotUnavailable
-    service = appointment.service
     ends = starts_at + timedelta(minutes=service.duration_minutes)
     occupied_from = starts_at - timedelta(minutes=service.buffer_before_minutes)
     occupied_until = ends + timedelta(minutes=service.buffer_after_minutes)
-    try:
-        AppointmentStaffAllocation.all_objects.create(
-            organization_id=context.organization_id,
-            appointment=appointment,
-            staff=appointment.staff,
-            occupied_range=(occupied_from, occupied_until),
-        )
-        if appointment.resource_id:
-            resource = appointment.resource
-            assert resource is not None
-            AppointmentResourceAllocation.all_objects.create(
-                organization_id=context.organization_id,
-                appointment=appointment,
-                resource=resource,
-                occupied_range=(occupied_from, occupied_until),
-            )
-    except (IntegrityError, OperationalError) as error:
-        if not _lost_slot_race(error):
-            raise
-        raise SlotUnavailable from error
     previous = appointment.starts_at
     appointment.starts_at, appointment.ends_at = starts_at, ends
     appointment.occupied_from, appointment.occupied_until = occupied_from, occupied_until
     appointment.save(
         update_fields=["starts_at", "ends_at", "occupied_from", "occupied_until", "updated_at"]
     )
+    try:
+        for person in StaffMember.all_objects.filter(pk__in=kept):
+            allocate(appointment, person)
+        if appointment.resource_id:
+            resource = appointment.resource
+            assert resource is not None
+            with transaction.atomic():
+                AppointmentResourceAllocation.all_objects.create(
+                    organization_id=context.organization_id,
+                    appointment=appointment,
+                    resource=resource,
+                    occupied_range=(occupied_from, occupied_until),
+                )
+    except PersonUnavailable as error:
+        raise SlotUnavailable from error
+    except (IntegrityError, OperationalError) as error:
+        if not lost_slot_race(error):
+            raise
+        raise SlotUnavailable from error
+    mutation = BookingMutation.all_objects.create(
+        organization_id=context.organization_id,
+        appointment=appointment,
+        action="reschedule",
+        principal_ref=principal_ref,
+        idempotency_key=idempotency_key,
+        request_hash=request_hash,
+    )
+    # A visit nobody is on yet moves as it is from the panel; the office staffs
+    # it. A customer's move fills it: they were offered times with people free.
+    missing = appointment.staff_required - len(kept)
+    if customer_move and missing > 0:
+        eligible = (
+            list(
+                StaffTeamMember.all_objects.filter(
+                    team_id=appointment.requested_team_id
+                ).values_list("staff_id", flat=True)
+            )
+            if appointment.requested_team_id
+            else None
+        )
+        pairs = free_at(
+            service=service,
+            location=appointment.location,
+            starts_at=starts_at,
+            staff_ids=eligible,
+            resource_ids=[appointment.resource_id],
+            ignore_appointment_id=appointment.id,
+        )
+        free_now = [person for person, _ in pairs if person not in kept]
+        organization = Organization.objects.get(pk=context.organization_id)
+        picked = least_loaded(organization, starts_at, free_now)[: max(missing, 0)]
+        if len(picked) < missing:
+            raise SlotUnavailable
+        lead = appointment.staff_id if appointment.staff_id in kept else None
+        set_crew(
+            appointment,
+            [*([lead] if lead else []), *[p for p in kept if p != lead], *picked],
+            lead_id=lead,
+            reason=QueueReason.MOVED,
+            auto=True,
+            check=False,
+            notify_staff=True,
+        )
+        if dropped:
+            notify.staff_unassigned(appointment, dropped)
     _arm_reminder(appointment)
     AppointmentStatusHistory.all_objects.create(
         organization_id=context.organization_id,
@@ -645,14 +819,6 @@ def reschedule_appointment(
         to_status=appointment.status,
         reason=f"rescheduled:{previous.isoformat()}",
         actor_kind=context.principal_kind,
-    )
-    mutation = BookingMutation.all_objects.create(
-        organization_id=context.organization_id,
-        appointment=appointment,
-        action="reschedule",
-        principal_ref=principal_ref,
-        idempotency_key=idempotency_key,
-        request_hash=request_hash,
     )
     organization = Organization.objects.get(pk=context.organization_id)
     customer = appointment.customer
@@ -683,6 +849,7 @@ def reschedule_appointment(
         target_id=appointment.id,
         metadata={"starts_at": starts_at.isoformat()},
     )
+    notify.staff_moved(appointment, kept, previous_starts_at=previous, mutation_id=mutation.id)
     _announce(
         AppointmentChange(
             change=RESCHEDULED,
@@ -720,8 +887,21 @@ def cancel_appointment(
     _refuse_customer_after_start(context.role_key, appointment)
     if appointment.status != AppointmentStatus.CANCELED:
         old = appointment.status
+        crew = crew_of(appointment)
         appointment.status = AppointmentStatus.CANCELED
-        appointment.save(update_fields=["status", "updated_at"])
+        # Nothing left to staff: a called-off visit leaves the queue.
+        appointment.needs_assignment = appointment.auto_assigned = False
+        appointment.queue_reason, appointment.queued_at = "", None
+        appointment.save(
+            update_fields=[
+                "status",
+                "needs_assignment",
+                "auto_assigned",
+                "queue_reason",
+                "queued_at",
+                "updated_at",
+            ]
+        )
         AppointmentStaffAllocation.all_objects.filter(appointment=appointment).update(active=False)
         AppointmentResourceAllocation.all_objects.filter(appointment=appointment).update(
             active=False
@@ -757,6 +937,7 @@ def cancel_appointment(
                 idempotency_key=f"booking-cancel:{appointment.id}",
                 causation_id=f"booking:{appointment.id}",
             )
+        notify.staff_canceled(appointment, crew)
         _announce(
             AppointmentChange(
                 change=CANCELED,
@@ -785,45 +966,6 @@ def cancel_appointment(
         target_id=appointment.id,
     )
     return appointment
-
-
-def _least_loaded(
-    organization: Organization, starts_at: datetime, choices: list[tuple[UUID, UUID | None]]
-) -> list[tuple[UUID, UUID | None]]:
-    """Free (person, resource) pairs in the order a booking tries them (ADR-058 §4).
-
-    Fewest minutes of active allocations that local day, then that ISO week,
-    then staff id. Ordering by id alone handed every visit to whoever was added
-    to the calendar first.
-    """
-    zone = ZoneInfo(organization.timezone)
-    local = starts_at.astimezone(zone).date()
-
-    def window(first: date, days: int) -> tuple[datetime, datetime]:
-        last = first + timedelta(days=days)
-        return datetime.combine(first, time.min, zone), datetime.combine(last, time.min, zone)
-
-    day, week = window(local, 1), window(local - timedelta(days=local.weekday()), 7)
-    booked = list(
-        AppointmentStaffAllocation.all_objects.filter(
-            organization=organization,
-            staff_id__in={staff_id for staff_id, _ in choices},
-            active=True,
-            occupied_range__overlap=week,
-        ).values_list("staff_id", "occupied_range")
-    )
-
-    def load(staff_id: UUID, bounds: tuple[datetime, datetime]) -> timedelta:
-        return sum(
-            (
-                max(min(taken.upper, bounds[1]) - max(taken.lower, bounds[0]), timedelta(0))
-                for owner, taken in booked
-                if owner == staff_id
-            ),
-            timedelta(0),
-        )
-
-    return sorted(choices, key=lambda pair: (load(pair[0], day), load(pair[0], week), pair[0]))
 
 
 def _refuse_customer_after_start(role_key: str, appointment: Appointment) -> None:
