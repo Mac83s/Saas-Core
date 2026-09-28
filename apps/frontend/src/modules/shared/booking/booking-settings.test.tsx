@@ -1,5 +1,11 @@
 import axe from "axe-core";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import type { ComponentProps, ReactNode } from "react";
 import { beforeEach, expect, test, vi } from "vitest";
@@ -10,11 +16,15 @@ import messages from "../../../../messages/pl.json";
 import { BookingSettings } from "./booking-settings";
 
 const api = vi.hoisted(() => ({
-  configureBookingSchedule: vi.fn(),
-  createBookingCatalogItem: vi.fn(),
-  getBookingCatalog: vi.fn(),
-  listInventoryItems: vi.fn(),
+  createSetupLocation: vi.fn(),
+  createSetupResource: vi.fn(),
+  createSetupService: vi.fn(),
+  getBookingSetup: vi.fn(),
   listInventoryBalances: vi.fn(),
+  listInventoryItems: vi.fn(),
+  updateSetupLocation: vi.fn(),
+  updateSetupResource: vi.fn(),
+  updateSetupService: vi.fn(),
 }));
 
 vi.mock("@saas-core/api-client", async (original) => ({
@@ -31,32 +41,77 @@ vi.mock("#i18n/navigation", () => ({
   ),
 }));
 
-const SERVICE = "33333333-3333-4333-8333-333333333333";
-const STAFF = "22222222-2222-4222-8222-222222222222";
-const LOCATION = "11111111-1111-4111-8111-111111111111";
+// A type with one ready-made service, as a product's type brings them.
+vi.mock("#lib/organization-types", async (original) => {
+  const real = await original<typeof import("#lib/organization-types")>();
+  return {
+    ...real,
+    organizationType: (key?: string | null) =>
+      key === "farm-care"
+        ? {
+            ...real.organizationType(),
+            serviceTemplates: [
+              {
+                key: "herd",
+                label: { pl: "Korekcja stada", en: "Herd trimming" },
+                durationMinutes: 300,
+                appointmentKind: "farm_visit",
+              },
+            ],
+          }
+        : real.organizationType(key),
+  };
+});
 
-const CATALOG = {
+const MARCIN = "22222222-2222-4222-8222-222222222222";
+const PIOTR = "22222222-2222-4222-8222-333333333333";
+const BASE = "11111111-1111-4111-8111-111111111111";
+const BRANCH = "11111111-1111-4111-8111-222222222222";
+const ROOM = "44444444-4444-4444-8444-444444444444";
+const HERD = "33333333-3333-4333-8333-333333333333";
+const OLD = "33333333-3333-4333-8333-444444444444";
+
+const service = (over: Record<string, unknown>) => ({
+  id: HERD,
+  name: "Korekcja stada 60–150 krów",
+  appointment_kind: "",
+  duration_minutes: 90,
+  buffer_before_minutes: 0,
+  buffer_after_minutes: 30,
+  minimum_notice_minutes: 60,
+  staff_count: 2,
+  public_staff_choice: "team",
+  active: true,
+  staff_ids: [MARCIN, PIOTR],
+  location_ids: [BASE],
+  resource_ids: [],
+  materials: [],
+  takes_materials: true,
+  ...over,
+});
+
+const SETUP = {
   services: [
-    {
-      id: SERVICE,
-      name: "Konsultacja",
-      public_slug: "konsultacja",
-      duration_minutes: 45,
-      appointment_kind: "",
-    },
-  ],
-  staff: [
-    {
-      id: STAFF,
-      name: "Anna Nowak",
-      public_slug: "anna-nowak",
-      membership_id: null,
-    },
+    service({}),
+    service({
+      id: OLD,
+      name: "Wizyta interwencyjna",
+      duration_minutes: 60,
+      staff_count: 1,
+      public_staff_choice: "none",
+      active: false,
+      staff_ids: [],
+    }),
   ],
   locations: [
-    { id: LOCATION, name: "Poznań, ul. Półwiejska 12", public_slug: "poznan" },
+    { id: BASE, name: "Baza Radziejów", address: "ul. Polna 1", active: true },
+    { id: BRANCH, name: "Filia", address: "", active: false },
   ],
-  resources: [],
+  resources: [{ id: ROOM, name: "Poskrom", active: true }],
+  staff: [
+    { id: MARCIN, name: "Marcin Kowalski" },
+    { id: PIOTR, name: "Piotr Wiśniewski" },
+  ],
 };
 
 const problem = (status: number, code: string, detail: string) =>
@@ -69,120 +124,230 @@ const problem = (status: number, code: string, detail: string) =>
     correlation_id: null,
   });
 
-/** An entry of the overview (the forms' selects list the same names). */
-const listed = (name: string) =>
-  screen.findByText(name, { selector: "dd span" });
 const noContrast = { rules: { "color-contrast": { enabled: false } } };
 
-function renderSettings(canManageBilling = true, locale: "pl" | "en" = "pl") {
+function renderSettings({
+  canManageBilling = true,
+  canUseInventory = false,
+  locale = "pl",
+  organizationType,
+}: {
+  canManageBilling?: boolean;
+  canUseInventory?: boolean;
+  locale?: "pl" | "en";
+  organizationType?: string;
+} = {}) {
   return render(
     <NextIntlClientProvider
       locale={locale}
       messages={locale === "pl" ? messages : englishMessages}
     >
-      <BookingSettings canManageBilling={canManageBilling} />
+      <BookingSettings
+        canManageBilling={canManageBilling}
+        canUseInventory={canUseInventory}
+        organizationType={organizationType}
+      />
     </NextIntlClientProvider>,
   );
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  api.getBookingCatalog.mockResolvedValue(CATALOG);
-  api.configureBookingSchedule.mockResolvedValue({ id: "x" });
+  api.getBookingSetup.mockResolvedValue(SETUP);
+  api.createSetupService.mockImplementation(async (input) =>
+    service({ ...input, id: "new" }),
+  );
+  api.updateSetupService.mockImplementation(async (id, input) =>
+    service({ id, ...input }),
+  );
+  api.createSetupLocation.mockImplementation(async (input) => ({
+    id: "place",
+    active: true,
+    address: "",
+    ...input,
+  }));
+  api.updateSetupLocation.mockImplementation(async (id, input) => ({
+    id,
+    ...input,
+  }));
+  api.listInventoryItems.mockResolvedValue([]);
+  api.listInventoryBalances.mockResolvedValue([]);
 });
 
-test("pokazuje, co jest w kalendarzu, a obok formularze", async () => {
+test("usługi, miejsca i zasoby w listach, z tym, co trzeba poprawić", async () => {
   const { container } = renderSettings();
-
-  expect(await listed("Konsultacja")).toBeInTheDocument();
-  expect(screen.getByText(/45 min/)).toBeInTheDocument();
-  expect(await listed("Anna Nowak")).toBeInTheDocument();
-  // No resources yet: said, not left blank.
-  expect(screen.getByText("Jeszcze brak")).toBeInTheDocument();
-  expect(screen.getByText("Katalog rezerwacji")).toBeInTheDocument();
+  const services = await screen.findByRole("table", { name: "Usługi firmy" });
+  const herd = within(services)
+    .getByText("Korekcja stada 60–150 krów")
+    .closest("tr")!;
+  expect(within(herd).getByText("1 h 30 min")).toBeInTheDocument();
+  expect(within(herd).getByText("2 osoby")).toBeInTheDocument();
+  expect(within(herd).getByText("od razu · wybór: zespół")).toBeInTheDocument();
+  const old = within(services).getByText("Wizyta interwencyjna").closest("tr")!;
+  expect(within(old).getByText("Wyłączona")).toBeInTheDocument();
+  // Nobody does it: said where it is set, not discovered in the calendar.
+  expect(within(old).getByText("Nikt")).toBeInTheDocument();
+  const places = screen.getByRole("table", { name: "Miejsca firmy" });
+  expect(within(places).getByText("ul. Polna 1")).toBeInTheDocument();
+  expect(within(places).getByText("Wyłączone")).toBeInTheDocument();
+  expect(
+    within(screen.getByRole("table", { name: "Zasoby firmy" })).getByText(
+      "Poskrom",
+    ),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("link", { name: "Przejdź do Zespół › Pracownicy" }),
+  ).toHaveAttribute("href", "/panel/team");
   expect((await axe.run(container, noContrast)).violations).toEqual([]);
 });
 
-test("grafik zapisuje się bez zasobu, który jest opcjonalny", async () => {
+test("edycja usługi zapisuje ile osób, kto, gdzie, czym i co wybiera klient", async () => {
   renderSettings();
-  await listed("Konsultacja");
-
-  fireEvent.change(
-    screen.getByLabelText("Usługa", { selector: "#schedule-service" }),
-    {
-      target: { value: SERVICE },
-    },
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Edytuj: Korekcja stada 60–150 krów",
+    }),
   );
-  fireEvent.change(
-    screen.getByLabelText("Personel", { selector: "#schedule-staff" }),
-    {
-      target: { value: STAFF },
-    },
-  );
-  fireEvent.change(
-    screen.getByLabelText("Lokalizacja", { selector: "#schedule-location" }),
-    {
-      target: { value: LOCATION },
-    },
-  );
-  fireEvent.click(screen.getByRole("button", { name: "Zapisz grafik" }));
-
-  await waitFor(() =>
-    expect(api.configureBookingSchedule).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: "availability", staff_id: STAFF }),
-    ),
-  );
-  expect(api.configureBookingSchedule).not.toHaveBeenCalledWith(
-    expect.objectContaining({ kind: "service_resource" }),
-  );
-});
-
-test("nieudane dodanie i niepełny formularz mówią, co poszło nie tak", async () => {
-  api.createBookingCatalogItem.mockRejectedValue(
-    problem(400, "validation_error", "Ten identyfikator jest już zajęty."),
-  );
-  renderSettings();
-  await listed("Konsultacja");
-
-  fireEvent.click(screen.getByRole("button", { name: "Zapisz grafik" }));
-  expect(await screen.findByRole("alert")).toHaveTextContent(
-    "Uzupełnij wymagane pola formularza.",
-  );
-
-  fireEvent.change(screen.getByLabelText("Nazwa"), {
-    target: { value: "Konsultacja" },
+  const dialog = await screen.findByRole("dialog", {
+    name: "Edytuj usługę: Korekcja stada 60–150 krów",
   });
-  fireEvent.change(screen.getByLabelText("Publiczny identyfikator"), {
-    target: { value: "konsultacja" },
+  // Only active places are offered; the one switched off is not a choice.
+  expect(within(dialog).queryByLabelText("Filia")).toBeNull();
+  fireEvent.change(within(dialog).getByLabelText("Ile osób potrzeba"), {
+    target: { value: "3" },
   });
-  fireEvent.click(screen.getByRole("button", { name: "Dodaj" }));
-  await waitFor(() =>
-    expect(screen.getByRole("alert")).toHaveTextContent(
-      "Ten identyfikator jest już zajęty.",
-    ),
-  );
-});
-
-test("pusty kalendarz mówi, od czego zacząć", async () => {
-  api.getBookingCatalog.mockResolvedValue({
-    services: [],
-    staff: [],
-    locations: [],
-    resources: [],
-  });
-  renderSettings(true, "en");
-
   expect(
-    await screen.findByText(/Nothing here yet. Add a service/),
+    await within(dialog).findByText(/Usługa wymaga 3 osób, a zaznaczono mniej/),
   ).toBeInTheDocument();
-  expect(screen.getAllByText("None yet")).toHaveLength(4);
+  fireEvent.change(within(dialog).getByLabelText("Ile osób potrzeba"), {
+    target: { value: "2" },
+  });
+  fireEvent.click(within(dialog).getByLabelText("Poskrom"));
+  // A person is a customer's choice only for a one-person service.
+  fireEvent.change(within(dialog).getByLabelText("Klient może wybrać"), {
+    target: { value: "person" },
+  });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Zapisz usługę" }),
+  );
+  expect(
+    await within(dialog).findByText(
+      "Osobę klient wybiera tylko przy usłudze dla jednej osoby.",
+    ),
+  ).toBeInTheDocument();
+  expect(api.updateSetupService).not.toHaveBeenCalled();
+  fireEvent.change(within(dialog).getByLabelText("Klient może wybrać"), {
+    target: { value: "team" },
+  });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Zapisz usługę" }),
+  );
+  expect(
+    await screen.findByText("Zapisano: Korekcja stada 60–150 krów."),
+  ).toBeInTheDocument();
+  expect(api.updateSetupService).toHaveBeenCalledWith(HERD, {
+    name: "Korekcja stada 60–150 krów",
+    duration_minutes: 90,
+    buffer_before_minutes: 0,
+    buffer_after_minutes: 30,
+    minimum_notice_minutes: 60,
+    staff_count: 2,
+    public_staff_choice: "team",
+    staff_ids: [MARCIN, PIOTR],
+    location_ids: [BASE],
+    resource_ids: [ROOM],
+  });
+  expect(api.getBookingSetup).toHaveBeenCalledTimes(2);
+});
+
+test("gotowa usługa typu firmy otwiera formularz z nazwą i czasem", async () => {
+  renderSettings({ organizationType: "farm-care" });
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Korekcja stada" }),
+  );
+  const dialog = await screen.findByRole("dialog", { name: "Nowa usługa" });
+  expect(within(dialog).getByLabelText("Nazwa")).toHaveValue("Korekcja stada");
+  expect(within(dialog).getByLabelText("Czas trwania (min)")).toHaveValue(300);
+  fireEvent.click(within(dialog).getByLabelText("Marcin Kowalski"));
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Zapisz usługę" }),
+  );
+  await waitFor(() => expect(api.createSetupService).toHaveBeenCalled());
+  // The one active place goes with it; the kind of visit comes from the type.
+  expect(api.createSetupService.mock.calls[0][0]).toMatchObject({
+    name: "Korekcja stada",
+    duration_minutes: 300,
+    appointment_kind: "farm_visit",
+    staff_ids: [MARCIN],
+    location_ids: [BASE],
+  });
+  expect(
+    await screen.findByText("Dodano: Korekcja stada."),
+  ).toBeInTheDocument();
+});
+
+test("wyłączenie usługi i nowe miejsce z adresem", async () => {
+  renderSettings();
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Więcej: Korekcja stada 60–150 krów",
+    }),
+  );
+  fireEvent.click(
+    await screen.findByRole("menuitem", { name: "Wyłącz usługę" }),
+  );
+  await waitFor(() =>
+    expect(api.updateSetupService).toHaveBeenCalledWith(HERD, {
+      active: false,
+    }),
+  );
+  expect(
+    await screen.findByText("Wyłączono: Korekcja stada 60–150 krów."),
+  ).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Dodaj miejsce" }));
+  const dialog = await screen.findByRole("dialog", { name: "Nowe miejsce" });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Zapisz" }));
+  expect(await within(dialog).findByText("Podaj nazwę.")).toBeInTheDocument();
+  fireEvent.change(within(dialog).getByLabelText("Nazwa"), {
+    target: { value: "Gabinet Toruń" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Adres"), {
+    target: { value: "ul. Długa 2" },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Zapisz" }));
+  await waitFor(() =>
+    expect(api.createSetupLocation).toHaveBeenCalledWith({
+      name: "Gabinet Toruń",
+      address: "ul. Długa 2",
+    }),
+  );
+});
+
+test("a refusal from the server is shown in the dialog (EN)", async () => {
+  api.updateSetupService.mockRejectedValue(
+    problem(400, "validation_error", "Nie ma takiej pozycji."),
+  );
+  renderSettings({ locale: "en" });
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Edit: Korekcja stada 60–150 krów",
+    }),
+  );
+  const dialog = await screen.findByRole("dialog", {
+    name: "Edit service: Korekcja stada 60–150 krów",
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Save service" }));
+  expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+    "Nie ma takiej pozycji.",
+  );
 });
 
 test("bez rezerwacji w planie: właściciel idzie do planów, reszta pyta właściciela", async () => {
-  api.getBookingCatalog.mockRejectedValue(
+  api.getBookingSetup.mockRejectedValue(
     problem(403, "entitlement_required", "Plan organizacji nie pozwala."),
   );
-  const { container, unmount } = renderSettings(true);
+  const { container, unmount } = renderSettings();
 
   expect(
     await screen.findByRole("heading", {
@@ -196,7 +361,7 @@ test("bez rezerwacji w planie: właściciel idzie do planów, reszta pyta właś
   expect((await axe.run(container, noContrast)).violations).toEqual([]);
   unmount();
 
-  renderSettings(false);
+  renderSettings({ canManageBilling: false });
   expect(
     await screen.findByText(/Poproś właściciela firmy o zmianę planu/),
   ).toBeInTheDocument();
@@ -204,45 +369,49 @@ test("bez rezerwacji w planie: właściciel idzie do planów, reszta pyta właś
 });
 
 test("błąd wczytywania daje ponowienie", async () => {
-  api.getBookingCatalog
+  api.getBookingSetup
     .mockRejectedValueOnce(new Error("offline"))
-    .mockResolvedValueOnce(CATALOG);
+    .mockResolvedValueOnce(SETUP);
   renderSettings();
 
   fireEvent.click(
     await screen.findByRole("button", { name: "Spróbuj ponownie" }),
   );
 
-  expect(await listed("Konsultacja")).toBeInTheDocument();
-  expect(api.getBookingCatalog).toHaveBeenCalledTimes(2);
+  expect(
+    await screen.findByRole("table", { name: "Usługi firmy" }),
+  ).toBeInTheDocument();
+  expect(api.getBookingSetup).toHaveBeenCalledTimes(2);
 });
 
-test("usługa, której materiał rozlicza jej moduł, nie ma produktów z magazynu", async () => {
-  api.listInventoryItems.mockResolvedValue([]);
-  api.listInventoryBalances.mockResolvedValue([]);
-  api.getBookingCatalog.mockResolvedValue({
-    ...CATALOG,
+test("produkty z magazynu tylko przy usłudze, której materiał nie idzie przez moduł", async () => {
+  api.getBookingSetup.mockResolvedValue({
+    ...SETUP,
     services: [
       // Like HoofCare's herd visit: material goes per cow, never from here.
-      { ...CATALOG.services[0], takes_materials: false },
-      {
-        ...CATALOG.services[0],
-        id: "33333333-3333-4333-8333-444444444444",
+      service({ takes_materials: false }),
+      service({
+        id: OLD,
         name: "Masaż",
-        public_slug: "masaz",
+        staff_count: 1,
         takes_materials: true,
-      },
+      }),
     ],
   });
-  render(
-    <NextIntlClientProvider locale="pl" messages={messages}>
-      <BookingSettings canManageBilling canUseInventory />
-    </NextIntlClientProvider>,
+  renderSettings({ canUseInventory: true });
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Edytuj: Korekcja stada 60–150 krów",
+    }),
   );
-  const products = await screen.findByLabelText("Usługa", {
-    selector: "#service-materials-service",
+  let dialog = await screen.findByRole("dialog", {
+    name: /Edytuj usługę: Korekcja stada/,
   });
-  expect(
-    Array.from((products as HTMLSelectElement).options).map((o) => o.text),
-  ).toEqual(["Masaż"]);
+  expect(within(dialog).queryByText("Produkty z magazynu")).toBeNull();
+  fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+  fireEvent.click(screen.getByRole("button", { name: "Edytuj: Masaż" }));
+  dialog = await screen.findByRole("dialog", { name: "Edytuj usługę: Masaż" });
+  expect(within(dialog).getByText("Produkty z magazynu")).toBeInTheDocument();
 });

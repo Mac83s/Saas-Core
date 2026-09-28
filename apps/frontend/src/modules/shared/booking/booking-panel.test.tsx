@@ -205,7 +205,7 @@ test.each([
       .getAttribute("href"),
   ).toBe("/panel/settings/services");
   expect(
-    screen.queryByLabelText(messages.BookingConfiguration.kind),
+    screen.queryByRole("button", { name: messages.ServicesSetup.addService }),
   ).toBeNull();
   // Every status is spelled out in the legend, not only coloured.
   const legend = screen.getByRole("list", { name: messages.Calendar.legend });

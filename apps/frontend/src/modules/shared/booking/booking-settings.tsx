@@ -1,32 +1,52 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
-import { CreditCardIcon } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import { CreditCardIcon, PencilIcon, PlusIcon } from "lucide-react";
 
 import {
   ApiProblemError,
-  getBookingCatalog,
-  type BookingCatalog,
+  getBookingSetup,
+  updateSetupLocation,
+  updateSetupResource,
+  updateSetupService,
+  type BookingSetup,
+  type PlaceSetup,
+  type ResourceSetup,
+  type ServiceSetup,
 } from "@saas-core/api-client";
+import { Badge } from "@saas-core/ui/components/badge";
 import { Button, buttonVariants } from "@saas-core/ui/components/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@saas-core/ui/components/card";
+  DataTable,
+  RowActions,
+  type ColumnDef,
+  type RowAction,
+} from "@saas-core/ui/components/data-table";
 
+import { PanelSection } from "#components/panel/panel-page";
 import { Link } from "#i18n/navigation";
-import { organizationType as organizationTypeInfo } from "#lib/organization-types";
-import { BookingConfiguration } from "./booking-configuration";
+import { useDataTableLabels } from "#lib/data-table-labels";
+import {
+  organizationType as organizationTypeInfo,
+  typeText,
+} from "#lib/organization-types";
+import { problemText } from "./people/person-dialogs";
+import {
+  ItemDialog,
+  ServiceDialog,
+  type ServiceTemplate,
+} from "./setup-dialogs";
 
-type Row = { id: string; name: string; detail?: string };
+type Editing =
+  | { kind: "service"; service?: ServiceSetup; template?: ServiceTemplate }
+  | { kind: "location"; item?: PlaceSetup }
+  | { kind: "resource"; item?: ResourceSetup };
 
 /**
- * Settings › Services & schedule: what the calendar builds free slots from.
- * What is set up comes first, then the forms that add to it.
+ * Settings › Services & schedule (team phase 3c, board 12): what customers can
+ * book, how long it takes, how many people it needs and who does it, where,
+ * and with what. People and their hours are Zespół's; this page links there.
  */
 export function BookingSettings({
   organizationType,
@@ -40,13 +60,20 @@ export function BookingSettings({
   /** Services can carry products from the warehouse (ADR-055). */
   canUseInventory?: boolean;
 }) {
-  const t = useTranslations("Settings");
-  const [catalog, setCatalog] = useState<BookingCatalog>();
+  const t = useTranslations("ServicesSetup");
+  const settings = useTranslations("Settings");
+  const locale = useLocale();
+  const labels = useDataTableLabels();
+  const [setup, setSetup] = useState<BookingSetup>();
   const [failure, setFailure] = useState<"plan" | "error">();
+  const [notice, setNotice] = useState("");
+  const [problem, setProblem] = useState<string>();
+  const [editing, setEditing] = useState<Editing>();
+  const [returnTo, setReturnTo] = useState<HTMLElement | null>(null);
 
   const load = useCallback(async () => {
     try {
-      setCatalog(await getBookingCatalog());
+      setSetup(await getBookingSetup());
       setFailure(undefined);
     } catch (error) {
       setFailure(
@@ -72,14 +99,16 @@ export function BookingSettings({
         />
         <div className="space-y-3">
           <div className="space-y-1">
-            <h2 className="font-medium">{t("planTitle")}</h2>
+            <h2 className="font-medium">{settings("planTitle")}</h2>
             <p className="text-sm text-muted-foreground">
-              {canManageBilling ? t("planOwner") : t("planAskOwner")}
+              {canManageBilling
+                ? settings("planOwner")
+                : settings("planAskOwner")}
             </p>
           </div>
           {canManageBilling ? (
             <Link className={buttonVariants()} href="/panel/settings/billing">
-              {t("planAction")}
+              {settings("planAction")}
             </Link>
           ) : null}
         </div>
@@ -89,7 +118,7 @@ export function BookingSettings({
   if (failure === "error")
     return (
       <div className="flex flex-wrap items-center gap-3" role="alert">
-        <p className="text-sm text-destructive">{t("loadError")}</p>
+        <p className="text-sm text-destructive">{settings("loadError")}</p>
         <Button
           onClick={() => {
             setFailure(undefined);
@@ -97,82 +126,398 @@ export function BookingSettings({
           }}
           variant="outline"
         >
-          {t("retry")}
+          {settings("retry")}
         </Button>
       </div>
     );
 
-  if (!catalog)
-    return (
-      <div aria-busy="true" className="space-y-6" role="status">
-        <span className="sr-only">{t("loading")}</span>
-        <div className="h-40 animate-pulse rounded-xl bg-muted" />
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="h-80 animate-pulse rounded-xl bg-muted" />
-          <div className="h-80 animate-pulse rounded-xl bg-muted" />
-        </div>
-      </div>
-    );
+  const open = (next: Editing, trigger: HTMLElement | null) => {
+    setReturnTo(trigger);
+    setProblem(undefined);
+    setEditing(next);
+  };
 
-  const groups: {
-    key: "services" | "staff" | "locations" | "resources";
-    rows: Row[];
-  }[] = [
+  const saved = (text: string) => {
+    setEditing(undefined);
+    setNotice(text);
+    void load();
+  };
+
+  async function toggle(
+    action: () => Promise<unknown>,
+    text: string,
+  ): Promise<void> {
+    setProblem(undefined);
+    try {
+      await action();
+      saved(text);
+    } catch (error) {
+      setProblem(problemText(error, t("failed"), t("forbidden")));
+    }
+  }
+
+  const duration = (minutes: number) =>
+    minutes < 60
+      ? t("minutes", { count: minutes })
+      : minutes % 60
+        ? t("hoursMinutes", {
+            hours: Math.floor(minutes / 60),
+            minutes: minutes % 60,
+          })
+        : t("hours", { count: minutes / 60 });
+
+  const inactive = (
+    key: "inactiveService" | "inactivePlace" | "inactiveResource",
+  ) => (
+    <Badge className="ml-2" variant="outline">
+      {t(key)}
+    </Badge>
+  );
+
+  const services = setup?.services ?? [];
+  const usedBy = (field: "location_ids" | "resource_ids", id: string) =>
+    services.filter((service) => service.active && service[field].includes(id))
+      .length;
+
+  const serviceColumns: ColumnDef<ServiceSetup, unknown>[] = [
     {
-      key: "services",
-      rows: catalog.services.map((service) => ({
-        id: service.id,
-        name: service.name,
-        detail: t("minutes", { count: service.duration_minutes }),
-      })),
+      id: "name",
+      accessorKey: "name",
+      header: t("colService"),
+      meta: { primary: true },
+      cell: ({ row: { original: service } }) => (
+        <p className="font-medium wrap-anywhere">
+          {service.name}
+          {service.active ? null : inactive("inactiveService")}
+        </p>
+      ),
     },
-    { key: "staff", rows: catalog.staff },
-    { key: "locations", rows: catalog.locations },
-    { key: "resources", rows: catalog.resources },
+    {
+      id: "duration",
+      accessorKey: "duration_minutes",
+      header: t("colDuration"),
+      cell: ({ row: { original: service } }) =>
+        duration(service.duration_minutes),
+    },
+    {
+      id: "count",
+      accessorKey: "staff_count",
+      header: t("colPeople"),
+    },
+    {
+      id: "performers",
+      header: t("colPerformers"),
+      enableSorting: false,
+      cell: ({ row: { original: service } }) =>
+        service.staff_ids.length ? (
+          service.staff_ids.length < service.staff_count ? (
+            <span className="text-warning-foreground">
+              {t("performersShort", {
+                count: service.staff_ids.length,
+                need: service.staff_count,
+              })}
+            </span>
+          ) : (
+            t("performersCount", { count: service.staff_ids.length })
+          )
+        ) : (
+          <span className="text-warning-foreground">{t("nobody")}</span>
+        ),
+    },
+    {
+      id: "public",
+      header: t("colPublic"),
+      enableSorting: false,
+      cell: ({ row: { original: service } }) =>
+        t(`public_${service.public_staff_choice}` as "public_none"),
+    },
+    {
+      id: "actions",
+      header: t("colActions"),
+      enableSorting: false,
+      meta: { actions: true },
+      cell: ({ row: { original: service } }) => (
+        <RowActions
+          items={[
+            {
+              label: t("editFor", { name: service.name }),
+              icon: <PencilIcon aria-hidden="true" />,
+              inline: true,
+              onSelect: (trigger) =>
+                open({ kind: "service", service }, trigger ?? null),
+            },
+            {
+              label: t(service.active ? "switchOffService" : "switchOnService"),
+              onSelect: () =>
+                void toggle(
+                  () =>
+                    updateSetupService(service.id, { active: !service.active }),
+                  t(service.active ? "switchedOff" : "switchedOn", {
+                    name: service.name,
+                  }),
+                ),
+            },
+          ]}
+          label={t("actionsFor", { name: service.name })}
+        />
+      ),
+    },
   ];
-  const empty = groups.every((group) => group.rows.length === 0);
+
+  const itemActions = (
+    kind: "location" | "resource",
+    item: PlaceSetup | ResourceSetup,
+  ): RowAction[] => [
+    {
+      label: t("editFor", { name: item.name }),
+      icon: <PencilIcon aria-hidden="true" />,
+      inline: true,
+      onSelect: (trigger) =>
+        open(
+          kind === "location"
+            ? { kind, item: item as PlaceSetup }
+            : { kind, item: item as ResourceSetup },
+          trigger ?? null,
+        ),
+    },
+    {
+      label: t(item.active ? "switchOff" : "switchOn"),
+      onSelect: () =>
+        void toggle(
+          () =>
+            kind === "location"
+              ? updateSetupLocation(item.id, { active: !item.active })
+              : updateSetupResource(item.id, { active: !item.active }),
+          t(item.active ? "switchedOff" : "switchedOn", { name: item.name }),
+        ),
+    },
+  ];
+
+  const placeColumns: ColumnDef<PlaceSetup, unknown>[] = [
+    {
+      id: "name",
+      accessorKey: "name",
+      header: t("colPlace"),
+      meta: { primary: true },
+      cell: ({ row: { original: place } }) => (
+        <>
+          <p className="font-medium wrap-anywhere">
+            {place.name}
+            {place.active ? null : inactive("inactivePlace")}
+          </p>
+          {place.address ? (
+            <p className="text-sm text-muted-foreground">{place.address}</p>
+          ) : null}
+        </>
+      ),
+    },
+    {
+      id: "services",
+      header: t("colServices"),
+      enableSorting: false,
+      cell: ({ row: { original: place } }) =>
+        t("servicesCount", { count: usedBy("location_ids", place.id) }),
+    },
+    {
+      id: "actions",
+      header: t("colActions"),
+      enableSorting: false,
+      meta: { actions: true },
+      cell: ({ row: { original: place } }) => (
+        <RowActions
+          items={itemActions("location", place)}
+          label={t("actionsFor", { name: place.name })}
+        />
+      ),
+    },
+  ];
+
+  const resourceColumns: ColumnDef<ResourceSetup, unknown>[] = [
+    {
+      id: "name",
+      accessorKey: "name",
+      header: t("colResource"),
+      meta: { primary: true },
+      cell: ({ row: { original: thing } }) => (
+        <p className="font-medium wrap-anywhere">
+          {thing.name}
+          {thing.active ? null : inactive("inactiveResource")}
+        </p>
+      ),
+    },
+    {
+      id: "services",
+      header: t("colServices"),
+      enableSorting: false,
+      cell: ({ row: { original: thing } }) =>
+        t("servicesCount", { count: usedBy("resource_ids", thing.id) }),
+    },
+    {
+      id: "actions",
+      header: t("colActions"),
+      enableSorting: false,
+      meta: { actions: true },
+      cell: ({ row: { original: thing } }) => (
+        <RowActions
+          items={itemActions("resource", thing)}
+          label={t("actionsFor", { name: thing.name })}
+        />
+      ),
+    },
+  ];
+
+  // The organization type's ready-made services not added yet (ADR-050).
+  const names = new Set(services.map((service) => service.name));
+  const templates = organizationTypeInfo(organizationType)
+    .serviceTemplates.map((template) => ({
+      key: template.key,
+      name: typeText(template.label, locale),
+      durationMinutes: template.durationMinutes,
+      appointmentKind: template.appointmentKind,
+    }))
+    .filter((template) => !names.has(template.name));
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("setupTitle")}</CardTitle>
-          <CardDescription>
-            {empty ? t("setupEmpty") : t("setupDescription")}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <dl className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {groups.map(({ key, rows }) => (
-              <div key={key}>
-                <dt className="font-medium">{t(key)}</dt>
-                <dd className="mt-1.5 text-muted-foreground">
-                  {rows.length === 0 ? (
-                    t("none")
-                  ) : (
-                    <ul className="space-y-1">
-                      {rows.map((row) => (
-                        <li key={row.id}>
-                          <span className="text-foreground">{row.name}</span>
-                          {row.detail ? ` · ${row.detail}` : null}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        </CardContent>
-      </Card>
-      <BookingConfiguration
-        canUseInventory={canUseInventory}
-        catalog={catalog}
-        onChanged={load}
-        serviceTemplates={
-          organizationTypeInfo(organizationType).serviceTemplates
+    <div className="space-y-10">
+      <p className="text-sm text-success-foreground" role="status">
+        {notice}
+      </p>
+      {problem ? (
+        <p className="text-sm text-destructive" role="alert">
+          {problem}
+        </p>
+      ) : null}
+      <PanelSection
+        actions={
+          setup ? (
+            <Button
+              onClick={(event) =>
+                open({ kind: "service" }, event.currentTarget)
+              }
+            >
+              <PlusIcon aria-hidden="true" />
+              {t("addService")}
+            </Button>
+          ) : null
         }
-      />
+        description={t("servicesHint")}
+        title={t("services")}
+      >
+        {templates.length && setup ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              {t("fromTemplate")}
+            </span>
+            {templates.map((template) => (
+              <Button
+                key={template.key}
+                onClick={(event) =>
+                  open({ kind: "service", template }, event.currentTarget)
+                }
+                size="sm"
+                variant="outline"
+              >
+                <PlusIcon aria-hidden="true" />
+                {template.name}
+              </Button>
+            ))}
+          </div>
+        ) : null}
+        <DataTable
+          caption={t("servicesCaption")}
+          columns={serviceColumns}
+          data={services}
+          getRowId={(service) => service.id}
+          labels={{ ...labels, empty: t("noServices") }}
+          loading={!setup}
+        />
+      </PanelSection>
+      <PanelSection
+        actions={
+          setup ? (
+            <Button
+              onClick={(event) =>
+                open({ kind: "location" }, event.currentTarget)
+              }
+              variant="outline"
+            >
+              <PlusIcon aria-hidden="true" />
+              {t("addPlace")}
+            </Button>
+          ) : null
+        }
+        description={t("placesHint")}
+        title={t("placesTitle")}
+      >
+        <DataTable
+          caption={t("placesCaption")}
+          columns={placeColumns}
+          data={setup?.locations ?? []}
+          getRowId={(place) => place.id}
+          labels={{ ...labels, empty: t("noPlacesYet") }}
+          loading={!setup}
+        />
+      </PanelSection>
+      <PanelSection
+        actions={
+          setup ? (
+            <Button
+              onClick={(event) =>
+                open({ kind: "resource" }, event.currentTarget)
+              }
+              variant="outline"
+            >
+              <PlusIcon aria-hidden="true" />
+              {t("addResource")}
+            </Button>
+          ) : null
+        }
+        description={t("resourcesSectionHint")}
+        title={t("resourcesTitle")}
+      >
+        <DataTable
+          caption={t("resourcesCaption")}
+          columns={resourceColumns}
+          data={setup?.resources ?? []}
+          getRowId={(thing) => thing.id}
+          labels={{ ...labels, empty: t("noResourcesYet") }}
+          loading={!setup}
+        />
+      </PanelSection>
+      <p className="max-w-3xl text-sm text-muted-foreground">
+        {t("peopleElsewhere")}{" "}
+        <Link
+          className="font-medium text-primary hover:underline"
+          href="/panel/team"
+        >
+          {t("peopleLink")}
+        </Link>
+      </p>
+
+      {setup && editing?.kind === "service" ? (
+        <ServiceDialog
+          canUseInventory={canUseInventory}
+          finalFocus={returnTo}
+          onOpenChange={(value) => (value ? undefined : setEditing(undefined))}
+          onSaved={(service, created) =>
+            saved(t(created ? "created" : "saved", { name: service.name }))
+          }
+          service={editing.service}
+          setup={setup}
+          template={editing.template}
+        />
+      ) : null}
+      {editing && editing.kind !== "service" ? (
+        <ItemDialog
+          finalFocus={returnTo}
+          item={editing.item}
+          kind={editing.kind}
+          onOpenChange={(value) => (value ? undefined : setEditing(undefined))}
+          onSaved={(name, created) =>
+            saved(t(created ? "created" : "saved", { name }))
+          }
+        />
+      ) : null}
     </div>
   );
 }
