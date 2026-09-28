@@ -1182,3 +1182,119 @@ test("self-service reschedules an active booking", async () => {
     expect(api.rescheduleSelfServiceBooking).toHaveBeenCalledOnce(),
   );
 });
+
+test("„Do kogo?”: a chosen team narrows the times and goes with the booking and its notes", async () => {
+  const NORTH = "88888888-8888-4888-8888-999999999999";
+  api.getPublicBookingCatalog.mockResolvedValue({
+    locations: catalog.locations,
+    services: [
+      {
+        ...catalog.services[0],
+        staff_choice: "team",
+        team_ids: [NORTH],
+        person_ids: [],
+      },
+    ],
+    resources: [],
+    teams: [{ id: NORTH, name: "Brygada Północ" }],
+    people: [],
+    timezone: "Europe/Warsaw",
+  });
+  api.createPublicBookingAppointment.mockResolvedValue({
+    ...publicAppointment,
+    team_name: "Brygada Północ",
+    person_name: null,
+    self_service_token: "bk_new",
+  });
+  const rendered = render(
+    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+      <PublicBookingFlow publicSlug="demo" />
+    </NextIntlClientProvider>,
+  );
+  await screen.findAllByText("Consultation");
+  fireEvent.change(screen.getByLabelText("Usługa"), {
+    target: { value: catalog.services[0].id },
+  });
+  fireEvent.change(screen.getByLabelText("Lokalizacja"), {
+    target: { value: catalog.locations[0].id },
+  });
+  fireEvent.click(screen.getByLabelText("Wybrany zespół"));
+  expect((screen.getByLabelText("Zespół") as HTMLSelectElement).value).toBe(
+    NORTH,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Pokaż terminy" }));
+  const query = {
+    service_id: catalog.services[0].id,
+    location_id: catalog.locations[0].id,
+    team_id: NORTH,
+  };
+  await waitFor(() =>
+    expect(api.getPublicBookingDays).toHaveBeenCalledWith(
+      "demo",
+      expect.objectContaining(query),
+    ),
+  );
+  fireEvent.change(screen.getByLabelText("Dzień"), {
+    target: { value: "2026-08-20" },
+  });
+  await waitFor(() =>
+    expect(api.getPublicBookingTimes).toHaveBeenCalledWith("demo", {
+      ...query,
+      date: "2026-08-20",
+    }),
+  );
+  await waitFor(() =>
+    expect(
+      within(screen.getByLabelText("Godzina")).getAllByRole("option"),
+    ).toHaveLength(3),
+  );
+  fireEvent.change(screen.getByLabelText("Godzina"), {
+    target: { value: "2026-08-20T08:30:00Z" },
+  });
+  fireEvent.change(screen.getByLabelText("Imię i nazwisko"), {
+    target: { value: "Stanisław Dąbrowski" },
+  });
+  fireEvent.change(screen.getByLabelText("E-mail"), {
+    target: { value: "s@example.test" },
+  });
+  fireEvent.change(screen.getByLabelText("Uwagi"), {
+    target: { value: " 120 krów, wjazd od silosu " },
+  });
+  expect((await axe.run(rendered.container)).violations).toHaveLength(0);
+  fireEvent.click(screen.getByRole("button", { name: "Zarezerwuj" }));
+  expect(await screen.findByText("Rezerwacja potwierdzona")).not.toBeNull();
+  expect(api.createPublicBookingAppointment.mock.calls[0][1]).toMatchObject({
+    team_id: NORTH,
+    customer_notes: "120 krów, wjazd od silosu",
+    starts_at: "2026-08-20T08:30:00Z",
+  });
+  // The confirmation says when, what and with whom, and gives the calendar file.
+  expect(screen.getByText("Brygada Północ")).not.toBeNull();
+  expect(
+    screen.getByText(
+      "Dziękujemy, Stanisław Dąbrowski. Potwierdzenie wysłaliśmy na s@example.test.",
+    ),
+  ).not.toBeNull();
+  const file = screen.getByRole("link", { name: "Dodaj do kalendarza" });
+  expect(file.getAttribute("href")).toMatch(/^data:text\/calendar/);
+  expect(decodeURIComponent(file.getAttribute("href") ?? "")).toContain(
+    "DTSTART:20260820T080000Z",
+  );
+  expect(
+    screen.getByRole("link", { name: "Zmień termin lub odwołaj" }),
+  ).toHaveAttribute("href", "/pl/booking/bk_new");
+});
+
+test("the customer's page names the person shown to customers", async () => {
+  api.getSelfServiceBooking.mockResolvedValue({
+    ...publicAppointment,
+    team_name: null,
+    person_name: "dr Anna Nowak",
+  });
+  render(
+    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+      <SelfServiceBooking token="bk_test" />
+    </NextIntlClientProvider>,
+  );
+  expect(await screen.findByText("Przyjmie Cię: dr Anna Nowak")).not.toBeNull();
+});

@@ -33,6 +33,7 @@ const api = vi.hoisted(() => ({
   listTeams: vi.fn(),
   removeTimeOff: vi.fn(),
   setPersonHours: vi.fn(),
+  setPersonPublic: vi.fn(),
   setPersonServices: vi.fn(),
   updateMembership: vi.fn(),
   updatePerson: vi.fn(),
@@ -93,6 +94,7 @@ const detail = {
   service_ids: [SERVICE],
   has_hours: true,
   team_ids: [],
+  public_name: null,
   created_at: "2025-03-10T12:00:00Z",
   hours: [0, 1, 2, 3, 4].map((weekday) => ({
     id: `rule-${weekday}`,
@@ -532,5 +534,35 @@ test("cudza albo nieistniejąca osoba to jasny komunikat, nie błąd (EN)", asyn
     await screen.findByText(
       "There is no such person, or you may not see them.",
     ),
+  ).toBeInTheDocument();
+});
+
+test("„Pokazuj klientom”: nazwa dla klientów na karcie i jej zmiana", async () => {
+  api.setPersonPublic.mockResolvedValue({
+    ...detail,
+    public_name: "dr Marcin Kowalski",
+  });
+  renderCard();
+  const facts = within(
+    await screen.findByRole("region", { name: "Dane pracownika" }),
+  );
+  expect(facts.getByText("Nie pokazujemy")).toBeInTheDocument();
+  fireEvent.click(facts.getByRole("button", { name: "Zmień" }));
+  const dialog = await screen.findByRole("dialog", {
+    name: "Pokazuj klientom: Marcin Kowalski",
+  });
+  fireEvent.click(within(dialog).getByLabelText("Pokazuj klientom"));
+  fireEvent.change(within(dialog).getByLabelText("Nazwa dla klientów"), {
+    target: { value: "dr Marcin Kowalski" },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Zapisz" }));
+  await waitFor(() =>
+    expect(api.setPersonPublic).toHaveBeenCalledWith("s-marcin", {
+      shown: true,
+      name: "dr Marcin Kowalski",
+    }),
+  );
+  expect(
+    await screen.findByText("Klienci widzą teraz: dr Marcin Kowalski."),
   ).toBeInTheDocument();
 });

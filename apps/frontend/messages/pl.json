@@ -565,7 +565,13 @@
     "team": "Zespół",
     "teamAll": "Wszystkie",
     "legendTeams": "Zespoły",
-    "teamsHint": "Osoba może należeć do kilku zespołów. Składy zmienisz też w Zespół › Zespoły."
+    "teamsHint": "Osoba może należeć do kilku zespołów. Składy zmienisz też w Zespół › Zespoły.",
+    "publicTitle": "Pokazuj klientom: {name}",
+    "publicDescription": "Klient zobaczy tę osobę przy wyborze „Do kogo?” (gdy usługa na to pozwala) i w potwierdzeniu wizyty. Bez tego widzi tylko zespół albo nic.",
+    "publicShown": "Pokazuj klientom",
+    "publicName": "Nazwa dla klientów",
+    "publicNameHint": "Np. z tytułem: „dr Anna Nowak”.",
+    "publicSave": "Zapisz"
   },
   "Teams": {
     "eyebrow": "Zespół",
@@ -755,7 +761,12 @@
     "timeOffRemoved": "Usunięto nieobecność.",
     "timeOffActions": "Działania: nieobecność od {from}",
     "actions": "Działania",
-    "teams": "Zespoły"
+    "teams": "Zespoły",
+    "forCustomers": "Dla klientów",
+    "notShown": "Nie pokazujemy",
+    "changePublic": "Zmień",
+    "publicShownNotice": "Klienci widzą teraz: {name}.",
+    "publicHiddenNotice": "Klienci nie widzą już: {name}."
   },
   "AccountSettings": {
     "eyebrow": "Ustawienia",
@@ -2097,15 +2108,34 @@
     "name": "Imię i nazwisko",
     "book": "Zarezerwuj",
     "confirmed": "Rezerwacja potwierdzona",
-    "confirmedDescription": "Przejdź do bezpiecznego ekranu zmiany lub anulowania terminu.",
-    "manage": "Zarządzaj rezerwacją",
+    "confirmedDescription": "Dziękujemy, {name}. Potwierdzenie wysłaliśmy na {email}.",
+    "manage": "Zmień termin lub odwołaj",
     "loadError": "Nie udało się pobrać terminów.",
     "createError": "Termin nie jest już dostępny albo dane są nieprawidłowe.",
     "required": "To pole jest wymagane.",
     "pickTime": "Wybierz godzinę.",
     "invalidEmail": "Podaj poprawny adres e-mail.",
     "loadingTimes": "Sprawdzam wolne terminy…",
-    "noDays": "W najbliższych 14 dniach nie ma wolnych terminów."
+    "noDays": "W najbliższych 14 dniach nie ma wolnych terminów.",
+    "whoLegend": "Do kogo?",
+    "anyTeam": "Bez znaczenia — dobierzemy ekipę",
+    "anyPerson": "Bez znaczenia — dobierzemy osobę",
+    "pickTeam": "Wybrany zespół",
+    "pickPerson": "Wybrana osoba",
+    "team": "Zespół",
+    "person": "Osoba",
+    "teamsHint": "Pokazujemy zespoły, które wykonują tę usługę.",
+    "peopleHint": "Pokazujemy osoby, które wykonują tę usługę.",
+    "notes": "Uwagi",
+    "notesHint": "Coś, co warto wiedzieć przed wizytą. Zobaczy to tylko firma.",
+    "notesTooLong": "Uwagi mogą mieć najwyżej 500 znaków.",
+    "when": "Termin",
+    "chosenTeam": "Wybrany zespół",
+    "seenBy": "Przyjmie Cię",
+    "status": "Status",
+    "statusConfirmed": "Potwierdzona",
+    "addToCalendar": "Dodaj do kalendarza",
+    "manageHint": "Link do zarządzania rezerwacją jest też w e-mailu."
   },
   "BookingMaterials": {
     "title": "Produkty z magazynu",
@@ -2144,7 +2174,9 @@
     "confirmed": "potwierdzona",
     "completed": "zakończona",
     "canceled": "anulowana",
-    "no_show": "nieobecność"
+    "no_show": "nieobecność",
+    "chosenTeam": "Wybrany zespół: {team}",
+    "seenBy": "Przyjmie Cię: {name}"
   },
   "Notifications": {
     "navigation": "Powiadomienia",

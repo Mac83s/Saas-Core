@@ -565,7 +565,13 @@
     "team": "Team",
     "teamAll": "All",
     "legendTeams": "Teams",
-    "teamsHint": "A person can belong to several teams. You can also change them in Team › Teams."
+    "teamsHint": "A person can belong to several teams. You can also change them in Team › Teams.",
+    "publicTitle": "Show to customers: {name}",
+    "publicDescription": "Customers see this person when choosing who with (where the service allows it) and in the visit confirmation. Otherwise they see a team or nobody.",
+    "publicShown": "Show to customers",
+    "publicName": "Name for customers",
+    "publicNameHint": "E.g. with a title: “Dr Anna Nowak”.",
+    "publicSave": "Save"
   },
   "Teams": {
     "eyebrow": "Team",
@@ -755,7 +761,12 @@
     "timeOffRemoved": "Time off removed.",
     "timeOffActions": "Actions: time off from {from}",
     "actions": "Actions",
-    "teams": "Teams"
+    "teams": "Teams",
+    "forCustomers": "For customers",
+    "notShown": "Not shown",
+    "changePublic": "Change",
+    "publicShownNotice": "Customers now see: {name}.",
+    "publicHiddenNotice": "Customers no longer see: {name}."
   },
   "AccountSettings": {
     "eyebrow": "Settings",
@@ -2097,15 +2108,34 @@
     "name": "Full name",
     "book": "Book",
     "confirmed": "Booking confirmed",
-    "confirmedDescription": "Open the secure page to reschedule or cancel.",
-    "manage": "Manage booking",
+    "confirmedDescription": "Thank you, {name}. We sent the confirmation to {email}.",
+    "manage": "Change the time or cancel",
     "loadError": "Available times could not be loaded.",
     "createError": "The time is no longer available or the details are invalid.",
     "required": "This field is required.",
     "pickTime": "Choose a time.",
     "invalidEmail": "Enter a valid email address.",
     "loadingTimes": "Checking free times…",
-    "noDays": "There are no free times in the next 14 days."
+    "noDays": "There are no free times in the next 14 days.",
+    "whoLegend": "Who with?",
+    "anyTeam": "No preference — we'll pick a crew",
+    "anyPerson": "No preference — we'll pick someone",
+    "pickTeam": "A chosen team",
+    "pickPerson": "A chosen person",
+    "team": "Team",
+    "person": "Person",
+    "teamsHint": "These are the teams that do this service.",
+    "peopleHint": "These are the people who do this service.",
+    "notes": "Notes",
+    "notesHint": "Anything worth knowing before the visit. Only the business sees it.",
+    "notesTooLong": "Notes can be at most 500 characters.",
+    "when": "When",
+    "chosenTeam": "Chosen team",
+    "seenBy": "You'll be seen by",
+    "status": "Status",
+    "statusConfirmed": "Confirmed",
+    "addToCalendar": "Add to calendar",
+    "manageHint": "The link to manage the booking is in the e-mail too."
   },
   "BookingMaterials": {
     "title": "Products from the warehouse",
@@ -2144,7 +2174,9 @@
     "confirmed": "confirmed",
     "completed": "completed",
     "canceled": "canceled",
-    "no_show": "no-show"
+    "no_show": "no-show",
+    "chosenTeam": "Chosen team: {team}",
+    "seenBy": "You'll be seen by: {name}"
   },
   "Notifications": {
     "navigation": "Notifications",

@@ -42,7 +42,11 @@ import { useRoleLabel } from "../../../core/organizations/role-labels";
 import { StatusBadge } from "../appointment-dialogs";
 import { addDays, formatWhen, wallClock } from "../calendar-time";
 import { useTodayText } from "./people-panel";
-import { EditPersonDialog, TimeOffDialog } from "./person-dialogs";
+import {
+  EditPersonDialog,
+  ShowToCustomersDialog,
+  TimeOffDialog,
+} from "./person-dialogs";
 import { PersonSchedule } from "./person-schedule";
 import { hoursSummary, todayState } from "./people";
 
@@ -122,7 +126,9 @@ export function PersonCard({
   const [data, setData] = useState<Loaded | null>();
   const [failed, setFailed] = useState(false);
   const [notice, setNotice] = useState("");
-  const [dialog, setDialog] = useState<"edit" | "timeOff" | "role">();
+  const [dialog, setDialog] = useState<
+    "edit" | "timeOff" | "role" | "public"
+  >();
   const [returnTo, setReturnTo] = useState<HTMLElement | null>(null);
   const roleLabel = useRoleLabel(data?.roles, organization?.organization_type);
   const todayText = useTodayText(zone);
@@ -332,6 +338,28 @@ export function PersonCard({
               .filter((team) => detail.team_ids.includes(team.id))
               .map((team) => team.name)
               .join(", ") || "—",
+          ],
+        ] satisfies [string, ReactNode][])
+      : []),
+    ...(detail && (detail.public_name || canBook)
+      ? ([
+          [
+            t("forCustomers"),
+            <span className="flex flex-wrap items-center gap-2" key="public">
+              {detail.public_name ?? t("notShown")}
+              {canBook && detail.active ? (
+                <button
+                  className="font-medium text-primary hover:underline"
+                  onClick={(event) => {
+                    setReturnTo(event.currentTarget);
+                    setDialog("public");
+                  }}
+                  type="button"
+                >
+                  {t("changePublic")}
+                </button>
+              ) : null}
+            </span>,
           ],
         ] satisfies [string, ReactNode][])
       : []),
@@ -599,6 +627,25 @@ export function PersonCard({
           staffId={detail.id}
           today={today}
           zone={zone}
+        />
+      ) : null}
+      {dialog === "public" && detail ? (
+        <ShowToCustomersDialog
+          finalFocus={returnTo}
+          name={name}
+          onOpenChange={(open) => (open ? undefined : setDialog(undefined))}
+          onSaved={(publicName) => {
+            setDialog(undefined);
+            setNotice(
+              publicName
+                ? t("publicShownNotice", { name: publicName })
+                : t("publicHiddenNotice", { name }),
+            );
+            void load();
+          }}
+          open
+          publicName={detail.public_name}
+          staffId={detail.id}
         />
       ) : null}
       {data.roles && member ? (

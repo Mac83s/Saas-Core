@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useLocale } from "next-intl";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
 import {
@@ -12,7 +12,9 @@ import {
   getPublicBookingCatalog,
   getPublicBookingDays,
   getPublicBookingTimes,
+  type BookingPublicAppointment,
   type BookingPublicCatalog,
+  type BookingPublicChoice,
   type BookingSlotTimeList,
 } from "@saas-core/api-client";
 import { Button } from "@saas-core/ui/components/button";
@@ -23,11 +25,25 @@ import {
   CardHeader,
   CardTitle,
 } from "@saas-core/ui/components/card";
-import { Field, FieldError, FieldLabel } from "@saas-core/ui/components/field";
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
+import { Textarea } from "@saas-core/ui/components/textarea";
 
-import { addDays, dateFormat, formatDay, wallClock } from "./calendar-time";
+import {
+  addDays,
+  dateFormat,
+  formatDay,
+  formatWhen,
+  wallClock,
+} from "./calendar-time";
 
 type Values = {
   service_id: string;
@@ -35,7 +51,32 @@ type Values = {
   starts_at: string;
   display_name: string;
   email: string;
+  notes: string;
 };
+
+/** An .ics file for the customer's own calendar: when, what and where. */
+function calendarFile(visit: BookingPublicAppointment): string {
+  const stamp = (value: string | Date) =>
+    new Date(value)
+      .toISOString()
+      .replace(/[-:]/g, "")
+      .replace(/\.\d{3}/, "");
+  const text = (value: string) => value.replace(/[\\,;]/g, "\\$&");
+  return [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//SaaS Core//Booking//PL",
+    "BEGIN:VEVENT",
+    `UID:${visit.id}@booking`,
+    `DTSTAMP:${stamp(new Date())}`,
+    `DTSTART:${stamp(visit.starts_at)}`,
+    `DTEND:${stamp(visit.ends_at)}`,
+    `SUMMARY:${text(visit.service_name)}`,
+    `LOCATION:${text(visit.location_name)}`,
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n");
+}
 
 export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
   const t = useTranslations("PublicBooking");
@@ -43,15 +84,19 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
   const [catalog, setCatalog] = useState<BookingPublicCatalog>();
   // The search the days belong to, the days it found, the day chosen and its
   // times; an unset list is one still being asked for.
-  const [query, setQuery] = useState<{
-    service_id: string;
-    location_id: string;
-  }>();
+  const [query, setQuery] = useState<
+    {
+      service_id: string;
+      location_id: string;
+    } & BookingPublicChoice
+  >();
   const [days, setDays] = useState<string[]>();
   const [day, setDay] = useState("");
   const [times, setTimes] = useState<BookingSlotTimeList["items"]>();
-  const [token, setToken] = useState<string>();
+  const [booked, setBooked] = useState<BookingPublicAppointment>();
   const [problem, setProblem] = useState<string>();
+  // „Do kogo?”: nobody in particular, or the team / person the service offers.
+  const [choice, setChoice] = useState<BookingPublicChoice>({});
   const schema = useMemo(
     () =>
       z.object({
@@ -60,6 +105,7 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
         starts_at: z.string().min(1, t("pickTime")),
         display_name: z.string().trim().min(1, t("required")).max(160),
         email: z.email(t("invalidEmail")),
+        notes: z.string().trim().max(500, t("notesTooLong")),
       }),
     [t],
   );
@@ -71,10 +117,23 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
       starts_at: "",
       display_name: "",
       email: "",
+      notes: "",
     },
   });
   const errors = form.formState.errors;
   const zone = catalog?.timezone;
+  const serviceId = useWatch({ control: form.control, name: "service_id" });
+  const service = catalog?.services.find((x) => String(x.id) === serviceId);
+  const offered =
+    service?.staff_choice === "team"
+      ? (catalog?.teams ?? []).filter((x) => service.team_ids.includes(x.id))
+      : service?.staff_choice === "person"
+        ? (catalog?.people ?? []).filter((x) =>
+            service.person_ids.includes(x.id),
+          )
+        : [];
+  const choiceKey =
+    service?.staff_choice === "person" ? "person_id" : "team_id";
   const loading = (!!query && !days) || (!!day && !times);
 
   useEffect(() => {
@@ -90,7 +149,11 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
     let current = true;
     // The business's today: the days offered are its calendar, not the browser's.
     const from = wallClock(new Date(), zone).day;
-    getPublicBookingDays(publicSlug, { ...query, from, to: addDays(from, 14) })
+    getPublicBookingDays(publicSlug, {
+      ...query,
+      from,
+      to: addDays(from, 14),
+    })
       .then((value) => {
         if (!current) return;
         setDays(value);
@@ -131,6 +194,10 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
     setDays(undefined);
     pickDay("");
   }
+  function choose(next: BookingPublicChoice) {
+    setChoice(next);
+    reset();
+  }
   function pickDay(value: string) {
     setDay(value);
     setTimes(undefined);
@@ -142,17 +209,21 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
     setQuery({
       service_id: form.getValues("service_id"),
       location_id: form.getValues("location_id"),
+      ...choice,
     });
   };
   const submit = form.handleSubmit(
-    async ({ display_name, email, ...booking }) => {
+    async ({ display_name, email, notes, ...booking }) => {
       try {
         // Who takes the visit, and the room it needs, is the server's pick
-        // (ADR-058 §4): the form names only the service, place and time.
+        // (ADR-058 §4) — within the team or the person the customer chose.
         const created = await createPublicBookingAppointment(
           publicSlug,
           {
             ...booking,
+            ...(query?.team_id ? { team_id: query.team_id } : {}),
+            ...(query?.person_id ? { person_id: query.person_id } : {}),
+            ...(notes.trim() ? { customer_notes: notes.trim() } : {}),
             customer: {
               display_name,
               email,
@@ -162,7 +233,7 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
           },
           crypto.randomUUID(),
         );
-        setToken(created.self_service_token ?? undefined);
+        setBooked(created);
         setProblem(undefined);
       } catch {
         setProblem(t("createError"));
@@ -180,20 +251,59 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
       })
     : undefined;
 
-  if (token)
+  if (booked)
     return (
       <Card>
         <CardHeader>
           <CardTitle>{t("confirmed")}</CardTitle>
-          <CardDescription>{t("confirmedDescription")}</CardDescription>
+          <CardDescription>
+            {t("confirmedDescription", {
+              name: form.getValues("display_name").trim(),
+              email: form.getValues("email"),
+            })}
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <a
-            className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
-            href={`/${locale}/booking/${encodeURIComponent(token)}`}
-          >
-            {t("manage")}
-          </a>
+        <CardContent className="space-y-4">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
+            <dt className="text-muted-foreground">{t("when")}</dt>
+            <dd className="font-medium">
+              {formatWhen(booked, locale, booked.timezone)}
+            </dd>
+            <dt className="text-muted-foreground">{t("service")}</dt>
+            <dd className="font-medium">{booked.service_name}</dd>
+            {booked.team_name ? (
+              <>
+                <dt className="text-muted-foreground">{t("chosenTeam")}</dt>
+                <dd className="font-medium">{booked.team_name}</dd>
+              </>
+            ) : null}
+            {booked.person_name ? (
+              <>
+                <dt className="text-muted-foreground">{t("seenBy")}</dt>
+                <dd className="font-medium">{booked.person_name}</dd>
+              </>
+            ) : null}
+            <dt className="text-muted-foreground">{t("status")}</dt>
+            <dd className="font-medium">{t("statusConfirmed")}</dd>
+          </dl>
+          <div className="flex flex-wrap gap-3">
+            {booked.self_service_token ? (
+              <a
+                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground"
+                href={`/${locale}/booking/${encodeURIComponent(booked.self_service_token)}`}
+              >
+                {t("manage")}
+              </a>
+            ) : null}
+            <a
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm font-medium"
+              download="wizyta.ics"
+              href={`data:text/calendar;charset=utf-8,${encodeURIComponent(calendarFile(booked))}`}
+            >
+              {t("addToCalendar")}
+            </a>
+          </div>
+          <p className="text-sm text-muted-foreground">{t("manageHint")}</p>
         </CardContent>
       </Card>
     );
@@ -211,7 +321,9 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
               <NativeSelect
                 aria-invalid={Boolean(errors.service_id)}
                 id="booking-service"
-                {...form.register("service_id", { onChange: reset })}
+                {...form.register("service_id", {
+                  onChange: () => choose({}),
+                })}
               >
                 <option value="">{t("choose")}</option>
                 {catalog?.services.map((x) => (
@@ -241,6 +353,53 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
               <FieldError errors={[errors.location_id]} />
             </Field>
           </div>
+          {offered.length ? (
+            <FieldSet>
+              <FieldLegend variant="label">{t("whoLegend")}</FieldLegend>
+              <div className="grid gap-1">
+                <label className="flex min-h-11 items-center gap-2 text-sm">
+                  <input
+                    checked={!choice.team_id && !choice.person_id}
+                    className="size-4"
+                    name="booking-who"
+                    onChange={() => choose({})}
+                    type="radio"
+                  />
+                  {t(choiceKey === "team_id" ? "anyTeam" : "anyPerson")}
+                </label>
+                <label className="flex min-h-11 items-center gap-2 text-sm">
+                  <input
+                    checked={Boolean(choice.team_id || choice.person_id)}
+                    className="size-4"
+                    name="booking-who"
+                    onChange={() =>
+                      choose({ [choiceKey]: String(offered[0].id) })
+                    }
+                    type="radio"
+                  />
+                  {t(choiceKey === "team_id" ? "pickTeam" : "pickPerson")}
+                </label>
+              </div>
+              {choice.team_id || choice.person_id ? (
+                <NativeSelect
+                  aria-label={t(choiceKey === "team_id" ? "team" : "person")}
+                  onChange={(event) =>
+                    choose({ [choiceKey]: event.target.value })
+                  }
+                  value={choice.team_id ?? choice.person_id}
+                >
+                  {offered.map((x) => (
+                    <option key={String(x.id)} value={String(x.id)}>
+                      {x.name}
+                    </option>
+                  ))}
+                </NativeSelect>
+              ) : null}
+              <FieldDescription>
+                {t(choiceKey === "team_id" ? "teamsHint" : "peopleHint")}
+              </FieldDescription>
+            </FieldSet>
+          ) : null}
           <div className="flex flex-wrap items-center gap-3">
             <Button
               disabled={loading}
@@ -310,6 +469,18 @@ export function PublicBookingFlow({ publicSlug }: { publicSlug: string }) {
               {...form.register("email")}
             />
             <FieldError errors={[errors.email]} />
+          </Field>
+          <Field data-invalid={Boolean(errors.notes)}>
+            <FieldLabel htmlFor="booking-notes">{t("notes")}</FieldLabel>
+            <Textarea
+              aria-invalid={Boolean(errors.notes)}
+              id="booking-notes"
+              maxLength={500}
+              rows={3}
+              {...form.register("notes")}
+            />
+            <FieldDescription>{t("notesHint")}</FieldDescription>
+            <FieldError errors={[errors.notes]} />
           </Field>
           {problem ? (
             <p className="text-sm text-destructive" role="alert">

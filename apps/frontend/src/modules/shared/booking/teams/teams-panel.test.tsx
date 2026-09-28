@@ -44,6 +44,7 @@ function person(id: string, name: string, over: Record<string, unknown> = {}) {
     service_ids: [SERVICE],
     has_hours: true,
     team_ids: [],
+    public_name: null,
     created_at: "2025-03-10T12:00:00Z",
     ...over,
   };

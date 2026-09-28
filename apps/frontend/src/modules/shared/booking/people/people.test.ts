@@ -46,6 +46,7 @@ const person = (over: Partial<Person> = {}): Person => ({
   service_ids: ["svc"],
   has_hours: true,
   team_ids: [],
+  public_name: null,
   created_at: "2025-03-01T08:00:00Z",
   ...over,
 });

@@ -12,6 +12,7 @@ import {
   addTimeOff,
   invitePerson,
   setPersonServices,
+  setPersonPublic,
   updatePerson,
   type BookingCatalog,
   type MembershipSummary,
@@ -666,6 +667,81 @@ export function LinkAccountDialog({
       onOpenChange={onOpenChange}
       open={open}
       title={t("linkTitle", { name })}
+    />
+  );
+}
+
+/**
+ * „Pokazuj klientom” (ADR-036 §4, ADR-058 §8): the person's name on the
+ * booking form, where a service lets the customer choose, and in the
+ * customer's confirmation. Off: customers see a team or nobody.
+ */
+export function ShowToCustomersDialog({
+  open,
+  onOpenChange,
+  staffId,
+  name,
+  publicName,
+  onSaved,
+  finalFocus,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  staffId: string;
+  name: string;
+  /** The name customers see now; null when the person is not shown. */
+  publicName: string | null;
+  onSaved: (publicName: string | null) => void;
+  finalFocus?: Focus;
+}) {
+  const t = useTranslations("People");
+  const [shown, setShown] = useState(publicName !== null);
+  const [value, setValue] = useState(publicName ?? name);
+  return (
+    <ConfirmDialog
+      confirm={t("publicSave")}
+      description={t("publicDescription")}
+      extra={
+        <div className="space-y-4">
+          <label className="flex min-h-11 items-center gap-2 text-sm font-medium">
+            <input
+              checked={shown}
+              className="size-4"
+              onChange={(event) => setShown(event.target.checked)}
+              type="checkbox"
+            />
+            {t("publicShown")}
+          </label>
+          {shown ? (
+            <Field>
+              <FieldLabel htmlFor="public-name">{t("publicName")}</FieldLabel>
+              <Input
+                id="public-name"
+                maxLength={160}
+                onChange={(event) => setValue(event.target.value)}
+                value={value}
+              />
+              <FieldDescription>{t("publicNameHint")}</FieldDescription>
+            </Field>
+          ) : null}
+        </div>
+      }
+      finalFocus={finalFocus}
+      onConfirm={async () => {
+        try {
+          const saved = await setPersonPublic(staffId, {
+            shown,
+            name: value.trim(),
+          });
+          onSaved(saved.public_name);
+          return undefined;
+        } catch (error) {
+          return problemText(error, t("failed"), t("forbidden"));
+        }
+      }}
+      onOpenChange={onOpenChange}
+      open={open}
+      title={t("publicTitle", { name })}
     />
   );
 }

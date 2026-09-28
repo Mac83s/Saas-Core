@@ -92,6 +92,16 @@ export function SelfServiceBooking({ token }: { token: string }) {
                 }).format(new Date(appointment.starts_at))}
               </p>
               <p className="text-sm">{appointment.location_name}</p>
+              {appointment.team_name ? (
+                <p className="text-sm">
+                  {t("chosenTeam", { team: appointment.team_name })}
+                </p>
+              ) : null}
+              {appointment.person_name ? (
+                <p className="text-sm">
+                  {t("seenBy", { name: appointment.person_name })}
+                </p>
+              ) : null}
             </div>
             {appointment.status === "confirmed" ? (
               <>
