@@ -132,8 +132,24 @@ def test_the_form_offers_teams_that_can_staff_the_visit_and_no_staff_list() -> N
             first.id,
             second.id,
         }
-    # A person where the service lets the customer choose a team is refused.
-    refused = book(client, configured, "zla-osoba", person_id=str(first.id))
+    # A person where the service lets the customer choose a team is refused,
+    # in the search and in the booking.
+    wrong = {**configured["query"], "date": configured["day"].isoformat()}
+    assert (
+        client.get(f"{configured['url']}/times/", {**wrong, "person_id": str(first.id)}).status_code
+        == 400
+    )
+    refused = client.post(
+        f"{configured['url']}/appointments/",
+        {
+            **configured["query"],
+            "starts_at": created.json()["starts_at"],
+            "person_id": str(first.id),
+            "customer": {"display_name": "Ewa", "email": "ewa@example.test"},
+        },
+        format="json",
+        HTTP_IDEMPOTENCY_KEY="zla-osoba",
+    )
     assert refused.status_code == 400
 
 
@@ -174,7 +190,15 @@ def test_a_person_shown_to_customers_is_chosen_and_named_in_the_confirmation(
     shown = client.get(f"/api/v1/booking/self-service/{created.json()['self_service_token']}/")
     assert shown.json()["person_name"] == "dr Anna Nowak"
     # A person the company does not show cannot be asked for.
-    assert book(client, configured, "ukryta", person_id=str(first.id)).status_code == 400
+    hidden = client.get(
+        f"{configured['url']}/times/",
+        {
+            **configured["query"],
+            "date": configured["day"].isoformat(),
+            "person_id": str(first.id),
+        },
+    )
+    assert hidden.status_code == 400
 
     with tenant(owner):
         anonymize_customer(visit.customer_id)
