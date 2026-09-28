@@ -213,7 +213,15 @@ export function SaveAsTemplate({
       }}
     >
       <DialogTrigger
-        render={<Button type="button" variant="outline" disabled={disabled} />}
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            // Long labels wrap in the 300 px rail instead of scrolling it.
+            className="h-auto min-h-10 w-full whitespace-normal py-2"
+            disabled={disabled}
+          />
+        }
       >
         <BookmarkPlusIcon aria-hidden="true" />
         {triggerLabel}
@@ -568,13 +576,15 @@ function OwnTemplateBody({
   const t = useTranslations("Sites.ownTemplates");
   return (
     <div className="flex flex-1 flex-col gap-2 p-3">
-      <h4 className="text-sm leading-snug font-semibold">{template.name}</h4>
+      <h4 className="text-sm leading-snug font-semibold [overflow-wrap:anywhere]">
+        {template.name}
+      </h4>
       {template.description ? (
-        <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+        <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">
           {template.description}
         </p>
       ) : null}
-      <p className="flex-1 text-xs text-muted-foreground">
+      <p className="flex-1 text-xs text-muted-foreground [overflow-wrap:anywhere]">
         {t("versionBy", {
           number: template.version.number,
           author: template.version.created_by.email,

@@ -252,7 +252,11 @@ export function TemplateOption({
         <Dialog>
           <DialogTrigger
             render={
-              <Button className="w-full" type="button" variant="outline" />
+              <Button
+                className="h-auto min-h-10 w-full whitespace-normal py-2"
+                type="button"
+                variant="outline"
+              />
             }
           >
             <EyeIcon aria-hidden="true" />
@@ -277,8 +281,10 @@ export function TemplateOption({
             </div>
           </DialogContent>
         </Dialog>
+        {/* The studio rail is 300 px: a long template name wraps. */}
         <Button
           aria-label={useLabel}
+          className="h-auto min-h-10 whitespace-normal py-2"
           disabled={loading}
           onClick={onApply}
           type="button"
