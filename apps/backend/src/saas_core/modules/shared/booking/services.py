@@ -649,11 +649,12 @@ def create_appointment(
         queue_email(
             recipient_email=email,
             template_key="booking.confirmation",
-            template_version=1,
+            template_version=2,
             locale=customer.locale,
             template_context={
                 "organization_name": organization.name,
                 "starts_at": local_time(starts_at, appointment.timezone, customer.locale),
+                "manage_url": notify.manage_url(token, customer.locale),
             },
             idempotency_key=f"booking-confirm:{appointment.id}",
             causation_id=f"booking:{appointment.id}",

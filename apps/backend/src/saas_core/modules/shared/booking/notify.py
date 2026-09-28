@@ -112,7 +112,7 @@ def customer_person_changed(appointment: Appointment, *, previous_lead_id: UUID)
             template_context={
                 "organization_name": organization.name,
                 "starts_at": _local(appointment.starts_at, appointment.timezone, locale),
-                "manage_url": f"{_base(locale)}/booking/{token}",
+                "manage_url": manage_url(token, locale),
             },
             idempotency_key=f"booking-person:{appointment.id}:{appointment.crew_version}",
             causation_id=f"booking:{appointment.id}",
@@ -215,6 +215,11 @@ def _locale(organization_id: UUID, user: Any) -> str:
     ).first()
     value = str(preference.locale) if preference is not None else str(user.locale or "pl")
     return value if value in {"pl", "en"} else "pl"
+
+
+def manage_url(token: str, locale: str) -> str:
+    """The customer's own page for the booking: change the time or cancel."""
+    return f"{_base(locale)}/booking/{token}"
 
 
 def _base(locale: str) -> str:

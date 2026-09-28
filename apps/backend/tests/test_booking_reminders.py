@@ -98,6 +98,25 @@ def test_a_reminder_outlives_the_membership_of_whoever_booked(
         assert context.role_key == "booking_reminder"
 
 
+def test_the_confirmation_and_the_reminder_carry_the_link_to_the_booking(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ADR-030: the customer changes or cancels from the mail, not only from the
+    page they happened to book on."""
+    _no_delivery(monkeypatch)
+    member = membership("reminder-link")
+    created = create(member, catalog(member))
+    due_now(created.appointment.id)
+
+    dispatch_booking_reminders()
+
+    [confirmation] = mails(created.appointment.id, "booking.confirmation")
+    [reminder] = reminders(created.appointment.id)
+    for sent in (confirmation, reminder):
+        assert sent.template_version == 2
+        assert sent.context["manage_url"].endswith(f"/booking/{created.token}")
+
+
 def test_a_visit_booked_further_ahead_than_the_task_ttl_is_still_reminded(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

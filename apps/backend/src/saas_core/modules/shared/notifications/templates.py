@@ -33,6 +33,26 @@ TEMPLATES: dict[tuple[str, int], EmailTemplate] = {
         },
         allowed_context=frozenset({"organization_name", "starts_at"}),
     ),
+    # v2 carries the customer's link to their booking (ADR-030); v1 stays for
+    # mails queued before it, since a published (key, version) never changes.
+    ("booking.confirmation", 2): EmailTemplate(
+        key="booking.confirmation",
+        version=2,
+        category="required",
+        subjects={"pl": "Potwierdzenie rezerwacji", "en": "Booking confirmation"},
+        bodies={
+            "pl": (
+                "<p>Rezerwacja w {organization_name} została potwierdzona.</p>"
+                "<p>Termin: {starts_at}</p>"
+                '<p><a href="{manage_url}">Zmień termin lub odwołaj</a></p>'
+            ),
+            "en": (
+                "<p>Your booking at {organization_name} is confirmed.</p><p>Time: {starts_at}</p>"
+                '<p><a href="{manage_url}">Change the time or cancel</a></p>'
+            ),
+        },
+        allowed_context=frozenset({"organization_name", "starts_at", "manage_url"}),
+    ),
     ("booking.rescheduled", 1): EmailTemplate(
         key="booking.rescheduled",
         version=1,
@@ -86,6 +106,24 @@ TEMPLATES: dict[tuple[str, int], EmailTemplate] = {
             ),
         },
         allowed_context=frozenset({"organization_name", "starts_at"}),
+    ),
+    ("booking.reminder", 2): EmailTemplate(
+        key="booking.reminder",
+        version=2,
+        category="required",
+        subjects={"pl": "Przypomnienie o rezerwacji", "en": "Booking reminder"},
+        bodies={
+            "pl": (
+                "<p>Przypominamy o rezerwacji w {organization_name}.</p><p>Termin: {starts_at}</p>"
+                '<p><a href="{manage_url}">Zmień termin lub odwołaj</a></p>'
+            ),
+            "en": (
+                "<p>This is a reminder about your booking at {organization_name}.</p>"
+                "<p>Time: {starts_at}</p>"
+                '<p><a href="{manage_url}">Change the time or cancel</a></p>'
+            ),
+        },
+        allowed_context=frozenset({"organization_name", "starts_at", "manage_url"}),
     ),
     ("system.activity", 1): EmailTemplate(
         key="system.activity",
@@ -192,6 +230,11 @@ def _fields(text: str) -> set[str]:
 
 
 def template_catalog() -> list[dict[str, object]]:
+    """What goes out now: the newest version of each template."""
+    newest: dict[str, EmailTemplate] = {}
+    for template in TEMPLATES.values():
+        if template.version > getattr(newest.get(template.key), "version", 0):
+            newest[template.key] = template
     return [
         {
             "key": template.key,
@@ -200,5 +243,5 @@ def template_catalog() -> list[dict[str, object]]:
             "locales": sorted(template.subjects),
             "context_fields": sorted(template.allowed_context),
         }
-        for template in TEMPLATES.values()
+        for template in newest.values()
     ]
