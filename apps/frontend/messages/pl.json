@@ -126,6 +126,7 @@
       "farms_share_revoked": "Cofnięto udostępnienie gospodarstwa",
       "farms_share_changed": "Zmieniono zakres udostępnienia",
       "farms_animal_health_recorded": "Dopisano wpis w kartotece zwierzęcia",
+      "farms_animal_health_corrected": "Poprawiono wpis w kartotece zwierzęcia",
       "farms_herd_pushed": "Wysłano stado do rejestru rolnika",
       "inventory_item_created": "Dodano pozycję magazynu",
       "inventory_item_updated": "Zmieniono pozycję magazynu",
@@ -2692,7 +2693,19 @@
     "entryCorrection": "Korekta",
     "entryAddition": "Uzupełnienie",
     "correctionReason": "Powód: {reason}",
-    "correctionReasonBy": "Powód: {reason} · {name}"
+    "correctionReasonBy": "Powód: {reason} · {name}",
+    "entryHistory": "Poprawiony · historia ({count})",
+    "entryCorrect": "Popraw",
+    "entryWithdraw": "Wycofaj",
+    "entryWithdrawn": "Wycofany",
+    "correctHint": "Poprawka nie zmienia wpisu — zapisze jego nową wersję, a obecna zostanie w historii, przekreślona.",
+    "withdrawHint": "Wycofany wpis zostaje w historii, przekreślony, z powodem.",
+    "correctionReasonLabel": "Powód (zobaczy go każdy, kto czyta ten wpis)",
+    "correctionReasonOptional": "Powód (opcjonalnie — notatka prywatna)",
+    "correctSave": "Zapisz poprawkę",
+    "withdrawSave": "Wycofaj wpis",
+    "correctionFailed": "Nie udało się zapisać poprawki.",
+    "cancel": "Anuluj"
   },
   "MediaCrop": {
     "title": "Kadr zdjęcia",

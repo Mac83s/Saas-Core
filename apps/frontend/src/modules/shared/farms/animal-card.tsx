@@ -28,7 +28,7 @@ import { NativeSelect } from "@saas-core/ui/components/native-select";
 import { Link } from "#i18n/navigation";
 import { allows, type PanelAccess } from "#lib/panel-navigation";
 import productAnimalSections from "../../../product/animal-sections";
-import { EntryPhoto } from "./entry-photo";
+import { ENTRY_KINDS, HealthHistory } from "./health-history";
 import { farmProblem } from "./problem";
 import { Withdrawal } from "./withdrawal";
 
@@ -37,16 +37,6 @@ export const ANIMAL_STATUSES = ["active", "sold", "culled", "dead"] as const;
 export type AnimalStatus = (typeof ANIMAL_STATUSES)[number];
 
 const SEXES = ["female", "male", "unknown"] as const;
-
-/** `HealthEntryKind` of the register (models.py). A vertical says what it did
- * in `source` and `details`; the register only shows the kind. */
-export const ENTRY_KINDS = [
-  "note",
-  "alert",
-  "treatment",
-  "medication",
-  "visit",
-] as const;
 
 /**
  * One animal, as the register knows it, plus whatever the product adds about
@@ -109,11 +99,6 @@ export function AnimalCard({
   const sexKey = known(SEXES, animal.sex);
   const date = (value: string) =>
     format.dateTime(new Date(value), { dateStyle: "medium" });
-  const moment = (value: string) =>
-    format.dateTime(new Date(value), {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
 
   async function changeStatus(next: string) {
     const previous = status;
@@ -352,92 +337,12 @@ export function AnimalCard({
           ) : null}
 
           {history && history.length > 0 ? (
-            <ol className="space-y-3">
-              {history.map((item) => (
-                <li
-                  className={
-                    item.retracted_at
-                      ? "rounded-xl border border-dashed p-3"
-                      : "rounded-xl border p-3"
-                  }
-                  key={item.id}
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="secondary">{t(`kind_${item.kind}`)}</Badge>
-                    {item.private ? (
-                      <Badge variant="outline">{t("entryPrivateBadge")}</Badge>
-                    ) : null}
-                    {/* Nothing written is removed (decision of 28.09): a
-                        replaced entry stays, struck through, next to the
-                        correction that says why. */}
-                    {item.retracted_at ? (
-                      <Badge variant="outline">
-                        {t("entryRetracted", {
-                          date: moment(item.retracted_at),
-                        })}
-                      </Badge>
-                    ) : null}
-                    {item.correction_reason ? (
-                      <Badge variant="outline">
-                        {item.corrects_id
-                          ? t("entryCorrection")
-                          : t("entryAddition")}
-                      </Badge>
-                    ) : null}
-                  </div>
-                  <p
-                    className={
-                      item.retracted_at
-                        ? "mt-1 text-sm text-muted-foreground line-through"
-                        : "mt-1 text-sm"
-                    }
-                  >
-                    {item.summary}
-                  </p>
-                  {item.retracted_at ? null : (
-                    <Withdrawal
-                      meat={item.withdrawal_meat_until}
-                      milk={item.withdrawal_milk_until}
-                      plain
-                    />
-                  )}
-                  {item.correction_reason ? (
-                    <p className="mt-1 text-sm">
-                      {item.corrected_by
-                        ? t("correctionReasonBy", {
-                            reason: item.correction_reason,
-                            name: item.corrected_by,
-                          })
-                        : t("correctionReason", {
-                            reason: item.correction_reason,
-                          })}
-                    </p>
-                  ) : null}
-                  {item.photos.length > 0 ? (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {item.photos.map((photo) => (
-                        <EntryPhoto
-                          entryId={item.id}
-                          key={photo}
-                          mediaId={photo}
-                        />
-                      ))}
-                    </div>
-                  ) : null}
-                  <p className="text-xs text-muted-foreground">
-                    {[
-                      date(item.occurred_on),
-                      item.author_name,
-                      item.author_is_external
-                        ? item.author_organization_name
-                        : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                </li>
-              ))}
-            </ol>
+            <HealthHistory
+              animalId={animal.id}
+              canManage={canManage}
+              entries={history}
+              onChanged={() => setReloads((value) => value + 1)}
+            />
           ) : (
             <p className="text-sm text-muted-foreground">{t("noHistory")}</p>
           )}

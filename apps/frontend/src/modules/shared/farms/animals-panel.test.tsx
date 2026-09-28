@@ -23,6 +23,7 @@ import { AnimalsPanel } from "./animals-panel";
 
 const { api, sections } = vi.hoisted(() => ({
   api: {
+    correctFarmAnimalHealth: vi.fn(),
     createFarmAnimalHealth: vi.fn(),
     getFarmHealthPhoto: vi.fn(),
     listFarmAnimalHealth: vi.fn(),
@@ -644,19 +645,113 @@ test("korekta nie kasuje wpisu: stary jest przekreślony, nowy mówi dlaczego", 
   );
   const dialog = await screen.findByRole("dialog", { name: "PL005432100002" });
 
-  const old = await within(dialog).findByText("Podano: Oksytetracyklina.");
+  // The version in force is on the list; the one it replaced waits behind
+  // „historia” (answer 2A of 28.09).
+  expect(
+    await within(dialog).findByText("Wycofano: Oksytetracyklina."),
+  ).not.toHaveClass("line-through");
+  expect(within(dialog).getByText("Korekta")).toBeVisible();
+  expect(
+    within(dialog).getByText("Powód: Pomyłka krowy · Beata Biurowa"),
+  ).toBeVisible();
+  expect(within(dialog).queryByText("Podano: Oksytetracyklina.")).toBeNull();
+  // Another organization's entry: nothing to correct here.
+  expect(within(dialog).queryByRole("button", { name: "Popraw" })).toBeNull();
+  const history = within(dialog).getByRole("button", {
+    name: "Poprawiony · historia (1)",
+  });
+  expect(history).toHaveAttribute("aria-expanded", "false");
+  fireEvent.click(history);
+  expect(history).toHaveAttribute("aria-expanded", "true");
+  const old = within(dialog).getByText("Podano: Oksytetracyklina.");
   expect(old).toHaveClass("line-through");
   expect(
     within(dialog).getByText("Nieaktualny od 19 wrz 2026, 10:30"),
   ).toBeVisible();
   // Karencja wycofanego wpisu już nie obowiązuje, więc jej nie pokazujemy.
   expect(within(dialog).queryByText(/Karencja/)).toBeNull();
+  await checkAxe();
+});
+
+test("rolnik poprawia swoją notatkę nową wersją, z powodem, gdy ktoś mógł ją przeczytać", async () => {
+  const note = {
+    id: "n1",
+    animal_id: "a3",
+    kind: "note",
+    occurred_on: "2026-09-20",
+    source: "farms.manual",
+    source_reference: "r-n1",
+    author_name: "Anna Rolnik",
+    author_organization_name: "Gospodarstwo",
+    author_is_external: false,
+    private: false,
+    photos: [],
+    summary: "Kuleje na lewą tylną.",
+    details: {},
+    published_at: "2026-09-20T10:00:00Z",
+    withdrawal_milk_until: null,
+    withdrawal_meat_until: null,
+    revision: 0,
+    corrects_id: null,
+    correction_reason: "",
+    corrected_by: "",
+    retracted_at: null,
+  };
+  api.listFarmAnimalHealth.mockResolvedValue([
+    note,
+    {
+      ...note,
+      id: "n2",
+      source_reference: "r-n2",
+      private: true,
+      summary: "Sąsiad chce kupić.",
+    },
+  ]);
+  api.correctFarmAnimalHealth.mockResolvedValue({ ...note, id: "n3" });
+  renderPanel();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "PL005432100002" }),
+  );
+  const dialog = await screen.findByRole("dialog", { name: "PL005432100002" });
+  await within(dialog).findByText("Kuleje na lewą tylną.");
+
+  const [first] = within(dialog).getAllByRole("button", { name: "Popraw" });
+  fireEvent.click(first!);
+  const summary = within(dialog).getByLabelText("Treść wpisu");
+  expect(summary).toHaveValue("Kuleje na lewą tylną.");
+  fireEvent.change(summary, { target: { value: "Kuleje na prawą tylną." } });
+  const save = within(dialog).getByRole("button", { name: "Zapisz poprawkę" });
+  // Somebody else may have read it: no reason, no correction.
+  expect(save).toBeDisabled();
+  fireEvent.change(
+    within(dialog).getByLabelText(
+      "Powód (zobaczy go każdy, kto czyta ten wpis)",
+    ),
+    { target: { value: "Pomyliłam nogę" } },
+  );
+  fireEvent.click(save);
+  await waitFor(() =>
+    expect(api.correctFarmAnimalHealth).toHaveBeenCalledWith("a3", "n1", {
+      action: "replace",
+      reason: "Pomyliłam nogę",
+      summary: "Kuleje na prawą tylną.",
+      kind: "note",
+    }),
+  );
+
+  // A private note: the reason is optional, the withdrawal still a version.
+  const withdraw = within(dialog).getAllByRole("button", { name: "Wycofaj" });
+  fireEvent.click(withdraw.at(-1)!);
   expect(
-    within(dialog).getByText("Wycofano: Oksytetracyklina."),
-  ).not.toHaveClass("line-through");
-  expect(within(dialog).getByText("Korekta")).toBeVisible();
-  expect(
-    within(dialog).getByText("Powód: Pomyłka krowy · Beata Biurowa"),
+    within(dialog).getByLabelText("Powód (opcjonalnie — notatka prywatna)"),
   ).toBeVisible();
+  fireEvent.click(within(dialog).getByRole("button", { name: "Wycofaj wpis" }));
+  await waitFor(() =>
+    expect(api.correctFarmAnimalHealth).toHaveBeenLastCalledWith("a3", "n2", {
+      action: "withdraw",
+      reason: "",
+      summary: "",
+    }),
+  );
   await checkAxe();
 });

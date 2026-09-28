@@ -126,6 +126,7 @@
       "farms_share_revoked": "Farm sharing revoked",
       "farms_share_changed": "Farm sharing changed",
       "farms_animal_health_recorded": "Health record added",
+      "farms_animal_health_corrected": "Health record corrected",
       "farms_herd_pushed": "Herd sent to the farmer's register",
       "inventory_item_created": "Stock item added",
       "inventory_item_updated": "Stock item changed",
@@ -2692,7 +2693,19 @@
     "entryCorrection": "Correction",
     "entryAddition": "Addition",
     "correctionReason": "Reason: {reason}",
-    "correctionReasonBy": "Reason: {reason} · {name}"
+    "correctionReasonBy": "Reason: {reason} · {name}",
+    "entryHistory": "Corrected · history ({count})",
+    "entryCorrect": "Correct",
+    "entryWithdraw": "Withdraw",
+    "entryWithdrawn": "Withdrawn",
+    "correctHint": "A correction does not change the entry — it saves a new version and keeps this one in the history, struck through.",
+    "withdrawHint": "A withdrawn entry stays in the history, struck through, with its reason.",
+    "correctionReasonLabel": "Reason (everyone who reads this entry will see it)",
+    "correctionReasonOptional": "Reason (optional — private note)",
+    "correctSave": "Save the correction",
+    "withdrawSave": "Withdraw the entry",
+    "correctionFailed": "The correction could not be saved.",
+    "cancel": "Cancel"
   },
   "MediaCrop": {
     "title": "Crop the photo",
