@@ -121,6 +121,9 @@ export function SitesPanel({
   const [pages, setPages] = useState<PageSummary[]>([]);
   const [selectedSiteId, setSelectedSiteId] = useState<string>();
   const [selectedPageId, setSelectedPageId] = useState<string>();
+  // A page chosen outside the studio opens a fresh studio; a switch inside it
+  // (its pages tool) keeps the studio open and only swaps the editor.
+  const [studioSession, setStudioSession] = useState(0);
   const [report, setReport] = useState<SiteLocalizationReport>();
   const [domains, setDomains] = useState<SiteDomain[]>([]);
   const [publications, setPublications] = useState<SitePublication[]>([]);
@@ -662,7 +665,10 @@ export function SitesPanel({
                     itemToStringLabel={(item) => item.name}
                     itemToStringValue={(item) => item.id}
                     items={pages}
-                    onValueChange={(item) => setSelectedPageId(item?.id)}
+                    onValueChange={(item) => {
+                      setSelectedPageId(item?.id);
+                      setStudioSession((value) => value + 1);
+                    }}
                     value={selectedPage}
                   >
                     <ComboboxInput
@@ -751,13 +757,15 @@ export function SitesPanel({
         <TabsPanel value="content">
           {selectedPage ? (
             <PageStudio
-              key={selectedPage.id}
+              key={`${selectedSiteId}:${studioSession}`}
               onChanged={() =>
                 selectedSiteId
                   ? loadSiteDetails(selectedSiteId, selectedPage.id)
                   : Promise.resolve()
               }
               page={selectedPage}
+              pages={pages}
+              onSelectPage={setSelectedPageId}
             />
           ) : (
             <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">

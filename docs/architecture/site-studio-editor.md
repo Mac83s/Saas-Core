@@ -60,6 +60,14 @@ dziesiątek kopii), a przy każdym układzie stoi, czego z Twojej treści nie
 pokaże (`hiddenFields`). Nic się nie zmienia do wyboru „Użyj tego układu”;
 wybór jest tym samym jednym krokiem undo co zmiana w liście.
 
+Lewy panel ma narzędzie „Podstrony” (F3-Z3), gdy witryna ma więcej niż jedną
+stronę: kolejność z menu witryny (podstrona pod rodzicem), potem strony spoza
+menu. Wybór innej strony podmienia tylko edytor strony — studio zostaje
+otwarte, a niezapisany wygląd witryny przechodzi razem z nim, bo należy do
+witryny. Niezapisane zmiany strony wywołują to samo okno co zamknięcie, z
+„Odrzuć i przejdź”. Strona wybrana poza studiem (lista w zakładce „Podstrony”)
+otwiera studio od nowa.
+
 ## Tekst w miejscu
 
 `registry.render(block, key, editor?, imageRenderer?)` przyjmuje opcjonalny adapter kodu panelu.

@@ -28,14 +28,26 @@ import { PageEditor } from "./page-editor";
 
 export function PageStudio({
   page,
+  pages = [],
   onChanged,
+  onSelectPage,
 }: {
   page: PageSummary;
+  /** The site's pages: with `onSelectPage`, the studio switches between them
+   *  without closing (F3-Z3). */
+  pages?: readonly PageSummary[];
   onChanged: () => Promise<void>;
+  onSelectPage?: (pageId: string) => void;
 }) {
   const t = useTranslations("Sites.studio");
   const [open, setOpen] = useState(true);
-  const [confirmExit, setConfirmExit] = useState(false);
+  // What waits for "Odrzuć zmiany": closing the studio or another page.
+  const [confirmExit, setConfirmExit] = useState<
+    false | { close: true } | { pageId: string }
+  >(false);
+  const [menuOrder, setMenuOrder] = useState<
+    { page_id: string; parent_page_id?: string | null }[]
+  >([]);
   const [exitState, setExitState] = useState({ dirty: false, busy: true });
   const a = useTranslations("Sites.appearance");
   const [navigation, setNavigation] = useState<NavigationLink[]>([]);
@@ -89,6 +101,7 @@ export function PageStudio({
     ])
       .then(([menu, report]) => {
         if (!active) return;
+        setMenuOrder(menu.items);
         const links: NavigationLink[] = [];
         const visible = new Set(
           menu.items.filter((item) => item.visible).map((item) => item.page_id),
@@ -180,11 +193,65 @@ export function PageStudio({
   function changeOpen(next: boolean) {
     if (!next && (exitState.busy || appearanceBusy)) return;
     if (!next && (exitState.dirty || appearanceDirty)) {
-      setConfirmExit(true);
+      setConfirmExit({ close: true });
       return;
     }
     setOpen(next);
   }
+  // The site's look belongs to the site, not the page: it survives a switch.
+  function switchPage(pageId: string) {
+    if (pageId === page.id || exitState.busy || !onSelectPage) return;
+    if (exitState.dirty) {
+      setConfirmExit({ pageId });
+      return;
+    }
+    setExitState({ dirty: false, busy: true });
+    onSelectPage(pageId);
+  }
+  // Menu order first (a child under its parent), then pages outside the menu.
+  const orderedPages = useMemo(() => {
+    const byId = new Map(pages.map((item) => [item.id, item]));
+    const listed = menuOrder.flatMap((item) => {
+      const found = byId.get(item.page_id);
+      return found
+        ? [{ page: found, nested: Boolean(item.parent_page_id) }]
+        : [];
+    });
+    const seen = new Set(listed.map((item) => item.page.id));
+    return [
+      ...listed,
+      ...pages
+        .filter((item) => !seen.has(item.id))
+        .map((item) => ({ page: item, nested: false })),
+    ];
+  }, [pages, menuOrder]);
+  const pagesPanel =
+    onSelectPage && pages.length > 1 ? (
+      <>
+        <p className="mb-4 text-sm text-muted-foreground">{t("pagesHint")}</p>
+        <ul className="studio-outline">
+          {orderedPages.map(({ page: item, nested }) => (
+            <li key={item.id} className={nested ? "pl-4" : undefined}>
+              <button
+                type="button"
+                aria-current={item.id === page.id ? "page" : undefined}
+                disabled={exitState.busy && item.id !== page.id}
+                onClick={() => switchPage(item.id)}
+              >
+                <span className="min-w-0">
+                  <span className="block truncate font-medium">
+                    {item.name}
+                  </span>
+                  <span className="block text-xs text-muted-foreground">
+                    {item.key}
+                  </span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </>
+    ) : undefined;
   return (
     <Dialog open={open} onOpenChange={changeOpen}>
       <DialogTrigger render={<Button type="button" />}>
@@ -219,7 +286,9 @@ export function PageStudio({
         >
           {open && (
             <PageEditor
+              key={page.id}
               page={page}
+              pagesPanel={pagesPanel}
               onChanged={onChanged}
               onExitStateChange={setExitState}
               navigation={navigation}
@@ -229,10 +298,19 @@ export function PageStudio({
             />
           )}
         </div>
-        <Dialog open={confirmExit} onOpenChange={setConfirmExit}>
+        <Dialog
+          open={Boolean(confirmExit)}
+          onOpenChange={(next) => {
+            if (!next) setConfirmExit(false);
+          }}
+        >
           <DialogContent>
             <DialogTitle>{t("unsavedTitle")}</DialogTitle>
-            <DialogDescription>{t("unsavedDescription")}</DialogDescription>
+            <DialogDescription>
+              {confirmExit && "pageId" in confirmExit
+                ? t("unsavedSwitchDescription")
+                : t("unsavedDescription")}
+            </DialogDescription>
             <div className="flex flex-wrap justify-end gap-2">
               <Button
                 autoFocus
@@ -246,14 +324,21 @@ export function PageStudio({
                 type="button"
                 variant="destructive"
                 onClick={() => {
+                  const pending = confirmExit;
                   setConfirmExit(false);
+                  setExitState({ dirty: false, busy: true });
+                  if (pending && "pageId" in pending) {
+                    onSelectPage?.(pending.pageId);
+                    return;
+                  }
                   setOpen(false);
                   setAppearance(savedAppearance?.data);
                   setAppearanceProblem(undefined);
-                  setExitState({ dirty: false, busy: true });
                 }}
               >
-                {t("discardChanges")}
+                {confirmExit && "pageId" in confirmExit
+                  ? t("discardAndSwitch")
+                  : t("discardChanges")}
               </Button>
             </div>
           </DialogContent>

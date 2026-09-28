@@ -36,6 +36,7 @@ import {
   LayoutTemplateIcon,
   PanelRightIcon,
   ImageIcon,
+  FilesIcon,
 } from "lucide-react";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
@@ -70,6 +71,7 @@ export function SectionCanvas({
   onSelect,
   inspector,
   library,
+  pagesPanel,
   appearanceControls,
   inspectorRequest = 0,
   templates,
@@ -105,6 +107,8 @@ export function SectionCanvas({
   onSelect: (index: number) => void;
   inspector: ReactNode;
   library: ReactNode;
+  /** The site's pages, to switch without leaving the studio. */
+  pagesPanel?: ReactNode;
   appearanceControls?: ReactNode;
   inspectorRequest?: number;
   templates?: ReactNode;
@@ -118,7 +122,7 @@ export function SectionCanvas({
   const canvasRef = useRef<HTMLDivElement>(null);
   const inspectorRef = useRef<HTMLElement>(null);
   const [leftPanel, setLeftPanel] = useState<
-    "outline" | "library" | "templates" | "appearance"
+    "outline" | "library" | "templates" | "appearance" | "pages"
   >(blocks.length ? "outline" : "templates");
   // A new inspector request (an invalid field, a photo to change) shows the
   // inspector on a phone until the person picks another panel.
@@ -231,9 +235,14 @@ export function SectionCanvas({
                 ["library", PlusIcon, "sectionLibrary.open"],
                 ["templates", LayoutTemplateIcon, "studio.pageTemplates"],
                 ["appearance", PaletteIcon, "studio.design"],
+                ["pages", FilesIcon, "studio.pagesTool"],
               ] as const
             )
-              .filter(([key]) => key !== "appearance" || appearanceControls)
+              .filter(
+                ([key]) =>
+                  (key !== "appearance" || appearanceControls) &&
+                  (key !== "pages" || pagesPanel),
+              )
               .map(([key, Icon, label]) => (
                 <Button
                   key={key}
@@ -299,6 +308,7 @@ export function SectionCanvas({
           {leftPanel === "library" && library}
           {leftPanel === "templates" && templates}
           {leftPanel === "appearance" && appearanceControls}
+          {leftPanel === "pages" && pagesPanel}
         </div>
       </aside>
       <div className="studio-stage">

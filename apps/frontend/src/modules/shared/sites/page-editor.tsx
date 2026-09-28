@@ -306,6 +306,7 @@ function assetPath(value: unknown, assetId: string): string[] | undefined {
 export function PageEditor({
   onChanged,
   onExitStateChange,
+  pagesPanel,
   appearance,
   appearanceControls,
   savedAppearance,
@@ -314,6 +315,8 @@ export function PageEditor({
 }: {
   onChanged: () => Promise<void>;
   onExitStateChange?: (state: { dirty: boolean; busy: boolean }) => void;
+  /** The site's pages in the studio's left rail (F3-Z3). */
+  pagesPanel?: ReactNode;
   page: PageSummary;
   appearance?: SiteAppearance;
   savedAppearance?: SiteAppearance;
@@ -1022,6 +1025,7 @@ export function PageEditor({
                           appearance={appearance}
                           navigation={navigation}
                           pagePresentation={pagePresentation}
+                          pagesPanel={pagesPanel}
                           appearanceControls={
                             <div className="space-y-6">
                               {appearanceControls}

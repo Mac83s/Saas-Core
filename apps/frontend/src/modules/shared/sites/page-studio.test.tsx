@@ -25,8 +25,12 @@ vi.mock("./page-editor", () => ({
   PageEditor: ({
     onExitStateChange,
     appearanceControls,
+    pagesPanel,
+    page,
   }: {
     appearanceControls?: ReactNode;
+    pagesPanel?: ReactNode;
+    page: PageSummary;
     onExitStateChange: (state: { dirty: boolean; busy: boolean }) => void;
   }) => {
     const [dirty, setDirty] = useState(false);
@@ -37,6 +41,8 @@ vi.mock("./page-editor", () => ({
     );
     return (
       <>
+        <p>Editing {page.name}</p>
+        {pagesPanel}
         {appearanceControls}
         <button onClick={() => setDirty(true)}>Change draft</button>
         <button onClick={() => setDirty(false)}>Save draft</button>
@@ -162,4 +168,51 @@ test("appearance changes save separately and failed saves retain the working val
   ).toBe(0);
   fireEvent.click(screen.getByRole("button", { name: "Back to pages" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+});
+
+test("the studio switches pages without closing, and asks first about unsaved changes", async () => {
+  const pages = [
+    { id: "home", name: "Home", key: "home", site_id: "site" },
+    { id: "offer", name: "Offer", key: "offer", site_id: "site" },
+  ] as PageSummary[];
+  function Harness() {
+    const [current, setCurrent] = useState("home");
+    return (
+      <NextIntlClientProvider locale="en" messages={englishMessages}>
+        <PageStudio
+          page={pages.find((item) => item.id === current)!}
+          pages={pages}
+          onSelectPage={setCurrent}
+          onChanged={vi.fn()}
+        />
+      </NextIntlClientProvider>
+    );
+  }
+  render(<Harness />);
+  expect(await screen.findByText("Editing Home")).toBeDefined();
+  expect(screen.getByRole("button", { name: /^Home/ })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  fireEvent.click(screen.getByRole("button", { name: /^Offer/ }));
+  expect(await screen.findByText("Editing Offer")).toBeDefined();
+  // A dirty page asks; keeping it stays on the page.
+  fireEvent.click(screen.getByRole("button", { name: "Change draft" }));
+  fireEvent.click(screen.getByRole("button", { name: /^Home/ }));
+  expect(
+    await screen.findByText(
+      englishMessages.Sites.studio.unsavedSwitchDescription,
+    ),
+  ).toBeDefined();
+  fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+  expect(screen.getByText("Editing Offer")).toBeDefined();
+  fireEvent.click(screen.getByRole("button", { name: /^Home/ }));
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: englishMessages.Sites.studio.discardAndSwitch,
+    }),
+  );
+  expect(await screen.findByText("Editing Home")).toBeDefined();
+  // The studio itself never closed.
+  expect(screen.getByTestId("fullscreen-studio")).toBeDefined();
 });
