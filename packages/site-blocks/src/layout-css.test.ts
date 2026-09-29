@@ -24,8 +24,19 @@ const STRUCTURAL: Record<string, readonly string[]> = {
   "core.faq": ["accordion"],
   // Drawn by `__rule`, `__dots` and `__shape`; `space` is the gap alone.
   "core.separator": ["space", "line", "dots", "wave", "curve"],
-  // The only product layout, styled as `.site-section--product`.
-  "core.product": ["showcase"],
+  // The showcase is `.site-section--product`; each v3 layout is drawn by its
+  // own `.site-product__…` structure (notes, spec groups, cards, the box,
+  // variants, materials, steps).
+  "core.product": [
+    "showcase",
+    "detail",
+    "spec_groups",
+    "uses",
+    "in_the_box",
+    "variant_guide",
+    "materials",
+    "how_to_order",
+  ],
 };
 
 it("every layout of the newest block schemas has CSS of its own or is drawn by structure", () => {

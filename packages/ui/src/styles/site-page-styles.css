@@ -278,6 +278,9 @@
       li,
     .site-section--cards li,
     .site-product__uses li,
+    .site-product__use-cards > li,
+    .site-product__variants > li,
+    .site-product__materials > li,
     .site-contact--cards .site-contact__item,
     .site-links--cards .site-links__link
   ) {
@@ -368,6 +371,9 @@
       li,
     .site-section--cards li,
     .site-product__uses li,
+    .site-product__use-cards > li,
+    .site-product__variants > li,
+    .site-product__materials > li,
     .site-contact--cards .site-contact__item,
     .site-links--cards .site-links__link
   ) {
@@ -400,6 +406,9 @@
     .site-block--feature-list li,
     .site-section--cards li,
     .site-product__uses li,
+    .site-product__use-cards > li,
+    .site-product__variants > li,
+    .site-product__materials > li,
     .site-contact--cards .site-contact__item,
     .site-links--cards .site-links__link,
     .site-section--faq details,
@@ -429,6 +438,9 @@
       li,
     .site-section--cards li,
     .site-product__uses li,
+    .site-product__use-cards > li,
+    .site-product__variants > li,
+    .site-product__materials > li,
     .site-contact--cards .site-contact__item,
     .site-links--cards .site-links__link,
     .site-section--faq details
@@ -541,6 +553,9 @@
       li,
     .site-section--cards li,
     .site-product__uses li,
+    .site-product__use-cards > li,
+    .site-product__variants > li,
+    .site-product__materials > li,
     .site-contact--cards .site-contact__item,
     .site-links--cards .site-links__link
   ) {
@@ -629,6 +644,9 @@
       li,
     .site-section--cards li,
     .site-product__uses li,
+    .site-product__use-cards > li,
+    .site-product__variants > li,
+    .site-product__materials > li,
     .site-contact--cards .site-contact__item,
     .site-links--cards .site-links__link
   ) {
@@ -714,6 +732,9 @@
       li,
     .site-section--cards li,
     .site-product__uses li,
+    .site-product__use-cards > li,
+    .site-product__variants > li,
+    .site-product__materials > li,
     .site-contact--cards .site-contact__item,
     .site-links--cards .site-links__link
   ) {

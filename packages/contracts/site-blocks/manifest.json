@@ -120,10 +120,11 @@
     },
     {
       "type": "core.product",
-      "latestVersion": 2,
+      "latestVersion": 3,
       "schemas": {
         "1": "core.product.v1.schema.json",
-        "2": "core.product.v2.schema.json"
+        "2": "core.product.v2.schema.json",
+        "3": "core.product.v3.schema.json"
       }
     },
     {

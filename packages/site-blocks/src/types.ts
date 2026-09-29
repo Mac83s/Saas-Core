@@ -323,6 +323,36 @@ export type ProductV2Data = ProductV1Data & {
   secondaryAction?: { label: string; href: string };
 };
 
+type ProductImage = { asset_id: string; alt: string };
+
+/** v3 (F4-P4): seven more layouts and the lists they read. Still no price,
+ *  stock or cart. */
+export type ProductV3Data = JsonObject & {
+  layout?:
+    | "showcase"
+    | "detail"
+    | "spec_groups"
+    | "uses"
+    | "in_the_box"
+    | "variant_guide"
+    | "materials"
+    | "how_to_order";
+  title: string;
+  tagline?: string;
+  text?: string;
+  images?: (ProductImage & { caption?: string })[];
+  specs?: { label: string; value: string; group?: string }[];
+  uses?: { title: string; text?: string; image?: ProductImage }[];
+  details?: { title: string; text?: string }[];
+  documents?: { label: string; href: string; note?: string }[];
+  included?: { title: string; quantity?: string; text?: string }[];
+  variants?: { title: string; fit?: string; text?: string }[];
+  materials?: { title: string; text?: string; image?: ProductImage }[];
+  steps?: { title: string; text?: string }[];
+  action?: { label: string; href: string };
+  secondaryAction?: { label: string; href: string };
+};
+
 export type FaqV1Data = JsonObject & {
   title?: string;
   items: { question: string; answer: string }[];

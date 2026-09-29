@@ -16818,6 +16818,1141 @@
         "stage": "interest",
         "primaryAction": false
       }
+    },
+    {
+      "id": "core.product_detail",
+      "version": 1,
+      "blockType": "core.product",
+      "schemaVersion": 3,
+      "layout": "detail",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Detal z bliska",
+          "description": "Jedno duże zdjęcie produktu i ponumerowane uwagi obok — materiał, złącza, wykończenie. Bez ceny i koszyka.",
+          "usage": "Układ: detal z bliska. Środek strony produktu, po prezentacji; 3–6 uwag. Zdjęcie przykładowe jest poglądowe — wymień je na zdjęcie swojego produktu."
+        },
+        "en": {
+          "name": "Up close",
+          "description": "One large product photo with numbered notes beside it — material, connectors, finish. No price or cart.",
+          "usage": "Layout: up close. Body of a product page, after the showcase; 3–6 notes. The sample photo is illustrative — replace it with a photo of your product."
+        }
+      },
+      "goals": ["present_product"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["reassurance", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 6,
+        "titleMaxCharacters": 60,
+        "bodyMaxCharacters": 300,
+        "mediaAspectRatio": "4:3"
+      },
+      "sampleMedia": {
+        "id": "electronics",
+        "alt": {
+          "pl": "Płytka drukowana na niebieskiej macie warsztatowej obok miernika i oscyloskopu",
+          "en": "A circuit board on a blue workbench mat next to a multimeter and an oscilloscope"
+        },
+        "path": ["images", 0]
+      },
+      "contentProfiles": ["S", "M"],
+      "readingPattern": "visual",
+      "styleAffinities": ["product", "premium", "studio", "technical"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page"],
+      "conversion": {
+        "stage": "interest",
+        "primaryAction": false
+      },
+      "seed": {
+        "pl": {
+          "title": "Każdy szczegół ma znaczenie",
+          "tagline": "Zobacz z bliska, co wyróżnia produkt, zanim weźmiesz go do ręki.",
+          "images": [],
+          "details": [
+            {
+              "title": "Obudowa",
+              "text": "[Uzupełnij: materiał i sposób wykonania]"
+            },
+            {
+              "title": "Złącza",
+              "text": "[Uzupełnij: jakie są i gdzie się znajdują]"
+            },
+            {
+              "title": "Wykończenie",
+              "text": "[Uzupełnij: powierzchnia, kolor, odporność]"
+            },
+            {
+              "title": "Oznaczenia",
+              "text": "[Uzupełnij: co widać na produkcie, np. numer seryjny]"
+            }
+          ],
+          "layout": "detail"
+        },
+        "en": {
+          "title": "Every detail matters",
+          "tagline": "See up close what sets the product apart before you hold it.",
+          "images": [],
+          "details": [
+            {
+              "title": "Housing",
+              "text": "[Fill in: the material and how it is made]"
+            },
+            {
+              "title": "Connectors",
+              "text": "[Fill in: which ones and where they are]"
+            },
+            {
+              "title": "Finish",
+              "text": "[Fill in: surface, colour, resistance]"
+            },
+            {
+              "title": "Markings",
+              "text": "[Fill in: what is marked on the product, e.g. the serial number]"
+            }
+          ],
+          "layout": "detail"
+        }
+      }
+    },
+    {
+      "id": "core.product_spec_groups",
+      "version": 1,
+      "blockType": "core.product",
+      "schemaVersion": 3,
+      "layout": "spec_groups",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Karta parametrów w grupach",
+          "description": "Parametry podzielone na grupy z nagłówkami i dokumenty do pobrania pod nimi. Wartości to miejsca do uzupełnienia z karty produktu.",
+          "usage": "Układ: karta parametrów w grupach. Środek lub koniec strony produktu; 2–4 grupy. Adresy dokumentów są przykładowe — podmień je na swoje pliki."
+        },
+        "en": {
+          "name": "Grouped specifications",
+          "description": "Parameters split into headed groups, with documents to download below. The values are placeholders to fill in from the product sheet.",
+          "usage": "Layout: grouped specifications. Body or end of a product page; 2–4 groups. The document addresses are samples — replace them with your own files."
+        }
+      },
+      "goals": ["present_product", "answer_questions"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["reassurance", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "contentGuidance": {
+        "minItems": 4,
+        "maxItems": 24,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 200,
+        "mediaAspectRatio": "4:3"
+      },
+      "contentProfiles": ["M", "L"],
+      "readingPattern": "reference",
+      "styleAffinities": ["technical", "product", "expert"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page"],
+      "conversion": {
+        "stage": "interest",
+        "primaryAction": false
+      },
+      "seed": {
+        "pl": {
+          "title": "Parametry",
+          "tagline": "Najważniejsze dane w grupach — do porównania i do zamówienia.",
+          "specs": [
+            {
+              "group": "Wymiary i masa",
+              "label": "Wymiary",
+              "value": "[Uzupełnij: wymiary]"
+            },
+            {
+              "label": "Masa",
+              "value": "[Uzupełnij: masa]"
+            },
+            {
+              "group": "Materiały",
+              "label": "Materiał",
+              "value": "[Uzupełnij: materiał]"
+            },
+            {
+              "label": "Wykończenie",
+              "value": "[Uzupełnij: wykończenie]"
+            },
+            {
+              "group": "Użytkowanie",
+              "label": "Warunki pracy",
+              "value": "[Uzupełnij: warunki pracy]"
+            },
+            {
+              "label": "Gwarancja",
+              "value": "[Uzupełnij: okres gwarancji]"
+            }
+          ],
+          "documents": [
+            {
+              "label": "Karta produktu (PDF)",
+              "href": "https://example.com/karta-produktu.pdf",
+              "note": "[Uzupełnij: wersja i rozmiar pliku]"
+            }
+          ],
+          "layout": "spec_groups"
+        },
+        "en": {
+          "title": "Specifications",
+          "tagline": "The key data in groups — for comparing and for ordering.",
+          "specs": [
+            {
+              "group": "Size and weight",
+              "label": "Dimensions",
+              "value": "[Fill in: dimensions]"
+            },
+            {
+              "label": "Weight",
+              "value": "[Fill in: weight]"
+            },
+            {
+              "group": "Materials",
+              "label": "Material",
+              "value": "[Fill in: material]"
+            },
+            {
+              "label": "Finish",
+              "value": "[Fill in: finish]"
+            },
+            {
+              "group": "Use",
+              "label": "Operating conditions",
+              "value": "[Fill in: operating conditions]"
+            },
+            {
+              "label": "Warranty",
+              "value": "[Fill in: warranty period]"
+            }
+          ],
+          "documents": [
+            {
+              "label": "Product sheet (PDF)",
+              "href": "https://example.com/product-sheet.pdf",
+              "note": "[Fill in: version and file size]"
+            }
+          ],
+          "layout": "spec_groups"
+        }
+      }
+    },
+    {
+      "id": "core.product_uses",
+      "version": 1,
+      "blockType": "core.product",
+      "schemaVersion": 3,
+      "layout": "uses",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Zastosowania ze zdjęciami",
+          "description": "Karty miejsc i sytuacji, w których produkt się sprawdza, każda ze zdjęciem i krótkim opisem.",
+          "usage": "Układ: zastosowania ze zdjęciami. Środek strony produktu; 2–6 zastosowań. Zdjęcia przykładowe są poglądowe — wymień je na zdjęcia produktu w użyciu."
+        },
+        "en": {
+          "name": "Uses with photos",
+          "description": "Cards for the places and situations where the product works, each with a photo and a short description.",
+          "usage": "Layout: uses with photos. Body of a product page; 2–6 uses. The sample photos are illustrative — replace them with photos of the product in use."
+        }
+      },
+      "goals": ["present_product", "explain_offer"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["reassurance", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "contentGuidance": {
+        "minItems": 2,
+        "maxItems": 6,
+        "titleMaxCharacters": 60,
+        "bodyMaxCharacters": 300,
+        "mediaAspectRatio": "4:3"
+      },
+      "sampleMedia": [
+        {
+          "id": "medicine",
+          "alt": {
+            "pl": "Jasny gabinet z biurkiem przy oknie i fotelem zabiegowym",
+            "en": "A bright consultation room with a desk by the window and a treatment chair"
+          },
+          "path": ["uses", 0, "image"]
+        },
+        {
+          "id": "agriculture",
+          "alt": {
+            "pl": "Krowy na pastwisku przy zabudowaniach gospodarstwa",
+            "en": "Cows grazing on a pasture by the farm buildings"
+          },
+          "path": ["uses", 1, "image"]
+        },
+        {
+          "id": "business",
+          "alt": {
+            "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+            "en": "A bright studio with an oak table and a laptop"
+          },
+          "path": ["uses", 2, "image"]
+        }
+      ],
+      "contentProfiles": ["S", "M"],
+      "readingPattern": "scan",
+      "styleAffinities": ["product", "organic", "editorial", "mosaic"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page"],
+      "conversion": {
+        "stage": "interest",
+        "primaryAction": false
+      },
+      "seed": {
+        "pl": {
+          "title": "Gdzie się sprawdza",
+          "tagline": "[Uzupełnij: jedno zdanie, dla kogo jest produkt]",
+          "uses": [
+            {
+              "title": "W gabinecie",
+              "text": "[Uzupełnij: jak produkt pomaga w tym miejscu]"
+            },
+            {
+              "title": "W gospodarstwie",
+              "text": "[Uzupełnij: jak produkt pomaga w tym miejscu]"
+            },
+            {
+              "title": "W biurze i pracowni",
+              "text": "[Uzupełnij: jak produkt pomaga w tym miejscu]"
+            }
+          ],
+          "layout": "uses"
+        },
+        "en": {
+          "title": "Where it works",
+          "tagline": "[Fill in: one sentence on who the product is for]",
+          "uses": [
+            {
+              "title": "In a practice",
+              "text": "[Fill in: how the product helps there]"
+            },
+            {
+              "title": "On a farm",
+              "text": "[Fill in: how the product helps there]"
+            },
+            {
+              "title": "In an office or studio",
+              "text": "[Fill in: how the product helps there]"
+            }
+          ],
+          "layout": "uses"
+        }
+      }
+    },
+    {
+      "id": "core.product_in_the_box",
+      "version": 1,
+      "blockType": "core.product",
+      "schemaVersion": 3,
+      "layout": "in_the_box",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Co w zestawie",
+          "description": "Zdjęcie zestawu i lista tego, co dostaje klient, z ilościami. Bez ceny i stanu magazynu.",
+          "usage": "Układ: co w zestawie. Środek strony produktu, przed pytaniami; 3–10 pozycji. Zdjęcie przykładowe jest poglądowe — wymień je na zdjęcie swojego zestawu."
+        },
+        "en": {
+          "name": "What is in the box",
+          "description": "A photo of the set and a list of what the customer gets, with quantities. No price or stock.",
+          "usage": "Layout: what is in the box. Body of a product page, before the questions; 3–10 items. The sample photo is illustrative — replace it with a photo of your set."
+        }
+      },
+      "goals": ["present_product", "answer_questions"],
+      "composition": {
+        "role": "reassurance",
+        "preferredPosition": "body",
+        "recommendedNext": ["offer", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 10,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 300,
+        "mediaAspectRatio": "4:3"
+      },
+      "sampleMedia": {
+        "id": "electronics",
+        "alt": {
+          "pl": "Płytka drukowana na niebieskiej macie warsztatowej obok miernika i oscyloskopu",
+          "en": "A circuit board on a blue workbench mat next to a multimeter and an oscilloscope"
+        },
+        "path": ["images", 0]
+      },
+      "contentProfiles": ["S", "M"],
+      "readingPattern": "scan",
+      "styleAffinities": ["product", "technical", "premium"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page"],
+      "conversion": {
+        "stage": "objection",
+        "primaryAction": false
+      },
+      "seed": {
+        "pl": {
+          "title": "Co jest w zestawie",
+          "tagline": "Wszystko, co dostajesz — bez niespodzianek przy rozpakowaniu.",
+          "images": [],
+          "included": [
+            {
+              "title": "[Uzupełnij: produkt]",
+              "quantity": "1×",
+              "text": "[Uzupełnij: wersja lub wariant]"
+            },
+            {
+              "title": "[Uzupełnij: akcesorium]",
+              "quantity": "[Uzupełnij: ile]"
+            },
+            {
+              "title": "Instrukcja",
+              "quantity": "1×",
+              "text": "[Uzupełnij: w jakich językach]"
+            },
+            {
+              "title": "Karta gwarancyjna",
+              "text": "[Uzupełnij: okres i warunki gwarancji]"
+            }
+          ],
+          "layout": "in_the_box"
+        },
+        "en": {
+          "title": "What is in the box",
+          "tagline": "Everything you get — no surprises when you unpack it.",
+          "images": [],
+          "included": [
+            {
+              "title": "[Fill in: the product]",
+              "quantity": "1×",
+              "text": "[Fill in: version or variant]"
+            },
+            {
+              "title": "[Fill in: an accessory]",
+              "quantity": "[Fill in: how many]"
+            },
+            {
+              "title": "Instructions",
+              "quantity": "1×",
+              "text": "[Fill in: in which languages]"
+            },
+            {
+              "title": "Warranty card",
+              "text": "[Fill in: warranty period and terms]"
+            }
+          ],
+          "layout": "in_the_box"
+        }
+      }
+    },
+    {
+      "id": "core.product_variant_guide",
+      "version": 1,
+      "blockType": "core.product",
+      "schemaVersion": 3,
+      "layout": "variant_guide",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Który wariant dla Ciebie",
+          "description": "Dwa albo trzy warianty obok siebie, każdy z tym, dla kogo jest i czym się różni, oraz przycisk zapytania. Bez cen.",
+          "usage": "Układ: który wariant dla Ciebie. Środek strony produktu lub kolekcji; 2–3 warianty. Przycisk ma przykładowy adres — podmień go na swój kontakt."
+        },
+        "en": {
+          "name": "Which variant suits you",
+          "description": "Two or three variants side by side, each with who it is for and how it differs, and an inquiry button. No prices.",
+          "usage": "Layout: which variant suits you. Body of a product or collection page; 2–3 variants. The button has a sample address — replace it with your contact."
+        }
+      },
+      "goals": ["present_product", "receive_inquiry"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["reassurance", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "contentGuidance": {
+        "minItems": 2,
+        "maxItems": 3,
+        "titleMaxCharacters": 60,
+        "bodyMaxCharacters": 600,
+        "mediaAspectRatio": "4:3"
+      },
+      "contentProfiles": ["S", "M"],
+      "readingPattern": "scan",
+      "styleAffinities": ["product", "premium", "technical", "studio"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page"],
+      "conversion": {
+        "stage": "action",
+        "primaryAction": true
+      },
+      "seed": {
+        "pl": {
+          "title": "Który wariant wybrać",
+          "tagline": "Porównaj warianty po tym, do czego będą Ci potrzebne, a nie po liczbach.",
+          "variants": [
+            {
+              "title": "Podstawowy",
+              "fit": "Jeśli dopiero zaczynasz",
+              "text": "[Uzupełnij: co zawiera i czym różni się od pozostałych]"
+            },
+            {
+              "title": "Rozszerzony",
+              "fit": "Jeśli używasz go codziennie",
+              "text": "[Uzupełnij: co zawiera i czym różni się od pozostałych]"
+            },
+            {
+              "title": "Dla firm",
+              "fit": "Jeśli kupujesz dla zespołu",
+              "text": "[Uzupełnij: co zawiera i czym różni się od pozostałych]"
+            }
+          ],
+          "action": {
+            "label": "Zapytaj, który będzie dla Ciebie",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "variant_guide"
+        },
+        "en": {
+          "title": "Which variant to choose",
+          "tagline": "Compare the variants by what you need them for, not by the numbers.",
+          "variants": [
+            {
+              "title": "Basic",
+              "fit": "If you are just starting",
+              "text": "[Fill in: what it includes and how it differs from the others]"
+            },
+            {
+              "title": "Extended",
+              "fit": "If you use it every day",
+              "text": "[Fill in: what it includes and how it differs from the others]"
+            },
+            {
+              "title": "For teams",
+              "fit": "If you are buying for a team",
+              "text": "[Fill in: what it includes and how it differs from the others]"
+            }
+          ],
+          "action": {
+            "label": "Ask which one suits you",
+            "href": "mailto:contact@example.com"
+          },
+          "layout": "variant_guide"
+        }
+      }
+    },
+    {
+      "id": "core.product_materials",
+      "version": 1,
+      "blockType": "core.product",
+      "schemaVersion": 3,
+      "layout": "materials",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Materiały i wykończenie",
+          "description": "Karty materiałów i wykończeń, każda może mieć zdjęcie próbki; bez zdjęcia karta ma pasek w kolorze akcentu.",
+          "usage": "Układ: materiały i wykończenie. Środek strony produktu; 2–6 kart. Dodaj zdjęcia prawdziwych próbek, gdy je masz."
+        },
+        "en": {
+          "name": "Materials and finish",
+          "description": "Cards for materials and finishes, each may carry a photo of a sample; without one the card has a strip in the accent colour.",
+          "usage": "Layout: materials and finish. Body of a product page; 2–6 cards. Add photos of real samples when you have them."
+        }
+      },
+      "goals": ["present_product"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["reassurance", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "contentGuidance": {
+        "minItems": 2,
+        "maxItems": 6,
+        "titleMaxCharacters": 60,
+        "bodyMaxCharacters": 400,
+        "mediaAspectRatio": "1:1"
+      },
+      "contentProfiles": ["S", "M"],
+      "readingPattern": "scan",
+      "styleAffinities": ["premium", "organic", "product", "editorial"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page"],
+      "conversion": {
+        "stage": "interest",
+        "primaryAction": false
+      },
+      "seed": {
+        "pl": {
+          "title": "Materiały i wykończenie",
+          "tagline": "Z czego jest zrobiony, jak wygląda z bliska i jak o niego dbać.",
+          "materials": [
+            {
+              "title": "[Uzupełnij: materiał]",
+              "text": "[Uzupełnij: dlaczego ten materiał i jak się sprawdza]"
+            },
+            {
+              "title": "[Uzupełnij: wykończenie powierzchni]",
+              "text": "[Uzupełnij: jak wygląda i jak się starzeje]"
+            },
+            {
+              "title": "Pielęgnacja",
+              "text": "[Uzupełnij: jak czyścić i czego unikać]"
+            }
+          ],
+          "layout": "materials"
+        },
+        "en": {
+          "title": "Materials and finish",
+          "tagline": "What it is made of, how it looks up close and how to care for it.",
+          "materials": [
+            {
+              "title": "[Fill in: material]",
+              "text": "[Fill in: why this material and how it performs]"
+            },
+            {
+              "title": "[Fill in: surface finish]",
+              "text": "[Fill in: how it looks and how it ages]"
+            },
+            {
+              "title": "Care",
+              "text": "[Fill in: how to clean it and what to avoid]"
+            }
+          ],
+          "layout": "materials"
+        }
+      }
+    },
+    {
+      "id": "core.product_how_to_order",
+      "version": 1,
+      "blockType": "core.product",
+      "schemaVersion": 3,
+      "layout": "how_to_order",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Jak zamówić",
+          "description": "Kroki zamówienia od wiadomości do dostawy i jeden przycisk na końcu. Bez koszyka, cen i stanu magazynu.",
+          "usage": "Układ: jak zamówić. Koniec strony produktu, przed formularzem; 3–6 kroków. Przycisk ma przykładowy adres — podmień go na swój kontakt."
+        },
+        "en": {
+          "name": "How to order",
+          "description": "The ordering steps from the first message to delivery and one button at the end. No cart, prices or stock.",
+          "usage": "Layout: how to order. End of a product page, before the form; 3–6 steps. The button has a sample address — replace it with your contact."
+        }
+      },
+      "goals": ["explain_process", "receive_inquiry"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 6,
+        "titleMaxCharacters": 60,
+        "bodyMaxCharacters": 300,
+        "mediaAspectRatio": "4:3"
+      },
+      "contentProfiles": ["S", "M"],
+      "readingPattern": "linear",
+      "styleAffinities": ["product", "technical", "organic", "expert"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page"],
+      "conversion": {
+        "stage": "action",
+        "primaryAction": true
+      },
+      "seed": {
+        "pl": {
+          "title": "Jak zamówić",
+          "tagline": "Bez koszyka i zakładania konta — wystarczy wiadomość.",
+          "steps": [
+            {
+              "title": "Napisz do nas",
+              "text": "Opisz, czego potrzebujesz: wariant, ilość i termin."
+            },
+            {
+              "title": "Potwierdzimy szczegóły",
+              "text": "[Uzupełnij: w jakim czasie odpowiadacie i co ustalacie]"
+            },
+            {
+              "title": "Zamówienie i płatność",
+              "text": "[Uzupełnij: jak przyjmujecie zamówienie i płatność]"
+            },
+            {
+              "title": "Dostawa lub odbiór",
+              "text": "[Uzupełnij: sposób i czas dostawy]"
+            }
+          ],
+          "action": {
+            "label": "Napisz w sprawie zamówienia",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "how_to_order"
+        },
+        "en": {
+          "title": "How to order",
+          "tagline": "No cart and no account — a message is enough.",
+          "steps": [
+            {
+              "title": "Write to us",
+              "text": "Tell us what you need: the variant, the quantity and when."
+            },
+            {
+              "title": "We confirm the details",
+              "text": "[Fill in: how soon you reply and what you agree on]"
+            },
+            {
+              "title": "Order and payment",
+              "text": "[Fill in: how you take the order and the payment]"
+            },
+            {
+              "title": "Delivery or pick-up",
+              "text": "[Fill in: how and when you deliver]"
+            }
+          ],
+          "action": {
+            "label": "Write about an order",
+            "href": "mailto:contact@example.com"
+          },
+          "layout": "how_to_order"
+        }
+      }
+    },
+    {
+      "id": "core.product_electronics_datasheet",
+      "version": 1,
+      "blockType": "core.product",
+      "schemaVersion": 3,
+      "layout": "spec_groups",
+      "kind": "industry",
+      "industries": ["electronics"],
+      "labels": {
+        "pl": {
+          "name": "Karta parametrów z dokumentacją",
+          "description": "Parametry elektryczne i mechaniczne w grupach oraz karta katalogowa, schemat i instrukcja do pobrania.",
+          "usage": "Układ: karta parametrów z dokumentacją. Strona modułu lub płytki; wartości wpisz z karty katalogowej, adresy dokumentów podmień na swoje pliki."
+        },
+        "en": {
+          "name": "Specifications with documentation",
+          "description": "Electrical and mechanical parameters in groups, with the datasheet, wiring diagram and guide to download.",
+          "usage": "Layout: specifications with documentation. A module or board page; take the values from the datasheet and replace the document addresses with your files."
+        }
+      },
+      "goals": ["present_product", "answer_questions"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["reassurance", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "contentGuidance": {
+        "minItems": 6,
+        "maxItems": 24,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 200,
+        "mediaAspectRatio": "4:3"
+      },
+      "contentProfiles": ["M", "L"],
+      "readingPattern": "reference",
+      "styleAffinities": ["technical", "product"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page"],
+      "conversion": {
+        "stage": "interest",
+        "primaryAction": false
+      },
+      "seed": {
+        "pl": {
+          "title": "Parametry techniczne",
+          "tagline": "Dane z karty katalogowej, pogrupowane tak, jak szuka ich projektant.",
+          "specs": [
+            {
+              "group": "Zasilanie",
+              "label": "Napięcie zasilania",
+              "value": "[Uzupełnij: zakres napięcia]"
+            },
+            {
+              "label": "Pobór prądu",
+              "value": "[Uzupełnij: typowy i maksymalny]"
+            },
+            {
+              "group": "Wejścia i wyjścia",
+              "label": "Wejścia cyfrowe",
+              "value": "[Uzupełnij: liczba i poziomy]"
+            },
+            {
+              "label": "Wyjścia",
+              "value": "[Uzupełnij: liczba i obciążalność]"
+            },
+            {
+              "label": "Interfejsy",
+              "value": "[Uzupełnij: np. UART, I²C, CAN]"
+            },
+            {
+              "group": "Środowisko i montaż",
+              "label": "Temperatura pracy",
+              "value": "[Uzupełnij: zakres]"
+            },
+            {
+              "label": "Montaż",
+              "value": "[Uzupełnij: sposób montażu]"
+            },
+            {
+              "label": "Wymiary płytki",
+              "value": "[Uzupełnij: wymiary]"
+            }
+          ],
+          "documents": [
+            {
+              "label": "Karta katalogowa (PDF)",
+              "href": "https://example.com/karta-katalogowa.pdf",
+              "note": "[Uzupełnij: wersja i data]"
+            },
+            {
+              "label": "Schemat połączeń",
+              "href": "https://example.com/schemat.pdf",
+              "note": "[Uzupełnij: format pliku]"
+            },
+            {
+              "label": "Instrukcja uruchomienia",
+              "href": "https://example.com/instrukcja.pdf",
+              "note": "[Uzupełnij: w jakich językach]"
+            }
+          ],
+          "layout": "spec_groups"
+        },
+        "en": {
+          "title": "Technical specifications",
+          "tagline": "Data from the datasheet, grouped the way a designer looks for it.",
+          "specs": [
+            {
+              "group": "Power",
+              "label": "Supply voltage",
+              "value": "[Fill in: voltage range]"
+            },
+            {
+              "label": "Current draw",
+              "value": "[Fill in: typical and maximum]"
+            },
+            {
+              "group": "Inputs and outputs",
+              "label": "Digital inputs",
+              "value": "[Fill in: count and levels]"
+            },
+            {
+              "label": "Outputs",
+              "value": "[Fill in: count and load]"
+            },
+            {
+              "label": "Interfaces",
+              "value": "[Fill in: e.g. UART, I²C, CAN]"
+            },
+            {
+              "group": "Environment and mounting",
+              "label": "Operating temperature",
+              "value": "[Fill in: range]"
+            },
+            {
+              "label": "Mounting",
+              "value": "[Fill in: how it is mounted]"
+            },
+            {
+              "label": "Board size",
+              "value": "[Fill in: dimensions]"
+            }
+          ],
+          "documents": [
+            {
+              "label": "Datasheet (PDF)",
+              "href": "https://example.com/datasheet.pdf",
+              "note": "[Fill in: revision and date]"
+            },
+            {
+              "label": "Wiring diagram",
+              "href": "https://example.com/wiring.pdf",
+              "note": "[Fill in: file format]"
+            },
+            {
+              "label": "Getting-started guide",
+              "href": "https://example.com/guide.pdf",
+              "note": "[Fill in: in which languages]"
+            }
+          ],
+          "layout": "spec_groups"
+        }
+      }
+    },
+    {
+      "id": "core.product_electronics_starter_kit",
+      "version": 1,
+      "blockType": "core.product",
+      "schemaVersion": 3,
+      "layout": "in_the_box",
+      "kind": "industry",
+      "industries": ["electronics"],
+      "labels": {
+        "pl": {
+          "name": "Zestaw uruchomieniowy",
+          "description": "Zdjęcie zestawu i lista wszystkiego, co jest w pudełku — płytka, kable, złącza, instrukcja i przykłady — z przyciskiem zapytania.",
+          "usage": "Układ: zestaw uruchomieniowy. Strona zestawu deweloperskiego; zawartość wpisz ze swojego zestawu. Zdjęcie przykładowe jest poglądowe, adres przycisku — przykładowy."
+        },
+        "en": {
+          "name": "Starter kit",
+          "description": "A photo of the kit and a list of everything in the box — board, cables, headers, guide and examples — with an inquiry button.",
+          "usage": "Layout: starter kit. A development kit page; list the contents of your kit. The sample photo is illustrative and the button address a sample."
+        }
+      },
+      "goals": ["present_product", "receive_inquiry"],
+      "composition": {
+        "role": "offer",
+        "preferredPosition": "body",
+        "recommendedNext": ["reassurance", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "contentGuidance": {
+        "minItems": 3,
+        "maxItems": 12,
+        "titleMaxCharacters": 80,
+        "bodyMaxCharacters": 300,
+        "mediaAspectRatio": "4:3"
+      },
+      "sampleMedia": {
+        "id": "electronics",
+        "alt": {
+          "pl": "Płytka drukowana na niebieskiej macie warsztatowej obok miernika i oscyloskopu",
+          "en": "A circuit board on a blue workbench mat next to a multimeter and an oscilloscope"
+        },
+        "path": ["images", 0]
+      },
+      "contentProfiles": ["S", "M"],
+      "readingPattern": "scan",
+      "styleAffinities": ["technical", "product"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page"],
+      "conversion": {
+        "stage": "interest",
+        "primaryAction": true
+      },
+      "seed": {
+        "pl": {
+          "title": "Zestaw uruchomieniowy",
+          "tagline": "Wszystko, czego potrzebujesz, żeby uruchomić płytkę pierwszego dnia.",
+          "images": [],
+          "included": [
+            {
+              "title": "[Uzupełnij: płytka i jej model]",
+              "quantity": "1×",
+              "text": "[Uzupełnij: wersja oprogramowania]"
+            },
+            {
+              "title": "Kabel USB",
+              "quantity": "1×",
+              "text": "[Uzupełnij: typ złącza i długość]"
+            },
+            {
+              "title": "Zworki i złącza",
+              "quantity": "[Uzupełnij: ile]",
+              "text": "[Uzupełnij: jakie]"
+            },
+            {
+              "title": "Instrukcja szybkiego startu",
+              "quantity": "1×",
+              "text": "[Uzupełnij: drukowana czy online]"
+            },
+            {
+              "title": "Przykładowe programy",
+              "text": "[Uzupełnij: gdzie je pobrać]"
+            }
+          ],
+          "action": {
+            "label": "Zapytaj o zestaw",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "in_the_box"
+        },
+        "en": {
+          "title": "Starter kit",
+          "tagline": "Everything you need to get the board running on the first day.",
+          "images": [],
+          "included": [
+            {
+              "title": "[Fill in: the board and its model]",
+              "quantity": "1×",
+              "text": "[Fill in: firmware version]"
+            },
+            {
+              "title": "USB cable",
+              "quantity": "1×",
+              "text": "[Fill in: connector type and length]"
+            },
+            {
+              "title": "Jumpers and headers",
+              "quantity": "[Fill in: how many]",
+              "text": "[Fill in: which ones]"
+            },
+            {
+              "title": "Quick-start guide",
+              "quantity": "1×",
+              "text": "[Fill in: printed or online]"
+            },
+            {
+              "title": "Example programs",
+              "text": "[Fill in: where to download them]"
+            }
+          ],
+          "action": {
+            "label": "Ask about the kit",
+            "href": "mailto:contact@example.com"
+          },
+          "layout": "in_the_box"
+        }
+      }
     }
   ]
 }

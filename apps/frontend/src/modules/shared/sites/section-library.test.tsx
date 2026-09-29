@@ -99,7 +99,7 @@ test("limits initial thumbnail rendering and exposes the remaining catalogue", (
   );
   expect(screen.getAllByRole("article")).toHaveLength(12);
   fireEvent.click(
-    screen.getByRole("button", { name: "Show more layouts (129 remaining)" }),
+    screen.getByRole("button", { name: "Show more layouts (138 remaining)" }),
   );
   expect(screen.getAllByRole("article")).toHaveLength(24);
   fireEvent.change(screen.getByLabelText("Category"), {
@@ -305,9 +305,12 @@ test("puts a product's sample photo into its gallery, not into `image`", async (
   fireEvent.change(screen.getByLabelText("Kategoria"), {
     target: { value: "core.product" },
   });
-  expect(screen.getAllByRole("article")).toHaveLength(1);
-  expect(screen.getByText(/Długość:/)).toBeDefined();
-  fireEvent.click(screen.getByRole("button", { name: /^Dodaj: / }));
+  // The showcase and seven product v3 layouts, and two electronics add-ons.
+  expect(screen.getAllByRole("article")).toHaveLength(10);
+  expect(screen.getAllByText(/Długość:/).length).toBeGreaterThan(0);
+  fireEvent.click(
+    screen.getByRole("button", { name: "Dodaj: Prezentacja produktu" }),
+  );
   await waitFor(() => expect(onAdd).toHaveBeenCalledOnce());
   const block = onAdd.mock.calls[0][0];
   expect(block.block_type).toBe("core.product");

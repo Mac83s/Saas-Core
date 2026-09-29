@@ -688,7 +688,8 @@ describe("secondary actions (hero v6, product v2)", () => {
         action: { label: "Oferta", href: "/oferta/" },
       },
     };
-    expect(registry.migrate(v1)).toEqual({ ...v1, schema_version: 2 });
+    // v2 and v3 (F4-P4) only add optional fields and layouts.
+    expect(registry.migrate(v1)).toEqual({ ...v1, schema_version: 3 });
     expect(render(v1)).not.toContain("site-section__actions");
     const v2: SiteBlock = {
       ...v1,

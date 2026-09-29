@@ -134,7 +134,7 @@ describe("section template contract", () => {
       expect(template.layout).toBe(previous.layout);
       // Each on the newest schema of its block type when v7 was cut. Rich
       // text v4 (a link's optional `rel`, ADR-061), feature_list v5 (F4-P1)
-      // and quote v2 (F4-P2) came later; these templates reach them through
+      // quote v2 (F4-P2) and product v3 (F4-P4) came later; these templates reach them through
       // identity migrators.
       expect(template.schemaVersion).toBe(
         (
@@ -142,6 +142,7 @@ describe("section template contract", () => {
             "core.rich_text": 3,
             "core.feature_list": 4,
             "core.quote": 1,
+            "core.product": 2,
           } as Record<string, number>
         )[template.blockType] ??
           coreSiteBlockManifest.blocks.find(
@@ -302,7 +303,7 @@ describe("section template contract", () => {
   });
 
   it("v7 appends F4-P3: six gallery layouts — sample photos marked as illustrative, titles are the owner's", () => {
-    expect(coreSectionTemplates()).toHaveLength(149);
+    expect(coreSectionTemplates().length).toBeGreaterThanOrEqual(149);
     const added = coreSectionTemplates().slice(143, 149);
     expect(added.map((template) => [template.id, template.layout])).toEqual([
       ["core.gallery_photo_story", "photo_story"],
@@ -350,9 +351,66 @@ describe("section template contract", () => {
     ).toEqual(["project_mosaic"]);
   });
 
+  it("v7 appends F4-P4: seven product layouts on product v3 and two electronics add-ons — no price, no invented parameters", () => {
+    expect(coreSectionTemplates()).toHaveLength(158);
+    const added = coreSectionTemplates().slice(149, 158);
+    expect(
+      added.map((template) => [
+        template.id,
+        template.layout,
+        template.industries.join(),
+      ]),
+    ).toEqual([
+      ["core.product_detail", "detail", ""],
+      ["core.product_spec_groups", "spec_groups", ""],
+      ["core.product_uses", "uses", ""],
+      ["core.product_in_the_box", "in_the_box", ""],
+      ["core.product_variant_guide", "variant_guide", ""],
+      ["core.product_materials", "materials", ""],
+      ["core.product_how_to_order", "how_to_order", ""],
+      ["core.product_electronics_datasheet", "spec_groups", "electronics"],
+      ["core.product_electronics_starter_kit", "in_the_box", "electronics"],
+    ]);
+    const marker = /^\[(Uzupełnij|Fill in): [^\]]+\]$/;
+    for (const template of added) {
+      expect(template).toMatchObject({
+        version: 1,
+        blockType: "core.product",
+        schemaVersion: 3,
+      });
+      expect(template.conversion).toBeDefined();
+      for (const locale of ["pl", "en"] as const) {
+        const seed = template.seed[locale] as {
+          specs?: { value: string }[];
+          action?: { href: string };
+          documents?: { href: string }[];
+        };
+        // No price or stock anywhere ("no cart" is said, never offered), and
+        // the parameters are the owner's to fill in from the product sheet.
+        expect(JSON.stringify(seed)).not.toMatch(
+          /\d+\s?(zł|PLN|EUR|€)|w magazynie|in stock/i,
+        );
+        for (const spec of seed.specs ?? []) expect(spec.value).toMatch(marker);
+        // A library section may land on a page without a #kontakt section.
+        if (seed.action) expect(seed.action.href).not.toMatch(/^#/);
+        for (const document of seed.documents ?? [])
+          expect(document.href).toMatch(/^https:\/\/example\.com\//);
+      }
+    }
+    expect(
+      added
+        .filter((template) => template.conversion?.primaryAction)
+        .map((template) => template.id),
+    ).toEqual([
+      "core.product_variant_guide",
+      "core.product_how_to_order",
+      "core.product_electronics_starter_kit",
+    ]);
+  });
+
   it("offers the newest version of each template, one per id, in catalogue order", () => {
     const offered = offeredSectionTemplates();
-    expect(offered).toHaveLength(141);
+    expect(offered).toHaveLength(150);
     // A revision keeps its predecessor's place in the library; new ids follow.
     expect(offered.map((template) => template.id)).toEqual([
       ...v6Catalog.templates.map((template) => template.id),
@@ -360,7 +418,7 @@ describe("section template contract", () => {
         .slice(128)
         .map((template) => template.id),
     ]);
-    expect(new Set(offered.map((template) => template.id)).size).toBe(141);
+    expect(new Set(offered.map((template) => template.id)).size).toBe(150);
     for (const template of offered)
       expect(template.version).toBe(
         Math.max(
@@ -439,7 +497,7 @@ describe("section template contract", () => {
     for (const [industry, count] of [
       ["medicine", 6],
       ["agriculture", 6],
-      ["electronics", 4],
+      ["electronics", 6],
     ] as const) {
       expect(
         all.filter((item) => item.industries.some((tag) => tag === industry)),

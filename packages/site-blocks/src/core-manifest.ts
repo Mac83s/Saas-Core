@@ -20,12 +20,9 @@ import quoteV2Schema from "@saas-core/contracts/site-blocks/core.quote.v2.schema
 import galleryV1Schema from "@saas-core/contracts/site-blocks/core.gallery.v1.schema.json";
 import productV1Schema from "@saas-core/contracts/site-blocks/core.product.v1.schema.json";
 import productV2Schema from "@saas-core/contracts/site-blocks/core.product.v2.schema.json";
+import productV3Schema from "@saas-core/contracts/site-blocks/core.product.v3.schema.json";
 import { plainBlockText } from "./block-text";
-import {
-  ProductBlock,
-  QuoteBlock,
-  withSecondaryAction,
-} from "./editorial-blocks";
+import { QuoteBlock, withSecondaryAction } from "./editorial-blocks";
 import {
   migrateRichTextV1ToV2,
   migrateRichTextV2ToV3,
@@ -43,6 +40,7 @@ import { createElement } from "react";
 import { renderImage } from "./ai-badge";
 import { FULL_WIDTH, publicImage } from "./public-image";
 import { GalleryBlock } from "./gallery-block";
+import { ProductV3Block } from "./product-layouts";
 
 import contactV1Schema from "@saas-core/contracts/site-blocks/core.contact.v1.schema.json";
 import contactV2Schema from "@saas-core/contracts/site-blocks/core.contact.v2.schema.json";
@@ -1093,13 +1091,14 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
     },
     {
       type: "core.product",
-      latestVersion: 2,
+      latestVersion: 3,
       schemas: [
         { version: 1, schema: productV1Schema },
         { version: 2, schema: productV2Schema },
+        { version: 3, schema: productV3Schema },
       ],
-      migrators: { 1: (data) => ({ ...data }) },
-      component: ProductBlock,
+      migrators: { 1: (data) => ({ ...data }), 2: (data) => ({ ...data }) },
+      component: ProductV3Block,
       catalog: {
         category: "offer",
         labelKey: "productBlock",
@@ -1111,6 +1110,7 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
             path: ["images"],
             kind: "list",
             labelKey: "productImages",
+            maxItems: 8,
             item: [
               {
                 path: ["asset_id"],
@@ -1126,7 +1126,9 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
             path: ["specs"],
             kind: "list",
             labelKey: "productSpecs",
+            maxItems: 24,
             item: [
+              { path: ["group"], kind: "text", labelKey: "itemGroup" },
               { path: ["label"], kind: "text", labelKey: "specLabel" },
               { path: ["value"], kind: "text", labelKey: "specValue" },
             ],
@@ -1135,9 +1137,91 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
             path: ["uses"],
             kind: "list",
             labelKey: "productUses",
+            maxItems: 8,
             item: [
               { path: ["title"], kind: "text", labelKey: "useTitle" },
               { path: ["text"], kind: "textarea", labelKey: "text" },
+              {
+                path: ["image", "asset_id"],
+                kind: "media",
+                labelKey: "imageAsset",
+                aspect: [4, 3],
+              },
+              { path: ["image", "alt"], kind: "text", labelKey: "imageAlt" },
+            ],
+          },
+          {
+            path: ["details"],
+            kind: "list",
+            labelKey: "productDetails",
+            maxItems: 6,
+            item: [
+              { path: ["title"], kind: "text", labelKey: "detailTitle" },
+              { path: ["text"], kind: "textarea", labelKey: "text" },
+            ],
+          },
+          {
+            path: ["included"],
+            kind: "list",
+            labelKey: "productIncluded",
+            maxItems: 16,
+            item: [
+              { path: ["title"], kind: "text", labelKey: "includedTitle" },
+              {
+                path: ["quantity"],
+                kind: "text",
+                labelKey: "includedQuantity",
+              },
+              { path: ["text"], kind: "textarea", labelKey: "text" },
+            ],
+          },
+          {
+            path: ["variants"],
+            kind: "list",
+            labelKey: "productVariants",
+            maxItems: 3,
+            item: [
+              { path: ["title"], kind: "text", labelKey: "variantTitle" },
+              { path: ["fit"], kind: "text", labelKey: "variantFit" },
+              { path: ["text"], kind: "textarea", labelKey: "text" },
+            ],
+          },
+          {
+            path: ["materials"],
+            kind: "list",
+            labelKey: "productMaterials",
+            maxItems: 8,
+            item: [
+              { path: ["title"], kind: "text", labelKey: "materialTitle" },
+              { path: ["text"], kind: "textarea", labelKey: "text" },
+              {
+                path: ["image", "asset_id"],
+                kind: "media",
+                labelKey: "imageAsset",
+                aspect: [1, 1],
+              },
+              { path: ["image", "alt"], kind: "text", labelKey: "imageAlt" },
+            ],
+          },
+          {
+            path: ["steps"],
+            kind: "list",
+            labelKey: "productSteps",
+            maxItems: 8,
+            item: [
+              { path: ["title"], kind: "text", labelKey: "stepTitle" },
+              { path: ["text"], kind: "textarea", labelKey: "text" },
+            ],
+          },
+          {
+            path: ["documents"],
+            kind: "list",
+            labelKey: "productDocuments",
+            maxItems: 8,
+            item: [
+              { path: ["label"], kind: "text", labelKey: "documentLabel" },
+              { path: ["href"], kind: "url", labelKey: "documentHref" },
+              { path: ["note"], kind: "text", labelKey: "documentNote" },
             ],
           },
           { path: ["action", "label"], kind: "text", labelKey: "actionLabel" },

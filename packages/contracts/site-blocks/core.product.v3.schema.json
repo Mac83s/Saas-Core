@@ -1,0 +1,322 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/site-blocks/core.product.v3.schema.json",
+  "title": "Core product presentation block v3",
+  "description": "Presentation of one physical or digital product with photographs, parameters and uses. Carries no price, stock or cart data; an action links to an existing contact or inquiry. v3 (F4-P4): seven more layouts and the lists they read — details, grouped parameters with documents, what is included, variants, materials, ordering steps.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["title"],
+  "properties": {
+    "layout": {
+      "type": "string",
+      "enum": [
+        "showcase",
+        "detail",
+        "spec_groups",
+        "uses",
+        "in_the_box",
+        "variant_guide",
+        "materials",
+        "how_to_order"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "tagline": {
+      "type": "string",
+      "maxLength": 240
+    },
+    "text": {
+      "type": "string",
+      "maxLength": 3000
+    },
+    "images": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["asset_id", "alt"],
+        "properties": {
+          "asset_id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+          },
+          "alt": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "caption": {
+            "type": "string",
+            "maxLength": 200
+          }
+        }
+      }
+    },
+    "specs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 24,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "value"],
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "value": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "group": {
+            "description": "Starts a group of parameters (a heading shown above this and the following ones).",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        }
+      }
+    },
+    "uses": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 600
+          },
+          "image": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["asset_id", "alt"],
+            "properties": {
+              "asset_id": {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+              },
+              "alt": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              }
+            }
+          }
+        }
+      }
+    },
+    "details": {
+      "description": "What the product looks like up close: short notes beside the main photo (layout detail).",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 400
+          }
+        }
+      }
+    },
+    "documents": {
+      "description": "Documents to download or read: a data sheet, a manual. Links to a page of this site or https:// only.",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "href"],
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "href": {
+            "type": "string",
+            "maxLength": 500,
+            "pattern": "^(?:/(?!/)|https://)"
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 200
+          }
+        }
+      }
+    },
+    "included": {
+      "description": "What is in the box or the set (layout in_the_box).",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "quantity": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 300
+          }
+        }
+      }
+    },
+    "variants": {
+      "description": "Up to three variants side by side and who each is for (layout variant_guide). No prices.",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "fit": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 600
+          }
+        }
+      }
+    },
+    "materials": {
+      "description": "Materials and finishes, each optionally with a photo (layout materials).",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 400
+          },
+          "image": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["asset_id", "alt"],
+            "properties": {
+              "asset_id": {
+                "type": "string",
+                "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+              },
+              "alt": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              }
+            }
+          }
+        }
+      }
+    },
+    "steps": {
+      "description": "How to order, step by step, ending in the section's action (layout how_to_order). No cart.",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["title"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 600
+          }
+        }
+      }
+    },
+    "action": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "href"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "href": {
+          "type": "string",
+          "maxLength": 500,
+          "pattern": "^(?:/(?!/)|https://|mailto:|tel:|#[a-z][a-z0-9-]{0,63}$)"
+        }
+      }
+    },
+    "secondaryAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "href"],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "href": {
+          "type": "string",
+          "maxLength": 500,
+          "pattern": "^(?:/(?!/)|https://|mailto:|tel:|#[a-z][a-z0-9-]{0,63}$)"
+        }
+      }
+    }
+  }
+}
