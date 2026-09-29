@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import axe from "axe-core";
 import { NextIntlClientProvider } from "next-intl";
@@ -91,10 +92,32 @@ function renderPanel() {
   );
 }
 
+/** Opens a row's "…" menu; the emergency stop lives there (ADR-057). */
+async function openMenu(credential: string) {
+  const trigger = await screen.findByRole("button", {
+    name: `Działania dla poświadczenia ${credential}`,
+  });
+  fireEvent.click(trigger);
+  return trigger;
+}
+
+async function startRevoke() {
+  const trigger = await openMenu(live.credential_id);
+  fireEvent.click(
+    await screen.findByRole("menuitem", { name: "Awaryjnie odwołaj dostęp" }),
+  );
+  return trigger;
+}
+
 test("pokazuje zakres, granice i ostatnią aktywność każdego połączenia", async () => {
   const rendered = renderPanel();
 
   expect(await screen.findByText(live.credential_id)).not.toBeNull();
+  // The shared panel list (ADR-054): one row per grant, its state beside it.
+  const table = screen.getByRole("table", {
+    name: "Połączenia automatyzacji z ich stanem i zasięgiem",
+  });
+  expect(within(table).getAllByRole("row")).toHaveLength(4);
   expect(screen.getByText("Zapisywanie szkiców")).not.toBeNull();
   expect(screen.getByText("kkk")).not.toBeNull();
   // A revoked grant stays on the list: "who had access last month" is a
@@ -113,19 +136,48 @@ test("nie proponuje odwołania grantu, który już nie działa", async () => {
   renderPanel();
   await screen.findByText(live.credential_id);
 
-  // One button, for the one live connection — offering it on a revoked grant
-  // would suggest there is something left to stop.
+  // Only the live connection's menu offers the stop — offering it on a
+  // revoked grant would suggest there is something left to stop.
+  await openMenu(revoked.credential_id);
+  const items = (await screen.findAllByRole("menuitem")).map(
+    (item) => item.textContent,
+  );
+  expect(items).toEqual(["Szczegóły połączenia"]);
+  fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+
+  await openMenu(live.credential_id);
   expect(
-    screen.getAllByRole("button", { name: /Awaryjnie odwołaj dostęp/ }),
-  ).toHaveLength(1);
+    await screen.findByRole("menuitem", { name: "Awaryjnie odwołaj dostęp" }),
+  ).not.toBeNull();
+});
+
+test("szczegóły pokazują limity, okno i pełny zasięg grantu", async () => {
+  renderPanel();
+  await screen.findByText(live.credential_id);
+
+  const row = screen.getByText(live.credential_id).closest("tr")!;
+  const trigger = within(row).getByRole("button", {
+    name: "Szczegóły połączenia",
+  });
+  fireEvent.click(trigger);
+
+  const dialog = await screen.findByRole("dialog", {
+    name: "Szczegóły połączenia",
+  });
+  expect(within(dialog).getByText("25 na dobę")).not.toBeNull();
+  expect(within(dialog).getByText(/100\s000 bajtów/)).not.toBeNull();
+  expect(within(dialog).getByText("07:00:00–18:00:00")).not.toBeNull();
+  expect(within(dialog).getByText(live.scope.id)).not.toBeNull();
+  expect((await axe.run(document.body)).violations).toHaveLength(0);
+
+  fireEvent.keyDown(document, { key: "Escape" });
+  await waitFor(() => expect(trigger).toHaveFocus());
 });
 
 test("odcina połączenie dopiero po podaniu powodu", async () => {
   const rendered = renderPanel();
   await screen.findByText(live.credential_id);
-  fireEvent.click(
-    screen.getByRole("button", { name: /Awaryjnie odwołaj dostęp/ }),
-  );
+  await startRevoke();
 
   const submit = await screen.findByRole("button", {
     name: /Odwołaj dostęp natychmiast/,
@@ -160,11 +212,8 @@ test("odcina połączenie dopiero po podaniu powodu", async () => {
   );
   // The whole list comes back, so the screen cannot show a stale row beside
   // the one it just changed.
-  await waitFor(() =>
-    expect(
-      screen.queryByRole("button", { name: /Awaryjnie odwołaj dostęp/ }),
-    ).toBeNull(),
-  );
+  await waitFor(() => expect(screen.getAllByText("Odwołane")).toHaveLength(2));
+  expect(screen.queryByRole("dialog")).toBeNull();
   expect((await axe.run(rendered.container)).violations).toHaveLength(0);
 });
 
@@ -173,11 +222,7 @@ test("ogłasza błąd odwołania i pozostawia dialog otwarty do ponowienia", asy
   revokeAutomationGrant.mockRejectedValueOnce(new Error("offline"));
   renderPanel();
 
-  fireEvent.click(
-    await screen.findByRole("button", {
-      name: /Awaryjnie odwołaj dostęp/,
-    }),
-  );
+  await startRevoke();
   fireEvent.change(await screen.findByLabelText("Powód awaryjnego odwołania"), {
     target: { value: "Podejrzenie incydentu." },
   });
@@ -195,15 +240,11 @@ test("ogłasza błąd odwołania i pozostawia dialog otwarty do ponowienia", asy
   expect(screen.getByRole("dialog")).not.toBeNull();
 });
 
-test("po Escape przywraca fokus na przycisku awaryjnego odwołania", async () => {
+test("po Escape przywraca fokus na menu wiersza, z którego otwarto odwołanie", async () => {
   listAutomationConnections.mockResolvedValueOnce([live]);
   renderPanel();
 
-  const trigger = await screen.findByRole("button", {
-    name: /Awaryjnie odwołaj dostęp/,
-  });
-  trigger.focus();
-  fireEvent.click(trigger);
+  const trigger = await startRevoke();
   await screen.findByRole("dialog");
 
   // Returning focus preserves the operator's place after abandoning a

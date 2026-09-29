@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import axe from "axe-core";
 import { NextIntlClientProvider } from "next-intl";
@@ -109,12 +110,13 @@ test("shows nested generated FAQ and feature content as escaped review text", as
       },
     ],
   });
-  const rendered = renderQueue();
+  renderQueue();
   fireEvent.click(await screen.findByRole("button", { name: "Pokaż zmianę" }));
   expect(await screen.findByText(/Generated question/)).not.toBeNull();
   expect(screen.getByText(/<b>Generated answer<\/b>/)).not.toBeNull();
   expect(screen.getByText("Generated feature")).not.toBeNull();
-  expect(rendered.container.querySelector("b")).toBeNull();
+  // The review is a dialog, rendered outside the queue's own container.
+  expect(document.body.querySelector("b")).toBeNull();
 });
 
 function renderQueue() {
@@ -135,6 +137,11 @@ test("przedstawia rekomendację jako twierdzenie integracji, nie jako fakt", asy
   // The wording matters as much as the content: an operator who reads
   // recommendations as findings stops reading them.
   expect(await screen.findByText(/Integracja twierdzi:/)).not.toBeNull();
+  // The shared panel list (ADR-054): one row per proposal.
+  const table = screen.getByRole("table", {
+    name: "Propozycje integracji do przejrzenia",
+  });
+  expect(within(table).getAllByRole("row")).toHaveLength(2);
   expect(
     screen.getByText(/Spodziewany efekt według integracji/),
   ).not.toBeNull();
@@ -148,17 +155,23 @@ test("przedstawia rekomendację jako twierdzenie integracji, nie jako fakt", asy
 test("pokazuje treść przed i po dopiero na żądanie", async () => {
   const rendered = renderQueue();
   const toggle = await screen.findByRole("button", { name: "Pokaż zmianę" });
-  // Collapsed by default: the queue is a screen somebody scans, and the diff
+  // Closed by default: the queue is a screen somebody scans, and the diff
   // is what they open once something looks worth deciding on.
   expect(readContentProposal).not.toHaveBeenCalled();
-  expect(toggle.getAttribute("aria-expanded")).toBe("false");
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect((await axe.run(rendered.container)).violations).toHaveLength(0);
 
   fireEvent.click(toggle);
 
   await waitFor(() => expect(readContentProposal).toHaveBeenCalledOnce());
-  expect(await screen.findByText("Stara treść.")).not.toBeNull();
-  expect(screen.getByText("Nowa treść.")).not.toBeNull();
-  expect((await axe.run(rendered.container)).violations).toHaveLength(0);
+  const dialog = await screen.findByRole("dialog", { name: "Wpis bloga" });
+  expect(await within(dialog).findByText("Stara treść.")).not.toBeNull();
+  expect(within(dialog).getByText("Nowa treść.")).not.toBeNull();
+  expect((await axe.run(document.body)).violations).toHaveLength(0);
+
+  // Closing the review returns focus to the row's button it came from.
+  fireEvent.keyDown(document, { key: "Escape" });
+  await waitFor(() => expect(toggle).toHaveFocus());
 });
 
 test("odrzuca propozycję i usuwa ją z kolejki", async () => {
@@ -167,8 +180,12 @@ test("odrzuca propozycję i usuwa ją z kolejki", async () => {
     .mockResolvedValueOnce([]);
   renderQueue();
 
+  // Rejecting throws the change away, so it sits in the row's "…" menu.
   fireEvent.click(
-    await screen.findByRole("button", { name: /Odrzuć i cofnij szkic/ }),
+    await screen.findByRole("button", { name: /Działania dla propozycji z/ }),
+  );
+  fireEvent.click(
+    await screen.findByRole("menuitem", { name: "Odrzuć i cofnij szkic" }),
   );
 
   await waitFor(() => expect(discardContentProposal).toHaveBeenCalledOnce());
@@ -185,12 +202,18 @@ test("odrzuca propozycję i usuwa ją z kolejki", async () => {
 test("oddziela przyjęcie do szkicu od publikacji", async () => {
   renderQueue();
 
-  expect(
-    await screen.findByText(/Wpis opublikujesz osobno na zakładce Blog/),
-  ).not.toBeNull();
+  // Nothing to accept before the change has been looked at.
+  fireEvent.click(await screen.findByRole("button", { name: "Pokaż zmianę" }));
   expect(
     screen.queryByRole("button", { name: "Przyjmij do szkicu" }),
   ).toBeNull();
+  const dialog = await screen.findByRole("dialog");
+  expect(
+    within(dialog).getByText(/Wpis opublikujesz osobno na zakładce Blog/),
+  ).not.toBeNull();
+  expect(
+    await within(dialog).findByRole("button", { name: "Przyjmij do szkicu" }),
+  ).not.toBeNull();
 });
 
 test("przyjmuje dopiero obejrzaną zmianę z tokenem jej przeglądu", async () => {
@@ -275,4 +298,5 @@ test("angielski przegląd metadanych zachowuje dostępność", async () => {
   ).not.toBeNull();
   expect(screen.getAllByText("Search description")).toHaveLength(2);
   expect((await axe.run(rendered.container)).violations).toHaveLength(0);
+  expect((await axe.run(document.body)).violations).toHaveLength(0);
 });
