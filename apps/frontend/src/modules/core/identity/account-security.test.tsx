@@ -84,6 +84,11 @@ test("weryfikacja dwuetapowa: klucz, kod, kody odzyskiwania", async () => {
 
   expect(await screen.findByText("JBSW Y3DP EHPK 3PXP")).toBeInTheDocument();
   expect(
+    screen.getByRole("img", {
+      name: "Kod QR do zeskanowania w aplikacji uwierzytelniającej",
+    }).firstElementChild?.tagName,
+  ).toBe("svg");
+  expect(
     screen.getByRole("link", { name: "Otwórz aplikację uwierzytelniającą" }),
   ).toHaveAttribute("href", expect.stringMatching(/^otpauth:\/\/totp\//));
   const code = screen.getByLabelText("Kod potwierdzający");

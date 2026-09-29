@@ -25,6 +25,8 @@ import {
 import { Field, FieldError, FieldLabel } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
 
+import { MfaQrCode } from "./mfa-qr";
+
 /**
  * The API changes a password only through an e-mailed link (the reset flow,
  * which then signs out every device), so that is what the account offers.
@@ -190,6 +192,7 @@ export function TwoFactorCard() {
             <ol className="list-decimal space-y-3 pl-5 text-sm">
               <li className="space-y-2">
                 <p>{t("mfaScan")}</p>
+                <MfaQrCode value={setup.provisioning_uri} />
                 <div className="rounded-lg border bg-muted/40 p-3">
                   <p className="text-xs text-muted-foreground">
                     {identity("manualSecret")}

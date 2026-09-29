@@ -42,6 +42,7 @@ import {
 } from "@saas-core/ui/components/select";
 
 import { Link, useRouter } from "#i18n/navigation";
+import { MfaQrCode } from "./mfa-qr";
 import { identityErrorMessage, identityFieldError } from "./problem";
 
 type LoginValues = { email: string; password: string };
@@ -165,12 +166,13 @@ export function LoginForm({ returnTo = "/panel" }: { returnTo?: string }) {
         {stage === "setup" && setup && (
           <div className="space-y-3">
             <Notice>{t("setupMfa")}</Notice>
+            <MfaQrCode value={setup.provisioning_uri} />
+            {/* The raw otpauth:// address used to be printed here as well. The
+                QR code carries the same string, so what is left is the one
+                form a person can actually retype. */}
             <div className="rounded-lg border bg-muted/40 p-3 text-xs break-all">
               <p className="font-medium">{t("manualSecret")}</p>
-              <code>{setup.secret}</code>
-              <p className="mt-2 text-muted-foreground">
-                {setup.provisioning_uri}
-              </p>
+              <code>{setup.secret.match(/.{1,4}/g)?.join(" ")}</code>
             </div>
           </div>
         )}
