@@ -1440,6 +1440,114 @@
   }
 }
 
+/* core.quote v2 (F4-P2). The statement never gets a face it did not
+   supply: voices carry initials, only the portrait layout a photo. */
+.site-theme .site-section--quote > h2 {
+  font-size: var(--site-section-size, clamp(1.5rem, 1.2rem + 1.5cqw, 2.25rem));
+  line-height: 1.2;
+  text-wrap: balance;
+}
+/* Context: the why beside the words; on a phone the why comes first. */
+.site-theme .site-section--quote.site-section--context {
+  align-items: start;
+}
+.site-theme .site-quote__lead {
+  display: grid;
+  gap: 1rem;
+}
+.site-theme .site-quote__lead h2 {
+  font-size: var(--site-section-size, clamp(1.5rem, 1.2rem + 1.5cqw, 2.25rem));
+  line-height: 1.2;
+  text-wrap: balance;
+}
+.site-theme .site-section--context .site-quote--large {
+  padding-inline-start: clamp(1rem, 3cqw, 2rem);
+  border-inline-start: 3px solid var(--site-accent);
+}
+@container (min-width: 48rem) {
+  .site-theme .site-section--quote.site-section--context {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    column-gap: clamp(2rem, 5cqw, 4rem);
+  }
+}
+/* Source: a statement read from a publication; the citation is the point. */
+.site-theme .site-section--quote.site-section--source {
+  justify-items: start;
+}
+.site-theme .site-section--source .site-quote--large blockquote::before {
+  font-size: 2.75rem;
+}
+.site-theme .site-quote__source {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 60ch;
+  padding: 1rem 1.25rem;
+  border-radius: var(--site-radius, 0.75rem);
+  background: color-mix(in srgb, var(--site-accent) 7%, var(--background));
+  border-inline-start: 3px solid var(--site-accent);
+}
+.site-theme .site-quote__source cite {
+  font-style: normal;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.site-theme .site-quote__source cite a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+/* Voices: two or three statements side by side, initials above each. */
+.site-theme .site-section--quote.site-section--voices {
+  align-items: start;
+}
+.site-theme .site-quote__voices {
+  display: grid;
+  gap: clamp(1.25rem, 3cqw, 2rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.site-theme .site-quote__voices > li {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+  padding: clamp(1.25rem, 3cqw, 1.75rem);
+  border-radius: var(--site-radius, 0.75rem);
+  background: color-mix(in srgb, var(--site-accent) 5%, var(--background));
+  border: 1px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+}
+.site-theme .site-quote__voices .site-quote__monogram {
+  width: 3.5rem;
+  font-size: 1.375rem;
+}
+.site-theme .site-quote__voices .site-quote--large blockquote::before {
+  font-size: 2.5rem;
+}
+.site-theme .site-quote__voices .site-quote--large blockquote p {
+  font-size: clamp(1.125rem, 1rem + 0.6cqw, 1.375rem);
+  line-height: 1.45;
+}
+@container (min-width: 48rem) {
+  .site-theme .site-quote__voices {
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  }
+}
+/* With an action: proof, then the one next step. */
+.site-theme .site-section--quote.site-section--with_action {
+  justify-items: center;
+  text-align: center;
+}
+.site-theme .site-section--with_action .site-quote--large blockquote p {
+  margin-inline: auto;
+}
+.site-theme .site-section--with_action .site-quote--large figcaption {
+  justify-content: center;
+}
+.site-theme .site-section--with_action > .site-quote__context {
+  margin-inline: auto;
+  color: var(--foreground);
+}
+
 /* core.product showcase: gallery beside the details. */
 .site-theme .site-section--product {
   display: grid;

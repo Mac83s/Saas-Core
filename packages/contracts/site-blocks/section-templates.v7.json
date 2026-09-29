@@ -15619,6 +15619,411 @@
           "layout": "instruction_notes"
         }
       }
+    },
+    {
+      "id": "core.quote_typographic",
+      "version": 1,
+      "blockType": "core.quote",
+      "schemaVersion": 2,
+      "layout": "typographic",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Cytat typograficzny",
+          "description": "Jedno zdanie w dużym kroju, wyśrodkowane, z autorem pod spodem. Przerwa w długiej stronie albo zasada, którą firma się kieruje.",
+          "usage": "Układ: cytat typograficzny. Środek strony lub wpis; jedno krótkie zdanie działa najmocniej. Wpisz słowa osoby, która je wypowiedziała i zgodziła się na publikację; to nie jest opinia klienta ani rekomendacja."
+        },
+        "en": {
+          "name": "Typographic quote",
+          "description": "One sentence in large type, centred, with its author below. A pause in a long page, or a principle the company works by.",
+          "usage": "Layout: typographic quote. Page body or an entry; one short sentence works best. Use the words of the person who said them and agreed to publish them; this is not a customer review or an endorsement."
+        }
+      },
+      "goals": ["build_trust"],
+      "composition": {
+        "role": "editorial",
+        "preferredPosition": "body",
+        "recommendedNext": ["offer", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "quote": "[Uzupełnij: jedno zdanie o tym, co jest dla Was najważniejsze w pracy z klientem]",
+          "author": "[Uzupełnij: imię i nazwisko]",
+          "role": "[Uzupełnij: rola w firmie]",
+          "layout": "typographic"
+        },
+        "en": {
+          "quote": "[Fill in: one sentence on what matters most to you when working with a customer]",
+          "author": "[Fill in: name]",
+          "role": "[Fill in: role at the company]",
+          "layout": "typographic"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 120,
+        "bodyMaxCharacters": 200,
+        "mediaAspectRatio": null
+      },
+      "contentProfiles": ["S"],
+      "readingPattern": "linear",
+      "styleAffinities": ["editorial", "premium", "studio", "expert"],
+      "supportedWidths": ["narrow", "standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "proof",
+        "primaryAction": false
+      }
+    },
+    {
+      "id": "core.quote_context",
+      "version": 1,
+      "blockType": "core.quote",
+      "schemaVersion": 2,
+      "layout": "context",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Cytat z kontekstem",
+          "description": "Wyjaśnienie po jednej stronie, wypowiedź po drugiej: czytelnik najpierw wie, dlaczego te słowa są ważne, potem je czyta. Na telefonie wyjaśnienie jest pierwsze.",
+          "usage": "Układ: cytat z kontekstem. Środek strony, przed ofertą albo po niej. Wpisz słowa osoby, która je wypowiedziała i zgodziła się na publikację; to nie jest opinia klienta ani rekomendacja."
+        },
+        "en": {
+          "name": "Quote with context",
+          "description": "The explanation on one side, the statement on the other: readers learn why the words matter before reading them. On a phone the explanation comes first.",
+          "usage": "Layout: quote with context. Page body, before or after the offer. Use the words of the person who said them and agreed to publish them; this is not a customer review or an endorsement."
+        }
+      },
+      "goals": ["explain_topic", "build_trust"],
+      "composition": {
+        "role": "editorial",
+        "preferredPosition": "body",
+        "recommendedNext": ["offer", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Dlaczego tak pracujemy",
+          "context": "[Uzupełnij: 2–3 zdania o sytuacji, w której padły te słowa, i o tym, co z nich wynika dla klienta]",
+          "quote": "[Uzupełnij: wypowiedź, która to wyjaśnia]",
+          "author": "[Uzupełnij: imię i nazwisko]",
+          "role": "[Uzupełnij: rola w firmie]",
+          "layout": "context"
+        },
+        "en": {
+          "title": "Why we work this way",
+          "context": "[Fill in: 2–3 sentences on when these words were said and what they mean for a customer]",
+          "quote": "[Fill in: the statement that explains it]",
+          "author": "[Fill in: name]",
+          "role": "[Fill in: role at the company]",
+          "layout": "context"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 120,
+        "bodyMaxCharacters": 400,
+        "mediaAspectRatio": null
+      },
+      "contentProfiles": ["M"],
+      "readingPattern": "linear",
+      "styleAffinities": ["editorial", "expert", "organic"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "interest",
+        "primaryAction": false
+      }
+    },
+    {
+      "id": "core.quote_source",
+      "version": 1,
+      "blockType": "core.quote",
+      "schemaVersion": 2,
+      "layout": "source",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Cytat ze źródłem",
+          "description": "Wypowiedź z publikacji, wywiadu albo raportu, z wyraźnie podanym źródłem i odnośnikiem do całości.",
+          "usage": "Układ: cytat ze źródłem. Środek strony lub wpis; podaj prawdziwe źródło i adres. Wpisz słowa osoby, która je wypowiedziała i zgodziła się na publikację; to nie jest opinia klienta ani rekomendacja."
+        },
+        "en": {
+          "name": "Quote with its source",
+          "description": "A statement from a publication, an interview or a report, with its source named clearly and a link to the whole.",
+          "usage": "Layout: quote with its source. Page body or an entry; name the real source and its address. Use the words of the person who said them and agreed to publish them; this is not a customer review or an endorsement."
+        }
+      },
+      "goals": ["build_trust", "explain_topic"],
+      "composition": {
+        "role": "editorial",
+        "preferredPosition": "body",
+        "recommendedNext": ["offer", "editorial", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "quote": "[Uzupełnij: fragment wypowiedzi z publikacji]",
+          "author": "[Uzupełnij: imię i nazwisko]",
+          "role": "[Uzupełnij: rola w firmie]",
+          "source": {
+            "label": "[Uzupełnij: tytuł publikacji lub wywiadu i data]",
+            "href": "https://example.com/zrodlo"
+          },
+          "context": "[Uzupełnij: jedno zdanie o tym, czego dotyczyła publikacja]",
+          "layout": "source"
+        },
+        "en": {
+          "quote": "[Fill in: an excerpt from the publication]",
+          "author": "[Fill in: name]",
+          "role": "[Fill in: role at the company]",
+          "source": {
+            "label": "[Fill in: title of the publication or interview and its date]",
+            "href": "https://example.com/source"
+          },
+          "context": "[Fill in: one sentence on what the publication was about]",
+          "layout": "source"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 120,
+        "bodyMaxCharacters": 300,
+        "mediaAspectRatio": null
+      },
+      "contentProfiles": ["S", "M"],
+      "readingPattern": "linear",
+      "styleAffinities": ["editorial", "expert", "technical"],
+      "supportedWidths": ["narrow", "standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "proof",
+        "primaryAction": false
+      }
+    },
+    {
+      "id": "core.quote_voices",
+      "version": 1,
+      "blockType": "core.quote",
+      "schemaVersion": 2,
+      "layout": "voices",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Wypowiedzi obok siebie",
+          "description": "Dwie albo trzy krótkie wypowiedzi różnych osób obok siebie, każda z inicjałami zamiast zdjęcia. Dobre, gdy nad usługą pracują osoby w różnych rolach.",
+          "usage": "Układ: wypowiedzi obok siebie. Środek strony; każda wypowiedź od innej osoby. Wpisz słowa osoby, która je wypowiedziała i zgodziła się na publikację; to nie jest opinia klienta ani rekomendacja."
+        },
+        "en": {
+          "name": "Voices side by side",
+          "description": "Two or three short statements from different people side by side, each with initials instead of a photo. Good when people in different roles work on the service.",
+          "usage": "Layout: voices side by side. Page body; each statement from a different person. Use the words of the person who said them and agreed to publish them; this is not a customer review or an endorsement."
+        }
+      },
+      "goals": ["build_trust"],
+      "composition": {
+        "role": "editorial",
+        "preferredPosition": "body",
+        "recommendedNext": ["offer", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Jak o tej pracy mówią osoby z zespołu",
+          "quote": "[Uzupełnij: krótka wypowiedź pierwszej osoby]",
+          "author": "[Uzupełnij: imię i nazwisko]",
+          "role": "[Uzupełnij: rola w firmie]",
+          "voices": [
+            {
+              "quote": "[Uzupełnij: krótka wypowiedź drugiej osoby]",
+              "author": "[Uzupełnij: imię i nazwisko]",
+              "role": "[Uzupełnij: rola w firmie]"
+            },
+            {
+              "quote": "[Uzupełnij: krótka wypowiedź trzeciej osoby]",
+              "author": "[Uzupełnij: imię i nazwisko]",
+              "role": "[Uzupełnij: rola w firmie]"
+            }
+          ],
+          "layout": "voices"
+        },
+        "en": {
+          "title": "How the people on the team talk about this work",
+          "quote": "[Fill in: a short statement from the first person]",
+          "author": "[Fill in: name]",
+          "role": "[Fill in: role at the company]",
+          "voices": [
+            {
+              "quote": "[Fill in: a short statement from the second person]",
+              "author": "[Fill in: name]",
+              "role": "[Fill in: role at the company]"
+            },
+            {
+              "quote": "[Fill in: a short statement from the third person]",
+              "author": "[Fill in: name]",
+              "role": "[Fill in: role at the company]"
+            }
+          ],
+          "layout": "voices"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 2,
+        "maxItems": 3,
+        "titleMaxCharacters": 120,
+        "bodyMaxCharacters": 240,
+        "mediaAspectRatio": null
+      },
+      "contentProfiles": ["S", "M"],
+      "readingPattern": "scan",
+      "styleAffinities": ["mosaic", "organic", "expert", "studio"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "proof",
+        "primaryAction": false
+      }
+    },
+    {
+      "id": "core.quote_with_action",
+      "version": 1,
+      "blockType": "core.quote",
+      "schemaVersion": 2,
+      "layout": "with_action",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Cytat z wezwaniem",
+          "description": "Wypowiedź, jedno zdanie zachęty i jeden przycisk. Zamyka dowody i prowadzi do działania.",
+          "usage": "Układ: cytat z wezwaniem. Koniec ścieżki przed kontaktem albo zamiast niego; jeden przycisk na sekcję. Wpisz słowa osoby, która je wypowiedziała i zgodziła się na publikację; to nie jest opinia klienta ani rekomendacja."
+        },
+        "en": {
+          "name": "Quote with a next step",
+          "description": "A statement, one sentence of encouragement and one button. Closes the proof and leads to the next step.",
+          "usage": "Layout: quote with a next step. End of the path before the contact section or in its place; one button per section. Use the words of the person who said them and agreed to publish them; this is not a customer review or an endorsement."
+        }
+      },
+      "goals": ["build_trust", "start_conversation"],
+      "composition": {
+        "role": "editorial",
+        "preferredPosition": "body",
+        "recommendedNext": ["contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "none"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "quote": "[Uzupełnij: wypowiedź, która przekonuje do pierwszego kroku]",
+          "author": "[Uzupełnij: imię i nazwisko]",
+          "role": "[Uzupełnij: rola w firmie]",
+          "context": "Chcesz sprawdzić, czy możemy pomóc także Tobie? Napisz — odpowiemy [Uzupełnij: jak szybko odpowiadacie].",
+          "action": {
+            "label": "Zapytaj, czy możemy pomóc",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "with_action"
+        },
+        "en": {
+          "quote": "[Fill in: a statement that makes the first step easy]",
+          "author": "[Fill in: name]",
+          "role": "[Fill in: role at the company]",
+          "context": "Want to check whether we can help you too? Write to us — we reply [Fill in: how soon you reply].",
+          "action": {
+            "label": "Ask if we can help",
+            "href": "mailto:contact@example.com"
+          },
+          "layout": "with_action"
+        }
+      },
+      "contentGuidance": {
+        "minItems": 0,
+        "maxItems": 1,
+        "titleMaxCharacters": 120,
+        "bodyMaxCharacters": 300,
+        "mediaAspectRatio": null
+      },
+      "contentProfiles": ["S"],
+      "readingPattern": "linear",
+      "styleAffinities": ["editorial", "expert", "premium", "organic"],
+      "supportedWidths": ["narrow", "standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "action",
+        "primaryAction": true
+      }
     }
   ]
 }

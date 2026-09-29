@@ -132,14 +132,16 @@ describe("section template contract", () => {
       expect(template.version).toBe(2);
       expect(template.layout).toBe(previous.layout);
       // Each on the newest schema of its block type when v7 was cut. Rich
-      // text v4 (a link's optional `rel`, ADR-061) and feature_list v5 (F4-P1)
-      // came later; these templates reach them through identity migrators.
+      // text v4 (a link's optional `rel`, ADR-061), feature_list v5 (F4-P1)
+      // and quote v2 (F4-P2) came later; these templates reach them through
+      // identity migrators.
       expect(template.schemaVersion).toBe(
         (
-          { "core.rich_text": 3, "core.feature_list": 4 } as Record<
-            string,
-            number
-          >
+          {
+            "core.rich_text": 3,
+            "core.feature_list": 4,
+            "core.quote": 1,
+          } as Record<string, number>
         )[template.blockType] ??
           coreSiteBlockManifest.blocks.find(
             (block) => block.type === template.blockType,
@@ -166,8 +168,8 @@ describe("section template contract", () => {
   });
 
   it("v7 appends F4-P1: six list layouts on feature_list v5 and four add-ons for a practice and a farm", () => {
-    expect(coreSectionTemplates()).toHaveLength(138);
-    const added = coreSectionTemplates().slice(128);
+    expect(coreSectionTemplates().length).toBeGreaterThanOrEqual(138);
+    const added = coreSectionTemplates().slice(128, 138);
     expect(
       added.map((template) => [
         template.id,
@@ -248,9 +250,59 @@ describe("section template contract", () => {
     ).toBe(true);
   });
 
+  it("v7 appends F4-P2: five quote layouts on quote v2 — the words, names and sources are the owner's", () => {
+    expect(coreSectionTemplates()).toHaveLength(143);
+    const added = coreSectionTemplates().slice(138, 143);
+    expect(added.map((template) => [template.id, template.layout])).toEqual([
+      ["core.quote_typographic", "typographic"],
+      ["core.quote_context", "context"],
+      ["core.quote_source", "source"],
+      ["core.quote_voices", "voices"],
+      ["core.quote_with_action", "with_action"],
+    ]);
+    for (const template of added) {
+      expect(template).toMatchObject({
+        version: 1,
+        blockType: "core.quote",
+        schemaVersion: 2,
+        kind: "default",
+        requirements: { media: "none" },
+      });
+      expect(template.conversion).toBeDefined();
+      for (const locale of ["pl", "en"] as const) {
+        const seed = template.seed[locale] as {
+          quote: string;
+          author?: string;
+          role?: string;
+          image?: unknown;
+          voices?: { quote: string; author?: string; role?: string }[];
+          action?: { href: string };
+        };
+        // No invented statement, speaker or face: every one is a marker.
+        const marker = /^\[(Uzupełnij|Fill in): [^\]]+\]$/;
+        for (const voice of [seed, ...(seed.voices ?? [])]) {
+          expect(voice.quote).toMatch(marker);
+          expect(voice.author).toMatch(marker);
+          expect(voice.role).toMatch(marker);
+        }
+        expect(seed.image).toBeUndefined();
+        // A library section may land on a page without a #kontakt section.
+        if (seed.action) expect(seed.action.href).not.toMatch(/^#/);
+      }
+    }
+    const voices = added.find((template) => template.layout === "voices")!;
+    expect((voices.seed.pl as { voices: unknown[] }).voices.length + 1).toBe(3);
+    // One primary action, and only where the layout is the next step.
+    expect(
+      added
+        .filter((template) => template.conversion?.primaryAction)
+        .map((template) => template.layout),
+    ).toEqual(["with_action"]);
+  });
+
   it("offers the newest version of each template, one per id, in catalogue order", () => {
     const offered = offeredSectionTemplates();
-    expect(offered).toHaveLength(130);
+    expect(offered).toHaveLength(135);
     // A revision keeps its predecessor's place in the library; new ids follow.
     expect(offered.map((template) => template.id)).toEqual([
       ...v6Catalog.templates.map((template) => template.id),
@@ -258,7 +310,7 @@ describe("section template contract", () => {
         .slice(128)
         .map((template) => template.id),
     ]);
-    expect(new Set(offered.map((template) => template.id)).size).toBe(130);
+    expect(new Set(offered.map((template) => template.id)).size).toBe(135);
     for (const template of offered)
       expect(template.version).toBe(
         Math.max(

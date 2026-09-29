@@ -675,6 +675,8 @@ function BlockListField<TValues extends FieldValues>({
     name: name as never,
   });
   const item = field.item ?? [];
+  const full =
+    field.maxItems !== undefined && entries.fields.length >= field.maxItems;
   const error = fieldErrorMessage(form, name);
   const stored = useWatch({
     control: form.control,
@@ -721,15 +723,21 @@ function BlockListField<TValues extends FieldValues>({
           </FieldGroup>
         </div>
       ))}
-      <Button
-        onClick={() => entries.append(emptyFieldData(item) as never)}
-        size="sm"
-        type="button"
-        variant="outline"
-      >
-        <PlusIcon aria-hidden="true" />
-        {t("addEntry")}
-      </Button>
+      {full ? (
+        <p className="text-sm text-muted-foreground">
+          {t("listFull", { max: field.maxItems! })}
+        </p>
+      ) : (
+        <Button
+          onClick={() => entries.append(emptyFieldData(item) as never)}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          <PlusIcon aria-hidden="true" />
+          {t("addEntry")}
+        </Button>
+      )}
       {error ? (
         <p className="text-destructive text-sm" role="alert">
           {t(error)}

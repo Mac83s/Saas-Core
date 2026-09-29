@@ -10,7 +10,7 @@ import type {
   BlockImageRenderer,
   BlockTextRenderer,
   ProductV2Data,
-  QuoteV1Data,
+  QuoteV2Data,
 } from "./types";
 
 function externalRel(href: string): "noreferrer" | undefined {
@@ -83,7 +83,165 @@ export function QuoteBlock({
   options,
 }: BlockComponentProps) {
   const text = editor?.text ?? plainBlockText;
-  const quote = data as QuoteV1Data;
+  const quote = data as QuoteV2Data;
+  const layout = quote.layout;
+  if (layout === undefined || layout === "portrait")
+    return legacyQuote(quote, text, imageRenderer, options);
+  const source = quote.source;
+  const cite =
+    source === undefined
+      ? null
+      : h(
+          "cite",
+          null,
+          source.href !== undefined && options?.preview === false
+            ? h(
+                "a",
+                { href: source.href, rel: externalRel(source.href) },
+                text(["source", "label"], source.label),
+              )
+            : text(["source", "label"], source.label),
+        );
+  const statement = (
+    words: string,
+    author: string | undefined,
+    role: string | undefined,
+    path: readonly string[],
+    extra: ReactNode = null,
+  ) =>
+    h(
+      "figure",
+      { className: "site-quote site-quote--large" },
+      h("blockquote", null, h("p", null, text([...path, "quote"], words))),
+      author !== undefined || role !== undefined || extra !== null
+        ? h(
+            "figcaption",
+            null,
+            author === undefined
+              ? null
+              : h(
+                  "span",
+                  { className: "site-quote__author" },
+                  text([...path, "author"], author),
+                ),
+            role === undefined
+              ? null
+              : h(
+                  "span",
+                  { className: "site-quote__role" },
+                  text([...path, "role"], role),
+                ),
+            extra,
+          )
+        : null,
+    );
+  const title =
+    quote.title === undefined
+      ? null
+      : h(
+          "h2",
+          editor ? { role: "presentation" } : null,
+          text(["title"], quote.title),
+        );
+  const context =
+    quote.context === undefined
+      ? null
+      : h(
+          "p",
+          { className: "site-quote__context" },
+          text(["context"], quote.context),
+        );
+  const section = (...children: ReactNode[]) =>
+    h(
+      "section",
+      {
+        className: `site-block site-section site-section--quote site-section--${layout}`,
+        "data-block-type": "core.quote",
+        "data-section-layout": layout,
+      },
+      ...children,
+    );
+  switch (layout) {
+    case "context":
+      // The why on one side, the words on the other; on a phone the why
+      // comes first.
+      return section(
+        title || context
+          ? h("div", { className: "site-quote__lead" }, title, context)
+          : null,
+        statement(quote.quote, quote.author, quote.role, [], cite),
+      );
+    case "source":
+      // A statement read from a publication: the citation is the point.
+      return section(
+        statement(quote.quote, quote.author, quote.role, []),
+        cite || context
+          ? h("div", { className: "site-quote__source" }, cite, context)
+          : null,
+      );
+    case "voices":
+      return section(
+        title,
+        h(
+          "ul",
+          { className: "site-quote__voices" },
+          [
+            { quote: quote.quote, author: quote.author, role: quote.role },
+            ...(quote.voices ?? []),
+          ].map((voice, index) =>
+            h(
+              "li",
+              { key: index },
+              // Initials, never a picture: nobody's face is invented.
+              h(
+                "span",
+                { className: "site-quote__monogram", "aria-hidden": true },
+                monogram(voice.author),
+              ),
+              statement(
+                voice.quote,
+                voice.author,
+                voice.role,
+                index === 0 ? [] : ["voices", String(index - 1)],
+              ),
+            ),
+          ),
+        ),
+      );
+    case "with_action":
+      return section(
+        title,
+        statement(quote.quote, quote.author, quote.role, []),
+        context,
+        quote.action
+          ? h(
+              editor ? "span" : "a",
+              {
+                className: "site-section__action",
+                href: editor ? undefined : quote.action.href,
+                rel: editor ? undefined : externalRel(quote.action.href),
+              },
+              text(["action", "label"], quote.action.label),
+            )
+          : null,
+      );
+    default:
+      // typographic: the statement alone, as large as the page allows.
+      return section(
+        statement(quote.quote, quote.author, quote.role, [], cite),
+        context,
+      );
+  }
+}
+
+/** v1's markup, byte for byte: a quote without a layout or with a portrait
+ *  renders as it always has, so published pages keep their look. */
+function legacyQuote(
+  quote: QuoteV2Data,
+  text: BlockTextRenderer,
+  imageRenderer: BlockImageRenderer | undefined,
+  options: BlockComponentProps["options"],
+) {
   const source = quote.source;
   const caption =
     quote.author !== undefined || quote.role !== undefined || source

@@ -16,6 +16,7 @@ import richTextV2Schema from "@saas-core/contracts/site-blocks/core.rich_text.v2
 import richTextV3Schema from "@saas-core/contracts/site-blocks/core.rich_text.v3.schema.json";
 import richTextV4Schema from "@saas-core/contracts/site-blocks/core.rich_text.v4.schema.json";
 import quoteV1Schema from "@saas-core/contracts/site-blocks/core.quote.v1.schema.json";
+import quoteV2Schema from "@saas-core/contracts/site-blocks/core.quote.v2.schema.json";
 import productV1Schema from "@saas-core/contracts/site-blocks/core.product.v1.schema.json";
 import productV2Schema from "@saas-core/contracts/site-blocks/core.product.v2.schema.json";
 import { plainBlockText } from "./block-text";
@@ -990,14 +991,19 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
     },
     {
       type: "core.quote",
-      latestVersion: 1,
-      schemas: [{ version: 1, schema: quoteV1Schema }],
-      migrators: {},
+      latestVersion: 2,
+      schemas: [
+        { version: 1, schema: quoteV1Schema },
+        { version: 2, schema: quoteV2Schema },
+      ],
+      // v2 only adds optional fields (title, voices, action) and five layouts.
+      migrators: { 1: (data) => ({ ...data }) },
       component: QuoteBlock,
       catalog: {
         category: "about",
         labelKey: "quoteBlock",
         fields: [
+          { path: ["title"], kind: "text", labelKey: "heading" },
           { path: ["quote"], kind: "textarea", labelKey: "quoteText" },
           { path: ["author"], kind: "text", labelKey: "quoteAuthor" },
           { path: ["role"], kind: "text", labelKey: "quoteRole" },
@@ -1022,6 +1028,19 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
             realMediaOnly: true,
           },
           { path: ["image", "alt"], kind: "text", labelKey: "imageAlt" },
+          {
+            path: ["voices"],
+            kind: "list",
+            labelKey: "quoteVoices",
+            maxItems: 2,
+            item: [
+              { path: ["quote"], kind: "textarea", labelKey: "quoteText" },
+              { path: ["author"], kind: "text", labelKey: "quoteAuthor" },
+              { path: ["role"], kind: "text", labelKey: "quoteRole" },
+            ],
+          },
+          { path: ["action", "label"], kind: "text", labelKey: "actionLabel" },
+          { path: ["action", "href"], kind: "url", labelKey: "actionHref" },
         ],
       },
     },

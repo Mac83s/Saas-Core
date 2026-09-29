@@ -266,6 +266,26 @@ export type QuoteV1Data = JsonObject & {
   image?: { asset_id: string; alt: string };
 };
 
+/** F4-P2: five more layouts, a title, further voices and one action. */
+export type QuoteV2Data = JsonObject & {
+  layout?:
+    | "portrait"
+    | "typographic"
+    | "context"
+    | "source"
+    | "voices"
+    | "with_action";
+  title?: string;
+  quote: string;
+  author?: string;
+  role?: string;
+  source?: { label: string; href?: string };
+  context?: string;
+  image?: { asset_id: string; alt: string };
+  voices?: { quote: string; author?: string; role?: string }[];
+  action?: { label: string; href: string };
+};
+
 /** No price, stock or cart: those need real commerce capabilities. */
 export type ProductV1Data = JsonObject & {
   layout?: "showcase";
@@ -421,6 +441,9 @@ export interface BlockFieldDefinition {
   readonly aspect?: readonly [number, number];
   /** Present exactly when `kind` is `"list"`: the shape of a single entry. */
   readonly item?: readonly BlockFieldDefinition[];
+  /** On a list: the most entries its schema accepts. The panel stops
+   *  offering another rather than letting the save refuse it. */
+  readonly maxItems?: number;
   /** Present exactly when `kind` is `"choice"`: the allowed values; the first
    *  is what an absent value means, and `""` as the first offers absence
    *  itself. Labels live in the panel's messages. */

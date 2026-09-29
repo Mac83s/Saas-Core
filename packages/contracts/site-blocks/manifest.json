@@ -112,9 +112,10 @@
     },
     {
       "type": "core.quote",
-      "latestVersion": 1,
+      "latestVersion": 2,
       "schemas": {
-        "1": "core.quote.v1.schema.json"
+        "1": "core.quote.v1.schema.json",
+        "2": "core.quote.v2.schema.json"
       }
     },
     {
