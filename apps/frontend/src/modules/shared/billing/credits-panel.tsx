@@ -18,6 +18,7 @@ import {
   createCreditCheckout,
   getCustomerCredits,
   type CreditPack,
+  type CreditPurchase,
   type CustomerCreditsOverview,
 } from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
@@ -30,7 +31,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@saas-core/ui/components/card";
+import {
+  DataTable,
+  RowActions,
+  type ColumnDef,
+} from "@saas-core/ui/components/data-table";
 import { Link } from "#i18n/navigation";
+import { useDataTableLabels } from "#lib/data-table-labels";
 import {
   DemoPaymentBanner,
   Fact,
@@ -47,6 +54,7 @@ export function CreditsPanel({
   canManageBilling?: boolean;
 }) {
   const t = useTranslations("Credits");
+  const labels = useDataTableLabels();
   const locale = useLocale();
   const search = useSearchParams();
   const [overview, setOverview] = useState<CustomerCreditsOverview | undefined>(
@@ -91,6 +99,74 @@ export function CreditsPanel({
   const balance = overview?.balance;
   const checkout = search.get("checkout");
   const number = (value: number) => value.toLocaleString(locale);
+
+  const purchaseColumns: ColumnDef<CreditPurchase, unknown>[] = [
+    {
+      id: "credits",
+      accessorKey: "credits",
+      header: t("colCredits"),
+      meta: { primary: true },
+      cell: ({ row: { original: purchase } }) => (
+        <p className="font-medium">
+          {t("creditsCount", { count: purchase.credits })}
+        </p>
+      ),
+    },
+    {
+      id: "date",
+      accessorKey: "created_at",
+      header: t("colDate"),
+      cell: ({ row: { original: purchase } }) =>
+        formatDay(purchase.created_at, locale),
+    },
+    {
+      id: "amount",
+      accessorKey: "unit_amount_minor",
+      header: t("colAmount"),
+      meta: { className: "tabular-nums" },
+      cell: ({ row: { original: purchase } }) =>
+        formatMoney(purchase.unit_amount_minor, purchase.currency, locale),
+    },
+    {
+      id: "status",
+      accessorFn: (purchase) => t(`status_${purchase.status}`),
+      header: t("colStatus"),
+      cell: ({ row: { original: purchase } }) => (
+        <Badge
+          variant={
+            purchase.status === "succeeded"
+              ? "secondary"
+              : purchase.status === "failed"
+                ? "destructive"
+                : "outline"
+          }
+        >
+          {t(`status_${purchase.status}`)}
+        </Badge>
+      ),
+    },
+    {
+      id: "actions",
+      header: t("colActions"),
+      meta: { actions: true },
+      cell: ({ row: { original: purchase } }) =>
+        purchase.status === "pending" && purchase.checkout_url ? (
+          <RowActions
+            items={[
+              {
+                label: t("finishPayment"),
+                icon: <ExternalLinkIcon aria-hidden="true" />,
+                inline: true,
+                link: <a href={purchase.checkout_url} />,
+              },
+            ]}
+            label={t("actionsFor", {
+              date: formatDay(purchase.created_at, locale),
+            })}
+          />
+        ) : null,
+    },
+  ];
 
   return (
     <div className="space-y-8">
@@ -298,54 +374,13 @@ export function CreditsPanel({
               id="credit-history-heading"
               title={t("historyTitle")}
             />
-            {overview.purchases.length === 0 ? (
-              <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-                {t("historyEmpty")}
-              </p>
-            ) : (
-              <ul className="divide-y rounded-lg border">
-                {overview.purchases.map((purchase) => (
-                  <li
-                    className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3"
-                    key={purchase.id}
-                  >
-                    <div className="min-w-0 flex-1 basis-40">
-                      <p className="font-medium">
-                        {t("creditsCount", { count: purchase.credits })}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {formatDay(purchase.created_at, locale)} ·{" "}
-                        {formatMoney(
-                          purchase.unit_amount_minor,
-                          purchase.currency,
-                          locale,
-                        )}
-                      </p>
-                    </div>
-                    <Badge
-                      variant={
-                        purchase.status === "succeeded"
-                          ? "secondary"
-                          : purchase.status === "failed"
-                            ? "destructive"
-                            : "outline"
-                      }
-                    >
-                      {t(`status_${purchase.status}`)}
-                    </Badge>
-                    {purchase.status === "pending" && purchase.checkout_url ? (
-                      <a
-                        className={buttonVariants({ variant: "outline" })}
-                        href={purchase.checkout_url}
-                      >
-                        {t("finishPayment")}
-                        <ExternalLinkIcon aria-hidden="true" />
-                      </a>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            )}
+            <DataTable
+              caption={t("historyTitle")}
+              columns={purchaseColumns}
+              data={overview.purchases}
+              getRowId={(purchase) => purchase.id}
+              labels={{ ...labels, empty: t("historyEmpty") }}
+            />
           </section>
         </>
       ) : null}

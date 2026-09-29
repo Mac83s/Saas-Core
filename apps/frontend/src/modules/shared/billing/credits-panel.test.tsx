@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -241,18 +242,29 @@ test("historia pokazuje stan zakupów i pozwala dokończyć płatność", async 
     ],
   });
 
-  renderPanel();
+  const rendered = renderPanel();
 
-  expect(await screen.findByText("Oczekuje")).not.toBeNull();
-  expect(screen.getByText("Opłacony")).not.toBeNull();
-  expect(screen.getAllByText("500 kredytów").length).toBeGreaterThanOrEqual(2);
-  expect(screen.getByText("12 wrz 2026 · 199 zł")).not.toBeNull();
+  const table = await screen.findByRole("table", { name: "Historia zakupów" });
+  const rows = within(table).getAllByRole("row");
+  expect(rows).toHaveLength(3);
+  const pending = within(rows[1]!);
+  expect(pending.getByText("500 kredytów")).not.toBeNull();
+  expect(pending.getByText("12 wrz 2026")).not.toBeNull();
+  expect(pending.getByText("199 zł")).not.toBeNull();
+  expect(pending.getByText("Oczekuje")).not.toBeNull();
   expect(
-    screen.getByRole("link", { name: "Dokończ płatność" }).getAttribute("href"),
+    pending
+      .getByRole("link", { name: "Dokończ płatność" })
+      .getAttribute("href"),
   ).toBe("https://checkout.stripe.test/cs_pending");
+  // A settled purchase has nothing left to do.
+  expect(within(rows[2]!).getByText("Opłacony")).not.toBeNull();
+  expect(within(rows[2]!).queryByRole("link")).toBeNull();
+  expect(screen.getAllByText("500 kredytów").length).toBeGreaterThanOrEqual(2);
   expect(
     screen.getByRole("complementary", {
       name: "Demonstracyjny tryb płatności",
     }),
   ).not.toBeNull();
+  expect((await axe.run(rendered.container)).violations).toHaveLength(0);
 });
