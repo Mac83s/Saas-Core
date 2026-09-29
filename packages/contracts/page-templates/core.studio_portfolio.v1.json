@@ -1,0 +1,469 @@
+{
+  "id": "core.studio_portfolio",
+  "version": 1,
+  "category": "company",
+  "industries": [],
+  "labels": {
+    "pl": {
+      "name": "Studio i portfolio",
+      "description": "Strona pracowni, której najmocniejszym argumentem są realizacje: typograficzny manifest, mozaika realizacji, projekt z bliska, sposób pracy, pytania i formularz. Przykład: pracownia projektowa wnętrz; zdjęcia są poglądowe — wymień je na zdjęcia własnych realizacji."
+    },
+    "en": {
+      "name": "Studio and portfolio",
+      "description": "A studio page where the work is the strongest argument: a typographic manifesto, a project mosaic, one project up close, the way of working, questions and a form. Example: an interior design studio; the photos are illustrative — replace them with photos of your own work."
+    }
+  },
+  "requiredEntitlements": ["sites.enabled"],
+  "pagePresentation": {
+    "schemaVersion": 2,
+    "width": "full",
+    "style": "studio"
+  },
+  "conversion": {
+    "goal": "inquiry",
+    "stages": ["attention", "proof", "proof", "interest", "objection", "action"]
+  },
+  "media": [
+    {
+      "id": "agriculture",
+      "source": "assets/agriculture-farm.png",
+      "filename": "agriculture-farm.png",
+      "contentType": "image/png",
+      "sha256": "8f06eb2669e06dea7ac6092ed451b2c519d866c85134372af13c9911e023e9fb"
+    },
+    {
+      "id": "medicine",
+      "source": "assets/medicine-room.png",
+      "filename": "medicine-room.png",
+      "contentType": "image/png",
+      "sha256": "c66c34c8edd56d749d8cb0371212b6a6c989b0cd8126bd5f98728d55103a4c7c"
+    },
+    {
+      "id": "electronics",
+      "source": "assets/electronics-workshop.png",
+      "filename": "electronics-workshop.png",
+      "contentType": "image/png",
+      "sha256": "4c2d226103ee37783e586345b7c3dac12088e47210c079b6be1b54666a1c6eb8"
+    },
+    {
+      "id": "business",
+      "source": "assets/business-studio.png",
+      "filename": "business-studio.png",
+      "contentType": "image/png",
+      "sha256": "d913927c10daac2e3ceb7a2fcb28c00634dfe01961825509da104640e7f0fe43"
+    }
+  ],
+  "mediaBindings": [
+    {
+      "blockPosition": 1,
+      "mediaId": "agriculture",
+      "alt": {
+        "pl": "Krowy na pastwisku przy zabudowaniach gospodarstwa",
+        "en": "Cows grazing on a pasture by the farm buildings"
+      },
+      "path": ["items", 0, "image"]
+    },
+    {
+      "blockPosition": 1,
+      "mediaId": "medicine",
+      "alt": {
+        "pl": "Jasny gabinet z biurkiem przy oknie, fotelem zabiegowym i roślinami na półkach",
+        "en": "A bright consultation room with a desk by the window, a treatment chair and plants on the shelves"
+      },
+      "path": ["items", 1, "image"]
+    },
+    {
+      "blockPosition": 1,
+      "mediaId": "electronics",
+      "alt": {
+        "pl": "Płytka elektroniki na niebieskiej macie warsztatowej, w tle oscyloskop i multimetr",
+        "en": "An electronics board on a blue workbench mat, with an oscilloscope and a multimeter behind it"
+      },
+      "path": ["items", 2, "image"]
+    },
+    {
+      "blockPosition": 1,
+      "mediaId": "business",
+      "alt": {
+        "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+        "en": "A bright studio with an oak table and a laptop"
+      },
+      "path": ["items", 3, "image"]
+    },
+    {
+      "blockPosition": 2,
+      "mediaId": "medicine",
+      "alt": {
+        "pl": "Jasny gabinet z biurkiem przy oknie, fotelem zabiegowym i roślinami na półkach",
+        "en": "A bright consultation room with a desk by the window, a treatment chair and plants on the shelves"
+      },
+      "path": ["items", 0, "image"]
+    }
+  ],
+  "blocks": [
+    {
+      "block_type": "core.hero",
+      "schema_version": 6,
+      "data": {
+        "title": "Projektujemy miejsca i marki, do których chce się wracać",
+        "text": "Pracownia projektowa dla małych firm: wnętrza, identyfikacja i wszystko pomiędzy. Najwięcej powiedzą o nas realizacje — zobacz je poniżej.",
+        "action": {
+          "label": "Opowiedz o swoim projekcie",
+          "href": "#kontakt"
+        },
+        "secondaryAction": {
+          "label": "Zobacz realizacje",
+          "href": "#realizacje"
+        },
+        "layout": "poster"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "wide"
+      }
+    },
+    {
+      "block_type": "core.gallery",
+      "schema_version": 1,
+      "data": {
+        "layout": "project_mosaic",
+        "title": "Wybrane realizacje",
+        "lead": "[Uzupełnij: jedno zdanie o tym, jakie projekty tu pokazujesz]",
+        "items": [
+          {
+            "title": "[Uzupełnij: nazwa projektu, np. sklep przy gospodarstwie]",
+            "caption": "Zdjęcie poglądowe — wymień na zdjęcie tego projektu."
+          },
+          {
+            "title": "[Uzupełnij: nazwa projektu, np. wnętrze gabinetu]",
+            "caption": "Zdjęcie poglądowe — wymień na zdjęcie tego projektu."
+          },
+          {
+            "title": "[Uzupełnij: nazwa projektu, np. pracownia serwisowa]",
+            "caption": "Zdjęcie poglądowe — wymień na zdjęcie tego projektu."
+          },
+          {
+            "title": "[Uzupełnij: nazwa projektu, np. biuro zespołu]",
+            "caption": "Zdjęcie poglądowe — wymień na zdjęcie tego projektu."
+          },
+          {
+            "title": "Twój projekt może być następny",
+            "caption": "Napisz, czym się zajmujesz i co chcesz zmienić — zaproponujemy pierwszy krok."
+          }
+        ],
+        "action": {
+          "label": "Zapytaj o podobny projekt",
+          "href": "#kontakt"
+        }
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "wide",
+        "anchor": "realizacje"
+      }
+    },
+    {
+      "block_type": "core.gallery",
+      "schema_version": 1,
+      "data": {
+        "layout": "dominant_details",
+        "title": "Projekt z bliska",
+        "lead": "[Uzupełnij: dla kogo był ten projekt i co miał zmienić — jedno, dwa zdania]",
+        "items": [
+          {
+            "title": "[Uzupełnij: nazwa projektu]",
+            "caption": "Zdjęcie poglądowe — wymień na zdjęcie z tego projektu."
+          },
+          {
+            "title": "Punkt wyjścia",
+            "caption": "[Uzupełnij: z czym przyszedł klient]"
+          },
+          {
+            "title": "Co zrobiliśmy",
+            "caption": "[Uzupełnij: zakres prac w dwóch, trzech zdaniach]"
+          },
+          {
+            "title": "Efekt",
+            "caption": "[Uzupełnij: co się zmieniło — tylko to, co możesz pokazać albo potwierdzić]"
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "wide",
+        "surface": "muted"
+      }
+    },
+    {
+      "block_type": "core.feature_list",
+      "schema_version": 5,
+      "data": {
+        "title": "Jak pracujemy",
+        "lead": "Od pierwszej rozmowy do odbioru — na każdym etapie wiesz, co się dzieje i na co czekamy.",
+        "items": [
+          {
+            "title": "Rozmowa",
+            "text": "Poznajemy Twoją firmę, Twoich klientów i to, co ma się zmienić."
+          },
+          {
+            "title": "Koncepcja",
+            "text": "Pokazujemy kierunek — szkice, materiały, kolory — i razem wybieramy, co rozwijamy."
+          },
+          {
+            "title": "Projekt",
+            "text": "Dopracowujemy szczegóły i przygotowujemy dokumentację dla wykonawców."
+          },
+          {
+            "title": "Realizacja",
+            "text": "[Uzupełnij: czy nadzorujecie wykonanie i jak to wygląda]"
+          },
+          {
+            "title": "Odbiór",
+            "text": "Sprawdzamy efekt razem z Tobą i zamykamy projekt."
+          }
+        ],
+        "layout": "numbered"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "anchor": "jak-pracujemy"
+      }
+    },
+    {
+      "block_type": "core.faq",
+      "schema_version": 3,
+      "data": {
+        "layout": "split",
+        "title": "Zanim napiszesz",
+        "items": [
+          {
+            "question": "Ile kosztuje projekt?",
+            "answer": "[Uzupełnij: od czego zależy cena i kiedy ją poznam]."
+          },
+          {
+            "question": "Ile trwa projekt?",
+            "answer": "[Uzupełnij: typowy czas od pierwszej rozmowy do odbioru]."
+          },
+          {
+            "question": "Pracujecie poza swoim miastem?",
+            "answer": "[Uzupełnij: obszar, na którym pracujecie]."
+          },
+          {
+            "question": "Co przygotować na pierwszą rozmowę?",
+            "answer": "Wystarczy krótki opis firmy i tego, co chcesz zmienić. Zdjęcia miejsca albo obecnych materiałów bardzo pomagają."
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "anchor": "pytania"
+      }
+    },
+    {
+      "block_type": "core.contact_form",
+      "schema_version": 2,
+      "data": {
+        "layout": "split",
+        "contact": "email",
+        "locale": "pl",
+        "title": "Opowiedz o swoim projekcie",
+        "text": "Napisz, czym się zajmujesz i co chcesz zmienić. Odpowiemy [Uzupełnij: w jakim czasie] i zaproponujemy termin rozmowy.",
+        "submit_label": "Wyślij opis projektu",
+        "success_message": "Dziękujemy! Wiadomość dotarła do pracowni. Odpowiemy e-mailem.",
+        "privacy_label": "Informacje o prywatności"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "surface": "muted",
+        "anchor": "kontakt"
+      }
+    }
+  ],
+  "localizedBlocks": {
+    "en": [
+      {
+        "block_type": "core.hero",
+        "schema_version": 6,
+        "data": {
+          "title": "We design places and brands people want to come back to",
+          "text": "A design studio for small businesses: interiors, identity and everything in between. Our work says the most about us — see it below.",
+          "action": {
+            "label": "Tell us about your project",
+            "href": "#contact"
+          },
+          "secondaryAction": {
+            "label": "See our work",
+            "href": "#work"
+          },
+          "layout": "poster"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "wide"
+        }
+      },
+      {
+        "block_type": "core.gallery",
+        "schema_version": 1,
+        "data": {
+          "layout": "project_mosaic",
+          "title": "Selected work",
+          "lead": "[Fill in: one sentence on the projects shown here]",
+          "items": [
+            {
+              "title": "[Fill in: project name, e.g. a farm shop]",
+              "caption": "Illustrative photo — replace it with a photo of this project."
+            },
+            {
+              "title": "[Fill in: project name, e.g. a consultation room]",
+              "caption": "Illustrative photo — replace it with a photo of this project."
+            },
+            {
+              "title": "[Fill in: project name, e.g. a repair workshop]",
+              "caption": "Illustrative photo — replace it with a photo of this project."
+            },
+            {
+              "title": "[Fill in: project name, e.g. a team office]",
+              "caption": "Illustrative photo — replace it with a photo of this project."
+            },
+            {
+              "title": "Your project could be next",
+              "caption": "Tell us what you do and what you want to change — we will suggest a first step."
+            }
+          ],
+          "action": {
+            "label": "Ask about a similar project",
+            "href": "#contact"
+          }
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "wide",
+          "anchor": "work"
+        }
+      },
+      {
+        "block_type": "core.gallery",
+        "schema_version": 1,
+        "data": {
+          "layout": "dominant_details",
+          "title": "One project up close",
+          "lead": "[Fill in: who the project was for and what it had to change — a sentence or two]",
+          "items": [
+            {
+              "title": "[Fill in: project name]",
+              "caption": "Illustrative photo — replace it with a photo from this project."
+            },
+            {
+              "title": "Where it started",
+              "caption": "[Fill in: what the client came with]"
+            },
+            {
+              "title": "What we did",
+              "caption": "[Fill in: the scope of work in two or three sentences]"
+            },
+            {
+              "title": "The result",
+              "caption": "[Fill in: what changed — only what you can show or confirm]"
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "wide",
+          "surface": "muted"
+        }
+      },
+      {
+        "block_type": "core.feature_list",
+        "schema_version": 5,
+        "data": {
+          "title": "How we work",
+          "lead": "From the first conversation to the handover — at every stage you know what is happening and what we are waiting for.",
+          "items": [
+            {
+              "title": "A conversation",
+              "text": "We get to know your business, your customers and what needs to change."
+            },
+            {
+              "title": "The concept",
+              "text": "We show a direction — sketches, materials, colours — and choose together what to develop."
+            },
+            {
+              "title": "The design",
+              "text": "We refine the details and prepare the documentation for the contractors."
+            },
+            {
+              "title": "The build",
+              "text": "[Fill in: whether you oversee the build and how]"
+            },
+            {
+              "title": "Handover",
+              "text": "We check the result with you and close the project."
+            }
+          ],
+          "layout": "numbered"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "anchor": "how-we-work"
+        }
+      },
+      {
+        "block_type": "core.faq",
+        "schema_version": 3,
+        "data": {
+          "layout": "split",
+          "title": "Before you write",
+          "items": [
+            {
+              "question": "How much does a project cost?",
+              "answer": "[Fill in: what the price depends on and when I will know it]."
+            },
+            {
+              "question": "How long does a project take?",
+              "answer": "[Fill in: the usual time from the first conversation to the handover]."
+            },
+            {
+              "question": "Do you work outside your city?",
+              "answer": "[Fill in: the area you work in]."
+            },
+            {
+              "question": "What should I prepare for the first conversation?",
+              "answer": "A short description of your business and what you want to change is enough. Photos of the place or of your current materials help a lot."
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "anchor": "questions"
+        }
+      },
+      {
+        "block_type": "core.contact_form",
+        "schema_version": 2,
+        "data": {
+          "layout": "split",
+          "contact": "email",
+          "locale": "en",
+          "title": "Tell us about your project",
+          "text": "Tell us what you do and what you want to change. We will reply [Fill in: within what time] and suggest a time to talk.",
+          "submit_label": "Send the project description",
+          "success_message": "Thank you! Your message has reached the studio. We will reply by e-mail.",
+          "privacy_label": "Privacy information"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "surface": "muted",
+          "anchor": "contact"
+        }
+      }
+    ]
+  }
+}

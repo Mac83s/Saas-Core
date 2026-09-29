@@ -16024,6 +16024,800 @@
         "stage": "action",
         "primaryAction": true
       }
+    },
+    {
+      "id": "core.gallery_photo_story",
+      "version": 1,
+      "blockType": "core.gallery",
+      "schemaVersion": 1,
+      "layout": "photo_story",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Fotoreportaż",
+          "description": "Kilka dużych zdjęć jedno pod drugim, każde z tytułem i podpisem — opowieść o pracy obrazem, czytana od góry do dołu.",
+          "usage": "Układ: fotoreportaż. Środek strony lub wpis; 3–6 zdjęć. Zdjęcia przykładowe są poglądowe (wygenerowane przez AI) — wymień je na zdjęcia własnej pracy przed publikacją."
+        },
+        "en": {
+          "name": "Photo story",
+          "description": "A few large photos one under another, each with a title and a caption — the work told in pictures, read top to bottom.",
+          "usage": "Layout: photo story. Page body or an entry; 3–6 photos. The sample photos are illustrative (AI-generated) — replace them with photos of your own work before publishing."
+        }
+      },
+      "goals": ["build_trust"],
+      "composition": {
+        "role": "showcase",
+        "preferredPosition": "body",
+        "recommendedNext": ["offer", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Jak wygląda nasza praca",
+          "lead": "[Uzupełnij: jedno zdanie o tym, co pokazują te zdjęcia]",
+          "items": [
+            {
+              "title": "[Uzupełnij: co widać na zdjęciu]",
+              "caption": "Zdjęcie poglądowe — wymień na zdjęcie z własnej pracy."
+            },
+            {
+              "title": "[Uzupełnij: co widać na zdjęciu]",
+              "caption": "Zdjęcie poglądowe — wymień na zdjęcie z własnej pracy."
+            },
+            {
+              "title": "[Uzupełnij: co widać na zdjęciu]",
+              "caption": "Zdjęcie poglądowe — wymień na zdjęcie z własnej pracy."
+            }
+          ],
+          "layout": "photo_story"
+        },
+        "en": {
+          "title": "What our work looks like",
+          "lead": "[Fill in: one sentence on what these photos show]",
+          "items": [
+            {
+              "title": "[Fill in: what the photo shows]",
+              "caption": "Illustrative photo — replace it with one of your own work."
+            },
+            {
+              "title": "[Fill in: what the photo shows]",
+              "caption": "Illustrative photo — replace it with one of your own work."
+            },
+            {
+              "title": "[Fill in: what the photo shows]",
+              "caption": "Illustrative photo — replace it with one of your own work."
+            }
+          ],
+          "layout": "photo_story"
+        }
+      },
+      "sampleMedia": [
+        {
+          "id": "business",
+          "alt": {
+            "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+            "en": "Bright studio with an oak table and laptop"
+          },
+          "path": ["items", 0, "image"]
+        },
+        {
+          "id": "electronics",
+          "alt": {
+            "pl": "Stanowisko diagnostyki elektroniki",
+            "en": "Electronics diagnostic workbench"
+          },
+          "path": ["items", 1, "image"]
+        },
+        {
+          "id": "agriculture",
+          "alt": {
+            "pl": "Krowy na pastwisku przy gospodarstwie",
+            "en": "Cows grazing near a farm"
+          },
+          "path": ["items", 2, "image"]
+        }
+      ],
+      "contentGuidance": {
+        "minItems": 1,
+        "maxItems": 8,
+        "titleMaxCharacters": 120,
+        "bodyMaxCharacters": 300,
+        "mediaAspectRatio": "4:3"
+      },
+      "contentProfiles": ["M"],
+      "readingPattern": "visual",
+      "styleAffinities": ["editorial", "organic", "premium"],
+      "supportedWidths": ["standard"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "proof",
+        "primaryAction": false
+      }
+    },
+    {
+      "id": "core.gallery_captioned_grid",
+      "version": 1,
+      "blockType": "core.gallery",
+      "schemaVersion": 1,
+      "layout": "captioned_grid",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Siatka z podpisami",
+          "description": "Zdjęcia w równej siatce, każde z tytułem i krótkim podpisem. Na telefonie jedno pod drugim.",
+          "usage": "Układ: siatka z podpisami. Środek strony; 3–12 zdjęć realizacji. Zdjęcia przykładowe są poglądowe (wygenerowane przez AI) — wymień je na zdjęcia własnej pracy przed publikacją."
+        },
+        "en": {
+          "name": "Captioned grid",
+          "description": "Photos in an even grid, each with a title and a short caption. On a phone one under another.",
+          "usage": "Layout: captioned grid. Page body; 3–12 photos of your work. The sample photos are illustrative (AI-generated) — replace them with photos of your own work before publishing."
+        }
+      },
+      "goals": ["build_trust", "explain_offer"],
+      "composition": {
+        "role": "showcase",
+        "preferredPosition": "body",
+        "recommendedNext": ["offer", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Nasze realizacje",
+          "lead": "[Uzupełnij: jedno zdanie o tym, jakie prace tu pokazujesz]",
+          "items": [
+            {
+              "title": "[Uzupełnij: nazwa realizacji]",
+              "caption": "Zdjęcie poglądowe — wymień na zdjęcie tej realizacji."
+            },
+            {
+              "title": "[Uzupełnij: nazwa realizacji]",
+              "caption": "Zdjęcie poglądowe — wymień na zdjęcie tej realizacji."
+            },
+            {
+              "title": "[Uzupełnij: nazwa realizacji]",
+              "caption": "Zdjęcie poglądowe — wymień na zdjęcie tej realizacji."
+            },
+            {
+              "title": "[Uzupełnij: nazwa realizacji]",
+              "caption": "Zdjęcie poglądowe — wymień na zdjęcie tej realizacji."
+            }
+          ],
+          "layout": "captioned_grid"
+        },
+        "en": {
+          "title": "Our work",
+          "lead": "[Fill in: one sentence on the work shown here]",
+          "items": [
+            {
+              "title": "[Fill in: name of the job]",
+              "caption": "Illustrative photo — replace it with a photo of this job."
+            },
+            {
+              "title": "[Fill in: name of the job]",
+              "caption": "Illustrative photo — replace it with a photo of this job."
+            },
+            {
+              "title": "[Fill in: name of the job]",
+              "caption": "Illustrative photo — replace it with a photo of this job."
+            },
+            {
+              "title": "[Fill in: name of the job]",
+              "caption": "Illustrative photo — replace it with a photo of this job."
+            }
+          ],
+          "layout": "captioned_grid"
+        }
+      },
+      "sampleMedia": [
+        {
+          "id": "business",
+          "alt": {
+            "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+            "en": "Bright studio with an oak table and laptop"
+          },
+          "path": ["items", 0, "image"]
+        },
+        {
+          "id": "medicine",
+          "alt": {
+            "pl": "Przykładowy gabinet konsultacyjny",
+            "en": "Example consultation room"
+          },
+          "path": ["items", 1, "image"]
+        },
+        {
+          "id": "agriculture",
+          "alt": {
+            "pl": "Krowy na pastwisku przy gospodarstwie",
+            "en": "Cows grazing near a farm"
+          },
+          "path": ["items", 2, "image"]
+        },
+        {
+          "id": "electronics",
+          "alt": {
+            "pl": "Stanowisko diagnostyki elektroniki",
+            "en": "Electronics diagnostic workbench"
+          },
+          "path": ["items", 3, "image"]
+        }
+      ],
+      "contentGuidance": {
+        "minItems": 1,
+        "maxItems": 12,
+        "titleMaxCharacters": 120,
+        "bodyMaxCharacters": 300,
+        "mediaAspectRatio": "4:3"
+      },
+      "contentProfiles": ["S", "M"],
+      "readingPattern": "scan",
+      "styleAffinities": ["mosaic", "studio", "technical", "product"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "proof",
+        "primaryAction": false
+      }
+    },
+    {
+      "id": "core.gallery_dominant_details",
+      "version": 1,
+      "blockType": "core.gallery",
+      "schemaVersion": 1,
+      "layout": "dominant_details",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Dominujące zdjęcie i detale",
+          "description": "Jedno duże zdjęcie i obok niego kilka szczegółów z krótkimi opisami — produkt, wnętrze albo praca z bliska.",
+          "usage": "Układ: dominujące zdjęcie i detale. Środek strony; pierwsze zdjęcie jest dominujące, dalej 2–4 detale. Zdjęcia przykładowe są poglądowe (wygenerowane przez AI) — wymień je na zdjęcia własnej pracy przed publikacją."
+        },
+        "en": {
+          "name": "One photo and the details",
+          "description": "One large photo with a few details beside it, each briefly described — a product, a space or a piece of work up close.",
+          "usage": "Layout: one photo and the details. Page body; the first photo leads, then 2–4 details. The sample photos are illustrative (AI-generated) — replace them with photos of your own work before publishing."
+        }
+      },
+      "goals": ["build_trust", "explain_offer"],
+      "composition": {
+        "role": "showcase",
+        "preferredPosition": "body",
+        "recommendedNext": ["offer", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Z bliska",
+          "items": [
+            {
+              "title": "[Uzupełnij: najważniejsze zdjęcie — co przedstawia]",
+              "caption": "Zdjęcie poglądowe — wymień na zdjęcie z własnej pracy."
+            },
+            {
+              "title": "[Uzupełnij: szczegół]",
+              "caption": "Zdjęcie poglądowe — wymień na zdjęcie z własnej pracy."
+            },
+            {
+              "title": "[Uzupełnij: szczegół]",
+              "caption": "Zdjęcie poglądowe — wymień na zdjęcie z własnej pracy."
+            },
+            {
+              "title": "[Uzupełnij: szczegół]",
+              "caption": "Zdjęcie poglądowe — wymień na zdjęcie z własnej pracy."
+            }
+          ],
+          "layout": "dominant_details"
+        },
+        "en": {
+          "title": "Up close",
+          "items": [
+            {
+              "title": "[Fill in: the main photo — what it shows]",
+              "caption": "Illustrative photo — replace it with one of your own work."
+            },
+            {
+              "title": "[Fill in: a detail]",
+              "caption": "Illustrative photo — replace it with one of your own work."
+            },
+            {
+              "title": "[Fill in: a detail]",
+              "caption": "Illustrative photo — replace it with one of your own work."
+            },
+            {
+              "title": "[Fill in: a detail]",
+              "caption": "Illustrative photo — replace it with one of your own work."
+            }
+          ],
+          "layout": "dominant_details"
+        }
+      },
+      "sampleMedia": [
+        {
+          "id": "business",
+          "alt": {
+            "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+            "en": "Bright studio with an oak table and laptop"
+          },
+          "path": ["items", 0, "image"]
+        },
+        {
+          "id": "electronics",
+          "alt": {
+            "pl": "Stanowisko diagnostyki elektroniki",
+            "en": "Electronics diagnostic workbench"
+          },
+          "path": ["items", 1, "image"]
+        },
+        {
+          "id": "medicine",
+          "alt": {
+            "pl": "Przykładowy gabinet konsultacyjny",
+            "en": "Example consultation room"
+          },
+          "path": ["items", 2, "image"]
+        },
+        {
+          "id": "agriculture",
+          "alt": {
+            "pl": "Krowy na pastwisku przy gospodarstwie",
+            "en": "Cows grazing near a farm"
+          },
+          "path": ["items", 3, "image"]
+        }
+      ],
+      "contentGuidance": {
+        "minItems": 1,
+        "maxItems": 5,
+        "titleMaxCharacters": 120,
+        "bodyMaxCharacters": 300,
+        "mediaAspectRatio": "4:3"
+      },
+      "contentProfiles": ["S", "M"],
+      "readingPattern": "visual",
+      "styleAffinities": ["product", "premium", "studio"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "proof",
+        "primaryAction": false
+      }
+    },
+    {
+      "id": "core.gallery_interleaved",
+      "version": 1,
+      "blockType": "core.gallery",
+      "schemaVersion": 1,
+      "layout": "interleaved",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Zdjęcia przeplatane tekstem",
+          "description": "Zdjęcie i opis obok siebie, na zmianę z lewej i z prawej — dłuższa historia, w której każde zdjęcie ma swoje wyjaśnienie.",
+          "usage": "Układ: zdjęcia przeplatane tekstem. Środek strony lub wpis; 2–6 par zdjęcie–tekst. Zdjęcia przykładowe są poglądowe (wygenerowane przez AI) — wymień je na zdjęcia własnej pracy przed publikacją."
+        },
+        "en": {
+          "name": "Photos woven into text",
+          "description": "A photo and its text side by side, alternating left and right — a longer story in which every photo is explained.",
+          "usage": "Layout: photos woven into text. Page body or an entry; 2–6 photo–text pairs. The sample photos are illustrative (AI-generated) — replace them with photos of your own work before publishing."
+        }
+      },
+      "goals": ["explain_process", "build_trust"],
+      "composition": {
+        "role": "showcase",
+        "preferredPosition": "body",
+        "recommendedNext": ["offer", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Od pomysłu do efektu",
+          "items": [
+            {
+              "title": "[Uzupełnij: pierwszy etap]",
+              "caption": "[Uzupełnij: 2–3 zdania o tym, co się wtedy dzieje]"
+            },
+            {
+              "title": "[Uzupełnij: drugi etap]",
+              "caption": "[Uzupełnij: 2–3 zdania o tym, co się wtedy dzieje]"
+            },
+            {
+              "title": "[Uzupełnij: efekt]",
+              "caption": "[Uzupełnij: 2–3 zdania o tym, co się wtedy dzieje]"
+            }
+          ],
+          "layout": "interleaved"
+        },
+        "en": {
+          "title": "From idea to result",
+          "items": [
+            {
+              "title": "[Fill in: first stage]",
+              "caption": "[Fill in: 2–3 sentences on what happens then]"
+            },
+            {
+              "title": "[Fill in: second stage]",
+              "caption": "[Fill in: 2–3 sentences on what happens then]"
+            },
+            {
+              "title": "[Fill in: the result]",
+              "caption": "[Fill in: 2–3 sentences on what happens then]"
+            }
+          ],
+          "layout": "interleaved"
+        }
+      },
+      "sampleMedia": [
+        {
+          "id": "business",
+          "alt": {
+            "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+            "en": "Bright studio with an oak table and laptop"
+          },
+          "path": ["items", 0, "image"]
+        },
+        {
+          "id": "electronics",
+          "alt": {
+            "pl": "Stanowisko diagnostyki elektroniki",
+            "en": "Electronics diagnostic workbench"
+          },
+          "path": ["items", 1, "image"]
+        },
+        {
+          "id": "agriculture",
+          "alt": {
+            "pl": "Krowy na pastwisku przy gospodarstwie",
+            "en": "Cows grazing near a farm"
+          },
+          "path": ["items", 2, "image"]
+        }
+      ],
+      "contentGuidance": {
+        "minItems": 1,
+        "maxItems": 6,
+        "titleMaxCharacters": 120,
+        "bodyMaxCharacters": 300,
+        "mediaAspectRatio": "4:3"
+      },
+      "contentProfiles": ["M", "L"],
+      "readingPattern": "linear",
+      "styleAffinities": ["editorial", "organic", "expert"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "interest",
+        "primaryAction": false
+      }
+    },
+    {
+      "id": "core.gallery_project_mosaic",
+      "version": 1,
+      "blockType": "core.gallery",
+      "schemaVersion": 1,
+      "layout": "project_mosaic",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Mozaika realizacji",
+          "description": "Projekty w mozaice o różnych rozmiarach kafli, z kafelkiem tekstowym i jednym przyciskiem na końcu — portfolio, które prowadzi do zapytania.",
+          "usage": "Układ: mozaika realizacji. Środek lub koniec strony; 4–12 projektów, kafelek bez zdjęcia jest dozwolony. Zdjęcia przykładowe są poglądowe (wygenerowane przez AI) — wymień je na zdjęcia własnej pracy przed publikacją."
+        },
+        "en": {
+          "name": "Project mosaic",
+          "description": "Projects in a mosaic of tiles of different sizes, with a text tile and one button at the end — a portfolio that leads to an enquiry.",
+          "usage": "Layout: project mosaic. Page body or end; 4–12 projects, a tile without a photo is allowed. The sample photos are illustrative (AI-generated) — replace them with photos of your own work before publishing."
+        }
+      },
+      "goals": ["build_trust", "start_conversation"],
+      "composition": {
+        "role": "showcase",
+        "preferredPosition": "body",
+        "recommendedNext": ["offer", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Wybrane projekty",
+          "items": [
+            {
+              "title": "[Uzupełnij: nazwa projektu]",
+              "caption": "Zdjęcie poglądowe — wymień na zdjęcie projektu."
+            },
+            {
+              "title": "[Uzupełnij: nazwa projektu]",
+              "caption": "Zdjęcie poglądowe — wymień na zdjęcie projektu."
+            },
+            {
+              "title": "[Uzupełnij: nazwa projektu]",
+              "caption": "Zdjęcie poglądowe — wymień na zdjęcie projektu."
+            },
+            {
+              "title": "[Uzupełnij: nazwa projektu]",
+              "caption": "Zdjęcie poglądowe — wymień na zdjęcie projektu."
+            },
+            {
+              "title": "Twój projekt może być następny",
+              "caption": "[Uzupełnij: jedno zdanie, z czym możesz przyjść]"
+            }
+          ],
+          "action": {
+            "label": "Zapytaj o podobny projekt",
+            "href": "mailto:kontakt@example.com"
+          },
+          "layout": "project_mosaic"
+        },
+        "en": {
+          "title": "Selected projects",
+          "items": [
+            {
+              "title": "[Fill in: project name]",
+              "caption": "Illustrative photo — replace it with a photo of the project."
+            },
+            {
+              "title": "[Fill in: project name]",
+              "caption": "Illustrative photo — replace it with a photo of the project."
+            },
+            {
+              "title": "[Fill in: project name]",
+              "caption": "Illustrative photo — replace it with a photo of the project."
+            },
+            {
+              "title": "[Fill in: project name]",
+              "caption": "Illustrative photo — replace it with a photo of the project."
+            },
+            {
+              "title": "Your project could be next",
+              "caption": "[Fill in: one sentence on what you can come to us with]"
+            }
+          ],
+          "action": {
+            "label": "Ask about a similar project",
+            "href": "mailto:contact@example.com"
+          },
+          "layout": "project_mosaic"
+        }
+      },
+      "sampleMedia": [
+        {
+          "id": "business",
+          "alt": {
+            "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+            "en": "Bright studio with an oak table and laptop"
+          },
+          "path": ["items", 0, "image"]
+        },
+        {
+          "id": "electronics",
+          "alt": {
+            "pl": "Stanowisko diagnostyki elektroniki",
+            "en": "Electronics diagnostic workbench"
+          },
+          "path": ["items", 1, "image"]
+        },
+        {
+          "id": "medicine",
+          "alt": {
+            "pl": "Przykładowy gabinet konsultacyjny",
+            "en": "Example consultation room"
+          },
+          "path": ["items", 2, "image"]
+        },
+        {
+          "id": "agriculture",
+          "alt": {
+            "pl": "Krowy na pastwisku przy gospodarstwie",
+            "en": "Cows grazing near a farm"
+          },
+          "path": ["items", 3, "image"]
+        }
+      ],
+      "contentGuidance": {
+        "minItems": 1,
+        "maxItems": 12,
+        "titleMaxCharacters": 120,
+        "bodyMaxCharacters": 300,
+        "mediaAspectRatio": "4:3"
+      },
+      "contentProfiles": ["S", "M"],
+      "readingPattern": "visual",
+      "styleAffinities": ["studio", "mosaic", "premium", "product"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "action",
+        "primaryAction": true
+      }
+    },
+    {
+      "id": "core.gallery_photo_steps",
+      "version": 1,
+      "blockType": "core.gallery",
+      "schemaVersion": 1,
+      "layout": "photo_steps",
+      "kind": "default",
+      "industries": [],
+      "labels": {
+        "pl": {
+          "name": "Kroki w zdjęciach",
+          "description": "Kolejne kroki współpracy, każdy ze zdjęciem, numerem i krótkim opisem — klient widzi, co go czeka.",
+          "usage": "Układ: kroki w zdjęciach. Środek strony, przed kontaktem; 3–6 kroków. Zdjęcia przykładowe są poglądowe (wygenerowane przez AI) — wymień je na zdjęcia własnej pracy przed publikacją."
+        },
+        "en": {
+          "name": "Steps in photos",
+          "description": "The steps of working together, each with a photo, a number and a short description — customers see what to expect.",
+          "usage": "Layout: steps in photos. Page body, before the contact section; 3–6 steps. The sample photos are illustrative (AI-generated) — replace them with photos of your own work before publishing."
+        }
+      },
+      "goals": ["explain_process"],
+      "composition": {
+        "role": "showcase",
+        "preferredPosition": "body",
+        "recommendedNext": ["offer", "contact"],
+        "repeatable": true
+      },
+      "requirements": {
+        "requiredEntitlements": ["sites.enabled"],
+        "requiredModules": ["shared.sites"],
+        "media": "optional"
+      },
+      "compatibility": {
+        "replaceWithinType": true,
+        "preservesFields": true
+      },
+      "automation": {
+        "mode": "draft_only",
+        "facts": "user_supplied"
+      },
+      "seed": {
+        "pl": {
+          "title": "Jak przebiega współpraca",
+          "items": [
+            {
+              "title": "Rozmowa",
+              "caption": "[Uzupełnij: co się dzieje na tym etapie]"
+            },
+            {
+              "title": "Przygotowanie",
+              "caption": "[Uzupełnij: co się dzieje na tym etapie]"
+            },
+            {
+              "title": "Realizacja",
+              "caption": "[Uzupełnij: co się dzieje na tym etapie]"
+            }
+          ],
+          "layout": "photo_steps"
+        },
+        "en": {
+          "title": "How we work together",
+          "items": [
+            {
+              "title": "A conversation",
+              "caption": "[Fill in: what happens at this stage]"
+            },
+            {
+              "title": "Preparation",
+              "caption": "[Fill in: what happens at this stage]"
+            },
+            {
+              "title": "The work",
+              "caption": "[Fill in: what happens at this stage]"
+            }
+          ],
+          "layout": "photo_steps"
+        }
+      },
+      "sampleMedia": [
+        {
+          "id": "business",
+          "alt": {
+            "pl": "Jasna pracownia z drewnianym stołem i laptopem",
+            "en": "Bright studio with an oak table and laptop"
+          },
+          "path": ["items", 0, "image"]
+        },
+        {
+          "id": "medicine",
+          "alt": {
+            "pl": "Przykładowy gabinet konsultacyjny",
+            "en": "Example consultation room"
+          },
+          "path": ["items", 1, "image"]
+        },
+        {
+          "id": "agriculture",
+          "alt": {
+            "pl": "Krowy na pastwisku przy gospodarstwie",
+            "en": "Cows grazing near a farm"
+          },
+          "path": ["items", 2, "image"]
+        }
+      ],
+      "contentGuidance": {
+        "minItems": 1,
+        "maxItems": 8,
+        "titleMaxCharacters": 120,
+        "bodyMaxCharacters": 300,
+        "mediaAspectRatio": "4:3"
+      },
+      "contentProfiles": ["S", "M"],
+      "readingPattern": "linear",
+      "styleAffinities": ["technical", "organic", "expert", "product"],
+      "supportedWidths": ["standard", "wide"],
+      "targetSurface": ["page", "entry"],
+      "conversion": {
+        "stage": "interest",
+        "primaryAction": false
+      }
     }
   ]
 }

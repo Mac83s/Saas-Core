@@ -237,7 +237,7 @@ describe("core.rich_text v3", () => {
       '<div class="site-section__intro"><p class="site-section__eyebrow">Dla właścicieli</p><h2>Jak pracujemy</h2><p class="site-section__lead">Teza sekcji.</p></div>',
     );
     expect(html).toContain(
-      `<figure class="site-section__image"><img src="/media/${photo}" alt="Zespół" loading="lazy" decoding="async"/><figcaption>Podpis zdjęcia</figcaption></figure>`,
+      `<figure class="site-section__image"><img src="/media/${photo}" srcSet="/media/${photo}/thumbnail 320w, /media/${photo}/preview 1280w, /media/${photo} 2560w" sizes="(min-width: 64rem) 50vw, 100vw" alt="Zespół" loading="lazy" decoding="async"/><figcaption>Podpis zdjęcia</figcaption></figure>`,
     );
     expect(html).toContain(
       '<div class="site-author"><span class="site-author__monogram" aria-hidden="true">AN</span><div class="site-author__text"><p class="site-author__name">Anna Nowak</p><p class="site-author__role">Lekarz weterynarii</p></div></div>',
@@ -417,7 +417,7 @@ describe("core.rich_text v3", () => {
       },
     };
     expect(preview(withPortrait)).toContain(
-      `<div class="site-author__portrait"><img src="/media/${portrait}" alt="Anna Nowak" loading="lazy" decoding="async"/></div>`,
+      `<div class="site-author__portrait"><img src="/media/${portrait}" srcSet="/media/${portrait}/thumbnail 320w, /media/${portrait}/preview 1280w, /media/${portrait} 2560w" sizes="(min-width: 64rem) 50vw, 100vw" alt="Anna Nowak" loading="lazy" decoding="async"/></div>`,
     );
     const adapted = renderToStaticMarkup(
       registry.render(

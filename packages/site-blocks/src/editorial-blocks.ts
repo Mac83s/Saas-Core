@@ -2,6 +2,7 @@ import { createElement as h, type ReactNode } from "react";
 
 import { plainBlockText } from "./block-text";
 import { renderImage } from "./ai-badge";
+import { publicImage } from "./public-image";
 import { unfilledPlaceholders } from "./rich-text";
 
 import type {
@@ -48,16 +49,7 @@ export function picture(
   image: { asset_id: string; alt: string },
   imageRenderer?: BlockImageRenderer,
 ): ReactNode {
-  return renderImage(
-    image,
-    h("img", {
-      src: `/media/${image.asset_id}`,
-      alt: image.alt,
-      loading: "lazy",
-      decoding: "async",
-    }),
-    imageRenderer,
-  );
+  return renderImage(image, publicImage(image), imageRenderer);
 }
 
 /** Up to two initials; derived text, so it never goes through the editor.

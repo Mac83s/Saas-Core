@@ -16,6 +16,7 @@ import premiumService from "@saas-core/contracts/page-templates/core.premium_ser
 import studioManifesto from "@saas-core/contracts/page-templates/core.studio_manifesto.v1.json";
 import caseStudy from "@saas-core/contracts/page-templates/core.case_study.v1.json";
 import stepGuide from "@saas-core/contracts/page-templates/core.step_guide.v1.json";
+import studioPortfolio from "@saas-core/contracts/page-templates/core.studio_portfolio.v1.json";
 import templateManifest from "@saas-core/contracts/page-templates/manifest.json";
 
 import { InvalidPageTemplateError } from "./errors";
@@ -51,6 +52,7 @@ const recipes: readonly PageTemplate[] = [
   studioManifesto as unknown as PageTemplate,
   caseStudy as unknown as PageTemplate,
   stepGuide as unknown as PageTemplate,
+  studioPortfolio as unknown as PageTemplate,
 ];
 
 const retired = new Set(

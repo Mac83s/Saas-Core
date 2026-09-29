@@ -75,7 +75,7 @@ describe("AI badge on a published page", () => {
     );
     // The hero keeps its own eager loading inside the wrapper.
     expect(markup).toMatch(
-      /<span class="site-ai-media"><img alt="Jasna pracownia[^"]*" decoding="async" loading="eager" src="\/media\/[^"]+"\/>/,
+      /<span class="site-ai-media"><img src="\/media\/[^"]+" srcSet="[^"]+" sizes="100vw" alt="Jasna pracownia[^"]*" loading="eager" decoding="async"\/>/,
     );
   });
 

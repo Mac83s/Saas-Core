@@ -76,16 +76,18 @@ export async function getPublicProjection(
   };
 }
 
-/** An image on the published site. Proxied as bytes, and the backend decides
+/** An image on the published site — or, with `variant`, one of its WebP
+ *  copies (`thumbnail`, `preview`). Proxied as bytes, and the backend decides
  *  whether this visitor's host is allowed to see it at all. */
 export async function getPublicMedia(
   host: string,
   assetId: string,
+  variant?: "thumbnail" | "preview",
 ): Promise<MediaResult> {
   const backend = process.env.BACKEND_INTERNAL_URL ?? "http://127.0.0.1:8000";
   const response = await requestBackend(
     new URL(
-      `/api/v1/public/site/media/${encodeURIComponent(assetId)}/`,
+      `/api/v1/public/site/media/${encodeURIComponent(assetId)}/${variant ? `${variant}/` : ""}`,
       backend,
     ),
     host,

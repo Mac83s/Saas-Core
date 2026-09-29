@@ -286,6 +286,26 @@ export type QuoteV2Data = JsonObject & {
   action?: { label: string; href: string };
 };
 
+/** F4-P3: photos with titles and captions; a photo is optional. */
+export type GalleryV1Data = JsonObject & {
+  layout?:
+    | "photo_story"
+    | "captioned_grid"
+    | "dominant_details"
+    | "interleaved"
+    | "project_mosaic"
+    | "photo_steps";
+  title?: string;
+  lead?: string;
+  items: {
+    image?: { asset_id: string; alt: string };
+    title?: string;
+    caption?: string;
+    link?: { label: string; href: string };
+  }[];
+  action?: { label: string; href: string };
+};
+
 /** No price, stock or cart: those need real commerce capabilities. */
 export type ProductV1Data = JsonObject & {
   layout?: "showcase";

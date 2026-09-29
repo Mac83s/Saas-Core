@@ -17,6 +17,7 @@ import richTextV3Schema from "@saas-core/contracts/site-blocks/core.rich_text.v3
 import richTextV4Schema from "@saas-core/contracts/site-blocks/core.rich_text.v4.schema.json";
 import quoteV1Schema from "@saas-core/contracts/site-blocks/core.quote.v1.schema.json";
 import quoteV2Schema from "@saas-core/contracts/site-blocks/core.quote.v2.schema.json";
+import galleryV1Schema from "@saas-core/contracts/site-blocks/core.gallery.v1.schema.json";
 import productV1Schema from "@saas-core/contracts/site-blocks/core.product.v1.schema.json";
 import productV2Schema from "@saas-core/contracts/site-blocks/core.product.v2.schema.json";
 import { plainBlockText } from "./block-text";
@@ -40,6 +41,8 @@ import { featureListAction } from "./feature-list-layouts";
 import { ContactSection, LinkListSection } from "./contact-link-sections";
 import { createElement } from "react";
 import { renderImage } from "./ai-badge";
+import { FULL_WIDTH, publicImage } from "./public-image";
+import { GalleryBlock } from "./gallery-block";
 
 import contactV1Schema from "@saas-core/contracts/site-blocks/core.contact.v1.schema.json";
 import contactV2Schema from "@saas-core/contracts/site-blocks/core.contact.v2.schema.json";
@@ -119,14 +122,9 @@ function HeroBlock({ data, editor, imageRenderer }: BlockComponentProps) {
     hero.image
       ? renderImage(
           hero.image,
-          createElement("img", {
-            alt: hero.image.alt,
-            decoding: "async",
-            // A hero is the first thing on the page, so it is the one image
-            // worth fetching eagerly; everything else can wait.
-            loading: "eager",
-            src: publicMediaPath(hero.image.asset_id),
-          }),
+          // A hero is the first thing on the page, so it is the one image
+          // worth fetching eagerly; everything else can wait.
+          publicImage(hero.image, { sizes: FULL_WIDTH, loading: "eager" }),
           imageRenderer,
         )
       : null,
@@ -1037,6 +1035,55 @@ export const coreSiteBlockManifest: SiteBlockManifest = {
               { path: ["quote"], kind: "textarea", labelKey: "quoteText" },
               { path: ["author"], kind: "text", labelKey: "quoteAuthor" },
               { path: ["role"], kind: "text", labelKey: "quoteRole" },
+            ],
+          },
+          { path: ["action", "label"], kind: "text", labelKey: "actionLabel" },
+          { path: ["action", "href"], kind: "url", labelKey: "actionHref" },
+        ],
+      },
+    },
+    {
+      type: "core.gallery",
+      latestVersion: 1,
+      schemas: [{ version: 1, schema: galleryV1Schema }],
+      migrators: {},
+      component: GalleryBlock,
+      catalog: {
+        category: "about",
+        labelKey: "galleryBlock",
+        fields: [
+          { path: ["title"], kind: "text", labelKey: "heading" },
+          { path: ["lead"], kind: "textarea", labelKey: "lead" },
+          {
+            path: ["items"],
+            kind: "list",
+            labelKey: "galleryItems",
+            maxItems: 12,
+            item: [
+              {
+                path: ["image", "asset_id"],
+                kind: "media",
+                labelKey: "imageAsset",
+                // A tile's frame; the layouts crop to it.
+                aspect: [4, 3],
+              },
+              { path: ["image", "alt"], kind: "text", labelKey: "imageAlt" },
+              { path: ["title"], kind: "text", labelKey: "galleryItemTitle" },
+              {
+                path: ["caption"],
+                kind: "textarea",
+                labelKey: "galleryItemCaption",
+              },
+              {
+                path: ["link", "label"],
+                kind: "text",
+                labelKey: "galleryLinkLabel",
+              },
+              {
+                path: ["link", "href"],
+                kind: "url",
+                labelKey: "galleryLinkHref",
+              },
             ],
           },
           { path: ["action", "label"], kind: "text", labelKey: "actionLabel" },

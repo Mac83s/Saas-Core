@@ -148,6 +148,13 @@
       "versions": {
         "1": "core.step_guide.v1.json"
       }
+    },
+    {
+      "id": "core.studio_portfolio",
+      "latestVersion": 1,
+      "versions": {
+        "1": "core.studio_portfolio.v1.json"
+      }
     }
   ],
   "sampleMedia": "sample-media.v1.json"

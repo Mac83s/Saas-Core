@@ -5,6 +5,7 @@ import electronics from "../../../../../../packages/contracts/page-templates/ass
 import {
   applySampleMedia,
   pageTemplateBlocks,
+  sampleMediaOf,
   sectionTemplateBlock,
   templatePreviewAssetId,
   type SectionTemplate,
@@ -42,18 +43,17 @@ function imageRendererFor(mediaIds: readonly string[]): BlockImageRenderer {
 }
 
 export function sectionPreview(template: SectionTemplate, locale: "pl" | "en") {
+  const samples = sampleMediaOf(template);
   return {
     blocks: [
       applySampleMedia(
         sectionTemplateBlock(template, locale, registry),
         template,
-        templatePreviewAssetId(0),
+        (_, index) => templatePreviewAssetId(index),
         locale,
       ),
     ],
-    imageRenderer: imageRendererFor(
-      template.sampleMedia ? [template.sampleMedia.id] : [],
-    ),
+    imageRenderer: imageRendererFor(samples.map((sample) => sample.id)),
   };
 }
 

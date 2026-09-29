@@ -42,6 +42,7 @@ test("site block manifest references valid canonical schemas", async () => {
       "core.separator",
       "core.quote",
       "core.product",
+      "core.gallery",
     ],
   );
 

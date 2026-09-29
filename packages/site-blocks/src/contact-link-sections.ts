@@ -2,6 +2,7 @@ import { createElement as h, type ReactElement } from "react";
 import { plainBlockText } from "./block-text";
 import { linkRel } from "./link-rel";
 import { renderImage } from "./ai-badge";
+import { publicImage } from "./public-image";
 import type {
   BlockComponentProps,
   ContactV2Data,
@@ -150,16 +151,7 @@ export function ContactSection({
       ? h(
           "div",
           { className: "site-contact__photo" },
-          renderImage(
-            contact.image,
-            h("img", {
-              src: `/media/${contact.image.asset_id}`,
-              alt: contact.image.alt,
-              loading: "lazy",
-              decoding: "async",
-            }),
-            imageRenderer,
-          ),
+          renderImage(contact.image, publicImage(contact.image), imageRenderer),
         )
       : null,
     h(

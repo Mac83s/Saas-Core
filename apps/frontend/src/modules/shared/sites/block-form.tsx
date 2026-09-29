@@ -696,7 +696,27 @@ function BlockListField<TValues extends FieldValues>({
       <legend className="px-1 text-sm font-medium">{t(field.labelKey)}</legend>
       {entries.fields.map((entry, entryIndex) => (
         <div className="space-y-3 rounded-md border p-3" key={entry.id}>
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-1">
+            <Button
+              aria-label={t("moveEntryUp")}
+              disabled={entryIndex === 0}
+              onClick={() => entries.move(entryIndex, entryIndex - 1)}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <ArrowUpIcon aria-hidden="true" />
+            </Button>
+            <Button
+              aria-label={t("moveEntryDown")}
+              disabled={entryIndex === entries.fields.length - 1}
+              onClick={() => entries.move(entryIndex, entryIndex + 1)}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <ArrowDownIcon aria-hidden="true" />
+            </Button>
             <Button
               aria-label={t("removeEntry")}
               onClick={() => entries.remove(entryIndex)}

@@ -99,7 +99,7 @@ test("limits initial thumbnail rendering and exposes the remaining catalogue", (
   );
   expect(screen.getAllByRole("article")).toHaveLength(12);
   fireEvent.click(
-    screen.getByRole("button", { name: "Show more layouts (123 remaining)" }),
+    screen.getByRole("button", { name: "Show more layouts (129 remaining)" }),
   );
   expect(screen.getAllByRole("article")).toHaveLength(24);
   fireEvent.change(screen.getByLabelText("Category"), {
@@ -316,6 +316,46 @@ test("puts a product's sample photo into its gallery, not into `image`", async (
     "019ff20d-a000-7000-8000-000000000123",
   );
   expect(block.data.images[0].alt.length).toBeGreaterThan(0);
+});
+
+test("copies each sample photo of a gallery once and puts it on its own item", async () => {
+  const assets: Record<string, string> = {
+    business: "019ff20d-a000-7000-8000-000000000201",
+    medicine: "019ff20d-a000-7000-8000-000000000202",
+    agriculture: "019ff20d-a000-7000-8000-000000000203",
+    electronics: "019ff20d-a000-7000-8000-000000000204",
+  };
+  vi.mocked(materializeTemplatePhoto).mockImplementation(async (photo) => ({
+    asset_id: assets[photo],
+  }));
+  const onAdd = vi.fn();
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <SectionLibraryContent onAdd={onAdd} />
+    </NextIntlClientProvider>,
+  );
+  fireEvent.change(screen.getByLabelText("Category"), {
+    target: { value: "core.gallery" },
+  });
+  expect(screen.getAllByRole("article")).toHaveLength(6);
+  fireEvent.click(screen.getByRole("button", { name: "Add: Captioned grid" }));
+  await waitFor(() => expect(onAdd).toHaveBeenCalledOnce());
+  const photos = vi
+    .mocked(materializeTemplatePhoto)
+    .mock.calls.map(([photo]) => photo);
+  expect(photos).toEqual([
+    "business",
+    "medicine",
+    "agriculture",
+    "electronics",
+  ]);
+  const block = onAdd.mock.calls[0][0];
+  expect(block.block_type).toBe("core.gallery");
+  expect(
+    block.data.items.map(
+      (item: { image: { asset_id: string } }) => item.image.asset_id,
+    ),
+  ).toEqual(photos.map((photo) => assets[photo]));
 });
 
 test("offers all twenty editorial layouts, the first twelve before 'show more'", () => {

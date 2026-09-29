@@ -134,10 +134,12 @@ class PublicSiteRobotsView(View):
 class PublicSiteMediaView(View):
     """See `PublicSiteFeedView`: plain Django, and the bytes are the response."""
 
-    def get(self, request: HttpRequest, asset_id: UUID) -> HttpResponse:
+    def get(self, request: HttpRequest, asset_id: UUID, variant: str = "") -> HttpResponse:
         try:
             return serve_public_media(
-                host=str(request.META.get("HTTP_HOST", "")), asset_id=asset_id
+                host=str(request.META.get("HTTP_HOST", "")),
+                asset_id=asset_id,
+                variant=variant,
             )
         except PublicSiteNotFound:
             return HttpResponseNotFound()

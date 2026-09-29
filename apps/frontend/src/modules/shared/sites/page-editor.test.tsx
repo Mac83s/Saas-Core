@@ -308,6 +308,43 @@ test("dodaje sekcję z powtarzalną listą i zapisuje jej wpisy", async () => {
   });
 });
 
+test("przestawia pozycje listy strzałkami i zapisuje nową kolejność", async () => {
+  renderEditor("pl", polishMessages, vi.fn().mockResolvedValue(undefined));
+
+  const picker = await screen.findByRole("combobox", { name: "Typ bloku" });
+  picker.focus();
+  fireEvent.change(picker, { target: { value: "FAQ" } });
+  fireEvent.keyDown(picker, { key: "ArrowDown" });
+  fireEvent.click(await screen.findByRole("option", { name: "FAQ" }));
+  fireEvent.click(screen.getByRole("button", { name: "Dodaj" }));
+
+  for (const question of ["Pierwsze?", "Drugie?"]) {
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Dodaj pozycję" }),
+    );
+    const fields = await screen.findAllByLabelText("Pytanie");
+    fireEvent.change(fields.at(-1)!, { target: { value: question } });
+    fireEvent.change(screen.getAllByLabelText("Odpowiedź").at(-1)!, {
+      target: { value: "Tak." },
+    });
+  }
+  const up = screen.getAllByRole("button", { name: "Przesuń pozycję wyżej" });
+  const down = screen.getAllByRole("button", {
+    name: "Przesuń pozycję niżej",
+  });
+  expect(up[0]).toBeDisabled();
+  expect(down[1]).toBeDisabled();
+  fireEvent.click(up[1]!);
+  fireEvent.click(screen.getByRole("button", { name: "Zapisz stronę" }));
+
+  await waitFor(() => expect(savePageDraft).toHaveBeenCalledOnce());
+  expect(
+    savePageDraft.mock.calls[0]?.[1].blocks[1].data.items.map(
+      (item: { question: string }) => item.question,
+    ),
+  ).toEqual(["Drugie?", "Pierwsze?"]);
+});
+
 test("importuje szablon do wersjonowanego draftu przez API", async () => {
   getPageDraft.mockResolvedValue({ ...draft, blocks: [] });
   const onChanged = vi.fn().mockResolvedValue(undefined);
@@ -1136,7 +1173,7 @@ test("the contextual library inserts between sections and undo restores the orig
   fireEvent.click(screen.getByRole("button", { name: /Edytuj sekcję 1:/ }));
   fireEvent.click(screen.getByRole("button", { name: "Dodaj sekcję poniżej" }));
   fireEvent.click(
-    await screen.findByRole("button", { name: "Dodaj: Karty usług" }),
+    await screen.findByRole("button", { name: "Dodaj: Klasyczna lista" }),
   );
   expect(screen.getAllByRole("button", { name: /Edytuj sekcję/ })).toHaveLength(
     3,
@@ -1173,7 +1210,7 @@ test("the canvas's + inserts above the first section and at the end, each one un
     }),
   );
   fireEvent.click(
-    await screen.findByRole("button", { name: "Dodaj: Karty usług" }),
+    await screen.findByRole("button", { name: "Dodaj: Klasyczna lista" }),
   );
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   fireEvent.click(screen.getByRole("button", { name: studio.insertAtEnd }));

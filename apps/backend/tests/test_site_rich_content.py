@@ -19,7 +19,8 @@ from django.db import DatabaseError, transaction
 from django.test import override_settings
 from rest_framework.test import APIClient
 
-from saas_core.modules.shared.media.models import MediaAssetState
+from saas_core.modules.core.organizations.context import set_local_organization_id
+from saas_core.modules.shared.media.models import MediaAsset, MediaAssetState
 from saas_core.modules.shared.sites.blueprints import template_slots
 from saas_core.modules.shared.sites.connections import REVIEW_SALT, _review_digest
 from saas_core.modules.shared.sites.models import (
@@ -454,6 +455,30 @@ def test_nested_media_is_referenced_published_and_served(page_surface, monkeypat
         )
     assert served.status_code == 200
     assert served.content == b"\x89PNG\r\n\x1a\n"
+
+    # The pipeline's WebP copies go through the same check (F4-P3): a variant
+    # the asset has, never one it lacks, one not published or an unknown kind.
+    preview_key = f"{org.id}/variants/{figure_asset.id}/preview.webp"
+    with transaction.atomic():
+        set_local_organization_id(org.id)
+        MediaAsset.all_objects.filter(pk=figure_asset.pk).update(
+            variants={"preview": {"object_key": preview_key, "content_type": "image/webp"}}
+        )
+    storage.objects[preview_key] = (b"RIFF0000WEBP", "image/webp")
+    unpublished = create_media_asset(org, owner)
+
+    def variant(asset_id, kind):
+        with override_settings(PUBLIC_SITE_SCHEME="https"):
+            return APIClient().get(
+                f"/api/v1/public/site/media/{asset_id}/{kind}/", HTTP_HOST=platform.hostname
+            )
+
+    preview = variant(figure_asset.id, "preview")
+    assert (preview.status_code, preview["Content-Type"]) == (200, "image/webp")
+    assert preview.content == b"RIFF0000WEBP"
+    assert variant(figure_asset.id, "thumbnail").status_code == 404
+    assert variant(figure_asset.id, "original").status_code == 404
+    assert variant(unpublished.id, "preview").status_code == 404
 
     collection = create_collection(client, site).data["id"]
     entry = create_entry(client, collection, slug="wpis", idempotency_key="entry").data["id"]

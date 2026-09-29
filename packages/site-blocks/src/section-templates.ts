@@ -9,6 +9,13 @@ import type {
   SiteBlock,
 } from "./types";
 
+export interface SampleMedia {
+  id: string;
+  alt: Record<"pl" | "en", string>;
+  /** v5: where `{asset_id, alt}` goes in the seed. Absent: `["image"]`. */
+  path?: readonly (string | number)[];
+}
+
 export interface SectionTemplate {
   id: string;
   version: number;
@@ -33,15 +40,9 @@ export interface SectionTemplate {
     requiredModules: readonly string[];
     media: string;
   };
-  /** v7 also allows a list of photos, each with its own path; no template
-   *  uses it yet — the loader and the library learn it with the first
-   *  gallery (phase 4, P3). */
-  sampleMedia?: {
-    id: string;
-    alt: Record<"pl" | "en", string>;
-    /** v5: where `{asset_id, alt}` goes in the seed. Absent: `["image"]`. */
-    path?: readonly (string | number)[];
-  };
+  /** One sample photo, or — v7, from the first gallery (F4-P3) — a list,
+   *  each photo with its own path. `sampleMediaOf` reads either. */
+  sampleMedia?: SampleMedia | readonly SampleMedia[];
   /** v5 ranking metadata. Preferences for the library, never restrictions. */
   contentProfiles?: readonly ("S" | "M" | "L" | "XL")[];
   readingPattern?: "linear" | "scan" | "reference" | "visual";
@@ -96,21 +97,34 @@ export function sectionTemplateBlock(
   return block;
 }
 
-/** The section's sample photo in a copy of the block, at the template's
- *  `sampleMedia.path`. A template without a sample photo returns the block. */
+/** The template's sample photos as a list, whichever way it gives them. */
+export function sampleMediaOf(
+  template: SectionTemplate,
+): readonly SampleMedia[] {
+  const sample = template.sampleMedia;
+  if (sample === undefined) return [];
+  return Array.isArray(sample) ? sample : [sample as SampleMedia];
+}
+
+/** The section's sample photos in a copy of the block, each at its `path`.
+ *  `assetId` is the one asset of a single photo, or — for several — the
+ *  asset for a photo's id and position. Without sample photos: the block. */
 export function applySampleMedia(
   block: SiteBlock,
   template: SectionTemplate,
-  assetId: string,
+  assetId: string | ((mediaId: string, index: number) => string),
   locale: CatalogLocale,
 ): SiteBlock {
-  const sample = template.sampleMedia;
-  if (sample === undefined) return block;
+  const samples = sampleMediaOf(template);
+  if (samples.length === 0) return block;
   const data = structuredClone(block.data);
-  setAtPath(data, sample.path ?? ["image"], {
-    asset_id: assetId,
-    alt: sample.alt[locale],
-  });
+  samples.forEach((sample, index) =>
+    setAtPath(data, sample.path ?? ["image"], {
+      asset_id:
+        typeof assetId === "string" ? assetId : assetId(sample.id, index),
+      alt: sample.alt[locale],
+    }),
+  );
   return { ...block, data };
 }
 

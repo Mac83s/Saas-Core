@@ -13,6 +13,7 @@ export {
   templatePreviewAssetId,
 } from "./page-templates";
 export { linkRel } from "./link-rel";
+export { FULL_WIDTH, HALF_WIDTH, publicImage } from "./public-image";
 export { createSiteBlockRegistry, defineSiteBlockManifest } from "./registry";
 export {
   designTokenClassName,
@@ -30,8 +31,13 @@ export {
   availableSectionTemplates,
   applySampleMedia,
   replaceSectionLayout,
+  sampleMediaOf,
 } from "./section-templates";
-export type { SectionTemplate, CatalogLocale } from "./section-templates";
+export type {
+  SampleMedia,
+  SectionTemplate,
+  CatalogLocale,
+} from "./section-templates";
 export {
   fieldsOfOtherLayouts,
   hiddenFields,

@@ -449,7 +449,10 @@ test("offered pages carry no invented statements: every quote is the owner's to 
         const where = `${recipe.id} v${recipe.version} ${locale} #${position}`;
         const statements = [];
         if (block.block_type === "core.quote")
-          statements.push(block.data.quote);
+          statements.push(
+            block.data.quote,
+            ...(block.data.voices ?? []).map((voice) => voice.quote),
+          );
         if (block.block_type === "core.testimonials")
           statements.push(...block.data.items.map((item) => item.quote));
         for (const node of block.data.content ?? [])
@@ -463,6 +466,27 @@ test("offered pages carry no invented statements: every quote is the owner's to 
           where,
         );
       });
+});
+
+test("offered pages mark every sample photo in a gallery as illustrative", async () => {
+  const { templates } = await loadTemplates();
+  // A gallery shows the owner's work: a sample photo there must not pass for
+  // a real project (catalogue rule 4, F4-P3).
+  const marked = /poglądowe|Illustrative|^\[(Uzupełnij|Fill in): /;
+  for (const { recipe } of offered(templates))
+    for (const binding of recipe.mediaBindings ?? []) {
+      const [field, index] = binding.path ?? [];
+      for (const [locale, blocks] of variants(recipe)) {
+        const block = blocks[binding.blockPosition];
+        if (block.block_type !== "core.gallery") continue;
+        assert.equal(field, "items");
+        assert.match(
+          block.data.items[index].caption ?? "",
+          marked,
+          `${recipe.id} v${recipe.version} ${locale} #${binding.blockPosition}`,
+        );
+      }
+    }
 });
 
 test("composed page recipes pin section versions and materialize their exact seed data", async () => {

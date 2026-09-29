@@ -12,6 +12,7 @@ import {
 import {
   applySampleMedia,
   availableSectionTemplates,
+  sampleMediaOf,
   sectionIndustries,
   sectionTemplateBlock,
   renderDraftPreview,
@@ -50,6 +51,7 @@ const BLOCK_TYPES = [
   "rich_text",
   "quote",
   "product",
+  "gallery",
 ] as const;
 
 const tokens = {
@@ -195,7 +197,8 @@ export function SectionLibraryContent({
     if (pending.current) return;
     setError(false);
     const seeded = sectionTemplateBlock(template, locale, registry);
-    if (!template.sampleMedia) {
+    const photos = [...new Set(sampleMediaOf(template).map((item) => item.id))];
+    if (photos.length === 0) {
       onAdd(editableBlocks([seeded])[0]);
       setSelected(null);
       return;
@@ -204,20 +207,30 @@ export function SectionLibraryContent({
     setBusy(true);
     onBusyChange?.(true);
     try {
-      const photo = template.sampleMedia;
-      if (!receipts.current.has(photo.id))
-        receipts.current.set(
-          photo.id,
-          `template-photo-${globalThis.crypto.randomUUID()}`,
+      // One asset per sample photo; its receipt makes a retry, or another
+      // section with the same photo, reuse that asset.
+      const assets = new Map<string, string>();
+      for (const photo of photos) {
+        if (!receipts.current.has(photo))
+          receipts.current.set(
+            photo,
+            `template-photo-${globalThis.crypto.randomUUID()}`,
+          );
+        const result = await materializeTemplatePhoto(
+          photo,
+          receipts.current.get(photo)!,
         );
-      const result = await materializeTemplatePhoto(
-        photo.id,
-        receipts.current.get(photo.id)!,
+        if (!mounted.current) return;
+        assets.set(photo, result.asset_id);
+      }
+      // Each photo goes where the template says (a product's or a gallery's
+      // item, not only `image`).
+      const bound = applySampleMedia(
+        seeded,
+        template,
+        (photo) => assets.get(photo)!,
+        locale,
       );
-      if (!mounted.current) return;
-      // The photo goes where the template says (a product's gallery, not
-      // only `image`).
-      const bound = applySampleMedia(seeded, template, result.asset_id, locale);
       registry.validate(bound);
       onAdd(editableBlocks([bound])[0]);
       setSelected(null);

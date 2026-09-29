@@ -41,7 +41,7 @@ from saas_core.modules.shared.billing.api import (
     reserve_quota,
 )
 
-from .images import AI_GENERATED_XMP, UnsafeImageError, process_image
+from .images import AI_GENERATED_XMP, VARIANT_SIZES, UnsafeImageError, process_image
 from .models import (
     AiOrigin,
     MediaAsset,
@@ -966,6 +966,26 @@ def _reject_media_asset(
         metadata={"reason": code},
     )
     return asset
+
+
+def published_variant_key(asset: MediaAsset, kind: str) -> str | None:
+    """The object key of one of our processed WebP variants of `asset`, or None.
+
+    Only a key the pipeline itself wrote for this asset — never one read from
+    the JSON metadata alone — so a public URL cannot be turned into a read of
+    an arbitrary object.
+    """
+    if kind not in VARIANT_SIZES:
+        return None
+    variant = asset.variants.get(kind)
+    object_key = _variant_object_key(asset, kind)
+    if (
+        not isinstance(variant, dict)
+        or variant.get("object_key") != object_key
+        or variant.get("content_type") != "image/webp"
+    ):
+        return None
+    return object_key
 
 
 def _variant_object_key(asset: MediaAsset, kind: str) -> str:

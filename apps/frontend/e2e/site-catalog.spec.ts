@@ -26,6 +26,7 @@ const {
   createSiteBlockRegistry,
   isRetiredPageTemplate,
   offeredSectionTemplates,
+  sampleMediaOf,
   sectionTemplateBlock,
 } = createRequire(import.meta.url)(
   "@saas-core/site-blocks",
@@ -206,15 +207,9 @@ test.describe("Site catalogue screenshots (F4-P0a)", () => {
       const seeded: SiteBlock[] = [];
       for (const template of source.templates) {
         const block = sectionTemplateBlock(template, "pl", registry);
+        for (const sample of sampleMediaOf(template)) await photo(sample.id);
         seeded.push(
-          template.sampleMedia
-            ? applySampleMedia(
-                block,
-                template,
-                await photo(template.sampleMedia.id),
-                "pl",
-              )
-            : block,
+          applySampleMedia(block, template, (id) => photos.get(id)!, "pl"),
         );
       }
       for (const style of styles) {

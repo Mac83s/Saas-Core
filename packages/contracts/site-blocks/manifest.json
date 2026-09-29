@@ -125,6 +125,13 @@
         "1": "core.product.v1.schema.json",
         "2": "core.product.v2.schema.json"
       }
+    },
+    {
+      "type": "core.gallery",
+      "latestVersion": 1,
+      "schemas": {
+        "1": "core.gallery.v1.schema.json"
+      }
     }
   ],
   "designTokens": "design-tokens.v1.schema.json"

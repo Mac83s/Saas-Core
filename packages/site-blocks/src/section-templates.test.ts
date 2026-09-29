@@ -15,6 +15,7 @@ import {
   createSiteBlockRegistry,
   offeredSectionTemplates,
   replaceSectionLayout,
+  sampleMediaOf,
   sectionTemplateBlock,
   type JsonObject,
 } from "./index";
@@ -251,7 +252,7 @@ describe("section template contract", () => {
   });
 
   it("v7 appends F4-P2: five quote layouts on quote v2 — the words, names and sources are the owner's", () => {
-    expect(coreSectionTemplates()).toHaveLength(143);
+    expect(coreSectionTemplates().length).toBeGreaterThanOrEqual(143);
     const added = coreSectionTemplates().slice(138, 143);
     expect(added.map((template) => [template.id, template.layout])).toEqual([
       ["core.quote_typographic", "typographic"],
@@ -300,9 +301,58 @@ describe("section template contract", () => {
     ).toEqual(["with_action"]);
   });
 
+  it("v7 appends F4-P3: six gallery layouts — sample photos marked as illustrative, titles are the owner's", () => {
+    expect(coreSectionTemplates()).toHaveLength(149);
+    const added = coreSectionTemplates().slice(143, 149);
+    expect(added.map((template) => [template.id, template.layout])).toEqual([
+      ["core.gallery_photo_story", "photo_story"],
+      ["core.gallery_captioned_grid", "captioned_grid"],
+      ["core.gallery_dominant_details", "dominant_details"],
+      ["core.gallery_interleaved", "interleaved"],
+      ["core.gallery_project_mosaic", "project_mosaic"],
+      ["core.gallery_photo_steps", "photo_steps"],
+    ]);
+    for (const template of added) {
+      expect(template).toMatchObject({
+        version: 1,
+        blockType: "core.gallery",
+        schemaVersion: 1,
+        kind: "default",
+        requirements: { media: "optional" },
+      });
+      expect(template.conversion).toBeDefined();
+      const samples = sampleMediaOf(template);
+      expect(samples.length).toBeGreaterThan(1);
+      for (const locale of ["pl", "en"] as const) {
+        const seed = template.seed[locale] as {
+          items: { title?: string; caption?: string }[];
+          action?: { href: string };
+        };
+        // Each sample photo lands on its own item, and the seed stays
+        // valid without them (checked by the manifest test).
+        expect(samples.map((sample) => sample.path)).toEqual(
+          samples.map((_, index) => ["items", index, "image"]),
+        );
+        expect(samples.length).toBeLessThanOrEqual(seed.items.length);
+        // A photo item says the photo is illustrative, or asks for the
+        // owner's words: nothing claims a job the owner has not done.
+        for (const item of seed.items.slice(0, samples.length))
+          expect(`${item.title} ${item.caption}`).toMatch(
+            /\[(Uzupełnij|Fill in): |poglądowe|Illustrative/,
+          );
+        if (seed.action) expect(seed.action.href).not.toMatch(/^#/);
+      }
+    }
+    expect(
+      added
+        .filter((template) => template.conversion?.primaryAction)
+        .map((template) => template.layout),
+    ).toEqual(["project_mosaic"]);
+  });
+
   it("offers the newest version of each template, one per id, in catalogue order", () => {
     const offered = offeredSectionTemplates();
-    expect(offered).toHaveLength(135);
+    expect(offered).toHaveLength(141);
     // A revision keeps its predecessor's place in the library; new ids follow.
     expect(offered.map((template) => template.id)).toEqual([
       ...v6Catalog.templates.map((template) => template.id),
@@ -310,7 +360,7 @@ describe("section template contract", () => {
         .slice(128)
         .map((template) => template.id),
     ]);
-    expect(new Set(offered.map((template) => template.id)).size).toBe(135);
+    expect(new Set(offered.map((template) => template.id)).size).toBe(141);
     for (const template of offered)
       expect(template.version).toBe(
         Math.max(
@@ -349,8 +399,8 @@ describe("section template contract", () => {
         expect(industries.has(id)).toBe(true),
       );
       // v7 replaced the enum of ids with the sample media catalogue.
-      if (template.sampleMedia)
-        expect(photos.has(template.sampleMedia.id)).toBe(true);
+      for (const sample of sampleMediaOf(template))
+        expect(photos.has(sample.id)).toBe(true);
       for (const locale of ["pl", "en"] as const) {
         const block = sectionTemplateBlock(template, locale, registry);
         expect(block.data.layout).toBe(template.layout);

@@ -135,6 +135,12 @@ def _sites_routes() -> list[Route]:
             PublicSiteMediaView.as_view(),
             name="public-site-media",
         ),
+        # A pipeline-made WebP copy of the same published picture (F4-P3).
+        path(
+            "api/v1/public/site/media/<uuid:asset_id>/<str:variant>/",
+            PublicSiteMediaView.as_view(),
+            name="public-site-media-variant",
+        ),
     ]
 
 

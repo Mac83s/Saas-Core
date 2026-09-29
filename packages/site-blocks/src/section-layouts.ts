@@ -2,6 +2,7 @@ import { createElement as h, type ReactElement } from "react";
 
 import { plainBlockText } from "./block-text";
 import { renderImage } from "./ai-badge";
+import { FULL_WIDTH, HALF_WIDTH, publicImage } from "./public-image";
 import { withSecondaryAction } from "./editorial-blocks";
 import {
   FEATURE_LIST_V5_LAYOUTS,
@@ -122,11 +123,9 @@ export function renderSectionLayout(
     const image = hero.image
       ? renderImage(
           hero.image,
-          h("img", {
-            src: `/media/${hero.image.asset_id}`,
-            alt: hero.image.alt,
+          publicImage(hero.image, {
+            sizes: layout === "split" ? HALF_WIDTH : FULL_WIDTH,
             loading: "eager",
-            decoding: "async",
           }),
           imageRenderer,
         )
@@ -214,16 +213,7 @@ export function renderSectionLayout(
       ? h(
           "div",
           { className: "site-section__photo" },
-          renderImage(
-            offer.image,
-            h("img", {
-              src: `/media/${offer.image.asset_id}`,
-              alt: offer.image.alt,
-              loading: "lazy",
-              decoding: "async",
-            }),
-            imageRenderer,
-          ),
+          renderImage(offer.image, publicImage(offer.image), imageRenderer),
         )
       : null;
     if (layout === "specification" || layout === "coverage") {

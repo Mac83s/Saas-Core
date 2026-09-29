@@ -3,6 +3,7 @@ import { Fragment, createElement as h, type ReactNode } from "react";
 import { plainBlockText } from "./block-text";
 import { linkRel } from "./link-rel";
 import { renderImage } from "./ai-badge";
+import { FULL_WIDTH, HALF_WIDTH, publicImage } from "./public-image";
 import { monogram, picture } from "./editorial-blocks";
 
 import type {
@@ -216,11 +217,8 @@ function richTextNode(
         },
         renderImage(
           node.image,
-          h("img", {
-            src: `/media/${node.image.asset_id}`,
-            alt: node.image.alt,
-            loading: "lazy",
-            decoding: "async",
+          publicImage(node.image, {
+            sizes: node.width === "wide" ? FULL_WIDTH : HALF_WIDTH,
           }),
           context.imageRenderer,
         ),
