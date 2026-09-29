@@ -26,8 +26,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@saas-core/ui/components/card";
+import { DataTable, type ColumnDef } from "@saas-core/ui/components/data-table";
 import { Label } from "@saas-core/ui/components/label";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
+import { useDataTableLabels } from "#lib/data-table-labels";
 import { SiteInquiries } from "../sites/site-inquiries";
 
 const schema = z.object({
@@ -102,6 +104,7 @@ export function NotificationsPanel({
 
 function TemplatesSection({ canManageBilling }: { canManageBilling: boolean }) {
   const t = useTranslations("Notifications");
+  const labels = useDataTableLabels();
   const uiLocale = useLocale();
   const [items, setItems] = useState<Template[]>();
   const [failure, setFailure] = useState<"plan" | "permission" | "error">();
@@ -160,6 +163,63 @@ function TemplatesSection({ canManageBilling }: { canManageBilling: boolean }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
   }, [load]);
+
+  // The name selects the template for the detail beside the list; the row
+  // it is in says so in words, not only in colour.
+  const columns: ColumnDef<Template, unknown>[] = [
+    {
+      id: "template",
+      accessorFn: (item) => templateName(item.key, t),
+      header: t("colTemplate"),
+      meta: { primary: true },
+      cell: ({ row: { original: item } }) => (
+        <div className="space-y-1">
+          <p className="flex flex-wrap items-center gap-2">
+            <button
+              aria-pressed={selected?.template === item}
+              className="rounded-sm text-left font-medium wrap-anywhere outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 aria-pressed:text-primary"
+              onClick={() =>
+                void show(
+                  item,
+                  languageFor(item, selected?.language ?? uiLocale),
+                )
+              }
+              type="button"
+            >
+              {templateName(item.key, t)}
+            </button>
+            {selected?.template === item ? (
+              <Badge>{t("previewing")}</Badge>
+            ) : null}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {item.locales.map((code) => code.toUpperCase()).join(" · ")}
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "category",
+      accessorFn: (item) =>
+        t(
+          item.category === "marketing"
+            ? "marketingCategory"
+            : "requiredCategory",
+        ),
+      header: t("colCategory"),
+      cell: ({ row: { original: item } }) => (
+        <Badge
+          variant={item.category === "marketing" ? "outline" : "secondary"}
+        >
+          {t(
+            item.category === "marketing"
+              ? "marketingCategory"
+              : "requiredCategory",
+          )}
+        </Badge>
+      ),
+    },
+  ];
 
   return (
     <section aria-labelledby="templates-heading" className="space-y-4">
@@ -223,42 +283,14 @@ function TemplatesSection({ canManageBilling }: { canManageBilling: boolean }) {
           {t("templatesEmpty")}
         </p>
       ) : (
-        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
-          <ul className="space-y-2">
-            {items.map((item) => (
-              <li key={`${item.key}:${item.version}`}>
-                <button
-                  aria-pressed={selected?.template === item}
-                  className="flex min-h-11 w-full flex-col items-start gap-1.5 rounded-lg border bg-background px-4 py-3 text-left text-sm transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-pressed:border-primary aria-pressed:ring-1 aria-pressed:ring-primary"
-                  onClick={() =>
-                    void show(
-                      item,
-                      languageFor(item, selected?.language ?? uiLocale),
-                    )
-                  }
-                  type="button"
-                >
-                  <span className="font-medium">
-                    {templateName(item.key, t)}
-                  </span>
-                  <span className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <Badge
-                      variant={
-                        item.category === "marketing" ? "outline" : "secondary"
-                      }
-                    >
-                      {t(
-                        item.category === "marketing"
-                          ? "marketingCategory"
-                          : "requiredCategory",
-                      )}
-                    </Badge>
-                    {item.locales.map((code) => code.toUpperCase()).join(" · ")}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+          <DataTable
+            caption={t("templatesTitle")}
+            columns={columns}
+            data={items}
+            getRowId={(item) => `${item.key}:${item.version}`}
+            labels={labels}
+          />
           {selected ? (
             <TemplateDetail
               language={selected.language}

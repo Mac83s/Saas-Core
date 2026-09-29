@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
@@ -129,8 +130,18 @@ test("podgląd podstawia zmienne szablonu i zmienia język bez wysyłania", asyn
   fireEvent.click(screen.getByRole("button", { name: "English" }));
   expect(await screen.findByText("Temat z API (en)")).not.toBeNull();
 
+  // The templates are a list whose selected row says it is in the preview.
+  const table = screen.getByRole("table", { name: "Szablony wiadomości" });
+  const rows = within(table).getAllByRole("row");
+  expect(rows).toHaveLength(3);
+  expect(within(rows[1]!).getByText("W podglądzie")).toBeInTheDocument();
+  expect(within(rows[2]!).getByText("Marketingowa")).toBeInTheDocument();
+  expect(within(rows[2]!).queryByText("W podglądzie")).toBeNull();
+
   // Another template keeps the language chosen for the preview.
-  fireEvent.click(screen.getByRole("button", { name: /Nowości w usłudze/ }));
+  fireEvent.click(
+    within(rows[2]!).getByRole("button", { name: /Nowości w usłudze/ }),
+  );
   await waitFor(() =>
     expect(previewNotificationTemplate).toHaveBeenLastCalledWith({
       key: "product.update",
@@ -142,6 +153,14 @@ test("podgląd podstawia zmienne szablonu i zmienia język bez wysyłania", asyn
   expect(
     screen.getByRole("button", { name: /Nowości w usłudze/ }),
   ).toHaveAttribute("aria-pressed", "true");
+  expect(
+    screen.getByRole("button", { name: "Przypomnienie o rezerwacji" }),
+  ).toHaveAttribute("aria-pressed", "false");
+  expect(within(rows[2]!).getByText("W podglądzie")).toBeInTheDocument();
+  expect(within(rows[1]!).queryByText("W podglądzie")).toBeNull();
+  expect(
+    await screen.findByRole("heading", { name: "Nowości w usłudze" }),
+  ).toBeInTheDocument();
   expect(previewNotificationTemplate).toHaveBeenCalledTimes(3);
 });
 
