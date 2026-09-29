@@ -3419,7 +3419,10 @@
     "emailSuppressed": "Sending paused",
     "emailDeadLetter": "Sending failed",
     "emailUnknown": "No sending confirmation",
-    "emailUnavailable": "Notification unavailable — the message is saved in the panel"
+    "emailUnavailable": "Notification unavailable — the message is saved in the panel",
+    "from": "From",
+    "state": "Status",
+    "opened": "Reading"
   },
   "ImageGeneration": {
     "open": "Generate AI image",

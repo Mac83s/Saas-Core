@@ -12,8 +12,11 @@ import {
 } from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button, buttonVariants } from "@saas-core/ui/components/button";
+import { DataTable, type ColumnDef } from "@saas-core/ui/components/data-table";
 import { Label } from "@saas-core/ui/components/label";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
+
+import { useDataTableLabels } from "#lib/data-table-labels";
 
 type Site = Awaited<ReturnType<typeof listSites>>["items"][number];
 type Inquiry = Awaited<ReturnType<typeof listSiteInquiries>>["items"][number];
@@ -142,6 +145,7 @@ function FailureMessage({
 function SiteInbox({ siteId }: { siteId: string }) {
   const t = useTranslations("SiteInquiries");
   const locale = useLocale();
+  const labels = useDataTableLabels();
   const [items, setItems] = useState<Inquiry[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string>();
@@ -160,7 +164,7 @@ function SiteInbox({ siteId }: { siteId: string }) {
   useEffect(() => {
     if (!selectedId) return;
     detailHeading.current?.focus({ preventScroll: true });
-    if (window.matchMedia?.("(max-width: 1023px)")?.matches) {
+    if (window.matchMedia?.("(max-width: 1279px)")?.matches) {
       detailHeading.current?.scrollIntoView?.({ block: "start" });
     }
   }, [selectedId]);
@@ -254,6 +258,65 @@ function SiteInbox({ siteId }: { siteId: string }) {
       timeStyle: "short",
     }).format(new Date(value));
 
+  const columns: ColumnDef<Inquiry, unknown>[] = [
+    {
+      id: "from",
+      accessorKey: "name",
+      header: t("from"),
+      meta: { primary: true },
+      // The name opens the message beside the list; the row shows no content.
+      cell: ({ row: { original: item } }) => (
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            aria-pressed={selectedId === item.id}
+            className="rounded-sm text-left font-semibold wrap-anywhere hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-pressed:text-primary"
+            onClick={() => {
+              setSelectedId(item.id);
+              void markRead(item);
+            }}
+            type="button"
+          >
+            {item.name}
+          </button>
+          {selectedId === item.id ? (
+            <Badge variant="outline">{t("opened")}</Badge>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      id: "state",
+      accessorFn: (item) => t(item.read_at ? "read" : "unread"),
+      header: t("state"),
+      cell: ({ row: { original: item } }) =>
+        !item.read_at ? (
+          <Badge>{t("unread")}</Badge>
+        ) : (
+          <span className="text-muted-foreground">{t("read")}</span>
+        ),
+    },
+    {
+      id: "received",
+      accessorKey: "created_at",
+      header: t("received"),
+      cell: ({ row: { original: item } }) => (
+        <time className="text-muted-foreground" dateTime={item.created_at}>
+          {date(item.created_at)}
+        </time>
+      ),
+    },
+    {
+      id: "source",
+      accessorKey: "page_path",
+      header: t("source"),
+      cell: ({ row: { original: item } }) => (
+        <span className="break-all text-muted-foreground">
+          {item.page_path}
+        </span>
+      ),
+    },
+  ];
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-end gap-2">
@@ -280,48 +343,19 @@ function SiteInbox({ siteId }: { siteId: string }) {
         </p>
       ) : null}
       {items.length ? (
-        <div className="grid items-start gap-5 lg:grid-cols-[minmax(15rem,0.8fr)_minmax(0,1.4fr)]">
-          <div className="space-y-3">
-            <ul
-              aria-label={t("listLabel")}
-              className="max-h-[36rem] space-y-2 overflow-y-auto p-1"
-            >
-              {items.map((item) => (
-                <li key={item.id}>
-                  <button
-                    aria-pressed={selectedId === item.id}
-                    className="flex min-h-20 w-full flex-col gap-2 rounded-xl border p-4 text-left transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-pressed:border-primary aria-pressed:bg-primary/5"
-                    onClick={() => {
-                      setSelectedId(item.id);
-                      void markRead(item);
-                    }}
-                    type="button"
-                  >
-                    <span className="flex w-full flex-wrap items-center justify-between gap-2">
-                      <span className="min-w-0 break-words font-semibold">
-                        {item.name}
-                      </span>
-                      {!item.read_at ? (
-                        <Badge>{t("unread")}</Badge>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">
-                          {t("read")}
-                        </span>
-                      )}
-                    </span>
-                    <time
-                      className="text-xs text-muted-foreground"
-                      dateTime={item.created_at}
-                    >
-                      {date(item.created_at)}
-                    </time>
-                    <span className="break-all text-sm text-muted-foreground">
-                      {item.page_path}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+          <div className="min-w-0 space-y-3">
+            <DataTable
+              caption={t("listLabel")}
+              columns={columns}
+              data={items}
+              getRowId={(item) => item.id}
+              labels={labels}
+              loading={loading}
+              // The API pages the inbox ("load older" below); the table shows
+              // every inquiry loaded so far instead of paging them again.
+              pageSize={Number.MAX_SAFE_INTEGER}
+            />
             {cursor ? (
               <Button
                 className="w-full"
@@ -337,7 +371,8 @@ function SiteInbox({ siteId }: { siteId: string }) {
           {selected ? (
             <article
               aria-label={selected.name}
-              className="min-w-0 space-y-5 rounded-xl border bg-card p-5 sm:p-6"
+              // Stays in view beside a long list on a wide screen.
+              className="min-w-0 space-y-5 rounded-xl border bg-card p-5 sm:p-6 xl:sticky xl:top-4"
             >
               <header className="space-y-1">
                 <h3

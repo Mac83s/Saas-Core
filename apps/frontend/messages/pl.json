@@ -3419,7 +3419,10 @@
     "emailSuppressed": "Wysyłka wstrzymana",
     "emailDeadLetter": "Nie udało się wysłać",
     "emailUnknown": "Brak potwierdzenia wysyłki",
-    "emailUnavailable": "Powiadomienie niedostępne — wiadomość jest zapisana w panelu"
+    "emailUnavailable": "Powiadomienie niedostępne — wiadomość jest zapisana w panelu",
+    "from": "Nadawca",
+    "state": "Stan",
+    "opened": "Czytasz"
   },
   "ImageGeneration": {
     "open": "Wygeneruj obraz AI",

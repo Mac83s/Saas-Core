@@ -96,11 +96,26 @@ test.each(["pl", "en"] as const)(
     const firstButton = await screen.findByRole("button", {
       name: /Example Visitor/,
     });
+    // The inbox is the shared panel list (ADR-054): who, state, when, where.
+    const table = screen.getByRole("table", {
+      name: locale === "pl" ? "Lista zapytań" : "Inquiry list",
+    });
+    expect(within(table).getAllByRole("row")).toHaveLength(3);
+    expect(
+      within(table).getByText(locale === "pl" ? "Nowe" : "New"),
+    ).not.toBeNull();
     expect(screen.queryByText(first.message)).toBeNull();
     expect(screen.queryByText(second.message)).toBeNull();
     expect((await axe.run(result.container)).violations).toHaveLength(0);
     fireEvent.click(firstButton);
     expect(await screen.findByText(first.message)).not.toBeNull();
+    // The open inquiry is marked in its row, not only by the detail beside it.
+    expect(firstButton).toHaveAttribute("aria-pressed", "true");
+    expect(
+      within(firstButton.closest("tr")!).getByText(
+        locale === "pl" ? "Czytasz" : "Reading",
+      ),
+    ).not.toBeNull();
     expect(
       screen.getByRole("heading", { name: "Example Visitor" }),
     ).toHaveFocus();
@@ -211,7 +226,7 @@ test.each([
   listSiteInquiries.mockRejectedValue(problem(code));
   renderInbox();
   expect(await screen.findByRole("alert")).toHaveTextContent(message);
-  expect(screen.queryByRole("list", { name: "Lista zapytań" })).toBeNull();
+  expect(screen.queryByRole("table", { name: "Lista zapytań" })).toBeNull();
   expect(screen.queryByText(/Private server detail/)).toBeNull();
 });
 
@@ -225,7 +240,7 @@ test("po odświeżeniu odmawiającym dostępu usuwa wcześniej widoczną wiadomo
   fireEvent.click(screen.getByRole("button", { name: "Odśwież" }));
   await screen.findByRole("alert");
   expect(screen.queryByText(first.message)).toBeNull();
-  expect(screen.queryByRole("list", { name: "Lista zapytań" })).toBeNull();
+  expect(screen.queryByRole("table", { name: "Lista zapytań" })).toBeNull();
 });
 
 test("ponawia błąd listy, a przy pustej organizacji nie odpytuje zapytań", async () => {
@@ -297,7 +312,7 @@ test("cofnięcie uprawnień podczas odczytu usuwa treść z widoku", async () =>
     "Nie masz dostępu",
   );
   expect(screen.queryByText(first.message)).toBeNull();
-  expect(screen.queryByRole("list", { name: "Lista zapytań" })).toBeNull();
+  expect(screen.queryByRole("table", { name: "Lista zapytań" })).toBeNull();
 });
 
 test("prośba o telefon bez e-maila i wiadomości daje przycisk „Zadzwoń”", async () => {
