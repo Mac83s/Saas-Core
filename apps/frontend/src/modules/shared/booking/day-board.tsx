@@ -158,13 +158,13 @@ export function DayBoard({
   const track = (content: ReactNode, label?: string) => (
     <div
       aria-label={label}
-      className="relative min-h-16 flex-1 overflow-hidden rounded-md bg-muted/40"
+      className="relative isolate min-h-16 flex-1 overflow-hidden rounded-md border bg-muted/40"
       role={label ? "group" : undefined}
     >
       {ticks.slice(1, -1).map((tick) => (
         <span
           aria-hidden="true"
-          className="absolute inset-y-0 border-l border-border/60"
+          className="absolute inset-y-0 z-[1] border-l border-border/70"
           key={tick.at}
           style={{ left: `${place(tick.at, range)}%` }}
         />
@@ -233,7 +233,7 @@ export function DayBoard({
                     when: `${time(item.starts_at)}–${time(item.ends_at)}`,
                   })}
                   className={cn(
-                    "absolute inset-y-1.5 z-[1] flex min-w-0 flex-col overflow-hidden rounded-md border-2 border-dashed border-warning-foreground bg-warning px-1.5 py-1 text-left text-xs text-warning-foreground hover:brightness-95",
+                    "absolute inset-y-1.5 z-[2] flex min-w-0 flex-col overflow-hidden rounded-md border-2 border-dashed border-warning-foreground bg-warning px-1.5 py-1 text-left text-xs text-warning-foreground hover:brightness-95",
                     focusRing,
                   )}
                   key={item.id}
@@ -243,6 +243,7 @@ export function DayBoard({
                       : handlers.onOpen(item, event.currentTarget)
                   }
                   style={at(span(item))}
+                  title={`${item.customer_name} · ${item.service_name}`}
                   type="button"
                 >
                   <span className="truncate font-semibold">
@@ -291,7 +292,7 @@ export function DayBoard({
                 ))}
                 {row.day?.time_off.map((away) => (
                   <span
-                    className="absolute inset-y-1.5 z-[1] flex items-center overflow-hidden rounded-md bg-muted px-1.5 text-xs text-muted-foreground"
+                    className="absolute inset-y-1.5 z-[2] flex items-center overflow-hidden rounded-md bg-muted px-1.5 text-xs text-muted-foreground"
                     key={away.starts_at}
                     style={at(span(away))}
                   >
@@ -304,7 +305,7 @@ export function DayBoard({
                 ))}
                 {busy.map((block) => (
                   <span
-                    className="absolute inset-y-1.5 z-[1] flex items-center overflow-hidden rounded-md border bg-muted px-1.5 text-xs text-muted-foreground"
+                    className="absolute inset-y-1.5 z-[2] flex items-center overflow-hidden rounded-md border bg-muted px-1.5 text-xs text-muted-foreground"
                     key={block.from}
                     style={at(block)}
                   >
@@ -324,7 +325,7 @@ export function DayBoard({
                       to: time(window.to),
                     })}
                     className={cn(
-                      "group absolute inset-y-1.5 z-[1] flex items-center justify-center rounded-md text-xs text-muted-foreground hover:border hover:border-dashed hover:border-primary hover:bg-primary/5 hover:text-primary",
+                      "group absolute inset-y-1.5 z-[2] flex items-center justify-center rounded-md border border-dashed border-transparent text-xs text-muted-foreground hover:border-primary hover:bg-primary/5 hover:text-primary",
                       focusRing,
                     )}
                     key={window.from}
@@ -340,7 +341,7 @@ export function DayBoard({
                   >
                     <PlusIcon
                       aria-hidden="true"
-                      className="size-4 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100"
+                      className="size-4 opacity-40 group-hover:opacity-100 group-focus-visible:opacity-100"
                     />
                   </button>
                 ))}
@@ -396,12 +397,14 @@ function VisitBlock({
         .filter(Boolean)
         .join(", ")}
       className={cn(
-        "absolute inset-y-1.5 z-[2] flex min-w-0 flex-col overflow-hidden rounded-md border px-1.5 py-1 text-left text-xs hover:brightness-95",
+        "absolute inset-y-1.5 z-[3] flex min-w-0 flex-col overflow-hidden rounded-md border px-1.5 py-1 text-left text-xs hover:brightness-95",
         className,
         focusRing,
       )}
       onClick={(event) => onOpen(item, event.currentTarget)}
       style={style}
+      // A short block cuts the words; the pointer still reads them whole.
+      title={`${item.customer_name} · ${item.service_name} · ${when}`}
       type="button"
     >
       <span className="flex min-w-0 items-center gap-1 font-semibold">
