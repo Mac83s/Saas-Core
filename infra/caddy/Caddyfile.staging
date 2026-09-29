@@ -19,12 +19,19 @@
 
 	header {
 		-Server
-		Permissions-Policy "camera=(), geolocation=(), microphone=()"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"
 		X-Frame-Options "DENY"
 	}
+
+	# The public catalogue's "Blisko mnie" asks the browser for its location
+	# (ADR-064 §7); every other page keeps geolocation off. The two matchers
+	# exclude each other, so the order of the directives does not matter.
+	@catalog path /katalog /katalog/* /en/katalog /en/katalog/*
+	@notCatalog not path /katalog /katalog/* /en/katalog /en/katalog/*
+	header @catalog Permissions-Policy "camera=(), geolocation=(self), microphone=()"
+	header @notCatalog Permissions-Policy "camera=(), geolocation=(), microphone=()"
 
 	@private path /internal/metrics/ /internal/caddy/*
 	respond @private 404
