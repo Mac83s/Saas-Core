@@ -31,11 +31,13 @@ const api = vi.hoisted(() => ({
   getBookingCatalog: vi.fn(),
   getBookingSlots: vi.fn(),
   getCrewCandidates: vi.fn(),
+  getPeopleDay: vi.fn(),
   getPublicBookingCatalog: vi.fn(),
   getPublicBookingDays: vi.fn(),
   getPublicBookingTimes: vi.fn(),
   getSelfServiceBooking: vi.fn(),
   listBookingAppointments: vi.fn(),
+  listPeople: vi.fn(),
   listTeams: vi.fn(),
   rescheduleBookingAppointment: vi.fn(),
   rescheduleSelfServiceBooking: vi.fn(),
@@ -153,6 +155,13 @@ beforeEach(() => {
   });
   api.listBookingAppointments.mockResolvedValue([appointment, completed]);
   api.listTeams.mockResolvedValue([]);
+  // One person's day: the day view stays a list (the board is in day-board.test).
+  api.listPeople.mockResolvedValue([]);
+  api.getPeopleDay.mockResolvedValue({
+    date: "2026-08-19",
+    timezone: "Europe/Warsaw",
+    items: [],
+  });
   api.getPublicBookingDays.mockResolvedValue(["2026-08-20"]);
   api.getPublicBookingTimes.mockResolvedValue([
     { starts_at: "2026-08-20T08:00:00Z", ends_at: "2026-08-20T08:30:00Z" },

@@ -395,6 +395,7 @@ export function NewAppointmentDialog({
   catalog,
   day,
   staffId = "",
+  time = "",
   onCreated,
   onOpenChange,
   open,
@@ -408,6 +409,8 @@ export function NewAppointmentDialog({
   day: string;
   /** The person the calendar is filtered to: the form starts with them. */
   staffId?: string;
+  /** "HH:mm" of a free window picked on the day board (plan: phase 4). */
+  time?: string;
   onCreated: (appointment: BookingAppointment) => void;
   onOpenChange: (open: boolean) => void;
   open: boolean;
@@ -436,6 +439,7 @@ export function NewAppointmentDialog({
           onCreated={onCreated}
           staffId={staffId}
           teams={teams}
+          time={time}
           zone={zone}
         />
       </DialogContent>
@@ -450,6 +454,7 @@ function NewAppointmentForm({
   onCreated,
   staffId: chosenStaff,
   teams,
+  time: chosenTime,
   zone,
 }: {
   canUseInventory: boolean;
@@ -458,6 +463,7 @@ function NewAppointmentForm({
   onCreated: (appointment: BookingAppointment) => void;
   staffId: string;
   teams: StaffTeam[];
+  time: string;
   zone: string;
 }) {
   const t = useTranslations("Calendar");
@@ -501,7 +507,7 @@ function NewAppointmentForm({
       service_id: only(catalog.services),
       location_id: only(catalog.locations),
       date: day < today ? today : day,
-      time: "",
+      time: day < today ? "" : chosenTime,
       display_name: "",
       email: "",
       phone: "",

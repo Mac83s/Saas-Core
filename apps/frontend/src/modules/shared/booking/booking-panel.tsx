@@ -15,10 +15,14 @@ import {
 import {
   ApiProblemError,
   getBookingCatalog,
+  getPeopleDay,
   listBookingAppointments,
+  listPeople,
   listTeams,
   type BookingAppointment,
   type BookingCatalog,
+  type PeopleDay,
+  type Person,
   type StaffTeam,
 } from "@saas-core/api-client";
 import { Button, buttonVariants } from "@saas-core/ui/components/button";
@@ -53,11 +57,26 @@ import {
   wallClock,
   weekStart,
 } from "./calendar-time";
+import { DayBoard } from "./day-board";
+import { boardRows } from "./day-board-model";
+import { CrewDialog } from "./dispatch/crew-dialog";
 
 type View = "day" | "week" | "month" | "list";
 /** The list is the month as a table: the same arrows, sortable and searchable. */
 const VIEWS: View[] = ["day", "week", "month", "list"];
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
+/** The view a person last chose on this device (answer 1C, 29.09). */
+const VIEW_KEY = "saas-core.calendar.view";
+
+function storedView(key?: string): View | undefined {
+  if (!key) return undefined;
+  try {
+    const value = localStorage.getItem(`${VIEW_KEY}:${key}`);
+    return VIEWS.includes(value as View) ? (value as View) : undefined;
+  } catch {
+    return undefined;
+  }
+}
 type OpenAppointment = (
   appointment: BookingAppointment,
   opener: HTMLElement,
@@ -88,6 +107,7 @@ export function BookingPanel({
   canManage = true,
   canUseInventory = false,
   timeZone,
+  viewKey,
 }: {
   /** booking.appointment.manage: plan, move and cancel appointments. */
   canManage?: boolean;
@@ -95,6 +115,8 @@ export function BookingPanel({
   canUseInventory?: boolean;
   /** The organization's zone: days and times are the business's own. */
   timeZone?: string;
+  /** Whose device memory the chosen view lives under; none: no memory. */
+  viewKey?: string;
 } = {}) {
   const t = useTranslations("Calendar");
   const locale = useLocale();
@@ -113,8 +135,28 @@ export function BookingPanel({
   const [problem, setProblem] = useState<"load" | "plan" | "access">();
   const [reloads, setReloads] = useState(0);
   const [view, setView] = useState<View>(() =>
-    VIEWS.includes(asked("view") as View) ? (asked("view") as View) : "week",
+    VIEWS.includes(asked("view") as View)
+      ? (asked("view") as View)
+      : (storedView(viewKey) ?? "week"),
   );
+  // A link or a day's heading moves the view; only the switch is a choice.
+  const chooseView = (next: View) => {
+    setView(next);
+    if (!viewKey) return;
+    try {
+      localStorage.setItem(`${VIEW_KEY}:${viewKey}`, next);
+    } catch {
+      // Private windows and blocked storage: the view is just not remembered.
+    }
+  };
+  const [board, setBoard] = useState<{ people: Person[]; day: PeopleDay }>();
+  const [onlyScheduled, setOnlyScheduled] = useState(false);
+  const [plan, setPlan] = useState<{ staffId: string; time: string }>();
+  // A vacancy on the board and the block that opened it, for focus to return.
+  const [assigning, setAssigning] = useState<{
+    appointment: BookingAppointment;
+    opener: HTMLElement;
+  }>();
   const [cursor, setCursor] = useState(() =>
     DAY.test(asked("date")) ? asked("date") : today,
   );
@@ -130,7 +172,11 @@ export function BookingPanel({
   const opener = useRef<HTMLElement | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const mine = staffFilter === "mine";
-  const chosenStaff = staffFilter && !mine ? staffFilter : "";
+  const chosenTeam = staffFilter.startsWith("team:")
+    ? teams.find((team) => `team:${team.id}` === staffFilter)
+    : undefined;
+  const chosenStaff =
+    staffFilter && !mine && !staffFilter.startsWith("team:") ? staffFilter : "";
 
   useEffect(() => {
     const query = new URLSearchParams();
@@ -152,6 +198,11 @@ export function BookingPanel({
     const days = new Map<string, BookingAppointment[]>();
     for (const item of appointments ?? []) {
       if (chosenStaff && !onVisit(item, chosenStaff)) continue;
+      if (
+        chosenTeam &&
+        !chosenTeam.member_ids.some((staffId) => onVisit(item, staffId))
+      )
+        continue;
       if (serviceFilter && item.service_name !== serviceFilter) continue;
       const day = wallClock(item.starts_at, zone).day;
       const list = days.get(day);
@@ -159,7 +210,7 @@ export function BookingPanel({
       else days.set(day, [item]);
     }
     return days;
-  }, [appointments, chosenStaff, serviceFilter, zone]);
+  }, [appointments, chosenStaff, chosenTeam, serviceFilter, zone]);
 
   // An appointment keeps the service name it was booked under, so the filter
   // offers those names too, not only today's catalogue.
@@ -237,6 +288,24 @@ export function BookingPanel({
       current = false;
     };
   }, [canManage, from, mine, reloads, until]);
+
+  // The day board's people and their day (plan: phase 4); without them the
+  // day stays a list, as it is for one person or for somebody who sees only
+  // themselves.
+  useEffect(() => {
+    if (view !== "day" || mine) return;
+    let current = true;
+    Promise.all([listPeople(), getPeopleDay(cursor)])
+      .then(([people, day]) => {
+        if (current) setBoard({ people, day });
+      })
+      .catch(() => {
+        if (current) setBoard(undefined);
+      });
+    return () => {
+      current = false;
+    };
+  }, [cursor, mine, reloads, view]);
 
   const title =
     view === "day"
@@ -402,6 +471,28 @@ export function BookingPanel({
     },
   ];
 
+  // The board: everybody the day holds, then the filters. Fewer than two
+  // people is the list — one person needs no board (plan: phase 4).
+  const dayItems = (appointments ?? []).filter(
+    (item) =>
+      wallClock(item.starts_at, zone).day === cursor &&
+      (!serviceFilter || item.service_name === serviceFilter),
+  );
+  const boardData =
+    view === "day" && board && board.day.date === cursor && !mine
+      ? board
+      : undefined;
+  const everyone = boardData
+    ? boardRows({
+        people: boardData.people,
+        day: boardData.day,
+        appointments: dayItems,
+        scheduled: false,
+        only: null,
+      })
+    : [];
+  const showBoard = everyone.length >= 2;
+
   const views = {
     list: () => (
       <DataTable
@@ -422,6 +513,41 @@ export function BookingPanel({
       />
     ),
     day: () => {
+      if (showBoard && boardData)
+        return (
+          <DayBoard
+            canManage={canManage}
+            day={cursor}
+            now={new Date()}
+            onAssign={(appointment, target) =>
+              setAssigning({ appointment, opener: target })
+            }
+            onOpen={openAppointment}
+            onPlan={(staffId, time, target) => {
+              opener.current = target;
+              setPlan({ staffId, time });
+              setCreating(true);
+            }}
+            peopleDay={boardData.day}
+            rows={boardRows({
+              people: boardData.people,
+              day: boardData.day,
+              appointments: dayItems,
+              scheduled: onlyScheduled,
+              only: chosenStaff
+                ? new Set([chosenStaff])
+                : chosenTeam
+                  ? new Set(chosenTeam.member_ids)
+                  : null,
+            })}
+            services={catalog?.services ?? []}
+            teams={teams}
+            vacancies={dayItems.filter(
+              (item) => item.status === "confirmed" && item.needs_assignment,
+            )}
+            zone={zone}
+          />
+        );
       const items = byDay.get(cursor) ?? [];
       return items.length ? (
         <ol className="space-y-2">
@@ -561,11 +687,30 @@ export function BookingPanel({
       >
         <option value="">{t("allStaff")}</option>
         <option value="mine">{t("mine")}</option>
-        {catalog?.staff.map((item) => (
-          <option key={item.id} value={item.id}>
-            {item.name}
-          </option>
-        ))}
+        {teams.length ? (
+          <optgroup label={t("teamsGroup")}>
+            {teams.map((team) => (
+              <option key={team.id} value={`team:${team.id}`}>
+                {team.name}
+              </option>
+            ))}
+          </optgroup>
+        ) : null}
+        {teams.length ? (
+          <optgroup label={t("staffGroup")}>
+            {catalog?.staff.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.name}
+              </option>
+            ))}
+          </optgroup>
+        ) : (
+          catalog?.staff.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.name}
+            </option>
+          ))
+        )}
       </DataTableFilter>
       <DataTableFilter
         id="calendar-service"
@@ -580,6 +725,17 @@ export function BookingPanel({
           </option>
         ))}
       </DataTableFilter>
+      {showBoard ? (
+        <label className="flex min-h-11 items-center gap-2 text-sm">
+          <input
+            checked={onlyScheduled}
+            className="size-4 accent-primary"
+            onChange={(event) => setOnlyScheduled(event.target.checked)}
+            type="checkbox"
+          />
+          {t("onlyScheduled")}
+        </label>
+      ) : null}
     </>
   );
 
@@ -596,7 +752,12 @@ export function BookingPanel({
               {t("settingsLink")}
             </Link>
             {ready ? (
-              <Button onClick={(event) => startCreating(event.currentTarget)}>
+              <Button
+                onClick={(event) => {
+                  setPlan(undefined);
+                  startCreating(event.currentTarget);
+                }}
+              >
                 <PlusIcon aria-hidden="true" />
                 {t("newAppointment")}
               </Button>
@@ -648,7 +809,7 @@ export function BookingPanel({
               <Button
                 aria-pressed={view === item}
                 key={item}
-                onClick={() => setView(item)}
+                onClick={() => chooseView(item)}
                 variant={view === item ? "secondary" : "ghost"}
               >
                 {t(`view_${item}`)}
@@ -661,9 +822,13 @@ export function BookingPanel({
         {view === "list" ? null : (
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             {filters}
+            {/* The board has a legend of its own under the rows. */}
             <ul
               aria-label={t("legend")}
-              className="flex flex-wrap gap-2 lg:ml-auto"
+              className={cn(
+                "flex flex-wrap gap-2 lg:ml-auto",
+                showBoard && view === "day" && "hidden",
+              )}
             >
               {STATUSES.map((status) => (
                 <li key={status}>
@@ -715,9 +880,12 @@ export function BookingPanel({
           canUseInventory={canUseInventory}
           catalog={catalog}
           day={cursor}
-          staffId={chosenStaff}
+          // A free window on the board names the person and the time.
+          staffId={plan?.staffId ?? chosenStaff}
+          time={plan?.time}
           onCreated={(appointment) => {
             setCreating(false);
+            setPlan(undefined);
             setNotice(
               t("created", {
                 customer: appointment.customer_name,
@@ -730,6 +898,25 @@ export function BookingPanel({
           onOpenChange={setCreating}
           open={creating}
           restoreFocus={restoreFocus}
+          teams={teams}
+          zone={zone}
+        />
+      ) : null}
+      {assigning ? (
+        <CrewDialog
+          appointment={assigning.appointment}
+          finalFocus={assigning.opener.isConnected ? assigning.opener : null}
+          onConflict={refresh}
+          onOpenChange={(value) =>
+            value ? undefined : setAssigning(undefined)
+          }
+          onSaved={() => {
+            setNotice(
+              t("assigned", { customer: assigning.appointment.customer_name }),
+            );
+            setAssigning(undefined);
+            refresh();
+          }}
           teams={teams}
           zone={zone}
         />
