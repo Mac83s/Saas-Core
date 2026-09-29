@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { EyeIcon, RotateCcwIcon } from "lucide-react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -37,6 +38,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@saas-core/ui/components/card";
+import {
+  DataTable,
+  RowActions,
+  type ColumnDef,
+} from "@saas-core/ui/components/data-table";
 import { Field, FieldError, FieldLabel } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
@@ -49,6 +55,14 @@ import {
   ComboboxEmpty,
 } from "@saas-core/ui/components/combobox";
 import { PanelPage } from "#components/panel/panel-page";
+import { useDataTableLabels } from "#lib/data-table-labels";
+
+// What `readSeoGscMetrics` asks the API for; the table pages the same way.
+const METRICS_PAGE_SIZE = 25;
+
+type GrantRow = GscGrantList["items"][number];
+type SyncRow = GscSyncHistory["items"][number];
+type MetricRow = GscMetrics["results"][number];
 
 export function SeoGscPanel() {
   const t = useTranslations("SeoGsc");
@@ -70,12 +84,11 @@ export function SeoGscPanel() {
     };
   }, []);
   return (
-    <div className="space-y-6">
-      <PanelPage
-        description={t("description")}
-        eyebrow={nav("website")}
-        title={t("title")}
-      />
+    <PanelPage
+      description={t("description")}
+      eyebrow={nav("website")}
+      title={t("title")}
+    >
       {problem ? <p role="alert">{t("unavailable")}</p> : null}
       <Field>
         <FieldLabel htmlFor="gsc-site">{t("site")}</FieldLabel>
@@ -114,13 +127,14 @@ export function SeoGscPanel() {
         )}
       </Field>
       {siteId ? <SiteGsc key={siteId} siteId={siteId} /> : null}
-    </div>
+    </PanelPage>
   );
 }
 
 function SiteGsc({ siteId }: { siteId: string }) {
   const t = useTranslations("SeoGsc");
   const locale = useLocale();
+  const labels = useDataTableLabels();
   const [properties, setProperties] = useState<GscProperties>();
   const [history, setHistory] = useState<GscGrantList>({
     items: [],
@@ -128,6 +142,7 @@ function SiteGsc({ siteId }: { siteId: string }) {
   });
   const [grant, setGrant] = useState<GscGrant>();
   const [metrics, setMetrics] = useState<GscMetrics>();
+  const [metricsPage, setMetricsPage] = useState(1);
   const [problem, setProblem] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(false);
@@ -274,8 +289,155 @@ function SiteGsc({ siteId }: { siteId: string }) {
   const loadMetrics = async (page = 1) => {
     if (!grant || !syncId) return;
     const value = await readSeoGscMetrics(grant.id, syncId, page);
-    if (active.current) setMetrics(value);
+    if (active.current) {
+      setMetrics(value);
+      setMetricsPage(page);
+    }
   };
+  const day = (value: string) => new Date(value).toLocaleDateString(locale);
+  const propertyUrl = (id: string) =>
+    properties?.properties.find((property) => property.id === id)?.site_url ??
+    "—";
+
+  const grantColumns: ColumnDef<GrantRow, unknown>[] = [
+    {
+      id: "created",
+      accessorKey: "created_at",
+      header: t("createdAt"),
+      meta: { primary: true },
+      cell: ({ row: { original: row } }) => (
+        <p className="font-medium">{day(row.created_at)}</p>
+      ),
+    },
+    {
+      id: "expires",
+      accessorKey: "expires_at",
+      header: t("expiresAt"),
+      cell: ({ row: { original: row } }) => day(row.expires_at),
+    },
+    {
+      id: "property",
+      accessorFn: (row) => propertyUrl(row.property_id),
+      header: t("property"),
+      cell: ({ row: { original: row } }) => (
+        <span className="break-all">{propertyUrl(row.property_id)}</span>
+      ),
+    },
+    {
+      id: "actions",
+      header: t("actions"),
+      meta: { actions: true },
+      cell: ({ row: { original: row } }) => (
+        <RowActions
+          items={[
+            {
+              // An unknown outcome is retried first; either way it opens.
+              label: row.outcome_known ? t("open") : t("retry"),
+              icon: row.outcome_known ? (
+                <EyeIcon aria-hidden="true" />
+              ) : (
+                <RotateCcwIcon aria-hidden="true" />
+              ),
+              inline: true,
+              onSelect: () =>
+                void run(async () => {
+                  if (!row.outcome_known) await retrySeoGscGrant(row.id);
+                  await selectGrant(row.id);
+                  await refresh();
+                }),
+            },
+          ]}
+          label={t("actionsFor", { name: day(row.created_at) })}
+        />
+      ),
+    },
+  ];
+
+  const syncColumns: ColumnDef<SyncRow, unknown>[] = [
+    {
+      id: "range",
+      accessorKey: "start_date",
+      header: t("range"),
+      meta: { primary: true },
+      cell: ({ row: { original: row } }) => (
+        <p className="font-medium tabular-nums">
+          {row.start_date} – {row.end_date}
+        </p>
+      ),
+    },
+    {
+      id: "actions",
+      header: t("actions"),
+      meta: { actions: true },
+      cell: ({ row: { original: row } }) => (
+        <RowActions
+          items={[
+            {
+              label: t("retry"),
+              icon: <RotateCcwIcon aria-hidden="true" />,
+              inline: true,
+              onSelect: () =>
+                void run(async () => {
+                  if (!grant) return;
+                  const result = await syncSeoGsc(grant.id, {
+                    client_reference: row.client_reference,
+                    start_date: row.start_date,
+                    end_date: row.end_date,
+                  });
+                  if (active.current) {
+                    setSyncId(result.id ?? undefined);
+                    setGrant(await readSeoGscGrant(grant.id));
+                    setMetrics(undefined);
+                  }
+                }),
+            },
+          ]}
+          label={t("actionsFor", {
+            name: `${row.start_date} – ${row.end_date}`,
+          })}
+        />
+      ),
+    },
+  ];
+
+  // The API pages and sorts nothing else, so no column sorts.
+  const metricColumns: ColumnDef<MetricRow, unknown>[] = [
+    {
+      id: "query",
+      accessorKey: "query",
+      header: t("query"),
+      enableSorting: false,
+      meta: { primary: true },
+      cell: ({ row: { original: row } }) => (
+        <p className="font-medium wrap-anywhere">{row.query}</p>
+      ),
+    },
+    {
+      id: "page",
+      accessorKey: "page",
+      header: t("page"),
+      enableSorting: false,
+      cell: ({ row: { original: row } }) => (
+        <span className="break-all">{row.page}</span>
+      ),
+    },
+    {
+      id: "date",
+      accessorKey: "date",
+      header: t("date"),
+      enableSorting: false,
+      meta: { className: "tabular-nums" },
+    },
+    ...(["clicks", "impressions", "position"] as const).map(
+      (key): ColumnDef<MetricRow, unknown> => ({
+        id: key,
+        accessorKey: key,
+        header: t(key),
+        enableSorting: false,
+        meta: { className: "tabular-nums" },
+      }),
+    ),
+  ];
   return (
     <div className="space-y-6" aria-busy={busy}>
       {problem ? (
@@ -440,34 +602,13 @@ function SiteGsc({ siteId }: { siteId: string }) {
           <CardTitle>{t("history")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {!history.items.length ? (
-            <p>{t("empty")}</p>
-          ) : (
-            <ul className="space-y-2">
-              {history.items.map((row) => (
-                <li key={row.id} className="flex flex-wrap items-center gap-3">
-                  <span>
-                    {t("expires", {
-                      date: new Date(row.expires_at).toLocaleDateString(locale),
-                    })}
-                  </span>
-                  <Button
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() =>
-                      void run(async () => {
-                        if (!row.outcome_known) await retrySeoGscGrant(row.id);
-                        await selectGrant(row.id);
-                        await refresh();
-                      })
-                    }
-                  >
-                    {row.outcome_known ? t("open") : t("retry")}
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
+          <DataTable
+            caption={t("history")}
+            columns={grantColumns}
+            data={history.items}
+            getRowId={(row) => row.id}
+            labels={{ ...labels, empty: t("empty") }}
+          />
           {history.next_cursor ? (
             <Button
               variant="outline"
@@ -499,38 +640,13 @@ function SiteGsc({ siteId }: { siteId: string }) {
           <CardContent className="space-y-4">
             <p>{grant.connected ? t("grantActive") : t("grantInactive")}</p>
             {grant.connected && syncHistory.items.length ? (
-              <ul className="space-y-2">
-                {syncHistory.items.map((row) => (
-                  <li
-                    key={row.client_reference}
-                    className="flex flex-wrap items-center gap-3"
-                  >
-                    <span>
-                      {row.start_date} – {row.end_date}
-                    </span>
-                    <Button
-                      variant="outline"
-                      disabled={busy}
-                      onClick={() =>
-                        void run(async () => {
-                          const result = await syncSeoGsc(grant.id, {
-                            client_reference: row.client_reference,
-                            start_date: row.start_date,
-                            end_date: row.end_date,
-                          });
-                          if (active.current) {
-                            setSyncId(result.id ?? undefined);
-                            setGrant(await readSeoGscGrant(grant.id));
-                            setMetrics(undefined);
-                          }
-                        })
-                      }
-                    >
-                      {t("retry")}
-                    </Button>
-                  </li>
-                ))}
-              </ul>
+              <DataTable
+                caption={t("syncs")}
+                columns={syncColumns}
+                data={syncHistory.items}
+                getRowId={(row) => row.client_reference}
+                labels={labels}
+              />
             ) : null}
             <Button
               variant="outline"
@@ -607,51 +723,28 @@ function SiteGsc({ siteId }: { siteId: string }) {
               </Button>
             ) : null}
             {metrics ? (
-              <div className="overflow-x-auto">
+              <>
                 <p>{t("rowCount", { count: metrics.count })}</p>
-                <table className="w-full text-sm">
-                  <caption className="sr-only">{t("metrics")}</caption>
-                  <thead>
-                    <tr>
-                      {[
-                        "date",
-                        "query",
-                        "page",
-                        "clicks",
-                        "impressions",
-                        "position",
-                      ].map((key) => (
-                        <th key={key} scope="col" className="p-2 text-left">
-                          {t(key)}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {metrics.results.map((row, index) => (
-                      <tr key={index} className="border-t">
-                        <td className="p-2">{row.date}</td>
-                        <td className="p-2">{row.query}</td>
-                        <td className="p-2 break-all">{row.page}</td>
-                        <td className="p-2">{row.clicks}</td>
-                        <td className="p-2">{row.impressions}</td>
-                        <td className="p-2">{row.position}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {metrics.next_page ? (
-                  <Button
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() =>
-                      void run(() => loadMetrics(metrics.next_page ?? 1))
-                    }
-                  >
-                    {t("more")}
-                  </Button>
-                ) : null}
-              </div>
+                <DataTable
+                  caption={t("metricsCaption")}
+                  columns={metricColumns}
+                  data={metrics.results}
+                  labels={{ ...labels, empty: t("empty") }}
+                  loading={busy}
+                  // Each page is asked for when it is shown; it replaces the last.
+                  onQueryChange={(query) =>
+                    void run(() => loadMetrics(query.pageIndex + 1))
+                  }
+                  pageSize={METRICS_PAGE_SIZE}
+                  query={{
+                    pageIndex: metricsPage - 1,
+                    pageSize: METRICS_PAGE_SIZE,
+                    sorting: [],
+                    search: "",
+                  }}
+                  rowCount={metrics.count}
+                />
+              </>
             ) : null}
           </CardContent>
         </Card>

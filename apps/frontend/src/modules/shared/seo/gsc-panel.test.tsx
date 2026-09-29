@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import axe from "axe-core";
 import { NextIntlClientProvider } from "next-intl";
@@ -77,6 +78,7 @@ beforeEach(() => {
         id: grant.id,
         property_id: propertyId,
         expires_at: grant.expires_at,
+        created_at: "2026-09-06T12:00:00Z",
         outcome_known: true,
       },
     ],
@@ -241,4 +243,124 @@ test("switching sites removes already displayed private metrics", async () => {
     target: { value: "other" },
   });
   expect(screen.queryByText("private query")).not.toBeInTheDocument();
+});
+test("access history is a table and the next page joins it", async () => {
+  api.listSeoGscGrants
+    .mockResolvedValueOnce({
+      items: [
+        {
+          id: grant.id,
+          property_id: propertyId,
+          expires_at: grant.expires_at,
+          created_at: "2026-09-06T12:00:00Z",
+          outcome_known: true,
+        },
+      ],
+      next_cursor: "cursor-2",
+    })
+    .mockResolvedValueOnce({
+      items: [
+        {
+          id: "grant-0",
+          property_id: propertyId,
+          expires_at: "2026-09-01T12:00:00Z",
+          created_at: "2026-08-02T12:00:00Z",
+          outcome_known: false,
+        },
+      ],
+      next_cursor: null,
+    });
+  view();
+  await choose();
+  const history = screen.getByRole("table", { name: "Access history" });
+  const rows = within(history).getAllByRole("row");
+  expect(rows).toHaveLength(2);
+  expect(
+    within(rows[1]).getByText("sc-domain:example.test"),
+  ).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Show next page" }));
+  await waitFor(() =>
+    expect(within(history).getAllByRole("row")).toHaveLength(3),
+  );
+  expect(api.listSeoGscGrants).toHaveBeenLastCalledWith(siteId, "cursor-2");
+  // A grant whose outcome is unknown offers the retry instead of opening.
+  expect(
+    within(within(history).getAllByRole("row")[2]).getByRole("button", {
+      name: "Retry the saved operation",
+    }),
+  ).toBeInTheDocument();
+});
+test("a saved sync range is listed and retried with the same receipt", async () => {
+  api.listSeoGscSyncs.mockResolvedValue({
+    items: [
+      {
+        client_reference: "ref-1",
+        start_date: "2026-08-01",
+        end_date: "2026-08-30",
+        remote_id: "sync-1",
+      },
+    ],
+  });
+  api.syncSeoGsc.mockResolvedValue({ ...grant.latest_sync, id: "sync-2" });
+  view();
+  await choose();
+  fireEvent.click(screen.getByRole("button", { name: "View current access" }));
+  const syncs = await screen.findByRole("table", {
+    name: "Saved synchronization ranges",
+  });
+  expect(
+    within(syncs).getByText("2026-08-01 – 2026-08-30"),
+  ).toBeInTheDocument();
+  fireEvent.click(
+    within(syncs).getByRole("button", { name: "Retry the saved operation" }),
+  );
+  await waitFor(() =>
+    expect(api.syncSeoGsc).toHaveBeenCalledWith("grant-1", {
+      client_reference: "ref-1",
+      start_date: "2026-08-01",
+      end_date: "2026-08-30",
+    }),
+  );
+});
+test("search data pages through the API, one page at a time", async () => {
+  const metric = (query: string) => ({
+    date: "2026-09-01",
+    query,
+    page: "https://example.test/",
+    clicks: 2,
+    impressions: 4,
+    position: 2,
+  });
+  api.readSeoGscMetrics
+    .mockResolvedValueOnce({
+      count: 30,
+      next_page: 2,
+      results: [metric("private query")],
+    })
+    .mockResolvedValueOnce({
+      count: 30,
+      next_page: null,
+      results: [metric("second page query")],
+    });
+  const { container } = view();
+  await choose();
+  fireEvent.click(screen.getByRole("button", { name: "View current access" }));
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Load current search data" }),
+  );
+  const table = await screen.findByRole("table", {
+    name: "Search data from this synchronization",
+  });
+  expect(within(table).getByText("private query")).toBeInTheDocument();
+  expect(screen.getByText("Page 1 of 2")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+  expect(await screen.findByText("second page query")).toBeInTheDocument();
+  expect(api.readSeoGscMetrics).toHaveBeenLastCalledWith(
+    "grant-1",
+    "sync-1",
+    2,
+  );
+  expect(screen.queryByText("private query")).not.toBeInTheDocument();
+  expect(screen.getByText("Page 2 of 2")).toBeInTheDocument();
+  expect((await axe.run(container)).violations).toEqual([]);
 });
