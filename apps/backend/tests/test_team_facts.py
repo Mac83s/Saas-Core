@@ -211,7 +211,8 @@ def test_the_warehouse_counts_what_a_person_took_used_and_gave_back() -> None:
     )
     request = acting(owner)
     with tenant(owner):
-        block = create_item(request=request, data={"name": "Klocek"})
+        # Not a product's standard item: HoofCare's catalogue already has „Klocek”.
+        block = create_item(request=request, data={"name": "Materiał próbny"})
         receive(request=request, item_id=block.id, quantity=Decimal(40), unit_cost_minor=250)
         issue(request=request, item_id=block.id, holder_id=worker.user_id, quantity=Decimal(10))
         consume(
@@ -255,7 +256,9 @@ def test_the_warehouse_counts_what_a_person_took_used_and_gave_back() -> None:
         assert balances(mine=True) == []
         assert not [move for move in movements() if move.location.holder_id == worker.user_id]
     with tenant(worker):
-        assert {row.item.name: row.quantity for row in balances(mine=True)} == {"Klocek": 5}
+        assert {row.item.name: row.quantity for row in balances(mine=True)} == {
+            "Materiał próbny": 5
+        }
 
 
 def test_the_doors_answer_through_http(monkeypatch: pytest.MonkeyPatch) -> None:
