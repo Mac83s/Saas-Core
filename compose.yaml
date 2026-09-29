@@ -62,6 +62,7 @@ x-backend-environment: &backend-environment
   NOTIFICATIONS_WEBHOOK_TOLERANCE_SECONDS: ${NOTIFICATIONS_WEBHOOK_TOLERANCE_SECONDS:-300}
   SEARCH_URL: http://search:7700
   SEARCH_API_KEY_FILE: /run/secrets/search_api_key
+  CATALOG_EMBEDDING_API_KEY_FILE: /run/secrets/catalog_embedding_api_key
   CLAMAV_HOST: ${CLAMAV_HOST:-clamav}
   CLAMAV_PORT: ${CLAMAV_PORT:-3310}
   CLAMAV_TIMEOUT_SECONDS: ${CLAMAV_TIMEOUT_SECONDS:-30}
@@ -88,6 +89,7 @@ x-backend-service: &backend-service
     - seo_ssa_service_key
     - seo_ssa_callback_secret
     - search_api_key
+    - catalog_embedding_api_key
   volumes:
     - ${SAAS_CORE_LOGS_DIR:-.runtime/logs}:/var/log/saas-core
   networks:
@@ -343,6 +345,7 @@ services:
       - seo_ssa_service_key
       - seo_ssa_callback_secret
       - search_api_key
+      - catalog_embedding_api_key
     depends_on:
       database-bootstrap:
         condition: service_completed_successfully
@@ -371,6 +374,7 @@ services:
       - seo_ssa_service_key
       - seo_ssa_callback_secret
       - search_api_key
+      - catalog_embedding_api_key
       - image_generation_openai_api_key
     networks:
       - app
@@ -474,6 +478,7 @@ services:
       - seo_ssa_service_key
       - seo_ssa_callback_secret
       - search_api_key
+      - catalog_embedding_api_key
       - image_generation_openai_api_key
     command:
       - sh
@@ -851,6 +856,9 @@ secrets:
     file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/search_master_key
   search_api_key:
     file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/search_master_key
+  # ADR-064 §8: the embedding provider's key (OpenRouter). Empty = words only.
+  catalog_embedding_api_key:
+    file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/catalog_embedding_api_key
   stripe_secret_key:
     file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/stripe_secret_key
   stripe_webhook_secret:

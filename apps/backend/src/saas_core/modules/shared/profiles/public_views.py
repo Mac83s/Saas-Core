@@ -40,7 +40,7 @@ from .models import (
     PublicProfileTranslation,
 )
 from .search_engine import SearchEngineUnavailable
-from .search_index import search_ids
+from .search_index import search_ids, similar_ids
 from .serializers import (
     CatalogDictionarySerializer,
     CatalogPageSerializer,
@@ -52,6 +52,8 @@ logger = logging.getLogger(__name__)
 #: One screen of results. Small enough that the join to the site tables stays
 #: cheap, large enough that a small town fits on one page.
 PAGE_SIZE = 20
+#: "Może też" under the entries that contain the words.
+SIMILAR_BELOW = 6
 #: "Near me" without a radius; the form's slider starts here too.
 DEFAULT_RADIUS_KM = 25.0
 MAX_RADIUS_KM = 200.0
@@ -142,6 +144,36 @@ def _database_page(
     return list(entries[start : start + PAGE_SIZE]), entries.count()
 
 
+def _rows(entries: QuerySet[CatalogEntry], ids: list[UUID]) -> list[CatalogEntry]:
+    """The table's rows for the engine's ids, in the engine's order.
+
+    An id without a row — withdrawn a second ago — is dropped: the table has
+    the last word on who is in the catalogue.
+    """
+    rows = {entry.organization_id: entry for entry in entries.filter(organization_id__in=ids)}
+    return [rows[organization_id] for organization_id in ids if organization_id in rows]
+
+
+def _similar(
+    entries: QuerySet[CatalogEntry],
+    query: str,
+    city_slugs: list[str] | None,
+    category: str,
+    found: list[CatalogEntry],
+) -> list[CatalogEntry]:
+    try:
+        ids = similar_ids(
+            query=query,
+            city_slugs=city_slugs,
+            category=category,
+            exclude={entry.organization_id for entry in found},
+            limit=SIMILAR_BELOW if found else PAGE_SIZE,
+        )
+    except SearchEngineUnavailable:
+        return []
+    return _rows(entries, ids)
+
+
 def search_catalog(
     *,
     city_slug: str = "",
@@ -178,6 +210,7 @@ def search_catalog(
         entries = entries.filter(category=category)
 
     found: list[CatalogEntry] | None = None
+    similar: list[CatalogEntry] = []
     total = 0
     if query.strip() and city_slugs != []:
         try:
@@ -194,10 +227,9 @@ def search_catalog(
             logger.warning("catalog_search_fallback", extra={"reason": str(error)})
         else:
             CATALOG_SEARCHES.labels(engine="search").inc()
-            rows: dict[UUID, CatalogEntry] = {
-                entry.organization_id: entry for entry in entries.filter(organization_id__in=ids)
-            }
-            found = [rows[organization_id] for organization_id in ids if organization_id in rows]
+            found = _rows(entries, ids)
+            if page == 1:
+                similar = _similar(entries, query, city_slugs, category, found)
     if found is None:
         if query.strip():
             CATALOG_SEARCHES.labels(engine="database").inc()
@@ -211,9 +243,12 @@ def search_catalog(
             _entry_payload(entry, None if distances is None else distances.get(entry.city_slug))
             for entry in found
         ],
-        # Filled by meaning-based search (ADR-064, stage 5b): what else fits
-        # the words, below the entries that contain them.
-        "similar": [],
+        # What fits the words by meaning without containing them (ADR-064 §8):
+        # "Podobne" when `items` is empty, "Może też" below them otherwise.
+        "similar": [
+            _entry_payload(entry, None if distances is None else distances.get(entry.city_slug))
+            for entry in similar
+        ],
     }
 
 

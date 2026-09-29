@@ -105,7 +105,7 @@ class Meilisearch:
         if self._call("GET", f"/indexes/{quoted}", missing_ok=True) is None:
             self._wait(self._call("POST", "/indexes", {"uid": index, "primaryKey": "id"}))
         current = self._call("GET", f"/indexes/{quoted}/settings")
-        if any(current.get(key) != value for key, value in index_settings.items()):
+        if _differs(current, index_settings):
             # Queued ahead of any document written after it, so no wait here.
             self._call("PATCH", f"/indexes/{quoted}/settings", index_settings)
 
@@ -169,6 +169,15 @@ class Meilisearch:
         # Deleting a missing index is a failed task, not a 404; ask first.
         if self._call("GET", f"/indexes/{urllib.parse.quote(index)}", missing_ok=True) is not None:
             self._wait(self._call("DELETE", f"/indexes/{urllib.parse.quote(index)}"))
+
+
+def _differs(current: Any, desired: Any) -> bool:
+    """Only what we set counts: the engine reads settings back with its defaults."""
+    if isinstance(desired, dict):
+        return not isinstance(current, dict) or any(
+            _differs(current.get(key), value) for key, value in desired.items()
+        )
+    return bool(current != desired)
 
 
 def engine() -> Engine | None:

@@ -32,7 +32,7 @@ from django.utils import timezone
 from saas_core.modules.core.organizations.context import set_local_organization_id
 from saas_core.modules.core.organizations.models import Organization
 
-from . import search_engine
+from . import embeddings, search_engine
 from .catalog_contract import categories, cities
 from .models import CatalogEntry, ProfileSubjectKind, PublicProfile, PublicProfileTranslation
 
@@ -58,8 +58,26 @@ INDEX_SETTINGS: dict[str, Any] = {
     "localizedAttributes": [{"attributePatterns": ["*"], "locales": ["pol", "eng"]}],
 }
 
+#: The engine's name for the vectors the backend sends (`userProvided`).
+EMBEDDER = "meaning"
+
+
+def index_settings() -> dict[str, Any]:
+    return {
+        **INDEX_SETTINGS,
+        "embedders": {
+            EMBEDDER: {
+                "source": "userProvided",
+                "dimensions": settings.CATALOG_EMBEDDING_DIMENSIONS,
+            }
+        },
+    }
+
+
 #: Bio is the least specific field; its start says what the company does.
 _BIO_CHARS = 1000
+#: How much of it the meaning of an entry is read from.
+_MEANING_BIO_CHARS = 500
 #: After a failed search, visitors skip the engine for this long. Without it
 #: every search during an outage waits out the timeout — longer than the
 #: timeout itself when the engine's name no longer resolves (measured ~4 s).
@@ -205,17 +223,49 @@ def _document(entry: CatalogEntry) -> dict[str, Any] | None:
     }
 
 
+def _meaning_text(document: dict[str, Any]) -> str:
+    """What an entry is about, in one passage — the text its vector stands for."""
+    parts = [
+        document["display_name"],
+        ", ".join(document["category_labels"]),
+        document["headline"],
+        f"Usługi: {', '.join(document['services'])}" if document["services"] else "",
+        document["city"],
+        document["bio"][:_MEANING_BIO_CHARS],
+    ]
+    return ". ".join(part for part in parts if part)
+
+
+def _with_meaning(documents: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Attach vectors; without a key or an answer the words still work.
+
+    `meaning_model` says what made the vector, so reconcile can tell a document
+    that has none, or one from another model, and try again.
+    """
+    vectors: list[list[float]] | None = None
+    if documents and embeddings.configured():
+        try:
+            vectors = embeddings.embed_documents([_meaning_text(doc) for doc in documents])
+        except embeddings.EmbeddingUnavailable as error:
+            logger.warning("catalog_embedding_failed", extra={"reason": str(error)})
+    for position, document in enumerate(documents):
+        vector = vectors[position] if vectors is not None else None
+        document["_vectors"] = {EMBEDDER: vector}
+        document["meaning_model"] = embeddings.model() if vector is not None else ""
+    return documents
+
+
 def sync_organization(organization_id: UUID) -> None:
     engine = search_engine.engine()
     if engine is None:
         return
     entry = CatalogEntry.all_objects.filter(organization_id=organization_id).first()
     document = _document(entry) if entry is not None else None
-    engine.ensure_index(index_name(), INDEX_SETTINGS)
+    engine.ensure_index(index_name(), index_settings())
     if document is None:
         engine.delete(index_name(), [str(organization_id)])
     else:
-        engine.upsert(index_name(), [document])
+        engine.upsert(index_name(), _with_meaning([document]))
 
 
 def reconcile() -> dict[str, int]:
@@ -223,24 +273,25 @@ def reconcile() -> dict[str, int]:
     engine = search_engine.engine()
     if engine is None:
         return {}
-    engine.ensure_index(index_name(), INDEX_SETTINGS)
+    engine.ensure_index(index_name(), index_settings())
+    wanted_model = embeddings.model() if embeddings.configured() else ""
     indexed = {
-        document["id"]: document.get("source_updated_at")
-        for document in engine.documents(index_name(), ["id", "source_updated_at"])
+        document["id"]: (document.get("source_updated_at"), document.get("meaning_model") or "")
+        for document in engine.documents(index_name(), ["id", "source_updated_at", "meaning_model"])
     }
     entries = list(CatalogEntry.all_objects.order_by("organization_id"))
     present = {str(entry.organization_id) for entry in entries}
     documents: list[dict[str, Any]] = []
     gone = set(indexed) - present
     for entry in entries:
-        if indexed.get(str(entry.organization_id)) == entry.updated_at.isoformat():
+        if indexed.get(str(entry.organization_id)) == (entry.updated_at.isoformat(), wanted_model):
             continue
         document = _document(entry)
         if document is None:
             gone.add(str(entry.organization_id))
         else:
             documents.append(document)
-    engine.upsert(index_name(), documents)
+    engine.upsert(index_name(), _with_meaning(documents))
     engine.delete(index_name(), sorted(gone))
     return {"refreshed": len(documents), "removed": len(gone)}
 
@@ -254,8 +305,32 @@ def rebuild() -> int:
         for entry in CatalogEntry.all_objects.order_by("organization_id")
         if (document := _document(entry)) is not None
     ]
-    engine.rebuild(index_name(), INDEX_SETTINGS, documents)
+    engine.rebuild(index_name(), index_settings(), _with_meaning(documents))
     return len(documents)
+
+
+def _filters(city_slugs: list[str] | None, category: str) -> list[str]:
+    """Filters are dictionary values (ADR-053 §7), quoted anyway: a filter is a
+    small language, and a value is never part of its grammar."""
+    filters = []
+    if city_slugs is not None:
+        filters.append(f"city_slug IN [{', '.join(json.dumps(slug) for slug in city_slugs)}]")
+    if category:
+        filters.append(f"category = {json.dumps(category)}")
+    return filters
+
+
+def _search(body: dict[str, Any]) -> dict[str, Any]:
+    engine = search_engine.engine()
+    if engine is None:
+        raise search_engine.SearchEngineUnavailable("search_unconfigured")
+    if cache.get(_ENGINE_DOWN):
+        raise search_engine.SearchEngineUnavailable("search_recently_down")
+    try:
+        return engine.search(index_name(), body)
+    except search_engine.SearchEngineUnavailable:
+        cache.set(_ENGINE_DOWN, True, ENGINE_DOWN_SECONDS)
+        raise
 
 
 def search_ids(
@@ -266,32 +341,50 @@ def search_ids(
     page: int,
     page_size: int,
 ) -> tuple[list[UUID], int]:
-    """Organization ids of the matching entries, best first, and how many match.
-
-    Filters are dictionary values (ADR-053 §7), quoted anyway: a filter is a
-    small language, and a value is never part of its grammar.
-    """
-    engine = search_engine.engine()
-    if engine is None:
-        raise search_engine.SearchEngineUnavailable("search_unconfigured")
-    filters = []
-    if city_slugs is not None:
-        filters.append(f"city_slug IN [{', '.join(json.dumps(slug) for slug in city_slugs)}]")
-    if category:
-        filters.append(f"category = {json.dumps(category)}")
+    """Organization ids of the entries that contain the words, best first, and how many."""
     body: dict[str, Any] = {
         "q": query,
         "page": page,
         "hitsPerPage": page_size,
         "attributesToRetrieve": ["id"],
     }
-    if filters:
+    if filters := _filters(city_slugs, category):
         body["filter"] = filters
-    if cache.get(_ENGINE_DOWN):
-        raise search_engine.SearchEngineUnavailable("search_recently_down")
-    try:
-        result = engine.search(index_name(), body)
-    except search_engine.SearchEngineUnavailable:
-        cache.set(_ENGINE_DOWN, True, ENGINE_DOWN_SECONDS)
-        raise
+    result = _search(body)
     return [UUID(hit["id"]) for hit in result["hits"]], int(result.get("totalHits") or 0)
+
+
+def similar_ids(
+    *,
+    query: str,
+    city_slugs: list[str] | None,
+    category: str,
+    exclude: set[UUID],
+    limit: int,
+) -> list[UUID]:
+    """Entries that fit the words by meaning, best first (ADR-064 §8).
+
+    Empty without a key or when the provider does not answer: meaning is the
+    extra, the words are the search. Only vectors, so a word match cannot lift
+    an entry that means something else; the threshold keeps the rest out
+    instead of always returning somebody.
+    """
+    if not embeddings.configured():
+        return []
+    try:
+        vector = embeddings.embed_query(query)
+    except embeddings.EmbeddingUnavailable as error:
+        logger.warning("catalog_query_embedding_failed", extra={"reason": str(error)})
+        return []
+    body: dict[str, Any] = {
+        "q": query,
+        "vector": vector,
+        "hybrid": {"embedder": EMBEDDER, "semanticRatio": 1.0},
+        "limit": limit + len(exclude),
+        "attributesToRetrieve": ["id"],
+        "rankingScoreThreshold": settings.CATALOG_SIMILAR_MIN_SCORE,
+    }
+    if filters := _filters(city_slugs, category):
+        body["filter"] = filters
+    found = [UUID(hit["id"]) for hit in _search(body)["hits"]]
+    return [organization_id for organization_id in found if organization_id not in exclude][:limit]

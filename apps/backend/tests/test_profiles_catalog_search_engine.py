@@ -126,3 +126,42 @@ def test_ensure_index_settles_to_no_change(engine: Meilisearch, index: str) -> N
     """Settings read back equal to what was written, or reconcile would patch forever."""
     current = engine._call("GET", f"/indexes/{index}/settings")
     assert {key: current[key] for key in search_index.INDEX_SETTINGS} == search_index.INDEX_SETTINGS
+
+
+def test_meaning_scores_vectors_and_skips_documents_without_one(engine: Meilisearch) -> None:
+    """The scale the threshold is set on: (1 + cosine) / 2, and 0 without a vector."""
+    name = f"test-{uuid.uuid4().hex[:8]}-catalog"
+    index_settings = {
+        **search_index.INDEX_SETTINGS,
+        "embedders": {search_index.EMBEDDER: {"source": "userProvided", "dimensions": 2}},
+    }
+    documents = [
+        {**_document(key, key, "", "Ełk", [], "inne"), "_vectors": {search_index.EMBEDDER: vector}}
+        for key, vector in (("same", [1.0, 0.0]), ("apart", [0.0, 1.0]), ("none", None))
+    ]
+    engine.rebuild(name, index_settings, documents)
+    try:
+        body = {
+            "q": "",
+            "vector": [1.0, 0.0],
+            "hybrid": {"embedder": search_index.EMBEDDER, "semanticRatio": 1.0},
+            "limit": 5,
+            "attributesToRetrieve": ["id"],
+            "showRankingScore": True,
+        }
+        scores = {hit["id"]: hit["_rankingScore"] for hit in engine.search(name, body)["hits"]}
+        ids = {
+            key: _document(key, key, "", "Ełk", [], "inne")["id"]
+            for key in ("same", "apart", "none")
+        }
+        assert scores[ids["same"]] == pytest.approx(1.0)
+        assert scores[ids["apart"]] == pytest.approx(0.5)
+        assert scores.get(ids["none"], 0.0) == 0.0
+
+        kept = engine.search(name, {**body, "rankingScoreThreshold": 0.75})["hits"]
+        assert [hit["id"] for hit in kept] == [ids["same"]]
+        # Read back as written, so reconcile does not patch it every ten minutes.
+        current = engine._call("GET", f"/indexes/{name}/settings")
+        assert current["embedders"] == index_settings["embedders"]
+    finally:
+        engine._drop(name)

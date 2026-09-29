@@ -13,6 +13,10 @@ Decyzja: [ADR-064](../adr/ADR-064-Wyszukiwarka-Katalogu-Na-Meilisearch.md).
 - Indeks: `<DEPLOYMENT>-catalog`, jeden dokument na firmę w katalogu.
 - Sekrety: `search_master_key` (silnik) i `search_api_key` (procesy backendu; na
   własnym silniku to ten sam plik).
+- Wyszukiwanie po znaczeniu: sekret `catalog_embedding_api_key` (klucz OpenRouter;
+  pusty = tylko słowa). Model i wymiar: `CATALOG_EMBEDDING_MODEL`
+  (`qwen/qwen3-embedding-8b`), `CATALOG_EMBEDDING_DIMENSIONS` (1024), próg
+  `CATALOG_SIMILAR_MIN_SCORE`.
 
 ## Pierwsze wdrożenie
 
@@ -24,6 +28,20 @@ docker compose exec backend python manage.py reindex_catalog
 
 Bez `reindex_catalog` katalog działa (wyszukiwanie w bazie), a indeks wypełnia
 się sam przy pierwszym przebiegu `reconcile_catalog_search`.
+
+## Klucz OpenRouter
+
+Plik wkłada właściciel, bez pokazywania klucza na ekranie:
+
+```
+read -rs -p "Klucz OpenRouter: " KEY && printf '%s\n' "$KEY" > "$SAAS_CORE_SECRETS_DIR/catalog_embedding_api_key" \
+  && chmod 0644 "$SAAS_CORE_SECRETS_DIR/catalog_embedding_api_key" && unset KEY
+docker compose restart backend worker scheduler
+```
+
+Restart wystarczy: w ciągu 10 minut `reconcile_catalog_search` dokłada wektory
+wszystkim dokumentom, które ich nie mają. Klucz z limitem wydatków w panelu
+OpenRouter; koszt zaindeksowania 10 tys. wpisów to ok. 3 centy.
 
 ## Kiedy `reindex_catalog`
 

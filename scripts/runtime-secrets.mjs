@@ -57,6 +57,8 @@ await ensureSecret("image_generation_openai_api_key", "");
 // production mode); the backend uses the same file unless an overlay points it
 // at a shared engine with a key of its own.
 await ensureSecret("search_master_key", randomBytes(32).toString("base64url"));
+// ADR-064 §8: OpenRouter key for meaning-based search; the owner puts it in.
+await ensureSecret("catalog_embedding_api_key", "");
 await chmod(secretsDirectory, 0o700);
 
 async function ensureSecret(name, value) {

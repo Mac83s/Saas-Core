@@ -41,7 +41,7 @@ from saas_core.modules.shared.billing.models import (
     SubscriptionState,
 )
 from saas_core.modules.shared.booking.models import Service
-from saas_core.modules.shared.profiles import search_engine, search_index
+from saas_core.modules.shared.profiles import embeddings, search_engine, search_index
 from saas_core.modules.shared.profiles.catalog_contract import categories
 from saas_core.modules.shared.profiles.models import CatalogEntry
 from saas_core.modules.shared.profiles.search_engine import SearchEngineUnavailable
@@ -87,6 +87,8 @@ class FakeEngine:
     def search(self, index: str, body: dict[str, Any]) -> dict[str, Any]:
         self._answer()
         self.searches.append(body)
+        if "vector" in body:
+            return self._by_meaning(index, body)
         words = search_index.fold(body["q"]).lower().split()
         hits = []
         for document in self.index(index):
@@ -103,6 +105,19 @@ class FakeEngine:
                 hits.append({"id": document["id"]})
         start = (body["page"] - 1) * body["hitsPerPage"]
         return {"hits": hits[start : start + body["hitsPerPage"]], "totalHits": len(hits)}
+
+    def _by_meaning(self, index: str, body: dict[str, Any]) -> dict[str, Any]:
+        # The engine's scale: (1 + cosine) / 2, and 0 for a document without one.
+        scored = []
+        for document in self.index(index):
+            vector = (document.get("_vectors") or {}).get(search_index.EMBEDDER)
+            score = 0.0
+            if vector is not None:
+                score = (1 + sum(a * b for a, b in zip(vector, body["vector"], strict=True))) / 2
+            if score >= body.get("rankingScoreThreshold", 0) and self._passes(document, body):
+                scored.append((score, document["id"]))
+        scored.sort(reverse=True)
+        return {"hits": [{"id": found} for _score, found in scored[: body["limit"]]]}
 
     @staticmethod
     def _passes(document: dict[str, Any], body: dict[str, Any]) -> bool:
@@ -132,6 +147,46 @@ def clear_session_cache() -> None:
 def engine(monkeypatch: pytest.MonkeyPatch) -> FakeEngine:
     fake = FakeEngine()
     monkeypatch.setattr(search_engine, "engine", lambda: fake)
+    return fake
+
+
+#: The fake provider's whole understanding of language: a text means a concept
+#: when it contains one of its stems. Four dimensions, like the setting below.
+CONCEPTS = (
+    ("zęb", "ząb", "stomatolog", "ortodon", "dentyst"),
+    ("fryzjer", "włos", "strzyż"),
+    ("krow", "racic", "bydł"),
+)
+
+
+class FakeProvider:
+    def __init__(self) -> None:
+        self.down = False
+        self.calls: list[list[str]] = []
+
+    def post(self, body: dict[str, Any], timeout: float) -> dict[str, Any]:
+        if self.down:
+            raise embeddings.EmbeddingUnavailable("embedding_unreachable")
+        self.calls.append(list(body["input"]))
+        return {
+            "data": [
+                {"index": position, "embedding": self.vector(text)}
+                for position, text in enumerate(body["input"])
+            ]
+        }
+
+    @staticmethod
+    def vector(text: str) -> list[float]:
+        found = [1.0 if any(stem in text.lower() for stem in stems) else 0.0 for stems in CONCEPTS]
+        return [*found, 0.0 if any(found) else 1.0]
+
+
+@pytest.fixture
+def provider(monkeypatch: pytest.MonkeyPatch, settings: Any) -> FakeProvider:
+    fake = FakeProvider()
+    settings.CATALOG_EMBEDDING_API_KEY = "test-key"
+    settings.CATALOG_EMBEDDING_DIMENSIONS = 4
+    monkeypatch.setattr(embeddings, "_post", fake.post)
     return fake
 
 
@@ -459,3 +514,91 @@ def test_the_rebuild_command_fills_a_fresh_index(
 
 def test_folding_covers_the_letters_the_engine_keeps() -> None:
     assert search_index.fold("Łódź, Gdańsk, Straße, Ørsted") == "Lodz, Gdansk, Strasse, Orsted"
+
+
+def test_meaning_finds_what_the_words_do_not(
+    engine: FakeEngine, provider: FakeProvider, django_capture_on_commit_callbacks: Any
+) -> None:
+    _published("szukaj-zeby", django_capture_on_commit_callbacks, headline="Leczenie zębów")
+    _published("szukaj-wlosy", django_capture_on_commit_callbacks, headline="Fryzjer")
+
+    listing = APIClient().get(CATALOG_URL, {"q": "boli mnie ząb"})
+
+    # "Nie znaleźliśmy dokładnie… Podobne:" — nothing contains the words.
+    assert listing.data["items"] == []
+    assert [item["slug"] for item in listing.data["similar"]] == ["szukaj-zeby"]
+
+
+def test_may_also_lists_what_fits_below_what_contains_the_words(
+    engine: FakeEngine, provider: FakeProvider, django_capture_on_commit_callbacks: Any
+) -> None:
+    _published("szukaj-usmiech", django_capture_on_commit_callbacks, headline="Uśmiech, zęby")
+    _published("szukaj-aparaty", django_capture_on_commit_callbacks, headline="Ortodonta")
+    _published("szukaj-fryzjer", django_capture_on_commit_callbacks, headline="Fryzjer")
+
+    listing = APIClient().get(CATALOG_URL, {"q": "uśmiech zęby"})
+
+    assert [item["slug"] for item in listing.data["items"]] == ["szukaj-usmiech"]
+    # "Może też": the orthodontist by meaning, never the entry already above,
+    # and not the hairdresser, whose meaning is unrelated.
+    assert [item["slug"] for item in listing.data["similar"]] == ["szukaj-aparaty"]
+    # Meaning only on the first page of results.
+    second = APIClient().get(CATALOG_URL, {"q": "uśmiech zęby", "page": 2})
+    assert second.data["similar"] == []
+
+
+def test_without_a_key_documents_carry_no_vector_and_search_is_words_only(
+    engine: FakeEngine, django_capture_on_commit_callbacks: Any
+) -> None:
+    _client, organization = _published(
+        "szukaj-bez-klucza", django_capture_on_commit_callbacks, headline="Stomatolog"
+    )
+    document = _document(engine, organization)
+    assert document["_vectors"] == {search_index.EMBEDDER: None}  # type: ignore[index]
+    assert document["meaning_model"] == ""  # type: ignore[index]
+    assert APIClient().get(CATALOG_URL, {"q": "boli mnie ząb"}).data["similar"] == []
+
+
+def test_a_document_indexed_while_the_provider_was_down_gets_its_vector_later(
+    engine: FakeEngine, provider: FakeProvider, django_capture_on_commit_callbacks: Any
+) -> None:
+    provider.down = True
+    _client, organization = _published(
+        "szukaj-pozniej", django_capture_on_commit_callbacks, headline="Stomatolog"
+    )
+    # Indexed by its words all the same.
+    assert _document(engine, organization)["meaning_model"] == ""  # type: ignore[index]
+    provider.down = False
+
+    assert search_index.reconcile() == {"refreshed": 1, "removed": 0}
+    document = _document(engine, organization)
+    assert document["meaning_model"] == embeddings.model()  # type: ignore[index]
+    assert document["_vectors"][search_index.EMBEDDER] == [1.0, 0.0, 0.0, 0.0]  # type: ignore[index]
+    assert search_index.reconcile() == {"refreshed": 0, "removed": 0}
+
+
+def test_a_repeated_query_costs_one_provider_call(
+    engine: FakeEngine, provider: FakeProvider, django_capture_on_commit_callbacks: Any
+) -> None:
+    _published("szukaj-pamiec", django_capture_on_commit_callbacks, headline="Stomatolog")
+    provider.calls.clear()
+
+    for _ in range(3):
+        APIClient().get(CATALOG_URL, {"q": "boli mnie ząb"})
+
+    assert len(provider.calls) == 1
+    # Qwen3 wants the task said before a query, never before a document.
+    assert provider.calls[0][0].startswith(embeddings.QUERY_INSTRUCTION)
+
+
+def test_a_provider_that_does_not_answer_leaves_the_words(
+    engine: FakeEngine, provider: FakeProvider, django_capture_on_commit_callbacks: Any
+) -> None:
+    _published("szukaj-slowa", django_capture_on_commit_callbacks, headline="Stomatolog")
+    provider.down = True
+
+    listing = APIClient().get(CATALOG_URL, {"q": "stomatolog"})
+
+    assert listing.status_code == 200
+    assert [item["slug"] for item in listing.data["items"]] == ["szukaj-slowa"]
+    assert listing.data["similar"] == []

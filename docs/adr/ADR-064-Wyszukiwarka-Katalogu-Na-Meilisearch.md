@@ -75,10 +75,20 @@ tys. wpisów testowych) ustalił trzy rzeczy, które kształtują tę decyzję:
    zgadzają się co do „w promieniu 25 km”. Punkt odwiedzającego służy tylko tej
    odpowiedzi: nie jest zapisywany ani logowany.
 8. **Wyniki po znaczeniu osobno** (odpowiedź 2: a + c): `items` to trafienia
-   słowne, `similar` to wyniki po znaczeniu bez powtórzeń — „Podobne”, gdy
-   trafień nie ma, „Może też” pod nimi, gdy są. Wektory liczy backend przez
-   OpenRouter (odpowiedź 1) i wysyła jako `userProvided`; silnik nie ma internetu
-   ani klucza API. Bez klucza działa samo wyszukiwanie słowami. (Etap 5b.)
+   słowne, `similar` to wyniki po znaczeniu bez powtórzeń — „Podobne” (do 20),
+   gdy trafień nie ma, „Może też” (do 6) pod nimi, gdy są; tylko na pierwszej
+   stronie. Wektory liczy backend przez OpenRouter (odpowiedź 1,
+   `qwen/qwen3-embedding-8b`, $0,01 / 1 mln tokenów, najlepszy wynik PL-MTEB
+   retrieval wśród sprawdzonych), skraca do 1024 wymiarów (model trenowany pod
+   skracanie) i normalizuje; zapytanie dostaje instrukcję zadania zalecaną dla
+   Qwen3, dokument nie. Silnik dostaje wektory jako `userProvided` — nie ma
+   internetu ani klucza. Wyszukiwanie po znaczeniu używa samych wektorów z progiem
+   `CATALOG_SIMILAR_MIN_SCORE` (silnik liczy (1 + cos) / 2: niepowiązane ~0,5,
+   dokument bez wektora 0), więc nie zwraca „kogokolwiek”. Wektor zapytania trafia
+   na 30 dni do cache (klucz to skrót zapytania, nie jego treść). Dokument pamięta
+   `meaning_model`; bez klucza albo przy awarii dostawcy dokument idzie bez wektora,
+   a `reconcile_catalog_search` dokłada go, gdy dostawca wróci albo zmieni się
+   model. Bez klucza działa samo wyszukiwanie słowami, bez błędu.
 9. **Limit zapytań** `catalog_search` (120/min na adres) przed płatnym API.
 
 ## Konsekwencje

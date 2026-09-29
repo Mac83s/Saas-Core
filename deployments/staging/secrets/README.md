@@ -23,6 +23,9 @@ checkoutem i z prawami `0600`:
   co najmniej 16 bajtów; montowany w `search` jako klucz silnika i w procesach
   backendu jako `search_api_key`. Stos wskazany na wspólny silnik mapuje
   `search_api_key` na osobny plik z kluczem ograniczonym do swojego indeksu;
+- `catalog_embedding_api_key` — klucz OpenRouter wyszukiwania po znaczeniu w
+  katalogu (ADR-064 §8), z limitem wydatków; plik musi istnieć, także pusty
+  (pusty = wyszukiwanie tylko słowami);
 - późniejsze integracje dodają osobny plik na każdy sekret i przyznają go tylko
   usługom, które go potrzebują.
 

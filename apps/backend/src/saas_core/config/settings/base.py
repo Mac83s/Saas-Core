@@ -852,6 +852,18 @@ SEO_GSC_REDIRECT_URI = os.environ.get("SEO_GSC_REDIRECT_URI", "")
 SEARCH_URL = os.environ.get("SEARCH_URL", "")
 SEARCH_API_KEY = secret_setting("SEARCH_API_KEY")
 SEARCH_TIMEOUT_SECONDS = float(os.environ.get("SEARCH_TIMEOUT_SECONDS", "1.5"))
+# ADR-064 §8: vectors for meaning-based search, computed by the backend.
+# OpenRouter by default (owner's answer of 29.09); an empty key means words only.
+CATALOG_EMBEDDING_API_KEY = secret_setting("CATALOG_EMBEDDING_API_KEY")
+CATALOG_EMBEDDING_BASE_URL = os.environ.get(
+    "CATALOG_EMBEDDING_BASE_URL", "https://openrouter.ai/api/v1"
+)
+CATALOG_EMBEDDING_MODEL = os.environ.get("CATALOG_EMBEDDING_MODEL", "qwen/qwen3-embedding-8b")
+CATALOG_EMBEDDING_DIMENSIONS = int(os.environ.get("CATALOG_EMBEDDING_DIMENSIONS", "1024"))
+#: Below this engine score a meaning-based match is not shown at all. The
+#: engine scores (1 + cosine) / 2, so unrelated vectors sit near 0.5 and a
+#: document without a vector at 0; provisional until tuned on real vectors.
+CATALOG_SIMILAR_MIN_SCORE = float(os.environ.get("CATALOG_SIMILAR_MIN_SCORE", "0.75"))
 
 # ADR-059: the direct OpenAI Image API. An empty key means the feature is
 # unavailable, not misconfigured, so there is no system check for it.
