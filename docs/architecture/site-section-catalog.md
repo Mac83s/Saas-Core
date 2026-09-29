@@ -99,7 +99,10 @@ Kryteria odbioru każdej nowej recepty:
 4. **Dowody bez zmyślania.** Seedy nie zawierają wymyślonych opinii, ocen,
    logotypów klientów, statystyk, cen ani certyfikatów. Mają wyraźne miejsca
    `[Uzupełnij: …]` na prawdziwy materiał właściciela. Automat nie pisze
-   cytatów ani dowodów.
+   cytatów (także kolejnych wypowiedzi `core.quote` v2), podpisów zdjęć w
+   galerii ani dowodów. Przykładowe zdjęcie w galerii ma podpis „Zdjęcie
+   poglądowe…”, a nazwa realizacji jest miejscem `[Uzupełnij: …]` — zdjęcie
+   z generatora nie udaje prawdziwego projektu.
 5. **Niski próg kontaktu:** krótki formularz (imię, kontakt, wiadomość),
    informacja, co stanie się po wysłaniu i jak szybko, bez zakładania konta.
 6. **Bez ciemnych wzorców:** bez liczników czasu, sztucznej rzadkości i

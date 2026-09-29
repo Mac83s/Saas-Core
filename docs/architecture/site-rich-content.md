@@ -16,9 +16,10 @@ karty biblioteki.
 | Listy i objaśniane kroki | `core.feature_list` v4, v5 | lista pozycji z objaśnieniem; v4 dodaje wstęp, panel uwag i dłuższe opisy, v5 kolumny, grupy, uwagi przy pozycjach i działanie sekcji (F4-P1) |
 | Cytaty redakcyjne | `core.quote` v1, v2 | cytowana wypowiedź z autorem i źródłem; nie jest opinią klienta, nie ma oceny; v2 pięć układów, tytuł, kolejne wypowiedzi i jedno działanie (F4-P2) |
 | Prezentacje produktu | `core.product` v1 | produkt z fotografiami, parametrami i zastosowaniami; bez ceny, stanu i koszyka |
+| Galerie i historie obrazem | `core.gallery` v1 | zdjęcia z tytułem i podpisem, pokazywane jako całość; zdjęcie pozycji jest opcjonalne (F4-P3) |
 
-Historie obrazem i galerie dostaną własny typ w kolejnej fazie. Wszystkie
-poprzednie wersje schematów pozostają bez zmian i nadal są przyjmowane.
+Wszystkie poprzednie wersje schematów pozostają bez zmian i nadal są
+przyjmowane.
 
 ## `core.rich_text` v2 — struktura zamiast napisu
 
@@ -463,3 +464,75 @@ głównego działania; poprawione po przeglądzie: podwójny znak cytatu w
 `voices` (inicjały go zastępują) i przycisk `with_action` wyrównany do lewej
 pod wyśrodkowanym cytatem.
 
+## Faza 4, paczka F4-P3 — galerie i Studio (2026-09-29)
+
+### `core.gallery` v1
+
+Nowy typ, bo galeria ma własne znaczenie danych: 1–12 pozycji, każda z
+opcjonalnym zdjęciem, tytułem (do 120 znaków), podpisem (do 600) i cichym
+odnośnikiem; sekcja ma tytuł, wstęp i jedno główne działanie. Pozycja musi
+mieć choć jedno pole, a bez zdjęcia jest kafelkiem tekstowym — galerię można
+ułożyć, zanim powstaną zdjęcia. Sześć układów: `photo_story` (duże zdjęcia
+jedno pod drugim), `captioned_grid` (siatka z podpisami), `dominant_details`
+(jedno dominujące zdjęcie i detale obok), `interleaved` (zdjęcie i tekst na
+zmianę z lewej i z prawej), `project_mosaic` (kafle różnej wielkości, co piąty
+na dwie kolumny) i `photo_steps` (numerowane kroki, lista `ol`). Bez skryptu i
+karuzeli: na stronie są wszystkie zdjęcia, a na telefonie układają się jedno
+pod drugim. Edytor przesuwa pozycje każdej listy strzałkami (nie tylko w
+galerii) i nie proponuje pozycji ponad `maxItems`.
+
+### Kopie zdjęć na stronie publicznej
+
+Każde zdjęcie strony (hero, figura, produkt, formularz, galeria) ma `srcset`
+z kopii WebP, które potok mediów robi przy przetwarzaniu (`thumbnail` 320 px,
+`preview` 1280 px), i z oryginałem; `sizes` mówi, jak szeroko układ rysuje
+zdjęcie. Kopia ma adres `/media/<id>/<wariant>` i przechodzi tę samą kontrolę
+publikacji co oryginał; serwer czyta tylko klucz, który potok sam zapisał dla
+tego zasobu (`published_variant_key`), więc adresu nie da się obrócić w odczyt
+dowolnego obiektu. Szerokości w `srcset` to pudełka kopii — kopia pionowego
+zdjęcia jest węższa, niż mówi deskryptor, co przeglądarce wystarcza do wyboru.
+
+### Katalog v7: 149 wpisów, 141 w bibliotece
+
+Sześć wpisów domyślnych na `gallery` v1 i nowa kategoria biblioteki „Galerie
+zdjęć”. Od tej paczki szablon może przynieść kilka przykładowych zdjęć, każde
+w swoim miejscu (`sampleMedia` jako lista ze ścieżką); biblioteka kopiuje każde
+zdjęcie raz, a jego klucz ponowienia sprawia, że drugi raz dostaje ten sam
+zasób. Zdjęcia przykładowe są z generatora, więc w galerii nie mogą udawać
+realizacji: podpis mówi „Zdjęcie poglądowe — wymień…”, a nazwa projektu to
+`[Uzupełnij: …]` (test kontraktu recept i katalogu). Główne działanie ma tylko
+mozaika realizacji; fotoreportaż, siatka i detale to etap `proof`, kroki i
+zdjęcia z tekstem — `interest`.
+
+Automat (change set, blueprint) nie pisze nowych podpisów galerii ani
+kolejnych wypowiedzi cytatu v2: może je przenieść bez zmian, usunąć albo
+zaimportować z receptą — nowe słowa wymagają człowieka (`assert_person_blocks`).
+Tytuły pozycji zostają dla automatu otwarte, jeśli nie są miejscem
+`[Uzupełnij: …]`.
+
+### Recepta `core.studio_portfolio` v1
+
+„Studio i portfolio” (styl `studio`, pełna szerokość): typograficzny manifest
+bez zdjęcia (hero `poster`), mozaika realizacji z czterema zdjęciami i
+kafelkiem zaproszenia, jeden projekt z bliska (`dominant_details`: zdjęcie i
+trzy detale — punkt wyjścia, co zrobiliśmy, efekt — do uzupełnienia), sposób
+pracy w pięciu krokach, pytania przed kontaktem i formularz. Ścieżka: uwaga →
+dowód → dowód → zainteresowanie → obiekcja → działanie.
+
+### Odbiór
+
+Harness na stosie :8080: sześć galerii i recepta we wszystkich 8 stylach ×
+320/390/768/1024/1440 (recepta także 3440) oraz 48 szablonów ze zdjęciami
+(hero, listy ze zdjęciem, kontakt, formularz, produkt, tekst ze zdjęciem,
+galerie) i recepty „Studium przypadku” i „Studio i portfolio” w stylach
+editorial i studio — bez przepełnienia, błędów JS, martwych kotwic i drugiego
+głównego działania. Nowy test harnessu porównuje pudełko każdego zdjęcia z
+kopiami i bez nich (sam oryginał, jak przed F4-P3): bez różnic. Przegląd
+zrzutów znalazł i poprawiliśmy: opakowanie odznaki „AI” kurczyło zdjęcie do
+szerokości slotu `sizes` (mozaika, dominujące zdjęcie, figura), pusta kolumna
+przy trzech krokach, podpis odsunięty od zdjęcia w wyższym rzędzie i wąski
+tekst detalu bez zdjęcia. W panelu: recepta wstawia 6 sekcji z 4 zdjęciami
+(projekt z bliska dzieli zasób z mozaiką), biblioteka kopiuje 3 zdjęcia
+„Kroków w zdjęciach” po razie, strzałki zmieniają kolejność kroków i zapis ją
+zachowuje. Koszt zdjęć strony publicznej z 8 fotografiami: 1190 KiB zamiast
+17 984 KiB oryginałów (390 i 1440 px, przeglądarka wybrała `preview`).
