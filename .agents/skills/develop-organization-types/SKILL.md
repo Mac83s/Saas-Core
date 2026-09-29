@@ -66,6 +66,13 @@ are `Plan/Wdrozenie/15-Typy-Organizacji-i-Rejestr-Gospodarstw.md`.
   runs under the owner of the tables and lifts the trigger inside its own
   transaction. A role dropped from the catalogue is logged, never deleted —
   memberships may still point at it.
+- **A core migration that grants a permission reaches only core's global
+  roles.** A type with its own `roles` gets exactly what the profile lists, so a
+  new permission for the owner or admin (booking 0011's
+  `booking.staff.performance.read`) must also be added to every product
+  profile's typed roles — HoofCare's company owner got 403 on Wydajność until
+  it was. HoofCare's `test_hoofcare_facts` compares its types' owner and admin
+  with core's and fails at `core:update`.
 - **A role anybody ever held is not deleted.** Memberships and invitations keep
   their role for history (`PROTECT`); own roles in use answer 409.
 - **Plans are offered per type.** `settings.BILLING_PLAN_KEYS` is still every
