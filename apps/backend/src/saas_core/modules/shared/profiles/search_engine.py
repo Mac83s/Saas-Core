@@ -162,8 +162,21 @@ class Meilisearch:
             )
         if self._call("GET", f"/indexes/{urllib.parse.quote(index)}", missing_ok=True) is None:
             self._wait(self._call("POST", "/indexes", {"uid": index, "primaryKey": "id"}))
-        self._wait(self._call("POST", "/swap-indexes", [{"indexes": [index, staging]}]))
+        swap = self._call("POST", "/swap-indexes", [{"indexes": [index, staging]}])
+        try:
+            self._wait(swap)
+        except SearchEngineUnavailable as error:
+            # A key scoped to some indexes (a stack on a shared engine) cannot
+            # read a swap task: it names two indexes. Tasks run in the order
+            # they were queued, so the drop below still comes after the swap,
+            # and the count after it says whether the swap happened.
+            if str(error) != "search_http_404":
+                raise
         self._drop(staging)
+        # Counted through documents, not stats: a scoped key may read those.
+        live = self._call("GET", f"/indexes/{urllib.parse.quote(index)}/documents?limit=0")
+        if live.get("total") != len(documents):
+            raise SearchEngineUnavailable("search_swap_unconfirmed")
 
     def _drop(self, index: str) -> None:
         # Deleting a missing index is a failed task, not a 404; ask first.
