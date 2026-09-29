@@ -153,6 +153,25 @@ test("pages its own rows", () => {
   expect(screen.getByText("Page 2 of 2")).toBeTruthy();
 });
 
+test("steps back to the last page when a filter leaves fewer rows", () => {
+  const view = (data: Person[]) => (
+    <DataTable
+      caption="People"
+      columns={columns}
+      data={data}
+      labels={labels}
+      pageSize={2}
+    />
+  );
+  const { rerender } = render(view(people));
+  fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+  expect(names()).toEqual(["Kasia"]);
+
+  rerender(view(people.filter((person) => person.visits > 5)));
+  expect(names()).toEqual(["Zenon", "Kasia"]);
+  expect(screen.queryByText(/Page 2/)).toBeNull();
+});
+
 test("shows a busy placeholder until the first rows arrive", () => {
   render(
     <DataTable

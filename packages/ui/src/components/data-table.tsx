@@ -250,6 +250,14 @@ export function DataTable<TData, TValue>({
   });
 
   const pages = table.getPageCount();
+  // A filter the page applies to `data` can leave the table past its last
+  // page: step back instead of showing an empty page with no way home.
+  const lastPage = Math.max(0, pages - 1);
+  useEffect(() => {
+    if (!manual && current.pageIndex > lastPage) {
+      setLocal((query) => ({ ...query, pageIndex: lastPage }));
+    }
+  }, [manual, current.pageIndex, lastPage]);
   const rows = table.getRowModel().rows;
   const width = table.getVisibleLeafColumns().length;
 
