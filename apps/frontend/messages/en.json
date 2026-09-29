@@ -1182,7 +1182,15 @@
       "proposalSources": "Sources",
       "proposalRisk": "Risk",
       "proposalCreated": "Submitted",
-      "proposalActionsFor": "Actions for the proposal from {date}"
+      "proposalActionsFor": "Actions for the proposal from {date}",
+      "domainsCaption": "Domains of this site",
+      "domainColumn": "Domain",
+      "domainActionsFor": "Actions for the domain {hostname}",
+      "redirectsCaption": "Redirects from old addresses",
+      "redirectFrom": "Old address",
+      "redirectTo": "Leads to",
+      "redirectReason": "Reason for the change",
+      "redirectActionsFor": "Actions for the redirect from {path}"
     },
     "noPublications": "No publications yet.",
     "publicationSequence": "Publication #{sequence}",

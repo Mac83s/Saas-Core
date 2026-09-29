@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowRightIcon, LinkIcon, Trash2Icon } from "lucide-react";
+import { LinkIcon, Trash2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { z } from "zod";
@@ -23,6 +23,11 @@ import {
   CardTitle,
 } from "@saas-core/ui/components/card";
 import {
+  DataTable,
+  RowActions,
+  type ColumnDef,
+} from "@saas-core/ui/components/data-table";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -35,6 +40,7 @@ import { Field, FieldError, FieldLabel } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
 import { Textarea } from "@saas-core/ui/components/textarea";
 
+import { useDataTableLabels } from "#lib/data-table-labels";
 import { sitesErrorMessage } from "./problem";
 
 type UrlValues = { slug: string; reason: string };
@@ -168,7 +174,9 @@ export function PageUrlDialog({
 /** Every address this site used to answer on, and where it now points. */
 export function SiteRedirectsCard({ siteId }: { siteId: string }) {
   const t = useTranslations("Sites");
+  const labels = useDataTableLabels();
   const [redirects, setRedirects] = useState<SiteRedirect[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string>();
 
@@ -180,11 +188,78 @@ export function SiteRedirectsCard({ siteId }: { siteId: string }) {
       })
       .catch((error: unknown) => {
         if (mounted) setProblem(sitesErrorMessage(error, t));
+      })
+      .finally(() => {
+        if (mounted) setLoaded(true);
       });
     return () => {
       mounted = false;
     };
   }, [siteId, t]);
+
+  function remove(redirect: SiteRedirect) {
+    if (busy) return;
+    setBusy(true);
+    setProblem(undefined);
+    void deleteSiteRedirect(redirect.id)
+      .then(() => {
+        setRedirects((current) =>
+          current.filter((item) => item.id !== redirect.id),
+        );
+      })
+      .catch((error: unknown) => {
+        setProblem(sitesErrorMessage(error, t));
+      })
+      .finally(() => {
+        setBusy(false);
+      });
+  }
+
+  const columns: ColumnDef<SiteRedirect, unknown>[] = [
+    {
+      id: "from",
+      accessorKey: "from_path",
+      header: t("lists.redirectFrom"),
+      meta: { primary: true },
+      cell: ({ row: { original: redirect } }) => (
+        <code className="text-sm break-all">{redirect.from_path}</code>
+      ),
+    },
+    {
+      id: "to",
+      accessorKey: "to_path",
+      header: t("lists.redirectTo"),
+      cell: ({ row: { original: redirect } }) => (
+        <code className="text-sm break-all">{redirect.to_path}</code>
+      ),
+    },
+    {
+      id: "reason",
+      accessorKey: "reason",
+      header: t("lists.redirectReason"),
+      cell: ({ row: { original: redirect } }) => (
+        <span className="text-muted-foreground">{redirect.reason || "—"}</span>
+      ),
+    },
+    {
+      id: "actions",
+      header: t("lists.actions"),
+      meta: { actions: true },
+      cell: ({ row: { original: redirect } }) => (
+        <RowActions
+          items={[
+            {
+              label: t("redirectDelete", { path: redirect.from_path }),
+              icon: <Trash2Icon aria-hidden="true" />,
+              destructive: true,
+              onSelect: () => remove(redirect),
+            },
+          ]}
+          label={t("lists.redirectActionsFor", { path: redirect.from_path })}
+        />
+      ),
+    },
+  ];
 
   return (
     <Card>
@@ -192,62 +267,22 @@ export function SiteRedirectsCard({ siteId }: { siteId: string }) {
         <CardTitle>{t("redirects")}</CardTitle>
         <CardDescription>{t("redirectsDescription")}</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-3">
         {problem && (
           <p className="text-sm text-destructive" role="alert">
             {problem}
           </p>
         )}
-        {redirects.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("redirectsEmpty")}</p>
-        ) : (
-          <ul aria-describedby="redirects-hint" className="space-y-3">
-            {redirects.map((redirect) => (
-              <li className="space-y-1 rounded-lg border p-3" key={redirect.id}>
-                <div className="flex flex-wrap items-center gap-2 text-sm">
-                  <code className="break-all">{redirect.from_path}</code>
-                  <ArrowRightIcon aria-hidden="true" className="size-4" />
-                  <code className="break-all">{redirect.to_path}</code>
-                  <Button
-                    aria-label={t("redirectDelete", {
-                      path: redirect.from_path,
-                    })}
-                    className="ms-auto"
-                    disabled={busy}
-                    onClick={() => {
-                      setBusy(true);
-                      setProblem(undefined);
-                      void deleteSiteRedirect(redirect.id)
-                        .then(() => {
-                          setRedirects((current) =>
-                            current.filter((item) => item.id !== redirect.id),
-                          );
-                        })
-                        .catch((error: unknown) => {
-                          setProblem(sitesErrorMessage(error, t));
-                        })
-                        .finally(() => {
-                          setBusy(false);
-                        });
-                    }}
-                    size="icon-sm"
-                    type="button"
-                    variant="ghost"
-                  >
-                    <Trash2Icon aria-hidden="true" />
-                  </Button>
-                </div>
-                {redirect.reason && (
-                  <p className="text-sm text-muted-foreground">
-                    {redirect.reason}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
+        <DataTable
+          caption={t("lists.redirectsCaption")}
+          columns={columns}
+          data={redirects}
+          getRowId={(redirect) => redirect.id}
+          labels={{ ...labels, empty: t("redirectsEmpty") }}
+          loading={!loaded}
+        />
         {redirects.length > 0 && (
-          <p className="mt-3 text-sm text-muted-foreground" id="redirects-hint">
+          <p className="text-sm text-muted-foreground">
             {t("redirectDeleteHint")}
           </p>
         )}

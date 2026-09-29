@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import axe from "axe-core";
 import { NextIntlClientProvider } from "next-intl";
@@ -100,8 +101,14 @@ test("wypisuje przekierowania i przechodzi axe", async () => {
   );
 
   expect(await screen.findByText("/oferta/")).not.toBeNull();
-  expect(screen.getByText("/nasze-uslugi/")).not.toBeNull();
-  expect(screen.getByText("Nowa nazwa działu.")).not.toBeNull();
+  // The shared panel list (ADR-054): old address, target and reason per row.
+  const row = within(
+    screen.getByRole("table", { name: "Przekierowania starych adresów" }),
+  )
+    .getByText("/oferta/")
+    .closest("tr")!;
+  expect(within(row).getByText("/nasze-uslugi/")).not.toBeNull();
+  expect(within(row).getByText("Nowa nazwa działu.")).not.toBeNull();
   expect(listSiteRedirects.mock.calls[0]?.[0]).toBe(siteId);
 
   const result = await axe.run(rendered.container);
@@ -115,8 +122,14 @@ test("usuwa przekierowanie, którego nikt już nie potrzebuje", async () => {
     </NextIntlClientProvider>,
   );
 
+  // Deleting is destructive, so it sits in the row's "…" menu.
   fireEvent.click(
     await screen.findByRole("button", {
+      name: "Działania dla przekierowania z /oferta/",
+    }),
+  );
+  fireEvent.click(
+    await screen.findByRole("menuitem", {
       name: "Usuń przekierowanie z /oferta/",
     }),
   );

@@ -1182,7 +1182,15 @@
       "proposalSources": "Źródła",
       "proposalRisk": "Ryzyko",
       "proposalCreated": "Zgłoszona",
-      "proposalActionsFor": "Działania dla propozycji z {date}"
+      "proposalActionsFor": "Działania dla propozycji z {date}",
+      "domainsCaption": "Domeny tej witryny",
+      "domainColumn": "Domena",
+      "domainActionsFor": "Działania dla domeny {hostname}",
+      "redirectsCaption": "Przekierowania starych adresów",
+      "redirectFrom": "Stary adres",
+      "redirectTo": "Prowadzi do",
+      "redirectReason": "Powód zmiany",
+      "redirectActionsFor": "Działania dla przekierowania z {path}"
     },
     "noPublications": "Brak publikacji.",
     "publicationSequence": "Publikacja #{sequence}",

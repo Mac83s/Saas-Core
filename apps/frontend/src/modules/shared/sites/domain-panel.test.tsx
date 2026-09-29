@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import axe from "axe-core";
 import { NextIntlClientProvider } from "next-intl";
@@ -87,7 +88,14 @@ test("pokazuje status, instrukcję DNS i uruchamia kontrolę", async () => {
   renderPanel();
 
   expect(await screen.findByText("www.example.test")).not.toBeNull();
-  expect(screen.getByText(/_saas-core\.www\.example\.test/)).not.toBeNull();
+  // The shared panel list (ADR-054); DNS instructions stay in their row.
+  const table = screen.getByRole("table", { name: "Domeny tej witryny" });
+  expect(within(table).getAllByRole("row")).toHaveLength(3);
+  expect(
+    within(screen.getByText("www.example.test").closest("tr")!).getByText(
+      /_saas-core\.www\.example\.test/,
+    ),
+  ).not.toBeNull();
   expect(screen.getByText("TLS: oczekuje")).not.toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Sprawdź DNS" }));
 
@@ -109,4 +117,28 @@ test("dodaje własną domenę i przechodzi axe", async () => {
   });
   const result = await axe.run(rendered.container);
   expect(result.violations).toHaveLength(0);
+});
+
+test("ustawia zweryfikowaną domenę jako canonical z menu wiersza", async () => {
+  listSiteDomains.mockResolvedValue({
+    items: [platformDomain, { ...customDomain, status: "verified" }],
+  });
+  renderPanel();
+
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Działania dla domeny www.example.test",
+    }),
+  );
+  fireEvent.click(
+    await screen.findByRole("menuitem", { name: "Ustaw canonical" }),
+  );
+
+  await waitFor(() => expect(mutateSiteDomain).toHaveBeenCalledOnce());
+  expect(mutateSiteDomain.mock.calls[0]?.[0]).toBe(customDomain.id);
+  expect(mutateSiteDomain.mock.calls[0]?.[1]).toEqual({
+    action: "set_canonical",
+  });
+  // The list is read again: the other domain stops being canonical too.
+  await waitFor(() => expect(listSiteDomains).toHaveBeenCalledTimes(2));
 });
