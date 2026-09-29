@@ -18,6 +18,15 @@ from .crew import (
     leave_visit_crew,
     on_crew,
 )
+from .facts import (
+    STAFF_PERFORMANCE_READ,
+    Event,
+    Metric,
+    Period,
+    StaffFacts,
+    StaffSubject,
+    register_staff_facts,
+)
 from .models import AppointmentStatus
 from .observers import (
     CANCELED,
@@ -56,13 +65,19 @@ __all__ = [
     "COMPLETED",
     "CREATED",
     "RESCHEDULED",
+    "STAFF_PERFORMANCE_READ",
     "AppointmentChange",
     "AppointmentNotChangeable",
     "AppointmentStatus",
     "BookingIdempotencyConflict",
     "CreatedAppointment",
     "CrewPerson",
+    "Event",
+    "Metric",
+    "Period",
     "SlotUnavailable",
+    "StaffFacts",
+    "StaffSubject",
     "appointment_for_tenant",
     "cancel_appointment",
     "complete_appointment",
@@ -74,6 +89,7 @@ __all__ = [
     "list_appointments",
     "on_crew",
     "register_appointment_observer",
+    "register_staff_facts",
     "reschedule_appointment",
     "staff_for_membership",
 ]

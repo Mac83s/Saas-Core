@@ -23,6 +23,7 @@ from saas_core.modules.shared.billing.authorization import authorize_entitled
 from . import materials as stock
 from .availability import _zone, available_days, available_slots, available_times
 from .dispatch import assign_crew, candidates, overview, queue
+from .facts import staff_facts, staff_history, team_performance
 from .models import Location, PublicBookingRoute, Resource, SelfServiceRoute, Service
 from .public import public_choices, public_people, shown_to_customer
 from .security import public_booking_context, token_digest
@@ -39,6 +40,7 @@ from .serializers import (
     MaterialsInputSerializer,
     OverviewSerializer,
     PeopleDaySerializer,
+    PerformanceSerializer,
     PersonCreateSerializer,
     PersonDetailSerializer,
     PersonHoursInputSerializer,
@@ -65,6 +67,8 @@ from .serializers import (
     SlotDayListSerializer,
     SlotListSerializer,
     SlotTimeListSerializer,
+    StaffFactsSerializer,
+    StaffHistorySerializer,
     StaffSlotTimeListSerializer,
     TeamInputSerializer,
     TeamListSerializer,
@@ -1623,3 +1627,110 @@ class SetupResourceDetailView(APIView):
         return Response(
             _resource_payload(save_resource(resource_id=resource_id, data=dict(s.validated_data)))
         )
+
+
+_PERIOD = [
+    OpenApiParameter("from", date, OpenApiParameter.QUERY, description="Pierwszy dzień okresu."),
+    OpenApiParameter(
+        "to", date, OpenApiParameter.QUERY, description="Ostatni dzień; bez niego: dziś."
+    ),
+]
+
+
+def _period_days(request: Request) -> tuple[date | None, date | None]:
+    try:
+        return tuple(  # type: ignore[return-value]
+            date.fromisoformat(value) if (value := request.query_params.get(name)) else None
+            for name in ("from", "to")
+        )
+    except ValueError as error:
+        raise ParseError("Nieprawidłowa data.") from error
+
+
+class StaffFactsView(APIView):
+    """A person's results (team plan, phase 5): one's own, or anybody's for the
+    owner and the administrator."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        parameters=_PERIOD,
+        responses={
+            200: StaffFactsSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, request: Request, staff_id: UUID) -> Response:
+        first, last = _period_days(request)
+        return Response(StaffFactsSerializer(staff_facts(staff_id, first, last)).data)
+
+
+class StaffHistoryView(APIView):
+    """What happened to a person, newest first, a page at a time."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        parameters=[
+            *_PERIOD,
+            OpenApiParameter("kind", str, OpenApiParameter.QUERY, description="Jeden rodzaj."),
+            OpenApiParameter(
+                "before", datetime, OpenApiParameter.QUERY, description="Starsze niż ta chwila."
+            ),
+        ],
+        responses={
+            200: StaffHistorySerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, request: Request, staff_id: UUID) -> Response:
+        first, last = _period_days(request)
+        value = request.query_params.get("before")
+        try:
+            before = datetime.fromisoformat(value) if value else None
+        except ValueError as error:
+            raise ParseError("Nieprawidłowa chwila.") from error
+        return Response(
+            StaffHistorySerializer(
+                staff_history(
+                    staff_id,
+                    first,
+                    last,
+                    kind=request.query_params.get("kind", ""),
+                    before=before,
+                )
+            ).data
+        )
+
+
+class PerformanceView(APIView):
+    """Everybody's numbers side by side: the owner's and administrator's view."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        parameters=[
+            *_PERIOD,
+            OpenApiParameter("team", UUID, OpenApiParameter.QUERY, description="Jeden zespół."),
+        ],
+        responses={
+            200: PerformanceSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, request: Request) -> Response:
+        first, last = _period_days(request)
+        value = request.query_params.get("team")
+        try:
+            team = UUID(value) if value else None
+        except ValueError as error:
+            raise ParseError("Nieprawidłowy zespół.") from error
+        return Response(PerformanceSerializer(team_performance(first, last, team_id=team)).data)

@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:a5bb8a565794a41c433c8f2ae8330402060545ba3c13d70d678d26f1a4bf4548",
+  "profileHash": "sha256:5b31572655796d37191ce2c054ceab8f531165ca73e6abfade66478e31c460ad",
   "schemaVersion": 1,
   "deployment": "business",
   "product": {
@@ -388,11 +388,18 @@
         "permissions": [
           "booking.appointment.read",
           "booking.appointment.manage",
-          "booking.schedule.own"
+          "booking.schedule.own",
+          "booking.staff.performance.read"
         ],
         "roleGrants": {
           "staff": [
             "booking.schedule.own"
+          ],
+          "admin": [
+            "booking.staff.performance.read"
+          ],
+          "owner": [
+            "booking.staff.performance.read"
           ]
         },
         "entitlements": [

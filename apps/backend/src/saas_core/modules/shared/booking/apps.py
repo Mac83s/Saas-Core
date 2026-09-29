@@ -15,6 +15,7 @@ class BookingConfig(AppConfig):
         from saas_core.modules.shared.profiles.api import register_catalog_terms
 
         from .catalog_terms import service_changed, service_names
+        from .facts import register_core_facts
         from .models import PublicBookingRoute, ReminderRoute, SelfServiceRoute, Service
         from .notify import register_templates
         from .staff import link_on_join
@@ -23,6 +24,8 @@ class BookingConfig(AppConfig):
         register_invitation_accepted(link_on_join)
         # What the people on a visit hear about it (ADR-058 §9).
         register_templates()
+        # A person's results and history: the calendar's and the account's (phase 5).
+        register_core_facts()
         # Service names make a company findable in the catalogue (ADR-064).
         register_catalog_terms("shared.booking.services", service_names)
         post_save.connect(service_changed, sender=Service, dispatch_uid="booking.catalog.save")

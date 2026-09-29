@@ -570,6 +570,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/booking/performance/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Everybody's numbers side by side: the owner's and administrator's view. */
+        get: operations["api_v1_booking_performance_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/booking/public/{public_slug}/": {
         parameters: {
             query?: never;
@@ -968,6 +985,43 @@ export interface paths {
         put?: never;
         /** @description "Remove from the company"; refused while the person leads planned visits. */
         post: operations["api_v1_booking_staff_end_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/staff/{staff_id}/facts/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * @description A person's results (team plan, phase 5): one's own, or anybody's for the
+         *     owner and the administrator.
+         */
+        get: operations["api_v1_booking_staff_facts_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/staff/{staff_id}/history/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description What happened to a person, newest first, a page at a time. */
+        get: operations["api_v1_booking_staff_history_retrieve"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6014,6 +6068,31 @@ export interface components {
             timezone: string;
             items: components["schemas"]["PersonDay"][];
         };
+        Performance: {
+            /** Format: date */
+            period_from: string;
+            /** Format: date */
+            period_to: string;
+            columns: components["schemas"]["PerformanceColumn"][];
+            items: components["schemas"]["PerformanceRow"][];
+        };
+        PerformanceColumn: {
+            provider: string;
+            keys: string[];
+        };
+        PerformanceRow: {
+            /** Format: uuid */
+            staff_id: string;
+            name: string;
+            /** Format: uuid */
+            membership_id: string | null;
+            team_ids: string[];
+            groups: {
+                [key: string]: {
+                    [key: string]: number;
+                };
+            };
+        };
         /** @description A person of the company as booking keeps them (ADR-058 §1). */
         Person: {
             /** Format: uuid */
@@ -6935,6 +7014,52 @@ export interface components {
             public_slug: string;
             /** Format: uuid */
             membership_id: string | null;
+        };
+        StaffEvent: {
+            /** Format: date-time */
+            at: string;
+            kind: string;
+            event: string;
+            params: {
+                [key: string]: unknown;
+            };
+            value: number | null;
+            unit: string;
+        };
+        StaffFactGroup: {
+            provider: string;
+            metrics: components["schemas"]["StaffMetric"][];
+        };
+        /** @description A person's numbers for a period (team plan, phase 5). */
+        StaffFacts: {
+            /** Format: date */
+            period_from: string;
+            /** Format: date */
+            period_to: string;
+            /** Format: date */
+            previous_from: string;
+            /** Format: date */
+            previous_to: string;
+            groups: components["schemas"]["StaffFactGroup"][];
+        };
+        StaffHistory: {
+            /** Format: date */
+            period_from: string;
+            /** Format: date */
+            period_to: string;
+            kinds: string[];
+            items: components["schemas"]["StaffEvent"][];
+            /** Format: date-time */
+            next_before: string | null;
+        };
+        StaffMetric: {
+            key: string;
+            value: number;
+            unit: string;
+            parts: {
+                [key: string]: number;
+            };
+            previous: number | null;
         };
         StaffSlotTime: {
             /** Format: date-time */
@@ -8782,6 +8907,48 @@ export interface operations {
             };
         };
     };
+    api_v1_booking_performance_retrieve: {
+        parameters: {
+            query?: {
+                /** @description Pierwszy dzień okresu. */
+                from?: string;
+                /** @description Jeden zespół. */
+                team?: string;
+                /** @description Ostatni dzień; bez niego: dziś. */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Performance"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     api_v1_booking_public_retrieve: {
         parameters: {
             query?: never;
@@ -9612,6 +9779,110 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_booking_staff_facts_retrieve: {
+        parameters: {
+            query?: {
+                /** @description Pierwszy dzień okresu. */
+                from?: string;
+                /** @description Ostatni dzień; bez niego: dziś. */
+                to?: string;
+            };
+            header?: never;
+            path: {
+                staff_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffFacts"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_booking_staff_history_retrieve: {
+        parameters: {
+            query?: {
+                /** @description Starsze niż ta chwila. */
+                before?: string;
+                /** @description Pierwszy dzień okresu. */
+                from?: string;
+                /** @description Jeden rodzaj. */
+                kind?: string;
+                /** @description Ostatni dzień; bez niego: dziś. */
+                to?: string;
+            };
+            header?: never;
+            path: {
+                staff_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffHistory"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

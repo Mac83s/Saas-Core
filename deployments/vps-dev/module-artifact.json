@@ -1,5 +1,5 @@
 {
-  "profileHash": "sha256:0b7afbeee73e1a3092cd1029ee7528e8bfeda6e2e1ec90ebaaef2eaced1b9da9",
+  "profileHash": "sha256:dc09bb017477503266cc17cb9a6eca7f6ee683a16a4a5ee46c8810c39cce0d11",
   "schemaVersion": 1,
   "deployment": "vps-dev",
   "product": {
@@ -388,11 +388,18 @@
         "permissions": [
           "booking.appointment.read",
           "booking.appointment.manage",
-          "booking.schedule.own"
+          "booking.schedule.own",
+          "booking.staff.performance.read"
         ],
         "roleGrants": {
           "staff": [
             "booking.schedule.own"
+          ],
+          "admin": [
+            "booking.staff.performance.read"
+          ],
+          "owner": [
+            "booking.staff.performance.read"
           ]
         },
         "entitlements": [

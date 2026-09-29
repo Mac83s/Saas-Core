@@ -31,6 +31,7 @@ from saas_core.modules.core.organizations.audit import (
     field_changes,
     record_audit,
 )
+from saas_core.modules.core.organizations.authorization import OrganizationPermissionDenied
 from saas_core.modules.core.organizations.models import Organization, OrganizationAuditAction
 from saas_core.modules.shared.billing.api import FeatureOperation, authorize_entitled
 
@@ -216,6 +217,35 @@ def _manage_context() -> Any:
     context = authorize_entitled(INVENTORY_MANAGE, INVENTORY_ENABLED)
     ensure_catalog(context.organization_id)
     return context
+
+
+def _others_stock(context: Any) -> bool:
+    """Somebody else's stock and its movements: the warehouse keeper's only.
+
+    Owner's answer 2.2a (29.09): `inventory.read` shows the warehouse and one's
+    own stock; another person's — what they took and used — takes
+    `inventory.manage`, or a card's results would leak through the raw API.
+    """
+    return bool(context.has_permission(INVENTORY_MANAGE))
+
+
+def _hidden_places(context: Any) -> Q:
+    """Other people's stock, for a reader who may not see it."""
+    return Q(location__kind=LocationKind.PERSON) & ~Q(location__holder_id=context.actor_id)
+
+
+def _guard_place(context: Any, location_id: UUID | None) -> None:
+    if location_id is None or _others_stock(context):
+        return
+    place = StockLocation.all_objects.filter(
+        organization_id=context.organization_id, pk=location_id
+    ).first()
+    if (
+        place is not None
+        and place.kind == LocationKind.PERSON
+        and place.holder_id != context.actor_id
+    ):
+        raise OrganizationPermissionDenied
 
 
 def list_categories() -> list[InventoryCategory]:
@@ -520,6 +550,9 @@ def balances(
     `inventory.read`, bez prawa do prowadzenia magazynu.
     """
     context = _read_context()
+    if holder_id is not None and holder_id != context.actor_id and not _others_stock(context):
+        raise OrganizationPermissionDenied
+    _guard_place(context, location_id)
     query = InventoryBalance.all_objects.filter(
         organization_id=context.organization_id
     ).select_related("item", "item__category", "location")
@@ -556,20 +589,34 @@ def list_lots(
     *, item_id: UUID | None = None, location_id: UUID | None = None
 ) -> list[dict[str, Any]]:
     context = _read_context()
-    return lot_rows(
+    _guard_place(context, location_id)
+    rows = lot_rows(
         context.organization_id,
         item_id=item_id,
         location_ids=[location_id] if location_id is not None else (),
     )
+    if location_id is not None or _others_stock(context):
+        return rows
+    hidden = set(
+        StockLocation.all_objects.filter(
+            organization_id=context.organization_id, kind=LocationKind.PERSON
+        )
+        .exclude(holder_id=context.actor_id)
+        .values_list("id", flat=True)
+    )
+    return [row for row in rows if row["location_id"] not in hidden]
 
 
 def movements(
     *, item_id: UUID | None = None, location_id: UUID | None = None
 ) -> QuerySet[InventoryMovement]:
     context = _read_context()
+    _guard_place(context, location_id)
     query = InventoryMovement.all_objects.filter(
         organization_id=context.organization_id
     ).select_related("item", "location", "document", "created_by")
+    if not _others_stock(context):
+        query = query.exclude(_hidden_places(context))
     if item_id:
         query = query.filter(item_id=item_id)
     if location_id:
@@ -585,6 +632,13 @@ def list_documents(*, kind: str = "", status: str = "") -> list[StockDocument]:
     query = StockDocument.all_objects.filter(
         organization_id=context.organization_id
     ).prefetch_related("lines__item", "lines__lot", "movements__lot")
+    if not _others_stock(context):
+        # A transfer to or from somebody else's stock is what they took or gave back.
+        for side in ("source_location", "target_location"):
+            query = query.exclude(
+                Q(**{f"{side}__kind": LocationKind.PERSON})
+                & ~Q(**{f"{side}__holder_id": context.actor_id})
+            )
     if kind:
         query = query.filter(kind=kind)
     if status:
@@ -594,7 +648,10 @@ def list_documents(*, kind: str = "", status: str = "") -> list[StockDocument]:
 
 def get_document(document_id: UUID) -> StockDocument:
     context = _read_context()
-    return with_lines(_get(StockDocument, context.organization_id, document_id))
+    document = _get(StockDocument, context.organization_id, document_id)
+    for place in (document.source_location_id, document.target_location_id):
+        _guard_place(context, place)
+    return with_lines(document)
 
 
 def with_lines(document: StockDocument) -> StockDocument:

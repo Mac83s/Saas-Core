@@ -13,10 +13,13 @@
     "permissions": [
       "booking.appointment.read",
       "booking.appointment.manage",
-      "booking.schedule.own"
+      "booking.schedule.own",
+      "booking.staff.performance.read"
     ],
     "roleGrants": {
-      "staff": ["booking.schedule.own"]
+      "staff": ["booking.schedule.own"],
+      "admin": ["booking.staff.performance.read"],
+      "owner": ["booking.staff.performance.read"]
     },
     "entitlements": ["booking.enabled"],
     "eventSchemas": ["booking.appointment.created.v1"],

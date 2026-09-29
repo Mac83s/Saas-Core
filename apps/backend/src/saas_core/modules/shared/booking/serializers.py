@@ -638,3 +638,71 @@ class PeopleDaySerializer(serializers.Serializer[dict[str, Any]]):
     date = serializers.DateField()
     timezone = serializers.CharField()
     items = PersonDaySerializer(many=True)
+
+
+class StaffMetricSerializer(serializers.Serializer[dict[str, Any]]):
+    key = serializers.CharField()
+    value = serializers.IntegerField()
+    #: "count", "minutes" or "money" (minor units of the organization's currency).
+    unit = serializers.CharField()
+    #: A number's parts, e.g. visits as the lead and in the crew.
+    parts = serializers.DictField(child=serializers.IntegerField())
+    #: The same number over the period before; null for a state like today's stock.
+    previous = serializers.IntegerField(allow_null=True)
+
+
+class StaffFactGroupSerializer(serializers.Serializer[dict[str, Any]]):
+    #: The module that counts: "calendar", "inventory", a product's own.
+    provider = serializers.CharField()
+    metrics = StaffMetricSerializer(many=True)
+
+
+class StaffFactsSerializer(serializers.Serializer[dict[str, Any]]):
+    """A person's numbers for a period (team plan, phase 5)."""
+
+    period_from = serializers.DateField()
+    period_to = serializers.DateField()
+    previous_from = serializers.DateField()
+    previous_to = serializers.DateField()
+    groups = StaffFactGroupSerializer(many=True)
+
+
+class StaffEventSerializer(serializers.Serializer[dict[str, Any]]):
+    at = serializers.DateTimeField()
+    kind = serializers.CharField()
+    event = serializers.CharField()
+    #: What the panel needs to tell the event: names, numbers, times.
+    params = serializers.DictField()
+    value = serializers.IntegerField(allow_null=True)
+    unit = serializers.CharField(allow_blank=True)
+
+
+class StaffHistorySerializer(serializers.Serializer[dict[str, Any]]):
+    period_from = serializers.DateField()
+    period_to = serializers.DateField()
+    #: The kinds the viewer may filter by.
+    kinds = serializers.ListField(child=serializers.CharField())
+    items = StaffEventSerializer(many=True)
+    #: Pass as `before` for the next, older page; null: nothing older.
+    next_before = serializers.DateTimeField(allow_null=True)
+
+
+class PerformanceColumnSerializer(serializers.Serializer[dict[str, Any]]):
+    provider = serializers.CharField()
+    keys = serializers.ListField(child=serializers.CharField())
+
+
+class PerformanceRowSerializer(serializers.Serializer[dict[str, Any]]):
+    staff_id = serializers.UUIDField()
+    name = serializers.CharField()
+    membership_id = serializers.UUIDField(allow_null=True)
+    team_ids = serializers.ListField(child=serializers.UUIDField())
+    #: provider → metric key → value.
+    groups = serializers.DictField(child=serializers.DictField(child=serializers.IntegerField()))
+
+
+class PerformanceSerializer(serializers.Serializer[dict[str, Any]]):
+    period_from = serializers.DateField()
+    period_to = serializers.DateField()
+    columns = PerformanceColumnSerializer(many=True)
+    items = PerformanceRowSerializer(many=True)
