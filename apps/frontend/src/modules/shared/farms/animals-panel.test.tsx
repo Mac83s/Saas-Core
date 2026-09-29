@@ -296,14 +296,19 @@ test("karta zwierzęcia pokazuje dane rejestru i zmienia status", async () => {
   expect(within(dialog).getByText("Sprzedana na targu.")).toBeInTheDocument();
   await checkAxe();
 
-  // Kartoteka zwierzęcia: rodzaj, treść, autor i firma, z której przyszedł.
+  // Kartoteka zwierzęcia to lista (ADR-054): rodzaj i treść, data, autor i
+  // firma, z której wpis przyszedł.
+  const file = await within(dialog).findByRole("table", {
+    name: /^Kartoteka:/,
+  });
+  const [, entry] = await within(file).findAllByRole("row");
   expect(
-    await within(dialog).findByText(
-      "Korekcja: DD M2 na LH, kontrola za 14 dni.",
-    ),
+    within(entry!).getByText("Korekcja: DD M2 na LH, kontrola za 14 dni."),
   ).toBeVisible();
-  expect(within(dialog).getByText(/Piotr Korektor/)).toBeVisible();
-  expect(within(dialog).getByText(/Korekcja Testowa/)).toBeVisible();
+  expect(within(entry!).getByText("Zabieg")).toBeVisible();
+  expect(within(entry!).getByText("18 wrz 2026")).toBeVisible();
+  expect(within(entry!).getByText("Piotr Korektor")).toBeVisible();
+  expect(within(entry!).getByText("Korekcja Testowa")).toBeVisible();
 
   // Zdjęcie czytane jest przez wpis, nie przez magazyn rolnika: plik zostaje
   // u autora (decyzja z 20.09).
@@ -318,13 +323,27 @@ test("karta zwierzęcia pokazuje dane rejestru i zmienia status", async () => {
     await within(dialog).findByRole("img", { name: "Zdjęcie z wpisu" }),
   ).toBeVisible();
 
-  // Filtr rodzaju pyta serwer, bo lista jest ucinana po stronie API.
-  fireEvent.click(within(dialog).getByRole("button", { name: "Notatka" }));
+  // Filtry w pasku listy pytają serwer, bo lista jest ucinana po stronie API.
+  fireEvent.click(
+    within(within(dialog).getByRole("group", { name: "Rodzaj" })).getByRole(
+      "button",
+      { name: "Notatka" },
+    ),
+  );
   await waitFor(() =>
     expect(api.listFarmAnimalHealth).toHaveBeenLastCalledWith(
       "a3",
       expect.objectContaining({ kinds: ["note"] }),
     ),
+  );
+  fireEvent.change(within(dialog).getByLabelText("Od dnia"), {
+    target: { value: "2026-09-01" },
+  });
+  await waitFor(() =>
+    expect(api.listFarmAnimalHealth).toHaveBeenLastCalledWith("a3", {
+      kinds: ["note"],
+      from: "2026-09-01",
+    }),
   );
 
   // Wpis rolnika: rodzaj, treść i prywatność idą do API.
@@ -715,8 +734,15 @@ test("rolnik poprawia swoją notatkę nową wersją, z powodem, gdy ktoś mógł
   const dialog = await screen.findByRole("dialog", { name: "PL005432100002" });
   await within(dialog).findByText("Kuleje na lewą tylną.");
 
+  const file = within(dialog).getByRole("table", { name: /^Kartoteka:/ });
+  expect(within(file).getAllByRole("row")).toHaveLength(3);
+  // „Popraw” to edycja wpisu, więc stoi w wierszu na wierzchu (ADR-057).
   const [first] = within(dialog).getAllByRole("button", { name: "Popraw" });
   fireEvent.click(first!);
+  // The form opens in the entry's cell; the keyboard goes along with it.
+  expect(
+    within(dialog).getByRole("combobox", { name: "Rodzaj" }),
+  ).toHaveFocus();
   const summary = within(dialog).getByLabelText("Treść wpisu");
   expect(summary).toHaveValue("Kuleje na lewą tylną.");
   fireEvent.change(summary, { target: { value: "Kuleje na prawą tylną." } });
@@ -739,9 +765,16 @@ test("rolnik poprawia swoją notatkę nową wersją, z powodem, gdy ktoś mógł
     }),
   );
 
+  await waitFor(() => expect(first).toHaveFocus());
+
   // A private note: the reason is optional, the withdrawal still a version.
-  const withdraw = within(dialog).getAllByRole("button", { name: "Wycofaj" });
-  fireEvent.click(withdraw.at(-1)!);
+  // Withdrawing is rarer than correcting, so it waits behind „…”.
+  fireEvent.click(
+    within(dialog).getByRole("button", {
+      name: "Działania wpisu: Sąsiad chce kupić.",
+    }),
+  );
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Wycofaj" }));
   expect(
     within(dialog).getByLabelText("Powód (opcjonalnie — notatka prywatna)"),
   ).toBeVisible();

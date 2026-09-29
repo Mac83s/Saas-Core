@@ -478,15 +478,28 @@ test("kod aktywacji dla karty firmy, a hodowca cofa dostęp", async () => {
   cleanup();
   wrap(<FarmDetail canManage canRead farmId={FARM} />);
   fireEvent.click(await screen.findByRole("tab", { name: "Dostęp" }));
-  expect(await screen.findByText("Korekcja Kowalski")).toBeVisible();
+  const table = await screen.findByRole("table", { name: /^Dostęp:/ });
+  const [, row] = within(table).getAllByRole("row");
+  expect(within(row!).getByText("Korekcja Kowalski")).toBeVisible();
+  expect(
+    within(row!).getByText(/Firma obsługuje to gospodarstwo od/),
+  ).toBeVisible();
+  expect(within(row!).getByText("Aktywne")).toBeVisible();
   expect(
     screen.queryByRole("button", { name: "Wygeneruj kod aktywacji" }),
   ).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Cofnij dostęp" }));
+  fireEvent.click(within(row!).getByRole("button", { name: "Cofnij dostęp" }));
   await waitFor(() =>
     expect(api.revokeFarmShare).toHaveBeenCalledWith(share().id),
   );
-  expect(await screen.findByText("Cofnięte")).toBeVisible();
+  expect(await within(row!).findByText("Cofnięte")).toBeVisible();
+  expect(
+    screen.getByText("Cofnięto dostęp: Korekcja Kowalski."),
+  ).toBeInTheDocument();
+  // Cofniętego udziału nie ma już czym cofać.
+  expect(
+    within(row!).queryByRole("button", { name: "Cofnij dostęp" }),
+  ).toBeNull();
 });
 
 test("hodowca przejmuje gospodarstwo kodem, zły kod tłumaczy się na miejscu", async () => {
@@ -545,7 +558,7 @@ test("firma dosyła stado do rejestru, a kod znika po połączeniu", async () =>
   ).toBeNull();
 });
 
-test("kartoteka wizyt: przyszłe oddzielone od przeszłych, raport się rozwija", async () => {
+test("kartoteka wizyt: przyszłe oddzielone od przeszłych, raport w oknie", async () => {
   // Rejestr rolnika: gospodarstwo jest udostępnione firmie, więc wizyty mają
   // skąd przyjść. Na karcie firmy tej zakładki nie ma w ogóle.
   api.listFarmShares.mockResolvedValue([share()]);
@@ -554,33 +567,46 @@ test("kartoteka wizyt: przyszłe oddzielone od przeszłych, raport się rozwija"
   fireEvent.click(await screen.findByRole("tab", { name: "Wizyty" }));
   await waitFor(() => expect(api.listFarmVisits).toHaveBeenCalledWith(FARM));
 
-  const upcoming = (
-    await screen.findByRole("heading", { name: "Przyszłe wizyty" })
-  ).parentElement as HTMLElement;
-  expect(within(upcoming).getByText("Zaplanowana")).toBeVisible();
-  expect(within(upcoming).getByText("Korekcja, piątek rano.")).toBeVisible();
+  // Każda grupa to osobna lista (ADR-054) pod własnym nagłówkiem.
+  expect(
+    await screen.findByRole("heading", { name: "Przyszłe wizyty" }),
+  ).toBeVisible();
+  const upcoming = screen.getByRole("table", { name: /^Przyszłe wizyty:/ });
+  const ahead = within(upcoming).getAllByRole("row");
+  expect(ahead).toHaveLength(2);
+  expect(within(ahead[1]).getByText("Zaplanowana")).toBeVisible();
+  expect(within(ahead[1]).getByText("Korekcja, piątek rano.")).toBeVisible();
   // Odbyta wizyta nigdy nie trafia do przyszłych, choć ma też termin.
   expect(within(upcoming).queryByText("Odbyta")).toBeNull();
 
-  const past = screen.getByRole("heading", { name: "Przeszłe wizyty" })
-    .parentElement as HTMLElement;
-  expect(within(past).getByText("Odbyta")).toBeVisible();
-  expect(within(past).getByText("Odwołana")).toBeVisible();
-  expect(within(past).getByText("Skorygowano 12 sztuk.")).toBeVisible();
+  const past = screen.getByRole("table", { name: /^Przeszłe wizyty:/ });
+  const behind = within(past).getAllByRole("row");
+  // Najnowsza pierwsza; wizyta bez żadnej daty zamyka listę.
+  expect(behind).toHaveLength(3);
+  expect(within(behind[1]).getByText("Odbyta")).toBeVisible();
+  expect(within(behind[1]).getByText("Skorygowano 12 sztuk.")).toBeVisible();
+  expect(within(behind[2]).getByText("Odwołana")).toBeVisible();
   // Wizyta bez żadnej daty mówi to wprost, zamiast udawać dzisiejszą.
-  expect(within(past).getByText("nie podano")).toBeVisible();
+  expect(within(behind[2]).getByText("nie podano")).toBeVisible();
 
-  // Raport rozwija tylko wiersz odbyty i tylko z treścią: zaplanowana i
+  // Raport otwiera tylko wiersz odbyty i tylko z treścią: zaplanowana i
   // odwołana nie mają czego pokazać.
-  const toggles = screen.getAllByText("Raport");
-  expect(toggles).toHaveLength(1);
-  expect(screen.getByText("Kulawizny")).not.toBeVisible();
-  fireEvent.click(toggles[0]);
-  expect(screen.getByText("Kulawizny")).toBeVisible();
-  expect(screen.getByText("Racice")).toBeVisible();
-  expect(screen.getByText("12")).toBeVisible();
-
+  expect(screen.getAllByRole("button", { name: "Pokaż raport" })).toHaveLength(
+    1,
+  );
+  expect(screen.queryByText("Kulawizny")).toBeNull();
   await expectAccessible(container);
+
+  const open = within(behind[1]).getByRole("button", { name: "Pokaż raport" });
+  fireEvent.click(open);
+  const dialog = await screen.findByRole("dialog", { name: "Raport" });
+  expect(within(dialog).getByText("Kulawizny")).toBeVisible();
+  expect(within(dialog).getByText("Racice")).toBeVisible();
+  expect(within(dialog).getByText("12")).toBeVisible();
+
+  // Zamknięte okno oddaje focus przyciskowi wiersza.
+  fireEvent.click(within(dialog).getByRole("button", { name: "Zamknij" }));
+  await waitFor(() => expect(open).toHaveFocus());
 });
 
 test("wizyty po angielsku, a nieznany kształt raportu nie wysypuje ekranu", async () => {
@@ -608,14 +634,14 @@ test("wizyty po angielsku, a nieznany kształt raportu nie wysypuje ekranu", asy
   ).toBeVisible();
   expect(screen.getByText("Nothing is booked yet.")).toBeVisible();
   expect(screen.getByText("Done")).toBeVisible();
+  await expectAccessible(container);
 
-  fireEvent.click(screen.getByText("Report"));
+  fireEvent.click(screen.getByRole("button", { name: "Show the report" }));
   expect(
-    screen.getByText(
+    await screen.findByText(
       "The company sent a report in a form we cannot show here. Ask them for the details.",
     ),
   ).toBeVisible();
-  await expectAccessible(container);
 });
 
 test("pusta kartoteka wizyt tłumaczy, czego brakuje, a błąd da się ponowić", async () => {

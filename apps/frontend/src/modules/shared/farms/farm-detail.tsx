@@ -14,6 +14,7 @@ import {
   PhoneIcon,
   PlusIcon,
   SendIcon,
+  UnlinkIcon,
 } from "lucide-react";
 
 import {
@@ -387,6 +388,110 @@ export function FarmDetail({
       : []),
   ];
 
+  const shareColumns: ColumnDef<FarmShare, unknown>[] = [
+    {
+      id: "partner",
+      accessorFn: (share) => share.partner_name,
+      header: t("sharePartner"),
+      meta: { primary: true },
+      cell: ({ row: { original: share } }) => (
+        <div className="space-y-3">
+          <div>
+            <p className="font-medium wrap-anywhere">
+              {share.partner_name || t("unknown")}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {t(
+                share.partner_is_company ? "shareFromCompany" : "shareToFarmer",
+                {
+                  date: format.dateTime(new Date(share.granted_at), {
+                    dateStyle: "medium",
+                  }),
+                },
+              )}
+            </p>
+          </div>
+          {/* Zgoda rolnika na grafik firmy (ADR-052 pkt 4): jego strona, jego
+              decyzja — firma jej sobie nie nada. Cofnięty udział nie ma czego
+              dotyczyć. */}
+          {share.partner_is_company && share.status === "active" ? (
+            <ScheduleConsent
+              canManage={canManage}
+              onChanged={(saved, allowed) => {
+                setShares((current) =>
+                  current.map((item) => (item.id === saved.id ? saved : item)),
+                );
+                setNotice(
+                  t(
+                    allowed
+                      ? "scheduleConsentOnNotice"
+                      : "scheduleConsentOffNotice",
+                    { name: saved.partner_name || t("unknown") },
+                  ),
+                );
+              }}
+              share={share}
+            />
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      id: "status",
+      accessorFn: (share) =>
+        t(share.status === "active" ? "shareActive" : "shareRevoked"),
+      header: t("status"),
+      cell: ({ row: { original: share } }) =>
+        share.status === "active" ? (
+          <Badge variant="outline">{t("shareActive")}</Badge>
+        ) : (
+          <Badge variant="secondary">{t("shareRevoked")}</Badge>
+        ),
+    },
+    ...(canManage
+      ? [
+          {
+            id: "actions",
+            header: t("actions"),
+            meta: { actions: true },
+            cell: ({ row: { original: share } }) => (
+              <RowActions
+                items={
+                  share.status !== "active"
+                    ? []
+                    : share.partner_is_company
+                      ? [
+                          {
+                            label: t("revokeShare"),
+                            icon: <UnlinkIcon aria-hidden="true" />,
+                            inline: true,
+                            destructive: true,
+                            onSelect: () => void revoke(share),
+                          },
+                        ]
+                      : [
+                          /* Strona firmy: dosyła stado do rejestru hodowcy —
+                             kod przekazania zamraża kartę w chwili wydania,
+                             więc sztuki dopisane później same tam nie
+                             trafią. */
+                          {
+                            label: t("sendHerd"),
+                            icon: <SendIcon aria-hidden="true" />,
+                            inline: true,
+                            onSelect: () => void sendHerd(),
+                          },
+                        ]
+                }
+                label={t("actionsFor", {
+                  name: share.partner_name || t("unknown"),
+                })}
+              />
+            ),
+          } satisfies ColumnDef<FarmShare, unknown>,
+        ]
+      : []),
+  ];
+
   if (!farm)
     return (
       <PanelPage {...frame} title={t("farm")}>
@@ -572,92 +677,13 @@ export function FarmDetail({
             <p className="text-sm text-muted-foreground">
               {t("sharingDescription")}
             </p>
-            {shares.length === 0 ? (
-              <p className="rounded-xl border border-dashed bg-muted/30 p-6 text-muted-foreground">
-                {t("noShares")}
-              </p>
-            ) : (
-              <ul className="divide-y rounded-xl border">
-                {shares.map((share) => (
-                  <li className="space-y-3 p-4" key={share.id}>
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="font-medium wrap-anywhere">
-                          {share.partner_name || t("unknown")}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {t(
-                            share.partner_is_company
-                              ? "shareFromCompany"
-                              : "shareToFarmer",
-                            {
-                              date: format.dateTime(
-                                new Date(share.granted_at),
-                                {
-                                  dateStyle: "medium",
-                                },
-                              ),
-                            },
-                          )}
-                        </p>
-                      </div>
-                      {share.status === "active" ? (
-                        share.partner_is_company && canManage ? (
-                          <Button
-                            onClick={() => revoke(share)}
-                            size="sm"
-                            variant="outline"
-                          >
-                            {t("revokeShare")}
-                          </Button>
-                        ) : canManage ? (
-                          /* Strona firmy: dosyła stado do rejestru hodowcy
-                               — kod przekazania zamraża kartę w chwili
-                               wydania, więc sztuki dopisane później same tam
-                               nie trafią. */
-                          <Button
-                            onClick={sendHerd}
-                            size="sm"
-                            variant="outline"
-                          >
-                            <SendIcon aria-hidden="true" />
-                            {t("sendHerd")}
-                          </Button>
-                        ) : (
-                          <Badge variant="outline">{t("shareActive")}</Badge>
-                        )
-                      ) : (
-                        <Badge variant="secondary">{t("shareRevoked")}</Badge>
-                      )}
-                    </div>
-                    {/* Zgoda rolnika na grafik firmy (ADR-052 pkt 4): jego
-                          strona, jego decyzja — firma jej sobie nie nada.
-                          Cofnięty udział nie ma czego dotyczyć. */}
-                    {share.partner_is_company && share.status === "active" ? (
-                      <ScheduleConsent
-                        canManage={canManage}
-                        onChanged={(saved, allowed) => {
-                          setShares((current) =>
-                            current.map((item) =>
-                              item.id === saved.id ? saved : item,
-                            ),
-                          );
-                          setNotice(
-                            t(
-                              allowed
-                                ? "scheduleConsentOnNotice"
-                                : "scheduleConsentOffNotice",
-                              { name: saved.partner_name || t("unknown") },
-                            ),
-                          );
-                        }}
-                        share={share}
-                      />
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            )}
+            <DataTable
+              caption={t("sharesCaption")}
+              columns={shareColumns}
+              data={shares}
+              getRowId={(share) => share.id}
+              labels={{ ...labels, empty: t("noShares") }}
+            />
             {/* Kod wydaje firma, i tylko dopóki karta nie jest połączona:
                   po połączeniu API odpowiada 409, a przycisk obiecywałby coś,
                   czego nie da się zrobić. Na własnym rejestrze rolnika

@@ -14,6 +14,7 @@ import {
 } from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
+import { DataTableField } from "@saas-core/ui/components/data-table";
 import {
   Dialog,
   DialogContent,
@@ -235,41 +236,6 @@ export function AnimalCard({
             ) : null}
           </div>
 
-          <div className="flex flex-wrap items-end gap-2">
-            {ENTRY_KINDS.map((value) => {
-              const on = kinds.includes(value);
-              return (
-                <Button
-                  aria-pressed={on}
-                  key={value}
-                  onClick={() =>
-                    setKinds((current) =>
-                      on
-                        ? current.filter((item) => item !== value)
-                        : [...current, value],
-                    )
-                  }
-                  size="sm"
-                  variant={on ? "default" : "outline"}
-                >
-                  {t(`kind_${value}`)}
-                </Button>
-              );
-            })}
-            <Field className="w-auto">
-              <FieldLabel htmlFor="animal-history-since">
-                {t("historySince")}
-              </FieldLabel>
-              <Input
-                className="w-44"
-                id="animal-history-since"
-                onChange={(event) => setSince(event.target.value)}
-                type="date"
-                value={since}
-              />
-            </Field>
-          </div>
-
           {writing ? (
             <form
               className="space-y-3 rounded-xl border p-3"
@@ -336,16 +302,54 @@ export function AnimalCard({
             </form>
           ) : null}
 
-          {history && history.length > 0 ? (
-            <HealthHistory
-              animalId={animal.id}
-              canManage={canManage}
-              entries={history}
-              onChanged={() => setReloads((value) => value + 1)}
-            />
-          ) : (
-            <p className="text-sm text-muted-foreground">{t("noHistory")}</p>
-          )}
+          <HealthHistory
+            animalId={animal.id}
+            canManage={canManage}
+            entries={history ?? []}
+            loading={!history}
+            onChanged={() => setReloads((value) => value + 1)}
+            toolbar={
+              <>
+                <div
+                  aria-label={t("kind")}
+                  className="flex flex-wrap gap-2"
+                  role="group"
+                >
+                  {ENTRY_KINDS.map((value) => {
+                    const on = kinds.includes(value);
+                    return (
+                      <Button
+                        aria-pressed={on}
+                        key={value}
+                        onClick={() =>
+                          setKinds((current) =>
+                            on
+                              ? current.filter((item) => item !== value)
+                              : [...current, value],
+                          )
+                        }
+                        size="sm"
+                        variant={on ? "default" : "outline"}
+                      >
+                        {t(`kind_${value}`)}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <DataTableField
+                  htmlFor="animal-history-since"
+                  label={t("historySince")}
+                >
+                  <Input
+                    id="animal-history-since"
+                    onChange={(event) => setSince(event.target.value)}
+                    type="date"
+                    value={since}
+                  />
+                </DataTableField>
+              </>
+            }
+          />
         </section>
 
         {/* What the trade records about this animal, from the product's own
