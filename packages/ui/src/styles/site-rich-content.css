@@ -1520,8 +1520,9 @@
   width: 3.5rem;
   font-size: 1.375rem;
 }
+/* The initials carry the mark; a second quote sign would only repeat it. */
 .site-theme .site-quote__voices .site-quote--large blockquote::before {
-  font-size: 2.5rem;
+  content: none;
 }
 .site-theme .site-quote__voices .site-quote--large blockquote p {
   font-size: clamp(1.125rem, 1rem + 0.6cqw, 1.375rem);
@@ -1546,6 +1547,11 @@
 .site-theme .site-section--with_action > .site-quote__context {
   margin-inline: auto;
   color: var(--foreground);
+}
+.site-theme
+  .site-section--quote.site-section--with_action
+  > .site-section__action {
+  justify-self: center;
 }
 
 /* core.product showcase: gallery beside the details. */
