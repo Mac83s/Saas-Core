@@ -292,7 +292,7 @@ def team_performance(
     ).values_list("staff_id", "team_id"):
         teams.setdefault(staff_id, []).append(team)
     providers = _readable(context, own=False)
-    columns: dict[str, list[str]] = {}
+    columns: dict[str, dict[str, str]] = {}
     rows = []
     for staff in people:
         subject = _subject(context, staff)
@@ -302,8 +302,8 @@ def team_performance(
             if not metrics:
                 continue
             groups[provider.name] = {metric.key: metric.value for metric in metrics}
-            keys = columns.setdefault(provider.name, [])
-            keys.extend(metric.key for metric in metrics if metric.key not in keys)
+            units = columns.setdefault(provider.name, {})
+            units.update({metric.key: metric.unit for metric in metrics})
         rows.append({
             "staff_id": staff.id,
             "name": staff.display_name,
@@ -314,7 +314,13 @@ def team_performance(
     return {
         "period_from": current.first,
         "period_to": current.last,
-        "columns": [{"provider": name, "keys": keys} for name, keys in columns.items()],
+        "columns": [
+            {
+                "provider": name,
+                "metrics": [{"key": key, "unit": unit} for key, unit in units.items()],
+            }
+            for name, units in columns.items()
+        ],
         "items": rows,
     }
 

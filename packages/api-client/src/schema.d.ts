@@ -6078,7 +6078,11 @@ export interface components {
         };
         PerformanceColumn: {
             provider: string;
-            keys: string[];
+            metrics: components["schemas"]["PerformanceMetric"][];
+        };
+        PerformanceMetric: {
+            key: string;
+            unit: string;
         };
         PerformanceRow: {
             /** Format: uuid */

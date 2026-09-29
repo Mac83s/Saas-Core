@@ -25,6 +25,10 @@ const api = vi.hoisted(() => ({
   getBookingCatalog: vi.fn(),
   getPeopleDay: vi.fn(),
   getPerson: vi.fn(),
+  // Phase 5's results: their own tests are in person-facts.test.tsx.
+  getStaffFacts: vi.fn(),
+  getStaffHistory: vi.fn(),
+  listInventoryBalances: vi.fn(),
   listBookingAppointments: vi.fn(),
   listInvitations: vi.fn(),
   listMemberships: vi.fn(),
@@ -119,6 +123,21 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"], shouldAdvanceTime: true });
   vi.setSystemTime(new Date("2026-09-24T08:30:00Z"));
   api.getPerson.mockResolvedValue(detail);
+  api.getStaffFacts.mockResolvedValue({
+    period_from: "2026-09-01",
+    period_to: "2026-09-24",
+    previous_from: "2026-08-08",
+    previous_to: "2026-08-31",
+    groups: [],
+  });
+  api.getStaffHistory.mockResolvedValue({
+    period_from: "2026-09-01",
+    period_to: "2026-09-24",
+    kinds: [],
+    items: [],
+    next_before: null,
+  });
+  api.listInventoryBalances.mockResolvedValue([]);
   api.listMemberships.mockResolvedValue([
     {
       id: "marcin",

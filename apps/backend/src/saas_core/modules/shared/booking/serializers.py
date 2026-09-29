@@ -687,9 +687,14 @@ class StaffHistorySerializer(serializers.Serializer[dict[str, Any]]):
     next_before = serializers.DateTimeField(allow_null=True)
 
 
+class PerformanceMetricSerializer(serializers.Serializer[dict[str, Any]]):
+    key = serializers.CharField()
+    unit = serializers.CharField()
+
+
 class PerformanceColumnSerializer(serializers.Serializer[dict[str, Any]]):
     provider = serializers.CharField()
-    keys = serializers.ListField(child=serializers.CharField())
+    metrics = PerformanceMetricSerializer(many=True)
 
 
 class PerformanceRowSerializer(serializers.Serializer[dict[str, Any]]):

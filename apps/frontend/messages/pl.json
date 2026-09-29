@@ -347,7 +347,8 @@
     "myCard": "Moja karta",
     "calendarQueue": "Do przydzielenia",
     "teamTeams": "Zespoły",
-    "waiting": "{count, plural, one {# wizyta czeka} few {# wizyty czekają} many {# wizyt czeka} other {# wizyty czeka}}"
+    "waiting": "{count, plural, one {# wizyta czeka} few {# wizyty czekają} many {# wizyt czeka} other {# wizyty czeka}}",
+    "teamPerformance": "Wydajność"
   },
   "Dashboard": {
     "eyebrow": "Centrum zarządzania",
@@ -770,7 +771,9 @@
     "notShown": "Nie pokazujemy",
     "changePublic": "Zmień",
     "publicShownNotice": "Klienci widzą teraz: {name}.",
-    "publicHiddenNotice": "Klienci nie widzą już: {name}."
+    "publicHiddenNotice": "Klienci nie widzą już: {name}.",
+    "tabHistory": "Historia",
+    "tabStock": "Magazyn"
   },
   "AccountSettings": {
     "eyebrow": "Ustawienia",
@@ -2286,6 +2289,109 @@
     "legendOff": "Poza grafikiem",
     "legendLead": "Prow. — prowadzi wizytę"
   },
+  "StaffFacts": {
+    "title": "Wyniki",
+    "privacy": "Wyniki i historię innych osób widzi właściciel i administrator. Każdy widzi swoje.",
+    "period": "Okres",
+    "period_month": "Ten miesiąc",
+    "period_previous": "Poprzedni miesiąc",
+    "period_quarter": "Ostatnie 90 dni",
+    "period_year": "Ten rok",
+    "loading": "Wczytywanie wyników…",
+    "loadError": "Nie udało się wczytać. Spróbuj ponownie za chwilę.",
+    "nothing": "Brak wyników w tym okresie.",
+    "previous": "poprz. okres: {value}",
+    "hours": "{hours} h",
+    "visitParts": "{lead} jako prowadzący · {crew} w zespole",
+    "noData": "brak danych",
+    "provider": {
+      "calendar": "Wizyty z kalendarza",
+      "inventory": "Magazyn",
+      "account": "Konto i rola"
+    },
+    "metric": {
+      "calendar": {
+        "visits_done": "Odbyte wizyty",
+        "hours": "Godziny na wizytach",
+        "canceled": "Odwołane",
+        "chosen_by_customer": "Klient wybrał tę osobę"
+      },
+      "inventory": {
+        "taken": "Pobrane",
+        "used": "Zużyte",
+        "returned": "Zwrócone",
+        "on_hand": "Na stanie"
+      }
+    },
+    "historyTitle": "Historia",
+    "historyIntro": "Zdarzenia z kalendarza, magazynu, konta i produktu. Co trafia do historii, deklaruje moduł.",
+    "historyCaption": "Historia pracownika",
+    "historyEmpty": "Brak zdarzeń w tym okresie.",
+    "kind": "Rodzaj",
+    "kindAll": "Wszystkie",
+    "older": "Wczytaj starsze",
+    "column": {
+      "at": "Kiedy",
+      "event": "Zdarzenie",
+      "details": "Szczegóły",
+      "value": "Wartość",
+      "person": "Osoba",
+      "teams": "Zespół"
+    },
+    "event": {
+      "visit_done": "Wizyta odbyta",
+      "assigned": "Przydzielono do wizyty",
+      "unassigned": "Zdjęto z wizyty",
+      "time_off": "Nieobecność",
+      "role_changed": "Zmieniono rolę",
+      "suspended": "Zawieszono dostęp",
+      "resumed": "Przywrócono dostęp",
+      "revoked": "Odebrano dostęp",
+      "inventory": {
+        "taken": "Pobrano z magazynu",
+        "used": "Zużyto",
+        "returned": "Zwrot do magazynu",
+        "other": "Ruch w magazynie"
+      }
+    },
+    "detail": {
+      "visit": "{customer} · {service} · {role, select, lead {jako prowadzący} other {w zespole}}",
+      "by": "przez: {name}"
+    },
+    "stock": {
+      "title": "Magazyn",
+      "intro": "Co ta osoba ma teraz na stanie. Wartość pobranych i zużytych materiałów jest w Przeglądzie.",
+      "item": "Pozycja",
+      "quantity": "Ilość",
+      "empty": "Nic na stanie."
+    },
+    "performanceEyebrow": "Zespół",
+    "performanceTitle": "Wydajność",
+    "performanceDescription": "Praca każdej osoby w wybranym okresie. Wizyty i godziny liczy kalendarz, materiały magazyn, resztę produkt.",
+    "performanceCaption": "Wydajność zespołu",
+    "performanceEmpty": "Nikt nie przyjmuje wizyt.",
+    "performanceNoAccess": "Wyniki innych osób widzi właściciel i administrator.",
+    "allTeams": "Wszystkie zespoły",
+    "howTitle": "Jak liczymy",
+    "how": {
+      "visits": {
+        "term": "Odbyte wizyty",
+        "text": "Wizyty z udziałem osoby, których czas minął i których nie odwołano — także bez „Zakończ”."
+      },
+      "hours": {
+        "term": "Godziny",
+        "text": "Czas tych wizyt bez przerw między wizytami, do faktycznego zakończenia, jeśli je zapisano."
+      },
+      "used": {
+        "term": "Zużyte",
+        "text": "Materiały zdjęte z zapasu osoby, w cenie z chwili ruchu."
+      },
+      "product": {
+        "term": "Liczby produktu",
+        "text": "Resztę liczy produkt, zawsze autorowi wpisu — suma w zespole może przekraczać liczbę na wizycie."
+      }
+    }
+  },
   "PublicBooking": {
     "title": "Umów termin",
     "description": "Wybierz usługę, lokalizację i dostępny termin.",
@@ -2930,7 +3036,8 @@
     "booking_schedule_own": "Własny grafik i nieobecności",
     "inventory_read": "Podgląd magazynu",
     "inventory_use": "Materiały do wizyt z własnego zapasu",
-    "inventory_manage": "Prowadzenie magazynu"
+    "inventory_manage": "Prowadzenie magazynu",
+    "booking_staff_performance_read": "Wyniki i historia pracowników"
   },
   "Farms": {
     "eyebrow": "Rejestr gospodarstw",

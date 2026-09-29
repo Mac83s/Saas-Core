@@ -47,6 +47,8 @@ const ORDER = [...new Set(AREAS.map(([, area]) => area))];
 const PRIVATE = ["team", "settings", "billing"];
 
 function areaOf(permission: string): string | undefined {
+  // Other people's results are personnel data, not the calendar (phase 5).
+  if (permission.startsWith("booking.staff.")) return "team";
   return AREAS.find(([prefix]) => permission.startsWith(prefix))?.[1];
 }
 

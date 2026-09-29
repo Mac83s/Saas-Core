@@ -47,6 +47,7 @@ import {
   ShowToCustomersDialog,
   TimeOffDialog,
 } from "./person-dialogs";
+import { PersonHistory, PersonResults, PersonStock } from "./person-facts";
 import { PersonSchedule } from "./person-schedule";
 import { hoursSummary, todayState } from "./people";
 
@@ -55,8 +56,9 @@ const MEMBERS_MANAGE = "organization.members.manage";
 const MEMBERS_MANAGE_LIMITED = "organization.members.manage_limited";
 const BOOKING_MANAGE = "booking.appointment.manage";
 const SCHEDULE_OWN = "booking.schedule.own";
+const PERFORMANCE_READ = "booking.staff.performance.read";
 
-export type PersonTab = "overview" | "schedule";
+export type PersonTab = "overview" | "history" | "schedule" | "stock";
 
 type Loaded = {
   detail: PersonDetail | null;
@@ -88,8 +90,8 @@ function absent(error: unknown): boolean {
 /**
  * The person's card (plan, boards 4 and 16): who they are, how to reach them,
  * their role and account, where they are today, what they do and when, and
- * their next visits. Its pages are addresses (ADR-057): Przegląd and Grafik;
- * history and results come with phase 5. `personId` is the calendar entry,
+ * their next visits. Its pages are addresses (ADR-057): Przegląd with the
+ * results, Historia, Grafik and Magazyn (phase 5). `personId` is the calendar entry,
  * an account's membership when it has no entry, or "me" — "Moja karta" works
  * for anyone, also without the team screen (owner's answer 3).
  */
@@ -258,6 +260,16 @@ export function PersonCard({
     .filter(Boolean)
     .join(", ");
   const dayName = (weekday: number) => people(`day_${weekday}`);
+  // One's own results always; somebody else's the owner's and administrator's
+  // (answer 3). The API decides; this only keeps the pages out of sight.
+  const showsResults = self || permissions.has(PERFORMANCE_READ);
+  const holderId = self ? user?.id : member?.user_id;
+  const showsStock =
+    showsResults &&
+    Boolean(holderId) &&
+    allows(access, { module: "shared.inventory" }) &&
+    permissions.has(self ? "inventory.read" : "inventory.manage");
+  const currency = organization?.currency ?? "PLN";
 
   const account = () => {
     if (member) {
@@ -521,29 +533,45 @@ export function PersonCard({
           <ul className="flex gap-1 border-b">
             {(
               [
-                ["overview", base, t("tabOverview")],
-                ["schedule", `${base}/schedule`, t("tabSchedule")],
+                ["overview", base, t("tabOverview"), true],
+                ["history", `${base}/history`, t("tabHistory"), showsResults],
+                ["schedule", `${base}/schedule`, t("tabSchedule"), true],
+                ["stock", `${base}/stock`, t("tabStock"), showsStock],
               ] as const
-            ).map(([key, href, label]) => (
-              <li key={key}>
-                <Link
-                  aria-current={tab === key ? "page" : undefined}
-                  className={cn(
-                    "-mb-px flex min-h-11 items-center border-b-2 border-transparent px-3 text-sm font-medium text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
-                    tab === key && "border-primary text-foreground",
-                  )}
-                  href={href}
-                >
-                  {label}
-                </Link>
-              </li>
-            ))}
+            )
+              .filter(([, , , shown]) => shown)
+              .map(([key, href, label]) => (
+                <li key={key}>
+                  <Link
+                    aria-current={tab === key ? "page" : undefined}
+                    className={cn(
+                      "-mb-px flex min-h-11 items-center border-b-2 border-transparent px-3 text-sm font-medium text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
+                      tab === key && "border-primary text-foreground",
+                    )}
+                    href={href}
+                  >
+                    {label}
+                  </Link>
+                </li>
+              ))}
           </ul>
         </nav>
       ) : me && data.booking && !canEdit ? (
         // Management adds itself with "Edytuj"; without the calendar in the
         // plan there is no schedule to be missing from.
         <p className="text-muted-foreground">{t("noEntry")}</p>
+      ) : null}
+
+      {detail && tab === "overview" && showsResults ? (
+        <PersonResults currency={currency} staffId={detail.id} zone={zone} />
+      ) : null}
+
+      {detail && tab === "history" && showsResults ? (
+        <PersonHistory currency={currency} staffId={detail.id} zone={zone} />
+      ) : null}
+
+      {detail && tab === "stock" && showsStock ? (
+        <PersonStock holderId={holderId} own={self} />
       ) : null}
 
       {detail && tab === "overview" ? (

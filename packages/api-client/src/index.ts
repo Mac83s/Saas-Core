@@ -258,6 +258,11 @@ export type TimeOffInput = components["schemas"]["TimeOffInput"];
 export type TimeOffCreated = components["schemas"]["TimeOffCreated"];
 /** Who works, is away and is busy on one day (ADR-058 §9). */
 export type PeopleDay = components["schemas"]["PeopleDay"];
+export type StaffFacts = components["schemas"]["StaffFacts"];
+export type StaffMetric = components["schemas"]["StaffMetric"];
+export type StaffHistory = components["schemas"]["StaffHistory"];
+export type StaffEvent = components["schemas"]["StaffEvent"];
+export type TeamPerformance = components["schemas"]["Performance"];
 export type SeatUsage = components["schemas"]["SeatUsage"];
 /** A standing group of people, e.g. a crew (ADR-058 §2). */
 export type StaffTeam = components["schemas"]["Team"];
@@ -2138,6 +2143,54 @@ export async function setPersonPublic(
       credentials: "same-origin",
       headers: { "X-CSRFToken": csrfToken },
     },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+type Period = { from?: string; to?: string };
+
+/** A person's numbers for a period, each beside the period before (phase 5). */
+export async function getStaffFacts(
+  staffId: string,
+  period: Period = {},
+): Promise<StaffFacts> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/staff/{staff_id}/facts/",
+    {
+      params: { path: { staff_id: staffId }, query: period },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** What happened to a person, newest first; `before` pages further back. */
+export async function getStaffHistory(
+  staffId: string,
+  query: Period & { kind?: string; before?: string } = {},
+): Promise<StaffHistory> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/staff/{staff_id}/history/",
+    {
+      params: { path: { staff_id: staffId }, query },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Everybody's numbers side by side: the owner's and administrator's view. */
+export async function getTeamPerformance(
+  query: Period & { team?: string } = {},
+): Promise<TeamPerformance> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/performance/",
+    { params: { query }, credentials: "same-origin", cache: "no-store" },
   );
   if (error || !data) throwProblem(error, response);
   return data;

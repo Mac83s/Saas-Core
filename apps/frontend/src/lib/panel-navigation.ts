@@ -76,7 +76,6 @@ export const PANEL_SECTIONS = {
       dispatch: "queue",
     },
   ],
-  // Wydajność (phase 5) joins here (ADR-058).
   team: [
     {
       href: "/panel/team",
@@ -89,6 +88,13 @@ export const PANEL_SECTIONS = {
       module: "shared.booking",
       permission: "booking.appointment.read",
       dispatch: "teams",
+    },
+    {
+      // Everybody's results: the owner's and administrator's (answer 3, phase 5).
+      href: "/panel/team/performance",
+      labelKey: "teamPerformance",
+      module: "shared.booking",
+      permission: "booking.staff.performance.read",
     },
     {
       href: "/panel/team/roles",

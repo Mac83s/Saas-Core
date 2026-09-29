@@ -347,7 +347,8 @@
     "myCard": "My card",
     "calendarQueue": "To assign",
     "teamTeams": "Teams",
-    "waiting": "{count, plural, one {# visit waiting} other {# visits waiting}}"
+    "waiting": "{count, plural, one {# visit waiting} other {# visits waiting}}",
+    "teamPerformance": "Performance"
   },
   "Dashboard": {
     "eyebrow": "Management hub",
@@ -770,7 +771,9 @@
     "notShown": "Not shown",
     "changePublic": "Change",
     "publicShownNotice": "Customers now see: {name}.",
-    "publicHiddenNotice": "Customers no longer see: {name}."
+    "publicHiddenNotice": "Customers no longer see: {name}.",
+    "tabHistory": "History",
+    "tabStock": "Warehouse"
   },
   "AccountSettings": {
     "eyebrow": "Settings",
@@ -2286,6 +2289,109 @@
     "legendOff": "Outside hours",
     "legendLead": "Lead — leads the visit"
   },
+  "StaffFacts": {
+    "title": "Results",
+    "privacy": "Other people's results and history are for the owner and the administrator. Everybody sees their own.",
+    "period": "Period",
+    "period_month": "This month",
+    "period_previous": "Last month",
+    "period_quarter": "Last 90 days",
+    "period_year": "This year",
+    "loading": "Loading results…",
+    "loadError": "Could not load. Try again in a moment.",
+    "nothing": "No results in this period.",
+    "previous": "previous period: {value}",
+    "hours": "{hours} h",
+    "visitParts": "{lead} as the lead · {crew} in the crew",
+    "noData": "no data",
+    "provider": {
+      "calendar": "Visits from the calendar",
+      "inventory": "Warehouse",
+      "account": "Account and role"
+    },
+    "metric": {
+      "calendar": {
+        "visits_done": "Visits done",
+        "hours": "Hours on visits",
+        "canceled": "Canceled",
+        "chosen_by_customer": "Customer chose this person"
+      },
+      "inventory": {
+        "taken": "Taken",
+        "used": "Used",
+        "returned": "Returned",
+        "on_hand": "On hand"
+      }
+    },
+    "historyTitle": "History",
+    "historyIntro": "Events from the calendar, the warehouse, the account and the product. Each module decides what goes into the history.",
+    "historyCaption": "Staff history",
+    "historyEmpty": "No events in this period.",
+    "kind": "Kind",
+    "kindAll": "All",
+    "older": "Load older",
+    "column": {
+      "at": "When",
+      "event": "Event",
+      "details": "Details",
+      "value": "Value",
+      "person": "Person",
+      "teams": "Team"
+    },
+    "event": {
+      "visit_done": "Visit done",
+      "assigned": "Put on a visit",
+      "unassigned": "Taken off a visit",
+      "time_off": "Time off",
+      "role_changed": "Role changed",
+      "suspended": "Access suspended",
+      "resumed": "Access restored",
+      "revoked": "Access removed",
+      "inventory": {
+        "taken": "Taken from the warehouse",
+        "used": "Used",
+        "returned": "Returned to the warehouse",
+        "other": "Warehouse movement"
+      }
+    },
+    "detail": {
+      "visit": "{customer} · {service} · {role, select, lead {as the lead} other {in the crew}}",
+      "by": "by {name}"
+    },
+    "stock": {
+      "title": "Warehouse",
+      "intro": "What this person holds now. The value of what they took and used is on the Overview.",
+      "item": "Item",
+      "quantity": "Quantity",
+      "empty": "Nothing on hand."
+    },
+    "performanceEyebrow": "Team",
+    "performanceTitle": "Performance",
+    "performanceDescription": "Each person's work in the chosen period. The calendar counts visits and hours, the warehouse materials, the product the rest.",
+    "performanceCaption": "Team performance",
+    "performanceEmpty": "Nobody takes visits.",
+    "performanceNoAccess": "Other people's results are for the owner and the administrator.",
+    "allTeams": "All teams",
+    "howTitle": "How we count",
+    "how": {
+      "visits": {
+        "term": "Visits done",
+        "text": "Visits the person was on whose time has passed and which were not canceled — marked done or not."
+      },
+      "hours": {
+        "term": "Hours",
+        "text": "The time of those visits without the breaks between them, to the real end when it was recorded."
+      },
+      "used": {
+        "term": "Used",
+        "text": "Materials taken off the person's stock, at the cost of each movement."
+      },
+      "product": {
+        "term": "Product numbers",
+        "text": "The product counts the rest, always to the author of the entry — a team's total can exceed a visit's."
+      }
+    }
+  },
   "PublicBooking": {
     "title": "Book a time",
     "description": "Choose a service, location, and available time.",
@@ -2930,7 +3036,8 @@
     "booking_schedule_own": "Own hours and time off",
     "inventory_read": "View stock",
     "inventory_use": "Materials for visits from own stock",
-    "inventory_manage": "Manage stock"
+    "inventory_manage": "Manage stock",
+    "booking_staff_performance_read": "Staff results and history"
   },
   "Farms": {
     "eyebrow": "Farm register",

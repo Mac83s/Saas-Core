@@ -17088,13 +17088,23 @@ components:
       properties:
         provider:
           type: string
-        keys:
+        metrics:
           type: array
           items:
-            type: string
+            $ref: '#/components/schemas/PerformanceMetric'
       required:
-      - keys
+      - metrics
       - provider
+    PerformanceMetric:
+      type: object
+      properties:
+        key:
+          type: string
+        unit:
+          type: string
+      required:
+      - key
+      - unit
     PerformanceRow:
       type: object
       properties:
