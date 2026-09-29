@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import axe from "axe-core";
 import { NextIntlClientProvider } from "next-intl";
@@ -91,12 +92,26 @@ test.each(["pl", "en"] as const)(
   "retained audit is readable and accessible in %s without reordering",
   async (locale) => {
     const { container } = view(locale);
+    const history = await screen.findByRole("table", {
+      name: locale === "pl" ? "Historia audytów" : "Audit history",
+    });
+    const row = within(within(history).getAllByRole("row")[1]);
+    expect(row.getByText("Example website")).toBeInTheDocument();
+    expect(
+      row.getByText(locale === "pl" ? "Ukończony" : "Completed"),
+    ).toBeInTheDocument();
     fireEvent.click(
-      await screen.findByRole("button", {
+      row.getByRole("button", {
         name: locale === "pl" ? "Otwórz wynik" : "Open result",
       }),
     );
-    expect(await screen.findByText("TITLE_MISSING")).toBeInTheDocument();
+    const issues = await screen.findByRole("table", {
+      name:
+        locale === "pl"
+          ? "Problemy techniczne strony"
+          : "Website technical issues",
+    });
+    expect(within(issues).getByText("TITLE_MISSING")).toBeInTheDocument();
     expect(screen.getByText("82/100")).toBeInTheDocument();
     expect(api.requestSeoAudit).not.toHaveBeenCalled();
     expect((await axe.run(container)).violations).toEqual([]);
@@ -174,7 +189,7 @@ test("a reader without purchasing permission can still inspect retained results"
   expect(api.requestSeoAudit).not.toHaveBeenCalled();
 });
 
-test("partial result states that credits were released and renders bounded issue rows", async () => {
+test("partial result states that credits were released and pages its issue rows", async () => {
   api.readSeoAudit.mockResolvedValue({
     ...order,
     state: "partial",
@@ -192,9 +207,68 @@ test("partial result states that credits were released and renders bounded issue
   fireEvent.click(await screen.findByRole("button", { name: "Otwórz wynik" }));
   expect(await screen.findByText(/To wynik częściowy/)).toBeInTheDocument();
   expect(screen.getByText("Zwolniono 7 kredytów")).toBeInTheDocument();
-  expect(screen.queryByText("ISSUE_100")).not.toBeInTheDocument();
-  fireEvent.click(
-    screen.getByRole("button", { name: "Pokaż kolejne problemy" }),
-  );
+  expect(screen.getByText("ISSUE_19")).toBeInTheDocument();
+  expect(screen.queryByText("ISSUE_20")).not.toBeInTheDocument();
+  expect(screen.getByText("Strona 1 z 6")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Następna strona" }));
+  expect(screen.getByText("ISSUE_20")).toBeInTheDocument();
+  fireEvent.change(screen.getByRole("searchbox", { name: "Szukaj" }), {
+    target: { value: "issue_100" },
+  });
   expect(screen.getByText("ISSUE_100")).toBeInTheDocument();
+  expect(screen.queryByText("ISSUE_20")).not.toBeInTheDocument();
+});
+
+test("sorting by severity puts the most severe issue first", async () => {
+  api.readSeoAudit.mockResolvedValue({
+    ...order,
+    report_snapshot: {
+      issues: [
+        { id: "a", rule_code: "LOW_ONE", page_url: "/", severity: "low" },
+        {
+          id: "b",
+          rule_code: "CRITICAL_ONE",
+          page_url: "/",
+          severity: "critical",
+        },
+        { id: "c", rule_code: "HIGH_ONE", page_url: "/", severity: "high" },
+      ],
+    },
+  });
+  view();
+  fireEvent.click(await screen.findByRole("button", { name: "Otwórz wynik" }));
+  const issues = await screen.findByRole("table", {
+    name: "Problemy techniczne strony",
+  });
+  fireEvent.click(within(issues).getByRole("button", { name: /Ważność/ }));
+  const rows = within(issues).getAllByRole("row");
+  expect(within(rows[1]).getByText("CRITICAL_ONE")).toBeInTheDocument();
+  expect(within(rows[2]).getByText("HIGH_ONE")).toBeInTheDocument();
+  expect(within(rows[3]).getByText("LOW_ONE")).toBeInTheDocument();
+});
+
+test("older audits load from the cursor and join the history table", async () => {
+  const older = {
+    ...order,
+    id: "019ff20d-d000-7000-8000-000000000000",
+    created_at: "2026-08-01T12:00:00Z",
+    credit_state: "released",
+  };
+  api.listSeoAudits
+    .mockResolvedValueOnce({ items: [order], next_cursor: "cursor-2" })
+    .mockResolvedValueOnce({ items: [older], next_cursor: null });
+  view();
+  const history = await screen.findByRole("table", {
+    name: "Historia audytów",
+  });
+  expect(within(history).getAllByRole("row")).toHaveLength(2);
+  fireEvent.click(screen.getByRole("button", { name: "Starsze audyty" }));
+  await waitFor(() =>
+    expect(within(history).getAllByRole("row")).toHaveLength(3),
+  );
+  expect(api.listSeoAudits).toHaveBeenLastCalledWith("cursor-2");
+  expect(within(history).getByText("Zwolniono 7 kredytów")).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: "Starsze audyty" }),
+  ).not.toBeInTheDocument();
 });

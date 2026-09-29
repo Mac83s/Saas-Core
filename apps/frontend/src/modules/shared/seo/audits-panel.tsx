@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { FileTextIcon } from "lucide-react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -25,9 +26,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@saas-core/ui/components/card";
+import {
+  DataTable,
+  RowActions,
+  type ColumnDef,
+} from "@saas-core/ui/components/data-table";
 import { Field, FieldError, FieldLabel } from "@saas-core/ui/components/field";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
-import { PanelPage } from "#components/panel/panel-page";
+import { PanelPage, PanelSection } from "#components/panel/panel-page";
+import { useDataTableLabels } from "#lib/data-table-labels";
 import {
   Combobox,
   ComboboxInput,
@@ -38,16 +45,23 @@ import {
 } from "@saas-core/ui/components/combobox";
 
 const terminal = new Set(["completed", "partial", "failed", "cancelled"]);
-function record(value: unknown): Record<string, unknown> {
+// Most severe first: sorting the column ascending puts critical on top.
+const severities = ["critical", "high", "medium", "low", "info"];
+type Issue = Record<string, unknown>;
+function record(value: unknown): Issue {
   return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
+    ? (value as Issue)
     : {};
+}
+function text(value: unknown): string {
+  return typeof value === "string" ? value : "—";
 }
 
 export function SeoAuditsPanel() {
   const t = useTranslations("SeoAudits");
   const nav = useTranslations("DashboardNav");
   const locale = useLocale();
+  const labels = useDataTableLabels();
   const [orders, setOrders] = useState<SeoAuditSummary[]>([]);
   const [sites, setSites] = useState<SiteSummary[]>([]);
   const [offer, setOffer] = useState<SeoAuditOffer>();
@@ -58,7 +72,6 @@ export function SeoAuditsPanel() {
   const [uncertain, setUncertain] = useState(false);
   const [problem, setProblem] = useState<string>();
   const [orderProblem, setOrderProblem] = useState<string>();
-  const [issueLimit, setIssueLimit] = useState(100);
   const busy = useRef(false);
   const receipt = useRef<{ fingerprint: string; key: string } | undefined>(
     undefined,
@@ -168,7 +181,6 @@ export function SeoAuditsPanel() {
       remember(order);
       receipt.current = undefined;
       setUncertain(false);
-      setIssueLimit(100);
     } catch (error) {
       const unknown =
         !(error instanceof ApiProblemError) || error.problem.status >= 500;
@@ -197,7 +209,6 @@ export function SeoAuditsPanel() {
     setProblem(undefined);
     try {
       remember(await readSeoAudit(order.id));
-      setIssueLimit(100);
     } catch (error) {
       setProblem(errorText(error));
     }
@@ -226,26 +237,108 @@ export function SeoAuditsPanel() {
   const siteName = (id: string) =>
     sites.find((site) => site.id === id)?.name ?? t("website");
   const time = (value: string) => new Date(value).toLocaleString(locale);
+  const severity = (issue: Issue) =>
+    typeof issue.severity === "string" && severities.includes(issue.severity)
+      ? t(`severityLabels.${issue.severity}`)
+      : "—";
+
+  const orderColumns: ColumnDef<SeoAuditSummary, unknown>[] = [
+    {
+      id: "site",
+      accessorFn: (order) => siteName(order.site_id),
+      header: t("website"),
+      meta: { primary: true },
+      cell: ({ row: { original: order } }) => (
+        <p className="font-medium wrap-anywhere">{siteName(order.site_id)}</p>
+      ),
+    },
+    {
+      id: "created",
+      accessorKey: "created_at",
+      header: t("ordered"),
+      cell: ({ row: { original: order } }) => time(order.created_at),
+    },
+    {
+      id: "state",
+      accessorFn: (order) => t(`states.${order.state}`),
+      header: t("state"),
+    },
+    {
+      id: "credits",
+      accessorFn: (order) =>
+        t(`credits.${order.credit_state}`, { count: order.credit_cost }),
+      header: t("creditsHeader"),
+    },
+    {
+      id: "actions",
+      header: t("actions"),
+      meta: { actions: true },
+      cell: ({ row: { original: order } }) => (
+        <RowActions
+          items={[
+            {
+              label: t("openReport"),
+              icon: <FileTextIcon aria-hidden="true" />,
+              inline: true,
+              onSelect: () => void inspect(order),
+            },
+          ]}
+          label={t("actionsFor", {
+            name: `${siteName(order.site_id)}, ${time(order.created_at)}`,
+          })}
+        />
+      ),
+    },
+  ];
+
+  const issueColumns: ColumnDef<Issue, unknown>[] = [
+    {
+      id: "check",
+      accessorFn: (issue) => text(issue.rule_code),
+      header: t("check"),
+      meta: { primary: true },
+      cell: ({ row: { original: issue } }) => (
+        <p className="font-medium wrap-anywhere">{text(issue.rule_code)}</p>
+      ),
+    },
+    {
+      id: "severity",
+      // Sorts by rank, not by the word: critical before high before medium.
+      accessorFn: (issue) => {
+        const rank = severities.indexOf(String(issue.severity));
+        return rank < 0 ? severities.length : rank;
+      },
+      header: t("severity"),
+      cell: ({ row: { original: issue } }) => severity(issue),
+    },
+    {
+      id: "page",
+      accessorFn: (issue) => text(issue.page_url),
+      header: t("page"),
+      cell: ({ row: { original: issue } }) => (
+        <span className="break-all">{text(issue.page_url)}</span>
+      ),
+    },
+  ];
 
   return (
-    <div className="space-y-8">
-      <PanelPage
-        actions={
-          <Button
-            variant="outline"
-            disabled={loading}
-            onClick={() => {
-              setLoading(true);
-              void load();
-            }}
-          >
-            {t("refresh")}
-          </Button>
-        }
-        description={t("description")}
-        eyebrow={nav("website")}
-        title={t("title")}
-      />
+    <PanelPage
+      actions={
+        <Button
+          variant="outline"
+          disabled={loading}
+          onClick={() => {
+            setLoading(true);
+            void load();
+          }}
+        >
+          {t("refresh")}
+        </Button>
+      }
+      description={t("description")}
+      eyebrow={nav("website")}
+      title={t("title")}
+    >
       {problem ? (
         <p role="alert" className="text-destructive">
           {problem}
@@ -342,40 +435,21 @@ export function SeoAuditsPanel() {
           {sites.length ? t("orderingUnavailable") : t("noSites")}
         </p>
       ) : null}
-      <section aria-labelledby="seo-history" className="space-y-4">
-        <h2 id="seo-history" className="text-xl font-semibold">
-          {t("history")}
-        </h2>
-        {!loading && !orders.length ? <p>{t("empty")}</p> : null}
-        <ul className="space-y-3">
-          {orders.map((order) => (
-            <li
-              key={order.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4"
-            >
-              <div>
-                <p className="font-medium">{siteName(order.site_id)}</p>
-                <p className="text-sm text-muted-foreground">
-                  {time(order.created_at)} · {t(`states.${order.state}`)}
-                </p>
-                <p className="text-sm">
-                  {t(`credits.${order.credit_state}`, {
-                    count: order.credit_cost,
-                  })}
-                </p>
-              </div>
-              <Button variant="outline" onClick={() => void inspect(order)}>
-                {t("openReport")}
-              </Button>
-            </li>
-          ))}
-        </ul>
+      <PanelSection title={t("history")}>
+        <DataTable
+          caption={t("history")}
+          columns={orderColumns}
+          data={orders}
+          getRowId={(order) => order.id}
+          labels={{ ...labels, empty: t("empty") }}
+          loading={loading}
+        />
         {nextCursor ? (
           <Button variant="outline" onClick={() => void older()}>
             {t("older")}
           </Button>
         ) : null}
-      </section>
+      </PanelSection>
       {selected ? (
         <Card>
           <CardHeader>
@@ -412,62 +486,27 @@ export function SeoAuditsPanel() {
                     {t("snapshotAt", { date: time(observedAt) })}
                   </p>
                 ) : null}
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <caption className="sr-only">{t("issues")}</caption>
-                    <thead>
-                      <tr>
-                        <th className="p-3">{t("severity")}</th>
-                        <th className="p-3">{t("check")}</th>
-                        <th className="p-3">{t("page")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {issues.slice(0, issueLimit).map((issue, index) => (
-                        <tr
-                          key={typeof issue.id === "string" ? issue.id : index}
-                          className="border-t"
-                        >
-                          <td className="p-3">
-                            {typeof issue.severity === "string" &&
-                            [
-                              "critical",
-                              "high",
-                              "medium",
-                              "low",
-                              "info",
-                            ].includes(issue.severity)
-                              ? t(`severityLabels.${issue.severity}`)
-                              : "—"}
-                          </td>
-                          <td className="p-3">
-                            {typeof issue.rule_code === "string"
-                              ? issue.rule_code
-                              : "—"}
-                          </td>
-                          <td className="max-w-lg break-all p-3">
-                            {typeof issue.page_url === "string"
-                              ? issue.page_url
-                              : "—"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {issues.length > issueLimit ? (
-                  <Button
-                    variant="outline"
-                    onClick={() => setIssueLimit((value) => value + 100)}
-                  >
-                    {t("moreIssues")}
-                  </Button>
-                ) : null}
+                <DataTable
+                  caption={t("issues")}
+                  columns={issueColumns}
+                  data={issues}
+                  // Another report starts on its first page.
+                  key={selected.id}
+                  labels={labels}
+                  searchable={issues.length > 10}
+                  searchText={(issue) =>
+                    [
+                      text(issue.rule_code),
+                      text(issue.page_url),
+                      severity(issue),
+                    ].join(" ")
+                  }
+                />
               </>
             ) : null}
           </CardContent>
         </Card>
       ) : null}
-    </div>
+    </PanelPage>
   );
 }
