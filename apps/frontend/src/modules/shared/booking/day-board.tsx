@@ -91,6 +91,7 @@ export function DayBoard({
 }) {
   const narrow = useNarrow();
   const t = useTranslations("DayBoard");
+  const inTeam = namedTeams(teams);
   const today = wallClock(now, zone).day === day;
   const todayText = useTodayText(zone);
   const time = (at: number | string) => wallClock(new Date(at), zone).time;
@@ -269,9 +270,9 @@ export function DayBoard({
                 {row.name}
               </Link>
               <p className="truncate text-xs text-muted-foreground">{state}</p>
-              {row.person?.team_ids.length ? (
+              {inTeam(row) ? (
                 <p className="truncate text-xs text-muted-foreground">
-                  <TeamNames ids={row.person.team_ids} teams={teams} />
+                  <TeamNames ids={row.person?.team_ids ?? []} teams={teams} />
                 </p>
               ) : null}
             </div>
@@ -469,6 +470,12 @@ function Legend() {
   );
 }
 
+/** Teams the viewer can name: a worker without the team list sees none, not a dash. */
+function namedTeams(teams: StaffTeam[]) {
+  return (row: BoardRow) =>
+    teams.some((team) => row.person?.team_ids.includes(team.id));
+}
+
 type Line = {
   row: BoardRow;
   state: string;
@@ -494,6 +501,7 @@ function Agenda({
   vacancies: BookingAppointment[];
 }) {
   const t = useTranslations("DayBoard");
+  const inTeam = namedTeams(teams);
   const card =
     "flex min-h-11 w-full flex-col items-start gap-0.5 rounded-lg border p-2.5 text-left text-sm";
   return (
@@ -643,10 +651,10 @@ function Agenda({
               </h3>
               <p className="text-xs text-muted-foreground">
                 {state}
-                {row.person?.team_ids.length ? (
+                {inTeam(row) ? (
                   <>
                     {" · "}
-                    <TeamNames ids={row.person.team_ids} teams={teams} />
+                    <TeamNames ids={row.person?.team_ids ?? []} teams={teams} />
                   </>
                 ) : null}
               </p>
