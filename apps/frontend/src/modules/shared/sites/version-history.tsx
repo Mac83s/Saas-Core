@@ -11,6 +11,11 @@ import { corePageTemplates } from "@saas-core/site-blocks";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
 import {
+  DataTable,
+  RowActions,
+  type ColumnDef,
+} from "@saas-core/ui/components/data-table";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -19,6 +24,7 @@ import {
   DialogTrigger,
 } from "@saas-core/ui/components/dialog";
 
+import { useDataTableLabels } from "#lib/data-table-labels";
 import { sitesErrorMessage } from "./problem";
 
 /** The page's history (F4-A): every saved version, how it came to be, and
@@ -41,8 +47,10 @@ export function VersionHistory({
   const t = useTranslations("Sites");
   const common = useTranslations("Common");
   const locale = useLocale();
+  const labels = useDataTableLabels();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<PageVersionSummary[]>([]);
+  const [loading, setLoading] = useState(false);
   const [next, setNext] = useState<string | null>(null);
   const [problem, setProblem] = useState<string>();
   const [confirm, setConfirm] = useState<PageVersionSummary>();
@@ -55,6 +63,7 @@ export function VersionHistory({
   const load = useCallback(
     async (cursor?: string) => {
       setProblem(undefined);
+      setLoading(true);
       try {
         const page = await listPageVersions(pageId, cursor);
         setItems((current) =>
@@ -63,6 +72,8 @@ export function VersionHistory({
         setNext(page.next_cursor);
       } catch (error) {
         setProblem(sitesErrorMessage(error, t));
+      } finally {
+        setLoading(false);
       }
     },
     [pageId, t],
@@ -99,6 +110,82 @@ export function VersionHistory({
       }`,
     );
   };
+  const columns: ColumnDef<PageVersionSummary, unknown>[] = [
+    {
+      id: "number",
+      accessorKey: "number",
+      header: t("version"),
+      meta: { primary: true },
+      cell: ({ row: { original: version } }) => (
+        <p className="flex flex-wrap items-center gap-2">
+          <span className="font-medium">
+            {t("versionValue", { version: version.number })}
+          </span>
+          {version.current && <Badge>{t("current")}</Badge>}
+        </p>
+      ),
+    },
+    {
+      id: "origin",
+      accessorFn: originLabel,
+      header: t("lists.versionOrigin"),
+      cell: ({ row: { original: version } }) => (
+        <div>
+          <p>{originLabel(version)}</p>
+          <p className="text-xs text-muted-foreground">
+            {t("versions.sections", { count: version.block_count })}
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "saved",
+      accessorKey: "created_at",
+      header: t("lists.versionSaved"),
+      cell: ({ row: { original: version } }) => (
+        <div>
+          <p>{dateFormatter.format(new Date(version.created_at))}</p>
+          <p className="text-xs break-all text-muted-foreground">
+            {version.created_by.email}
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "actions",
+      header: t("lists.actions"),
+      meta: { actions: true },
+      cell: ({ row: { original: version } }) => (
+        <RowActions
+          items={[
+            {
+              label: t("versions.previewNamed", { number: version.number }),
+              icon: <EyeIcon aria-hidden="true" />,
+              inline: true,
+              onSelect: () => onPreview(version),
+            },
+            // The current version is what the editor already holds.
+            ...(version.current
+              ? []
+              : [
+                  {
+                    label: t("versions.restoreNamed", {
+                      number: version.number,
+                    }),
+                    icon: <RotateCcwIcon aria-hidden="true" />,
+                    inline: true,
+                    onSelect: () => {
+                      if (!busy) setConfirm(version);
+                    },
+                  },
+                ]),
+          ]}
+          label={t("lists.versionActionsFor", { number: version.number })}
+        />
+      ),
+    },
+  ];
+
   return (
     <Dialog
       open={open}
@@ -174,60 +261,22 @@ export function VersionHistory({
             </div>
           </div>
         ) : null}
-        <ul className="space-y-3" aria-label={t("versions.title")}>
-          {items.map((version) => (
-            <li
-              key={version.id}
-              className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">
-                    {t("versionValue", { version: version.number })}
-                  </span>
-                  {version.current && <Badge>{t("current")}</Badge>}
-                </div>
-                <p className="text-sm">{originLabel(version)}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {version.created_by.email} ·{" "}
-                  {dateFormatter.format(new Date(version.created_at))} ·{" "}
-                  {t("versions.sections", { count: version.block_count })}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  aria-label={t("versions.previewNamed", {
-                    number: version.number,
-                  })}
-                  onClick={() => onPreview(version)}
-                >
-                  <EyeIcon aria-hidden="true" />
-                  {t("versions.preview")}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={version.current || busy}
-                  aria-label={t("versions.restoreNamed", {
-                    number: version.number,
-                  })}
-                  onClick={() => setConfirm(version)}
-                >
-                  <RotateCcwIcon aria-hidden="true" />
-                  {t("versions.restore")}
-                </Button>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <DataTable
+          caption={t("lists.versionsCaption")}
+          columns={columns}
+          data={items}
+          getRowId={(version) => version.id}
+          labels={labels}
+          loading={loading}
+          // The API pages the history ("more" below); the table shows every
+          // version loaded so far instead of paging them again.
+          pageSize={Number.MAX_SAFE_INTEGER}
+        />
         {next && (
           <Button
             type="button"
             variant="outline"
+            disabled={loading}
             onClick={() => void load(next)}
           >
             {t("versions.more")}

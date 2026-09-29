@@ -888,9 +888,10 @@ test("historia wersji pokazuje pochodzenie, podgląd i przywraca wersję jako no
     await within(dialog).findByText("Szablon: Poradnik krok po kroku"),
   ).toBeDefined();
   expect(within(dialog).getByText(versions.origin.save)).toBeDefined();
+  // The current version is what the editor holds: nothing to restore.
   expect(
-    within(dialog).getByRole("button", { name: "Przywróć wersję 2" }),
-  ).toBeDisabled();
+    within(dialog).queryByRole("button", { name: "Przywróć wersję 2" }),
+  ).toBeNull();
   fireEvent.click(
     within(dialog).getByRole("button", { name: "Przywróć wersję 1" }),
   );
