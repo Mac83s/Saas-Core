@@ -2548,6 +2548,9 @@
     "empty": "No active sessions.",
     "current": "This session",
     "lastActive": "Last active",
+    "colDevice": "Device",
+    "colActions": "Actions",
+    "actionsFor": "Actions: {device}",
     "ending": "Ending…",
     "logout": "Log out"
   },

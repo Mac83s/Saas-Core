@@ -25,8 +25,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@saas-core/ui/components/card";
+import {
+  DataTable,
+  RowActions,
+  type ColumnDef,
+} from "@saas-core/ui/components/data-table";
 
 import { useRouter } from "#i18n/navigation";
+import { useDataTableLabels } from "#lib/data-table-labels";
 import { identityErrorMessage } from "./problem";
 
 export function LogoutButton() {
@@ -56,6 +62,7 @@ export function LogoutButton() {
 export function SessionManager() {
   const t = useTranslations("Sessions");
   const identity = useTranslations("Identity");
+  const labels = useDataTableLabels();
   const locale = useLocale();
   const router = useRouter();
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
@@ -102,6 +109,8 @@ export function SessionManager() {
   }, [identity, router]);
 
   async function revoke(session: SessionSummary) {
+    // The menu stays usable while a revoke runs; one at a time.
+    if (revoking) return;
     setRevoking(session.id);
     setProblem(undefined);
     try {
@@ -118,6 +127,66 @@ export function SessionManager() {
       setRevoking(undefined);
     }
   }
+
+  const columns: ColumnDef<SessionSummary, unknown>[] = [
+    {
+      id: "device",
+      accessorKey: "device_label",
+      header: t("colDevice"),
+      meta: { primary: true },
+      cell: ({ row: { original: session } }) => (
+        <div className="flex items-center gap-3">
+          {/mobile|android|iphone/i.test(session.device_label) ? (
+            <SmartphoneIcon
+              aria-hidden="true"
+              className="size-5 shrink-0 text-muted-foreground"
+            />
+          ) : (
+            <LaptopIcon
+              aria-hidden="true"
+              className="size-5 shrink-0 text-muted-foreground"
+            />
+          )}
+          <p className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
+            <span className="wrap-anywhere">{session.device_label}</span>
+            {session.current ? (
+              <Badge variant="secondary">{t("current")}</Badge>
+            ) : null}
+            {revoking === session.id ? (
+              <span className="font-normal text-muted-foreground">
+                {t("ending")}
+              </span>
+            ) : null}
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "lastActive",
+      accessorKey: "last_seen_at",
+      header: t("lastActive"),
+      cell: ({ row: { original: session } }) =>
+        formatDate(session.last_seen_at, locale),
+    },
+    {
+      id: "actions",
+      header: t("colActions"),
+      meta: { actions: true },
+      cell: ({ row: { original: session } }) => (
+        <RowActions
+          items={[
+            {
+              label: t("logout"),
+              icon: <LogOutIcon aria-hidden="true" />,
+              destructive: true,
+              onSelect: () => void revoke(session),
+            },
+          ]}
+          label={t("actionsFor", { device: session.device_label })}
+        />
+      ),
+    },
+  ];
 
   return (
     <Card>
@@ -147,48 +216,14 @@ export function SessionManager() {
             {problem}
           </div>
         )}
-        {!loading && sessions.length === 0 && (
-          <p className="text-sm text-muted-foreground">{t("empty")}</p>
-        )}
-        {sessions.map((session) => (
-          <div
-            className="flex items-center gap-3 rounded-lg border p-3"
-            key={session.id}
-          >
-            {/mobile|android|iphone/i.test(session.device_label) ? (
-              <SmartphoneIcon
-                aria-hidden="true"
-                className="size-5 text-muted-foreground"
-              />
-            ) : (
-              <LaptopIcon
-                aria-hidden="true"
-                className="size-5 text-muted-foreground"
-              />
-            )}
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <p className="truncate text-sm font-medium">
-                  {session.device_label}
-                </p>
-                {session.current && (
-                  <Badge variant="secondary">{t("current")}</Badge>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {t("lastActive")}: {formatDate(session.last_seen_at, locale)}
-              </p>
-            </div>
-            <Button
-              disabled={revoking === session.id}
-              onClick={() => void revoke(session)}
-              size="sm"
-              variant={session.current ? "destructive" : "outline"}
-            >
-              {revoking === session.id ? t("ending") : t("logout")}
-            </Button>
-          </div>
-        ))}
+        <DataTable
+          caption={t("title")}
+          columns={columns}
+          data={sessions}
+          getRowId={(session) => session.id}
+          labels={{ ...labels, empty: t("empty") }}
+          loading={loading}
+        />
       </CardContent>
     </Card>
   );

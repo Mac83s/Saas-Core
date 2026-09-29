@@ -2548,6 +2548,9 @@
     "empty": "Brak aktywnych sesji.",
     "current": "Ta sesja",
     "lastActive": "Ostatnia aktywność",
+    "colDevice": "Urządzenie",
+    "colActions": "Działania",
+    "actionsFor": "Działania: {device}",
     "ending": "Kończenie…",
     "logout": "Wyloguj"
   },
