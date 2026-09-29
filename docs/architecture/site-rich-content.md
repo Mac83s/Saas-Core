@@ -568,3 +568,57 @@ wskazuje jako dane przykładowe. Główne działanie mają tylko „Który waria
 320–1440): bez przepełnienia, błędów JS i drugiego głównego działania;
 poprawione po przeglądzie: lista „Co w zestawie” trzyma tytuły w jednej
 kolumnie także przy pozycji bez ilości (subgrid).
+
+## Faza 4, paczka F4-P5 — Kolekcja produktów i raport fazy (2026-09-29)
+
+### Recepta `core.product_collection` v1
+
+„Kolekcja produktów” (styl `product`, pełna szerokość) porównuje 2–3 modele i
+prowadzi do zapytania: wprowadzenie ze zdjęciem, „Który model dla Ciebie”
+(produkt `variant_guide`), tabela porównania (`feature_list`
+`scope_comparison`, kolumna na model), co dostajesz z każdym modelem
+(`in_the_box`), jak zamówić (`how_to_order`), pytania i formularz. Ścieżka:
+uwaga → zainteresowanie → zainteresowanie → obiekcja → działanie → obiekcja →
+działanie. Bez cen i koszyka; parametry, czasy i warunki to miejsca
+`[Uzupełnij: …]`.
+
+### Raport fazy 4
+
+| Co | Plan | Jest |
+|---|---:|---:|
+| Nowe układy sekcji (listy 6, cytaty 5, produkt 7, galerie 6) | 24 | 24 |
+| Rodziny wraz z fazami 2–3 (redakcyjne 20, listy 8, cytaty 6, produkt 8, galerie 6) | 48 | 48 |
+| Dodatki branżowe (gabinet 2, gospodarstwo 2, elektronika 2) | 6–9 | 6 |
+| Strony (recepty w galerii) | 12 | 12 |
+| Katalog sekcji v7: wpisy w pliku / oferowane | 158 / 150 | 158 / 150 |
+
+Nowe wersje bloków w fazie: `feature_list` v5, `quote` v2, `product` v3,
+`gallery` v1 — każda z migratorem tożsamościowym albo jako nowy typ; stare
+znaczniki (prezentacja produktu, cytat bez układu) renderują się bajt w bajt.
+Odrębność układów pilnuje test CSS (każdy układ ma własną regułę albo własną
+strukturę), a harness porównuje zrzuty w 8 stylach i 5 szerokościach.
+
+Zgodność przy zmianie układu: w obrębie typu układ zmienia wygląd, nie dane —
+pola, których nowy układ nie pokazuje, zostają w bloku, a inspektor je
+wymienia (`hiddenFields`); między typami przenoszą tylko jawne konwersje
+(`section-conversions.v1.json`) i podmiana szablonu strony (F4-C).
+
+Zdjęcia i miejsca do wymiany: 38 szablonów fazy 4 niesie 28 zdjęć
+przykładowych i 131 miejsc `[Uzupełnij: …]` (PL); recepty fazy 4 — „Poradnik
+krok po kroku” 1 zdjęcie i 13 miejsc, „Studio i portfolio” 5 i 15, „Kolekcja
+produktów” 2 i 27. Wszystkie zdjęcia przykładowe to cztery ilustracje z
+generatora (oznaczone „AI” na stronie); w galerii mają podpis „Zdjęcie
+poglądowe”, a nazwy realizacji i parametry są do wpisania przez właściciela.
+
+Otwarte po fazie (follow-upy):
+
+- zdjęcia szablonów z generatora obrazów (IG-0) zamiast czterech wspólnych
+  ilustracji — czekają na klucz OpenAI właściciela;
+- pełny przebieg harnessu wszystkich 150 szablonów × 8 stylów na raz przerwał
+  się przy obciążonym hoście; każda paczka przeszła przebieg swoich szablonów
+  we wszystkich stylach, a szablony ze zdjęciami — test pudełek w 2 stylach;
+  pełną macierz warto puścić na VPS po wdrożeniu;
+- deskryptory `srcset` to pudełka kopii (320/1280/2560); kopia pionowego
+  zdjęcia jest węższa, niż mówi deskryptor — do rozważenia, gdy potok zapisze
+  szerokości kopii w danych publikacji.
+
