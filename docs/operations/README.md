@@ -8,3 +8,4 @@
 - [Domeny, DNS i rollback publikacji](domains.md)
 - [Billing — simulator i odroczona aktywacja Stripe](billing.md)
 - [Generator obrazów AI — klucz, worker-ai, blokada dostawcy, odznaka](image-generation.md)
+- [Wyszukiwarka katalogu — silnik, indeks, awaria](catalog-search.md)

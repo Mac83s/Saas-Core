@@ -19,6 +19,10 @@ checkoutem i z prawami `0600`:
   (ADR-059), udostępniany wyłącznie `backend` i `worker-ai`. Plik musi
   istnieć, także pusty (pusty = funkcja wyłączona); brak pliku zatrzymuje
   deploy, bo Compose odmawia montażu nieistniejącego źródła;
+- `search_master_key` — klucz główny silnika wyszukiwarki katalogu (ADR-064),
+  co najmniej 16 bajtów; montowany w `search` jako klucz silnika i w procesach
+  backendu jako `search_api_key`. Stos wskazany na wspólny silnik mapuje
+  `search_api_key` na osobny plik z kluczem ograniczonym do swojego indeksu;
 - późniejsze integracje dodają osobny plik na każdy sekret i przyznają go tylko
   usługom, które go potrzebują.
 

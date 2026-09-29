@@ -13,36 +13,54 @@ together:
 
 from __future__ import annotations
 
+import logging
 from typing import Any
+from uuid import UUID
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Case, FloatField, QuerySet, Value, When
 from drf_spectacular.utils import OpenApiParameter, extend_schema
+from prometheus_client import Counter
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 
 from saas_core.modules.core.identity.serializers import ProblemDetailsSerializer
 from saas_core.modules.core.organizations.context import set_local_organization_id
 
-from .catalog_contract import categories, cities
+from .catalog_contract import categories, cities, cities_within
 from .models import (
     CatalogEntry,
     ProfileSubjectKind,
     PublicProfile,
     PublicProfileTranslation,
 )
+from .search_engine import SearchEngineUnavailable
+from .search_index import search_ids
 from .serializers import (
     CatalogDictionarySerializer,
     CatalogPageSerializer,
     CatalogProfileSerializer,
 )
 
+logger = logging.getLogger(__name__)
+
 #: One screen of results. Small enough that the join to the site tables stays
 #: cheap, large enough that a small town fits on one page.
 PAGE_SIZE = 20
+#: "Near me" without a radius; the form's slider starts here too.
+DEFAULT_RADIUS_KM = 25.0
+MAX_RADIUS_KM = 200.0
+
+CATALOG_SEARCHES = Counter(
+    "saas_core_catalog_searches_total",
+    "Text searches of the public catalogue by the path that answered them.",
+    ["engine"],
+)
 
 
 class CatalogEntryNotFound(NotFound):
@@ -74,7 +92,7 @@ def site_url(entry: CatalogEntry) -> str | None:
     return f"https://{canonical.hostname}/"
 
 
-def _entry_payload(entry: CatalogEntry) -> dict[str, Any]:
+def _entry_payload(entry: CatalogEntry, distance_km: float | None = None) -> dict[str, Any]:
     external = site_url(entry)
     return {
         "slug": entry.slug,
@@ -88,33 +106,114 @@ def _entry_payload(entry: CatalogEntry) -> dict[str, Any]:
         # target, so the client never has to decide what to do with a null.
         "url": external or f"/katalog/{entry.city_slug}/{entry.slug}/",
         "is_external": external is not None,
+        # Town centre to town centre (ADR-064): an entry has a town, not an address.
+        "distance_km": None if distance_km is None else round(distance_km, 1),
     }
 
 
-def search_catalog(
-    *, city_slug: str = "", category: str = "", query: str = "", page: int = 1
-) -> dict[str, Any]:
+def _database_page(
+    entries: QuerySet[CatalogEntry],
+    *,
+    query: str,
+    distances: dict[str, float] | None,
+    page: int,
+) -> tuple[list[CatalogEntry], int]:
+    """The search PostgreSQL can do: prefix words, then town distance or name order.
+
+    Every search went this way before the engine (ADR-053 §8); now it answers a
+    listing without words, and any search while the engine does not answer.
+    """
     from django.contrib.postgres.search import SearchQuery
 
-    entries = CatalogEntry.all_objects.select_related("site", "photo")
-    if city_slug:
-        entries = entries.filter(city_slug=city_slug)
-    if category:
-        entries = entries.filter(category=category)
     if query.strip():
         # Prefix matching, so "fryzjer" reaches "fryzjerstwo" without a Polish
         # stemmer. See the ceiling noted in `catalog._refresh_search`.
         terms = " & ".join(f"{term}:*" for term in query.split()[:6] if term.isalnum())
         if terms:
             entries = entries.filter(search=SearchQuery(terms, config="simple", search_type="raw"))
+    if distances:
+        entries = entries.annotate(
+            distance=Case(
+                *(When(city_slug=slug, then=Value(km)) for slug, km in distances.items()),
+                output_field=FloatField(),
+            )
+        ).order_by("distance", "display_name", "id")
+    start = (page - 1) * PAGE_SIZE
+    return list(entries[start : start + PAGE_SIZE]), entries.count()
 
-    total = entries.count()
-    start = max(page - 1, 0) * PAGE_SIZE
+
+def search_catalog(
+    *,
+    city_slug: str = "",
+    category: str = "",
+    query: str = "",
+    page: int = 1,
+    point: tuple[float, float] | None = None,
+    radius_km: float | None = None,
+) -> dict[str, Any]:
+    """One page of the listing.
+
+    Words go to the search engine (ADR-064) and come back as organization ids;
+    the rows themselves are read here, so the table stays the truth and an entry
+    withdrawn a second ago is not shown even if the engine still has it.
+
+    Distance: a point (the visitor's, or the chosen town's centre when a radius
+    is asked for) turns into the list of dictionary towns within the radius, and
+    both paths filter by that list — so they agree on what "within 25 km" means.
+    """
+    page = max(page, 1)
+    distances: dict[str, float] | None = None
+    city_slugs: list[str] | None = [city_slug] if city_slug else None
+    if point is None and city_slug and radius_km is not None:
+        city = cities()[city_slug]
+        point = (city.lat, city.lng)
+    if point is not None:
+        distances = cities_within(point[0], point[1], radius_km or DEFAULT_RADIUS_KM)
+        city_slugs = sorted(distances)
+
+    entries = CatalogEntry.all_objects.select_related("site", "photo")
+    if city_slugs is not None:
+        entries = entries.filter(city_slug__in=city_slugs)
+    if category:
+        entries = entries.filter(category=category)
+
+    found: list[CatalogEntry] | None = None
+    total = 0
+    if query.strip() and city_slugs != []:
+        try:
+            ids, total = search_ids(
+                query=query,
+                city_slugs=city_slugs,
+                category=category,
+                page=page,
+                page_size=PAGE_SIZE,
+            )
+        except SearchEngineUnavailable as error:
+            # No query text in the log: in some products a search says
+            # something about the visitor's health.
+            logger.warning("catalog_search_fallback", extra={"reason": str(error)})
+        else:
+            CATALOG_SEARCHES.labels(engine="search").inc()
+            rows: dict[UUID, CatalogEntry] = {
+                entry.organization_id: entry for entry in entries.filter(organization_id__in=ids)
+            }
+            found = [rows[organization_id] for organization_id in ids if organization_id in rows]
+    if found is None:
+        if query.strip():
+            CATALOG_SEARCHES.labels(engine="database").inc()
+        found, total = _database_page(entries, query=query, distances=distances, page=page)
+
     return {
         "total": total,
-        "page": max(page, 1),
+        "page": page,
         "page_size": PAGE_SIZE,
-        "items": [_entry_payload(entry) for entry in entries[start : start + PAGE_SIZE]],
+        "items": [
+            _entry_payload(entry, None if distances is None else distances.get(entry.city_slug))
+            for entry in found
+        ],
+        # Filled by meaning-based search (ADR-064, stage 5b): what else fits
+        # the words, below the entries that contain them.
+        "similar": [],
     }
 
 
@@ -169,17 +268,37 @@ def resolve_catalog_profile(*, city_slug: str, slug: str) -> dict[str, Any]:
     }
 
 
+def _coordinate(raw: str | None, limit: float) -> float | None:
+    try:
+        value = float(raw) if raw else None
+    except ValueError:
+        return None
+    return value if value is not None and -limit <= value <= limit else None
+
+
 class PublicCatalogListView(APIView):
     authentication_classes: list[Any] = []
     permission_classes = [AllowAny]
+    # A public text field in front of a paid embedding API (ADR-064).
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "catalog_search"
 
     @extend_schema(
         operation_id="catalog_list",
         parameters=[
             OpenApiParameter("city", str, description="Slug miasta ze słownika katalogu."),
             OpenApiParameter("category", str, description="Klucz kategorii ze słownika."),
-            OpenApiParameter("q", str, description="Szukaj po nazwie, nagłówku, kategorii."),
+            OpenApiParameter(
+                "q", str, description="Szukaj po nazwie, usługach, opisie, kategorii."
+            ),
             OpenApiParameter("page", int, description="Strona wyników, od 1."),
+            OpenApiParameter(
+                "radius_km",
+                float,
+                description="Promień w km od środka miasta albo od punktu lat/lng.",
+            ),
+            OpenApiParameter("lat", float, description="Szerokość punktu „Blisko mnie”."),
+            OpenApiParameter("lng", float, description="Długość punktu „Blisko mnie”."),
         ],
         responses={200: CatalogPageSerializer},
     )
@@ -187,23 +306,33 @@ class PublicCatalogListView(APIView):
         # Only dictionary values are accepted as filters (ADR-053 §7): the
         # catalogue is a public surface, and a filter that takes arbitrary text
         # is a scan somebody else pays for.
-        city_slug = request.query_params.get("city", "")
-        category = request.query_params.get("category", "")
+        params = request.query_params
+        city_slug = params.get("city", "")
+        category = params.get("category", "")
         organization_type = settings.DEFAULT_ORGANIZATION_TYPE
         if city_slug and city_slug not in cities():
             city_slug = ""
         if category and category not in categories(organization_type):
             category = ""
         try:
-            page = int(request.query_params.get("page", "1"))
+            page = int(params.get("page", "1"))
         except ValueError:
             page = 1
+        radius_km = _coordinate(params.get("radius_km"), MAX_RADIUS_KM)
+        if radius_km is not None and radius_km <= 0:
+            radius_km = None
+        lat, lng = _coordinate(params.get("lat"), 90), _coordinate(params.get("lng"), 180)
+        # The visitor's point is used for this answer and nowhere else: not
+        # stored, not logged.
+        point = (lat, lng) if lat is not None and lng is not None else None
         return Response(
             search_catalog(
                 city_slug=city_slug,
                 category=category,
-                query=request.query_params.get("q", "")[:120],
+                query=params.get("q", "")[:120],
                 page=page,
+                point=point,
+                radius_km=radius_km,
             )
         )
 

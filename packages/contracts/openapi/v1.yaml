@@ -6748,6 +6748,18 @@ paths:
           type: string
         description: Slug miasta ze słownika katalogu.
       - in: query
+        name: lat
+        schema:
+          type: number
+          format: double
+        description: Szerokość punktu „Blisko mnie”.
+      - in: query
+        name: lng
+        schema:
+          type: number
+          format: double
+        description: Długość punktu „Blisko mnie”.
+      - in: query
         name: page
         schema:
           type: integer
@@ -6756,7 +6768,13 @@ paths:
         name: q
         schema:
           type: string
-        description: Szukaj po nazwie, nagłówku, kategorii.
+        description: Szukaj po nazwie, usługach, opisie, kategorii.
+      - in: query
+        name: radius_km
+        schema:
+          type: number
+          format: double
+        description: Promień w km od środka miasta albo od punktu lat/lng.
       tags:
       - api
       security:
@@ -12589,11 +12607,17 @@ components:
           type: string
         is_external:
           type: boolean
+        distance_km:
+          type:
+          - number
+          - 'null'
+          format: double
       required:
       - category
       - city
       - city_slug
       - display_name
+      - distance_km
       - headline
       - is_external
       - photo_id
@@ -12612,10 +12636,15 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/CatalogItem'
+        similar:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogItem'
       required:
       - items
       - page
       - page_size
+      - similar
       - total
     CatalogProfile:
       type: object
@@ -12646,6 +12675,11 @@ components:
           type: string
         is_external:
           type: boolean
+        distance_km:
+          type:
+          - number
+          - 'null'
+          format: double
         layout:
           type: string
         voivodeship:
@@ -12682,6 +12716,7 @@ components:
       - contact_email
       - contact_phone
       - display_name
+      - distance_km
       - headline
       - is_external
       - languages

@@ -12,7 +12,21 @@ class ProfilesConfig(AppConfig):
     verbose_name = "Profile publiczne"
 
     def ready(self) -> None:
+        from django.db.models.signals import post_delete, post_save
+
+        from .models import CatalogEntry
+        from .search_index import follow_catalog_entry
+
         register(check_catalog_contract, "profiles")
+
+        # Every write of a catalogue row — publication, refresh, withdrawal and
+        # the cascade when a company is erased — moves its search document too.
+        post_save.connect(
+            follow_catalog_entry, sender=CatalogEntry, dispatch_uid="profiles.search.save"
+        )
+        post_delete.connect(
+            follow_catalog_entry, sender=CatalogEntry, dispatch_uid="profiles.search.delete"
+        )
 
 
 def check_catalog_contract(**_kwargs: object) -> list[Error]:

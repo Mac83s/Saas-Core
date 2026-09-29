@@ -60,6 +60,8 @@ x-backend-environment: &backend-environment
   NOTIFICATIONS_EXPORT_TTL_HOURS: ${NOTIFICATIONS_EXPORT_TTL_HOURS:-24}
   NOTIFICATIONS_EXPORT_MAX_ROWS: ${NOTIFICATIONS_EXPORT_MAX_ROWS:-10000}
   NOTIFICATIONS_WEBHOOK_TOLERANCE_SECONDS: ${NOTIFICATIONS_WEBHOOK_TOLERANCE_SECONDS:-300}
+  SEARCH_URL: http://search:7700
+  SEARCH_API_KEY_FILE: /run/secrets/search_api_key
   CLAMAV_HOST: ${CLAMAV_HOST:-clamav}
   CLAMAV_PORT: ${CLAMAV_PORT:-3310}
   CLAMAV_TIMEOUT_SECONDS: ${CLAMAV_TIMEOUT_SECONDS:-30}
@@ -85,6 +87,7 @@ x-backend-service: &backend-service
     - stripe_webhook_secret
     - seo_ssa_service_key
     - seo_ssa_callback_secret
+    - search_api_key
   volumes:
     - ${SAAS_CORE_LOGS_DIR:-.runtime/logs}:/var/log/saas-core
   networks:
@@ -258,6 +261,54 @@ services:
           cpus: "2.0"
           memory: 4g
 
+  # ADR-064: the public catalogue's search engine. It holds a copy the backend
+  # rebuilds from the database (`manage.py reindex_catalog`), so it has no
+  # backup of its own, and nothing waits for it: while it is down the catalogue
+  # searches PostgreSQL. `data` only — no internet and no host port; the
+  # backend computes what needs a model and is the only one that calls it.
+  # The indexing limits are not optional: left to size itself, the engine
+  # takes host RAM as its budget and a 512 MB container dies mid-indexing.
+  search:
+    image: getmeili/meilisearch:v1.54.1
+    command:
+      - /bin/sh
+      - -c
+      - MEILI_MASTER_KEY="$$(cat /run/secrets/search_master_key)" exec /bin/meilisearch
+    environment:
+      MEILI_ENV: production
+      MEILI_NO_ANALYTICS: "true"
+      MEILI_MAX_INDEXING_MEMORY: 128Mb
+      MEILI_MAX_INDEXING_THREADS: "2"
+      MEILI_LOG_LEVEL: WARN
+    secrets:
+      - search_master_key
+    expose:
+      - "7700"
+    volumes:
+      - search-data:/meili_data
+    networks:
+      - data
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test:
+        ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:7700/health"]
+      interval: 10s
+      timeout: 3s
+      start_period: 10s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 384m
+
   migrate:
     <<: *backend-service
     command:
@@ -291,6 +342,7 @@ services:
       - stripe_webhook_secret
       - seo_ssa_service_key
       - seo_ssa_callback_secret
+      - search_api_key
     depends_on:
       database-bootstrap:
         condition: service_completed_successfully
@@ -318,6 +370,7 @@ services:
       - stripe_webhook_secret
       - seo_ssa_service_key
       - seo_ssa_callback_secret
+      - search_api_key
       - image_generation_openai_api_key
     networks:
       - app
@@ -420,6 +473,7 @@ services:
       - stripe_webhook_secret
       - seo_ssa_service_key
       - seo_ssa_callback_secret
+      - search_api_key
       - image_generation_openai_api_key
     command:
       - sh
@@ -790,6 +844,13 @@ secrets:
     file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/seo_ssa_callback_secret
   image_generation_openai_api_key:
     file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/image_generation_openai_api_key
+  # ADR-064: the engine's own key. On a stack with its own engine the backend
+  # uses that same key; an overlay that points the stack at a shared engine
+  # maps `search_api_key` to a key scoped to this deployment's index instead.
+  search_master_key:
+    file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/search_master_key
+  search_api_key:
+    file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/search_master_key
   stripe_secret_key:
     file: ${SAAS_CORE_SECRETS_DIR:-.runtime/secrets}/stripe_secret_key
   stripe_webhook_secret:
@@ -820,3 +881,4 @@ volumes:
   grafana-data:
   object-storage-data:
   clamav-data:
+  search-data:

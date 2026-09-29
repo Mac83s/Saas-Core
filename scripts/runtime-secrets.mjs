@@ -53,6 +53,10 @@ await ensureSecret(
 await ensureSecret("seo_ssa_service_key", "");
 await ensureSecret("seo_ssa_callback_secret", "");
 await ensureSecret("image_generation_openai_api_key", "");
+// ADR-064: the catalogue search engine's master key (at least 16 bytes in
+// production mode); the backend uses the same file unless an overlay points it
+// at a shared engine with a key of its own.
+await ensureSecret("search_master_key", randomBytes(32).toString("base64url"));
 await chmod(secretsDirectory, 0o700);
 
 async function ensureSecret(name, value) {

@@ -115,20 +115,8 @@ def _site_for(organization_id: UUID | Any) -> Any:
     )
 
 
-@transaction.atomic
-def publish_profile() -> CatalogEntry:
-    context = authorize_entitled(PROFILES_MANAGE, PROFILES_ENABLED)
-    organization = Organization.objects.get(pk=context.organization_id)
-    profile = _organization_profile(context.organization_id)
-
-    if not profile.display_name.strip() or not profile.city_slug or not profile.category:
-        raise ProfileNotPublishable
-    validate_placement(
-        city_slug=profile.city_slug,
-        category=profile.category,
-        organization_type=organization.organization_type,
-    )
-
+def _place_entry(profile: PublicProfile, organization_id: UUID | Any) -> CatalogEntry:
+    """Write the catalogue row from the profile: create it, or bring it up to date."""
     entry = _entries().select_for_update().filter(profile=profile).first()
     slug = _free_slug(
         city_slug=profile.city_slug,
@@ -143,7 +131,7 @@ def publish_profile() -> CatalogEntry:
         slug = entry.slug
 
     values = {
-        "organization_id": context.organization_id,
+        "organization_id": organization_id,
         "profile": profile,
         "slug": slug,
         "city_slug": profile.city_slug,
@@ -152,7 +140,7 @@ def publish_profile() -> CatalogEntry:
         "display_name": profile.display_name,
         "headline": profile.headline,
         "photo": profile.photo,
-        "site": _site_for(context.organization_id),
+        "site": _site_for(organization_id),
     }
     if entry is None:
         entry = CatalogEntry(published_at=timezone.now(), **values)
@@ -161,6 +149,27 @@ def publish_profile() -> CatalogEntry:
             setattr(entry, field, value)
     entry.save()
     _refresh_search(entry)
+    return entry
+
+
+def _publishable(profile: PublicProfile) -> bool:
+    return bool(profile.display_name.strip() and profile.city_slug and profile.category)
+
+
+@transaction.atomic
+def publish_profile() -> CatalogEntry:
+    context = authorize_entitled(PROFILES_MANAGE, PROFILES_ENABLED)
+    organization = Organization.objects.get(pk=context.organization_id)
+    profile = _organization_profile(context.organization_id)
+
+    if not _publishable(profile):
+        raise ProfileNotPublishable
+    validate_placement(
+        city_slug=profile.city_slug,
+        category=profile.category,
+        organization_type=organization.organization_type,
+    )
+    entry = _place_entry(profile, context.organization_id)
 
     record_audit(
         organization=organization,
@@ -191,18 +200,36 @@ def withdraw_profile() -> None:
     entry.delete()
 
 
+def refresh_catalog_entry(profile: PublicProfile) -> None:
+    """A published company edited its card: the catalogue shows the new one.
+
+    Placement was validated by the caller. Emptying a field the catalogue files
+    the company by is refused rather than withdrawing it quietly — being in the
+    catalogue is the owner's switch (ADR-053 §10).
+    """
+    if profile.subject_kind != ProfileSubjectKind.ORGANIZATION:
+        return
+    if not _entries().filter(profile=profile).exists():
+        return
+    if not _publishable(profile):
+        raise ProfileNotPublishable(
+            "Wizytówka jest w katalogu: nazwa, miasto i kategoria muszą zostać uzupełnione."
+        )
+    _place_entry(profile, profile.organization_id)
+
+
 def catalog_entry_for(organization_id: UUID | Any) -> CatalogEntry | None:
     """The organization's own catalogue row, for the panel to show its state."""
     return _entries().filter(organization_id=organization_id).first()
 
 
 def _refresh_search(entry: CatalogEntry) -> None:
-    """Recompute the search vector for one row.
+    """Recompute the database's search vector for one row.
 
-    ponytail: `simple` configuration, so no stemming and no typo tolerance —
-    "fryzjer" finds "fryzjerstwo" through the prefix query in `search_catalog`,
-    but "fryzer" finds nothing. Add `unaccent` and `pg_trgm` when the catalogue
-    is full enough for that to be the complaint.
+    ADR-064: this is the fallback for when the search engine does not answer.
+    `simple` configuration, so no stemming and no typo tolerance — "fryzjer"
+    finds "fryzjerstwo" through the prefix query, but "fryzer" finds nothing;
+    the engine is where that gets better, not here.
     """
     from django.contrib.postgres.search import SearchVector
 

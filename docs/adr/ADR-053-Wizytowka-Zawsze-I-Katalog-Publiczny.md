@@ -148,6 +148,10 @@ Wartość spoza słownika jest odrzucana przy zapisie, nie naprawiana po cichu.
 
 ### 8. Wyszukiwarka to Postgres
 
+> Zastąpione przez [ADR-064](ADR-064-Wyszukiwarka-Katalogu-Na-Meilisearch.md)
+> (2026-09-29): wyszukiwanie słowami i po znaczeniu robi Meilisearch; PostgreSQL
+> odpowiada na listę bez słów i na każde zapytanie, gdy silnik nie działa.
+
 Wyszukiwanie po katalogu robi Postgres: `tsvector` z konfiguracją `simple` nad
 nazwą, nagłówkiem i kategorią, plus trigram na nazwie dla literówek. Bez osobnego
 silnika, bez indeksera, bez kolejki.

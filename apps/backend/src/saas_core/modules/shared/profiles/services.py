@@ -32,9 +32,10 @@ from saas_core.modules.core.organizations.models import (
 from saas_core.modules.core.organizations.permissions import ORGANIZATION_READ
 from saas_core.modules.shared.media.models import MediaAsset
 
-from .catalog import validate_placement
+from .catalog import refresh_catalog_entry, validate_placement
 from .models import ProfileSubjectKind, PublicProfile, PublicProfileTranslation
 from .permissions import PROFILES_MANAGE
+from .search_index import catalog_changed
 
 EDITABLE_FIELDS = (
     "display_name",
@@ -249,6 +250,7 @@ def update_profile(profile_id: UUID, *, expected_version: int, **values: Any) ->
     _validated(profile)
     _validated_placement(profile, context.organization_id)
     profile.save()
+    refresh_catalog_entry(profile)
 
     record_audit(
         organization=Organization.objects.get(pk=context.organization_id),
@@ -310,4 +312,6 @@ def save_translation(profile_id: UUID, *, locale: str, **values: Any) -> PublicP
             setattr(translation, field, values[field])
     _validated(translation)
     translation.save()
+    if profile.subject_kind == ProfileSubjectKind.ORGANIZATION:
+        catalog_changed(context.organization_id)
     return translation

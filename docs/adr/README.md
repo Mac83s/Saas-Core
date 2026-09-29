@@ -59,6 +59,7 @@ rejestr z `Plan/SaaS-Core-06-Rejestr-Decyzji.md`.
 | [ADR-061](ADR-061-Rodzaj-Linku-rel-w-Blokach.md) | rodzaj linku (`rel`: sponsored, ugc, nofollow) w tekście, listach linków i stopce; `nofollow` domyślnie dla linków automatyzacji | Accepted |
 | [ADR-062](ADR-062-Korekty-Wpisow-Kartoteki-Zwierzecia.md) | wpis kartoteki zwierzęcia nie jest nadpisywany ani kasowany: korekta to następna wersja z powodem, zastąpiona ma `retracted_at`; wyzwalacz append-only, powiadomienie hodowcy | Accepted |
 | [ADR-063](ADR-063-Szablony-Firmy-Jako-Dane-Organizacji.md) | szablony firmy (sekcja, strona) jako dane organizacji z wersjami append-only i RLS obok recept systemowych w plikach; użycie to kopia | Accepted |
+| [ADR-064](ADR-064-Wyszukiwarka-Katalogu-Na-Meilisearch.md) | wyszukiwarka katalogu na Meilisearch w stacku każdej aplikacji, baza źródłem prawdy, powrót do PostgreSQL przy awarii, dokument budowany w tenancie, odległość miasto–miasto, wyniki po znaczeniu osobno; zastępuje ADR-053 §8 | Accepted |
 
 Każda zmiana decyzji tworzy nowy ADR. Całkowicie zastąpiony dokument otrzymuje
 status `Superseded`; przy częściowym zastąpieniu nowy ADR wskazuje dokładny

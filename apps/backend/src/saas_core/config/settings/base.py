@@ -658,6 +658,14 @@ _MODULE_BEAT_SCHEDULE: dict[str, dict[str, Any]] = {
             "schedule": 30.0,
         }
     },
+    "shared.profiles": {
+        # ADR-064: the search index catches up with the catalogue table after
+        # an engine outage or a lost task. Nothing to do when both agree.
+        "profiles-reconcile-catalog-search": {
+            "task": "saas_core.modules.shared.profiles.tasks.reconcile_catalog_search",
+            "schedule": 600.0,
+        }
+    },
     "shared.sites": {
         "sites-verify-domains": {
             "task": "saas_core.modules.shared.sites.tasks.schedule_domain_verifications",
@@ -791,6 +799,8 @@ REST_FRAMEWORK = {
     "NUM_PROXIES": int(os.environ.get("TRUSTED_PROXY_COUNT", "1")),
     "DEFAULT_THROTTLE_RATES": {
         "billing_public_catalog": "60/min",
+        # The public catalogue searches as the visitor types (ADR-064).
+        "catalog_search": "120/min",
         "identity_login": "5/min",
         "identity_mfa_challenge": "10/min",
         "identity_mfa_enrollment": "10/min",
@@ -835,6 +845,13 @@ SEO_AUDIT_CREDIT_OPERATION = os.environ.get("SEO_AUDIT_CREDIT_OPERATION", "")
 SEO_AUDIT_MAX_PAGES = int(os.environ.get("SEO_AUDIT_MAX_PAGES", "100"))
 SEO_REPORT_MAX_ISSUES = int(os.environ.get("SEO_REPORT_MAX_ISSUES", "5000"))
 SEO_GSC_REDIRECT_URI = os.environ.get("SEO_GSC_REDIRECT_URI", "")
+
+# ADR-064: the public catalogue's search engine (Meilisearch). No URL means no
+# engine, and the catalogue searches PostgreSQL as it did before one existed —
+# the same thing that happens while a configured engine does not answer.
+SEARCH_URL = os.environ.get("SEARCH_URL", "")
+SEARCH_API_KEY = secret_setting("SEARCH_API_KEY")
+SEARCH_TIMEOUT_SECONDS = float(os.environ.get("SEARCH_TIMEOUT_SECONDS", "1.5"))
 
 # ADR-059: the direct OpenAI Image API. An empty key means the feature is
 # unavailable, not misconfigured, so there is no system check for it.

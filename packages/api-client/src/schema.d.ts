@@ -4280,12 +4280,15 @@ export interface components {
             photo_id: string | null;
             url: string;
             is_external: boolean;
+            /** Format: double */
+            distance_km: number | null;
         };
         CatalogPage: {
             total: number;
             page: number;
             page_size: number;
             items: components["schemas"]["CatalogItem"][];
+            similar: components["schemas"]["CatalogItem"][];
         };
         /**
          * @description One row of the public listing (ADR-053 §5).
@@ -4304,6 +4307,8 @@ export interface components {
             photo_id: string | null;
             url: string;
             is_external: boolean;
+            /** Format: double */
+            distance_km: number | null;
             layout: string;
             voivodeship: string;
             bio: string;
@@ -14491,10 +14496,16 @@ export interface operations {
                 category?: string;
                 /** @description Slug miasta ze słownika katalogu. */
                 city?: string;
+                /** @description Szerokość punktu „Blisko mnie”. */
+                lat?: number;
+                /** @description Długość punktu „Blisko mnie”. */
+                lng?: number;
                 /** @description Strona wyników, od 1. */
                 page?: number;
-                /** @description Szukaj po nazwie, nagłówku, kategorii. */
+                /** @description Szukaj po nazwie, usługach, opisie, kategorii. */
                 q?: string;
+                /** @description Promień w km od środka miasta albo od punktu lat/lng. */
+                radius_km?: number;
             };
             header?: never;
             path?: never;

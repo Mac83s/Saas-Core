@@ -10,7 +10,8 @@ because each entry is a public address.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+import math
+from dataclasses import dataclass, field
 from functools import cache
 from pathlib import Path
 
@@ -23,12 +24,18 @@ class City:
     slug: str
     name: str
     voivodeship: str
+    #: The town's centre. Distance in the catalogue is centre to centre: an
+    #: entry has a town, not an address, so a finer point would be invented.
+    lat: float = 0.0
+    lng: float = 0.0
 
 
 @dataclass(frozen=True, slots=True)
 class Category:
     key: str
     label: dict[str, str]
+    #: Words search finds the category by — trades the label does not name.
+    keywords: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
 
 @cache
@@ -47,8 +54,35 @@ def cities() -> dict[str, City]:
     if not isinstance(raw, list):
         raise ImproperlyConfigured("Kontrakt katalogu nie zawiera listy miast.")
     return {
-        entry["slug"]: City(entry["slug"], entry["name"], entry["voivodeship"]) for entry in raw
+        entry["slug"]: City(
+            entry["slug"],
+            entry["name"],
+            entry["voivodeship"],
+            float(entry.get("lat", 0.0)),
+            float(entry.get("lng", 0.0)),
+        )
+        for entry in raw
     }
+
+
+def distance_km(lat_a: float, lng_a: float, lat_b: float, lng_b: float) -> float:
+    """Great-circle distance; a town-to-town answer needs nothing finer."""
+    lat_a, lng_a, lat_b, lng_b = map(math.radians, (lat_a, lng_a, lat_b, lng_b))
+    h = (
+        math.sin((lat_b - lat_a) / 2) ** 2
+        + math.cos(lat_a) * math.cos(lat_b) * math.sin((lng_b - lng_a) / 2) ** 2
+    )
+    return 6371.0 * 2 * math.asin(math.sqrt(h))
+
+
+def cities_within(lat: float, lng: float, radius_km: float) -> dict[str, float]:
+    """Dictionary towns whose centre lies within the radius, with the distance.
+
+    Both search paths filter by this list, so the engine and the database fallback
+    agree on what "within 25 km" means.
+    """
+    found = {city.slug: distance_km(lat, lng, city.lat, city.lng) for city in cities().values()}
+    return {slug: km for slug, km in found.items() if km <= radius_km}
 
 
 def categories(organization_type: str) -> dict[str, Category]:
@@ -61,11 +95,18 @@ def categories(organization_type: str) -> dict[str, Category]:
     for configured in settings.ORGANIZATION_TYPES.values():
         if configured.key == organization_type and configured.catalog_categories is not None:
             return {
-                category.key: Category(category.key, category.label)
+                category.key: Category(category.key, category.label, category.keywords)
                 for category in configured.catalog_categories
             }
     raw = _manifest().get("categories")
     if not isinstance(raw, dict):
         raise ImproperlyConfigured("Kontrakt katalogu nie zawiera kategorii.")
     entries = raw.get(organization_type) or []
-    return {entry["key"]: Category(entry["key"], entry["label"]) for entry in entries}
+    return {
+        entry["key"]: Category(
+            entry["key"],
+            entry["label"],
+            {locale: tuple(words) for locale, words in (entry.get("keywords") or {}).items()},
+        )
+        for entry in entries
+    }

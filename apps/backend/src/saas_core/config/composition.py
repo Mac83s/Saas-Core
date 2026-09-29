@@ -15,7 +15,7 @@ registry is still empty, and so the rules can be tested as ordinary functions.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -115,6 +115,8 @@ class CatalogCategory:
 
     key: str
     label: dict[str, str]
+    #: Words the catalogue search finds this category by, per language.
+    keywords: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -241,6 +243,10 @@ def organization_types_from(
                         CatalogCategory(
                             key=str(category["key"]),
                             label={str(k): str(v) for k, v in category["label"].items()},
+                            keywords={
+                                str(locale): tuple(str(word) for word in words)
+                                for locale, words in (category.get("keywords") or {}).items()
+                            },
                         )
                         for category in raw["catalogCategories"]
                     )

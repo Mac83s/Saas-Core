@@ -1,170 +1,715 @@
 {
   "schemaVersion": 1,
-  "comment": "ADR-053 §7. Miasta i kategorie katalogu publicznego. Lista jest celowo niepełna i rośnie z zasięgiem sprzedaży: każda pozycja to publiczny adres, więc dopisanie ma być widoczne w diffie. Wartość spoza tej listy jest odrzucana przy zapisie.",
+  "comment": "ADR-053 §7. Miasta i kategorie katalogu publicznego. Lista jest celowo niepełna i rośnie z zasięgiem sprzedaży: każda pozycja to publiczny adres, więc dopisanie ma być widoczne w diffie. Wartość spoza tej listy jest odrzucana przy zapisie. Współrzędne miasta (środek, lat/lng) liczą odległość w wyszukiwarce, a słowa kluczowe kategorii (keywords, per język) pozwalają znaleźć firmę po nazwie zawodu, której nie ma w nazwie kategorii.",
   "cities": [
     {
       "slug": "mragowo",
       "name": "Mrągowo",
-      "voivodeship": "warmińsko-mazurskie"
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 53.8645,
+      "lng": 21.305
     },
     {
       "slug": "olsztyn",
       "name": "Olsztyn",
-      "voivodeship": "warmińsko-mazurskie"
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 53.7784,
+      "lng": 20.4801
     },
-    { "slug": "elk", "name": "Ełk", "voivodeship": "warmińsko-mazurskie" },
+    {
+      "slug": "elk",
+      "name": "Ełk",
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 53.8281,
+      "lng": 22.3647
+    },
     {
       "slug": "gizycko",
       "name": "Giżycko",
-      "voivodeship": "warmińsko-mazurskie"
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 54.0383,
+      "lng": 21.7636
     },
     {
       "slug": "ketrzyn",
       "name": "Kętrzyn",
-      "voivodeship": "warmińsko-mazurskie"
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 54.0763,
+      "lng": 21.3753
     },
     {
       "slug": "szczytno",
       "name": "Szczytno",
-      "voivodeship": "warmińsko-mazurskie"
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 53.5627,
+      "lng": 20.9855
     },
     {
       "slug": "ostroda",
       "name": "Ostróda",
-      "voivodeship": "warmińsko-mazurskie"
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 53.6961,
+      "lng": 19.9647
     },
-    { "slug": "ilawa", "name": "Iława", "voivodeship": "warmińsko-mazurskie" },
+    {
+      "slug": "ilawa",
+      "name": "Iława",
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 53.5963,
+      "lng": 19.5686
+    },
     {
       "slug": "elblag",
       "name": "Elbląg",
-      "voivodeship": "warmińsko-mazurskie"
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 54.1522,
+      "lng": 19.4044
     },
     {
       "slug": "bartoszyce",
       "name": "Bartoszyce",
-      "voivodeship": "warmińsko-mazurskie"
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 54.2536,
+      "lng": 20.8083
     },
     {
       "slug": "braniewo",
       "name": "Braniewo",
-      "voivodeship": "warmińsko-mazurskie"
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 54.3797,
+      "lng": 19.8228
     },
     {
       "slug": "lidzbark-warminski",
       "name": "Lidzbark Warmiński",
-      "voivodeship": "warmińsko-mazurskie"
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 54.1256,
+      "lng": 20.5794
     },
     {
       "slug": "nidzica",
       "name": "Nidzica",
-      "voivodeship": "warmińsko-mazurskie"
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 53.3614,
+      "lng": 20.4285
     },
-    { "slug": "pisz", "name": "Pisz", "voivodeship": "warmińsko-mazurskie" },
+    {
+      "slug": "pisz",
+      "name": "Pisz",
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 53.6275,
+      "lng": 21.8117
+    },
     {
       "slug": "wegorzewo",
       "name": "Węgorzewo",
-      "voivodeship": "warmińsko-mazurskie"
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 54.2158,
+      "lng": 21.7389
     },
     {
       "slug": "olecko",
       "name": "Olecko",
-      "voivodeship": "warmińsko-mazurskie"
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 54.0333,
+      "lng": 22.5
     },
     {
       "slug": "goldap",
       "name": "Gołdap",
-      "voivodeship": "warmińsko-mazurskie"
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 54.3067,
+      "lng": 22.3036
     },
     {
       "slug": "dzialdowo",
       "name": "Działdowo",
-      "voivodeship": "warmińsko-mazurskie"
+      "voivodeship": "warmińsko-mazurskie",
+      "lat": 53.2378,
+      "lng": 20.1822
     },
-    { "slug": "warszawa", "name": "Warszawa", "voivodeship": "mazowieckie" },
-    { "slug": "krakow", "name": "Kraków", "voivodeship": "małopolskie" },
-    { "slug": "lodz", "name": "Łódź", "voivodeship": "łódzkie" },
-    { "slug": "wroclaw", "name": "Wrocław", "voivodeship": "dolnośląskie" },
-    { "slug": "poznan", "name": "Poznań", "voivodeship": "wielkopolskie" },
-    { "slug": "gdansk", "name": "Gdańsk", "voivodeship": "pomorskie" },
-    { "slug": "gdynia", "name": "Gdynia", "voivodeship": "pomorskie" },
+    {
+      "slug": "warszawa",
+      "name": "Warszawa",
+      "voivodeship": "mazowieckie",
+      "lat": 52.2297,
+      "lng": 21.0122
+    },
+    {
+      "slug": "krakow",
+      "name": "Kraków",
+      "voivodeship": "małopolskie",
+      "lat": 50.0647,
+      "lng": 19.945
+    },
+    {
+      "slug": "lodz",
+      "name": "Łódź",
+      "voivodeship": "łódzkie",
+      "lat": 51.7592,
+      "lng": 19.456
+    },
+    {
+      "slug": "wroclaw",
+      "name": "Wrocław",
+      "voivodeship": "dolnośląskie",
+      "lat": 51.1079,
+      "lng": 17.0385
+    },
+    {
+      "slug": "poznan",
+      "name": "Poznań",
+      "voivodeship": "wielkopolskie",
+      "lat": 52.4064,
+      "lng": 16.9252
+    },
+    {
+      "slug": "gdansk",
+      "name": "Gdańsk",
+      "voivodeship": "pomorskie",
+      "lat": 54.352,
+      "lng": 18.6466
+    },
+    {
+      "slug": "gdynia",
+      "name": "Gdynia",
+      "voivodeship": "pomorskie",
+      "lat": 54.5189,
+      "lng": 18.5305
+    },
     {
       "slug": "szczecin",
       "name": "Szczecin",
-      "voivodeship": "zachodniopomorskie"
+      "voivodeship": "zachodniopomorskie",
+      "lat": 53.4285,
+      "lng": 14.5528
     },
     {
       "slug": "bydgoszcz",
       "name": "Bydgoszcz",
-      "voivodeship": "kujawsko-pomorskie"
+      "voivodeship": "kujawsko-pomorskie",
+      "lat": 53.1235,
+      "lng": 18.0084
     },
-    { "slug": "torun", "name": "Toruń", "voivodeship": "kujawsko-pomorskie" },
-    { "slug": "lublin", "name": "Lublin", "voivodeship": "lubelskie" },
-    { "slug": "bialystok", "name": "Białystok", "voivodeship": "podlaskie" },
-    { "slug": "katowice", "name": "Katowice", "voivodeship": "śląskie" },
-    { "slug": "rzeszow", "name": "Rzeszów", "voivodeship": "podkarpackie" },
-    { "slug": "kielce", "name": "Kielce", "voivodeship": "świętokrzyskie" },
-    { "slug": "opole", "name": "Opole", "voivodeship": "opolskie" },
+    {
+      "slug": "torun",
+      "name": "Toruń",
+      "voivodeship": "kujawsko-pomorskie",
+      "lat": 53.0138,
+      "lng": 18.5984
+    },
+    {
+      "slug": "lublin",
+      "name": "Lublin",
+      "voivodeship": "lubelskie",
+      "lat": 51.2465,
+      "lng": 22.5684
+    },
+    {
+      "slug": "bialystok",
+      "name": "Białystok",
+      "voivodeship": "podlaskie",
+      "lat": 53.1325,
+      "lng": 23.1688
+    },
+    {
+      "slug": "katowice",
+      "name": "Katowice",
+      "voivodeship": "śląskie",
+      "lat": 50.2649,
+      "lng": 19.0238
+    },
+    {
+      "slug": "rzeszow",
+      "name": "Rzeszów",
+      "voivodeship": "podkarpackie",
+      "lat": 50.0412,
+      "lng": 21.9991
+    },
+    {
+      "slug": "kielce",
+      "name": "Kielce",
+      "voivodeship": "świętokrzyskie",
+      "lat": 50.8661,
+      "lng": 20.6286
+    },
+    {
+      "slug": "opole",
+      "name": "Opole",
+      "voivodeship": "opolskie",
+      "lat": 50.6751,
+      "lng": 17.9213
+    },
     {
       "slug": "zielona-gora",
       "name": "Zielona Góra",
-      "voivodeship": "lubuskie"
+      "voivodeship": "lubuskie",
+      "lat": 51.9356,
+      "lng": 15.5062
     },
     {
       "slug": "gorzow-wielkopolski",
       "name": "Gorzów Wielkopolski",
-      "voivodeship": "lubuskie"
+      "voivodeship": "lubuskie",
+      "lat": 52.7368,
+      "lng": 15.2288
     }
   ],
   "categories": {
     "business": [
       {
         "key": "uroda-i-zdrowie",
-        "label": { "pl": "Uroda i zdrowie", "en": "Beauty and health" }
+        "label": {
+          "pl": "Uroda i zdrowie",
+          "en": "Beauty and health"
+        },
+        "keywords": {
+          "pl": [
+            "fryzjer",
+            "barber",
+            "kosmetyczka",
+            "salon kosmetyczny",
+            "manicure",
+            "pedicure",
+            "masaż",
+            "fizjoterapeuta",
+            "dentysta",
+            "stomatolog",
+            "lekarz",
+            "gabinet",
+            "dietetyk",
+            "psycholog",
+            "rehabilitacja",
+            "spa"
+          ],
+          "en": [
+            "hairdresser",
+            "barber",
+            "beautician",
+            "nail salon",
+            "massage",
+            "physiotherapist",
+            "dentist",
+            "doctor",
+            "dietitian",
+            "psychologist",
+            "spa"
+          ]
+        }
       },
       {
         "key": "uslugi-dla-domu",
-        "label": { "pl": "Usługi dla domu", "en": "Home services" }
+        "label": {
+          "pl": "Usługi dla domu",
+          "en": "Home services"
+        },
+        "keywords": {
+          "pl": [
+            "sprzątanie",
+            "hydraulik",
+            "elektryk",
+            "złota rączka",
+            "ogrodnik",
+            "pranie dywanów",
+            "przeprowadzki",
+            "naprawa AGD",
+            "ślusarz"
+          ],
+          "en": [
+            "cleaning",
+            "plumber",
+            "electrician",
+            "handyman",
+            "gardener",
+            "movers",
+            "appliance repair",
+            "locksmith"
+          ]
+        }
       },
       {
         "key": "budowlanka",
-        "label": { "pl": "Budowa i remonty", "en": "Construction" }
+        "label": {
+          "pl": "Budowa i remonty",
+          "en": "Construction"
+        },
+        "keywords": {
+          "pl": [
+            "remont",
+            "wykończenia",
+            "glazurnik",
+            "malarz",
+            "dekarz",
+            "murarz",
+            "stolarz",
+            "instalacje",
+            "okna",
+            "drzwi",
+            "projekt domu"
+          ],
+          "en": [
+            "renovation",
+            "construction",
+            "tiler",
+            "painter",
+            "roofer",
+            "bricklayer",
+            "carpenter",
+            "windows",
+            "doors"
+          ]
+        }
       },
       {
         "key": "motoryzacja",
-        "label": { "pl": "Motoryzacja", "en": "Automotive" }
+        "label": {
+          "pl": "Motoryzacja",
+          "en": "Automotive"
+        },
+        "keywords": {
+          "pl": [
+            "mechanik",
+            "warsztat samochodowy",
+            "wulkanizacja",
+            "opony",
+            "blacharz",
+            "lakiernik",
+            "myjnia",
+            "diagnostyka",
+            "klimatyzacja samochodowa",
+            "holowanie"
+          ],
+          "en": [
+            "car mechanic",
+            "garage",
+            "tyres",
+            "car wash",
+            "body shop",
+            "towing"
+          ]
+        }
       },
       {
         "key": "gastronomia",
-        "label": { "pl": "Gastronomia", "en": "Food and drink" }
+        "label": {
+          "pl": "Gastronomia",
+          "en": "Food and drink"
+        },
+        "keywords": {
+          "pl": [
+            "restauracja",
+            "kawiarnia",
+            "pizzeria",
+            "bar",
+            "catering",
+            "cukiernia",
+            "piekarnia",
+            "jedzenie na wynos"
+          ],
+          "en": [
+            "restaurant",
+            "cafe",
+            "pizza",
+            "catering",
+            "bakery",
+            "takeaway"
+          ]
+        }
       },
-      { "key": "handel", "label": { "pl": "Handel", "en": "Retail" } },
+      {
+        "key": "handel",
+        "label": {
+          "pl": "Handel",
+          "en": "Retail"
+        },
+        "keywords": {
+          "pl": [
+            "sklep",
+            "hurtownia",
+            "sklep internetowy",
+            "butik",
+            "kwiaciarnia",
+            "apteka"
+          ],
+          "en": [
+            "shop",
+            "store",
+            "wholesale",
+            "online shop",
+            "florist",
+            "pharmacy"
+          ]
+        }
+      },
       {
         "key": "turystyka-i-noclegi",
-        "label": { "pl": "Turystyka i noclegi", "en": "Travel and stays" }
+        "label": {
+          "pl": "Turystyka i noclegi",
+          "en": "Travel and stays"
+        },
+        "keywords": {
+          "pl": [
+            "noclegi",
+            "hotel",
+            "pensjonat",
+            "agroturystyka",
+            "apartament",
+            "kemping",
+            "biuro podróży",
+            "wypożyczalnia kajaków"
+          ],
+          "en": [
+            "accommodation",
+            "hotel",
+            "guesthouse",
+            "agritourism",
+            "apartment",
+            "camping",
+            "travel agency",
+            "kayak rental"
+          ]
+        }
       },
       {
         "key": "sport-i-rekreacja",
-        "label": { "pl": "Sport i rekreacja", "en": "Sport and leisure" }
+        "label": {
+          "pl": "Sport i rekreacja",
+          "en": "Sport and leisure"
+        },
+        "keywords": {
+          "pl": [
+            "siłownia",
+            "trener personalny",
+            "fitness",
+            "joga",
+            "basen",
+            "szkoła tańca",
+            "sztuki walki",
+            "jazda konna"
+          ],
+          "en": [
+            "gym",
+            "personal trainer",
+            "fitness",
+            "yoga",
+            "swimming pool",
+            "dance school",
+            "martial arts",
+            "horse riding"
+          ]
+        }
       },
-      { "key": "edukacja", "label": { "pl": "Edukacja", "en": "Education" } },
+      {
+        "key": "edukacja",
+        "label": {
+          "pl": "Edukacja",
+          "en": "Education"
+        },
+        "keywords": {
+          "pl": [
+            "korepetycje",
+            "szkoła językowa",
+            "kurs",
+            "przedszkole",
+            "żłobek",
+            "szkoła jazdy",
+            "nauka języka",
+            "opieka nad dziećmi"
+          ],
+          "en": [
+            "tutoring",
+            "language school",
+            "course",
+            "kindergarten",
+            "nursery",
+            "driving school",
+            "childcare"
+          ]
+        }
+      },
       {
         "key": "it-i-marketing",
-        "label": { "pl": "IT i marketing", "en": "IT and marketing" }
+        "label": {
+          "pl": "IT i marketing",
+          "en": "IT and marketing"
+        },
+        "keywords": {
+          "pl": [
+            "strony internetowe",
+            "marketing",
+            "reklama",
+            "grafik",
+            "fotograf",
+            "social media",
+            "pozycjonowanie",
+            "serwis komputerowy",
+            "programista"
+          ],
+          "en": [
+            "web design",
+            "marketing",
+            "advertising",
+            "graphic designer",
+            "photographer",
+            "social media",
+            "seo",
+            "computer repair",
+            "developer"
+          ]
+        }
       },
       {
         "key": "finanse-i-prawo",
-        "label": { "pl": "Finanse i prawo", "en": "Finance and law" }
+        "label": {
+          "pl": "Finanse i prawo",
+          "en": "Finance and law"
+        },
+        "keywords": {
+          "pl": [
+            "biuro rachunkowe",
+            "księgowa",
+            "doradca podatkowy",
+            "prawnik",
+            "adwokat",
+            "radca prawny",
+            "notariusz",
+            "ubezpieczenia",
+            "kredyty"
+          ],
+          "en": [
+            "accountant",
+            "bookkeeping",
+            "tax advisor",
+            "lawyer",
+            "attorney",
+            "notary",
+            "insurance",
+            "loans"
+          ]
+        }
       },
-      { "key": "transport", "label": { "pl": "Transport", "en": "Transport" } },
-      { "key": "zwierzeta", "label": { "pl": "Zwierzęta", "en": "Animals" } },
+      {
+        "key": "transport",
+        "label": {
+          "pl": "Transport",
+          "en": "Transport"
+        },
+        "keywords": {
+          "pl": [
+            "transport",
+            "przewóz osób",
+            "taxi",
+            "kurier",
+            "przeprowadzki",
+            "spedycja",
+            "bus",
+            "wynajem busa"
+          ],
+          "en": [
+            "transport",
+            "taxi",
+            "courier",
+            "movers",
+            "freight",
+            "minibus rental"
+          ]
+        }
+      },
+      {
+        "key": "zwierzeta",
+        "label": {
+          "pl": "Zwierzęta",
+          "en": "Animals"
+        },
+        "keywords": {
+          "pl": [
+            "weterynarz",
+            "lecznica",
+            "groomer",
+            "strzyżenie psa",
+            "hotel dla zwierząt",
+            "szkolenie psów",
+            "behawiorysta",
+            "korekcja racic",
+            "kowal"
+          ],
+          "en": [
+            "vet",
+            "veterinarian",
+            "animal clinic",
+            "dog grooming",
+            "pet hotel",
+            "dog training",
+            "hoof trimming",
+            "farrier"
+          ]
+        }
+      },
       {
         "key": "rolnictwo",
-        "label": { "pl": "Rolnictwo", "en": "Agriculture" }
+        "label": {
+          "pl": "Rolnictwo",
+          "en": "Agriculture"
+        },
+        "keywords": {
+          "pl": [
+            "usługi rolnicze",
+            "gospodarstwo",
+            "kombajn",
+            "koszenie",
+            "opryski",
+            "sprzęt rolniczy",
+            "hodowla",
+            "nasiona",
+            "pasze"
+          ],
+          "en": [
+            "farm services",
+            "farm",
+            "combine harvester",
+            "mowing",
+            "spraying",
+            "agricultural machinery",
+            "livestock",
+            "seeds",
+            "feed"
+          ]
+        }
       },
-      { "key": "wydarzenia", "label": { "pl": "Wydarzenia", "en": "Events" } },
+      {
+        "key": "wydarzenia",
+        "label": {
+          "pl": "Wydarzenia",
+          "en": "Events"
+        },
+        "keywords": {
+          "pl": [
+            "wesele",
+            "DJ",
+            "zespół muzyczny",
+            "fotograf ślubny",
+            "sala weselna",
+            "organizacja imprez",
+            "dekoracje",
+            "wodzirej"
+          ],
+          "en": [
+            "wedding",
+            "dj",
+            "band",
+            "wedding photographer",
+            "event venue",
+            "event planning",
+            "decorations"
+          ]
+        }
+      },
       {
         "key": "inne",
-        "label": { "pl": "Inne usługi", "en": "Other services" }
+        "label": {
+          "pl": "Inne usługi",
+          "en": "Other services"
+        }
       }
     ]
   }

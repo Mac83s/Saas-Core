@@ -104,6 +104,9 @@ class CatalogItemSerializer(serializers.Serializer[dict[str, Any]]):
     photo_id = serializers.CharField(allow_null=True)
     url = serializers.CharField()
     is_external = serializers.BooleanField()
+    #: Kilometres from the searched point, town centre to town centre; null
+    #: when the search had no point.
+    distance_km = serializers.FloatField(allow_null=True)
 
 
 class CatalogPageSerializer(serializers.Serializer[dict[str, Any]]):
@@ -111,6 +114,9 @@ class CatalogPageSerializer(serializers.Serializer[dict[str, Any]]):
     page = serializers.IntegerField()
     page_size = serializers.IntegerField()
     items = CatalogItemSerializer(many=True)
+    #: Entries that fit the words by meaning without containing them (ADR-064):
+    #: "Podobne" when `items` is empty, "Może też" below them otherwise.
+    similar = CatalogItemSerializer(many=True)
 
 
 class CatalogProfileSerializer(CatalogItemSerializer):

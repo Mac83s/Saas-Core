@@ -15,6 +15,7 @@ from rest_framework.exceptions import ValidationError
 from saas_core.modules.core.organizations.models import BillingProfile, Organization
 
 from .models import ProfileSubjectKind, PublicProfile
+from .search_index import catalog_changed, register_catalog_terms
 
 
 def organization_contact(organization_id: UUID) -> dict[str, str]:
@@ -94,9 +95,11 @@ def person_names(organization_id: UUID, profile_ids: Iterable[UUID | None]) -> d
 
 
 __all__ = [
+    "catalog_changed",
     "create_person_profile",
     "organization_contact",
     "person_names",
+    "register_catalog_terms",
     "remove_person_profile",
     "rename_person_profile",
 ]
