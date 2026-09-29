@@ -14,7 +14,7 @@ karty biblioteki.
 |---|---|---|
 | Treści redakcyjne | `core.rich_text` v2 | ten sam tekst redakcyjny, teraz strukturalny |
 | Listy i objaśniane kroki | `core.feature_list` v4, v5 | lista pozycji z objaśnieniem; v4 dodaje wstęp, panel uwag i dłuższe opisy, v5 kolumny, grupy, uwagi przy pozycjach i działanie sekcji (F4-P1) |
-| Cytaty redakcyjne | `core.quote` v1 | cytowana wypowiedź z autorem i źródłem; nie jest opinią klienta, nie ma oceny |
+| Cytaty redakcyjne | `core.quote` v1, v2 | cytowana wypowiedź z autorem i źródłem; nie jest opinią klienta, nie ma oceny; v2 pięć układów, tytuł, kolejne wypowiedzi i jedno działanie (F4-P2) |
 | Prezentacje produktu | `core.product` v1 | produkt z fotografiami, parametrami i zastosowaniami; bez ceny, stanu i koszyka |
 
 Historie obrazem i galerie dostaną własny typ w kolejnej fazie. Wszystkie
@@ -432,3 +432,34 @@ ustawia branżę, od której otwiera się biblioteka sekcji (decyzja 4a z 24.09:
 HoofCare — `agriculture`, MedPlano — `medicine`). Użytkownik może wybrać inną
 albo wszystkie; nieznany identyfikator oznacza „wszystkie”. Rdzeń i Business
 nie ustawiają branży.
+
+## Faza 4, paczka F4-P2 — cytaty (2026-09-29)
+
+### `core.quote` v2
+
+v2 dodaje do układu z portretem pięć układów: `typographic` (samo zdanie w
+dużym kroju, wyśrodkowane — to, co v1 bez układu rysował zawsze),
+`context` (tytuł i wyjaśnienie obok wypowiedzi; na telefonie wyjaśnienie
+najpierw), `source` (cytat z publikacji: źródło z odnośnikiem jako karta pod
+wypowiedzią), `voices` (dwie albo trzy krótkie wypowiedzi obok siebie, każda z
+inicjałami — nigdy ze zdjęciem, którego nikt nie dostarczył) i `with_action`
+(dowód, jedno zdanie zachęty i jeden przycisk). Nowe pola są opcjonalne:
+`title`, `voices` (najwyżej 2, razem z pierwszą 2–3 wypowiedzi, każda do 600
+znaków) i `action`. v1 przechodzi bez zmian (migrator tożsamościowy), a jego
+znaczniki — bez układu i z portretem — renderują się bajt w bajt jak dotąd.
+Pole listy ma w katalogu edytora `maxItems`: panel przestaje proponować
+kolejną pozycję, zanim zapis by ją odrzucił (dla `voices` — dwie).
+
+### Katalog v7: 143 wpisy, 135 w bibliotece
+
+Pięć nowych wpisów domyślnych na `quote` v2. Każda wypowiedź, autor i rola w
+seedach to znacznik `[Uzupełnij: …]` / `[Fill in: …]`, bez zdjęć; źródło w
+układzie `source` ma przykładowy adres `example.com`, a przycisk w
+`with_action` — przykładowy `mailto:`, które edytor wskazuje jako dane
+przykładowe. Główne działanie ma tylko `with_action` (etap `action`);
+pozostałe to etap `proof`, a `context` — `interest`. Przegląd harnessu
+(8 stylów × 320/390/768/1024/1440): bez przepełnienia, błędów JS i drugiego
+głównego działania; poprawione po przeglądzie: podwójny znak cytatu w
+`voices` (inicjały go zastępują) i przycisk `with_action` wyrównany do lewej
+pod wyśrodkowanym cytatem.
+
