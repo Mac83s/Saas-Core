@@ -2986,8 +2986,9 @@ def test_the_short_list_of_person_only_operations_holds_against_any_grant() -> N
 
 def test_automation_writes_no_price_list_into_an_entry_and_no_words_into_quotes() -> None:
     """One guard for every way blocks are written (catalogue rule 4): an entry
-    is no side door for a price list, and an automation may carry a quote
-    over or drop it, but never write a new one or change its words."""
+    is no side door for a price list, and an automation may carry a quote or
+    a gallery caption over or drop it, but never write a new one or change
+    its words."""
     from django.test import override_settings
 
     from saas_core.modules.core.organizations.context import activate_tenant_context
@@ -3016,9 +3017,14 @@ def test_automation_writes_no_price_list_into_an_entry_and_no_words_into_quotes(
         "schema_version": 3,
         "data": {"content": [{"type": "paragraph", "content": [{"text": "Wstęp."}]}]},
     }
+    gallery = {
+        "block_type": "core.gallery",
+        "schema_version": 1,
+        "data": {"items": [{"title": "Kuchnia", "caption": "Remont po zalaniu, 2025."}]},
+    }
     written = client.put(
         f"/api/v1/sites/entries/{entry.data['id']}/draft/",
-        {"expected_version": 0, "blocks": [quote, text], "media_asset_ids": []},
+        {"expected_version": 0, "blocks": [quote, text, gallery], "media_asset_ids": []},
         format="json",
         HTTP_X_CSRFTOKEN=csrf_value(client),
         HTTP_IDEMPOTENCY_KEY="st-person",
@@ -3052,6 +3058,28 @@ def test_automation_writes_no_price_list_into_an_entry_and_no_words_into_quotes(
             ("st-new-quote", [quote, edited, {**quote, "data": {"quote": "Cudze słowa."}}]),
             ("st-changed", [{**quote, "data": {**quote["data"], "quote": "Inne słowa."}}]),
             (
+                "st-voice",
+                [
+                    {
+                        **quote,
+                        "schema_version": 2,
+                        "data": {**quote["data"], "voices": [{"quote": "Dopisane słowa."}]},
+                    },
+                    edited,
+                ],
+            ),
+            (
+                "st-caption",
+                [
+                    quote,
+                    edited,
+                    {
+                        **gallery,
+                        "data": {"items": [{"title": "Kuchnia", "caption": "Remont w dwa dni."}]},
+                    },
+                ],
+            ),
+            (
                 "st-node",
                 [
                     quote,
@@ -3073,11 +3101,14 @@ def test_automation_writes_no_price_list_into_an_entry_and_no_words_into_quotes(
                     blocks=blocks,
                     idempotency_key=key,
                 )
-        # The quote carried over unchanged, the prose rewritten: allowed.
+        # The quote and the caption carried over unchanged, the prose and a
+        # photo's title rewritten: allowed.
+        item = {**gallery["data"]["items"][0], "title": "Łazienka"}
+        renamed = {**gallery, "data": {"items": [item]}}
         version, created = write_entry(
             entry_id=entry.data["id"],
             expected_version=1,
-            blocks=[quote, edited],
+            blocks=[quote, edited, renamed],
             idempotency_key="st-carry",
         )
         assert created and version.number == 2

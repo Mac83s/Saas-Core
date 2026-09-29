@@ -1092,6 +1092,10 @@ def _statements(blocks: Iterable[Any]) -> Counter[str]:
         data = block["data"]
         if block.get("block_type") == "core.quote":
             add({key: data.get(key) for key in ("quote", "author", "role", "context", "source")})
+            # quote v2: further voices beside the first one (F4-P2).
+            for voice in data.get("voices") or []:
+                if isinstance(voice, dict):
+                    add({key: voice.get(key) for key in ("quote", "author", "role")})
         if block.get("block_type") == "core.testimonials":
             for item in data.get("items") or []:
                 if isinstance(item, dict):
@@ -1103,18 +1107,35 @@ def _statements(blocks: Iterable[Any]) -> Counter[str]:
     return found
 
 
-def _catalogue_statements() -> Counter[str]:
-    """Statements that ship in the page recipes (in the offered ones only
-    [Uzupełnij: …] slots): a blueprint importing a recipe carries them in,
-    which is the catalogue speaking, not the automation."""
+def _captions(blocks: Iterable[Any]) -> Counter[str]:
+    """Every gallery caption, fingerprinted: what a photo of the owner's work
+    shows — the job, the place, the result — is theirs to say."""
+    found: Counter[str] = Counter()
+    for block in blocks:
+        if not isinstance(block, dict) or block.get("block_type") != "core.gallery":
+            continue
+        data = block.get("data")
+        for item in (data.get("items") or []) if isinstance(data, dict) else []:
+            if isinstance(item, dict) and item.get("caption"):
+                found[canonical_json_hash(item["caption"])] += 1
+    return found
+
+
+def _catalogue_words(
+    collect: Callable[[Iterable[Any]], Counter[str]],
+) -> Counter[str]:
+    """Statements and captions that ship in the page recipes (in the offered
+    ones only [Uzupełnij: …] slots and illustrative-photo notes): a blueprint
+    importing a recipe carries them in, which is the catalogue speaking, not
+    the automation."""
     from .page_templates import page_template_catalog
 
     found: Counter[str] = Counter()
     for versions in page_template_catalog().templates.values():
         for template in versions.values():
             for blocks in (template.blocks, *template.localized_blocks.values()):
-                for key in _statements(blocks):
-                    found[key] = len(blocks) + 1  # as many as a page may hold
+                for key in collect(blocks):
+                    found[key] = len(blocks) * 12 + 1  # as many as a page may hold
     return found
 
 
@@ -1127,11 +1148,12 @@ def assert_person_blocks(
     the change sets routed through them. `previous` is read only for an
     automation: the blocks of the draft being replaced.
 
-    Pricing blocks an automation outright. Attributed statements only when
-    their words are new: an automation may carry them over unchanged, drop
-    them or import them with a recipe, but never put words into anyone's
-    mouth (catalogue rule 4, docs/architecture/site-section-catalog.md), so
-    a page with a quote stays open to it."""
+    Pricing blocks an automation outright. Attributed statements and gallery
+    captions only when their words are new: an automation may carry them
+    over unchanged, drop them or import them with a recipe, but never put
+    words into anyone's mouth nor describe work it has not seen (catalogue
+    rule 4, docs/architecture/site-section-catalog.md), so a page with a
+    quote or a gallery stays open to it."""
     if not _is_automation(context):
         return
     if any(
@@ -1139,8 +1161,11 @@ def assert_person_blocks(
         for block in blocks
     ):
         assert_person_required(context, "Cennik")
-    if _statements(blocks) - _statements(previous()) - _catalogue_statements():
+    before = list(previous())
+    if _statements(blocks) - _statements(before) - _catalogue_words(_statements):
         assert_person_required(context, "Cytaty i opinie")
+    if _captions(blocks) - _captions(before) - _catalogue_words(_captions):
+        assert_person_required(context, "Podpisy zdjęć w galerii")
 
 
 def assert_person_required(context: TenantContext, what: str) -> None:
