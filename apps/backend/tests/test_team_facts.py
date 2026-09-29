@@ -96,9 +96,10 @@ def test_a_visit_that_took_place_counts_and_a_canceled_one_does_not(
     assert counted["chosen_by_customer"]["value"] == 1
     assert counted["visits_done"]["previous"] == 0
 
-    # Before the day, nothing has taken place yet.
-    after(monkeypatch, at(day, 10, 30))
-    assert numbers(owner, first.id, day)["visits_done"]["value"] == 1
+    # Mid-afternoon: the morning visit has passed, and the one ended with
+    # „Zakończ” counts before its planned end; the later one has not happened yet.
+    after(monkeypatch, at(day, 13, 45))
+    assert numbers(owner, first.id, day)["visits_done"]["value"] == 2
     assert booked.id
 
 

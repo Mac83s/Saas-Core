@@ -337,19 +337,20 @@ def _now() -> datetime:
 
 def _done(subject: StaffSubject, span: Period) -> list[AppointmentStaffAllocation]:
     """Visits the person was on that took place: time passed, not canceled (3A).
+    A visit ended with „Zakończ” took place at once, before its planned end.
 
     The person is on a visit while their time is held on it; a lead taken off a
     visit that waits for somebody else holds none (ADR-058 §2).
     """
     return list(
         AppointmentStaffAllocation.all_objects.filter(
+            Q(appointment__ends_at__lte=_now(), appointment__status__in=_DONE)
+            | Q(appointment__status=AppointmentStatus.COMPLETED),
             organization_id=subject.organization_id,
             staff_id=subject.staff_id,
             active=True,
             appointment__starts_at__gte=span.starts,
             appointment__starts_at__lt=span.ends,
-            appointment__ends_at__lte=_now(),
-            appointment__status__in=_DONE,
         )
         .select_related("appointment", "appointment__customer")
         .order_by("appointment__starts_at", "id")

@@ -2376,7 +2376,7 @@
     "how": {
       "visits": {
         "term": "Odbyte wizyty",
-        "text": "Wizyty z udziałem osoby, których czas minął i których nie odwołano — także bez „Zakończ”."
+        "text": "Wizyty z udziałem osoby, których czas minął i których nie odwołano — także bez „Zakończ”. Wizyta zakończona przyciskiem „Zakończ” liczy się od razu."
       },
       "hours": {
         "term": "Godziny",

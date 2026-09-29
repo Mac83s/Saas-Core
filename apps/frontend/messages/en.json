@@ -2376,7 +2376,7 @@
     "how": {
       "visits": {
         "term": "Visits done",
-        "text": "Visits the person was on whose time has passed and which were not canceled — marked done or not."
+        "text": "Visits the person was on whose time has passed and which were not canceled — marked done or not. A visit closed with “Complete the visit” counts at once."
       },
       "hours": {
         "term": "Hours",
