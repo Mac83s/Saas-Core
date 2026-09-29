@@ -295,6 +295,8 @@ export function BlogPanel({ siteId }: { siteId: string }) {
                   {
                     label: t("blogWithdraw", { title: item.title }),
                     icon: <EyeOffIcon aria-hidden="true" />,
+                    // Takes the article off the site: behind "…".
+                    destructive: true,
                     onSelect: () => withdraw(item),
                   },
                 ]

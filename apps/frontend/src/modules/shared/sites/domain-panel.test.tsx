@@ -119,19 +119,14 @@ test("dodaje własną domenę i przechodzi axe", async () => {
   expect(result.violations).toHaveLength(0);
 });
 
-test("ustawia zweryfikowaną domenę jako canonical z menu wiersza", async () => {
+test("ustawia zweryfikowaną domenę jako canonical i wyłącza ją z menu", async () => {
   listSiteDomains.mockResolvedValue({
     items: [platformDomain, { ...customDomain, status: "verified" }],
   });
   renderPanel();
 
   fireEvent.click(
-    await screen.findByRole("button", {
-      name: "Działania dla domeny www.example.test",
-    }),
-  );
-  fireEvent.click(
-    await screen.findByRole("menuitem", { name: "Ustaw canonical" }),
+    await screen.findByRole("button", { name: "Ustaw canonical" }),
   );
 
   await waitFor(() => expect(mutateSiteDomain).toHaveBeenCalledOnce());
@@ -141,4 +136,14 @@ test("ustawia zweryfikowaną domenę jako canonical z menu wiersza", async () =>
   });
   // The list is read again: the other domain stops being canonical too.
   await waitFor(() => expect(listSiteDomains).toHaveBeenCalledTimes(2));
+
+  // Switching a domain off is destructive, so it sits behind "…".
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: "Działania dla domeny www.example.test",
+    }),
+  );
+  fireEvent.click(await screen.findByRole("menuitem", { name: "Wyłącz" }));
+  await waitFor(() => expect(mutateSiteDomain).toHaveBeenCalledTimes(2));
+  expect(mutateSiteDomain.mock.calls[1]?.[1]).toEqual({ action: "disable" });
 });

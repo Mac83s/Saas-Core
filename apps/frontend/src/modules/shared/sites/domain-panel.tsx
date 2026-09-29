@@ -6,6 +6,7 @@ import {
   CheckCircle2Icon,
   CopyIcon,
   PlusIcon,
+  PowerIcon,
   RefreshCwIcon,
   StarIcon,
 } from "lucide-react";
@@ -202,11 +203,14 @@ export function DomainPanel({ siteId }: { siteId: string }) {
       items.push({
         label: t("setCanonical"),
         icon: <StarIcon aria-hidden="true" />,
+        inline: true,
         onSelect: () => void action(domain, "set_canonical"),
       });
     if (domain.status === "disabled")
       items.push({
         label: t("enableDomain"),
+        icon: <PowerIcon aria-hidden="true" />,
+        inline: true,
         onSelect: () => void action(domain, "enable"),
       });
     else if (domain.status !== "released")
