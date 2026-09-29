@@ -50,3 +50,31 @@ def test_missing_override_preserves_business_dictionary_but_empty_disables_it(
         "business": replace(default, key="business", catalog_categories=())
     }
     assert categories("business") == {}
+
+
+def test_a_products_category_keywords_reach_the_search_dictionary(settings: Any) -> None:
+    """HoofCare's "werkowanie" finds a trimmer only if the profile's words get through."""
+    core = django_settings.ORGANIZATION_TYPES[django_settings.DEFAULT_ORGANIZATION_TYPE]
+    raw = {
+        "key": "trimming_company",
+        "label": {"pl": "Firma", "en": "Company"},
+        "modules": ["shared.profiles"],
+        "selfSignup": True,
+        "catalogCategories": [
+            {
+                "key": "korekcja-racic",
+                "label": {"pl": "Korekcja racic", "en": "Hoof trimming"},
+                "keywords": {"pl": ["werkowanie", "kulawizna"], "en": ["hoof care"]},
+            }
+        ],
+    }
+    (company,) = organization_types_from({"organizationTypes": [raw]}, ("shared.profiles",))
+    settings.ORGANIZATION_TYPES = {company.key: company}
+
+    keywords = categories(company.key)["korekcja-racic"].keywords
+    assert keywords == {"pl": ("werkowanie", "kulawizna"), "en": ("hoof care",)}
+    # The core dictionary carries its own, per language, for types without one.
+    settings.ORGANIZATION_TYPES = {
+        "business": replace(core, key="business", catalog_categories=None)
+    }
+    assert "stomatolog" in categories("business")["uroda-i-zdrowie"].keywords["pl"]
