@@ -69,8 +69,12 @@ swojego indeksu, zapisany w pliku, na który jego nakładka mapuje sekret
 docker network connect --alias search <produkt>_data saas-core-search-1
 curl -s -X POST http://127.0.0.1:7700/keys -H "Authorization: Bearer $MASTER" \
   -H 'Content-Type: application/json' \
-  -d '{"description":"<produkt>","actions":["*"],"indexes":["<deployment>-catalog*"],"expiresAt":null}'
+  -d '{"description":"<produkt>","actions":["search","documents.*","indexes.*","settings.*","tasks.get"],"indexes":["<deployment>-catalog*"],"expiresAt":null}'
 ```
+
+Bez `keys.*` i bez `*`: klucz produktu nie może tworzyć kluczy ani sięgać do
+indeksów innego wdrożenia. `indexes.*` obejmuje zamianę indeksów, której używa
+`reindex_catalog` (`<deployment>-catalog-next` pasuje do wzorca).
 
 (`curl` z wnętrza kontenera silnika, np. `docker exec saas-core-search-1 …`.)
 Podpięcie ginie przy odtworzeniu kontenera silnika — jak przy ClamAV.
