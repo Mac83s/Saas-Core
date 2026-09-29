@@ -35,7 +35,8 @@ podmienia go atomowo — wyszukiwanie działa przez cały czas.
 
 Katalog sam przechodzi na wyszukiwanie w PostgreSQL (bez literówek i usług).
 Widać to w metryce `saas_core_catalog_searches_total{engine="database"}` i w
-logu `catalog_search_fallback` (bez treści zapytania). Po powrocie silnika
+logu `catalog_search_fallback` (bez treści zapytania). Pierwsze zapytanie po awarii
+czeka na limit czasu, kolejne przez 30 s omijają silnik od razu. Po powrocie silnika
 `reconcile_catalog_search` w ciągu 10 minut dogania zmiany z czasu przerwy.
 
 ## Wspólny silnik na jednym hoście

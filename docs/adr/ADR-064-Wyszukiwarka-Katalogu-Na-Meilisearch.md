@@ -66,7 +66,9 @@ tys. wpisów testowych) ustalił trzy rzeczy, które kształtują tę decyzję:
    `SEARCH_TIMEOUT_SECONDS` (1,5 s) kieruje zapytanie na dotychczasowe
    wyszukiwanie PostgreSQL; metryka `saas_core_catalog_searches_total{engine}` i
    log **bez treści zapytania** (w części produktów zapytanie mówi coś o zdrowiu).
-   Lista bez słów zawsze idzie do bazy.
+   Lista bez słów zawsze idzie do bazy. Po nieudanym zapytaniu kolejne przez 30 s
+   omijają silnik: gdy jego nazwa przestaje się rozwiązywać, jedno czekanie trwało
+   ok. 4 s, dłużej niż sam limit czasu (pomiar na lokalnym stacku 29.09).
 7. **Odległość: środek miasta do środka miasta.** Słownik miast dostał
    współrzędne; promień od wybranego miasta albo od punktu „Blisko mnie” zamienia
    się w listę miast słownika, po której filtrują obie drogi — silnik i baza

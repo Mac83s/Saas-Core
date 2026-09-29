@@ -358,6 +358,28 @@ def test_an_engine_that_does_not_answer_leaves_the_database_search(
     assert [item["slug"] for item in listing.data["items"]] == ["szukaj-awaria"]
 
 
+def test_after_a_failed_search_visitors_skip_the_engine_for_a_while(
+    engine: FakeEngine, django_capture_on_commit_callbacks: Any
+) -> None:
+    _published("szukaj-przerwa", django_capture_on_commit_callbacks, headline="Fryzjer")
+    engine.down = True
+    APIClient().get(CATALOG_URL, {"q": "fryzjer"})
+    engine.down = False
+
+    listing = APIClient().get(CATALOG_URL, {"q": "fryzjer"})
+
+    # The engine answers again, but the next searches do not wait on it.
+    assert engine.searches == []
+    assert [item["slug"] for item in listing.data["items"]] == ["szukaj-przerwa"]
+
+
+def test_an_address_keeps_the_letters_slugify_would_drop() -> None:
+    client, _organization = catalog_client(slug="szukaj-adres")
+    _edit(client, display_name="Żłobek i Usługi")
+    published = client.post(PUBLISH_URL, {}, format="json", HTTP_X_CSRFTOKEN=_csrf(client))
+    assert published.data["catalog"]["slug"] == "zlobek-i-uslugi"
+
+
 def test_without_an_engine_nothing_is_queued_and_search_uses_the_database(
     monkeypatch: pytest.MonkeyPatch, django_capture_on_commit_callbacks: Any
 ) -> None:

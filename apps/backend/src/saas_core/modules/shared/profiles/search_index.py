@@ -25,6 +25,7 @@ from typing import Any
 from uuid import UUID
 
 from django.conf import settings
+from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
 
@@ -59,6 +60,11 @@ INDEX_SETTINGS: dict[str, Any] = {
 
 #: Bio is the least specific field; its start says what the company does.
 _BIO_CHARS = 1000
+#: After a failed search, visitors skip the engine for this long. Without it
+#: every search during an outage waits out the timeout — longer than the
+#: timeout itself when the engine's name no longer resolves (measured ~4 s).
+ENGINE_DOWN_SECONDS = 30
+_ENGINE_DOWN = "catalog-search-engine-down"
 
 _FOLD = str.maketrans({
     "ł": "l",
@@ -281,5 +287,11 @@ def search_ids(
     }
     if filters:
         body["filter"] = filters
-    result = engine.search(index_name(), body)
+    if cache.get(_ENGINE_DOWN):
+        raise search_engine.SearchEngineUnavailable("search_recently_down")
+    try:
+        result = engine.search(index_name(), body)
+    except search_engine.SearchEngineUnavailable:
+        cache.set(_ENGINE_DOWN, True, ENGINE_DOWN_SECONDS)
+        raise
     return [UUID(hit["id"]) for hit in result["hits"]], int(result.get("totalHits") or 0)

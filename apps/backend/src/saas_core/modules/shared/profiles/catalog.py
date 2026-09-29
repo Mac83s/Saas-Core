@@ -27,6 +27,7 @@ from saas_core.modules.shared.billing.api import authorize_entitled
 from .catalog_contract import categories, cities
 from .models import CatalogEntry, ProfileSubjectKind, PublicProfile
 from .permissions import PROFILES_ENABLED, PROFILES_MANAGE
+from .search_index import fold
 
 #: How many suffixes we try before giving up on a slug. Two companies of the
 #: same name in one town is ordinary; forty is somebody scripting.
@@ -67,7 +68,9 @@ def _entries() -> QuerySet[CatalogEntry]:
 
 
 def _free_slug(*, city_slug: str, display_name: str, entry_id: UUID | None) -> str:
-    base = slugify(display_name)[:110] or "firma"
+    # Folded first: `slugify` drops the letters Unicode does not decompose, so
+    # "Żłobek" became "zobek" and "Usługi" "usugi" in a public address.
+    base = slugify(fold(display_name))[:110] or "firma"
     candidates = _entries().filter(city_slug=city_slug, slug__startswith=base)
     if entry_id is not None:
         candidates = candidates.exclude(pk=entry_id)
