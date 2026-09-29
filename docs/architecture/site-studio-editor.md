@@ -399,3 +399,18 @@ wcześniej — „Wstaw szablon bez mojej treści” w tym samym oknie.
 Niezapisane zmiany nie giną: przed podmianą edytor zapisuje to, co jest na
 ekranie, jako osobną wersję, a podmiana buduje na niej — pominięte sekcje są
 więc w historii także wtedy, gdy nie były zapisane.
+
+„Zmień rodzaj sekcji” (druga część F4-C) zamienia jedną sekcję na inny typ
+według wersjonowanego kontraktu `packages/contracts/site-blocks/section-conversions.v1.json`
+(schemat obok): lista → pytania i odpowiedzi, pytania i odpowiedzi → lista,
+lista → tekst i pytania i odpowiedzi → tekst (pozycja staje się śródtytułem i
+akapitem, uwaga sekcji — uwagą w tekście). Kontrakt wymienia każde pole, które
+przechodzi; limity powtarzają schemat docelowy (test pilnuje zgodności), więc
+okno mówi, która pozycja zatrzymuje zmianę („Pozycja 2 ma tekst dłuższy niż
+120 znaków”). Wymagane pole, którego sekcja nie ma, dostaje znacznik
+`[Uzupełnij: …]` / `[Fill in: …]`, który edytor już pokazuje do uzupełnienia;
+pola bez miejsca w nowym typie są wypisane jako „Nie przejdzie: …”. Okno
+rysuje każdą możliwość z treścią sekcji i zmienia ją dopiero po wyborze, jako
+jeden krok cofania; dekoracja, szerokość i kotwica sekcji zostają. Sekcja w
+trakcie wypełniania (np. FAQ bez pytań) nie jest nieprawidłowo konwertowana —
+okno mówi, że tak zmienić się jej nie da.

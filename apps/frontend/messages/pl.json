@@ -1953,6 +1953,19 @@
       "unsaved": "Najpierw zapiszemy Twoje niezapisane zmiany jako osobną wersję, żeby nic nie zginęło.",
       "templateOnly": "Wstaw szablon bez mojej treści",
       "confirm": "Zmień szablon i zapisz szkic"
+    },
+    "sectionConversion": {
+      "open": "Zmień rodzaj sekcji",
+      "title": "Zmień rodzaj sekcji",
+      "description": "Treść przejdzie do sekcji innego rodzaju według stałych reguł — zobaczysz, co przejdzie, a czego nowy rodzaj nie ma. Nic się nie zmienia do wyboru, a zmianę cofniesz przyciskiem „Cofnij”.",
+      "lost": "Nie przejdzie: {fields}. Do zapisu cofniesz zmianę, po zapisie ta treść zostaje w „Historii wersji”.",
+      "nothingLost": "Przejdzie cała treść tej sekcji.",
+      "filled": "{count, plural, one {# miejsce do uzupełnienia — oznaczone „[Uzupełnij: …]”.} few {# miejsca do uzupełnienia — oznaczone „[Uzupełnij: …]”.} many {# miejsc do uzupełnienia — oznaczonych „[Uzupełnij: …]”.} other {# miejsca do uzupełnienia — oznaczone „[Uzupełnij: …]”.}}",
+      "tooMany": "Ta sekcja ma {count} pozycji, a nowy rodzaj mieści najwyżej {max}. Usuń nadmiarowe, żeby ją zmienić.",
+      "tooLong": "Pozycja {item} ma tekst dłuższy niż {max} znaków. Skróć go, żeby zmienić sekcję.",
+      "invalid": "Tej sekcji nie da się tak zmienić.",
+      "use": "Zmień",
+      "useNamed": "Zmień na: {name}"
     }
   },
   "BillingSupport": {

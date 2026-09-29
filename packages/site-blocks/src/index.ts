@@ -38,6 +38,14 @@ export {
   type HiddenField,
 } from "./hidden-fields";
 export {
+  convertSection,
+  coreSectionConversions,
+  sectionConversions,
+  type ConversionBlocker,
+  type SectionConversion,
+  type SectionConversionResult,
+} from "./section-conversions";
+export {
   composeTemplateSwap,
   keptSection,
   planTemplateSwap,

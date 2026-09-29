@@ -75,3 +75,23 @@ test("backward compatibility fixture matches rich text v1", async () => {
 
   assert.equal(validate(fixture.data), true, JSON.stringify(validate.errors));
 });
+
+test("section conversions follow their schema and name registered types", async () => {
+  const schema = await readJson("section-conversions.v1.schema.json");
+  const contract = await readJson("section-conversions.v1.json");
+  const manifest = await readJson("manifest.json");
+  const validate = new Ajv2020({ allErrors: true, strict: true }).compile(
+    schema,
+  );
+
+  assert.equal(validate(contract), true, JSON.stringify(validate.errors));
+  const types = new Set(manifest.blocks.map((block) => block.type));
+  const ids = new Set();
+  for (const conversion of contract.conversions) {
+    assert.ok(types.has(conversion.from), conversion.id);
+    assert.ok(types.has(conversion.to), conversion.id);
+    assert.notEqual(conversion.from, conversion.to, conversion.id);
+    assert.ok(!ids.has(conversion.id), `duplicate ${conversion.id}`);
+    ids.add(conversion.id);
+  }
+});

@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.saas-core.local/site-blocks/section-conversions.v1.schema.json",
+  "title": "Section conversions v1",
+  "description": "F4-C: how a section of one block type becomes another. Every pair is listed explicitly; a field the conversion does not name is reported as left behind, never dropped silently. Limits repeat the target schema's so the editor can say which item stops the change.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "conversions"],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "conversions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/conversion"
+      }
+    }
+  },
+  "$defs": {
+    "blockType": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(?:\\.[a-z][a-z0-9_]*)+$"
+    },
+    "key": {
+      "type": "string",
+      "pattern": "^[a-z][A-Za-z0-9_]*$"
+    },
+    "pair": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "$ref": "#/$defs/key"
+        },
+        {
+          "$ref": "#/$defs/key"
+        }
+      ],
+      "minItems": 2,
+      "maxItems": 2,
+      "items": false
+    },
+    "placeholder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pl", "en"],
+      "properties": {
+        "pl": {
+          "type": "string",
+          "pattern": "^\\[Uzupełnij: [^\\]]+\\]$"
+        },
+        "en": {
+          "type": "string",
+          "pattern": "^\\[Fill in: [^\\]]+\\]$"
+        }
+      }
+    },
+    "conversion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "from", "to", "layout", "fields"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "from": {
+          "$ref": "#/$defs/blockType"
+        },
+        "to": {
+          "$ref": "#/$defs/blockType"
+        },
+        "layout": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fields": {
+          "description": "Top-level data carried as is: [source key, target key].",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pair"
+          }
+        },
+        "items": {
+          "description": "A list carried item by item.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["from", "to", "max", "fields"],
+          "properties": {
+            "from": {
+              "$ref": "#/$defs/key"
+            },
+            "to": {
+              "$ref": "#/$defs/key"
+            },
+            "max": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "fields": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/pair"
+              }
+            },
+            "maxLength": {
+              "description": "Target key: longest text the target accepts.",
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "fill": {
+              "description": "Target key the target requires: the marker put where the source item has nothing.",
+              "type": "object",
+              "additionalProperties": {
+                "$ref": "#/$defs/placeholder"
+              }
+            }
+          }
+        },
+        "sections": {
+          "description": "A list written out as rich text: each item a heading and a paragraph.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["from", "heading", "text", "level", "fill"],
+          "properties": {
+            "from": {
+              "$ref": "#/$defs/key"
+            },
+            "heading": {
+              "$ref": "#/$defs/key"
+            },
+            "text": {
+              "$ref": "#/$defs/key"
+            },
+            "level": {
+              "enum": [2, 3, 4]
+            },
+            "fill": {
+              "description": "The paragraph a list with nothing to write out becomes: rich text needs one node.",
+              "$ref": "#/$defs/placeholder"
+            }
+          }
+        },
+        "note": {
+          "description": "The section's note ({title, text}) as a note in the rich text.",
+          "$ref": "#/$defs/key"
+        }
+      }
+    }
+  }
+}

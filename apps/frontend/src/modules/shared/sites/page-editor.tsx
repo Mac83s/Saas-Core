@@ -580,6 +580,15 @@ export function PageEditor({
     [draft, draftForm, onChanged, page.id, persistDraft, t, templateLocale],
   );
 
+  /** A section turned into another type (F4-C): one undo step, its anchors
+   *  kept unique against the rest of the page. */
+  function replaceSection(index: number, block: BlockFormValues) {
+    const others = draftForm
+      .getValues("blocks")
+      .filter((_, position) => position !== index);
+    blocks.update(index, withUniqueAnchors([block], others)[0]!);
+  }
+
   /** A new version with an earlier version's content (F4-A); the form and its
    *  history start over from it, like after a template import. */
   async function restoreVersion(version: PageVersionSummary) {
@@ -1357,6 +1366,9 @@ export function PageEditor({
                                     setSelectedSection(activeSection + 1);
                                   }}
                                   onRemove={() => blocks.remove(activeSection)}
+                                  onReplace={(block) =>
+                                    replaceSection(activeSection, block)
+                                  }
                                 />
                               </>
                             ) : null
@@ -1375,6 +1387,7 @@ export function PageEditor({
                             moveUp={() => blocks.swap(index, index - 1)}
                             onMediaUploaded={refreshAssets}
                             onRemove={() => blocks.remove(index)}
+                            onReplace={(block) => replaceSection(index, block)}
                             type={field.block_type}
                             isFirst={index === 0}
                             isLast={index === blocks.fields.length - 1}

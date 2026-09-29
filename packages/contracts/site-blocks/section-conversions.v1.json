@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "conversions": [
+    {
+      "id": "feature_list_to_faq",
+      "version": 1,
+      "from": "core.feature_list",
+      "to": "core.faq",
+      "layout": "accordion",
+      "fields": [["title", "title"]],
+      "items": {
+        "from": "items",
+        "to": "items",
+        "max": 30,
+        "fields": [
+          ["title", "question"],
+          ["text", "answer"]
+        ],
+        "maxLength": {
+          "question": 200,
+          "answer": 2000
+        },
+        "fill": {
+          "answer": {
+            "pl": "[Uzupełnij: odpowiedź]",
+            "en": "[Fill in: answer]"
+          }
+        }
+      }
+    },
+    {
+      "id": "faq_to_feature_list",
+      "version": 1,
+      "from": "core.faq",
+      "to": "core.feature_list",
+      "layout": "classic",
+      "fields": [["title", "title"]],
+      "items": {
+        "from": "items",
+        "to": "items",
+        "max": 16,
+        "fields": [
+          ["question", "title"],
+          ["answer", "text"]
+        ],
+        "maxLength": {
+          "title": 120,
+          "text": 1200
+        }
+      }
+    },
+    {
+      "id": "feature_list_to_rich_text",
+      "version": 1,
+      "from": "core.feature_list",
+      "to": "core.rich_text",
+      "layout": "column",
+      "fields": [
+        ["title", "title"],
+        ["lead", "lead"],
+        ["image", "image"],
+        ["action", "action"]
+      ],
+      "sections": {
+        "from": "items",
+        "heading": "title",
+        "text": "text",
+        "level": 3,
+        "fill": {
+          "pl": "[Uzupełnij: treść]",
+          "en": "[Fill in: text]"
+        }
+      },
+      "note": "note"
+    },
+    {
+      "id": "faq_to_rich_text",
+      "version": 1,
+      "from": "core.faq",
+      "to": "core.rich_text",
+      "layout": "column",
+      "fields": [["title", "title"]],
+      "sections": {
+        "from": "items",
+        "heading": "question",
+        "text": "answer",
+        "level": 3,
+        "fill": {
+          "pl": "[Uzupełnij: treść]",
+          "en": "[Fill in: text]"
+        }
+      }
+    }
+  ]
+}

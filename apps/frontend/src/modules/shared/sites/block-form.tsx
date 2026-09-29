@@ -20,6 +20,7 @@ import {
 } from "../image-generation/generate-image-dialog";
 import { PageEditorContext } from "./page-editor-context";
 import { LayoutChooser } from "./layout-chooser";
+import { SectionTypeChooser } from "./section-conversion";
 import {
   useFieldArray,
   useWatch,
@@ -214,6 +215,7 @@ export function BlockFields<TValues extends FieldValues>({
   moveUp,
   onMediaUploaded,
   onRemove,
+  onReplace,
   type,
 }: {
   assets?: readonly MediaAsset[];
@@ -226,6 +228,8 @@ export function BlockFields<TValues extends FieldValues>({
   /** An image uploaded from inside a block: the owner refreshes `assets`. */
   onMediaUploaded?: () => void;
   onRemove: () => void;
+  /** The section as another type (F4-C); absent, the change is not offered. */
+  onReplace?: (block: BlockFormValues) => void;
   type: string;
 }) {
   const t = useTranslations("Sites");
@@ -316,6 +320,18 @@ export function BlockFields<TValues extends FieldValues>({
           <Trash2Icon aria-hidden="true" />
         </Button>
       </div>
+      {onReplace && data && (
+        <SectionTypeChooser
+          block={blockPayload({
+            block_type: type,
+            data,
+            ...(decoration ? { decoration } : {}),
+            ...(presentation ? { presentation } : {}),
+          })}
+          locale={locale}
+          onConvert={(converted) => onReplace(editableBlocks([converted])[0]!)}
+        />
+      )}
       {layouts.length > 0 && (
         <Field>
           <FieldLabel htmlFor={`block-layout-${index}`}>

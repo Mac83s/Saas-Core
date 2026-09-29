@@ -1953,6 +1953,19 @@
       "unsaved": "We will first save your unsaved changes as a separate version, so nothing is lost.",
       "templateOnly": "Use the template without my content",
       "confirm": "Change the template and save the draft"
+    },
+    "sectionConversion": {
+      "open": "Change section type",
+      "title": "Change section type",
+      "description": "The content moves into a section of another type by fixed rules — you will see what comes along and what the new type has no place for. Nothing changes until you choose, and Undo takes the change back.",
+      "lost": "Will not come along: {fields}. Until you save you can undo the change; after saving this content stays in the Version history.",
+      "nothingLost": "All of this section's content comes along.",
+      "filled": "{count, plural, one {# place to fill in — marked “[Fill in: …]”.} other {# places to fill in — marked “[Fill in: …]”.}}",
+      "tooMany": "This section has {count} items and the new type holds at most {max}. Remove the extra ones to change it.",
+      "tooLong": "Item {item} has a text longer than {max} characters. Shorten it to change the section.",
+      "invalid": "This section cannot be changed this way.",
+      "use": "Change",
+      "useNamed": "Change to: {name}"
     }
   },
   "BillingSupport": {
