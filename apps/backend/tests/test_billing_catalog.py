@@ -6,7 +6,8 @@ from datetime import timedelta
 import pytest
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db import DatabaseError, IntegrityError, transaction
+from django.db import DatabaseError, IntegrityError, connection, transaction
+from django.db.migrations.executor import MigrationExecutor
 from django.utils import timezone
 
 from saas_core.modules.core.identity.models import User
@@ -57,6 +58,8 @@ QUOTA_KEYS = {
     "credits.monthly",
     # Pages on one site (billing 0024): Profile 5, Site 15, Pro 50 for now.
     "pages.max",
+    # Company templates, sections and pages together (billing 0025): 3, 10, 50.
+    "sites.templates.max",
 } | (
     # The image generator's attempt limit comes with its module's migration
     # (image_generation 0003), so only a profile composing the module has it.
@@ -96,6 +99,7 @@ def test_pilot_catalog_is_seeded_with_current_immutable_versions() -> None:
     assert starter.current_version.grace_period_days == 7
     assert starter.current_version.quotas["sites.max"] == 1
     assert starter.current_version.quotas["pages.max"] == 15
+    assert starter.current_version.quotas["sites.templates.max"] == 10
     # Published as a new version rather than edited into the old one, because a
     # published version is immutable in the model and in the database.
     assert starter.current_version.quotas["credits.monthly"] == 200
@@ -106,8 +110,30 @@ def test_pilot_catalog_is_seeded_with_current_immutable_versions() -> None:
     assert pro.current_version.quotas["storage.bytes"] == 50 * 1024**3
     assert pro.current_version.quotas["credits.monthly"] == 1000
     assert pro.current_version.quotas["pages.max"] == 50
+    assert pro.current_version.quotas["sites.templates.max"] == 50
     assert "custom_domain.enabled" in pro.current_version.feature_keys
     assert "seo.audit.enabled" not in pro.current_version.feature_keys
+
+
+def test_template_limits_walk_back_to_the_previous_versions_and_forward_again() -> None:
+    """Billing 0025 publishes a version per plan; withdrawing points the plans
+    back, and publishing again reuses that version instead of a third one."""
+    before = ("billing", "0024_pages_quota")
+    after = ("billing", "0025_site_templates_quota")
+    published = Plan.objects.get(key="starter").current_version_id
+
+    MigrationExecutor(connection).migrate([before])
+    starter = Plan.objects.select_related("current_version").get(key="starter")
+    assert "sites.templates.max" not in starter.current_version.quotas
+    assert starter.current_version.quotas["pages.max"] == 15
+    assert not QuotaDefinition.objects.filter(key="sites.templates.max").exists()
+
+    MigrationExecutor(connection).migrate([after])
+    starter = Plan.objects.select_related("current_version").get(key="starter")
+    assert starter.current_version_id == published
+    assert starter.current_version.quotas["sites.templates.max"] == 10
+    profile = Plan.objects.select_related("current_version").get(key="profile")
+    assert profile.current_version.quotas["sites.templates.max"] == 3
 
 
 def test_plan_version_rejects_unknown_catalog_keys() -> None:

@@ -345,8 +345,10 @@ zapisują, zmieniają nazwę i archiwizują.
   Każda mutacja ma klucz idempotencji i wpis audytu `sites.template.*` /
   `sites.page.own_template_imported`.
 - Limit planu: kwota `sites.templates.max` liczy aktywne (niezarchiwizowane)
-  szablony; plan bez tej kwoty nie ma limitu. Liczby per plan nie są jeszcze
-  opublikowane — do tego czasu limitu nie ma nigdzie.
+  szablony sekcji i stron razem; plan bez tej kwoty nie ma limitu. Od billing
+  0025 (decyzja właściciela 29.09, wariant c): Profil 3, Strona (starter) 10,
+  Pro 50 — nowe wersje planów, więc dostają je nowe subskrypcje i zmiany planu;
+  subskrypcja na starszej wersji zostaje bez limitu, jak przy `pages.max`.
 - Studio: „Zapisz jako szablon firmy” w panelu zaznaczonej sekcji i „Zapisz tę
   stronę jako szablon firmy” w narzędziu „Szablony” — nowy szablon albo nowa
   wersja istniejącego (to, co jest w edytorze, także niezapisane). Biblioteka
