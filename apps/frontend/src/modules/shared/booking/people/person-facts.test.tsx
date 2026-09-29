@@ -292,6 +292,49 @@ test("somebody else's results the API refuses show nothing, not an error", async
   await waitFor(() => expect(container.textContent).toBe(""));
 });
 
+test("a product's event reads through the product's own words", async () => {
+  api.getStaffHistory.mockResolvedValue({
+    period_from: "2026-09-01",
+    period_to: "2026-09-24",
+    kinds: ["field"],
+    items: [
+      {
+        at: "2026-09-24T10:05:00Z",
+        kind: "field",
+        event: "work",
+        params: { farm: "Ferma Lipowa", cows: 42 },
+        value: null,
+        unit: "",
+      },
+    ],
+    next_before: null,
+  });
+  render(
+    <NextIntlClientProvider
+      locale="en"
+      messages={{
+        ...englishMessages,
+        StaffFacts: {
+          ...englishMessages.StaffFacts,
+          event: {
+            ...englishMessages.StaffFacts.event,
+            field: { work: "Field work" },
+          },
+          detail: {
+            ...englishMessages.StaffFacts.detail,
+            field: { work: "{farm} · {cows} cows" },
+          },
+        },
+      }}
+      timeZone="Europe/Warsaw"
+    >
+      <PersonHistory currency="PLN" staffId={MARCIN} zone="Europe/Warsaw" />
+    </NextIntlClientProvider>,
+  );
+  expect(await screen.findByText("Field work")).not.toBeNull();
+  expect(screen.getByText("Ferma Lipowa · 42 cows")).not.toBeNull();
+});
+
 test("the history tells each event in words and loads older ones", async () => {
   renderIn(
     <PersonHistory currency="PLN" staffId={MARCIN} zone="Europe/Warsaw" />,

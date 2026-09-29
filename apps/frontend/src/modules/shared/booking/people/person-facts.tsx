@@ -350,8 +350,19 @@ export function PersonHistory({
         ]
           .filter(Boolean)
           .join(" · ");
-      default:
-        return "";
+      default: {
+        // A product's own event reads through its own words: its messages
+        // give `StaffFacts.detail.<provider>.<event>` over the params.
+        const key = `detail.${item.kind}.${item.event}`;
+        if (!t.has(key)) return "";
+        const values = Object.fromEntries(
+          Object.entries(params).filter(
+            (entry): entry is [string, string | number] =>
+              typeof entry[1] === "string" || typeof entry[1] === "number",
+          ),
+        );
+        return t(key, values);
+      }
     }
   };
   const eventLabel = (item: StaffEvent) =>
