@@ -15,7 +15,7 @@ karty biblioteki.
 | Treści redakcyjne | `core.rich_text` v2 | ten sam tekst redakcyjny, teraz strukturalny |
 | Listy i objaśniane kroki | `core.feature_list` v4, v5 | lista pozycji z objaśnieniem; v4 dodaje wstęp, panel uwag i dłuższe opisy, v5 kolumny, grupy, uwagi przy pozycjach i działanie sekcji (F4-P1) |
 | Cytaty redakcyjne | `core.quote` v1, v2 | cytowana wypowiedź z autorem i źródłem; nie jest opinią klienta, nie ma oceny; v2 pięć układów, tytuł, kolejne wypowiedzi i jedno działanie (F4-P2) |
-| Prezentacje produktu | `core.product` v1 | produkt z fotografiami, parametrami i zastosowaniami; bez ceny, stanu i koszyka |
+| Prezentacje produktu | `core.product` v1–v3 | produkt z fotografiami, parametrami i zastosowaniami; bez ceny, stanu i koszyka; v3 siedem układów i ich listy (F4-P4) |
 | Galerie i historie obrazem | `core.gallery` v1 | zdjęcia z tytułem i podpisem, pokazywane jako całość; zdjęcie pozycji jest opcjonalne (F4-P3) |
 
 Wszystkie poprzednie wersje schematów pozostają bez zmian i nadal są
@@ -536,3 +536,35 @@ tekst detalu bez zdjęcia. W panelu: recepta wstawia 6 sekcji z 4 zdjęciami
 „Kroków w zdjęciach” po razie, strzałki zmieniają kolejność kroków i zapis ją
 zachowuje. Koszt zdjęć strony publicznej z 8 fotografiami: 1190 KiB zamiast
 17 984 KiB oryginałów (390 i 1440 px, przeglądarka wybrała `preview`).
+
+## Faza 4, paczka F4-P4 — produkt i elektronika (2026-09-29)
+
+### `core.product` v3
+
+Do prezentacji (`showcase`, znaczniki bajt w bajt jak w v1/v2) dochodzi siedem
+układów, każdy z własną listą w danych: `detail` (duże zdjęcie i
+ponumerowane uwagi — `details`, do 6), `spec_groups` (parametry w grupach —
+`specs[].group` otwiera grupę — i dokumenty pod nimi — `documents`, do 8, tylko
+strona witryny albo `https://`), `uses` (karty zastosowań, `uses[].image`
+opcjonalne), `in_the_box` (zdjęcie zestawu i lista z ilościami — `included`, do
+16), `variant_guide` (2–3 warianty obok siebie: nazwa, dla kogo, czym się
+różni — `variants`), `materials` (karty materiałów, zdjęcie próbki opcjonalne —
+`materials`) i `how_to_order` (kroki zamówienia i działanie sekcji — `steps`).
+Nadal bez ceny, stanu magazynu i koszyka. v1 i v2 przechodzą migratorem
+tożsamościowym. Klasy są wyłącznie produktu (`site-product__…`), reguły pod
+`.site-section--product`; style strony dają nowym kartom ten sam wygląd co
+zastosowaniom. Inspektor pokazuje tylko listy układu, a wypełnione listy
+innych układów zgłasza jako niewidoczne (mechanizm `hiddenFields`).
+
+### Katalog v7: 158 wpisów, 150 w bibliotece
+
+Siedem wpisów domyślnych i dwa dodatki elektroniki: karta parametrów z
+dokumentacją (zasilanie, wejścia i wyjścia, środowisko i montaż; karta
+katalogowa, schemat, instrukcja) i zestaw uruchomieniowy. Wartości
+parametrów, ilości i szczegóły dokumentów to `[Uzupełnij: …]`; adresy
+dokumentów i przycisków są przykładowe (`example.com`, `mailto:`), co edytor
+wskazuje jako dane przykładowe. Główne działanie mają tylko „Który wariant”,
+„Jak zamówić” i zestaw uruchomieniowy. Przegląd harnessu (8 stylów ×
+320–1440): bez przepełnienia, błędów JS i drugiego głównego działania;
+poprawione po przeglądzie: lista „Co w zestawie” trzyma tytuły w jednej
+kolumnie także przy pozycji bez ilości (subgrid).

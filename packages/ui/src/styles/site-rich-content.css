@@ -1920,10 +1920,17 @@
   gap: clamp(1.25rem, 3cqw, 2.5rem);
   align-items: start;
 }
+/* One column of quantities for the whole list (subgrid), so a row without
+   a quantity keeps its title in line with the others. */
+.site-theme .site-section--product .site-product__included {
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 0.875rem;
+}
 .site-theme .site-section--product .site-product__included > li {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.25rem 0.875rem;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  row-gap: 0.25rem;
   align-items: baseline;
   padding-bottom: 0.875rem;
   border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
