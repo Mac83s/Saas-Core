@@ -196,7 +196,7 @@ check(bool(racice.get("bio")), "document has the tenant's description (read unde
 
 for query, expected in QUERIES:
     found = [item["slug"] for item in search_catalog(query=query)["items"][:3]]
-    expected_slug = slugify(COMPANIES[expected][0])
+    expected_slug = slugify(search_index.fold(COMPANIES[expected][0]))
     check(expected_slug in found, f"{query!r} -> {expected} (top 3: {found})")
 
 around = search_catalog(city_slug="olsztyn", radius_km=60)["items"]
