@@ -88,3 +88,44 @@ test("does not start a second rollback while one is running (EN)", () => {
   );
   expect(onRollback).not.toHaveBeenCalled();
 });
+
+test("offers older publications only while the API has them", () => {
+  const onLoadOlder = vi.fn();
+  const { rerender } = render(
+    <NextIntlClientProvider
+      locale="pl"
+      messages={polishMessages}
+      timeZone="Europe/Warsaw"
+    >
+      <PublicationHistory
+        currentPublicationId={live.id}
+        loading={false}
+        onLoadOlder={onLoadOlder}
+        onRollback={vi.fn()}
+        publications={[live]}
+      />
+    </NextIntlClientProvider>,
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: "Wczytaj starsze publikacje" }),
+  );
+  expect(onLoadOlder).toHaveBeenCalledOnce();
+
+  rerender(
+    <NextIntlClientProvider
+      locale="pl"
+      messages={polishMessages}
+      timeZone="Europe/Warsaw"
+    >
+      <PublicationHistory
+        currentPublicationId={live.id}
+        loading={false}
+        onRollback={vi.fn()}
+        publications={[live, older]}
+      />
+    </NextIntlClientProvider>,
+  );
+  expect(
+    screen.queryByRole("button", { name: "Wczytaj starsze publikacje" }),
+  ).toBeNull();
+});

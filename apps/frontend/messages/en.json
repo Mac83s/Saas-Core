@@ -1197,7 +1197,9 @@
       "versionsCaption": "Saved versions of this page",
       "versionOrigin": "Origin",
       "versionSaved": "Saved",
-      "versionActionsFor": "Actions for version {number}"
+      "versionActionsFor": "Actions for version {number}",
+      "moreEntries": "Load older entries",
+      "olderPublications": "Load older publications"
     },
     "noPublications": "No publications yet.",
     "publicationSequence": "Publication #{sequence}",

@@ -127,6 +127,10 @@ export function SitesPanel({
   const [report, setReport] = useState<SiteLocalizationReport>();
   const [domains, setDomains] = useState<SiteDomain[]>([]);
   const [publications, setPublications] = useState<SitePublication[]>([]);
+  // The API pages publications by cursor; null once the oldest one is loaded.
+  const [publicationsCursor, setPublicationsCursor] = useState<string | null>(
+    null,
+  );
   const [publication, setPublication] = useState<SitePublication>();
   const [loading, setLoading] = useState(true);
   const [problem, setProblem] = useState<string>();
@@ -135,6 +139,11 @@ export function SitesPanel({
   const pageReceipt = useRef<MutationReceipt | undefined>(undefined);
   const publishReceipt = useRef<MutationReceipt | undefined>(undefined);
   const rollbackReceipt = useRef<MutationReceipt | undefined>(undefined);
+  // Which site an older page of publications may still be appended to.
+  const selectedSiteIdRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    selectedSiteIdRef.current = selectedSiteId;
+  }, [selectedSiteId]);
 
   const pageSchema = useMemo(
     () =>
@@ -173,6 +182,7 @@ export function SitesPanel({
           setReport(undefined);
           setDomains([]);
           setPublications([]);
+          setPublicationsCursor(null);
           setPublication(undefined);
           setSelectedPageId(undefined);
         }
@@ -204,6 +214,7 @@ export function SitesPanel({
         setPages(pageResult.items);
         setReport(localization);
         setPublications(publicationResult.items);
+        setPublicationsCursor(publicationResult.next_cursor);
         setDomains(domainResult.items);
         setSelectedPageId((current) => {
           if (
@@ -226,6 +237,7 @@ export function SitesPanel({
           setReport(undefined);
           setDomains([]);
           setPublications([]);
+          setPublicationsCursor(null);
           setProblem(sitesErrorMessage(error, t));
         }
       } finally {
@@ -273,6 +285,7 @@ export function SitesPanel({
         setPages(pageResult.items);
         setReport(localization);
         setPublications(publicationResult.items);
+        setPublicationsCursor(publicationResult.next_cursor);
         setDomains(domainResult.items);
         setSelectedPageId(pageResult.items[0]?.id);
       })
@@ -286,6 +299,7 @@ export function SitesPanel({
           setReport(undefined);
           setDomains([]);
           setPublications([]);
+          setPublicationsCursor(null);
           setProblem(sitesErrorMessage(error, t));
         }
       })
@@ -341,6 +355,20 @@ export function SitesPanel({
         setPlanAttention(true);
         setProblem(undefined);
       } else setProblem(sitesErrorMessage(error, t));
+    }
+  }
+
+  async function loadOlderPublications(cursor: string) {
+    if (!selectedSiteId) return;
+    const siteId = selectedSiteId;
+    try {
+      const older = await listSitePublications(siteId, cursor);
+      // Another site may have been chosen while the page was on its way.
+      if (siteId !== selectedSiteIdRef.current) return;
+      setPublications((current) => [...current, ...older.items]);
+      setPublicationsCursor(older.next_cursor);
+    } catch (error) {
+      setProblem(sitesErrorMessage(error, t));
     }
   }
 
@@ -574,6 +602,7 @@ export function SitesPanel({
                     setReport(undefined);
                     setDomains([]);
                     setPublications([]);
+                    setPublicationsCursor(null);
                     setSelectedPageId(undefined);
                     setSelectedSiteId(undefined);
                     setLoading(false);
@@ -584,6 +613,7 @@ export function SitesPanel({
                   setReport(undefined);
                   setDomains([]);
                   setPublications([]);
+                  setPublicationsCursor(null);
                   setSelectedPageId(undefined);
                   setLoading(true);
                   setSelectedSiteId(item.id);
@@ -794,6 +824,11 @@ export function SitesPanel({
           <PublicationHistory
             currentPublicationId={selectedSite?.current_publication_id}
             loading={loading}
+            onLoadOlder={
+              publicationsCursor
+                ? () => void loadOlderPublications(publicationsCursor)
+                : undefined
+            }
             onRollback={(target) => void rollbackPublication(target)}
             publications={publications}
           />

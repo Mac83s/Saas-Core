@@ -566,3 +566,27 @@ test("withdraws a published entry from the row's menu", async () => {
   expect(withdrawContentEntry.mock.calls[0]?.[0]).toBe(entryId);
   await waitFor(() => expect(listContentEntries).toHaveBeenCalledTimes(2));
 });
+
+test("loads older entries from the API's cursor and appends them", async () => {
+  listContentEntries
+    .mockResolvedValueOnce({ items: [entry], next_cursor: "cursor-2" })
+    .mockResolvedValueOnce({
+      items: [
+        { ...entry, id: "older-entry", slug: "starszy", title: "Starszy wpis" },
+      ],
+      next_cursor: null,
+    });
+  renderPanel();
+
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Wczytaj starsze wpisy" }),
+  );
+
+  const table = screen.getByRole("table", { name: "Wpisy bloga" });
+  expect(await within(table).findByText("Starszy wpis")).not.toBeNull();
+  expect(within(table).getByText("Pierwszy wpis")).not.toBeNull();
+  expect(listContentEntries.mock.calls[1]).toEqual([collection.id, "cursor-2"]);
+  expect(
+    screen.queryByRole("button", { name: "Wczytaj starsze wpisy" }),
+  ).toBeNull();
+});

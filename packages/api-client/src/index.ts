@@ -1006,11 +1006,15 @@ export async function publishSite(
 
 export async function listSitePublications(
   siteId: string,
+  cursor?: string,
 ): Promise<SitePublicationList> {
   const { data, error, response } = await client.GET(
     "/api/v1/sites/{site_id}/publications/",
     {
-      params: { path: { site_id: siteId }, query: { limit: 100 } },
+      params: {
+        path: { site_id: siteId },
+        query: { limit: 100, ...(cursor ? { cursor } : {}) },
+      },
       credentials: "same-origin",
       cache: "no-store",
     },
@@ -2748,11 +2752,15 @@ export async function setCollectionNavigation(
 
 export async function listContentEntries(
   collectionId: string,
+  cursor?: string,
 ): Promise<{ items: ContentEntry[]; next_cursor: string | null }> {
   const { data, error, response } = await client.GET(
     "/api/v1/sites/collections/{collection_id}/entries/",
     {
-      params: { path: { collection_id: collectionId }, query: { limit: 100 } },
+      params: {
+        path: { collection_id: collectionId },
+        query: { limit: 100, ...(cursor ? { cursor } : {}) },
+      },
       credentials: "same-origin",
       cache: "no-store",
     },

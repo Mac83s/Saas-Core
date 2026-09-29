@@ -81,6 +81,8 @@ export function BlogPanel({ siteId }: { siteId: string }) {
   const [collections, setCollections] = useState<ContentCollection[]>([]);
   const [collectionId, setCollectionId] = useState<string>();
   const [entries, setEntries] = useState<ContentEntry[]>([]);
+  // The API pages entries by cursor; null once the oldest one is loaded.
+  const [entriesCursor, setEntriesCursor] = useState<string | null>(null);
   const [entryId, setEntryId] = useState<string>();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -123,8 +125,20 @@ export function BlogPanel({ siteId }: { siteId: string }) {
   const loadEntries = useCallback(async (targetId: string) => {
     const result = await listContentEntries(targetId);
     setEntries(result.items);
+    setEntriesCursor(result.next_cursor);
     return result.items;
   }, []);
+
+  const loadMoreEntries = async () => {
+    if (!collectionId || !entriesCursor) return;
+    try {
+      const more = await listContentEntries(collectionId, entriesCursor);
+      setEntries((current) => [...current, ...more.items]);
+      setEntriesCursor(more.next_cursor);
+    } catch (error) {
+      setProblem(sitesErrorMessage(error, t));
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -135,7 +149,10 @@ export function BlogPanel({ siteId }: { siteId: string }) {
       const next = found[0]?.id;
       setCollectionId(next);
       if (next) await loadEntries(next);
-      else setEntries([]);
+      else {
+        setEntries([]);
+        setEntriesCursor(null);
+      }
     } catch (error) {
       setProblem(sitesErrorMessage(error, t));
     } finally {
@@ -475,8 +492,6 @@ export function BlogPanel({ siteId }: { siteId: string }) {
                   {t("blogEmpty")}
                 </p>
               ) : (
-                // The API's first page (up to 100 entries); the client call
-                // takes no cursor, so there is no "load more" yet.
                 <DataTable
                   caption={t("lists.blogCaption")}
                   columns={columns}
@@ -487,6 +502,16 @@ export function BlogPanel({ siteId }: { siteId: string }) {
                   searchable
                 />
               )}
+              {entriesCursor ? (
+                <Button
+                  disabled={loading || busy}
+                  onClick={() => void loadMoreEntries()}
+                  type="button"
+                  variant="outline"
+                >
+                  {t("lists.moreEntries")}
+                </Button>
+              ) : null}
 
               <Button
                 disabled={loading || busy}

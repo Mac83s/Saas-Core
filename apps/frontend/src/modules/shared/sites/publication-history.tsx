@@ -5,6 +5,7 @@ import { RotateCcwIcon } from "lucide-react";
 
 import type { SitePublication } from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
+import { Button } from "@saas-core/ui/components/button";
 import {
   Card,
   CardContent,
@@ -20,16 +21,18 @@ import {
 
 import { useDataTableLabels } from "#lib/data-table-labels";
 
-/** The site's publications, newest first. The list is the API's first page
- *  (up to 100); the client call takes no cursor, so there is no "load more". */
+/** The site's publications, newest first, 100 at a time. */
 export function PublicationHistory({
   currentPublicationId,
   loading,
+  onLoadOlder,
   onRollback,
   publications,
 }: {
   currentPublicationId?: string | null;
   loading: boolean;
+  /** Given while the API has older publications. */
+  onLoadOlder?: () => void;
   onRollback: (publication: SitePublication) => void;
   publications: SitePublication[];
 }) {
@@ -122,6 +125,11 @@ export function PublicationHistory({
           labels={{ ...labels, empty: t("noPublications") }}
           loading={loading}
         />
+        {onLoadOlder ? (
+          <Button onClick={onLoadOlder} type="button" variant="outline">
+            {t("lists.olderPublications")}
+          </Button>
+        ) : null}
       </CardContent>
     </Card>
   );

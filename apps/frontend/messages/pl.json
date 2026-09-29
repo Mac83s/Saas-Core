@@ -1197,7 +1197,9 @@
       "versionsCaption": "Zapisane wersje tej strony",
       "versionOrigin": "Pochodzenie",
       "versionSaved": "Zapisano",
-      "versionActionsFor": "Działania dla wersji {number}"
+      "versionActionsFor": "Działania dla wersji {number}",
+      "moreEntries": "Wczytaj starsze wpisy",
+      "olderPublications": "Wczytaj starsze publikacje"
     },
     "noPublications": "Brak publikacji.",
     "publicationSequence": "Publikacja #{sequence}",
