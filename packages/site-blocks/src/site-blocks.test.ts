@@ -302,6 +302,7 @@ describe("page templates", () => {
       "core.case_study",
       "core.step_guide",
       "core.studio_portfolio",
+      "core.product_collection",
     ]);
     // The panel loads every recipe the manifest lists, at its latest version
     // (a recipe added to the manifest alone would be importable, not offered).

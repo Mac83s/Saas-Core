@@ -1,0 +1,562 @@
+{
+  "id": "core.product_collection",
+  "version": 1,
+  "category": "product",
+  "industries": [],
+  "labels": {
+    "pl": {
+      "name": "Kolekcja produktów",
+      "description": "Strona rodziny produktów, która porównuje 2–3 modele i prowadzi do zapytania: wprowadzenie, który model dla kogo, porównanie, co w zestawie, jak zamówić, pytania i formularz. Bez cen i koszyka; wymień treści demonstracyjne."
+    },
+    "en": {
+      "name": "Product collection",
+      "description": "A page for a family of products that compares 2–3 models and leads to an enquiry: introduction, which model for whom, comparison, what is included, how to order, questions and a form. No prices or cart; replace the demo content."
+    }
+  },
+  "requiredEntitlements": ["sites.enabled"],
+  "pagePresentation": {
+    "schemaVersion": 2,
+    "width": "full",
+    "style": "product"
+  },
+  "conversion": {
+    "goal": "inquiry",
+    "stages": [
+      "attention",
+      "interest",
+      "interest",
+      "objection",
+      "action",
+      "objection",
+      "action"
+    ]
+  },
+  "media": [
+    {
+      "id": "electronics",
+      "source": "assets/electronics-workshop.png",
+      "filename": "electronics-workshop.png",
+      "contentType": "image/png",
+      "sha256": "4c2d226103ee37783e586345b7c3dac12088e47210c079b6be1b54666a1c6eb8"
+    }
+  ],
+  "mediaBindings": [
+    {
+      "blockPosition": 0,
+      "mediaId": "electronics",
+      "alt": {
+        "pl": "Płytka elektroniki na niebieskiej macie warsztatowej, w tle oscyloskop i multimetr",
+        "en": "An electronics board on a blue workbench mat, with an oscilloscope and a multimeter behind it"
+      }
+    },
+    {
+      "blockPosition": 3,
+      "mediaId": "electronics",
+      "alt": {
+        "pl": "Płytka elektroniki na niebieskiej macie warsztatowej, w tle oscyloskop i multimetr",
+        "en": "An electronics board on a blue workbench mat, with an oscilloscope and a multimeter behind it"
+      },
+      "path": ["images", 0]
+    }
+  ],
+  "blocks": [
+    {
+      "block_type": "core.hero",
+      "schema_version": 6,
+      "data": {
+        "title": "Moduły sterujące w trzech rozmiarach",
+        "text": "Jedna rodzina modułów — od pierwszego prototypu po zabudowę w maszynie. Porównaj modele i zapytaj, który pasuje do Twojego projektu.",
+        "action": {
+          "label": "Zapytaj o dobór modelu",
+          "href": "#kontakt"
+        },
+        "secondaryAction": {
+          "label": "Porównaj modele",
+          "href": "#porownanie"
+        },
+        "layout": "split"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "wide"
+      }
+    },
+    {
+      "block_type": "core.product",
+      "schema_version": 3,
+      "data": {
+        "title": "Który model dla Ciebie",
+        "tagline": "Wybierz po tym, co budujesz, a nie po liczbach — szczegóły są w porównaniu niżej.",
+        "variants": [
+          {
+            "title": "Model S",
+            "fit": "Do prototypów i nauki",
+            "text": "[Uzupełnij: czym ten model różni się od pozostałych]"
+          },
+          {
+            "title": "Model M",
+            "fit": "Do urządzeń w krótkich seriach",
+            "text": "[Uzupełnij: czym ten model różni się od pozostałych]"
+          },
+          {
+            "title": "Model L",
+            "fit": "Do zabudowy w maszynach",
+            "text": "[Uzupełnij: czym ten model różni się od pozostałych]"
+          }
+        ],
+        "layout": "variant_guide"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "wide",
+        "anchor": "modele"
+      }
+    },
+    {
+      "block_type": "core.feature_list",
+      "schema_version": 5,
+      "data": {
+        "title": "Porównanie modeli",
+        "lead": "Te same pytania dla każdego modelu. Wartości wpisz z kart katalogowych.",
+        "columns": [
+          {
+            "title": "Model S"
+          },
+          {
+            "title": "Model M"
+          },
+          {
+            "title": "Model L"
+          }
+        ],
+        "items": [
+          {
+            "title": "Dla kogo",
+            "values": {
+              "first": "Do prototypów i nauki",
+              "second": "Do urządzeń w krótkich seriach",
+              "third": "Do zabudowy w maszynach"
+            }
+          },
+          {
+            "title": "Wejścia i wyjścia",
+            "values": {
+              "first": "[Uzupełnij: liczba wejść i wyjść]",
+              "second": "[Uzupełnij: liczba wejść i wyjść]",
+              "third": "[Uzupełnij: liczba wejść i wyjść]"
+            }
+          },
+          {
+            "title": "Łączność",
+            "values": {
+              "first": "[Uzupełnij: interfejsy]",
+              "second": "[Uzupełnij: interfejsy]",
+              "third": "[Uzupełnij: interfejsy]"
+            }
+          },
+          {
+            "title": "Zasilanie",
+            "values": {
+              "first": "[Uzupełnij: zakres napięcia]",
+              "second": "[Uzupełnij: zakres napięcia]",
+              "third": "[Uzupełnij: zakres napięcia]"
+            }
+          },
+          {
+            "title": "Wymiary",
+            "values": {
+              "first": "[Uzupełnij: wymiary płytki]",
+              "second": "[Uzupełnij: wymiary płytki]",
+              "third": "[Uzupełnij: wymiary płytki]"
+            }
+          }
+        ],
+        "note": {
+          "title": "Nie wiesz, który wybrać?",
+          "text": "Napisz, co budujesz. Podpowiemy model, zanim cokolwiek zamówisz."
+        },
+        "action": {
+          "label": "Zapytaj o dobór modelu",
+          "href": "#kontakt"
+        },
+        "layout": "scope_comparison"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "wide",
+        "surface": "muted",
+        "anchor": "porownanie"
+      }
+    },
+    {
+      "block_type": "core.product",
+      "schema_version": 3,
+      "data": {
+        "title": "Co dostajesz z każdym modelem",
+        "tagline": "Ten sam zestaw startowy niezależnie od rozmiaru.",
+        "images": [],
+        "included": [
+          {
+            "title": "Moduł",
+            "quantity": "1×",
+            "text": "[Uzupełnij: wersja oprogramowania]"
+          },
+          {
+            "title": "Złącza i zworki",
+            "quantity": "[Uzupełnij: ile]"
+          },
+          {
+            "title": "Karta katalogowa i instrukcja",
+            "text": "[Uzupełnij: gdzie je pobrać]"
+          },
+          {
+            "title": "Przykładowe programy",
+            "text": "[Uzupełnij: dla jakich środowisk]"
+          }
+        ],
+        "layout": "in_the_box"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "wide"
+      }
+    },
+    {
+      "block_type": "core.product",
+      "schema_version": 3,
+      "data": {
+        "title": "Jak zamówić",
+        "tagline": "Bez koszyka i zakładania konta — wystarczy wiadomość.",
+        "steps": [
+          {
+            "title": "Napisz, co budujesz",
+            "text": "Model, liczba sztuk i termin — tyle wystarczy na początek."
+          },
+          {
+            "title": "Potwierdzimy model",
+            "text": "[Uzupełnij: w jakim czasie odpowiadacie]"
+          },
+          {
+            "title": "Zamówienie i płatność",
+            "text": "[Uzupełnij: jak przyjmujecie zamówienie i płatność]"
+          },
+          {
+            "title": "Wysyłka",
+            "text": "[Uzupełnij: sposób i czas wysyłki]"
+          }
+        ],
+        "action": {
+          "label": "Napisz w sprawie zamówienia",
+          "href": "#kontakt"
+        },
+        "layout": "how_to_order"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "wide"
+      }
+    },
+    {
+      "block_type": "core.faq",
+      "schema_version": 3,
+      "data": {
+        "layout": "split",
+        "title": "Pytania o modele",
+        "items": [
+          {
+            "question": "Czy mogę zacząć od mniejszego modelu i później przejść na większy?",
+            "answer": "[Uzupełnij: czy programy i złącza przechodzą między modelami]."
+          },
+          {
+            "question": "Czy wszystkie modele mają dokumentację?",
+            "answer": "[Uzupełnij: jaka dokumentacja jest do każdego modelu]."
+          },
+          {
+            "question": "Ile trwa dostawa?",
+            "answer": "[Uzupełnij: typowy czas dostawy]."
+          },
+          {
+            "question": "Czy mogę zamówić jedną sztukę na próbę?",
+            "answer": "[Uzupełnij: czy i na jakich warunkach]."
+          }
+        ]
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "anchor": "pytania"
+      }
+    },
+    {
+      "block_type": "core.contact_form",
+      "schema_version": 2,
+      "data": {
+        "layout": "split",
+        "contact": "email",
+        "locale": "pl",
+        "title": "Zapytaj o dobór modelu",
+        "text": "Napisz, co budujesz i ile sztuk potrzebujesz. Odpowiemy [Uzupełnij: w jakim czasie] i zaproponujemy model.",
+        "submit_label": "Wyślij zapytanie",
+        "success_message": "Dziękujemy! Zapytanie dotarło. Odpowiemy e-mailem.",
+        "privacy_label": "Informacje o prywatności"
+      },
+      "presentation": {
+        "schemaVersion": 2,
+        "inner": "standard",
+        "surface": "muted",
+        "anchor": "kontakt"
+      }
+    }
+  ],
+  "localizedBlocks": {
+    "en": [
+      {
+        "block_type": "core.hero",
+        "schema_version": 6,
+        "data": {
+          "title": "Control modules in three sizes",
+          "text": "One family of modules — from the first prototype to a machine installation. Compare the models and ask which one fits your project.",
+          "action": {
+            "label": "Ask which model fits",
+            "href": "#contact"
+          },
+          "secondaryAction": {
+            "label": "Compare the models",
+            "href": "#comparison"
+          },
+          "layout": "split"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "wide"
+        }
+      },
+      {
+        "block_type": "core.product",
+        "schema_version": 3,
+        "data": {
+          "title": "Which model suits you",
+          "tagline": "Choose by what you are building, not by the numbers — the details are in the comparison below.",
+          "variants": [
+            {
+              "title": "Model S",
+              "fit": "For prototypes and learning",
+              "text": "[Fill in: how this model differs from the others]"
+            },
+            {
+              "title": "Model M",
+              "fit": "For devices made in short runs",
+              "text": "[Fill in: how this model differs from the others]"
+            },
+            {
+              "title": "Model L",
+              "fit": "For building into machines",
+              "text": "[Fill in: how this model differs from the others]"
+            }
+          ],
+          "layout": "variant_guide"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "wide",
+          "anchor": "models"
+        }
+      },
+      {
+        "block_type": "core.feature_list",
+        "schema_version": 5,
+        "data": {
+          "title": "The models compared",
+          "lead": "The same questions for every model. Take the values from the datasheets.",
+          "columns": [
+            {
+              "title": "Model S"
+            },
+            {
+              "title": "Model M"
+            },
+            {
+              "title": "Model L"
+            }
+          ],
+          "items": [
+            {
+              "title": "Who it is for",
+              "values": {
+                "first": "For prototypes and learning",
+                "second": "For devices made in short runs",
+                "third": "For building into machines"
+              }
+            },
+            {
+              "title": "Inputs and outputs",
+              "values": {
+                "first": "[Fill in: number of inputs and outputs]",
+                "second": "[Fill in: number of inputs and outputs]",
+                "third": "[Fill in: number of inputs and outputs]"
+              }
+            },
+            {
+              "title": "Connectivity",
+              "values": {
+                "first": "[Fill in: interfaces]",
+                "second": "[Fill in: interfaces]",
+                "third": "[Fill in: interfaces]"
+              }
+            },
+            {
+              "title": "Power",
+              "values": {
+                "first": "[Fill in: voltage range]",
+                "second": "[Fill in: voltage range]",
+                "third": "[Fill in: voltage range]"
+              }
+            },
+            {
+              "title": "Dimensions",
+              "values": {
+                "first": "[Fill in: board size]",
+                "second": "[Fill in: board size]",
+                "third": "[Fill in: board size]"
+              }
+            }
+          ],
+          "note": {
+            "title": "Not sure which to choose?",
+            "text": "Tell us what you are building. We will suggest a model before you order anything."
+          },
+          "action": {
+            "label": "Ask which model fits",
+            "href": "#contact"
+          },
+          "layout": "scope_comparison"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "wide",
+          "surface": "muted",
+          "anchor": "comparison"
+        }
+      },
+      {
+        "block_type": "core.product",
+        "schema_version": 3,
+        "data": {
+          "title": "What comes with every model",
+          "tagline": "The same starter set whatever the size.",
+          "images": [],
+          "included": [
+            {
+              "title": "The module",
+              "quantity": "1×",
+              "text": "[Fill in: firmware version]"
+            },
+            {
+              "title": "Headers and jumpers",
+              "quantity": "[Fill in: how many]"
+            },
+            {
+              "title": "Datasheet and guide",
+              "text": "[Fill in: where to download them]"
+            },
+            {
+              "title": "Example programs",
+              "text": "[Fill in: for which environments]"
+            }
+          ],
+          "layout": "in_the_box"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "wide"
+        }
+      },
+      {
+        "block_type": "core.product",
+        "schema_version": 3,
+        "data": {
+          "title": "How to order",
+          "tagline": "No cart and no account — a message is enough.",
+          "steps": [
+            {
+              "title": "Tell us what you are building",
+              "text": "The model, the quantity and the date — that is enough to start."
+            },
+            {
+              "title": "We confirm the model",
+              "text": "[Fill in: how soon you reply]"
+            },
+            {
+              "title": "Order and payment",
+              "text": "[Fill in: how you take the order and the payment]"
+            },
+            {
+              "title": "Shipping",
+              "text": "[Fill in: how and when you ship]"
+            }
+          ],
+          "action": {
+            "label": "Write about an order",
+            "href": "#contact"
+          },
+          "layout": "how_to_order"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "wide"
+        }
+      },
+      {
+        "block_type": "core.faq",
+        "schema_version": 3,
+        "data": {
+          "layout": "split",
+          "title": "Questions about the models",
+          "items": [
+            {
+              "question": "Can I start with a smaller model and move up later?",
+              "answer": "[Fill in: whether programs and connectors carry over between models]."
+            },
+            {
+              "question": "Do all the models come with documentation?",
+              "answer": "[Fill in: which documentation comes with each model]."
+            },
+            {
+              "question": "How long does delivery take?",
+              "answer": "[Fill in: the usual delivery time]."
+            },
+            {
+              "question": "Can I order a single unit to try?",
+              "answer": "[Fill in: whether and on what terms]."
+            }
+          ]
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "anchor": "questions"
+        }
+      },
+      {
+        "block_type": "core.contact_form",
+        "schema_version": 2,
+        "data": {
+          "layout": "split",
+          "contact": "email",
+          "locale": "en",
+          "title": "Ask which model fits",
+          "text": "Tell us what you are building and how many units you need. We will reply [Fill in: within what time] and suggest a model.",
+          "submit_label": "Send the enquiry",
+          "success_message": "Thank you! Your enquiry has arrived. We will reply by e-mail.",
+          "privacy_label": "Privacy information"
+        },
+        "presentation": {
+          "schemaVersion": 2,
+          "inner": "standard",
+          "surface": "muted",
+          "anchor": "contact"
+        }
+      }
+    ]
+  }
+}
