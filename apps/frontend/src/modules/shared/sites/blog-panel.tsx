@@ -17,7 +17,13 @@ import {
   type SubmitHandler,
   type UseFormReturn,
 } from "react-hook-form";
-import { FileTextIcon, PlusIcon, RefreshCwIcon } from "lucide-react";
+import {
+  EyeOffIcon,
+  PencilIcon,
+  PlusIcon,
+  RefreshCwIcon,
+  SendIcon,
+} from "lucide-react";
 import { z } from "zod";
 
 import {
@@ -42,6 +48,11 @@ import {
   CardTitle,
 } from "@saas-core/ui/components/card";
 import {
+  DataTable,
+  RowActions,
+  type ColumnDef,
+} from "@saas-core/ui/components/data-table";
+import {
   Field,
   FieldError,
   FieldGroup,
@@ -50,6 +61,7 @@ import {
 import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
+import { useDataTableLabels } from "#lib/data-table-labels";
 import { AutomationPolicyField } from "./automation-policy";
 import { EntryEditor } from "./entry-editor";
 import { EntrySchedule } from "./entry-schedule";
@@ -65,6 +77,7 @@ type EntryValues = { title: string; slug: string; locale: "pl" | "en" };
 export function BlogPanel({ siteId }: { siteId: string }) {
   const t = useTranslations("Sites");
   const common = useTranslations("Common");
+  const labels = useDataTableLabels();
   const [collections, setCollections] = useState<ContentCollection[]>([]);
   const [collectionId, setCollectionId] = useState<string>();
   const [entries, setEntries] = useState<ContentEntry[]>([]);
@@ -205,6 +218,7 @@ export function BlogPanel({ siteId }: { siteId: string }) {
     });
 
   function publish(target: ContentEntry) {
+    if (busy) return;
     void run(async () => {
       await publishContentEntry(
         target.id,
@@ -221,11 +235,83 @@ export function BlogPanel({ siteId }: { siteId: string }) {
   }
 
   function withdraw(target: ContentEntry) {
+    if (busy) return;
     void run(async () => {
       await withdrawContentEntry(target.id);
       if (collectionId) await loadEntries(collectionId);
     });
   }
+
+  const stateLabel = (item: ContentEntry) =>
+    t(item.state === "published" ? "blogStatePublished" : "blogStateDraft");
+  const columns: ColumnDef<ContentEntry, unknown>[] = [
+    {
+      id: "title",
+      accessorKey: "title",
+      header: t("blogEntryTitle"),
+      meta: { primary: true },
+      cell: ({ row: { original: item } }) => (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-medium wrap-anywhere">{item.title}</span>
+          {item.draft_author === "automation" && (
+            <Badge variant="outline">{t("blogProposal")}</Badge>
+          )}
+          {/* The entry open in the editor below. */}
+          {item.id === entryId && <Badge>{t("lists.editing")}</Badge>}
+        </div>
+      ),
+    },
+    {
+      id: "state",
+      accessorFn: stateLabel,
+      header: t("lists.state"),
+      cell: ({ row: { original: item } }) => (
+        <Badge variant={item.state === "published" ? "default" : "secondary"}>
+          {stateLabel(item)}
+        </Badge>
+      ),
+    },
+    {
+      id: "actions",
+      header: t("lists.actions"),
+      meta: { actions: true },
+      cell: ({ row: { original: item } }) => (
+        <RowActions
+          items={[
+            {
+              label: t("blogEdit", { title: item.title }),
+              icon: <PencilIcon aria-hidden="true" />,
+              inline: true,
+              onSelect: () => setEntryId(item.id),
+            },
+            ...(item.state === "published"
+              ? [
+                  {
+                    label: t("blogRepublish", { title: item.title }),
+                    icon: <SendIcon aria-hidden="true" />,
+                    inline: true,
+                    onSelect: () => publish(item),
+                  },
+                  {
+                    label: t("blogWithdraw", { title: item.title }),
+                    icon: <EyeOffIcon aria-hidden="true" />,
+                    onSelect: () => withdraw(item),
+                  },
+                ]
+              : [
+                  {
+                    label: t("blogPublish", { title: item.title }),
+                    icon: <SendIcon aria-hidden="true" />,
+                    inline: true,
+                    onSelect: () => publish(item),
+                  },
+                ]),
+          ]}
+          label={t("lists.blogActionsFor", { title: item.title })}
+        />
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -387,84 +473,17 @@ export function BlogPanel({ siteId }: { siteId: string }) {
                   {t("blogEmpty")}
                 </p>
               ) : (
-                <ul className="space-y-2">
-                  {entries.map((item) => (
-                    <li
-                      className="flex flex-wrap items-center gap-2 rounded-lg border p-3"
-                      key={item.id}
-                    >
-                      <FileTextIcon
-                        aria-hidden="true"
-                        className="size-4 text-muted-foreground"
-                      />
-                      <span className="flex-1 truncate font-medium">
-                        {item.title}
-                      </span>
-                      <Badge
-                        variant={
-                          item.state === "published" ? "default" : "secondary"
-                        }
-                      >
-                        {t(
-                          item.state === "published"
-                            ? "blogStatePublished"
-                            : "blogStateDraft",
-                        )}
-                      </Badge>
-                      {item.draft_author === "automation" && (
-                        <Badge variant="outline">{t("blogProposal")}</Badge>
-                      )}
-                      <Button
-                        aria-label={t("blogEdit", { title: item.title })}
-                        onClick={() => setEntryId(item.id)}
-                        size="sm"
-                        type="button"
-                        variant={item.id === entryId ? "default" : "ghost"}
-                      >
-                        {t("blogEditShort")}
-                      </Button>
-                      {item.state === "published" ? (
-                        <>
-                          <Button
-                            aria-label={t("blogRepublish", {
-                              title: item.title,
-                            })}
-                            disabled={busy}
-                            onClick={() => publish(item)}
-                            size="sm"
-                            type="button"
-                            variant="outline"
-                          >
-                            {t("blogRepublishShort")}
-                          </Button>
-                          <Button
-                            aria-label={t("blogWithdraw", {
-                              title: item.title,
-                            })}
-                            disabled={busy}
-                            onClick={() => withdraw(item)}
-                            size="sm"
-                            type="button"
-                            variant="outline"
-                          >
-                            {t("blogWithdrawShort")}
-                          </Button>
-                        </>
-                      ) : (
-                        <Button
-                          aria-label={t("blogPublish", { title: item.title })}
-                          disabled={busy}
-                          onClick={() => publish(item)}
-                          size="sm"
-                          type="button"
-                          variant="outline"
-                        >
-                          {t("blogPublishShort")}
-                        </Button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
+                // The API's first page (up to 100 entries); the client call
+                // takes no cursor, so there is no "load more" yet.
+                <DataTable
+                  caption={t("lists.blogCaption")}
+                  columns={columns}
+                  data={entries}
+                  getRowId={(item) => item.id}
+                  labels={labels}
+                  loading={loading}
+                  searchable
+                />
               )}
 
               <Button

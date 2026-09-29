@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { LanguagesIcon, PlusIcon } from "lucide-react";
+import { PlusIcon } from "lucide-react";
 
 import {
   createEntryTranslation,
@@ -25,10 +25,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@saas-core/ui/components/card";
+import { DataTable, type ColumnDef } from "@saas-core/ui/components/data-table";
 import { Field, FieldLabel } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
 import { NativeSelect } from "@saas-core/ui/components/native-select";
 
+import { useDataTableLabels } from "#lib/data-table-labels";
 import { mutationKey, type MutationReceipt } from "./idempotency";
 import { sitesErrorMessage } from "./problem";
 import { slugifyTitle } from "./slug";
@@ -44,7 +46,9 @@ export function EntryTranslations({
   onCreated: (translation: ContentEntry) => void;
 }) {
   const t = useTranslations("Sites");
+  const labels = useDataTableLabels();
   const [translations, setTranslations] = useState<ContentEntry[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [title, setTitle] = useState("");
   const [slugEdited, setSlugEdited] = useState(false);
   const [slug, setSlug] = useState("");
@@ -61,6 +65,9 @@ export function EntryTranslations({
       })
       .catch((error: unknown) => {
         if (mounted) setProblem(sitesErrorMessage(error, t));
+      })
+      .finally(() => {
+        if (mounted) setLoaded(true);
       });
     return () => {
       mounted = false;
@@ -100,6 +107,35 @@ export function EntryTranslations({
       });
   }, [address, entry.id, locale, onCreated, t, title]);
 
+  const stateLabel = (item: ContentEntry) =>
+    t(item.state === "published" ? "blogStatePublished" : "blogStateDraft");
+  const columns: ColumnDef<ContentEntry, unknown>[] = [
+    {
+      id: "title",
+      accessorKey: "title",
+      header: t("blogEntryTitle"),
+      meta: { primary: true },
+      cell: ({ row: { original: item } }) => (
+        <span className="font-medium wrap-anywhere">{item.title}</span>
+      ),
+    },
+    {
+      id: "locale",
+      accessorFn: (item) => t(item.locale === "pl" ? "localePl" : "localeEn"),
+      header: t("blogEntryLocale"),
+    },
+    {
+      id: "state",
+      accessorFn: stateLabel,
+      header: t("lists.state"),
+      cell: ({ row: { original: item } }) => (
+        <Badge variant={item.state === "published" ? "default" : "secondary"}>
+          {stateLabel(item)}
+        </Badge>
+      ),
+    },
+  ];
+
   return (
     <Card>
       <CardHeader>
@@ -112,30 +148,14 @@ export function EntryTranslations({
             {problem}
           </p>
         )}
-        <ul className="space-y-2">
-          {translations.map((item) => (
-            <li
-              className="flex flex-wrap items-center gap-2 rounded-lg border p-3"
-              key={item.id}
-            >
-              <LanguagesIcon
-                aria-hidden="true"
-                className="size-4 text-muted-foreground"
-              />
-              <span className="font-medium uppercase">{item.locale}</span>
-              <span className="flex-1 truncate">{item.title}</span>
-              <Badge
-                variant={item.state === "published" ? "default" : "secondary"}
-              >
-                {t(
-                  item.state === "published"
-                    ? "blogStatePublished"
-                    : "blogStateDraft",
-                )}
-              </Badge>
-            </li>
-          ))}
-        </ul>
+        <DataTable
+          caption={t("lists.translationsCaption")}
+          columns={columns}
+          data={translations}
+          getRowId={(item) => item.id}
+          labels={labels}
+          loading={!loaded}
+        />
 
         {missing.length > 0 && (
           <form

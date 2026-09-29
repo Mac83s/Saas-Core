@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import axe from "axe-core";
 import { beforeEach, expect, test, vi } from "vitest";
@@ -179,6 +185,10 @@ test("publishes a draft entry and reloads the list", async () => {
   renderPanel();
 
   expect(await screen.findByText("Pierwszy wpis")).not.toBeNull();
+  // The shared panel list (ADR-054): one row per entry, its state beside it.
+  const table = screen.getByRole("table", { name: "Wpisy bloga" });
+  const row = within(table).getByText("Pierwszy wpis").closest("tr")!;
+  expect(within(row).getByText("Szkic")).not.toBeNull();
   fireEvent.click(
     screen.getByRole("button", { name: "Opublikuj wpis Pierwszy wpis" }),
   );
@@ -405,6 +415,11 @@ test("adds a language version and keeps it a separate publication", async () => 
   );
 
   expect(await screen.findByText("Wersje językowe")).not.toBeNull();
+  const versions = await screen.findByRole("table", {
+    name: "Wersje językowe tego wpisu",
+  });
+  expect(await within(versions).findByText("Pierwszy wpis")).not.toBeNull();
+  expect(within(versions).getByText("Polski")).not.toBeNull();
   // Labelled distinctly from the "new entry" form: two fields with the same
   // accessible name on one screen is a real problem, not a test problem.
   fireEvent.change(screen.getByLabelText("Tytuł wersji językowej"), {
@@ -519,4 +534,35 @@ test("publikuje ponownie wpis, ktorego tresc zmienila sie po publikacji", async 
   // withdraw it first, which takes it off the site in the meantime.
   await waitFor(() => expect(publishContentEntry).toHaveBeenCalledOnce());
   expect(publishContentEntry.mock.calls[0]?.[0]).toBe(entryId);
+});
+
+test("withdraws a published entry from the row's menu", async () => {
+  listContentEntries.mockResolvedValue({
+    items: [
+      {
+        ...entry,
+        state: "published",
+        publication_id: "019ff20d-a000-7000-8000-000000000050",
+      },
+    ],
+    next_cursor: null,
+  });
+  renderPanel();
+
+  // Withdrawing takes the article off the site, so it sits behind "…"
+  // rather than next to the everyday edit and publish buttons.
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: "Działania dla wpisu Pierwszy wpis",
+    }),
+  );
+  fireEvent.click(
+    await screen.findByRole("menuitem", {
+      name: "Wycofaj wpis Pierwszy wpis",
+    }),
+  );
+
+  await waitFor(() => expect(withdrawContentEntry).toHaveBeenCalledOnce());
+  expect(withdrawContentEntry.mock.calls[0]?.[0]).toBe(entryId);
+  await waitFor(() => expect(listContentEntries).toHaveBeenCalledTimes(2));
 });
