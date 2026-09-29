@@ -3373,7 +3373,20 @@
     "contact": "Contact",
     "links": "Links",
     "specializations": "Specialisations",
-    "visitSite": "Go to the company website"
+    "visitSite": "Go to the company website",
+    "distance": "Distance",
+    "distanceHint": "Choose a town or “Near me” to search nearby.",
+    "onlyCity": "This town only",
+    "withinKm": "Within {km} km",
+    "km": "{km} km",
+    "nearMe": "Near me",
+    "nearMeActive": "Near you",
+    "nearMeClear": "Turn off “Near me”",
+    "locating": "Finding your location…",
+    "locationFailed": "Could not get your location. Choose a town.",
+    "locationPrivacy": "Your location is used for this search only and is not stored.",
+    "noExact": "Nothing matches “{query}” exactly. Similar:",
+    "mayAlso": "You might also consider"
   },
   "Profile": {
     "title": "Business card",

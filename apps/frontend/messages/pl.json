@@ -3373,7 +3373,20 @@
     "contact": "Kontakt",
     "links": "Linki",
     "specializations": "Specjalizacje",
-    "visitSite": "Przejdź na stronę firmy"
+    "visitSite": "Przejdź na stronę firmy",
+    "distance": "Odległość",
+    "distanceHint": "Wybierz miasto albo „Blisko mnie”, żeby szukać w okolicy.",
+    "onlyCity": "Tylko to miasto",
+    "withinKm": "Do {km} km",
+    "km": "{km} km",
+    "nearMe": "Blisko mnie",
+    "nearMeActive": "Blisko Ciebie",
+    "nearMeClear": "Wyłącz „Blisko mnie”",
+    "locating": "Ustalam lokalizację…",
+    "locationFailed": "Nie udało się ustalić lokalizacji. Wybierz miasto.",
+    "locationPrivacy": "Lokalizacja służy tylko temu wyszukiwaniu i nie jest zapisywana.",
+    "noExact": "Nie znaleźliśmy dokładnie „{query}”. Podobne:",
+    "mayAlso": "Może też"
   },
   "Profile": {
     "title": "Wizytówka firmy",

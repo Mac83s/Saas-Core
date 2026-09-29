@@ -3843,12 +3843,10 @@ export type CatalogItem = components["schemas"]["CatalogItem"];
 export type CatalogPage = components["schemas"]["CatalogPage"];
 export type CatalogProfile = components["schemas"]["CatalogProfile"];
 export type CatalogDictionary = components["schemas"]["CatalogDictionary"];
-export type CatalogSearch = {
-  city?: string;
-  category?: string;
-  q?: string;
-  page?: number;
-};
+/** City, category, words, page, and a radius around the town or a point. */
+export type CatalogSearch = NonNullable<
+  paths["/api/v1/public/catalog/"]["get"]["parameters"]["query"]
+>;
 
 /**
  * The company's own business card, created on first read (ADR-053 §2).
