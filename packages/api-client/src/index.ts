@@ -177,6 +177,7 @@ export type SiteTemplateVersionCreateInput =
 export type DraftSaveInput = components["schemas"]["DraftSave"];
 export type PageTemplateImportInput =
   components["schemas"]["PageTemplateImport"];
+export type OwnTemplateImportInput = components["schemas"]["OwnTemplateImport"];
 export type PageTranslation = components["schemas"]["PageTranslation"];
 export type PageTranslationList = components["schemas"]["PageTranslationList"];
 export type PageTranslationSaveInput =
@@ -1342,11 +1343,7 @@ export async function archiveSiteTemplate(templateId: string): Promise<void> {
 
 export async function importOwnPageTemplate(
   pageId: string,
-  input: {
-    expected_version: number;
-    template_id: string;
-    template_version: number;
-  },
+  input: OwnTemplateImportInput,
   idempotencyKey: string,
 ): Promise<PageDraft> {
   const csrfToken = await getCsrfToken();

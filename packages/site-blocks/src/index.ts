@@ -37,6 +37,13 @@ export {
   hiddenFields,
   type HiddenField,
 } from "./hidden-fields";
+export {
+  composeTemplateSwap,
+  keptSection,
+  planTemplateSwap,
+  type TemplateSwap,
+  type TemplateSwapPlan,
+} from "./template-swap";
 
 export {
   pagePresentationClassName,

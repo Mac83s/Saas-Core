@@ -1537,10 +1537,7 @@
       "pageSettings": "Page settings",
       "emptyCanvas": "Choose a page template on the left or open the section library.",
       "emptyBlock": "Add an empty block",
-      "replaceTitle": "Replace content with a template?",
-      "replaceDescription": "The template will replace every section on this page and save a new draft. Unsaved content changes will be discarded. The published page will stay unchanged, and the current version stays in the Version history, where you can restore it.",
       "validationError": "Complete the highlighted fields in section settings.",
-      "replaceConfirm": "Replace and save draft",
       "placeholders": {
         "summary": "{count, plural, one {This page still has # place to fill in.} other {This page still has # places to fill in.}}",
         "hint": "{count, plural, one {Replace it with a real review, figure or example before you publish.} other {Replace them with real reviews, figures and examples before you publish.}}",
@@ -1940,6 +1937,22 @@
       "archiveTitle": "Archive the template “{name}”?",
       "archiveDescription": "The template leaves the library and frees a place in the plan's limit. Pages built from it stay as they are, and its versions stay in the history.",
       "archive": "Archive"
+    },
+    "templateSwap": {
+      "title": "Change the page template to “{name}”",
+      "description": "Your content moves into the new template's sections of the same kind and takes on their look. Check where everything goes — we will save it as a new draft. The published page stays as it is, and the current version stays in the Version history.",
+      "ownSection": "{type} “{title}”",
+      "kept": "Your content in the new layout ({count})",
+      "keptItem": "{section} → {place}",
+      "fresh": "New sections with sample content ({count})",
+      "freshHint": "Replace their content with your own before publishing.",
+      "unplaced": "Your sections with no place in the new template ({count})",
+      "unplacedChoice": "What should happen to them?",
+      "append": "Add them at the end of the page",
+      "skip": "Leave them out — they stay in the Version history",
+      "unsaved": "We will first save your unsaved changes as a separate version, so nothing is lost.",
+      "templateOnly": "Use the template without my content",
+      "confirm": "Change the template and save the draft"
     }
   },
   "BillingSupport": {

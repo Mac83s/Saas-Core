@@ -359,3 +359,43 @@ zapisują, zmieniają nazwę i archiwizują.
   jej nie zmieniają. Zdjęcie usunięte z biblioteki mediów po zapisaniu
   szablonu sprawi, że import szablonu strony odmówi
   (`site_media_reference_unavailable`) — dopasowanie przy podmianie to F4-C.
+
+## Podmiana szablonu z zachowaniem treści — F4-C, 2026-09-29
+
+Szablon całej strony (gotowy albo firmy) użyty na stronie z treścią nie
+zastępuje już wszystkiego (odpowiedź właściciela 5a). Okno „Zmień szablon
+strony” pokazuje przed zapisem trzy grupy:
+
+- **Twoja treść w nowym układzie** — sekcje strony w miejscach sekcji szablonu
+  tego samego typu: tekst, listy i zdjęcia zostają, wygląd (układ, dekoracja,
+  szerokość, kotwica) jest szablonu; jeśli nowy układ czegoś nie pokaże, stoi
+  przy sekcji „Ten układ nie pokazuje: …” (treść zostaje w danych);
+- **Nowe sekcje z przykładową treścią** — miejsca szablonu, dla których strona
+  nie ma sekcji tego typu;
+- **Twoje sekcje bez miejsca** — i jawny wybór: dopisać je na końcu strony
+  albo pominąć (zostają w „Historii wersji”).
+
+Dopasowanie (`planTemplateSwap` w `@saas-core/site-blocks`) jest
+deterministyczne: typ bloku jest regułą (dane nigdy nie przechodzą między
+typami), a między kilkoma sekcjami jednego typu decydują kolejno ten sam
+układ, ta sama rola i etap ścieżki z katalogu sekcji, sama rola, sam typ;
+każde przejście idzie po szablonie od góry i bierze pierwszą wolną sekcję, więc
+sekcje jednego rodzaju zachowują kolejność. Strona nie pamięta recepty, z
+której powstała, dlatego obie strony porównania czytamy z katalogu, nie z
+etapów zapisanych pozycyjnie w recepcie. Kotwice zostają unikalne: kotwice
+sekcji szablonu wygrywają (wskazują na nie jego przyciski), kolidujące kotwice
+strony dostają nowe nazwy razem z linkami w tej samej sekcji.
+
+API: `POST …/template-import/` i `…/own-template-import/` przyjmują opcjonalnie
+`kept` (`[{slot, block}]` — miejsce szablonu i sekcja strony) oraz `appended`
+(sekcje dopisane za szablonem). Serwer pilnuje, że sekcja zajmuje miejsce
+sekcji tego samego typu i każde miejsce raz, waliduje całość jak każdy zapis
+(`save_draft`) i przenosi do organizacji tylko zdjęcia tych sekcji szablonu,
+które zostają; szablon firmy nie odwołuje się do zdjęć sekcji, które zastąpiła
+treść strony. Wersja ma pochodzenie szablonu (`origin_ref` jak dotąd), audyt
+liczy `kept_sections` i `appended_sections`. Bez tych pól import działa jak
+wcześniej — „Wstaw szablon bez mojej treści” w tym samym oknie.
+
+Niezapisane zmiany nie giną: przed podmianą edytor zapisuje to, co jest na
+ekranie, jako osobną wersję, a podmiana buduje na niej — pominięte sekcje są
+więc w historii także wtedy, gdy nie były zapisane.

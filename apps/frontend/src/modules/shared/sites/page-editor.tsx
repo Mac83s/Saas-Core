@@ -59,6 +59,7 @@ import {
   type PageTemplate,
   type SiteAppearance,
   type NavigationLink,
+  type TemplateSwap,
 } from "@saas-core/site-blocks";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
@@ -117,6 +118,7 @@ import {
 } from "./block-form";
 import { mutationKey, type MutationReceipt } from "./idempotency";
 import { privateMediaRenderer } from "./private-media-preview";
+import { TemplateSwapDialog } from "./template-swap-dialog";
 import {
   pageLookClassName,
   SectionCanvas,
@@ -428,9 +430,12 @@ export function PageEditor({
     request: number;
   }>();
   const [metadataOpen, setMetadataOpen] = useState(false);
-  const [replacementTemplate, setReplacementTemplate] = useState<
-    PageTemplate | SiteTemplate | null
-  >(null);
+  // The template chosen for a page with content, and the sections the swap
+  // preview was drawn from — the same ones the import then sends (F4-C).
+  const [replacement, setReplacement] = useState<{
+    template: PageTemplate | SiteTemplate;
+    blocks: BlockFormValues[];
+  } | null>(null);
   const [selectedSection, setSelectedSection] = useState(0);
   const activeSection = Math.min(
     selectedSection,
@@ -453,20 +458,79 @@ export function PageEditor({
   );
   const templateLocale = interfaceLocale === "en" ? "en" : "pl";
 
+  /** Saves the draft as it stands in the form; the caller takes the answer. */
+  const persistDraft = useCallback(
+    async (values: DraftValues, current: PageDraft): Promise<PageDraft> => {
+      const input = {
+        expected_version: current.version,
+        blocks: values.blocks.map(blockPayload),
+        // A picture chosen inside a block is referenced whether or not the
+        // operator also listed it below: an asset the page shows and nothing
+        // keeps alive is one storage is free to reclaim.
+        media_asset_ids: [
+          ...new Set([
+            ...values.media_asset_ids,
+            ...mediaIdsInBlocks(values.blocks),
+          ]),
+        ],
+        // Absent keeps the stored look, so a page nobody restyled sends
+        // nothing; `null` is an explicit return to the site's look.
+        ...(samePagePresentation(
+          values.page_presentation,
+          (current.page_presentation ?? null) as PagePresentation | null,
+        )
+          ? {}
+          : { page_presentation: values.page_presentation }),
+      };
+      const saved = await savePageDraft(
+        page.id,
+        input,
+        mutationKey(draftReceipt, `draft-${page.id}`, input),
+      );
+      draftReceipt.current = undefined;
+      return saved;
+    },
+    [page.id],
+  );
+
   const applyTemplate = useCallback(
-    async (template: PageTemplate | SiteTemplate) => {
+    async (
+      template: PageTemplate | SiteTemplate,
+      swap?: { plan: TemplateSwap | null; blocks: BlockFormValues[] },
+    ) => {
       if (!draft) return;
       setLoading(true);
       setProblem(undefined);
       setDraftConflict(false);
       try {
+        let expected = draft.version;
+        // Replacing a page with content first keeps what is on screen as a
+        // version of its own, so whatever the swap leaves out stays in the
+        // history — unsaved edits included.
+        if (swap && draftForm.formState.isDirty) {
+          const saved = await persistDraft(
+            { ...draftForm.getValues(), blocks: swap.blocks },
+            draft,
+          );
+          setDraft(saved);
+          expected = saved.version;
+        }
+        const composition = swap?.plan
+          ? {
+              ...(swap.plan.kept.length ? { kept: [...swap.plan.kept] } : {}),
+              ...(swap.plan.appended.length
+                ? { appended: [...swap.plan.appended] }
+                : {}),
+            }
+          : {};
         let imported: PageDraft;
         if ("labels" in template) {
           const input = {
-            expected_version: draft.version,
+            expected_version: expected,
             template_id: template.id,
             template_version: template.version,
             locale: templateLocale,
+            ...composition,
           } as const;
           imported = await importPageTemplate(
             page.id,
@@ -476,9 +540,10 @@ export function PageEditor({
         } else {
           // The organization's own page (F4-B): its content, as saved.
           const input = {
-            expected_version: draft.version,
+            expected_version: expected,
             template_id: template.id,
             template_version: template.version.number,
+            ...composition,
           };
           imported = await importOwnPageTemplate(
             page.id,
@@ -512,7 +577,7 @@ export function PageEditor({
         setLoading(false);
       }
     },
-    [draft, draftForm, onChanged, page.id, t, templateLocale],
+    [draft, draftForm, onChanged, page.id, persistDraft, t, templateLocale],
   );
 
   /** A new version with an earlier version's content (F4-A); the form and its
@@ -645,34 +710,8 @@ export function PageEditor({
     if (!draft) return;
     setProblem(undefined);
     setDraftConflict(false);
-    const input = {
-      expected_version: draft.version,
-      blocks: values.blocks.map(blockPayload),
-      // A picture chosen inside a block is referenced whether or not the
-      // operator also listed it below: an asset the page shows and nothing
-      // keeps alive is one storage is free to reclaim.
-      media_asset_ids: [
-        ...new Set([
-          ...values.media_asset_ids,
-          ...mediaIdsInBlocks(values.blocks),
-        ]),
-      ],
-      // Absent keeps the stored look, so a page nobody restyled sends
-      // nothing; `null` is an explicit return to the site's look.
-      ...(samePagePresentation(
-        values.page_presentation,
-        (draft.page_presentation ?? null) as PagePresentation | null,
-      )
-        ? {}
-        : { page_presentation: values.page_presentation }),
-    };
     try {
-      const saved = await savePageDraft(
-        page.id,
-        input,
-        mutationKey(draftReceipt, `draft-${page.id}`, input),
-      );
-      draftReceipt.current = undefined;
+      const saved = await persistDraft(values, draft);
       setDraft(saved);
       draftForm.reset(draftValues(saved));
       setPreview(undefined);
@@ -1143,7 +1182,10 @@ export function PageEditor({
                                 disabled={loading}
                                 onUse={(template) => {
                                   if (blocks.fields.length)
-                                    setReplacementTemplate(template);
+                                    setReplacement({
+                                      template,
+                                      blocks: draftForm.getValues("blocks"),
+                                    });
                                   else void applyTemplate(template);
                                 }}
                               />
@@ -1159,7 +1201,11 @@ export function PageEditor({
                                       locale={templateLocale}
                                       onApply={() => {
                                         if (blocks.fields.length)
-                                          setReplacementTemplate(template);
+                                          setReplacement({
+                                            template,
+                                            blocks:
+                                              draftForm.getValues("blocks"),
+                                          });
                                         else void applyTemplate(template);
                                       }}
                                       previewLabel={t("previewTemplate")}
@@ -1706,38 +1752,23 @@ export function PageEditor({
           </fieldset>
         </DialogContent>
       </Dialog>
-      <Dialog
-        open={Boolean(replacementTemplate)}
-        onOpenChange={(open) => {
-          if (!open) setReplacementTemplate(null);
+      <TemplateSwapDialog
+        blocks={replacement?.blocks ?? []}
+        disabled={loading}
+        locale={templateLocale}
+        onCancel={() => setReplacement(null)}
+        onConfirm={(plan) => {
+          const chosen = replacement;
+          setReplacement(null);
+          if (chosen)
+            void applyTemplate(chosen.template, {
+              plan,
+              blocks: chosen.blocks,
+            });
         }}
-      >
-        <DialogContent closeLabel={common("close")}>
-          <DialogTitle>{t("studio.replaceTitle")}</DialogTitle>
-          <DialogDescription>
-            {t("studio.replaceDescription")}
-          </DialogDescription>
-          <div className="flex flex-wrap justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setReplacementTemplate(null)}
-            >
-              {common("cancel")}
-            </Button>
-            <Button
-              type="button"
-              onClick={() => {
-                const template = replacementTemplate;
-                setReplacementTemplate(null);
-                if (template) void applyTemplate(template);
-              }}
-            >
-              {t("studio.replaceConfirm")}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        template={replacement?.template ?? null}
+        unsaved={draftForm.formState.isDirty}
+      />
     </div>
   );
 }

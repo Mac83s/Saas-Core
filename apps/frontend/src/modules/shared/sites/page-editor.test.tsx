@@ -1409,7 +1409,7 @@ test.each([
   ["pl", polishMessages],
   ["en", englishMessages],
 ] as const)(
-  "replacing existing content requires confirmation and cancel preserves dirty edits (%s)",
+  "a template for a page with content shows the swap, cancel keeps the edits, confirm keeps the content (%s)",
   async (locale, messages) => {
     const onChanged = vi.fn().mockResolvedValue(undefined);
     const onExitStateChange = vi.fn();
@@ -1435,11 +1435,20 @@ test.each([
     });
     fireEvent.click(useTemplate);
     const confirmation = screen.getByRole("dialog", {
-      name: messages.Sites.studio.replaceTitle,
+      name: messages.Sites.templateSwap.title.replace(
+        "{name}",
+        firstTemplate.labels[locale].name,
+      ),
     });
     expect(
-      within(confirmation).getByText(messages.Sites.studio.replaceDescription),
+      within(confirmation).getByText(messages.Sites.templateSwap.description),
     ).toBeDefined();
+    // The page's hero goes into the template's hero; saying so names it.
+    expect(confirmation).toHaveTextContent("Keep this local draft");
+    expect(
+      within(confirmation).getByText(messages.Sites.templateSwap.unsaved),
+    ).toBeDefined();
+    expect((await axe.run(confirmation)).violations).toHaveLength(0);
     expect(importPageTemplate).not.toHaveBeenCalled();
     expect(savePageDraft).not.toHaveBeenCalled();
     fireEvent.click(
@@ -1463,17 +1472,36 @@ test.each([
     fireEvent.click(useTemplate);
     fireEvent.click(
       within(screen.getByRole("dialog")).getByRole("button", {
-        name: messages.Sites.studio.replaceConfirm,
+        name: messages.Sites.templateSwap.confirm,
       }),
     );
     await waitFor(() => expect(importPageTemplate).toHaveBeenCalledOnce());
+    // The local edit became a version first, so nothing the swap leaves out
+    // is lost; the import builds on that version.
+    expect(savePageDraft).toHaveBeenCalledOnce();
+    expect(savePageDraft.mock.calls[0]?.[1].blocks[0].data.title).toBe(
+      "Keep this local draft",
+    );
     expect(importPageTemplate.mock.calls[0]).toEqual([
       page.id,
       {
-        expected_version: 1,
+        expected_version: 2,
         template_id: firstTemplate.id,
         template_version: firstTemplate.version,
         locale,
+        kept: [
+          {
+            slot: 0,
+            block: expect.objectContaining({
+              block_type: "core.hero",
+              schema_version: heroVersion,
+              data: expect.objectContaining({
+                title: "Keep this local draft",
+                layout: firstTemplate.blocks[0]!.data.layout,
+              }),
+            }),
+          },
+        ],
       },
       expect.any(String),
     ]);
@@ -1492,10 +1520,69 @@ test.each([
     expect(
       screen.getByRole("button", { name: messages.Sites.studio.undo }),
     ).toBeDisabled();
-    expect(savePageDraft).not.toHaveBeenCalled();
     expect(onChanged).toHaveBeenCalledOnce();
   },
 );
+
+test("the page's sections without a place are added or left out as chosen, or the template comes alone", async () => {
+  getPageDraft.mockResolvedValue({
+    ...draft,
+    blocks: [
+      draft.blocks[0],
+      {
+        id: "019ff20d-a000-7000-8000-000000000028",
+        position: 1,
+        block_type: "core.separator",
+        schema_version: 1,
+        data: { layout: "wave" },
+      },
+    ],
+  });
+  renderEditor(
+    "pl",
+    polishMessages,
+    vi.fn().mockResolvedValue(undefined),
+    true,
+  );
+  await screen.findByLabelText("Nagłówek");
+  const swap = polishMessages.Sites.templateSwap;
+  const open = () => {
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: polishMessages.Sites.studio.pageTemplates,
+      }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `Użyj szablonu ${firstTemplate.labels.pl.name}`,
+      }),
+    );
+    return screen.getByRole("dialog");
+  };
+
+  let dialog = open();
+  expect(
+    within(dialog).getByRole("heading", {
+      name: swap.unplaced.replace("{count}", "1"),
+    }),
+  ).toBeDefined();
+  fireEvent.click(within(dialog).getByRole("radio", { name: swap.skip }));
+  fireEvent.click(within(dialog).getByRole("button", { name: swap.confirm }));
+  await waitFor(() => expect(importPageTemplate).toHaveBeenCalledOnce());
+  // Nothing edited, nothing saved first; the separator stays in the history.
+  expect(savePageDraft).not.toHaveBeenCalled();
+  expect(importPageTemplate.mock.calls[0]?.[1]).not.toHaveProperty("appended");
+  expect(importPageTemplate.mock.calls[0]?.[1].kept).toHaveLength(1);
+
+  importPageTemplate.mockClear();
+  getPageDraft.mockClear();
+  dialog = open();
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: swap.templateOnly }),
+  );
+  await waitFor(() => expect(importPageTemplate).toHaveBeenCalledOnce());
+  expect(importPageTemplate.mock.calls[0]?.[1]).not.toHaveProperty("kept");
+});
 
 test("metadata errors stay visible in the dialog and retry keeps the same request key", async () => {
   savePageTranslation.mockRejectedValueOnce(
@@ -2166,7 +2253,7 @@ test.each([
   ["pl", polishMessages],
   ["en", englishMessages],
 ] as const)(
-  "a company page template replaces the content after confirmation (%s)",
+  "a company page template takes the page's content in its places after confirmation (%s)",
   async (locale, messages) => {
     listSiteTemplates.mockImplementation(async (kind?: string) => ({
       items: kind === "page" ? [ownTemplate("page", "Strona usługi", 2)] : [],
@@ -2198,12 +2285,15 @@ test.each([
       }),
     );
     const confirmation = screen.getByRole("dialog", {
-      name: messages.Sites.studio.replaceTitle,
+      name: messages.Sites.templateSwap.title.replace(
+        "{name}",
+        "Strona usługi",
+      ),
     });
     expect(importOwnPageTemplate).not.toHaveBeenCalled();
     fireEvent.click(
       within(confirmation).getByRole("button", {
-        name: messages.Sites.studio.replaceConfirm,
+        name: messages.Sites.templateSwap.confirm,
       }),
     );
     await waitFor(() => expect(importOwnPageTemplate).toHaveBeenCalledOnce());
@@ -2213,6 +2303,15 @@ test.each([
         expected_version: 1,
         template_id: "019ff20d-a000-7000-8000-0000000000f2",
         template_version: 2,
+        kept: [
+          {
+            slot: 0,
+            block: expect.objectContaining({
+              block_type: "core.hero",
+              data: expect.objectContaining({ title: "Stary nagłówek" }),
+            }),
+          },
+        ],
       },
       expect.any(String),
     ]);

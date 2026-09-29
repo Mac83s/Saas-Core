@@ -51,8 +51,10 @@ from .services import (
     SiteMediaReferenceUnavailable,
     SitesIdempotencyConflict,
     _idempotency_key,
+    _placed,
     assert_person_required,
     save_draft,
+    swap_into_template,
 )
 
 TEMPLATE_VERSION_REFERENCE_OWNER = "sites.template_version"
@@ -409,9 +411,12 @@ def import_own_page_template(
     template_version: int,
     expected_version: int,
     idempotency_key: str,
+    kept: list[dict[str, Any]] | None = None,
+    appended: list[dict[str, Any]] | None = None,
 ) -> MutationResult[PageVersion]:
     """A page template of the organization becomes the page's next draft
-    version, through the same `save_draft` as every other change."""
+    version, through the same `save_draft` as every other change. `kept` and
+    `appended` work as for a ready template (F4-C)."""
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
     if not Page.all_objects.filter(pk=page_id, organization_id=context.organization_id).exists():
         raise PageNotFound
@@ -427,13 +432,23 @@ def import_own_page_template(
     )
     if version is None:
         raise SiteTemplateNotFound
+    blocks = [dict(block) for block in version.blocks]
+    taken = swap_into_template(blocks, kept)
+    # A photo only a replaced section showed is not the page's any more.
+    left = set(block_asset_ids(block for slot, block in enumerate(blocks) if slot not in taken))
+    gone = set(block_asset_ids(blocks[slot] for slot in taken)) - left
+    request_context: dict[str, Any] = {"own_template": f"{template_id}@{template_version}"}
+    if kept:
+        request_context["kept"] = sorted(taken)
+    if appended:
+        request_context["appended"] = len(appended)
     result = save_draft(
         page_id=page_id,
         expected_version=expected_version,
-        blocks=version.blocks,
-        media_asset_ids=[UUID(item) for item in version.media_asset_ids],
+        blocks=_placed(blocks, kept, appended),
+        media_asset_ids=[UUID(item) for item in version.media_asset_ids if UUID(item) not in gone],
         idempotency_key=idempotency_key,
-        request_context={"own_template": f"{template_id}@{template_version}"},
+        request_context=request_context,
         page_presentation=version.page_presentation,
         origin=VERSION_ORIGIN_OWN_TEMPLATE,
         origin_ref=f"{version.template.name}@{template_version}",
@@ -445,5 +460,7 @@ def import_own_page_template(
             version.template,
             page_id=str(page_id),
             version=template_version,
+            **({"kept_sections": len(taken)} if kept else {}),
+            **({"appended_sections": len(appended)} if appended else {}),
         )
     return result

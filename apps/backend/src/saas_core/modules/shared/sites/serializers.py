@@ -568,7 +568,26 @@ class DraftSaveSerializer(serializers.Serializer[dict[str, Any]]):
         return value
 
 
-class PageTemplateImportSerializer(serializers.Serializer[dict[str, Any]]):
+class KeptSectionSerializer(serializers.Serializer[dict[str, Any]]):
+    #: Position of the template's section the page's own takes the place of.
+    slot = serializers.IntegerField(min_value=0)
+    block = PageBlockInputSerializer()
+
+
+class TemplateSwapSerializer(serializers.Serializer[dict[str, Any]]):
+    """F4-C: the page's sections in the template's places, the rest after it.
+    Absent, the template replaces every section, as before."""
+
+    kept = KeptSectionSerializer(many=True, required=False)
+    appended = PageBlockInputSerializer(many=True, required=False)
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        if len(attrs.get("kept", ())) + len(attrs.get("appended", ())) > 200:
+            raise serializers.ValidationError("Draft może zawierać maksymalnie 200 bloków.")
+        return attrs
+
+
+class PageTemplateImportSerializer(TemplateSwapSerializer):
     locale = serializers.ChoiceField(choices=("pl", "en"), required=False)
     expected_version = serializers.IntegerField(min_value=0)
     template_id = serializers.RegexField(
@@ -798,7 +817,7 @@ class SiteTemplateListSerializer(serializers.Serializer[dict[str, Any]]):
     limit = serializers.IntegerField(allow_null=True)
 
 
-class OwnTemplateImportSerializer(serializers.Serializer[dict[str, Any]]):
+class OwnTemplateImportSerializer(TemplateSwapSerializer):
     expected_version = serializers.IntegerField(min_value=0)
     template_id = serializers.UUIDField()
     template_version = serializers.IntegerField(min_value=1)

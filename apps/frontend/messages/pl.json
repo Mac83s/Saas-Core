@@ -1537,10 +1537,7 @@
       "pageSettings": "Ustawienia strony",
       "emptyCanvas": "Wybierz gotową stronę po lewej lub otwórz bibliotekę sekcji.",
       "emptyBlock": "Dodaj pusty blok",
-      "replaceTitle": "Zastąpić treść szablonem?",
-      "replaceDescription": "Gotowy szablon zastąpi wszystkie sekcje tej podstrony i zapisze nowy szkic. Niezapisane zmiany treści zostaną odrzucone. Opublikowana strona pozostanie bez zmian, a obecna wersja zostaje w „Historii wersji” — możesz ją przywrócić.",
       "validationError": "Uzupełnij zaznaczone pola w ustawieniach sekcji.",
-      "replaceConfirm": "Zastąp i zapisz szkic",
       "placeholders": {
         "summary": "{count, plural, one {Na tej stronie zostało # miejsce do uzupełnienia.} few {Na tej stronie zostały # miejsca do uzupełnienia.} many {Na tej stronie zostało # miejsc do uzupełnienia.} other {Na tej stronie zostało # miejsca do uzupełnienia.}}",
         "hint": "Zastąp je prawdziwymi opiniami, liczbami i przykładami przed publikacją.",
@@ -1940,6 +1937,22 @@
       "archiveTitle": "Zarchiwizować szablon „{name}”?",
       "archiveDescription": "Szablon zniknie z biblioteki i zwolni miejsce w limicie planu. Strony zbudowane z niego zostają bez zmian, a jego wersje pozostają w historii.",
       "archive": "Zarchiwizuj"
+    },
+    "templateSwap": {
+      "title": "Zmień szablon strony na „{name}”",
+      "description": "Twoja treść przejdzie do sekcji nowego szablonu tego samego rodzaju i przyjmie ich wygląd. Sprawdź, co gdzie trafi — zapiszemy to jako nowy szkic. Opublikowana strona się nie zmieni, a obecna wersja zostaje w „Historii wersji”.",
+      "ownSection": "{type} „{title}”",
+      "kept": "Twoja treść w nowym układzie ({count})",
+      "keptItem": "{section} → {place}",
+      "fresh": "Nowe sekcje z przykładową treścią ({count})",
+      "freshHint": "Wymień ich treść na swoją przed publikacją.",
+      "unplaced": "Twoje sekcje bez miejsca w nowym szablonie ({count})",
+      "unplacedChoice": "Co z nimi zrobić?",
+      "append": "Dopisz je na końcu strony",
+      "skip": "Pomiń je — zostaną w „Historii wersji”",
+      "unsaved": "Najpierw zapiszemy Twoje niezapisane zmiany jako osobną wersję, żeby nic nie zginęło.",
+      "templateOnly": "Wstaw szablon bez mojej treści",
+      "confirm": "Zmień szablon i zapisz szkic"
     }
   },
   "BillingSupport": {

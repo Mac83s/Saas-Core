@@ -5389,6 +5389,10 @@ export interface components {
             /** Format: date-time */
             created_at: string;
         };
+        KeptSection: {
+            slot: number;
+            block: components["schemas"]["PageBlockInput"];
+        };
         /**
          * @description * `note` - Notatka
          *     * `alert` - Uwaga
@@ -5641,7 +5645,13 @@ export interface components {
             teams: number;
             waiting: number | null;
         };
+        /**
+         * @description F4-C: the page's sections in the template's places, the rest after it.
+         *     Absent, the template replaces every section, as before.
+         */
         OwnTemplateImport: {
+            kept?: components["schemas"]["KeptSection"][];
+            appended?: components["schemas"]["PageBlockInput"][];
             expected_version: number;
             /** Format: uuid */
             template_id: string;
@@ -5720,7 +5730,13 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
         };
+        /**
+         * @description F4-C: the page's sections in the template's places, the rest after it.
+         *     Absent, the template replaces every section, as before.
+         */
         PageTemplateImport: {
+            kept?: components["schemas"]["KeptSection"][];
+            appended?: components["schemas"]["PageBlockInput"][];
             locale?: components["schemas"]["LocaleEnum"];
             expected_version: number;
             template_id: string;

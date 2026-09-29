@@ -1439,6 +1439,40 @@ def save_draft(
     return MutationResult(version, True)
 
 
+def swap_into_template(
+    blocks: list[dict[str, Any]],
+    kept: list[dict[str, Any]] | None,
+) -> set[int]:
+    """The template's sections that the page's own take the place of (F4-C).
+
+    The page chose the places; the rule kept here is the one the editor
+    matches by — a section keeps its own block type, so a template's list is
+    never filled with the page's questions. Returns the positions taken.
+    """
+    taken: set[int] = set()
+    for item in kept or ():
+        slot = item["slot"]
+        if slot >= len(blocks) or slot in taken:
+            raise ValidationError({"kept": "Każde miejsce szablonu można zająć raz."})
+        if item["block"]["block_type"] != blocks[slot]["block_type"]:
+            raise ValidationError({
+                "kept": "Sekcja strony zajmuje w szablonie tylko miejsce sekcji tego samego typu."
+            })
+        taken.add(slot)
+    return taken
+
+
+def _placed(
+    blocks: list[dict[str, Any]],
+    kept: list[dict[str, Any]] | None,
+    appended: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    placed = list(blocks)
+    for item in kept or ():
+        placed[item["slot"]] = item["block"]
+    return [*placed, *(appended or ())]
+
+
 @transaction.atomic
 def import_page_template(
     *,
@@ -1449,8 +1483,14 @@ def import_page_template(
     idempotency_key: str,
     text_values: dict[str, str] | None = None,
     locale: str = "pl",
+    kept: list[dict[str, Any]] | None = None,
+    appended: list[dict[str, Any]] | None = None,
 ) -> MutationResult[PageVersion]:
-    from .page_templates import page_template_catalog
+    """The template becomes the page's next draft version. With `kept` and
+    `appended` (F4-C) the page's own sections take the places the editor
+    matched and the rest follow the template; only the photos of the
+    template's sections that stay are brought into the organization."""
+    from .page_templates import bind_media, page_template_catalog
 
     authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
     template = page_template_catalog().get(
@@ -1474,9 +1514,21 @@ def import_page_template(
 
         blocks = render_slots(template, text_values)
         request_context["text_values"] = text_values
+    taken = swap_into_template(blocks, kept)
+    if kept:
+        request_context["kept"] = sorted(taken)
+    if appended:
+        request_context["appended"] = len(appended)
+    bindings = tuple(
+        binding for binding in template.media_bindings if binding["blockPosition"] not in taken
+    )
+    # Only the photos of the template's sections that stay; a plain import
+    # brings every approved photo of the recipe, as it always has.
+    bound = {binding["mediaId"] for binding in bindings}
+    media = [medium for medium in template.media if not taken or medium.id in bound]
     materializations = []
     try:
-        for medium in template.media:
+        for medium in media:
             materializations.append(
                 materialize_approved_media_asset(
                     source_key=(
@@ -1494,16 +1546,19 @@ def import_page_template(
                     ai_origin="generated" if medium.ai_generated else "none",
                 )
             )
-        template.bind_media(
+        bind_media(
+            bindings,
             blocks,
-            {medium.id: str(item.asset.id)
-             for medium, item in zip(template.media, materializations, strict=True)},
+            {
+                medium.id: str(item.asset.id)
+                for medium, item in zip(media, materializations, strict=True)
+            },
             locale,
         )
         result = save_draft(
             page_id=page_id,
             expected_version=expected_version,
-            blocks=blocks,
+            blocks=_placed(blocks, kept, appended),
             media_asset_ids=[item.asset.id for item in materializations],
             idempotency_key=idempotency_key,
             request_context=request_context,
@@ -1529,6 +1584,8 @@ def import_page_template(
                     "template_id": template.id,
                     "template_version": template.version,
                     "media_asset_count": len(materializations),
+                    **({"kept_sections": len(taken)} if kept else {}),
+                    **({"appended_sections": len(appended)} if appended else {}),
                 },
             )
     except Exception:

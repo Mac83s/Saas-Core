@@ -15341,6 +15341,17 @@ components:
       - id
       - role
       - status
+    KeptSection:
+      type: object
+      properties:
+        slot:
+          type: integer
+          minimum: 0
+        block:
+          $ref: '#/components/schemas/PageBlockInput'
+      required:
+      - block
+      - slot
     KindA87Enum:
       enum:
       - note
@@ -15934,7 +15945,18 @@ components:
       - waiting
     OwnTemplateImport:
       type: object
+      description: |-
+        F4-C: the page's sections in the template's places, the rest after it.
+        Absent, the template replaces every section, as before.
       properties:
+        kept:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeptSection'
+        appended:
+          type: array
+          items:
+            $ref: '#/components/schemas/PageBlockInput'
         expected_version:
           type: integer
           minimum: 0
@@ -16160,7 +16182,18 @@ components:
       - version
     PageTemplateImport:
       type: object
+      description: |-
+        F4-C: the page's sections in the template's places, the rest after it.
+        Absent, the template replaces every section, as before.
       properties:
+        kept:
+          type: array
+          items:
+            $ref: '#/components/schemas/KeptSection'
+        appended:
+          type: array
+          items:
+            $ref: '#/components/schemas/PageBlockInput'
         locale:
           $ref: '#/components/schemas/LocaleEnum'
         expected_version:
