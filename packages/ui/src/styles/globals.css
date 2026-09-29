@@ -596,6 +596,22 @@
   object-fit: cover;
   border-radius: inherit;
 }
+/* Where a layout fills a frame with the photo, the wrapper fills the frame.
+   An image with a srcset (F4-P3) is only as wide as its `sizes` slot on its
+   own, so a shrinking wrapper would leave the photo narrower than the frame. */
+:is(
+    .site-section__photo,
+    .site-section__image,
+    .site-figure,
+    .site-product__gallery,
+    .site-gallery__photo,
+    .site-contact__photo,
+    .site-contact-form__intro,
+    .site-quote__portrait
+  )
+  .site-ai-media {
+  display: block;
+}
 .site-ai-badge {
   position: absolute;
   top: 0.5rem;

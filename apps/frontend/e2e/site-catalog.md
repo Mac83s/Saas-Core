@@ -66,6 +66,7 @@ bash apps/frontend/e2e/site-catalog-run.sh cleanup
 | `SITE_CATALOG_STYLES`                                              | style strony po przecinku; domyślnie wszystkie 8 z `page-presentation.v2`                                         |
 | `SITE_CATALOG_ALL=1`                                               | wszystkie oferowane szablony; domyślnie tylko wpisy, których `(id, version)` nie ma w `section-templates.v6.json` |
 | `SITE_CATALOG_PAGES=1`                                             | dodatkowo każda oferowana (nie wycofana) receptura strony, importowana tym samym endpointem co w panelu           |
+| `SITE_CATALOG_ONLY`                                                | prefiksy id po przecinku (np. `core.gallery,core.studio_portfolio`): tylko te szablony i receptury                |
 | `SITE_CATALOG_PROXY`                                               | Caddy stosu, przez który idzie opublikowana witryna; domyślnie `127.0.0.1:8080`                                   |
 | `SAAS_CORE_BACKEND_CONTAINER`                                      | kontener backendu dla fikstury; domyślnie `saas-core-backend-1`                                                   |
 | `SITE_CATALOG_EMAIL`, `SITE_CATALOG_PASSWORD`, `SITE_CATALOG_SLUG` | gotowe konto; gdy są ustawione, spec nie zakłada ani nie usuwa konta sam                                          |
@@ -104,7 +105,11 @@ pierwszym) i na końcu test pada z ich listą:
   `.site-section__action` bez modyfikatora `--secondary` w każdym bezpośrednim
   dziecku `main` (jedno dziecko = jedna sekcja);
 - liczba wyrenderowanych sekcji równa liczbie szablonów na stronie (inaczej
-  zrzuty sekcji nie pasowałyby do szablonów).
+  zrzuty sekcji nie pasowałyby do szablonów);
+- **kopie zdjęć nie zmieniają układu** — po zrzutach każde zdjęcie traci
+  `srcset` i wczytuje oryginał, jak przed F4-P3; jego pudełko musi zostać to
+  samo (±1 px). Inaczej ramka układu zależy od `sizes`, np. opakowanie odznaki
+  „AI” kurczy się do szerokości slotu.
 
 ## Test edytora tekstu (`site-rich-text-editor.spec.ts`)
 

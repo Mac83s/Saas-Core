@@ -70,14 +70,23 @@ const inV6 = new Set(
     (template) => `${template.id}@${template.version}`,
   ),
 );
+// Only the ids starting with one of these (templates and recipes alike).
+const only = env.SITE_CATALOG_ONLY?.split(",")
+  .map((prefix) => prefix.trim())
+  .filter(Boolean);
+const chosen = (id: string) =>
+  !only?.length || only.some((prefix) => id.startsWith(prefix));
 const templates = offeredSectionTemplates().filter(
   (template) =>
-    env.SITE_CATALOG_ALL === "1" ||
-    !inV6.has(`${template.id}@${template.version}`),
+    (env.SITE_CATALOG_ALL === "1" ||
+      !inV6.has(`${template.id}@${template.version}`)) &&
+    chosen(template.id),
 );
 const recipes =
   env.SITE_CATALOG_PAGES === "1"
-    ? corePageTemplates().filter((recipe) => !isRetiredPageTemplate(recipe.id))
+    ? corePageTemplates().filter(
+        (recipe) => !isRetiredPageTemplate(recipe.id) && chosen(recipe.id),
+      )
     : [];
 
 interface Source {
@@ -414,6 +423,40 @@ test.describe("Site catalogue screenshots (F4-P0a)", () => {
                   .screenshot({ path: path.join(out, file) });
                 taken.add(file);
               }
+              // The copies in a srcset (F4-P3) change what is downloaded,
+              // never the layout: without them — the original file, as
+              // before — every photo keeps its box.
+              const boxes = () =>
+                visitor.evaluate(() =>
+                  Array.from(document.images).map((image) => {
+                    const box = image.getBoundingClientRect();
+                    return [Math.round(box.width), Math.round(box.height)];
+                  }),
+                );
+              const withCopies = await boxes();
+              await visitor.evaluate(() =>
+                Promise.all(
+                  Array.from(document.images)
+                    .filter((image) => image.srcset)
+                    .map((image) => {
+                      image.loading = "eager";
+                      image.removeAttribute("sizes");
+                      image.removeAttribute("srcset");
+                      return image.decode().catch(() => undefined);
+                    }),
+                ),
+              );
+              const originals = await boxes();
+              withCopies.forEach(([width, height], index) => {
+                const [before, beforeHeight] = originals[index]!;
+                if (
+                  Math.abs(width - before) > 1 ||
+                  Math.abs(height - beforeHeight) > 1
+                )
+                  failures.push(
+                    `${label}: image ${index + 1} is ${width}×${height} with its copies, ${before}×${beforeHeight} as the original`,
+                  );
+              });
             } catch (error) {
               failures.push(
                 `${label}: ${String(error instanceof Error ? error.message : error).split("\n")[0]}`,

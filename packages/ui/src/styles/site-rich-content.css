@@ -1608,7 +1608,7 @@
 /* Captioned grid and the mosaic: tiles that fill the row. */
 .site-theme .site-section--captioned_grid .site-gallery__items,
 .site-theme .site-section--project_mosaic .site-gallery__items {
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
 }
 /* Photo story: one photo after another, wide, the caption under each. */
 .site-theme .site-section--photo_story .site-gallery__items {
@@ -1624,7 +1624,7 @@
 /* Steps in photos: numbered, in order. */
 .site-theme .site-section--photo_steps .site-gallery__items {
   counter-reset: site-gallery-step;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
 }
 .site-theme .site-section--photo_steps .site-gallery__item {
   counter-increment: site-gallery-step;
