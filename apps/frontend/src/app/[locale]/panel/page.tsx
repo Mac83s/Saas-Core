@@ -3,7 +3,6 @@ import {
   CalendarDaysIcon,
   CreditCardIcon,
   Globe2Icon,
-  SparklesIcon,
   UsersIcon,
   type LucideIcon,
 } from "lucide-react";
@@ -11,12 +10,12 @@ import { getTranslations } from "next-intl/server";
 
 import { Link } from "#i18n/navigation";
 import { GettingStarted } from "#components/panel/getting-started";
+import { PanelPage, PanelSection } from "#components/panel/panel-page";
 import { getServerCurrentOrganization, getServerUser } from "#lib/server-auth";
 import { allows, panelAccess } from "#lib/panel-navigation";
 import ProductDashboard from "../../../product/dashboard";
-import { Badge } from "@saas-core/ui/components/badge";
 
-export default async function PanelPage() {
+export default async function PanelHomePage() {
   const [user, organization, t] = await Promise.all([
     getServerUser(),
     getServerCurrentOrganization(),
@@ -71,53 +70,31 @@ export default async function PanelPage() {
   ].filter((item): item is NonNullable<typeof item> => item !== null);
 
   return (
-    <div className="space-y-8">
-      <section className="relative overflow-hidden rounded-3xl border bg-gradient-to-br from-primary/12 via-background to-background p-6 shadow-sm sm:p-10">
-        <div className="relative z-10 max-w-3xl space-y-5">
-          <Badge className="w-fit" variant="secondary">
-            <SparklesIcon aria-hidden="true" />
-            {t("eyebrow")}
-          </Badge>
-          <div className="space-y-3">
-            <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
-              {t("greeting", {
-                name:
-                  user?.first_name ||
-                  organization?.name ||
-                  user?.email.split("@")[0] ||
-                  "",
-              })}
-            </h1>
-            <p className="max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-              {t("description")}
-            </p>
-          </div>
-        </div>
-        <div
-          aria-hidden="true"
-          className="absolute -right-20 -top-24 size-72 rounded-full bg-primary/10 blur-3xl"
-        />
-      </section>
-
+    <PanelPage
+      description={t("description")}
+      eyebrow={t("eyebrow")}
+      title={t("greeting", {
+        name:
+          user?.first_name ||
+          organization?.name ||
+          user?.email.split("@")[0] ||
+          "",
+      })}
+    >
       {/* The next step to take, ahead of the things one can always do. */}
       {organization ? <GettingStarted access={access} /> : null}
 
-      <section aria-labelledby="quick-actions-heading" className="space-y-4">
-        <div>
-          <h2 className="text-xl font-semibold" id="quick-actions-heading">
-            {t("quickActions")}
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {t("quickActionsDescription")}
-          </p>
-        </div>
+      <PanelSection
+        description={t("quickActionsDescription")}
+        title={t("quickActions")}
+      >
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {actions.map((action) => (
             <ActionCard key={action.href} {...action} />
           ))}
         </div>
-      </section>
-    </div>
+      </PanelSection>
+    </PanelPage>
   );
 }
 
