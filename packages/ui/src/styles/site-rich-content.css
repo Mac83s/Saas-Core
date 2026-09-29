@@ -1651,7 +1651,7 @@
   }
   .site-theme
     .site-section--dominant_details
-    .site-gallery__item:not(:first-child)
+    .site-gallery__item:not(:first-child, .site-gallery__item--text)
     figure {
     grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
     align-items: start;
