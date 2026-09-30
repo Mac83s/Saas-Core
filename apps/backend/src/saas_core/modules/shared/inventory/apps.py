@@ -10,6 +10,13 @@ class InventoryConfig(AppConfig):
     def ready(self) -> None:
         from django.apps import apps
 
+        from saas_core.modules.core.organizations.demo import register_demo_part
+
+        from .demo import seed_warehouse
+
+        # Stock and movements for a demo organization (seed_demo).
+        register_demo_part("inventory.warehouse", seed_warehouse, order=40)
+
         # A person's card shows what they took and used — where there are cards.
         if apps.is_installed("saas_core.modules.shared.booking"):
             from .facts import register

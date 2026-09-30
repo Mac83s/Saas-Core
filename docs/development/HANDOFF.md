@@ -146,6 +146,10 @@ magazyn 9 → wyszukiwarka → magazyn 10 → pozostałe listy na DataTable.
 - **Workspace platformy** dostaje `sites.enabled` bez `sites.max`, więc
   założenie witryny kończy się `QuotaUnavailable`
   (`provision_platform_workspace.py:45`).
+- **Dane demo stosu testowego:** `manage.py seed_demo` (30.09) zakłada firmę z
+  zespołem, plan bez płatności, kalendarz z wizytami (także w „Do przydzielenia”) i
+  magazyn z ruchami; tylko z `DEMO_SEED_ENABLED=1`, nigdy na produkcji; produkty
+  podają własny scenariusz (`docs/development/demo-data.md`).
 - **Strony marketingowe:** brak bloga i stron prawnych; formularz kontaktowy
   czeka na klucze (`contact/page.tsx:21`); SCR dla stron marketingowych
   (plan 14:133).

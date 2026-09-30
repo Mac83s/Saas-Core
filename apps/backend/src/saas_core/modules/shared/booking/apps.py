@@ -22,6 +22,12 @@ class BookingConfig(AppConfig):
 
         # The person the office added is the one who accepts the invitation.
         register_invitation_accepted(link_on_join)
+        # A demo day board on a staging stack (seed_demo).
+        from saas_core.modules.core.organizations.demo import register_demo_part
+
+        from .demo import seed_calendar
+
+        register_demo_part("booking.calendar", seed_calendar, order=30)
         # What the people on a visit hear about it (ADR-058 §9).
         register_templates()
         # A person's results and history: the calendar's and the account's (phase 5).

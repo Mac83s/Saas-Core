@@ -34,3 +34,11 @@ class BillingConfig(AppConfig):
         )
         # An invitation takes a seat of the plan; Core asks through this.
         register_seat_limit(team_members_limit)
+        # A demo organization's plan, before any module needs it (seed_demo).
+        from saas_core.modules.core.organizations.demo import (  # noqa: PLC0415
+            register_demo_part,
+        )
+
+        from .demo import seed_plans  # noqa: PLC0415
+
+        register_demo_part("billing.plan", seed_plans, order=10)

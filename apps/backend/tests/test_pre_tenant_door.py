@@ -37,6 +37,11 @@ DECLARED_DOOR: dict[str, tuple[int, str]] = {
         "usunięcie tenanta: sprawdzenie, czy rejestr nadal zna tę organizację, "
         "gdy tenanta już nie ma",
     ),
+    "modules/core/organizations/demo.py": (
+        1,
+        "seed_demo na stosie testowym: czy organizacja demo o tym slugu już jest, "
+        "zanim da się ustawić jej tenanta",
+    ),
     "modules/core/organizations/management/commands/erase_organization.py": (
         1,
         "komenda operatorska: odnalezienie organizacji po identyfikatorze, zanim "
