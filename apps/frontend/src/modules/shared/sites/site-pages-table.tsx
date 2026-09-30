@@ -52,6 +52,10 @@ type Show = "live" | "deleted";
 /** A page's address in the site's own language is `/<slug>/`. */
 const slugOf = (path: string) => path.replace(/^\/|\/$/g, "");
 
+/** Where visitors find the page: the home page's slug redirects to the root. */
+const publicPath = (page: PageListItem) =>
+  page.page_type === "homepage" && page.path ? "/" : page.path;
+
 /**
  * The site's pages on the panel's list standard (ADR-054, ADR-057; decision 7,
  * 30.09): what each page is, where it answers, whether visitors see it and in
@@ -185,14 +189,7 @@ export function SitePagesTable({
       meta: { primary: true },
       cell: ({ row: { original: page } }) => (
         <>
-          <p className="font-medium wrap-anywhere">
-            {page.name}
-            {page.page_type === "homepage" ? (
-              <Badge className="ml-2" variant="outline">
-                {types("pageType_homepage")}
-              </Badge>
-            ) : null}
-          </p>
+          <p className="font-medium wrap-anywhere">{page.name}</p>
           {page.title && page.title !== page.name ? (
             <p className="text-xs text-muted-foreground wrap-anywhere">
               {page.title}
@@ -203,11 +200,11 @@ export function SitePagesTable({
     },
     {
       id: "path",
-      accessorFn: (page) => page.path ?? "",
+      accessorFn: (page) => publicPath(page) ?? "",
       header: t("colPath"),
       cell: ({ row: { original: page } }) =>
-        page.path ? (
-          <code className="text-sm wrap-anywhere">{page.path}</code>
+        publicPath(page) ? (
+          <code className="text-sm wrap-anywhere">{publicPath(page)}</code>
         ) : (
           <span className="text-muted-foreground">{t("noPath")}</span>
         ),
@@ -268,7 +265,7 @@ export function SitePagesTable({
             icon: <ExternalLinkIcon aria-hidden="true" />,
             link: (
               <a
-                href={`${publicBaseUrl}${page.page_type === "homepage" ? "/" : page.path}`}
+                href={`${publicBaseUrl}${publicPath(page)}`}
                 rel="noreferrer"
                 target="_blank"
               />
@@ -280,7 +277,8 @@ export function SitePagesTable({
             icon: <HomeIcon aria-hidden="true" />,
             onSelect: () => void markHome(page),
           });
-        if (page.path)
+        // The home page answers at the root whatever its slug says.
+        if (page.path && page.page_type !== "homepage")
           items.push({
             label: t("changeAddress"),
             icon: <LinkIcon aria-hidden="true" />,

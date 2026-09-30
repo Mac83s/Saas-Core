@@ -155,7 +155,7 @@ test("lists what each page is, where it answers and what visitors see", async ()
 
   expect(screen.getByRole("table", { name: "Podstrony witryny" })).toBeTruthy();
   expect(within(row("Start")).getByText("Opublikowana")).toBeTruthy();
-  expect(within(row("Start")).getByText("/start/")).toBeTruthy();
+  expect(within(row("Start")).getByText("/")).toBeTruthy();
   expect(
     within(row("Oferta")).getByText("Zmiany nieopublikowane"),
   ).toBeTruthy();
@@ -171,7 +171,7 @@ test("lists what each page is, where it answers and what visitors see", async ()
   expect((await axe.run(rendered.container)).violations).toHaveLength(0);
 });
 
-test("offers no deleting for the home page and opens the published page", async () => {
+test("offers no deleting or moving for the home page and opens it at the root", async () => {
   renderTable();
 
   fireEvent.click(screen.getByRole("button", { name: "Działania: Start" }));
@@ -182,6 +182,8 @@ test("offers no deleting for the home page and opens the published page", async 
   expect(
     screen.queryByRole("menuitem", { name: "Ustaw jako główną" }),
   ).toBeNull();
+  // It answers at the root whatever its slug, so there is no address to move.
+  expect(screen.queryByRole("menuitem", { name: "Zmień adres" })).toBeNull();
 });
 
 test("the last page cannot be deleted either", async () => {
