@@ -25,7 +25,10 @@ from saas_core.modules.core.organizations.context import (
     activate_tenant_context,
     set_local_organization_id,
 )
-from saas_core.modules.core.organizations.models import Organization, OrganizationStatus
+from saas_core.modules.core.organizations.models import (
+    WORKING_ORGANIZATION_STATUSES,
+    Organization,
+)
 from saas_core.modules.core.organizations.tasks import InvalidTenantTaskContext
 from saas_core.observability import correlation_id
 
@@ -109,7 +112,7 @@ class ApiKeyTenantContextMiddleware:
             # organization to set before reading anything else.
             set_local_organization_id(route.organization_id)
             organization = Organization.objects.filter(
-                pk=route.organization_id, status=OrganizationStatus.ACTIVE
+                pk=route.organization_id, status__in=WORKING_ORGANIZATION_STATUSES
             ).first()
             if organization is None:
                 return _problem(
@@ -181,7 +184,7 @@ def deferred_api_key_context(
                 pk=route.api_key_id, revoked_at__isnull=True
             ).first()
             if api_key is None or not Organization.objects.filter(
-                pk=route.organization_id, status=OrganizationStatus.ACTIVE
+                pk=route.organization_id, status__in=WORKING_ORGANIZATION_STATUSES
             ).exists():
                 raise InvalidTenantTaskContext(f"{causation_id}: klucz nie jest już ważny.")
             permissions: set[str] = set()

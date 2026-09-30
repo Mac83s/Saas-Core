@@ -25,7 +25,13 @@ from .context import (
     set_local_organization_id,
 )
 from .email import InvitationEmailDeliveryError, get_invitation_email_sender
-from .models import Invitation, Membership, MembershipStatus, Organization, OrganizationStatus
+from .models import (
+    WORKING_ORGANIZATION_STATUSES,
+    Invitation,
+    Membership,
+    MembershipStatus,
+    Organization,
+)
 
 TENANT_TASK_CONTEXT_SALT = "saas-core.tenant-task-context.v1"
 logger = logging.getLogger("saas_core.security")
@@ -166,10 +172,7 @@ def _active_membership(
             organization_id=organization_id,
             user_id=actor_id,
             status=MembershipStatus.ACTIVE,
-            organization__status__in=[
-                OrganizationStatus.ONBOARDING,
-                OrganizationStatus.ACTIVE,
-            ],
+            organization__status__in=WORKING_ORGANIZATION_STATUSES,
         )
         .filter(Q(role__organization__isnull=True) | Q(role__organization_id=F("organization_id")))
         .first()
@@ -281,7 +284,7 @@ def _service_context(contract: TenantTaskContract) -> TenantContext:
         raise InvalidTenantTaskContext("Service tenant context ma niedozwolony zakres.")
     if not Organization.objects.filter(
         pk=contract.organization_id,
-        status__in=[OrganizationStatus.ONBOARDING, OrganizationStatus.ACTIVE],
+        status__in=WORKING_ORGANIZATION_STATUSES,
     ).exists():
         raise InvalidTenantTaskContext("Service tenant context wskazuje nieaktywną organizację.")
     return TenantContext(

@@ -9,7 +9,10 @@ from django.db import transaction
 from rest_framework.exceptions import NotFound, ValidationError
 
 from saas_core.modules.core.organizations.context import set_local_organization_id
-from saas_core.modules.core.organizations.models import Organization, OrganizationStatus
+from saas_core.modules.core.organizations.models import (
+    WORKING_ORGANIZATION_STATUSES,
+    Organization,
+)
 from saas_core.modules.shared.media.api import ai_generated_asset_ids
 
 from .ai_badge import badge_visible
@@ -42,7 +45,7 @@ def tenant_is_servable(organization_id: Any) -> bool:
     with transaction.atomic():
         set_local_organization_id(organization_id)
         return Organization.objects.filter(
-            pk=organization_id, status=OrganizationStatus.ACTIVE
+            pk=organization_id, status__in=WORKING_ORGANIZATION_STATUSES
         ).exists()
 
 

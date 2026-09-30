@@ -224,9 +224,9 @@ def _select_only_organization(*, request: HttpRequest, user: User) -> None:
         ACTIVE_ORGANIZATION_SESSION_KEY,
     )
     from saas_core.modules.core.organizations.models import (  # noqa: PLC0415
+        WORKING_ORGANIZATION_STATUSES,
         Membership,
         MembershipStatus,
-        OrganizationStatus,
     )
     from saas_core.modules.core.organizations.pre_tenant import PRE_TENANT_DB  # noqa: PLC0415, E501
 
@@ -238,10 +238,7 @@ def _select_only_organization(*, request: HttpRequest, user: User) -> None:
         Membership.objects.using(PRE_TENANT_DB).filter(
             user=user,
             status=MembershipStatus.ACTIVE,
-            organization__status__in=[
-                OrganizationStatus.ONBOARDING,
-                OrganizationStatus.ACTIVE,
-            ],
+            organization__status__in=WORKING_ORGANIZATION_STATUSES,
         )
         .order_by("organization_id")
         .values_list("organization_id", flat=True)[:2]

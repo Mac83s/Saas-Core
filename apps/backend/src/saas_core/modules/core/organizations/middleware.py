@@ -15,7 +15,12 @@ from .context import (
     context_from_membership,
     set_local_organization_id,
 )
-from .models import Membership, MembershipStatus, OrganizationStatus, WorkspaceKind
+from .models import (
+    WORKING_ORGANIZATION_STATUSES,
+    Membership,
+    MembershipStatus,
+    WorkspaceKind,
+)
 from .pre_tenant import PRE_TENANT_DB
 
 ACTIVE_ORGANIZATION_SESSION_KEY = "organizations_active_organization_id"
@@ -91,10 +96,7 @@ class TenantContextMiddleware:
                 organization_id=organization_id,
                 user_id=user.pk,
                 status=MembershipStatus.ACTIVE,
-                organization__status__in=[
-                    OrganizationStatus.ONBOARDING,
-                    OrganizationStatus.ACTIVE,
-                ],
+                organization__status__in=WORKING_ORGANIZATION_STATUSES,
             )
             .filter(
                 Q(role__organization__isnull=True) | Q(role__organization_id=F("organization_id"))

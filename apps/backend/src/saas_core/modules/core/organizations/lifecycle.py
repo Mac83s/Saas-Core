@@ -22,13 +22,13 @@ from .context import TenantContext, set_local_organization_id
 from .joining import announce_invitation_accepted, assert_seat_available
 from .middleware import ACTIVE_ORGANIZATION_SESSION_KEY
 from .models import (
+    WORKING_ORGANIZATION_STATUSES,
     Invitation,
     InvitationStatus,
     Membership,
     MembershipStatus,
     Organization,
     OrganizationAuditAction,
-    OrganizationStatus,
     Role,
 )
 from .permissions import (
@@ -231,7 +231,7 @@ def accept_invitation(*, request: HttpRequest, token: str) -> Membership:
         invitation is None
         or not invitation.is_usable(at=now)
         or invitation.organization.status
-        not in {OrganizationStatus.ONBOARDING, OrganizationStatus.ACTIVE}
+        not in WORKING_ORGANIZATION_STATUSES
         or invitation.role.key == "owner"
         or invitation.role.organization_id not in {None, invitation.organization_id}
     ):

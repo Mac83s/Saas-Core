@@ -28,10 +28,10 @@ from saas_core.modules.core.organizations.context import (
     set_local_organization_id,
 )
 from saas_core.modules.core.organizations.models import (
+    WORKING_ORGANIZATION_STATUSES,
     Membership,
     MembershipStatus,
     Organization,
-    OrganizationStatus,
 )
 from saas_core.modules.shared.billing.api import (
     authorize_entitled,
@@ -90,7 +90,7 @@ def _membership_context(job: ImageGenerationJob) -> TenantContext | None:
             user_id=job.created_by_id,
             status=MembershipStatus.ACTIVE,
             user__status=UserStatus.ACTIVE,
-            organization__status=OrganizationStatus.ACTIVE,
+            organization__status__in=WORKING_ORGANIZATION_STATUSES,
         )
         .first()
     )

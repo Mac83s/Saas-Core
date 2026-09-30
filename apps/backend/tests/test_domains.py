@@ -568,6 +568,37 @@ def test_tls_authorization_denies_arbitrary_pending_and_inactive_domains() -> No
     assert suspended.status_code == 404
 
 
+@pytest.mark.parametrize(
+    ("status", "served"),
+    [
+        (OrganizationStatus.ONBOARDING, True),
+        (OrganizationStatus.ACTIVE, True),
+        (OrganizationStatus.SUSPENDED, False),
+    ],
+)
+@override_settings(PUBLIC_SITE_SCHEME="https")
+def test_a_company_still_being_set_up_has_its_published_site_served(
+    status: str, served: bool
+) -> None:
+    """Nothing moves a company out of "W trakcie konfiguracji", so a renderer
+    that served only active ones answered 404 for every newly registered
+    company's published site (decision 6a, 2026-09-30)."""
+    client, organization, user = domain_client(slug=f"domain-{status}")
+    site_response = create_site(client, f"{status}-site")
+    site = Site.all_objects.get(pk=site_response.data["id"])
+    publish_fixture(site, user)
+    platform = Domain.all_objects.get(site=site, kind=DomainKind.PLATFORM)
+    organization.status = status
+    organization.save(update_fields=["status", "updated_at"])
+    cache.clear()
+
+    public = APIClient().get(
+        "/api/v1/public/site/", {"path": "/"}, HTTP_HOST=platform.hostname
+    )
+
+    assert public.status_code == (200 if served else 404)
+
+
 @override_settings(PUBLIC_SITE_SCHEME="https")
 def test_public_renderer_matches_paths_however_they_end() -> None:
     """Publishing writes trailing-slash paths ("/oferta/"), and the resolver

@@ -18,6 +18,7 @@ from .authorization import authorize
 from .context import set_local_organization_id
 from .middleware import ACTIVE_ORGANIZATION_SESSION_KEY
 from .models import (
+    WORKING_ORGANIZATION_STATUSES,
     BillingProfile,
     Membership,
     MembershipStatus,
@@ -80,7 +81,7 @@ def list_organizations(*, request: HttpRequest) -> list[OrganizationAccess]:
                 str(membership.organization_id) == active_id
                 and membership.status == MembershipStatus.ACTIVE
                 and membership.organization.status
-                in {OrganizationStatus.ONBOARDING, OrganizationStatus.ACTIVE}
+                in WORKING_ORGANIZATION_STATUSES
             ),
         )
         for membership in memberships
@@ -157,10 +158,7 @@ def set_active_organization(
             organization_id=organization_id,
             user=user,
             status=MembershipStatus.ACTIVE,
-            organization__status__in=[
-                OrganizationStatus.ONBOARDING,
-                OrganizationStatus.ACTIVE,
-            ],
+            organization__status__in=WORKING_ORGANIZATION_STATUSES,
         )
         .filter(Q(role__organization__isnull=True) | Q(role__organization_id=F("organization_id")))
         .values_list("id", flat=True)
@@ -177,10 +175,7 @@ def set_active_organization(
             organization_id=organization_id,
             user=user,
             status=MembershipStatus.ACTIVE,
-            organization__status__in=[
-                OrganizationStatus.ONBOARDING,
-                OrganizationStatus.ACTIVE,
-            ],
+            organization__status__in=WORKING_ORGANIZATION_STATUSES,
         )
         .filter(Q(role__organization__isnull=True) | Q(role__organization_id=F("organization_id")))
         .first()

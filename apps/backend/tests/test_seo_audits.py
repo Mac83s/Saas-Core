@@ -256,6 +256,24 @@ def test_unverified_or_incomplete_delivery_keeps_hold(seo: Any, failure: str) ->
     assert (order.state, order.credit_state, order.report_hash) == ("reconciling", "reserved", "")
 
 
+@pytest.mark.parametrize(
+    ("status", "starts"),
+    [("onboarding", True), ("active", True), ("suspended", False)],
+)
+def test_a_company_still_being_set_up_gets_its_audit(seo: Any, status: str, starts: bool) -> None:
+    """The worker ran audits only for active companies, and nothing makes one
+    active (decision 6a, 2026-09-30)."""
+    order = order_for(seo)
+    _, org, *_ = seo
+    org.status = status
+    org.save(update_fields=["status", "updated_at"])
+    source = FakeSource(order)
+    dispatch_audit(order.organization_id, order.id, source=source)
+    order.refresh_from_db()
+    assert ("start" in source.calls) is starts
+    assert (order.state == "cancelled") is not starts
+
+
 def test_revoked_requester_cannot_start_but_existing_purchase_can_settle(seo: Any) -> None:
     order = order_for(seo)
     source = FakeSource(order)

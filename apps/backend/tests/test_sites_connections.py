@@ -552,3 +552,62 @@ def test_a_proposal_diff_is_rebuilt_from_what_is_stored() -> None:
     assert body["blocks_after"][0]["data"]["text"] == ("Akapit dopisany przez optymalizator.")
     assert body["sources"][0]["kind"] == "search_console"
     assert body["risk"] == "low"
+
+
+@pytest.mark.parametrize(
+    ("status", "works"),
+    [("onboarding", True), ("active", True), ("suspended", False)],
+)
+def test_a_key_of_a_company_still_being_set_up_works(status: str, works: bool) -> None:
+    """A key worked only for an active company, and nothing makes a company
+    active (decision 6a, 2026-09-30): a request and a queued task alike."""
+    from django.contrib.auth.hashers import make_password
+    from django.test import Client
+
+    from saas_core.modules.core.organizations.tasks import InvalidTenantTaskContext
+    from saas_core.modules.shared.notifications.api_key_middleware import (
+        deferred_api_key_context,
+    )
+    from saas_core.modules.shared.notifications.models import (
+        ApiKey,
+        ApiKeyCredentialRoute,
+    )
+
+    client, organization, user = sites_client(slug=f"key-{status}", role_key="owner")
+    create_site(client)
+    raw = "sc_live_" + status[0] * 32
+    api_key = ApiKey.all_objects.create(
+        organization=organization,
+        name="SeoContentRank",
+        prefix=raw[:18],
+        secret_hash=make_password(raw),
+        scopes=["content:read"],
+        created_by=user,
+    )
+    ApiKeyCredentialRoute.objects.create(
+        prefix=raw[:18],
+        api_key_id=api_key.id,
+        organization_id=organization.id,
+        secret_hash=api_key.secret_hash,
+        scopes=["content:read"],
+    )
+    organization.status = status
+    organization.save(update_fields=["status", "updated_at"])
+
+    answered = Client().get("/api/v1/sites/capabilities/", HTTP_AUTHORIZATION=f"Bearer {raw}")
+    assert answered.status_code == (200 if works else 403), answered.content
+
+    def run_later() -> None:
+        with deferred_api_key_context(
+            organization_id=organization.id,
+            credential_id=api_key.id,
+            required_scope="content:read",
+            causation_id="working-status",
+        ):
+            pass
+
+    if works:
+        run_later()
+    else:
+        with pytest.raises(InvalidTenantTaskContext):
+            run_later()

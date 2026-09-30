@@ -15,7 +15,11 @@ from django.core.cache import cache
 from django.db import connection
 from django.utils import timezone
 
-from saas_core.modules.core.organizations.models import Membership, MembershipStatus
+from saas_core.modules.core.organizations.models import (
+    Membership,
+    MembershipStatus,
+    Organization,
+)
 from saas_core.modules.shared.billing.models import (
     CreditLedgerEntry,
     CreditReservation,
@@ -239,6 +243,22 @@ def test_revoked_membership_before_the_claim_releases_everything(
     assert (job.state, job.error_code) == (JobState.FAILED, "request_authorization_revoked")
     assert provider.requests == []
     assert credits(job) == "released"
+
+
+@pytest.mark.parametrize(
+    ("status", "generates"),
+    [("onboarding", True), ("active", True), ("suspended", False)],
+)
+def test_a_company_still_being_set_up_gets_its_image(
+    job: ImageGenerationJob, media: Any, status: str, generates: bool
+) -> None:
+    """The worker generated only for active companies, and nothing makes one
+    active (decision 6a, 2026-09-30)."""
+    Organization.objects.filter(pk=job.organization_id).update(status=status)
+    provider = FakeProvider(image())
+    job = run(job, provider)
+    assert (len(provider.requests) == 1) is generates
+    assert (job.state == JobState.SUCCEEDED) is generates
 
 
 def test_a_late_result_after_losing_the_lease_is_discarded(

@@ -20,6 +20,14 @@ class OrganizationStatus(models.TextChoices):
     ARCHIVED = "archived", "Zarchiwizowana"
 
 
+#: An organization "W trakcie konfiguracji" works like an active one: its
+#: people sign in, its site is served, its keys and background jobs run. Only
+#: suspension and archiving stop it. Nothing moves an organization out of
+#: onboarding on its own, so a check for ACTIVE alone shut every newly
+#: registered company out (decision 6a, 2026-09-30).
+WORKING_ORGANIZATION_STATUSES = (OrganizationStatus.ONBOARDING, OrganizationStatus.ACTIVE)
+
+
 class WorkspaceKind(models.TextChoices):
     PERSONAL = "personal", "Osobista"
     BUSINESS = "business", "Firmowa"
