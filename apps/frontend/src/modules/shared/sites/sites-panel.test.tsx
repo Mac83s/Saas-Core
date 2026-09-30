@@ -553,3 +553,17 @@ test("a new page opens in its editor", async () => {
     ),
   );
 });
+
+test("until the pages arrive the list is loading, not empty, and no page is gone", async () => {
+  listSitePages.mockReturnValue(new Promise(() => {}));
+  renderPanel();
+  expect(await screen.findByText("Ładowanie podstron…")).not.toBeNull();
+  expect(screen.queryByText("Witryna nie ma jeszcze podstron.")).toBeNull();
+  cleanup();
+
+  renderPanel({ section: "page", pageId: page.id });
+  expect(await screen.findByText("Przychodnia")).not.toBeNull();
+  expect(
+    screen.queryByText("Tej podstrony nie ma — mogła zostać usunięta."),
+  ).toBeNull();
+});

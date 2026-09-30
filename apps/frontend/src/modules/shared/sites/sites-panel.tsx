@@ -153,6 +153,9 @@ export function SitesPanel({
   );
   const [publication, setPublication] = useState<SitePublication>();
   const [loading, setLoading] = useState(true);
+  // Which site the pages, report and domains on screen belong to: until they
+  // arrive the list is loading, not empty, and a page is not yet "gone".
+  const [detailsFor, setDetailsFor] = useState<string>();
   const [problem, setProblem] = useState<string>();
   const [requiresPlan, setRequiresPlan] = useState(false);
   const [planAttention, setPlanAttention] = useState(false);
@@ -247,6 +250,7 @@ export function SitesPanel({
           setProblem(sitesErrorMessage(error, t));
         }
       } finally {
+        setDetailsFor(siteId);
         setLoading(false);
       }
     },
@@ -314,7 +318,9 @@ export function SitesPanel({
         }
       })
       .finally(() => {
-        if (mounted) setLoading(false);
+        if (!mounted) return;
+        setDetailsFor(selectedSiteId);
+        setLoading(false);
       });
     return () => {
       mounted = false;
@@ -420,7 +426,9 @@ export function SitesPanel({
     if (selectedSiteId) await loadSiteDetails(selectedSiteId, selectedPageId);
   }
 
-  const hasSite = sites.length > 0;
+  // Until the sites arrive the page is the section's, not the onboarding's.
+  const hasSite = sites.length > 0 || loading;
+  const detailsLoading = loading || detailsFor !== selectedSiteId;
   const heading = (
     <PanelPage
       actions={
@@ -695,7 +703,7 @@ export function SitesPanel({
         <SitePagesTable
           defaultLocale={selectedSite.default_locale}
           key={selectedSiteId}
-          loading={loading}
+          loading={detailsLoading}
           onChanged={() => loadSiteDetails(selectedSiteId)}
           onEdit={(page) => router.push(`/panel/sites/pages/${page.id}`)}
           onPreview={(page) =>
@@ -730,7 +738,7 @@ export function SitesPanel({
               {t("backToPageList")}
             </Link>
           </div>
-        ) : loading ? null : (
+        ) : detailsLoading ? null : (
           <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
             {t("pageNotFound")}{" "}
             <Link
