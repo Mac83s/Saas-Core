@@ -267,6 +267,9 @@ def test_a_company_still_being_set_up_gets_its_audit(seo: Any, status: str, star
     _, org, *_ = seo
     org.status = status
     org.save(update_fields=["status", "updated_at"])
+    # Due a second ago, so a clock that steps back under load cannot make the
+    # order look not yet due and skip the dispatch this test is about.
+    due(order)
     source = FakeSource(order)
     dispatch_audit(order.organization_id, order.id, source=source)
     order.refresh_from_db()
