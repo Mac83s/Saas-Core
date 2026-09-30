@@ -166,7 +166,7 @@ test.describe("Site Studio from a new site to a rolled-back publication", () => 
     };
 
     const publish = async (sequence: number) => {
-      await page.getByRole("tab", { name: "Publikacja" }).click();
+      await page.goto("/panel/sites/publication");
       await page.getByRole("button", { name: "Opublikuj snapshot" }).click();
       await expect(
         page.getByText(`Opublikowano sekwencję ${sequence}.`),
@@ -482,7 +482,7 @@ test.describe("Site Studio from a new site to a rolled-back publication", () => 
       });
 
       await test.step("changes the heading again and publishes a second time", async () => {
-        await page.getByRole("tab", { name: "Treść" }).click();
+        await page.goto(`/panel/sites/pages/${pageId}`);
         await expect(studio).toBeVisible();
         await expect(sections).toHaveCount(9);
         await canvas

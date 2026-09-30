@@ -64,6 +64,7 @@ const {
   requestImageGeneration,
   savePageDraft,
   savePageTranslation,
+  setPageType,
 } = vi.hoisted(() => ({
   completeMediaUpload: vi.fn(),
   createSiteTemplate: vi.fn(),
@@ -82,6 +83,7 @@ const {
   requestImageGeneration: vi.fn(),
   savePageDraft: vi.fn(),
   savePageTranslation: vi.fn(),
+  setPageType: vi.fn(),
 }));
 
 // Core's library opens on all trades; a product may set its own
@@ -111,6 +113,7 @@ vi.mock("@saas-core/api-client", async (importOriginal) => ({
   requestImageGeneration,
   savePageDraft,
   savePageTranslation,
+  setPageType,
 }));
 
 const page = {
@@ -572,6 +575,26 @@ test("konflikt metadanych zachowuje lokalną wartość", async () => {
   expect(
     screen.getByRole("button", { name: "Zapisz metadane" }),
   ).toBeDisabled();
+});
+
+test("the page's settings mark what it is without changing how it looks", async () => {
+  setPageType.mockResolvedValue({ ...page, page_type: "contact" });
+  const onChanged = vi.fn().mockResolvedValue(undefined);
+  renderEditor("pl", polishMessages, onChanged);
+  await screen.findByLabelText("Nagłówek");
+
+  fireEvent.click(screen.getByRole("button", { name: "Ustawienia strony" }));
+  fireEvent.change(await screen.findByLabelText("Rodzaj podstrony"), {
+    target: { value: "contact" },
+  });
+
+  await waitFor(() =>
+    expect(setPageType).toHaveBeenCalledWith(page.id, "contact"),
+  );
+  await waitFor(() => expect(onChanged).toHaveBeenCalled());
+  // Said plainly, because a control that looks like a layout switch and is
+  // not would be worse than no control.
+  expect(screen.getByText(/Nie zmienia wyglądu strony/)).not.toBeNull();
 });
 
 test("przesyła obraz przez signed PUT i odświeża listę mediów", async () => {

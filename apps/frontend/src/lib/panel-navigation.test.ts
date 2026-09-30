@@ -66,6 +66,11 @@ describe("sekcje menu", () => {
     const tabs = sectionTabs("/panel/seo/search-console", OWNER);
     expect(tabs?.map((tab) => tab.href)).toEqual([
       "/panel/sites",
+      "/panel/sites/menu",
+      "/panel/sites/blog",
+      "/panel/sites/publication",
+      "/panel/sites/address",
+      "/panel/sites/integrations",
       "/panel/seo",
       "/panel/seo/search-console",
     ]);
@@ -81,12 +86,25 @@ describe("sekcje menu", () => {
     expect(isActive("/panel/settings/credits", website)).toBe(false);
   });
 
+  it("a page's editor belongs to the page list, the site's other pages to themselves", () => {
+    const tabs = sectionTabs("/panel/sites/pages/019f-page", OWNER)!;
+    expect(currentPage("/panel/sites/pages/019f-page", tabs)).toBe(
+      "/panel/sites",
+    );
+    expect(currentPage("/panel/sites/publication", tabs)).toBe(
+      "/panel/sites/publication",
+    );
+  });
+
   it("bez drugiej widocznej zakładki nie ma paska zakładek", () => {
     const withoutSeoPermission = {
       ...OWNER,
       permissions: ["site.content.edit"],
     };
-    expect(sectionTabs("/panel/sites", withoutSeoPermission)).toBeNull();
+    // Inquiries alone: the automation page needs notifications.manage.
+    expect(
+      sectionTabs("/panel/notifications", withoutSeoPermission),
+    ).toBeNull();
     expect(sectionTabs("/panel/calendar", OWNER)).toBeNull();
   });
 

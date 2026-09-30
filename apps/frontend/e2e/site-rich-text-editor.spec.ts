@@ -258,8 +258,8 @@ test.describe("Site Studio rich-text editor on a live stack", () => {
       media_asset_ids: [],
     });
 
-    await page.reload();
-    await page.getByRole("tab", { name: "Treść", exact: true }).click();
+    // The page's own address opens its editor (ADR-057).
+    await page.goto(`/panel/sites/pages/${created.id}`);
     const editor = page.getByRole("textbox", {
       name: "Treść sekcji",
       exact: true,

@@ -140,6 +140,7 @@ import {
   type PagePresentation,
 } from "./page-presentation-fields";
 import { PageUrlDialog } from "./page-url";
+import { PageAutomationSwitch, PageTypeField } from "./page-settings";
 import { sitesErrorMessage } from "./problem";
 
 const designTokens = {
@@ -1490,6 +1491,20 @@ export function PageEditor({
         >
           <DialogTitle>{t("metadata")}</DialogTitle>
           <DialogDescription>{t("metadataDescription")}</DialogDescription>
+          {/* The page's own settings, beside its address and metadata. */}
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("pageKindTitle")}</CardTitle>
+              <CardDescription>{t("pageSettingsDescription")}</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <PageTypeField onChanged={() => void onChanged()} page={page} />
+              <PageAutomationSwitch
+                onChanged={() => void onChanged()}
+                page={page}
+              />
+            </CardContent>
+          </Card>
           {metadataProblem && (
             <p role="alert" className="text-sm text-destructive">
               {metadataProblem}

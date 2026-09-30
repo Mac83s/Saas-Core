@@ -14,10 +14,7 @@ import {
 import {
   ArrowRightIcon,
   ExternalLinkIcon,
-  FileTextIcon,
-  NewspaperIcon,
   Globe2Icon,
-  PlugZapIcon,
   LockKeyholeIcon,
   PlusIcon,
   RefreshCwIcon,
@@ -28,8 +25,6 @@ import { z } from "zod";
 import {
   ApiProblemError,
   createSitePage,
-  setPageAutomationPolicy,
-  setPageType,
   getSiteLocalizationReport,
   listSiteDomains,
   listSitePages,
@@ -38,8 +33,6 @@ import {
   publishSite,
   rollbackSitePublication,
   type PageListItem,
-  type PageSummary,
-  type PageTypeValue,
   type SiteDomain,
   type SiteLocalizationReport,
   type SitePublication,
@@ -78,22 +71,13 @@ import {
   FieldLabel,
 } from "@saas-core/ui/components/field";
 import { Input } from "@saas-core/ui/components/input";
-import { NativeSelect } from "@saas-core/ui/components/native-select";
-import {
-  Tabs,
-  TabsIndicator,
-  TabsList,
-  TabsPanel,
-  TabsTab,
-} from "@saas-core/ui/components/tabs";
 
 import { PanelPage } from "#components/panel/panel-page";
 
 import { sitesErrorMessage } from "./problem";
 import { slugifyTitle } from "./slug";
-import { Link } from "#i18n/navigation";
+import { Link, useRouter } from "#i18n/navigation";
 import { mutationKey, type MutationReceipt } from "./idempotency";
-import { AutomationPolicyField } from "./automation-policy";
 import { AutomationConnectionsPanel } from "./connections-panel";
 import { BlogPanel } from "./blog-panel";
 import { DomainPanel } from "./domain-panel";
@@ -107,39 +91,59 @@ import { SitePagesTable } from "./site-pages-table";
 
 type PageValues = { name: string; key: string };
 
-/** The eight types W9.6.2 fixes, in the order an operator thinks about a
- *  site: the front page first, the legal pages last. */
-const PAGE_TYPES: readonly PageTypeValue[] = [
-  "homepage",
-  "landing",
-  "service",
-  "about",
-  "contact",
-  "article_index",
-  "article",
-  "legal",
-];
+/** The pages of "Strona internetowa" (ADR-057): each one an address and an
+ *  entry in PANEL_SECTIONS, sharing the site they work on. */
+export type SitesSection =
+  | "pages"
+  | "page"
+  | "menu"
+  | "blog"
+  | "publication"
+  | "address"
+  | "integrations";
+
+// Several sites are rare; which one the pages work on survives moving
+// between them, per browser (a convenience, so a failed read is no loss).
+const SELECTED_SITE_KEY = "saas-core.sites.selected";
+
+function rememberedSiteId(): string | undefined {
+  try {
+    return globalThis.localStorage?.getItem(SELECTED_SITE_KEY) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function rememberSiteId(siteId: string) {
+  try {
+    globalThis.localStorage?.setItem(SELECTED_SITE_KEY, siteId);
+  } catch {
+    // Storage blocked: every page starts from the first site.
+  }
+}
 
 export function SitesPanel({
   canManageBilling = false,
+  section = "pages",
+  pageId,
+  previewOnOpen = false,
 }: {
   canManageBilling?: boolean;
+  section?: SitesSection;
+  /** The page the "page" section edits. */
+  pageId?: string;
+  /** The list's "Preview": the editor opens with the draft preview. */
+  previewOnOpen?: boolean;
 }) {
   const t = useTranslations("Sites");
   const common = useTranslations("Common");
+  const router = useRouter();
   const [sites, setSites] = useState<SiteSummary[]>([]);
   const [pages, setPages] = useState<PageListItem[]>([]);
   const [selectedSiteId, setSelectedSiteId] = useState<string>();
-  const [selectedPageId, setSelectedPageId] = useState<string>();
-  // A page chosen outside the studio opens a fresh studio; a switch inside it
-  // (its pages tool) keeps the studio open and only swaps the editor.
-  const [studioSession, setStudioSession] = useState(0);
-  const [mode, setMode] = useState("pages");
-  // Opened from the list ("Edit", "Preview"), closing the studio goes back to
-  // it; opened from the "content" tab, it leaves the page's own settings.
-  const [studioEntry, setStudioEntry] = useState<"edit" | "preview" | null>(
-    null,
-  );
+  // The page the editor shows: its address names it, and a switch inside
+  // the studio (its pages tool) swaps it without leaving the studio.
+  const [selectedPageId, setSelectedPageId] = useState(pageId);
   const [report, setReport] = useState<SiteLocalizationReport>();
   const [domains, setDomains] = useState<SiteDomain[]>([]);
   const [publications, setPublications] = useState<SitePublication[]>([]);
@@ -226,10 +230,9 @@ export function SitesPanel({
           ) {
             return preferredPageId;
           }
-          if (current && pageResult.items.some((item) => item.id === current)) {
-            return current;
-          }
-          return pageResult.items[0]?.id;
+          // A page that is gone stays named, so the editor says so rather
+          // than quietly opening another one.
+          return current;
         });
       } catch (error) {
         if (requiresBillingPlan(error)) {
@@ -257,7 +260,12 @@ export function SitesPanel({
         if (!mounted) return;
         setRequiresPlan(false);
         setSites(result.items);
-        setSelectedSiteId(result.items[0]?.id);
+        const remembered = rememberedSiteId();
+        setSelectedSiteId(
+          result.items.some((item) => item.id === remembered)
+            ? remembered
+            : result.items[0]?.id,
+        );
       })
       .catch((error: unknown) => {
         if (!mounted) return;
@@ -290,7 +298,6 @@ export function SitesPanel({
         setPublications(publicationResult.items);
         setPublicationsCursor(publicationResult.next_cursor);
         setDomains(domainResult.items);
-        setSelectedPageId(pageResult.items[0]?.id);
       })
       .catch((error: unknown) => {
         if (!mounted) return;
@@ -324,27 +331,18 @@ export function SitesPanel({
     );
     pageReceipt.current = undefined;
     setPlanAttention(false);
-    await loadSiteDetails(selectedSiteId, created.id);
-    openStudio(created.id, "edit");
+    // A new page is there to be filled: its editor opens at once.
+    router.push(`/panel/sites/pages/${created.id}`);
   }
 
-  function openStudio(pageId: string, entry: "edit" | "preview") {
-    setSelectedPageId(pageId);
-    setStudioEntry(entry);
-    setStudioSession((value) => value + 1);
-    setMode("content");
-  }
-
-  function mergePage(updated: PageSummary) {
-    setPages((current) =>
-      current.map((item) =>
-        item.id === updated.id
-          ? { ...item, ...updated }
-          : // The server keeps one home page: the one replaced is ordinary now.
-            updated.page_type === "homepage" && item.page_type === "homepage"
-            ? { ...item, page_type: "landing" }
-            : item,
-      ),
+  // Swapping pages inside the studio keeps it open: the address follows
+  // without a navigation, which would close and reload it.
+  function switchPage(nextPageId: string) {
+    setSelectedPageId(nextPageId);
+    window.history.replaceState(
+      window.history.state,
+      "",
+      window.location.pathname.replace(/[^/]+\/?$/, nextPageId),
     );
   }
 
@@ -422,25 +420,53 @@ export function SitesPanel({
     if (selectedSiteId) await loadSiteDetails(selectedSiteId, selectedPageId);
   }
 
+  const hasSite = sites.length > 0;
   const heading = (
     <PanelPage
       actions={
-        <Button
-          aria-label={common("refresh")}
-          disabled={loading}
-          onClick={() => void refresh()}
-          size="icon"
-          variant="outline"
-        >
-          <RefreshCwIcon
-            aria-hidden="true"
-            className={loading ? "animate-spin" : ""}
-          />
-        </Button>
+        <>
+          {section === "pages" && selectedSite ? (
+            <CreatePageDialog
+              onCreate={createPage}
+              onPlanRequired={() => setPlanAttention(true)}
+            />
+          ) : null}
+          <Button
+            aria-label={common("refresh")}
+            disabled={loading}
+            onClick={() => void refresh()}
+            size="icon"
+            variant="outline"
+          >
+            <RefreshCwIcon
+              aria-hidden="true"
+              className={loading ? "animate-spin" : ""}
+            />
+          </Button>
+        </>
       }
-      description={t("description")}
-      eyebrow={t("panelEyebrow")}
-      title={t("title")}
+      description={
+        !hasSite
+          ? t("description")
+          : section === "page"
+            ? t("sections.page.description")
+            : t(`sections.${section}.description`)
+      }
+      eyebrow={
+        !hasSite
+          ? t("panelEyebrow")
+          : section === "page"
+            ? t("sections.pages.title")
+            : t("title")
+      }
+      eyebrowHref={hasSite && section === "page" ? "/panel/sites" : undefined}
+      title={
+        !hasSite
+          ? t("title")
+          : section === "page"
+            ? (selectedPage?.name ?? t("sections.page.title"))
+            : t(`sections.${section}.title`)
+      }
       titleId="sites-heading"
     />
   );
@@ -632,6 +658,7 @@ export function SitesPanel({
                   setPublicationsCursor(null);
                   setSelectedPageId(undefined);
                   setLoading(true);
+                  rememberSiteId(item.id);
                   setSelectedSiteId(item.id);
                 }}
                 value={selectedSite}
@@ -662,138 +689,74 @@ export function SitesPanel({
         </div>
       )}
 
-      {/* ADR-031 splits the studio into modes rather than stacking every job on
-          one screen. Address and publication history are things done once, so
-          they sit behind their own tab instead of below the daily work. */}
-      <Tabs
-        onValueChange={(value) => {
-          if (value === "content") setStudioEntry(null);
-          setMode(String(value));
-        }}
-        value={mode}
-      >
-        <TabsList>
-          <TabsTab value="pages">
-            <FileTextIcon aria-hidden="true" />
-            {t("modePages")}
-          </TabsTab>
-          <TabsTab disabled={!selectedPage} value="content">
-            {t("modeContent")}
-          </TabsTab>
-          <TabsTab value="blog">
-            <NewspaperIcon aria-hidden="true" />
-            {t("modeBlog")}
-          </TabsTab>
-          <TabsTab value="publish">
-            <RocketIcon aria-hidden="true" />
-            {t("modePublish")}
-          </TabsTab>
-          <TabsTab value="address">
-            <Globe2Icon aria-hidden="true" />
-            {t("modeAddress")}
-          </TabsTab>
-          <TabsTab value="integrations">
-            <PlugZapIcon aria-hidden="true" />
-            {t("modeIntegrations")}
-          </TabsTab>
-          <TabsIndicator />
-        </TabsList>
+      {/* ADR-031 splits the work into modes rather than stacking every job on
+          one screen; ADR-057 makes each mode its own address in the menu. */}
+      {section === "pages" && selectedSiteId && selectedSite ? (
+        <SitePagesTable
+          defaultLocale={selectedSite.default_locale}
+          key={selectedSiteId}
+          loading={loading}
+          onChanged={() => loadSiteDetails(selectedSiteId)}
+          onEdit={(page) => router.push(`/panel/sites/pages/${page.id}`)}
+          onPreview={(page) =>
+            router.push(`/panel/sites/pages/${page.id}?preview=1`)
+          }
+          pages={pages}
+          publicBaseUrl={publishedSiteUrl}
+          siteId={selectedSiteId}
+        />
+      ) : null}
 
-        <TabsPanel className="space-y-6" value="pages">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="space-y-1">
-              <h2 className="text-lg font-semibold">{t("pages")}</h2>
-              <p className="text-sm text-muted-foreground">
-                {t("pagesDescription")}
-              </p>
-            </div>
-            <CreatePageDialog
-              disabled={!selectedSite}
-              onCreate={createPage}
-              onPlanRequired={() => setPlanAttention(true)}
-            />
-          </div>
-          {selectedSiteId && selectedSite ? (
-            <SitePagesTable
-              defaultLocale={selectedSite.default_locale}
-              key={`pages-${selectedSiteId}`}
-              loading={loading}
-              onChanged={() => loadSiteDetails(selectedSiteId, selectedPageId)}
-              onEdit={(page) => openStudio(page.id, "edit")}
-              onPreview={(page) => openStudio(page.id, "preview")}
-              pages={pages}
-              publicBaseUrl={publishedSiteUrl}
-              siteId={selectedSiteId}
-            />
-          ) : null}
-          {selectedSiteId && (
-            <NavigationEditor
+      {section === "page" ? (
+        selectedPage ? (
+          <div className="flex flex-wrap gap-2">
+            <PageStudio
               key={selectedSiteId}
+              onChanged={() =>
+                selectedSiteId
+                  ? loadSiteDetails(selectedSiteId, selectedPage.id)
+                  : Promise.resolve()
+              }
+              onClose={() => router.push("/panel/sites")}
+              onSelectPage={switchPage}
+              page={selectedPage}
               pages={pages}
-              siteId={selectedSiteId}
+              previewOnOpen={previewOnOpen}
             />
-          )}
-        </TabsPanel>
+            <Link
+              className={buttonVariants({ variant: "outline" })}
+              href="/panel/sites"
+            >
+              {t("backToPageList")}
+            </Link>
+          </div>
+        ) : loading ? null : (
+          <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+            {t("pageNotFound")}{" "}
+            <Link
+              className="font-medium text-primary underline"
+              href="/panel/sites"
+            >
+              {t("backToPageList")}
+            </Link>
+          </p>
+        )
+      ) : null}
 
-        <TabsPanel className="space-y-6" value="content">
-          {selectedPage ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  <h2>{t("pageSettingsTitle", { name: selectedPage.name })}</h2>
-                </CardTitle>
-                <CardDescription>
-                  {t("pageSettingsDescription")}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                <PageTypeField onChanged={mergePage} page={selectedPage} />
-                <PageAutomationSwitch
-                  onChanged={mergePage}
-                  page={selectedPage}
-                />
-                <div className="flex flex-wrap gap-2">
-                  <PageStudio
-                    key={`${selectedSiteId}:${studioSession}`}
-                    onChanged={() =>
-                      selectedSiteId
-                        ? loadSiteDetails(selectedSiteId, selectedPage.id)
-                        : Promise.resolve()
-                    }
-                    onClose={studioEntry ? () => setMode("pages") : undefined}
-                    onSelectPage={setSelectedPageId}
-                    page={selectedPage}
-                    pages={pages}
-                    previewOnOpen={studioEntry === "preview"}
-                  />
-                  <Button
-                    onClick={() => setMode("pages")}
-                    type="button"
-                    variant="outline"
-                  >
-                    {t("backToPageList")}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-              {t("choosePageFirst")}
-            </p>
-          )}
-        </TabsPanel>
+      {section === "menu" && selectedSiteId ? (
+        <NavigationEditor
+          key={selectedSiteId}
+          pages={pages}
+          siteId={selectedSiteId}
+        />
+      ) : null}
 
-        <TabsPanel value="blog">
-          {selectedSiteId ? (
-            <BlogPanel key={selectedSiteId} siteId={selectedSiteId} />
-          ) : (
-            <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-              {t("chooseSitePrompt")}
-            </p>
-          )}
-        </TabsPanel>
+      {section === "blog" && selectedSiteId ? (
+        <BlogPanel key={selectedSiteId} siteId={selectedSiteId} />
+      ) : null}
 
-        <TabsPanel className="space-y-6" value="publish">
+      {section === "publication" ? (
+        <div className="space-y-6">
           <ReadinessCard
             loading={loading}
             onPublish={() => void publishSelectedSite()}
@@ -811,25 +774,25 @@ export function SitesPanel({
             onRollback={(target) => void rollbackPublication(target)}
             publications={publications}
           />
-        </TabsPanel>
+        </div>
+      ) : null}
 
-        <TabsPanel className="space-y-6" value="integrations">
+      {section === "address" && selectedSiteId ? (
+        <div className="space-y-6">
+          <DomainPanel key={selectedSiteId} siteId={selectedSiteId} />
+          <SiteRedirectsCard
+            key={`redirects-${selectedSiteId}`}
+            siteId={selectedSiteId}
+          />
+        </div>
+      ) : null}
+
+      {section === "integrations" ? (
+        <div className="space-y-6">
           <ProposalsQueue />
           <AutomationConnectionsPanel />
-        </TabsPanel>
-
-        <TabsPanel className="space-y-6" value="address">
-          {selectedSiteId && (
-            <>
-              <DomainPanel key={selectedSiteId} siteId={selectedSiteId} />
-              <SiteRedirectsCard
-                key={`redirects-${selectedSiteId}`}
-                siteId={selectedSiteId}
-              />
-            </>
-          )}
-        </TabsPanel>
-      </Tabs>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -863,108 +826,6 @@ function publicSiteUrl(domains: SiteDomain[]) {
   }`;
 }
 
-/** What kind of page this is, in the vocabulary SEO tooling uses.
- *
- *  Nothing about the page renders differently — the type is what an optimiser
- *  reasons about, and one told that the contact page is a landing page will
- *  rewrite it like one. */
-function PageTypeField({
-  onChanged,
-  page,
-}: {
-  onChanged: (page: PageSummary) => void;
-  page: PageSummary;
-}) {
-  const t = useTranslations("Sites");
-  const [busy, setBusy] = useState(false);
-  const [problem, setProblem] = useState<string>();
-
-  return (
-    <div className="space-y-2 rounded-lg border p-3">
-      <Field>
-        <FieldLabel htmlFor="page-type">{t("pageTypeLabel")}</FieldLabel>
-        <NativeSelect
-          disabled={busy}
-          id="page-type"
-          onChange={(event) => {
-            const next = event.target.value as PageTypeValue;
-            setBusy(true);
-            setProblem(undefined);
-            void setPageType(page.id, next)
-              .then(onChanged)
-              .catch((error: unknown) => {
-                setProblem(sitesErrorMessage(error, t));
-              })
-              .finally(() => {
-                setBusy(false);
-              });
-          }}
-          value={page.page_type}
-        >
-          {PAGE_TYPES.map((value) => (
-            <option key={value} value={value}>
-              {t(`pageType_${value}`)}
-            </option>
-          ))}
-        </NativeSelect>
-      </Field>
-      <p className="text-sm text-muted-foreground">{t("pageTypeHint")}</p>
-      {problem && (
-        <p className="text-sm text-destructive" role="alert">
-          {problem}
-        </p>
-      )}
-    </div>
-  );
-}
-
-/** ADR-035 §4a: what an automation may do with this page is a person's
- *  decision. The endpoint behind the field refuses API keys, so the field is
- *  the only way the value changes. */
-function PageAutomationSwitch({
-  onChanged,
-  page,
-}: {
-  onChanged: (page: PageSummary) => void;
-  page: PageSummary;
-}) {
-  const t = useTranslations("Sites");
-  const [busy, setBusy] = useState(false);
-  const [problem, setProblem] = useState<string>();
-
-  return (
-    <div className="space-y-2">
-      <AutomationPolicyField
-        busy={busy}
-        id="page-policy"
-        onChange={(policy) => {
-          setBusy(true);
-          setProblem(undefined);
-          void setPageAutomationPolicy(page.id, policy)
-            .then(onChanged)
-            .catch((error: unknown) => {
-              setProblem(sitesErrorMessage(error, t));
-            })
-            .finally(() => {
-              setBusy(false);
-            });
-        }}
-        value={page.automation_policy}
-      />
-      {page.draft_author === "automation" && (
-        <p className="text-sm" role="status">
-          {t("pageProposalWaiting")}
-        </p>
-      )}
-      {problem && (
-        <p className="text-sm text-destructive" role="alert">
-          {problem}
-        </p>
-      )}
-    </div>
-  );
-}
-
 function requiresBillingPlan(error: unknown) {
   return (
     error instanceof ApiProblemError &&
@@ -974,11 +835,9 @@ function requiresBillingPlan(error: unknown) {
 
 /** Adding a page: its name and key; the editor opens right after. */
 function CreatePageDialog({
-  disabled,
   onCreate,
   onPlanRequired,
 }: {
-  disabled: boolean;
   onCreate: (values: PageValues) => Promise<void>;
   onPlanRequired: () => void;
 }) {
@@ -1036,7 +895,7 @@ function CreatePageDialog({
       }}
       open={open}
     >
-      <DialogTrigger disabled={disabled} render={<Button type="button" />}>
+      <DialogTrigger render={<Button type="button" />}>
         <PlusIcon aria-hidden="true" />
         {t("createPage")}
       </DialogTrigger>

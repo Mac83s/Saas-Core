@@ -1,12 +1,5 @@
-import { SitesPanel } from "../../../../modules/shared/sites";
-import { getServerCurrentOrganization } from "#lib/server-auth";
+import { sitesPage } from "./sites-page";
 
-export default async function SitesPage() {
-  const organization = await getServerCurrentOrganization();
-  return (
-    <SitesPanel
-      key={organization?.id ?? "no-organization"}
-      canManageBilling={organization?.role === "owner"}
-    />
-  );
+export default function SitesPage() {
+  return sitesPage("pages");
 }

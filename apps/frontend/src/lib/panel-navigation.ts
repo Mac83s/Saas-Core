@@ -148,8 +148,27 @@ export const PANEL_SECTIONS = {
       permission: "notifications.manage",
     },
   ],
+  // The site's own pages first, then its reach (ADR-057; decision 7, 30.09).
+  // The editor, /panel/sites/pages/<id>, belongs to "Podstrony".
   website: [
-    { href: "/panel/sites", labelKey: "sectionSite", module: "shared.sites" },
+    { href: "/panel/sites", labelKey: "sitePages", module: "shared.sites" },
+    { href: "/panel/sites/menu", labelKey: "siteMenu", module: "shared.sites" },
+    { href: "/panel/sites/blog", labelKey: "siteBlog", module: "shared.sites" },
+    {
+      href: "/panel/sites/publication",
+      labelKey: "sitePublication",
+      module: "shared.sites",
+    },
+    {
+      href: "/panel/sites/address",
+      labelKey: "siteAddress",
+      module: "shared.sites",
+    },
+    {
+      href: "/panel/sites/integrations",
+      labelKey: "siteIntegrations",
+      module: "shared.sites",
+    },
     {
       href: "/panel/seo",
       labelKey: "seo",

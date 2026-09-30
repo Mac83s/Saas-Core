@@ -60,6 +60,7 @@ rejestr z `Plan/SaaS-Core-06-Rejestr-Decyzji.md`.
 | [ADR-062](ADR-062-Korekty-Wpisow-Kartoteki-Zwierzecia.md) | wpis kartoteki zwierzęcia nie jest nadpisywany ani kasowany: korekta to następna wersja z powodem, zastąpiona ma `retracted_at`; wyzwalacz append-only, powiadomienie hodowcy | Accepted |
 | [ADR-063](ADR-063-Szablony-Firmy-Jako-Dane-Organizacji.md) | szablony firmy (sekcja, strona) jako dane organizacji z wersjami append-only i RLS obok recept systemowych w plikach; użycie to kopia | Accepted |
 | [ADR-064](ADR-064-Wyszukiwarka-Katalogu-Na-Meilisearch.md) | wyszukiwarka katalogu na Meilisearch w stacku każdej aplikacji, baza źródłem prawdy, powrót do PostgreSQL przy awarii, dokument budowany w tenancie, odległość miasto–miasto, wyniki po znaczeniu osobno; zastępuje ADR-053 §8 | Accepted |
+| [ADR-065](ADR-065-Usuwanie-Podstron-Witryny.md) | usunięcie podstrony to ukrycie (`deleted_at`), nie kasowanie: od razu poza stroną publiczną przez publikację z opublikowanego stanu, 301 na wybraną podstronę, adres wolny, przywrócenie jako szkic; bez strony głównej i ostatniej; tylko osoba; sekcja „Strona internetowa” na adresach | Accepted |
 
 Każda zmiana decyzji tworzy nowy ADR. Całkowicie zastąpiony dokument otrzymuje
 status `Superseded`; przy częściowym zastąpieniu nowy ADR wskazuje dokładny

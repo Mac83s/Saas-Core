@@ -310,7 +310,12 @@
     "online": "Online",
     "offline": "Offline — no connection",
     "sections": "Section pages",
-    "sectionSite": "Website",
+    "sitePages": "Pages",
+    "siteMenu": "Menu",
+    "siteBlog": "Blog",
+    "sitePublication": "Publishing",
+    "siteAddress": "Address and domains",
+    "siteIntegrations": "Integrations",
     "sectionPlan": "Plan & billing",
     "sectionAccount": "Account",
     "account": "Account",
@@ -942,11 +947,6 @@
     "navigationSaving": "Saving…",
     "navigationSaved": "The menu has been saved.",
     "navigationReload": "Load the server version",
-    "modePages": "Pages",
-    "modeContent": "Content",
-    "modePublish": "Publishing",
-    "modeAddress": "Address",
-    "choosePageFirst": "Pick a page under Pages to edit its content.",
     "eyebrow": "Eyebrow label",
     "panelEyebrow": "Sites and publishing",
     "title": "Your website",
@@ -1003,7 +1003,6 @@
     "draftOnly": "Not published yet",
     "openPublishedSite": "Open published website",
     "pages": "Pages",
-    "pagesDescription": "All of the site's pages: edit, preview, change the address and delete.",
     "choosePage": "Choose page",
     "searchPages": "Search pages…",
     "noPages": "This site has no pages.",
@@ -1233,7 +1232,6 @@
     "tlsStatus_requested": "requested",
     "tlsStatus_disabled": "disabled",
     "tlsStatus_failed": "error",
-    "modeBlog": "Blog",
     "blogCreateTitle": "Start a blog",
     "blogCreateDescription": "A blog is a separate part of the site with its own address. Entries are published and withdrawn independently of the rest.",
     "blogName": "Name",
@@ -1366,7 +1364,6 @@
     "connectionRevokeReasonTooLong": "The reason can contain at most 500 characters.",
     "connectionRevokeSubmit": "Revoke access immediately",
     "connectionRevoking": "Revoking immediately…",
-    "modeIntegrations": "Integrations",
     "proposalsTitle": "Proposals waiting for a decision",
     "proposalsDescription": "Changes prepared by an integration are waiting for your decision. Review the comparison and accept them into the draft or reject them. Publication is a separate step.",
     "proposalsEmpty": "No integration is waiting for a decision.",
@@ -2091,9 +2088,40 @@
       "errorRedirectTarget": "The chosen page cannot take the redirect — choose a published one.",
       "errorSlugTaken": "Another page already uses this address."
     },
-    "pageSettingsTitle": "Page “{name}”",
-    "pageSettingsDescription": "The page's type and what automation may do with it. Content is edited in the page editor.",
-    "backToPageList": "Back to the page list"
+    "pageSettingsDescription": "The page's type and what automation may do with it.",
+    "backToPageList": "Back to the page list",
+    "sections": {
+      "pages": {
+        "title": "Pages",
+        "description": "All of the site's pages: edit, preview, change the address and delete."
+      },
+      "page": {
+        "title": "Page",
+        "description": "The editor opens at once; closed, it goes back to the page list."
+      },
+      "menu": {
+        "title": "Menu",
+        "description": "The order and nesting of the site's menu."
+      },
+      "blog": {
+        "title": "Blog",
+        "description": "The site's blog posts: drafts, scheduled and published."
+      },
+      "publication": {
+        "title": "Publishing",
+        "description": "Check the site is ready, publish it, or go back to an earlier publication."
+      },
+      "address": {
+        "title": "Address and domains",
+        "description": "The site's address, its own domain and redirects from old addresses."
+      },
+      "integrations": {
+        "title": "Integrations",
+        "description": "Changes proposed by automation and connections to outside tools."
+      }
+    },
+    "pageNotFound": "This page is not here — it may have been deleted.",
+    "pageKindTitle": "Page type and automation"
   },
   "BillingSupport": {
     "navigation": "Billing & access",

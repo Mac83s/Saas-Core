@@ -310,7 +310,12 @@
     "online": "Online",
     "offline": "Offline — brak połączenia",
     "sections": "Części sekcji",
-    "sectionSite": "Strona",
+    "sitePages": "Podstrony",
+    "siteMenu": "Menu",
+    "siteBlog": "Blog",
+    "sitePublication": "Publikacja",
+    "siteAddress": "Adres i domeny",
+    "siteIntegrations": "Integracje",
     "sectionPlan": "Plan i płatności",
     "sectionAccount": "Konto",
     "account": "Konto",
@@ -942,11 +947,6 @@
     "navigationSaving": "Zapisywanie…",
     "navigationSaved": "Menu zostało zapisane.",
     "navigationReload": "Wczytaj wersję serwera",
-    "modePages": "Podstrony",
-    "modeContent": "Treść",
-    "modePublish": "Publikacja",
-    "modeAddress": "Adres",
-    "choosePageFirst": "Wybierz podstronę w zakładce Podstrony, żeby edytować jej treść.",
     "eyebrow": "Etykieta nad tytułem",
     "panelEyebrow": "Witryna i publikacja",
     "title": "Twoja witryna",
@@ -1003,7 +1003,6 @@
     "draftOnly": "Jeszcze nieopublikowana",
     "openPublishedSite": "Otwórz opublikowaną stronę",
     "pages": "Podstrony",
-    "pagesDescription": "Wszystkie podstrony witryny: edytuj, podglądaj, zmieniaj adres i usuwaj.",
     "choosePage": "Wybierz podstronę",
     "searchPages": "Szukaj podstrony…",
     "noPages": "Brak podstron w tym site.",
@@ -1233,7 +1232,6 @@
     "tlsStatus_requested": "zażądano",
     "tlsStatus_disabled": "wyłączony",
     "tlsStatus_failed": "błąd",
-    "modeBlog": "Blog",
     "blogCreateTitle": "Załóż blog",
     "blogCreateDescription": "Blog to osobna część strony z własnym adresem. Wpisy publikujesz i wycofujesz niezależnie od reszty witryny.",
     "blogName": "Nazwa",
@@ -1366,7 +1364,6 @@
     "connectionRevokeReasonTooLong": "Powód może mieć najwyżej 500 znaków.",
     "connectionRevokeSubmit": "Odwołaj dostęp natychmiast",
     "connectionRevoking": "Natychmiastowe odwoływanie…",
-    "modeIntegrations": "Integracje",
     "proposalsTitle": "Propozycje czekające na decyzję",
     "proposalsDescription": "Zmiany przygotowane przez integrację czekają na Twoją decyzję. Obejrzyj porównanie i przyjmij je do szkicu albo odrzuć. Publikacja jest osobnym krokiem.",
     "proposalsEmpty": "Żadna integracja nie czeka na decyzję.",
@@ -2091,9 +2088,40 @@
       "errorRedirectTarget": "Wybrana podstrona nie może przyjąć przekierowania — wybierz opublikowaną.",
       "errorSlugTaken": "Ten adres jest zajęty przez inną podstronę."
     },
-    "pageSettingsTitle": "Podstrona „{name}”",
-    "pageSettingsDescription": "Typ podstrony i to, co może z nią robić automatyzacja. Treść edytujesz w edytorze strony.",
-    "backToPageList": "Wróć do listy podstron"
+    "pageSettingsDescription": "Typ podstrony i to, co może z nią robić automatyzacja.",
+    "backToPageList": "Wróć do listy podstron",
+    "sections": {
+      "pages": {
+        "title": "Podstrony",
+        "description": "Wszystkie podstrony witryny: edytuj, podglądaj, zmieniaj adres i usuwaj."
+      },
+      "page": {
+        "title": "Podstrona",
+        "description": "Edytor otwiera się od razu; zamknięty wraca do listy podstron."
+      },
+      "menu": {
+        "title": "Menu",
+        "description": "Kolejność i zagnieżdżenie pozycji w menu witryny."
+      },
+      "blog": {
+        "title": "Blog",
+        "description": "Wpisy bloga witryny: szkice, zaplanowane i opublikowane."
+      },
+      "publication": {
+        "title": "Publikacja",
+        "description": "Sprawdź, czy witryna jest gotowa, opublikuj ją albo wróć do wcześniejszej publikacji."
+      },
+      "address": {
+        "title": "Adres i domeny",
+        "description": "Adres witryny, własna domena i przekierowania ze starych adresów."
+      },
+      "integrations": {
+        "title": "Integracje",
+        "description": "Propozycje zmian od automatyzacji i połączenia z narzędziami zewnętrznymi."
+      }
+    },
+    "pageNotFound": "Tej podstrony nie ma — mogła zostać usunięta.",
+    "pageKindTitle": "Rodzaj podstrony i automatyzacja"
   },
   "BillingSupport": {
     "navigation": "Billing i dostęp",
