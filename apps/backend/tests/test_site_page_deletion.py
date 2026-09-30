@@ -368,3 +368,24 @@ def test_an_automation_never_deletes_or_restores_a_page() -> None:
         with pytest.raises(PersonRequired):
             restore_page(page_id=site["offer"]["id"], slugs=None, idempotency_key="automation")
     assert Page.all_objects.get(pk=site["offer"]["id"]).deleted_at is None
+
+
+def test_marking_a_home_page_makes_the_previous_one_an_ordinary_page() -> None:
+    client, _organization, site = _site("one-home")
+
+    marked = client.put(
+        f"/api/v1/sites/pages/{site['offer']['id']}/type/",
+        {"page_type": "homepage"},
+        format="json",
+        HTTP_X_CSRFTOKEN=csrf_value(client),
+    )
+
+    assert marked.status_code == 200
+    types = dict(
+        Page.all_objects.filter(site_id=site["site"]["id"]).values_list("key", "page_type")
+    )
+    assert types == {"home": "landing", "offer": "homepage", "contact": "landing"}
+    # The former home page can now be deleted; the new one cannot.
+    assert _delete(client, site["home"], key="old-home").status_code == 200
+    refused = _delete(client, site["offer"], key="new-home")
+    assert refused.data["code"] == "page_is_homepage"

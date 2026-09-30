@@ -56,15 +56,25 @@ export function PageUrlDialog({
   onChanged,
   pageId,
   slug,
+  open: openProp,
+  onOpenChange,
 }: {
   locale: string;
   onChanged: () => Promise<void>;
   pageId: string;
   slug: string;
+  /** Given, the caller opens it (a list row's action) and there is no
+   *  trigger; it mounts the dialog for each opening, so the form starts fresh. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
   const t = useTranslations("Sites");
   const common = useTranslations("Common");
-  const [open, setOpen] = useState(false);
+  const [ownOpen, setOwnOpen] = useState(false);
+  const controlled = openProp !== undefined;
+  const open = controlled ? openProp : ownOpen;
+  const setOpen = (next: boolean) =>
+    controlled ? onOpenChange?.(next) : setOwnOpen(next);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string>();
   const schema = useMemo(
@@ -110,12 +120,14 @@ export function PageUrlDialog({
       }}
       open={open}
     >
-      <DialogTrigger
-        render={<Button size="sm" type="button" variant="outline" />}
-      >
-        <LinkIcon aria-hidden="true" />
-        {t("changeUrl")}
-      </DialogTrigger>
+      {controlled ? null : (
+        <DialogTrigger
+          render={<Button size="sm" type="button" variant="outline" />}
+        >
+          <LinkIcon aria-hidden="true" />
+          {t("changeUrl")}
+        </DialogTrigger>
+      )}
       <DialogContent closeLabel={common("close")}>
         <DialogHeader>
           <DialogTitle>{t("changeUrl")}</DialogTitle>

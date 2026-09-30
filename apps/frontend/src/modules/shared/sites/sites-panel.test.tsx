@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import axe from "axe-core";
@@ -203,7 +204,11 @@ afterEach(cleanup);
 
 test("pokazuje listę site, stron i raport gotowości po polsku", async () => {
   render(
-    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+    <NextIntlClientProvider
+      locale="pl"
+      timeZone="Europe/Warsaw"
+      messages={polishMessages}
+    >
       <SitesPanel />
     </NextIntlClientProvider>,
   );
@@ -212,10 +217,9 @@ test("pokazuje listę site, stron i raport gotowości po polsku", async () => {
     await screen.findByRole("heading", { name: "Twoja witryna" }),
   ).not.toBeNull();
   expect(await screen.findByText("Przychodnia")).not.toBeNull();
-  // The pages mode is the default, so its picker is on screen without a click.
-  expect(await screen.findByLabelText("Wybierz podstronę")).not.toBeNull();
-  // The selected page shows as the picker's value, not as loose text.
-  expect(await screen.findByDisplayValue("Start")).not.toBeNull();
+  // The pages mode is the default, so its list is on screen without a click.
+  const list = await screen.findByRole("table", { name: "Podstrony witryny" });
+  expect(await within(list).findByText("Start")).not.toBeNull();
   expect(
     screen.queryByRole("link", { name: "Otwórz opublikowaną stronę" }),
   ).toBeNull();
@@ -230,7 +234,11 @@ test("pokazuje listę site, stron i raport gotowości po polsku", async () => {
 
 test("publikuje gotowy snapshot i pokazuje potwierdzenie", async () => {
   render(
-    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+    <NextIntlClientProvider
+      locale="pl"
+      timeZone="Europe/Warsaw"
+      messages={polishMessages}
+    >
       <SitesPanel />
     </NextIntlClientProvider>,
   );
@@ -262,7 +270,11 @@ test("pokazuje adres opublikowanej witryny dopiero dla aktywnej publikacji", asy
   });
 
   render(
-    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+    <NextIntlClientProvider
+      locale="pl"
+      timeZone="Europe/Warsaw"
+      messages={polishMessages}
+    >
       <SitesPanel />
     </NextIntlClientProvider>,
   );
@@ -280,7 +292,11 @@ test("pokazuje adres opublikowanej witryny dopiero dla aktywnej publikacji", asy
 test("zastępuje techniczny formularz kreatorem pierwszej strony po angielsku", async () => {
   listSites.mockResolvedValueOnce({ items: [], next_cursor: null });
   render(
-    <NextIntlClientProvider locale="en" messages={englishMessages}>
+    <NextIntlClientProvider
+      locale="en"
+      timeZone="Europe/Warsaw"
+      messages={englishMessages}
+    >
       <SitesPanel />
     </NextIntlClientProvider>,
   );
@@ -299,21 +315,25 @@ test("zastępuje techniczny formularz kreatorem pierwszej strony po angielsku", 
 test("po odrzuceniu mutacji zachowuje treść i kieruje do płatności", async () => {
   createSitePage.mockRejectedValueOnce(entitlementProblem());
   render(
-    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+    <NextIntlClientProvider
+      locale="pl"
+      timeZone="Europe/Warsaw"
+      messages={polishMessages}
+    >
       <SitesPanel canManageBilling />
     </NextIntlClientProvider>,
   );
 
-  expect(await screen.findByText("Przychodnia")).not.toBeNull();
-  fireEvent.change(
-    screen.getByLabelText("Nazwa", { selector: "input#page-name" }),
-    { target: { value: "Nowa podstrona" } },
+  const dialog = await openCreatePage();
+  fireEvent.change(within(dialog).getByLabelText("Nazwa"), {
+    target: { value: "Nowa podstrona" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Klucz podstrony"), {
+    target: { value: "nowa-podstrona" },
+  });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Dodaj podstronę" }),
   );
-  fireEvent.change(
-    screen.getByLabelText("Klucz podstrony", { selector: "input#page-key" }),
-    { target: { value: "nowa-podstrona" } },
-  );
-  fireEvent.click(screen.getByRole("button", { name: "Dodaj podstronę" }));
 
   await waitFor(() => expect(createSitePage).toHaveBeenCalledOnce());
   expect(await screen.findByText("Plan wymaga uwagi")).not.toBeNull();
@@ -323,8 +343,12 @@ test("po odrzuceniu mutacji zachowuje treść i kieruje do płatności", async (
   expect(
     screen.queryByRole("heading", { name: "Najpierw wybierz plan" }),
   ).toBeNull();
-  // The selected page shows as the picker's value, not as loose text.
-  expect(await screen.findByDisplayValue("Start")).not.toBeNull();
+  // The list stays, and so does the way to add a page once the plan allows.
+  expect(
+    within(screen.getByRole("table", { name: "Podstrony witryny" })).getByText(
+      "Start",
+    ),
+  ).not.toBeNull();
   expect(
     screen.getByRole("button", { name: "Dodaj podstronę" }),
   ).not.toBeNull();
@@ -342,24 +366,29 @@ test("przy wyczerpanym limicie podstron mówi, co zrobić", async () => {
     }),
   );
   render(
-    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+    <NextIntlClientProvider
+      locale="pl"
+      timeZone="Europe/Warsaw"
+      messages={polishMessages}
+    >
       <SitesPanel canManageBilling />
     </NextIntlClientProvider>,
   );
 
-  expect(await screen.findByText("Przychodnia")).not.toBeNull();
-  fireEvent.change(
-    screen.getByLabelText("Nazwa", { selector: "input#page-name" }),
-    { target: { value: "Szósta podstrona" } },
+  const dialog = await openCreatePage();
+  fireEvent.change(within(dialog).getByLabelText("Nazwa"), {
+    target: { value: "Szósta podstrona" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Klucz podstrony"), {
+    target: { value: "szosta" },
+  });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Dodaj podstronę" }),
   );
-  fireEvent.change(
-    screen.getByLabelText("Klucz podstrony", { selector: "input#page-key" }),
-    { target: { value: "szosta" } },
-  );
-  fireEvent.click(screen.getByRole("button", { name: "Dodaj podstronę" }));
 
+  // Said in the dialog that asked, which stays open with what was typed.
   expect(
-    await screen.findByText(
+    await within(dialog).findByText(
       "Plan nie pozwala na więcej podstron na tej stronie. Usuń nieużywaną podstronę albo wybierz wyższy plan.",
     ),
   ).not.toBeNull();
@@ -367,16 +396,20 @@ test("przy wyczerpanym limicie podstron mówi, co zrobić", async () => {
 
 test("wypełnia klucz podstrony z nazwy i ustępuje ręcznej zmianie", async () => {
   render(
-    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+    <NextIntlClientProvider
+      locale="pl"
+      timeZone="Europe/Warsaw"
+      messages={polishMessages}
+    >
       <SitesPanel canManageBilling />
     </NextIntlClientProvider>,
   );
 
-  expect(await screen.findByText("Przychodnia")).not.toBeNull();
-  const name = screen.getByLabelText("Nazwa", { selector: "input#page-name" });
-  const key = screen.getByLabelText("Klucz podstrony", {
-    selector: "input#page-key",
-  }) as HTMLInputElement;
+  const dialog = await openCreatePage();
+  const name = within(dialog).getByLabelText("Nazwa");
+  const key = within(dialog).getByLabelText(
+    "Klucz podstrony",
+  ) as HTMLInputElement;
 
   // ł has no decomposition, so a naive slug would drop it entirely.
   fireEvent.change(name, { target: { value: "Gabinet Łukasza" } });
@@ -391,11 +424,7 @@ test("wypełnia klucz podstrony z nazwy i ustępuje ręcznej zmianie", async () 
   fireEvent.change(name, { target: { value: "Zupełnie inna nazwa" } });
   await waitFor(() =>
     expect(
-      (
-        screen.getByLabelText("Nazwa", {
-          selector: "input#page-name",
-        }) as HTMLInputElement
-      ).value,
+      (within(dialog).getByLabelText("Nazwa") as HTMLInputElement).value,
     ).toBe("Zupełnie inna nazwa"),
   );
   expect(key.value).toBe("kontakt");
@@ -403,7 +432,11 @@ test("wypełnia klucz podstrony z nazwy i ustępuje ręcznej zmianie", async () 
 
 test("rozdziela zadania na tryby zamiast jednego długiego widoku", async () => {
   const rendered = render(
-    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+    <NextIntlClientProvider
+      locale="pl"
+      timeZone="Europe/Warsaw"
+      messages={polishMessages}
+    >
       <SitesPanel />
     </NextIntlClientProvider>,
   );
@@ -441,7 +474,11 @@ test("kieruje właściciela bez planu do porównania oferty", async () => {
   listSites.mockRejectedValueOnce(entitlementProblem());
 
   render(
-    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+    <NextIntlClientProvider
+      locale="pl"
+      timeZone="Europe/Warsaw"
+      messages={polishMessages}
+    >
       <SitesPanel canManageBilling />
     </NextIntlClientProvider>,
   );
@@ -452,6 +489,12 @@ test("kieruje właściciela bez planu do porównania oferty", async () => {
   expect(screen.getByRole("link", { name: "Porównaj plany" })).not.toBeNull();
   expect(screen.queryByRole("button", { name: "Utwórz site" })).toBeNull();
 });
+
+async function openCreatePage() {
+  expect(await screen.findByText("Przychodnia")).not.toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Dodaj podstronę" }));
+  return screen.findByRole("dialog", { name: "Dodaj podstronę" });
+}
 
 function entitlementProblem() {
   return new ApiProblemError({
@@ -467,14 +510,33 @@ function entitlementProblem() {
 test("marks what a page is without changing how it looks", async () => {
   setPageType.mockResolvedValue({ ...page, page_type: "contact" });
   render(
-    <NextIntlClientProvider locale="pl" messages={polishMessages}>
+    <NextIntlClientProvider
+      locale="pl"
+      timeZone="Europe/Warsaw"
+      messages={polishMessages}
+    >
       <SitesPanel />
     </NextIntlClientProvider>,
   );
 
-  // The control belongs to the selected page, so wait for the selection the
-  // panel makes on load before reaching for it.
-  expect(await screen.findByDisplayValue("Start")).not.toBeNull();
+  // The control belongs to the page's own view, reached through its tab
+  // once the panel has selected a page on load.
+  await screen.findByRole("table", { name: "Podstrony witryny" });
+  await waitFor(() =>
+    expect(
+      screen.getByRole("tab", { name: "Treść" }).getAttribute("aria-disabled"),
+    ).not.toBe("true"),
+  );
+  fireEvent.click(screen.getByRole("tab", { name: "Treść" }));
+  // The tab opens the studio; closing it leaves the page's own settings.
+  const back = await screen.findByRole("button", { name: "Wróć do podstron" });
+  await waitFor(() => expect(back).toBeEnabled());
+  fireEvent.click(back);
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(screen.getByRole("tab", { name: "Treść" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
   fireEvent.change(await screen.findByLabelText("Rodzaj podstrony"), {
     target: { value: "contact" },
   });
@@ -485,4 +547,35 @@ test("marks what a page is without changing how it looks", async () => {
   // Said plainly in the panel, because a control that looks like a layout
   // switch and is not would be worse than no control.
   expect(screen.getByText(/Nie zmienia wyglądu strony/)).not.toBeNull();
+});
+
+test("edits a page from the list and comes back to the list", async () => {
+  render(
+    <NextIntlClientProvider
+      locale="pl"
+      timeZone="Europe/Warsaw"
+      messages={polishMessages}
+    >
+      <SitesPanel />
+    </NextIntlClientProvider>,
+  );
+
+  const list = await screen.findByRole("table", { name: "Podstrony witryny" });
+  fireEvent.click(within(list).getByRole("button", { name: "Edytuj" }));
+  expect(
+    await screen.findByRole("dialog", { name: "Edytor strony: Start" }),
+  ).not.toBeNull();
+  const back = screen.getByRole("button", { name: "Wróć do podstron" });
+  await waitFor(() => expect(back).toBeEnabled());
+  fireEvent.click(back);
+
+  await waitFor(() =>
+    expect(screen.getByRole("tab", { name: "Podstrony" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    ),
+  );
+  expect(
+    screen.getByRole("table", { name: "Podstrony witryny" }),
+  ).not.toBeNull();
 });

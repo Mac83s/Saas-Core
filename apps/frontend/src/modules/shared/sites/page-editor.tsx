@@ -326,6 +326,7 @@ export function PageEditor({
   savedAppearance,
   navigation,
   page,
+  previewOnOpen = false,
 }: {
   onChanged: () => Promise<void>;
   onExitStateChange?: (state: { dirty: boolean; busy: boolean }) => void;
@@ -336,10 +337,14 @@ export function PageEditor({
   savedAppearance?: SiteAppearance;
   navigation?: readonly NavigationLink[];
   appearanceControls?: ReactNode;
+  /** The list's "Preview": the draft opens in the preview once loaded. */
+  previewOnOpen?: boolean;
 }) {
   const t = useTranslations("Sites");
   const common = useTranslations("Common");
   const interfaceLocale = useLocale();
+  // Read once: a later change of the prop must not reopen the preview.
+  const previewPending = useRef(previewOnOpen);
   const [draft, setDraft] = useState<PageDraft>();
   const [translations, setTranslations] = useState<PageTranslation[]>([]);
   const [locale, setLocale] = useState("pl");
@@ -662,7 +667,7 @@ export function PageEditor({
       listPageTranslations(page.id),
       listMediaAssets(),
     ])
-      .then(([loadedDraft, loadedTranslations, loadedAssets]) => {
+      .then(async ([loadedDraft, loadedTranslations, loadedAssets]) => {
         if (!mounted) return;
         applyLoadedData(
           loadedDraft,
@@ -670,6 +675,14 @@ export function PageEditor({
           loadedTranslations.default_locale,
         );
         setAssets(loadedAssets.items);
+        if (previewPending.current && loadedDraft.draft_id) {
+          previewPending.current = false;
+          const shown = await getPageDraftPreview(
+            page.id,
+            loadedDraft.draft_id,
+          );
+          if (mounted) setPreview(shown);
+        }
       })
       .catch((error: unknown) => {
         if (mounted) setProblem(sitesErrorMessage(error, t));

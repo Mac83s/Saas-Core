@@ -27,10 +27,12 @@ vi.mock("./page-editor", () => ({
     appearanceControls,
     pagesPanel,
     page,
+    previewOnOpen,
   }: {
     appearanceControls?: ReactNode;
     pagesPanel?: ReactNode;
     page: PageSummary;
+    previewOnOpen?: boolean;
     onExitStateChange: (state: { dirty: boolean; busy: boolean }) => void;
   }) => {
     const [dirty, setDirty] = useState(false);
@@ -42,6 +44,7 @@ vi.mock("./page-editor", () => ({
     return (
       <>
         <p>Editing {page.name}</p>
+        {previewOnOpen ? <p>Preview first</p> : null}
         {pagesPanel}
         {appearanceControls}
         <button onClick={() => setDirty(true)}>Change draft</button>
@@ -88,6 +91,23 @@ test.each(["pl", "en"] as const)(
     expect(await screen.findByRole("dialog")).toBeDefined();
   },
 );
+
+test("the page list opens it with the preview and gets control back on close", async () => {
+  const onClose = vi.fn();
+  render(
+    <NextIntlClientProvider locale="en" messages={englishMessages}>
+      <PageStudio
+        page={{ id: "page", name: "Home" } as PageSummary}
+        onChanged={vi.fn()}
+        onClose={onClose}
+        previewOnOpen
+      />
+    </NextIntlClientProvider>,
+  );
+  expect(await screen.findByText("Preview first")).toBeDefined();
+  fireEvent.click(screen.getByRole("button", { name: "Back to pages" }));
+  await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+});
 
 test("closing a dirty draft requires an explicit discard and cancel preserves it", async () => {
   setup();

@@ -213,10 +213,13 @@ test.describe("Site Studio from a new site to a rolled-back publication", () => 
     });
 
     await test.step("adds a page and fills it from a whole-page template", async () => {
-      await page.locator("#page-name").fill(PAGE_NAME);
-      await expect(page.locator("#page-key")).toHaveValue(PAGE_SLUG);
       await page.getByRole("button", { name: "Dodaj podstronę" }).click();
-      await expect(page.locator("#page-picker")).toHaveValue(PAGE_NAME);
+      const create = page.getByRole("dialog", { name: "Dodaj podstronę" });
+      await create.locator("#page-name").fill(PAGE_NAME);
+      await expect(create.locator("#page-key")).toHaveValue(PAGE_SLUG);
+      await create.getByRole("button", { name: "Dodaj podstronę" }).click();
+      // The editor opens on the new page right away.
+      await expect(studio).toBeVisible();
       const sites = await api<{ items: { id: string }[] }>(
         "GET",
         "/api/v1/sites/",
@@ -227,8 +230,6 @@ test.describe("Site Studio from a new site to a rolled-back publication", () => 
       );
       pageId = pages.items.find((item) => item.key === PAGE_SLUG)!.id;
 
-      await page.getByRole("tab", { name: "Treść" }).click();
-      await expect(studio).toBeVisible();
       await expect(studio.getByText("Zacznij od szablonu")).toBeVisible();
       await studio
         .getByRole("button", { name: `Użyj szablonu ${TEMPLATE}` })

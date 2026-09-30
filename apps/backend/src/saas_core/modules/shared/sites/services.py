@@ -2838,16 +2838,35 @@ def set_page_type(*, page_id: UUID, page_type: str) -> Page:
     if page is None:
         raise PageNotFound
     if page.page_type != page_type:
+        changed = [page]
+        if page_type == PageType.HOMEPAGE:
+            # One home page per site: the root answers with it and deleting
+            # refuses it, so a second one would make both meaningless. The
+            # one it replaces becomes an ordinary page.
+            for other in (
+                Page.all_objects.select_for_update()
+                .filter(
+                    organization_id=context.organization_id,
+                    site_id=page.site_id,
+                    page_type=PageType.HOMEPAGE,
+                    deleted_at__isnull=True,
+                )
+                .exclude(pk=page.id)
+            ):
+                other.page_type = PageType.LANDING
+                other.save(update_fields=["page_type", "updated_at"])
+                changed.append(other)
         page.page_type = page_type
         page.save(update_fields=["page_type", "updated_at"])
-        record_audit(
-            organization=Organization.objects.get(pk=context.organization_id),
-            action=PAGE_TYPE_SET,
-            actor=User.objects.get(pk=context.actor_id),
-            target_type="page",
-            target_id=page.id,
-            metadata={"page_type": page_type},
-        )
+        for item in changed:
+            record_audit(
+                organization=Organization.objects.get(pk=context.organization_id),
+                action=PAGE_TYPE_SET,
+                actor=User.objects.get(pk=context.actor_id),
+                target_type="page",
+                target_id=item.id,
+                metadata={"page_type": item.page_type},
+            )
     return page
 
 

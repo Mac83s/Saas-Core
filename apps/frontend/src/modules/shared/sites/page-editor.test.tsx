@@ -492,6 +492,20 @@ test("pobiera jawną wersję i renderuje chroniony preview", async () => {
   expect(viewport).toHaveStyle({ width: "390px" });
 });
 
+test("the page list's preview opens the saved draft once it is loaded", async () => {
+  renderEditor(
+    "en",
+    englishMessages,
+    vi.fn().mockResolvedValue(undefined),
+    true,
+    { previewOnOpen: true },
+  );
+
+  expect(await screen.findByTestId("draft-preview")).not.toBeNull();
+  expect(getPageDraftPreview).toHaveBeenCalledOnce();
+  expect(getPageDraftPreview).toHaveBeenCalledWith(page.id, draft.draft_id);
+});
+
 test("zapisuje metadane EN z jawnym fallbackiem i optimistic lockiem", async () => {
   renderEditor("en", englishMessages, vi.fn().mockResolvedValue(undefined));
   await screen.findByLabelText("Heading");
@@ -673,7 +687,7 @@ function renderEditor(
   visual = false,
   extraProps: Pick<
     ComponentProps<typeof PageEditor>,
-    "appearanceControls" | "onExitStateChange"
+    "appearanceControls" | "onExitStateChange" | "previewOnOpen"
   > = {},
 ) {
   const result = render(

@@ -56,6 +56,18 @@ export function sitesErrorMessage(error: unknown, t: Translate): string {
       return t("ownTemplates.versionConflict");
     case "site_template_not_found":
       return t("ownTemplates.notFound");
+    case "page_is_homepage":
+      return t("pagesList.errorHomepage");
+    case "page_is_last":
+      return t("pagesList.errorLast");
+    case "page_already_deleted":
+      return t("pagesList.errorAlreadyDeleted");
+    case "page_not_deleted":
+      return t("pagesList.errorNotDeleted");
+    case "redirect_target_unavailable":
+      return t("pagesList.errorRedirectTarget");
+    case "page_restore_slug_taken":
+      return t("pagesList.errorSlugTaken");
     default:
       return typeof error.problem.detail === "string"
         ? error.problem.detail

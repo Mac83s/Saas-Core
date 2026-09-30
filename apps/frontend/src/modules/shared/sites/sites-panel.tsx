@@ -37,6 +37,7 @@ import {
   listSites,
   publishSite,
   rollbackSitePublication,
+  type PageListItem,
   type PageSummary,
   type PageTypeValue,
   type SiteDomain,
@@ -62,6 +63,14 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@saas-core/ui/components/combobox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@saas-core/ui/components/dialog";
 import {
   Field,
   FieldError,
@@ -94,6 +103,7 @@ import { ProposalsQueue } from "./proposals-queue";
 import { SiteRedirectsCard } from "./page-url";
 import { PublicationHistory } from "./publication-history";
 import { SiteOnboardingWizard } from "./site-onboarding";
+import { SitePagesTable } from "./site-pages-table";
 
 type PageValues = { name: string; key: string };
 
@@ -118,12 +128,18 @@ export function SitesPanel({
   const t = useTranslations("Sites");
   const common = useTranslations("Common");
   const [sites, setSites] = useState<SiteSummary[]>([]);
-  const [pages, setPages] = useState<PageSummary[]>([]);
+  const [pages, setPages] = useState<PageListItem[]>([]);
   const [selectedSiteId, setSelectedSiteId] = useState<string>();
   const [selectedPageId, setSelectedPageId] = useState<string>();
   // A page chosen outside the studio opens a fresh studio; a switch inside it
   // (its pages tool) keeps the studio open and only swaps the editor.
   const [studioSession, setStudioSession] = useState(0);
+  const [mode, setMode] = useState("pages");
+  // Opened from the list ("Edit", "Preview"), closing the studio goes back to
+  // it; opened from the "content" tab, it leaves the page's own settings.
+  const [studioEntry, setStudioEntry] = useState<"edit" | "preview" | null>(
+    null,
+  );
   const [report, setReport] = useState<SiteLocalizationReport>();
   const [domains, setDomains] = useState<SiteDomain[]>([]);
   const [publications, setPublications] = useState<SitePublication[]>([]);
@@ -144,19 +160,6 @@ export function SitesPanel({
   useEffect(() => {
     selectedSiteIdRef.current = selectedSiteId;
   }, [selectedSiteId]);
-
-  const pageSchema = useMemo(
-    () =>
-      z.object({
-        name: z.string().min(2, t("required")),
-        key: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, t("invalidKey")),
-      }),
-    [t],
-  );
-  const pageForm = useForm<PageValues>({
-    resolver: zodResolver(pageSchema),
-    defaultValues: { name: "", key: "" },
-  });
 
   const selectedSite = sites.find((site) => site.id === selectedSiteId) ?? null;
   const selectedPage = pages.find((page) => page.id === selectedPageId) ?? null;
@@ -311,26 +314,39 @@ export function SitesPanel({
     };
   }, [selectedSiteId, t]);
 
-  const submitPage: SubmitHandler<PageValues> = async (values) => {
+  /** Rejects with the server's problem; the dialog that asked says it. */
+  async function createPage(values: PageValues) {
     if (!selectedSiteId) return;
-    setProblem(undefined);
-    try {
-      const created = await createSitePage(
-        selectedSiteId,
-        values,
-        mutationKey(pageReceipt, `page-create-${selectedSiteId}`, values),
-      );
-      pageReceipt.current = undefined;
-      setPlanAttention(false);
-      pageForm.reset();
-      await loadSiteDetails(selectedSiteId, created.id);
-    } catch (error) {
-      if (requiresBillingPlan(error)) {
-        setPlanAttention(true);
-        setProblem(undefined);
-      } else setProblem(sitesErrorMessage(error, t));
-    }
-  };
+    const created = await createSitePage(
+      selectedSiteId,
+      values,
+      mutationKey(pageReceipt, `page-create-${selectedSiteId}`, values),
+    );
+    pageReceipt.current = undefined;
+    setPlanAttention(false);
+    await loadSiteDetails(selectedSiteId, created.id);
+    openStudio(created.id, "edit");
+  }
+
+  function openStudio(pageId: string, entry: "edit" | "preview") {
+    setSelectedPageId(pageId);
+    setStudioEntry(entry);
+    setStudioSession((value) => value + 1);
+    setMode("content");
+  }
+
+  function mergePage(updated: PageSummary) {
+    setPages((current) =>
+      current.map((item) =>
+        item.id === updated.id
+          ? { ...item, ...updated }
+          : // The server keeps one home page: the one replaced is ordinary now.
+            updated.page_type === "homepage" && item.page_type === "homepage"
+            ? { ...item, page_type: "landing" }
+            : item,
+      ),
+    );
+  }
 
   async function publishSelectedSite() {
     if (!selectedSiteId) return;
@@ -649,7 +665,13 @@ export function SitesPanel({
       {/* ADR-031 splits the studio into modes rather than stacking every job on
           one screen. Address and publication history are things done once, so
           they sit behind their own tab instead of below the daily work. */}
-      <Tabs defaultValue="pages">
+      <Tabs
+        onValueChange={(value) => {
+          if (value === "content") setStudioEntry(null);
+          setMode(String(value));
+        }}
+        value={mode}
+      >
         <TabsList>
           <TabsTab value="pages">
             <FileTextIcon aria-hidden="true" />
@@ -677,126 +699,83 @@ export function SitesPanel({
           <TabsIndicator />
         </TabsList>
 
-        <TabsPanel value="pages">
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(20rem,0.9fr)]">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("pages")}</CardTitle>
-                <CardDescription>{t("pagesDescription")}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                <Field>
-                  <FieldLabel htmlFor="page-picker">
-                    {t("choosePage")}
-                  </FieldLabel>
-                  <Combobox
-                    disabled={!selectedSite}
-                    isItemEqualToValue={(item, value) => item.id === value.id}
-                    itemToStringLabel={(item) => item.name}
-                    itemToStringValue={(item) => item.id}
-                    items={pages}
-                    onValueChange={(item) => {
-                      setSelectedPageId(item?.id);
-                      setStudioSession((value) => value + 1);
-                    }}
-                    value={selectedPage}
-                  >
-                    <ComboboxInput
-                      className="w-full"
-                      disabled={!selectedSite || loading}
-                      id="page-picker"
-                      placeholder={t("searchPages")}
-                    />
-                    <ComboboxContent>
-                      <ComboboxEmpty>{t("noPages")}</ComboboxEmpty>
-                      <ComboboxList>
-                        {pages.map((page) => (
-                          <ComboboxItem key={page.id} value={page}>
-                            <FileTextIcon aria-hidden="true" />
-                            <span className="flex-1 truncate">{page.name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {page.key}
-                            </span>
-                          </ComboboxItem>
-                        ))}
-                      </ComboboxList>
-                    </ComboboxContent>
-                  </Combobox>
-                </Field>
-                {selectedPage && (
-                  <div className="grid gap-3 rounded-lg border p-3 sm:grid-cols-3">
-                    <Summary label={t("pageKey")} value={selectedPage.key} />
-                    <Summary
-                      label={t("version")}
-                      value={String(selectedPage.version)}
-                    />
-                    <Summary
-                      label={t("draft")}
-                      value={
-                        selectedPage.current_draft_id
-                          ? t("available")
-                          : t("missing")
-                      }
-                    />
-                  </div>
-                )}
-                {selectedPage && (
-                  <PageTypeField
-                    onChanged={(updated) =>
-                      setPages((current) =>
-                        current.map((item) =>
-                          item.id === updated.id ? updated : item,
-                        ),
-                      )
-                    }
-                    page={selectedPage}
-                  />
-                )}
-                {selectedPage && (
-                  <PageAutomationSwitch
-                    onChanged={(updated) =>
-                      setPages((current) =>
-                        current.map((item) =>
-                          item.id === updated.id ? updated : item,
-                        ),
-                      )
-                    }
-                    page={selectedPage}
-                  />
-                )}
-              </CardContent>
-            </Card>
-
-            <div className="space-y-6">
-              <CreatePageCard
-                disabled={!selectedSite}
-                form={pageForm}
-                onSubmit={submitPage}
-              />
-              {selectedSiteId && (
-                <NavigationEditor
-                  key={selectedSiteId}
-                  pages={pages}
-                  siteId={selectedSiteId}
-                />
-              )}
+        <TabsPanel className="space-y-6" value="pages">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold">{t("pages")}</h2>
+              <p className="text-sm text-muted-foreground">
+                {t("pagesDescription")}
+              </p>
             </div>
+            <CreatePageDialog
+              disabled={!selectedSite}
+              onCreate={createPage}
+              onPlanRequired={() => setPlanAttention(true)}
+            />
           </div>
+          {selectedSiteId && selectedSite ? (
+            <SitePagesTable
+              defaultLocale={selectedSite.default_locale}
+              key={`pages-${selectedSiteId}`}
+              loading={loading}
+              onChanged={() => loadSiteDetails(selectedSiteId, selectedPageId)}
+              onEdit={(page) => openStudio(page.id, "edit")}
+              onPreview={(page) => openStudio(page.id, "preview")}
+              pages={pages}
+              publicBaseUrl={publishedSiteUrl}
+              siteId={selectedSiteId}
+            />
+          ) : null}
+          {selectedSiteId && (
+            <NavigationEditor
+              key={selectedSiteId}
+              pages={pages}
+              siteId={selectedSiteId}
+            />
+          )}
         </TabsPanel>
 
-        <TabsPanel value="content">
+        <TabsPanel className="space-y-6" value="content">
           {selectedPage ? (
-            <PageStudio
-              key={`${selectedSiteId}:${studioSession}`}
-              onChanged={() =>
-                selectedSiteId
-                  ? loadSiteDetails(selectedSiteId, selectedPage.id)
-                  : Promise.resolve()
-              }
-              page={selectedPage}
-              pages={pages}
-              onSelectPage={setSelectedPageId}
-            />
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  <h2>{t("pageSettingsTitle", { name: selectedPage.name })}</h2>
+                </CardTitle>
+                <CardDescription>
+                  {t("pageSettingsDescription")}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <PageTypeField onChanged={mergePage} page={selectedPage} />
+                <PageAutomationSwitch
+                  onChanged={mergePage}
+                  page={selectedPage}
+                />
+                <div className="flex flex-wrap gap-2">
+                  <PageStudio
+                    key={`${selectedSiteId}:${studioSession}`}
+                    onChanged={() =>
+                      selectedSiteId
+                        ? loadSiteDetails(selectedSiteId, selectedPage.id)
+                        : Promise.resolve()
+                    }
+                    onClose={studioEntry ? () => setMode("pages") : undefined}
+                    onSelectPage={setSelectedPageId}
+                    page={selectedPage}
+                    pages={pages}
+                    previewOnOpen={studioEntry === "preview"}
+                  />
+                  <Button
+                    onClick={() => setMode("pages")}
+                    type="button"
+                    variant="outline"
+                  >
+                    {t("backToPageList")}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           ) : (
             <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
               {t("choosePageFirst")}
@@ -993,16 +972,32 @@ function requiresBillingPlan(error: unknown) {
   );
 }
 
-function CreatePageCard({
+/** Adding a page: its name and key; the editor opens right after. */
+function CreatePageDialog({
   disabled,
-  form,
-  onSubmit,
+  onCreate,
+  onPlanRequired,
 }: {
   disabled: boolean;
-  form: UseFormReturn<PageValues>;
-  onSubmit: SubmitHandler<PageValues>;
+  onCreate: (values: PageValues) => Promise<void>;
+  onPlanRequired: () => void;
 }) {
   const t = useTranslations("Sites");
+  const common = useTranslations("Common");
+  const [open, setOpen] = useState(false);
+  const [problem, setProblem] = useState<string>();
+  const schema = useMemo(
+    () =>
+      z.object({
+        name: z.string().min(2, t("required")),
+        key: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, t("invalidKey")),
+      }),
+    [t],
+  );
+  const form = useForm<PageValues>({
+    resolver: zodResolver(schema),
+    defaultValues: { name: "", key: "" },
+  });
   // The address follows the title until someone edits it by hand; from then on
   // it is theirs, because a key that keeps rewriting itself under an editor is
   // worse than one they have to think about once.
@@ -1017,17 +1012,42 @@ function CreatePageCard({
     }
   }, [form, keyEdited, name]);
 
+  const submit: SubmitHandler<PageValues> = async (values) => {
+    setProblem(undefined);
+    try {
+      await onCreate(values);
+      form.reset();
+      setKeyEdited(false);
+      setOpen(false);
+    } catch (error) {
+      if (requiresBillingPlan(error)) {
+        setOpen(false);
+        onPlanRequired();
+      } else setProblem(sitesErrorMessage(error, t));
+    }
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("createPage")}</CardTitle>
-        <CardDescription>{t("createPageDescription")}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
+    <Dialog
+      onOpenChange={(next) => {
+        if (!next && form.formState.isSubmitting) return;
+        setOpen(next);
+        if (next) setProblem(undefined);
+      }}
+      open={open}
+    >
+      <DialogTrigger disabled={disabled} render={<Button type="button" />}>
+        <PlusIcon aria-hidden="true" />
+        {t("createPage")}
+      </DialogTrigger>
+      <DialogContent closeLabel={common("close")}>
+        <DialogHeader>
+          <DialogTitle>{t("createPage")}</DialogTitle>
+          <DialogDescription>{t("createPageDescription")}</DialogDescription>
+        </DialogHeader>
+        <form className="space-y-4" onSubmit={form.handleSubmit(submit)}>
           <FieldGroup>
             <TextField
-              disabled={disabled}
               form={form}
               id="page-name"
               label={t("name")}
@@ -1035,7 +1055,6 @@ function CreatePageCard({
             />
             <TextField
               description={keyEdited ? undefined : t("pageKeyFollowsName")}
-              disabled={disabled}
               form={form}
               id="page-key"
               label={t("pageKey")}
@@ -1043,16 +1062,18 @@ function CreatePageCard({
               onInput={() => setKeyEdited(true)}
             />
           </FieldGroup>
-          <Button
-            disabled={disabled || form.formState.isSubmitting}
-            type="submit"
-          >
+          {problem ? (
+            <p className="text-sm text-destructive" role="alert">
+              {problem}
+            </p>
+          ) : null}
+          <Button disabled={form.formState.isSubmitting} type="submit">
             <PlusIcon aria-hidden="true" />
             {form.formState.isSubmitting ? t("creating") : t("createPage")}
           </Button>
         </form>
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1174,14 +1195,5 @@ function TextField<T extends FieldValues>({
       ) : null}
       <FieldError>{error}</FieldError>
     </Field>
-  );
-}
-
-function Summary({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="font-medium">{value}</p>
-    </div>
   );
 }

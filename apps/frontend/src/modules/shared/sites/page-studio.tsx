@@ -31,6 +31,8 @@ export function PageStudio({
   pages = [],
   onChanged,
   onSelectPage,
+  previewOnOpen = false,
+  onClose,
 }: {
   page: PageSummary;
   /** The site's pages: with `onSelectPage`, the studio switches between them
@@ -38,9 +40,17 @@ export function PageStudio({
   pages?: readonly PageSummary[];
   onChanged: () => Promise<void>;
   onSelectPage?: (pageId: string) => void;
+  /** Opens the page's preview as soon as the draft is loaded. */
+  previewOnOpen?: boolean;
+  /** The studio was closed: a caller that opened it from its list goes back. */
+  onClose?: () => void;
 }) {
   const t = useTranslations("Sites.studio");
   const [open, setOpen] = useState(true);
+  const close = () => {
+    setOpen(false);
+    onClose?.();
+  };
   // What waits for "Odrzuć zmiany": closing the studio or another page.
   const [confirmExit, setConfirmExit] = useState<
     false | { close: true } | { pageId: string }
@@ -196,7 +206,8 @@ export function PageStudio({
       setConfirmExit({ close: true });
       return;
     }
-    setOpen(next);
+    if (next) setOpen(true);
+    else close();
   }
   // The site's look belongs to the site, not the page: it survives a switch.
   function switchPage(pageId: string) {
@@ -289,6 +300,7 @@ export function PageStudio({
               key={page.id}
               page={page}
               pagesPanel={pagesPanel}
+              previewOnOpen={previewOnOpen}
               onChanged={onChanged}
               onExitStateChange={setExitState}
               navigation={navigation}
@@ -331,7 +343,7 @@ export function PageStudio({
                     onSelectPage?.(pending.pageId);
                     return;
                   }
-                  setOpen(false);
+                  close();
                   setAppearance(savedAppearance?.data);
                   setAppearanceProblem(undefined);
                 }}
