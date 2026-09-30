@@ -174,7 +174,9 @@ def _ensure_page_capacity(site: Site) -> None:
     decision = decide_quota(PAGES_MAX)
     if not decision.available:
         return
-    pages = Page.all_objects.filter(organization_id=site.organization_id, site_id=site.id)
+    pages = Page.all_objects.filter(
+        organization_id=site.organization_id, site_id=site.id, deleted_at__isnull=True
+    )
     if pages.count() >= decision.value:
         raise PageLimitReached(decision.value)
 
@@ -523,6 +525,7 @@ def list_pages(
     site_id: UUID,
     cursor: UUID | None,
     limit: int,
+    deleted: bool = False,
 ) -> tuple[list[Page], UUID | None]:
     context = authorize_entitled(
         SITE_CONTENT_EDIT,
@@ -537,6 +540,7 @@ def list_pages(
     queryset = (
         Page.all_objects.filter(
             organization_id=context.organization_id,
+            deleted_at__isnull=not deleted,
             site_id=site_id,
         )
         .select_related("current_draft")
@@ -582,6 +586,7 @@ def create_page(
         return MutationResult(_same_request(existing, request_hash), False)
     if Page.all_objects.filter(
         organization_id=context.organization_id,
+        deleted_at__isnull=True,
         site_id=site.id,
         key=normalized_page_key,
     ).exists():
@@ -619,6 +624,7 @@ def get_draft(*, page_id: UUID) -> PageDraft:
         page = Page.all_objects.select_related("current_draft").get(
             pk=page_id,
             organization_id=context.organization_id,
+            deleted_at__isnull=True,
         )
     except Page.DoesNotExist as error:
         raise PageNotFound from error
@@ -671,7 +677,9 @@ def list_page_versions(
         SITES_ENABLED,
         operation=FeatureOperation.READ,
     )
-    page = Page.all_objects.filter(pk=page_id, organization_id=context.organization_id).first()
+    page = Page.all_objects.filter(
+        pk=page_id, organization_id=context.organization_id, deleted_at__isnull=True
+    ).first()
     if page is None:
         raise PageNotFound
     assert_within_grant(context, site_id=page.site_id)
@@ -752,6 +760,7 @@ def get_draft_preview(*, page_id: UUID, version_id: UUID) -> PageDraft:
         page = Page.all_objects.get(
             pk=page_id,
             organization_id=context.organization_id,
+            deleted_at__isnull=True,
         )
         version = PageVersion.all_objects.get(
             pk=version_id,
@@ -1224,7 +1233,7 @@ def hold_page_editing_lock(*, page_id: UUID) -> Page:
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
     page = (
         Page.all_objects.select_for_update()
-        .filter(pk=page_id, organization_id=context.organization_id)
+        .filter(pk=page_id, organization_id=context.organization_id, deleted_at__isnull=True)
         .first()
     )
     if page is None:
@@ -1248,7 +1257,7 @@ def set_page_automation_policy(*, page_id: UUID, policy: str) -> Page:
         raise NavigationInvalidTree
     page = (
         Page.all_objects.select_for_update()
-        .filter(pk=page_id, organization_id=context.organization_id)
+        .filter(pk=page_id, organization_id=context.organization_id, deleted_at__isnull=True)
         .first()
     )
     if page is None:
@@ -1328,6 +1337,7 @@ def save_draft(
             .get(
                 pk=page_id,
                 organization_id=context.organization_id,
+                deleted_at__isnull=True,
             )
         )
     except Page.DoesNotExist as error:
@@ -1631,6 +1641,7 @@ def list_page_translations(*, page_id: UUID) -> PageTranslations:
         page = Page.all_objects.select_related("site").get(
             pk=page_id,
             organization_id=context.organization_id,
+            deleted_at__isnull=True,
         )
     except Page.DoesNotExist as error:
         raise PageNotFound from error
@@ -1688,7 +1699,7 @@ def save_page_translation(
         page = (
             Page.all_objects.select_for_update()
             .select_related("site__organization")
-            .get(pk=page_id, organization_id=context.organization_id)
+            .get(pk=page_id, organization_id=context.organization_id, deleted_at__isnull=True)
         )
     except Page.DoesNotExist as error:
         raise PageNotFound from error
@@ -1811,6 +1822,7 @@ def get_site_localization_report(*, site_id: UUID) -> SiteLocalizationReport:
     pages = list(
         Page.all_objects.filter(
             organization_id=context.organization_id,
+            deleted_at__isnull=True,
             site_id=site.id,
         ).order_by("key", "id")
     )
@@ -1914,6 +1926,7 @@ def save_site_navigation(
     known_pages = set(
         Page.all_objects.filter(
             organization_id=context.organization_id,
+            deleted_at__isnull=True,
             site_id=site_id,
             pk__in=page_ids,
         ).values_list("pk", flat=True)
@@ -2018,6 +2031,7 @@ def publish_site(*, site_id: UUID, idempotency_key: str) -> SitePublication:
         .select_related("current_draft")
         .filter(
             organization_id=context.organization_id,
+            deleted_at__isnull=True,
             site_id=initial_site.id,
         )
         .order_by("id")
@@ -2059,6 +2073,7 @@ def publish_site(*, site_id: UUID, idempotency_key: str) -> SitePublication:
     current_page_ids = tuple(
         Page.all_objects.filter(
             organization_id=context.organization_id,
+            deleted_at__isnull=True,
             site_id=site.id,
         )
         .order_by("id")
@@ -2285,12 +2300,42 @@ def rollback_site(
     if previous is None:
         raise SitePublicationNotFound
     actor = User.objects.get(pk=context.actor_id)
+    # A page deleted since stays deleted: the old state comes back without it,
+    # and its addresses keep the redirects its deletion made.
+    snapshot = source.snapshot
+    deleted_ids = set(
+        Page.all_objects.filter(
+            organization_id=context.organization_id,
+            site_id=site.id,
+            deleted_at__isnull=False,
+            pk__in=[
+                entry.get("page_id")
+                for entry in snapshot.get("pages", [])
+                if isinstance(entry, dict)
+            ],
+        ).values_list("pk", flat=True)
+    )
+    if deleted_ids:
+        from .page_deletion import _with_redirects, _without_page
+
+        for page_id in deleted_ids:
+            snapshot = _without_page(snapshot, page_id)
+        snapshot = _with_redirects(
+            snapshot,
+            list(
+                SiteRedirect.all_objects.filter(
+                    organization_id=context.organization_id,
+                    site_id=site.id,
+                    page_id__in=deleted_ids,
+                )
+            ),
+        )
     publication = Publication.all_objects.create(
         organization_id=context.organization_id,
         site=site,
         sequence=previous.sequence + 1,
         snapshot_schema_version=source.snapshot_schema_version,
-        snapshot=source.snapshot,
+        snapshot=snapshot,
         snapshot_hash="",
         created_by=actor,
         source_publication=source,
@@ -2787,7 +2832,7 @@ def set_page_type(*, page_id: UUID, page_type: str) -> Page:
     page = (
         Page.all_objects.select_for_update(of=("self",))
         .select_related("current_draft")
-        .filter(pk=page_id, organization_id=context.organization_id)
+        .filter(pk=page_id, organization_id=context.organization_id, deleted_at__isnull=True)
         .first()
     )
     if page is None:

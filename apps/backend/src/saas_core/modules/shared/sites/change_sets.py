@@ -450,6 +450,7 @@ def _page_base(
             pk=target["page_id"],
             organization_id=context.organization_id,
             site_id=target["site_id"],
+            deleted_at__isnull=True,
         )
         .first()
     )

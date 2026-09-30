@@ -165,6 +165,9 @@ export type SiteList = components["schemas"]["SiteList"];
 export type PageSummary = components["schemas"]["PageSummary"];
 export type PageCreateInput = components["schemas"]["PageCreate"];
 export type PageList = components["schemas"]["PageList"];
+export type PageListItem = components["schemas"]["PageListItem"];
+export type PageDeletion = components["schemas"]["PageDeletion"];
+export type PageIncomingLink = components["schemas"]["PageIncomingLink"];
 export type PageDraft = components["schemas"]["PageDraft"];
 export type PageVersionSummary = components["schemas"]["PageVersionSummary"];
 export type PageVersionList = components["schemas"]["PageVersionList"];
@@ -939,17 +942,83 @@ export async function createSite(
   return data;
 }
 
-export async function listSitePages(siteId: string): Promise<PageList> {
+export async function listSitePages(
+  siteId: string,
+  state: "live" | "deleted" = "live",
+): Promise<PageList> {
   const { data, error, response } = await client.GET(
     "/api/v1/sites/{site_id}/pages/",
     {
-      params: { path: { site_id: siteId }, query: { limit: 100 } },
+      params: { path: { site_id: siteId }, query: { limit: 100, state } },
       credentials: "same-origin",
       cache: "no-store",
     },
   );
   if (error || !data) throwProblem(error, response);
   return data;
+}
+
+/** Deletes a page (decision 7): hidden, off the public site at once, its
+ *  addresses redirected to `redirectToPageId` or the home page. */
+export async function deleteSitePage(
+  pageId: string,
+  input: { expected_version: number; redirect_to_page_id?: string | null },
+  idempotencyKey: string,
+): Promise<PageDeletion> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/pages/{page_id}/delete/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { page_id: pageId },
+      },
+      body: input,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** Brings a deleted page back as a draft; `slugs` when its old address is taken. */
+export async function restoreSitePage(
+  pageId: string,
+  idempotencyKey: string,
+  slugs?: Record<string, string>,
+): Promise<PageListItem> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.POST(
+    "/api/v1/sites/pages/{page_id}/restore/",
+    {
+      params: {
+        header: { "Idempotency-Key": idempotencyKey },
+        path: { page_id: pageId },
+      },
+      body: slugs ? { slugs } : {},
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** The other pages whose drafts link to this one. */
+export async function listPageIncomingLinks(
+  pageId: string,
+): Promise<PageIncomingLink[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/sites/pages/{page_id}/incoming-links/",
+    {
+      params: { path: { page_id: pageId } },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data.items;
 }
 
 export async function createSitePage(

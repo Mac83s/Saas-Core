@@ -457,6 +457,20 @@ class Page(TenantScopedModel):
     request_hash = models.CharField(max_length=64)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    # Deleting a page hides it (decision 7, 30.09): its versions, blocks and
+    # publications are append-only history that rollback and audit read, so
+    # the row stays. A deleted page releases its key and addresses; the
+    # addresses it had, per locale, are kept here for a restore.
+    deleted_at = models.DateTimeField(null=True, blank=True)
+    deleted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="deleted_site_pages",
+        null=True,
+        blank=True,
+    )
+    deletion_idempotency_key = models.CharField(max_length=120, blank=True, default="")
+    deleted_slugs = models.JSONField(default=dict, blank=True)
 
     all_objects = models.Manager()
 
@@ -465,7 +479,8 @@ class Page(TenantScopedModel):
         constraints = [
             models.UniqueConstraint(
                 fields=["organization", "site", "key"],
-                name="sites_page_org_site_key_uq",
+                condition=models.Q(deleted_at__isnull=True),
+                name="sites_page_org_site_live_key_uq",
             ),
             models.UniqueConstraint(
                 fields=["organization", "site", "created_by", "idempotency_key"],

@@ -524,9 +524,60 @@ class PageSummarySerializer(serializers.Serializer[dict[str, Any]]):
     updated_at = serializers.DateTimeField()
 
 
+class PageListItemSerializer(PageSummarySerializer):
+    """A page as the panel's list shows it (decision 7): where it answers,
+    whether visitors see it and which version, and whether the menu has it."""
+
+    title = serializers.CharField(allow_null=True)
+    path = serializers.CharField(allow_null=True)
+    published_version = serializers.IntegerField(allow_null=True)
+    in_navigation = serializers.BooleanField()
+    deleted_at = serializers.DateTimeField(allow_null=True)
+
+
+class PageListQuerySerializer(CursorQuerySerializer):
+    state = serializers.ChoiceField(choices=["live", "deleted"], default="live")
+
+
 class PageListSerializer(serializers.Serializer[dict[str, Any]]):
-    items = PageSummarySerializer(many=True)
+    items = PageListItemSerializer(many=True)
     next_cursor = serializers.UUIDField(allow_null=True)
+
+
+class PageDeleteSerializer(serializers.Serializer[dict[str, Any]]):
+    expected_version = serializers.IntegerField(min_value=0)
+    # Where the page's public addresses lead afterwards; the home page when
+    # absent. Ignored for a page visitors never saw.
+    redirect_to_page_id = serializers.UUIDField(required=False, allow_null=True)
+
+
+class PageRedirectSummarySerializer(serializers.Serializer[dict[str, Any]]):
+    from_path = serializers.CharField()
+    to_path = serializers.CharField()
+
+
+class PageDeletionSerializer(serializers.Serializer[dict[str, Any]]):
+    page = PageListItemSerializer()
+    publication_id = serializers.UUIDField(allow_null=True)
+    redirects = PageRedirectSummarySerializer(many=True)
+
+
+class PageRestoreSerializer(serializers.Serializer[dict[str, Any]]):
+    # New addresses per locale, when the old ones were taken meanwhile.
+    slugs = serializers.DictField(
+        child=serializers.RegexField(r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=80),
+        required=False,
+    )
+
+
+class PageIncomingLinkSerializer(serializers.Serializer[dict[str, Any]]):
+    page_id = serializers.UUIDField()
+    name = serializers.CharField()
+    links = serializers.IntegerField()
+
+
+class PageIncomingLinksSerializer(serializers.Serializer[dict[str, Any]]):
+    items = PageIncomingLinkSerializer(many=True)
 
 
 class PageBlockInputSerializer(serializers.Serializer[dict[str, Any]]):

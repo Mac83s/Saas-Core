@@ -159,7 +159,7 @@ def _site_entry(
 def _pages(context: Any, site: Site) -> list[dict[str, Any]]:
     pages = list(
         Page.all_objects.filter(
-            organization_id=context.organization_id, site_id=site.id
+            organization_id=context.organization_id, site_id=site.id, deleted_at__isnull=True
         ).order_by("created_at")
     )
     translations: dict[Any, list[PageTranslation]] = {}

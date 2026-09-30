@@ -45,6 +45,7 @@ from .own_templates import (
     save_site_template_version,
     update_site_template,
 )
+from .page_deletion import delete_page, incoming_links, page_listing_facts, restore_page
 from .serializers import (
     AutomationConnectionSerializer,
     ChangeSetApplySerializer,
@@ -63,8 +64,14 @@ from .serializers import (
     OperationStatusSerializer,
     OwnTemplateImportSerializer,
     PageCreateSerializer,
+    PageDeleteSerializer,
+    PageDeletionSerializer,
     PageDraftSerializer,
+    PageIncomingLinksSerializer,
+    PageListItemSerializer,
+    PageListQuerySerializer,
     PageListSerializer,
+    PageRestoreSerializer,
     PageSummarySerializer,
     PageTemplateImportSerializer,
     PageTranslationListSerializer,
@@ -205,7 +212,17 @@ class PageListCreateView(APIView):
     @extend_schema(
         operation_id="sites_pages_list",
         tags=["sites"],
-        parameters=[CURSOR_PARAMETER, LIMIT_PARAMETER],
+        parameters=[
+            CURSOR_PARAMETER,
+            LIMIT_PARAMETER,
+            OpenApiParameter(
+                "state",
+                str,
+                OpenApiParameter.QUERY,
+                enum=["live", "deleted"],
+                description="live (default) or the deleted pages that can be restored",
+            ),
+        ],
         responses={
             200: PageListSerializer,
             403: ProblemDetailsSerializer,
@@ -214,15 +231,17 @@ class PageListCreateView(APIView):
         },
     )
     def get(self, request: Request, site_id: UUID) -> Response:
-        query = CursorQuerySerializer(data=request.query_params)
+        query = PageListQuerySerializer(data=request.query_params)
         query.is_valid(raise_exception=True)
         items, next_cursor = list_pages(
             site_id=site_id,
             cursor=query.validated_data.get("cursor"),
             limit=query.validated_data["limit"],
+            deleted=query.validated_data["state"] == "deleted",
         )
+        facts = page_listing_facts(items)
         return Response({
-            "items": [_page_summary(page) for page in items],
+            "items": [{**_page_summary(page), **facts[page.id]} for page in items],
             "next_cursor": next_cursor,
         })
 
@@ -1418,3 +1437,95 @@ class SiteRedirectView(APIView):
     def delete(self, _request: Request, redirect_id: UUID) -> Response:
         delete_site_redirect(redirect_id=redirect_id)
         return Response(status=204)
+
+
+def _page_list_item(page: Page) -> dict[str, Any]:
+    return {**_page_summary(page), **page_listing_facts([page])[page.id]}
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class PageDeleteView(APIView):
+    """Deletes a page (decision 7): hidden, off the public site at once, its
+    addresses redirected. A person's act — ADR-035 keeps removals for one."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_page_delete",
+        tags=["sites"],
+        parameters=[IDEMPOTENCY_PARAMETER],
+        request=PageDeleteSerializer,
+        responses={
+            200: PageDeletionSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request, page_id: UUID) -> Response:
+        serializer = PageDeleteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = delete_page(
+            page_id=page_id,
+            expected_version=serializer.validated_data["expected_version"],
+            redirect_to_page_id=serializer.validated_data.get("redirect_to_page_id"),
+            idempotency_key=request.headers.get("Idempotency-Key", ""),
+        )
+        return Response({
+            "page": _page_list_item(result.page),
+            "publication_id": result.publication.id if result.publication else None,
+            "redirects": [
+                {"from_path": redirect.from_path, "to_path": redirect.to_path}
+                for redirect in result.redirects
+            ],
+        })
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class PageRestoreView(APIView):
+    """Brings a deleted page back as a draft, outside the menu and unpublished."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_page_restore",
+        tags=["sites"],
+        parameters=[IDEMPOTENCY_PARAMETER],
+        request=PageRestoreSerializer,
+        responses={
+            200: PageListItemSerializer,
+            400: ProblemDetailsSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+            409: ProblemDetailsSerializer,
+        },
+    )
+    def post(self, request: Request, page_id: UUID) -> Response:
+        serializer = PageRestoreSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        page = restore_page(
+            page_id=page_id,
+            slugs=serializer.validated_data.get("slugs"),
+            idempotency_key=request.headers.get("Idempotency-Key", ""),
+        )
+        return Response(_page_list_item(page))
+
+
+class PageIncomingLinksView(APIView):
+    """Which other pages link to this one — what the delete dialog shows."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        operation_id="sites_page_incoming_links",
+        tags=["sites"],
+        responses={
+            200: PageIncomingLinksSerializer,
+            403: ProblemDetailsSerializer,
+            404: ProblemDetailsSerializer,
+        },
+    )
+    def get(self, _request: Request, page_id: UUID) -> Response:
+        return Response({"items": incoming_links(page_id=page_id)})
+

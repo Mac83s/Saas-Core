@@ -3469,6 +3469,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sites/pages/{page_id}/delete/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * @description Deletes a page (decision 7): hidden, off the public site at once, its
+         *     addresses redirected. A person's act — ADR-035 keeps removals for one.
+         */
+        post: operations["sites_page_delete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sites/pages/{page_id}/draft/": {
         parameters: {
             query?: never;
@@ -3478,6 +3498,23 @@ export interface paths {
         };
         get: operations["sites_page_draft_retrieve"];
         put: operations["sites_page_draft_save"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/pages/{page_id}/incoming-links/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Which other pages link to this one — what the delete dialog shows. */
+        get: operations["sites_page_incoming_links"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -3527,6 +3564,23 @@ export interface paths {
         get: operations["sites_page_draft_preview_retrieve"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sites/pages/{page_id}/restore/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Brings a deleted page back as a draft, outside the menu and unpublished. */
+        post: operations["sites_page_restore"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5741,6 +5795,17 @@ export interface components {
             name: string;
             key: string;
         };
+        PageDelete: {
+            expected_version: number;
+            /** Format: uuid */
+            redirect_to_page_id?: string | null;
+        };
+        PageDeletion: {
+            page: components["schemas"]["PageListItem"];
+            /** Format: uuid */
+            publication_id: string | null;
+            redirects: components["schemas"]["PageRedirectSummary"][];
+        };
         PageDraft: {
             /** Format: uuid */
             page_id: string;
@@ -5754,10 +5819,48 @@ export interface components {
             media_asset_ids: string[];
             page_presentation: unknown | null;
         };
+        PageIncomingLink: {
+            /** Format: uuid */
+            page_id: string;
+            name: string;
+            links: number;
+        };
+        PageIncomingLinks: {
+            items: components["schemas"]["PageIncomingLink"][];
+        };
         PageList: {
-            items: components["schemas"]["PageSummary"][];
+            items: components["schemas"]["PageListItem"][];
             /** Format: uuid */
             next_cursor: string | null;
+        };
+        /**
+         * @description A page as the panel's list shows it (decision 7): where it answers,
+         *     whether visitors see it and which version, and whether the menu has it.
+         */
+        PageListItem: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            site_id: string;
+            name: string;
+            key: string;
+            version: number;
+            /** Format: uuid */
+            current_draft_id: string | null;
+            current_draft_hash: string | null;
+            page_type: string;
+            automation_policy: string;
+            draft_author: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            title: string | null;
+            path: string | null;
+            published_version: number | null;
+            in_navigation: boolean;
+            /** Format: date-time */
+            deleted_at: string | null;
         };
         PageLocalization: {
             /** Format: uuid */
@@ -5769,6 +5872,15 @@ export interface components {
                 [key: string]: string;
             };
             x_default: string | null;
+        };
+        PageRedirectSummary: {
+            from_path: string;
+            to_path: string;
+        };
+        PageRestore: {
+            slugs?: {
+                [key: string]: string;
+            };
         };
         PageSummary: {
             /** Format: uuid */
@@ -16307,6 +16419,8 @@ export interface operations {
                 cursor?: string;
                 /** @description Liczba elementów od 1 do 100; domyślnie 50. */
                 limit?: number;
+                /** @description live (default) or the deleted pages that can be restored */
+                state?: "deleted" | "live";
             };
             header?: never;
             path: {
@@ -18178,6 +18292,68 @@ export interface operations {
             };
         };
     };
+    sites_page_delete: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia mutacji w zakresie organizacji i użytkownika. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PageDelete"];
+                "application/x-www-form-urlencoded": components["schemas"]["PageDelete"];
+                "multipart/form-data": components["schemas"]["PageDelete"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageDeletion"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     sites_page_draft_retrieve: {
         parameters: {
             query?: never;
@@ -18284,6 +18460,43 @@ export interface operations {
                 };
             };
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_page_incoming_links: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageIncomingLinks"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -18432,6 +18645,68 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PageDraft"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    sites_page_restore: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Klucz bezpiecznego ponowienia mutacji w zakresie organizacji i użytkownika. */
+                "Idempotency-Key": string;
+            };
+            path: {
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["PageRestore"];
+                "application/x-www-form-urlencoded": components["schemas"]["PageRestore"];
+                "multipart/form-data": components["schemas"]["PageRestore"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageListItem"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
             403: {

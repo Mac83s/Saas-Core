@@ -418,7 +418,9 @@ def import_own_page_template(
     version, through the same `save_draft` as every other change. `kept` and
     `appended` work as for a ready template (F4-C)."""
     context = authorize_entitled(SITE_CONTENT_EDIT, SITES_ENABLED)
-    if not Page.all_objects.filter(pk=page_id, organization_id=context.organization_id).exists():
+    if not Page.all_objects.filter(
+        pk=page_id, organization_id=context.organization_id, deleted_at__isnull=True
+    ).exists():
         raise PageNotFound
     version = (
         SiteTemplateVersion.all_objects.select_related("template")

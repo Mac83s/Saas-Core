@@ -8439,6 +8439,14 @@ paths:
           type: string
           format: uuid
         required: true
+      - in: query
+        name: state
+        schema:
+          type: string
+          enum:
+          - deleted
+          - live
+        description: live (default) or the deleted pages that can be restored
       tags:
       - sites
       security:
@@ -10260,6 +10268,73 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
+  /api/v1/sites/pages/{page_id}/delete/:
+    post:
+      operationId: sites_page_delete
+      description: |-
+        Deletes a page (decision 7): hidden, off the public site at once, its
+        addresses redirected. A person's act — ADR-035 keeps removals for one.
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: Klucz bezpiecznego ponowienia mutacji w zakresie organizacji
+          i użytkownika.
+        required: true
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PageDelete'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PageDelete'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PageDelete'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageDeletion'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/sites/pages/{page_id}/draft/:
     get:
       operationId: sites_page_draft_retrieve
@@ -10363,6 +10438,40 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/pages/{page_id}/incoming-links/:
+    get:
+      operationId: sites_page_incoming_links
+      description: Which other pages link to this one — what the delete dialog shows.
+      parameters:
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageIncomingLinks'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
           content:
             application/json:
               schema:
@@ -10515,6 +10624,70 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PageDraft'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/sites/pages/{page_id}/restore/:
+    post:
+      operationId: sites_page_restore
+      description: Brings a deleted page back as a draft, outside the menu and unpublished.
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        description: Klucz bezpiecznego ponowienia mutacji w zakresie organizacji
+          i użytkownika.
+        required: true
+      - in: path
+        name: page_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - sites
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PageRestore'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PageRestore'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PageRestore'
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PageListItem'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '403':
           content:
@@ -16240,6 +16413,37 @@ components:
       required:
       - key
       - name
+    PageDelete:
+      type: object
+      properties:
+        expected_version:
+          type: integer
+          minimum: 0
+        redirect_to_page_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+      required:
+      - expected_version
+    PageDeletion:
+      type: object
+      properties:
+        page:
+          $ref: '#/components/schemas/PageListItem'
+        publication_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        redirects:
+          type: array
+          items:
+            $ref: '#/components/schemas/PageRedirectSummary'
+      required:
+      - page
+      - publication_id
+      - redirects
     PageDraft:
       type: object
       properties:
@@ -16284,13 +16488,36 @@ components:
       - page_id
       - page_presentation
       - version
+    PageIncomingLink:
+      type: object
+      properties:
+        page_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        links:
+          type: integer
+      required:
+      - links
+      - name
+      - page_id
+    PageIncomingLinks:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PageIncomingLink'
+      required:
+      - items
     PageList:
       type: object
       properties:
         items:
           type: array
           items:
-            $ref: '#/components/schemas/PageSummary'
+            $ref: '#/components/schemas/PageListItem'
         next_cursor:
           type:
           - string
@@ -16299,6 +16526,84 @@ components:
       required:
       - items
       - next_cursor
+    PageListItem:
+      type: object
+      description: |-
+        A page as the panel's list shows it (decision 7): where it answers,
+        whether visitors see it and which version, and whether the menu has it.
+      properties:
+        id:
+          type: string
+          format: uuid
+        site_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        key:
+          type: string
+        version:
+          type: integer
+        current_draft_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        current_draft_hash:
+          type:
+          - string
+          - 'null'
+        page_type:
+          type: string
+        automation_policy:
+          type: string
+        draft_author:
+          type:
+          - string
+          - 'null'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        title:
+          type:
+          - string
+          - 'null'
+        path:
+          type:
+          - string
+          - 'null'
+        published_version:
+          type:
+          - integer
+          - 'null'
+        in_navigation:
+          type: boolean
+        deleted_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+      required:
+      - automation_policy
+      - created_at
+      - current_draft_hash
+      - current_draft_id
+      - deleted_at
+      - draft_author
+      - id
+      - in_navigation
+      - key
+      - name
+      - page_type
+      - path
+      - published_version
+      - site_id
+      - title
+      - updated_at
+      - version
     PageLocalization:
       type: object
       properties:
@@ -16328,6 +16633,25 @@ components:
       - page_key
       - page_name
       - x_default
+    PageRedirectSummary:
+      type: object
+      properties:
+        from_path:
+          type: string
+        to_path:
+          type: string
+      required:
+      - from_path
+      - to_path
+    PageRestore:
+      type: object
+      properties:
+        slugs:
+          type: object
+          additionalProperties:
+            type: string
+            maxLength: 80
+            pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
     PageSummary:
       type: object
       properties:
