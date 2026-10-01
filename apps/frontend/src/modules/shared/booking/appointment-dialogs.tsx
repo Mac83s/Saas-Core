@@ -18,6 +18,7 @@ import {
   CalendarCheckIcon,
   CheckCircle2Icon,
   CircleIcon,
+  MapPinIcon,
   UserXIcon,
   XCircleIcon,
   XIcon,
@@ -135,6 +136,28 @@ export function StatusBadge({ status }: { status: string }) {
       <Icon aria-hidden="true" />
       {statusLabel(t, status)}
     </Badge>
+  );
+}
+
+/**
+ * Where the visit takes place — its town, when the module that owns the visit
+ * knows it (a farm's village). Nothing when no module says.
+ */
+export function VisitPlace({
+  place,
+  className,
+}: {
+  place: string | null | undefined;
+  className?: string;
+}) {
+  const t = useTranslations("Calendar");
+  if (!place) return null;
+  return (
+    <span className={cn("flex min-w-0 items-center gap-1", className)}>
+      <MapPinIcon aria-hidden="true" className="size-3.5 shrink-0" />
+      <span className="sr-only">{t("town")}: </span>
+      <span className="truncate">{place}</span>
+    </span>
   );
 }
 
@@ -1048,6 +1071,7 @@ function AppointmentDetails({
       crewNames(appointment, t) || t("crewNobody"),
     ],
     [t("customerChoice"), requested],
+    [t("town"), appointment.place],
     [t("location"), appointment.location_name],
     [t("resource"), appointment.resource_name],
   ].filter((row): row is [string, string] => Boolean(row[1]));

@@ -33,6 +33,7 @@ const visit = (
   staff_name: "Alex",
   staff_membership_id: null,
   location_name: "Centrum",
+  place: null,
   resource_name: null,
   crew: [{ staff_id: "alex", name: "Alex", membership_id: null, lead: true }],
   staff_required: 1,

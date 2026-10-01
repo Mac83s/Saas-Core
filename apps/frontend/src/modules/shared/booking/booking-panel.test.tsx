@@ -105,6 +105,7 @@ const appointment = {
   staff_membership_id: null,
   location_name: "Centrum",
   resource_name: "Room",
+  place: null,
   crew: [{ staff_id: ALEX, name: "Alex", membership_id: null, lead: true }],
   staff_required: 1,
   needs_assignment: false,
@@ -344,6 +345,48 @@ test("the list is the month as a table, and a row opens the visit", async () => 
   expect(
     screen.getByRole("heading", { level: 2, name: "September 2026" }),
   ).not.toBeNull();
+});
+
+test("a visit's town shows in every view, and the list has a column for it", async () => {
+  api.listBookingAppointments.mockResolvedValue([
+    { ...appointment, place: "Wólka" },
+    completed,
+  ]);
+  renderCalendar();
+  const card = (await screen.findByText("Jan Kowalski")).closest("button");
+  // Seen and spoken: a trimmer reads where to drive before whom.
+  expect(card).toHaveTextContent("Wólka");
+  expect(card).toHaveAccessibleName(/Town: Wólka/);
+  expect(screen.getAllByText("Wólka")).toHaveLength(1);
+
+  fireEvent.click(screen.getByRole("button", { name: "Month" }));
+  expect(
+    screen.getByRole("button", { name: /Jan Kowalski.*Town: Wólka/ }),
+  ).not.toBeNull();
+
+  fireEvent.click(screen.getByRole("button", { name: "List" }));
+  const table = screen.getByRole("table", { name: "Visits: August 2026" });
+  expect(
+    within(table).getByRole("columnheader", { name: "Town" }),
+  ).not.toBeNull();
+  expect(within(table).getAllByRole("row")[1]).toHaveTextContent("Wólka");
+
+  fireEvent.click(
+    within(table).getAllByRole("button", { name: "Visit details" })[0]!,
+  );
+  const details = await screen.findByRole("dialog", { name: /Jan Kowalski/ });
+  expect(within(details).getByText("Wólka")).not.toBeNull();
+});
+
+test("without a town the list has no empty column for it", async () => {
+  address.params = new URLSearchParams("view=list");
+  renderCalendar();
+  const table = await screen.findByRole("table", {
+    name: "Visits: August 2026",
+  });
+  expect(
+    within(table).queryByRole("columnheader", { name: "Town" }),
+  ).toBeNull();
 });
 
 test("an appointment opens its details and is canceled only after confirmation", async () => {

@@ -13,7 +13,12 @@ import { Button } from "@saas-core/ui/components/button";
 import { cn } from "@saas-core/ui/lib/utils";
 
 import { Link } from "#i18n/navigation";
-import { CrewBadges, statusLabel, statusStyle } from "./appointment-dialogs";
+import {
+  CrewBadges,
+  statusLabel,
+  statusStyle,
+  VisitPlace,
+} from "./appointment-dialogs";
 import { wallClock } from "./calendar-time";
 import {
   boardRange,
@@ -229,7 +234,9 @@ export function DayBoard({
               vacancies.map((item) => (
                 <button
                   aria-label={t("assignLabel", {
-                    customer: item.customer_name,
+                    customer: [item.customer_name, item.place]
+                      .filter(Boolean)
+                      .join(", "),
                     service: item.service_name,
                     when: `${time(item.starts_at)}–${time(item.ends_at)}`,
                   })}
@@ -244,13 +251,19 @@ export function DayBoard({
                       : handlers.onOpen(item, event.currentTarget)
                   }
                   style={at(span(item))}
-                  title={`${item.customer_name} · ${item.service_name}`}
+                  title={[item.customer_name, item.place, item.service_name]
+                    .filter(Boolean)
+                    .join(" · ")}
                   type="button"
                 >
                   <span className="truncate font-semibold">
                     {item.customer_name}
                   </span>
-                  <span className="truncate">{item.service_name}</span>
+                  <span className="truncate">
+                    {[item.place, item.service_name]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
                 </button>
               )),
             )}
@@ -390,6 +403,7 @@ function VisitBlock({
       aria-label={[
         when,
         item.customer_name,
+        item.place,
         item.service_name,
         statusLabel(calendar, item.status),
         lead ? t("leads") : "",
@@ -405,7 +419,9 @@ function VisitBlock({
       onClick={(event) => onOpen(item, event.currentTarget)}
       style={style}
       // A short block cuts the words; the pointer still reads them whole.
-      title={`${item.customer_name} · ${item.service_name} · ${when}`}
+      title={[item.customer_name, item.place, item.service_name, when]
+        .filter(Boolean)
+        .join(" · ")}
       type="button"
     >
       <span className="flex min-w-0 items-center gap-1 font-semibold">
@@ -422,7 +438,7 @@ function VisitBlock({
         ) : null}
       </span>
       <span className="truncate">
-        {item.service_name} · {when}
+        {[item.place, item.service_name, when].filter(Boolean).join(" · ")}
       </span>
     </button>
   );
@@ -524,6 +540,10 @@ function Agenda({
                   {time(item.starts_at)}–{time(item.ends_at)}
                 </span>
                 <span className="font-medium">{item.customer_name}</span>
+                <VisitPlace
+                  className="text-xs font-medium"
+                  place={item.place}
+                />
                 <span className="text-xs text-muted-foreground">
                   {item.service_name}
                 </span>
@@ -565,7 +585,11 @@ function Agenda({
                 <span className="font-semibold tabular-nums">
                   {time(item.starts_at)}–{time(item.ends_at)}
                 </span>
-                <span className="font-medium">{item.customer_name}</span>
+                <span className="font-medium">{item.customer_name}</span>{" "}
+                <VisitPlace
+                  className="text-xs font-medium"
+                  place={item.place}
+                />{" "}
                 <span className="text-xs text-muted-foreground">
                   {item.service_name}
                 </span>

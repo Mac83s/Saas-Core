@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import threading
 import time as clock
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, time, timedelta
 from typing import Any
+from uuid import UUID
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -24,6 +26,7 @@ from saas_core.modules.shared.booking.api import (
     complete_appointment,
     create_appointment,
     list_appointments,
+    register_appointment_place,
 )
 from saas_core.modules.shared.booking.availability import validate_start
 from saas_core.modules.shared.booking.models import (
@@ -35,6 +38,7 @@ from saas_core.modules.shared.booking.models import (
     ServiceStaff,
     StaffMember,
 )
+from saas_core.modules.shared.booking.places import _providers
 from saas_core.modules.shared.booking.security import public_booking_context
 from test_booking import _no_delivery, catalog, create, membership, tenant
 from test_tenant_context import authenticated_client
@@ -298,3 +302,45 @@ def test_the_calendar_reads_a_window_of_local_days_and_one_persons_visits(
     stranger = authenticated_client(membership("okno-obcy"))
     response = stranger.get("/api/v1/booking/appointments/", {"staff_id": str(bea.id)})
     assert response.status_code == 200 and response.json() == {"items": []}
+
+
+def test_the_calendar_shows_where_a_visit_takes_place_when_a_module_says(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _no_delivery(monkeypatch)
+    member = membership("miejsce-wizyty")
+    configured = catalog(member)
+    farm_visit = create(member, configured).appointment
+    walk = walk_in(member, configured, farm_visit.starts_at + timedelta(hours=3))
+    client = authenticated_client(member)
+
+    def places() -> dict[str, str | None]:
+        response = client.get("/api/v1/booking/appointments/")
+        assert response.status_code == 200, response.content
+        return {item["id"]: item["place"] for item in response.json()["items"]}
+
+    # No module knows the place: the calendar says nothing rather than guess.
+    assert places() == {str(farm_visit.id): None, str(walk.id): None}
+
+    asked: list[list[UUID]] = []
+
+    def farms(ids: Sequence[UUID]) -> dict[UUID, str]:
+        asked.append(list(ids))
+        return {farm_visit.id: "Wólka", walk.id: ""}
+
+    register_appointment_place("test-farms", farms)
+    try:
+        # One question for the whole list; an empty answer is no answer.
+        assert places() == {str(farm_visit.id): "Wólka", str(walk.id): None}
+        assert len(asked) == 1
+        # A visit answered on its own (after a change) keeps its place.
+        moved = client.post(
+            f"/api/v1/booking/appointments/{farm_visit.id}/cancel/",
+            {},
+            format="json",
+            HTTP_IDEMPOTENCY_KEY="miejsce-1",
+        )
+        assert moved.status_code == 200, moved.content
+        assert moved.json()["place"] == "Wólka"
+    finally:
+        _providers.pop("test-farms", None)

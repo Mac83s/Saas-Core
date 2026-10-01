@@ -140,6 +140,14 @@ class AppointmentSerializer(serializers.Serializer[dict[str, Any]]):
     #: The calendar entry's team member, for "my visits" (null: no account).
     staff_membership_id = serializers.UUIDField(allow_null=True)
     location_name = serializers.CharField()
+    place = serializers.CharField(
+        allow_null=True,
+        help_text=(
+            "Where the visit takes place, usually its town, as the module that "
+            "owns the visit's detail knows it (a field visit's farm or address). "
+            "Null when no module says."
+        ),
+    )
     resource_name = serializers.CharField(allow_null=True)
     #: Tylko w panelu firmy; klient w self-service tego nie dostaje.
     materials = MaterialLineSerializer(many=True, required=False)

@@ -4075,6 +4075,8 @@ export interface components {
             /** Format: uuid */
             staff_membership_id: string | null;
             location_name: string;
+            /** @description Where the visit takes place, usually its town, as the module that owns the visit's detail knows it (a field visit's farm or address). Null when no module says. */
+            place: string | null;
             resource_name: string | null;
             materials?: components["schemas"]["MaterialLine"][];
             takes_materials?: boolean;
@@ -6603,6 +6605,8 @@ export interface components {
             /** Format: uuid */
             staff_membership_id: string | null;
             location_name: string;
+            /** @description Where the visit takes place, usually its town, as the module that owns the visit's detail knows it (a field visit's farm or address). Null when no module says. */
+            place: string | null;
             resource_name: string | null;
             materials?: components["schemas"]["MaterialLine"][];
             takes_materials?: boolean;

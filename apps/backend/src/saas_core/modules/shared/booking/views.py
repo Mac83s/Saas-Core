@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import date, datetime
 from typing import Any, cast
 from uuid import UUID
@@ -25,6 +26,7 @@ from .availability import _zone, available_days, available_slots, available_time
 from .dispatch import assign_crew, candidates, overview, queue
 from .facts import staff_facts, staff_history, team_performance
 from .models import Location, PublicBookingRoute, Resource, SelfServiceRoute, Service
+from .places import appointment_places
 from .public import public_choices, public_people, shown_to_customer
 from .security import public_booking_context, token_digest
 from .serializers import (
@@ -186,7 +188,12 @@ def _crew_payload(value: Any) -> list[dict[str, Any]]:
     ]
 
 
-def _appointment_payload(value: Any, token: str | None = None) -> dict[str, Any]:
+def _appointment_payload(
+    value: Any, token: str | None = None, places: Mapping[UUID, str] | None = None
+) -> dict[str, Any]:
+    """`places`: what a list already asked its providers; one visit asks itself."""
+    if places is None:
+        places = appointment_places([value.id])
     return {
         "id": value.id,
         "starts_at": value.starts_at,
@@ -199,6 +206,7 @@ def _appointment_payload(value: Any, token: str | None = None) -> dict[str, Any]
         "staff_name": value.staff.display_name,
         "staff_membership_id": value.staff.membership_id,
         "location_name": value.location.name,
+        "place": places.get(value.id),
         "resource_name": value.resource.name if value.resource else None,
         "materials": value.materials,
         "takes_materials": stock.takes_materials(value.service.appointment_kind),
@@ -220,9 +228,9 @@ def _appointment_payload(value: Any, token: str | None = None) -> dict[str, Any]
     }
 
 
-def _queue_payload(value: Any) -> dict[str, Any]:
+def _queue_payload(value: Any, places: Mapping[UUID, str]) -> dict[str, Any]:
     return {
-        **_appointment_payload(value),
+        **_appointment_payload(value, places=places),
         "customer_phone": value.customer.phone,
         "customer_email": value.customer.email,
     }
@@ -564,7 +572,8 @@ class AppointmentListCreateView(APIView):
             mine=mine,
             limit=limit,
         )
-        return Response({"items": [_appointment_payload(x) for x in items]})
+        places = appointment_places([x.id for x in items])
+        return Response({"items": [_appointment_payload(x, places=places) for x in items]})
 
     @extend_schema(
         tags=["booking"],
@@ -1392,7 +1401,9 @@ class BookingQueueView(APIView):
     @extend_schema(tags=["booking"], responses={200: QueueSerializer})
     def get(self, request: Request) -> Response:
         del request
-        return Response({"items": [_queue_payload(item) for item in queue()]})
+        items = queue()
+        places = appointment_places([item.id for item in items])
+        return Response({"items": [_queue_payload(item, places) for item in items]})
 
 
 class BookingOverviewView(APIView):

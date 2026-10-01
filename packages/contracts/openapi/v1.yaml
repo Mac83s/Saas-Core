@@ -12075,6 +12075,13 @@ components:
           format: uuid
         location_name:
           type: string
+        place:
+          type:
+          - string
+          - 'null'
+          description: Where the visit takes place, usually its town, as the module
+            that owns the visit's detail knows it (a field visit's farm or address).
+            Null when no module says.
         resource_name:
           type:
           - string
@@ -12129,6 +12136,7 @@ components:
       - id
       - location_name
       - needs_assignment
+      - place
       - queue_reason
       - queued_at
       - requested_staff_id
@@ -18469,6 +18477,13 @@ components:
           format: uuid
         location_name:
           type: string
+        place:
+          type:
+          - string
+          - 'null'
+          description: Where the visit takes place, usually its town, as the module
+            that owns the visit's detail knows it (a field visit's farm or address).
+            Null when no module says.
         resource_name:
           type:
           - string
@@ -18529,6 +18544,7 @@ components:
       - id
       - location_name
       - needs_assignment
+      - place
       - queue_reason
       - queued_at
       - requested_staff_id

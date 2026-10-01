@@ -90,6 +90,7 @@ const visit = {
   staff_name: "Alex",
   staff_membership_id: null,
   location_name: "Centrum",
+  place: null,
   resource_name: null,
   crew: [{ staff_id: ALEX, name: "Alex", membership_id: null, lead: true }],
   staff_required: 1,
@@ -296,6 +297,42 @@ test("on a phone the day is an agenda by person, vacancies first", async () => {
     }),
   ).not.toBeNull();
   expect((await axe.run(agenda)).violations).toHaveLength(0);
+});
+
+test("the board and the agenda say in which town each visit is", async () => {
+  api.listBookingAppointments.mockResolvedValue([
+    { ...visit, place: "Wólka" },
+    { ...vacancy, place: "Zalesie" },
+  ]);
+  renderCalendar();
+  const board = await screen.findByRole("region", { name: "Day board" });
+  expect(
+    within(board).getByRole("button", {
+      name: /13:00–13:30, Jan Kowalski, Wólka, Consultation/,
+    }),
+  ).toHaveTextContent("Wólka · Consultation");
+  expect(
+    within(board).getByRole("button", {
+      name: "Assign people: Anna Nowak, Zalesie, Consultation, 15:00–15:30",
+    }),
+  ).toHaveTextContent("Zalesie · Consultation");
+  cleanup();
+
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    value: (query: string) => ({
+      matches: query === "(max-width: 767px)",
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+    }),
+  });
+  renderCalendar();
+  const agenda = await screen.findByRole("region", { name: "Day board" });
+  const alex = within(agenda).getByRole("region", { name: "Alex" });
+  expect(
+    within(alex).getByRole("button", { name: /Jan Kowalski Town: Wólka/ }),
+  ).not.toBeNull();
+  expect(within(agenda).getByText("Zalesie")).not.toBeNull();
 });
 
 test("the calendar opens on the view the person last chose here; a link still wins", async () => {

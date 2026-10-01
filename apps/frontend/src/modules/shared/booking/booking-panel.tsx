@@ -46,6 +46,7 @@ import {
   STATUSES,
   statusLabel,
   statusStyle,
+  VisitPlace,
 } from "./appointment-dialogs";
 import {
   addDays,
@@ -429,6 +430,16 @@ export function BookingPanel({
       ),
     },
     { id: "customer", accessorKey: "customer_name", header: t("customer") },
+    // Only where a module says where its visits are: an empty column is noise.
+    ...(appointments?.some((item) => item.place)
+      ? [
+          {
+            id: "town",
+            accessorFn: (item: BookingAppointment) => item.place ?? "",
+            header: t("town"),
+          },
+        ]
+      : []),
     { id: "service", accessorKey: "service_name", header: t("service") },
     {
       id: "staff",
@@ -505,6 +516,7 @@ export function BookingPanel({
         searchText={(item) =>
           [
             item.customer_name,
+            item.place ?? "",
             item.service_name,
             ...item.crew.map((person) => person.name),
           ].join(" ")
@@ -1033,7 +1045,9 @@ function AppointmentCard({
 }) {
   const t = useTranslations("Calendar");
   const locale = useLocale();
-  const place = wide ? appointment.location_name : null;
+  // The town says where better than the company's location; the day view
+  // names the location only for a visit without one.
+  const place = wide && !appointment.place ? appointment.location_name : null;
   // The crew gets a line of its own: a narrow week column still says who.
   const details = [appointment.service_name, place];
   // „+1” is for the eye; a screen reader hears every name.
@@ -1070,6 +1084,7 @@ function AppointmentCard({
         <span className="block truncate font-medium">
           {appointment.customer_name}
         </span>{" "}
+        <VisitPlace className="text-xs font-medium" place={appointment.place} />{" "}
         <span className="block truncate text-xs text-muted-foreground">
           <span aria-hidden="true">{details.filter(Boolean).join(" · ")}</span>
           <span className="sr-only">{spoken.filter(Boolean).join(", ")}</span>
@@ -1107,27 +1122,33 @@ function MonthAppointment({
   return (
     <button
       className={cn(
-        "flex min-h-8 w-full items-center gap-1 rounded-md border-l-4 bg-muted/60 px-1.5 text-left text-xs hover:bg-muted pointer-coarse:min-h-11",
+        "flex min-h-8 w-full flex-col justify-center rounded-md border-l-4 bg-muted/60 px-1.5 py-0.5 text-left text-xs hover:bg-muted pointer-coarse:min-h-11",
         border,
         focusRing,
       )}
       onClick={(event) => onOpen(appointment, event.currentTarget)}
       type="button"
     >
-      <Icon aria-hidden="true" className="size-3.5 shrink-0" />
-      <span
-        className={cn(
-          "tabular-nums",
-          appointment.status === "canceled" && "line-through",
-        )}
-      >
-        {dateFormat(locale, {
-          hour: "2-digit",
-          minute: "2-digit",
-          timeZone: zone,
-        }).format(new Date(appointment.starts_at))}
+      <span className="flex w-full min-w-0 items-center gap-1">
+        <Icon aria-hidden="true" className="size-3.5 shrink-0" />
+        <span
+          className={cn(
+            "tabular-nums",
+            appointment.status === "canceled" && "line-through",
+          )}
+        >
+          {dateFormat(locale, {
+            hour: "2-digit",
+            minute: "2-digit",
+            timeZone: zone,
+          }).format(new Date(appointment.starts_at))}
+        </span>{" "}
+        <span className="truncate">{appointment.customer_name}</span>
       </span>{" "}
-      <span className="truncate">{appointment.customer_name}</span>
+      <VisitPlace
+        className="w-full text-muted-foreground"
+        place={appointment.place}
+      />
       <span className="sr-only">
         {`, ${[
           statusLabel(t, appointment.status),
