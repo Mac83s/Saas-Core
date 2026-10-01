@@ -86,7 +86,14 @@ Od 2026-10-01:
 - `ManagedUserSessionMiddleware` sprawdza także ścieżki admina, więc sesja
   spoza panelu jest wylogowywana, a nie przyjmowana;
 - `Caddyfile.vps` i `Caddyfile.staging` odpowiadają 404 na `/internal/admin`,
-  jak na metryki — admin jest osiągalny tylko lokalnie albo z wnętrza stosu.
+  `/internal/metrics/` i `/internal/caddy/*` blokiem `handle @private`
+  postawionym przed `handle @api`. Dotychczasowa reguła `respond @private 404`
+  nie działała od 2026-08-12: Caddy sortuje `respond` za każdym `handle`, więc
+  metryki bez uwierzytelnienia i pytanie o zgodę na certyfikat były publiczne.
+  Sprawdzone `caddy adapt` i próbą na Caddy 2.11.4 (wersja z
+  `infra/caddy/Dockerfile`). `Caddyfile.local` zostawia `/internal/*` otwarte,
+  bo admin jest tu narzędziem dewelopera, a `observability-smoke` czyta metryki
+  przez :8080.
 
 Osobny host i nazwa cookie pozostają otwarte; operatorski panel ustawień
 platformy powstaje w aplikacji (plan memex

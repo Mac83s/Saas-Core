@@ -27,8 +27,9 @@
 	header @catalog Permissions-Policy "camera=(), geolocation=(self), microphone=()"
 	header @notCatalog Permissions-Policy "camera=(), geolocation=(), microphone=()"
 
-	@private path /internal/metrics/ /internal/caddy/*
-	respond @private 404
+	# Locally /internal/* stays open on purpose: the operator admin is a
+	# developer tool here, and scripts/observability-smoke.mjs reads
+	# /internal/metrics/ through this listener. The public Caddyfiles close it.
 
 	@api path /api/* /internal/* /static/*
 	handle @api {

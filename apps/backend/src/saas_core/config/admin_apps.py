@@ -1,7 +1,7 @@
 """Installs `MfaAdminSite` as Django's default admin site.
 
-Kept apart from `apps.py`: a second AppConfig subclass there would make Django
-ask which of the two is the identity app's default.
+Outside `saas_core.modules` on purpose: the composition tests read module apps
+from `INSTALLED_APPS` by that prefix, and the site itself lives in identity.
 """
 
 from django.contrib.admin.apps import AdminConfig

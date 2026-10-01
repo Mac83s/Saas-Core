@@ -33,10 +33,16 @@
 	header @catalog Permissions-Policy "camera=(), geolocation=(self), microphone=()"
 	header @notCatalog Permissions-Policy "camera=(), geolocation=(), microphone=()"
 
-	# The operator admin is not served to the internet at all (2026-10-01): it
-	# had a password-only login, and even with MFA in front it needs no public door.
+	# Not for the internet: the operator admin (it had a password-only login),
+	# the unauthenticated metrics and the TLS-permission question. Prometheus
+	# scrapes backend:8000 directly and the edge asks on its own listener, so
+	# nothing legitimate comes this way. It must be a `handle` written before
+	# `handle @api`: a bare `respond` sorts after every `handle` and would never
+	# run — which is what happened from 2026-08-12 to 2026-10-01.
 	@private path /internal/metrics/ /internal/caddy/* /internal/admin /internal/admin/*
-	respond @private 404
+	handle @private {
+		respond 404
+	}
 
 	@api path /api/* /internal/* /static/*
 	handle @api {
