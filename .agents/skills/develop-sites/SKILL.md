@@ -46,7 +46,11 @@ tells a connector "this will never be yours", while `page_automation_forbidden`
 says "this surface is not yours today". Connectors treat those differently.
 
 If you add an endpoint in this area, ask which of the two it is, and add it to
-the helper rather than writing a second check.
+the helper rather than writing a second check. Any new site operation also meets
+`change-api-and-events` § "Operable by the AI assistant"; section and template
+planning that exists only in TypeScript (`sectionTemplateBlock`,
+`convertSection`, the template swap dialog) is debt the assistant cannot reach —
+do not add more of it.
 
 ## Automation grants
 

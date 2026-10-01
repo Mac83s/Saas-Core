@@ -79,6 +79,14 @@ are `Plan/Wdrozenie/15-Typy-Organizacji-i-Rejestr-Gospodarstw.md`.
   plan of the profile (provisioning commands use it); what a customer may buy
   comes from `plan_keys_for_organization`.
 
+## Operable by the AI assistant
+
+The type catalogue (labels, modules, plans, service templates) reaches the panel
+only through the build-time `apps/frontend/src/generated/deployment.ts`; no
+endpoint lists it, so the assistant cannot choose a type or a service template.
+When you touch it, expose what you add through the API as well
+(`change-api-and-events` § "Operable by the AI assistant").
+
 ## Done means
 
 ```

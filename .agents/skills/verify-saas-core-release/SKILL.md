@@ -57,7 +57,9 @@ Every protected use case needs all six rows from
 permission, with and without the entitlement, a foreign tenant (404 or empty),
 no context at all (a controlled error and **zero** domain queries), and a
 suspended organization. Mutations additionally need CSRF, the idempotency key,
-the optimistic lock and the audit row.
+the optimistic lock and the audit row. A configuration mutation is also held to
+`change-api-and-events` § "Operable by the AI assistant": logic in the service,
+described schema, a dry-run preview or a stated reason, the actor in the audit.
 
 A use case that only has its happy path is not covered, however many assertions
 the happy path has.

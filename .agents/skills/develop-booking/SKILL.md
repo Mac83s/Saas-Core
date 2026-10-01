@@ -104,6 +104,13 @@ not in PostgreSQL.
   core may not import booking. A second linking path next to it — a signal,
   a sweep — would link one person twice or not at all.
 
+## Operable by the AI assistant
+
+Setup (services, locations, resources, staff, teams, schedules) is what the
+in-product assistant will configure first, and today it has neither idempotency
+keys nor resource versions. A new or changed setup endpoint adds both and meets
+`change-api-and-events` § "Operable by the AI assistant".
+
 ## Done means
 
 ```
