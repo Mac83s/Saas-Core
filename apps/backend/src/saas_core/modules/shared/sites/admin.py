@@ -51,7 +51,7 @@ class DomainAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
 
 @admin.register(AiBadgeSwitch)
 class AiBadgeSwitchAdmin(admin.ModelAdmin):  # type: ignore[type-arg]
-    """History only: /internal/admin/ login skips MFA, so it gets no write."""
+    """History only: the switch changes through `set_ai_badge`, with a reason and audit."""
 
     list_display = ("created_at", "visible", "changed_by", "reason")
     ordering = ("-created_at", "-id")

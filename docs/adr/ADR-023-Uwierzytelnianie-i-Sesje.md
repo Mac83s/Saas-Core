@@ -70,6 +70,28 @@ OAuth. Next.js nie wydaje własnych JWT i nie jest źródłem tożsamości.
 - preview na innych hostach nie może automatycznie współdzielić cookie panelu —
   użyje krótkotrwałego, jednorazowego tokenu preview.
 
+## Uzupełnienie 2026-10-01 — Django Admin tylko po MFA i nie z internetu
+
+Osobny host Django Admin z 2FA nie powstał, a `/internal/admin/` miał
+domyślne logowanie Django: samo hasło konta `is_staff` otwierało edycję
+`User.is_staff` i superusera, a bramy VPS i stagingu przepuszczały ten adres.
+Od 2026-10-01:
+
+- admin nie ma własnego logowania: `MfaAdminSite`
+  (`core/identity/admin_site.py`, instalowany przez `MfaAdminConfig`) przyjmuje
+  wyłącznie sesję panelu (`identity_user_session_id`) z oznaczeniem
+  `identity_mfa_verified_at`, które nadaje tylko logowanie z drugim
+  składnikiem albo pierwsze włączenie MFA konta operatora; formularz
+  `/internal/admin/login/` odpowiada 403;
+- `ManagedUserSessionMiddleware` sprawdza także ścieżki admina, więc sesja
+  spoza panelu jest wylogowywana, a nie przyjmowana;
+- `Caddyfile.vps` i `Caddyfile.staging` odpowiadają 404 na `/internal/admin`,
+  jak na metryki — admin jest osiągalny tylko lokalnie albo z wnętrza stosu.
+
+Osobny host i nazwa cookie pozostają otwarte; operatorski panel ustawień
+platformy powstaje w aplikacji (plan memex
+`saas-core-ustawienia-platformy-w-panelu-administratora`), nie w Django Admin.
+
 ## Alternatywy odrzucone
 
 - JWT w localStorage — większy wpływ XSS i trudniejsze natychmiastowe revocation;

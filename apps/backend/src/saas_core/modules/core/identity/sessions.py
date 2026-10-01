@@ -35,6 +35,10 @@ MFA_CHALLENGE_PURPOSE_KEY = "identity_mfa_purpose"
 MFA_CHALLENGE_EXPIRES_KEY = "identity_mfa_expires_at"
 MFA_CHALLENGE_VERIFY = "verify"
 MFA_CHALLENGE_ENROLL = "enroll"
+#: Set only where a session is born from a checked second factor (a login
+#: challenge or a first enrolment). The operator admin requires it: a session
+#: that started without MFA keeps no such mark even if MFA is enabled later.
+MFA_VERIFIED_SESSION_KEY = "identity_mfa_verified_at"
 
 
 class InvalidLogin(APIException):
@@ -130,6 +134,7 @@ def complete_mfa_login(*, request: HttpRequest, code: str) -> User:
     verify_mfa_code(user=user, code=code)
     _clear_mfa_challenge(request)
     _establish_user_session(request=request, user=user)
+    _mark_mfa_verified(request)
     logger.info(
         "identity_mfa_login_succeeded",
         extra={"security_event": "identity.mfa_login_succeeded", "user_id": str(user.id)},
@@ -149,6 +154,11 @@ def complete_mfa_enrollment_login(*, request: HttpRequest, user: User) -> None:
         raise InvalidMfaChallenge
     _clear_mfa_challenge(request)
     _establish_user_session(request=request, user=user)
+    _mark_mfa_verified(request)
+
+
+def _mark_mfa_verified(request: HttpRequest) -> None:
+    request.session[MFA_VERIFIED_SESSION_KEY] = int(timezone.now().timestamp())
 
 
 def _establish_user_session(*, request: HttpRequest, user: User) -> None:

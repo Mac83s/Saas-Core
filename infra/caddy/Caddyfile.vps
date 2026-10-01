@@ -38,7 +38,9 @@
 	header @catalog Permissions-Policy "camera=(), geolocation=(self), microphone=()"
 	header @notCatalog Permissions-Policy "camera=(), geolocation=(), microphone=()"
 
-	@private path /internal/metrics/ /internal/caddy/*
+	# The operator admin is not served to the internet at all (2026-10-01): it
+	# had a password-only login, and even with MFA in front it needs no public door.
+	@private path /internal/metrics/ /internal/caddy/* /internal/admin /internal/admin/*
 	respond @private 404
 
 	@api path /api/* /internal/* /static/*

@@ -207,8 +207,9 @@ Komenda wymaga aktywnego operatora z `is_staff` i potwierdzonym MFA — tak samo
 jak `link_farm`, `erase_organization` i `provision_platform_workspace`, czyli
 istniejące operatorskie wejście platformy. Każda zmiana to nowy wiersz z
 uzasadnieniem i autorem oraz zdarzenie bezpieczeństwa w logu. Django admin
-(`/internal/admin/`) pokazuje historię tylko do odczytu: jego logowanie omija
-dziś MFA, więc nie dostaje prawa zapisu. Renderer czyta najnowszy wiersz przy
+(`/internal/admin/`) pokazuje historię tylko do odczytu: jego logowanie omijało
+wtedy MFA, więc nie dostał prawa zapisu (od 2026-10-01 admin przyjmuje tylko
+sesję panelu po MFA i nie jest wystawiony do internetu — ADR-023, uzupełnienie). Renderer czyta najnowszy wiersz przy
 każdym renderze; przy wyłączonym przełączniku payload nie niesie listy obrazów
 AI, a znacznik XMP w plikach zostaje.
 

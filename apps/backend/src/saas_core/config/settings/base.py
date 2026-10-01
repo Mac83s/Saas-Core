@@ -292,7 +292,8 @@ CONFIGURED_ALLOWED_HOSTS = tuple(
 ALLOWED_HOSTS = ["*"]
 
 INSTALLED_APPS = [
-    "django.contrib.admin",
+    # Django admin with a site that accepts only an MFA-checked panel session.
+    "saas_core.modules.core.identity.admin_apps.MfaAdminConfig",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",

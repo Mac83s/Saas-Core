@@ -11,6 +11,9 @@ from .models import User, UserSession
 from .tokens import digest_secret
 
 MANAGED_SESSION_KEY = "identity_user_session_id"
+#: Paths whose sessions must be panel-managed ones. The operator admin is here so
+#: that a session Django's own login could create is logged out, not trusted.
+MANAGED_SESSION_PATHS = ("/api/v1/", "/internal/admin/")
 
 
 class ManagedUserSessionMiddleware:
@@ -18,7 +21,7 @@ class ManagedUserSessionMiddleware:
         self.get_response = get_response
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
-        if request.path.startswith("/api/v1/") and request.user.is_authenticated:
+        if request.path.startswith(MANAGED_SESSION_PATHS) and request.user.is_authenticated:
             self._validate(request)
         return self.get_response(request)
 
