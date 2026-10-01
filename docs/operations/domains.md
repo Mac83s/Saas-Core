@@ -58,7 +58,8 @@ jest nieodwracalne dla rekordu i uruchamia siedmiodniową kwarantannę hostname.
 
 ## Diagnostyka supportu
 
-- panel i wewnętrzny Django Admin pokazują status DNS/TLS oraz daty kontroli;
+- panel pokazuje status DNS/TLS oraz daty kontroli (Django Admin od 2026-10-01
+  nie jest wystawiony do internetu — tylko lokalnie i z wnętrza stosu, ADR-023);
 - `saas_core_domain_dns_verification_total{result=...}` rozdziela sukces,
   mismatch, NXDOMAIN i awarię resolvera bez etykiety hostname;
 - `saas_core_domain_tls_authorization_total{decision=...}` pokazuje zgody,
