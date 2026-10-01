@@ -6,6 +6,8 @@ staff password alone opened the editor of `User.is_staff` (ADR-023, ADR-059).
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 from django.core.cache import cache
 from django.test import Client
@@ -55,7 +57,7 @@ def csrf(client: APIClient) -> str:
     return client.cookies["csrftoken"].value
 
 
-def login(client: APIClient, user: User):
+def login(client: APIClient, user: User) -> Any:
     client.get(CSRF_URL)
     return client.post(
         LOGIN_URL,
@@ -68,7 +70,7 @@ def login(client: APIClient, user: User):
 def enroll_totp(client: APIClient) -> str:
     setup = client.post(MFA_SETUP_URL, HTTP_X_CSRFTOKEN=csrf(client))
     assert setup.status_code == 200, setup.data
-    secret = setup.data["secret"]
+    secret = str(setup.data["secret"])
     confirmed = client.post(
         MFA_CONFIRM_URL,
         {"code": current_totp_code(secret)},

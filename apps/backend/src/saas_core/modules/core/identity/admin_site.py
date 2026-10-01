@@ -34,7 +34,7 @@ class MfaAdminSite(admin.AdminSite):
             and user.is_staff
             and request.session.get(MANAGED_SESSION_KEY)
             and request.session.get(MFA_VERIFIED_SESSION_KEY)
-            and has_confirmed_mfa(user)  # type: ignore[arg-type]
+            and has_confirmed_mfa(user)
         )
 
     def login(self, request: HttpRequest, extra_context: Any = None) -> HttpResponse:
