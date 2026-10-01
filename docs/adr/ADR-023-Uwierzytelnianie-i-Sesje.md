@@ -85,9 +85,10 @@ Od 2026-10-01:
   `/internal/admin/login/` odpowiada 403;
 - `ManagedUserSessionMiddleware` sprawdza także ścieżki admina, więc sesja
   spoza panelu jest wylogowywana, a nie przyjmowana;
-- `Caddyfile.vps` i `Caddyfile.staging` odpowiadają 404 na `/internal/admin`,
-  `/internal/metrics/` i `/internal/caddy/*` blokiem `handle @private`
-  postawionym przed `handle @api`. Dotychczasowa reguła `respond @private 404`
+- `Caddyfile.vps` i `Caddyfile.staging` zamykają dla internetu całe
+  `/internal/*` (admin, metryki, pytanie o zgodę na certyfikat, dokumentacja
+  API) blokiem `handle @private` postawionym przed `handle @api` — zamknięte
+  domyślnie, bo lista zakazanych ścieżek przeoczyła admina. Dotychczasowa reguła `respond @private 404`
   nie działała od 2026-08-12: Caddy sortuje `respond` za każdym `handle`, więc
   metryki bez uwierzytelnienia i pytanie o zgodę na certyfikat były publiczne.
   Sprawdzone `caddy adapt` i próbą na Caddy 2.11.4 (wersja z

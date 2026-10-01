@@ -33,13 +33,14 @@
 	header @catalog Permissions-Policy "camera=(), geolocation=(self), microphone=()"
 	header @notCatalog Permissions-Policy "camera=(), geolocation=(), microphone=()"
 
-	# Not for the internet: the operator admin (it had a password-only login),
-	# the unauthenticated metrics and the TLS-permission question. Prometheus
-	# scrapes backend:8000 directly and the edge asks on its own listener, so
-	# nothing legitimate comes this way. It must be a `handle` written before
-	# `handle @api`: a bare `respond` sorts after every `handle` and would never
-	# run — which is what happened from 2026-08-12 to 2026-10-01.
-	@private path /internal/metrics/ /internal/caddy/* /internal/admin /internal/admin/*
+	# /internal/* is closed to the internet as a whole, not path by path: a list
+	# of forbidden paths had already missed the operator admin, which had a
+	# password-only login. Nothing legitimate comes this way — Prometheus scrapes
+	# backend:8000 directly and the edge asks for TLS permission on its own
+	# listener. It must be a `handle` written before `handle @api`: a bare
+	# `respond` sorts after every `handle` and never runs, which is how the
+	# metrics stayed public from 2026-08-12 to 2026-10-01.
+	@private path /internal /internal/*
 	handle @private {
 		respond 404
 	}
