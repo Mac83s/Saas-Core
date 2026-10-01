@@ -9,6 +9,9 @@ import { Link } from "#i18n/navigation";
  * content — optionally with help or tools beside it. The width is the
  * layout's, never the page's, so no two pages differ.
  *
+ * The header is compact and ends with a light line, so the work starts high on
+ * the screen; on a phone the description gives way to it (owner, 01.10).
+ *
  * No hooks: a server page and a client module both render it.
  */
 export function PanelPage({
@@ -42,9 +45,9 @@ export function PanelPage({
   children?: ReactNode;
 }) {
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
-        <div className="min-w-0 flex-1 space-y-1.5">
+    <div className="space-y-4 lg:space-y-5">
+      <header className="flex flex-col gap-3 border-b pb-3 sm:pb-4 lg:flex-row lg:items-end lg:justify-between lg:gap-8">
+        <div className="min-w-0 flex-1 space-y-1">
           {eyebrow && eyebrowHref ? (
             <Link
               className="-ml-1 inline-flex min-h-8 items-center gap-1 rounded-md px-1 text-sm font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
@@ -57,13 +60,15 @@ export function PanelPage({
             <p className="text-sm font-medium text-primary">{eyebrow}</p>
           ) : null}
           <h1
-            className="text-2xl font-semibold tracking-tight wrap-anywhere sm:text-3xl"
+            className="text-xl font-semibold tracking-tight wrap-anywhere sm:text-2xl"
             id={titleId}
           >
             {title}
           </h1>
           {description ? (
-            <p className="max-w-3xl text-muted-foreground">{description}</p>
+            <p className="max-w-3xl text-sm text-muted-foreground max-sm:hidden">
+              {description}
+            </p>
           ) : null}
         </div>
         {actions ? (
@@ -90,6 +95,18 @@ export function PanelPage({
       ) : (
         children
       )}
+    </div>
+  );
+}
+
+/**
+ * What the page shows, above its filters: a date and its arrows, a choice of
+ * view. A light line under it, like the header's, keeps the rows apart.
+ */
+export function PanelToolbar({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 border-b pb-3">
+      {children}
     </div>
   );
 }
@@ -152,12 +169,12 @@ export function PanelHelp({
 export function PanelSkeleton({ label }: { label: string }) {
   const bar = "animate-pulse rounded-md bg-muted";
   return (
-    <div aria-busy="true" className="space-y-6">
+    <div aria-busy="true" className="space-y-4 lg:space-y-5">
       <span className="sr-only">{label}</span>
-      <div className="space-y-2.5">
+      <div className="space-y-2 border-b pb-3 sm:pb-4">
         <div className={`${bar} h-4 w-24`} />
-        <div className={`${bar} h-8 w-64 max-w-full`} />
-        <div className={`${bar} h-4 w-96 max-w-full`} />
+        <div className={`${bar} h-7 w-56 max-w-full`} />
+        <div className={`${bar} h-4 w-96 max-w-full max-sm:hidden`} />
       </div>
       <div className={`${bar} h-11 w-72 max-w-full`} />
       <div className="space-y-2">

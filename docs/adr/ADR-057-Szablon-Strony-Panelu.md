@@ -72,6 +72,16 @@ zawijały się w dwa rzędy.
    `DataTable` przyjmuje `emptyAction` — wyjście z pustej listy (wyczyść
    wyszukiwanie, dodaj pierwszą pozycję).
 
+8. **Nagłówek zwarty, z lekką linią** (uzupełnienie właściciela 2026-10-01,
+   zrzut kalendarza: „dodać lekkie separatory i skondensować nagłówki
+   podstron”). Tytuł `text-xl`/`sm:text-2xl`, opis drobniejszy, mniejsze odstępy
+   układu i strony; nagłówek kończy linia 1 px w kolorze `border` motywu. Na
+   telefonie (< 640 px) opis znika — nagłówek zajmował tam pół ekranu, a opis
+   to objaśnienie, nie dane. Rząd „co strona pokazuje” nad filtrami (data i
+   strzałki, wybór widoku) to `PanelToolbar` z tą samą linią pod spodem;
+   legenda statusów kalendarza na telefonie znika, bo karty piszą status
+   słowem.
+
 ## Konsekwencje
 
 - Kalendarz dostał widok **Lista**: miesiąc kursora jako `DataTable` (termin,

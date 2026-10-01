@@ -34,7 +34,7 @@ import {
 } from "@saas-core/ui/components/data-table";
 import { cn } from "@saas-core/ui/lib/utils";
 
-import { PanelPage } from "#components/panel/panel-page";
+import { PanelPage, PanelToolbar } from "#components/panel/panel-page";
 import { Link } from "#i18n/navigation";
 import { useDataTableLabels } from "#lib/data-table-labels";
 import {
@@ -770,8 +770,8 @@ export function BookingPanel({
       notice={notice}
       title={t("title")}
     >
-      <section aria-labelledby="calendar-range" className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
+      <section aria-labelledby="calendar-range" className="space-y-3">
+        <PanelToolbar>
           <Button onClick={() => setCursor(today)} variant="outline">
             {t("today")}
           </Button>
@@ -793,7 +793,7 @@ export function BookingPanel({
           </Button>
           <h2
             aria-live="polite"
-            className="ml-1 text-xl font-semibold outline-none first-letter:uppercase"
+            className="ml-1 text-lg font-semibold outline-none first-letter:uppercase sm:text-xl"
             id="calendar-range"
             ref={heading}
             tabIndex={-1}
@@ -802,12 +802,13 @@ export function BookingPanel({
           </h2>
           <div
             aria-label={t("view")}
-            className="flex rounded-lg border p-0.5 sm:ml-auto"
+            className="flex rounded-lg border p-0.5 max-sm:w-full sm:ml-auto"
             role="group"
           >
             {VIEWS.map((item) => (
               <Button
                 aria-pressed={view === item}
+                className="max-sm:flex-1"
                 key={item}
                 onClick={() => chooseView(item)}
                 variant={view === item ? "secondary" : "ghost"}
@@ -816,7 +817,7 @@ export function BookingPanel({
               </Button>
             ))}
           </div>
-        </div>
+        </PanelToolbar>
 
         {/* The list has its own row with search; the grids have these. */}
         {view === "list" ? null : (
@@ -826,7 +827,9 @@ export function BookingPanel({
             <ul
               aria-label={t("legend")}
               className={cn(
-                "flex flex-wrap gap-2 lg:ml-auto",
+                // A phone's cards spell their status out; the legend only
+                // pushes them down there.
+                "flex flex-wrap gap-2 max-sm:hidden lg:ml-auto",
                 showBoard && view === "day" && "hidden",
               )}
             >

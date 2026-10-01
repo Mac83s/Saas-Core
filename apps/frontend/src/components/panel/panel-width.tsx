@@ -51,7 +51,7 @@ export function PanelMain({ children }: { children: ReactNode }) {
   return (
     <main
       className={cn(
-        "mx-auto w-full flex-1 px-4 pt-6 pb-24 sm:px-6 lg:px-8 lg:pt-8 lg:pb-12",
+        "mx-auto w-full flex-1 px-4 pt-4 pb-24 sm:px-6 lg:px-8 lg:pt-6 lg:pb-12",
         !wide && "max-w-7xl",
       )}
       id="panel-main"
