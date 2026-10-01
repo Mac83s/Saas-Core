@@ -50,6 +50,42 @@ that reaches the schema, expect the same class of problem.
 - a mutation carries audit, idempotency and a transaction; if it emits an event
   it goes through the outbox in the same transaction.
 
+## Operable by the AI assistant
+
+Owner rule, 2026-10-01. An in-product assistant (ADR-033, memex plan
+`saas-core-asystent-ai-zakladanie-i-konfiguracja-firmy`) will set up and run a
+company's account in a chat, acting as the signed-in user through the same
+services the panel uses. Until its command registry exists, every new or
+changed operation must already be callable that way, or it becomes debt the
+assistant cannot reach:
+
+- **No UI-only flow.** Business logic lives in the service the view calls, not
+  in the view or the frontend. No wizard whose state exists only in the
+  browser, no step reachable only by a button. Long work is a job with a
+  status to poll.
+- **Typed and described.** Input and output are serializers with field
+  `help_text`, enums for closed sets, units and bounds in the schema; the view
+  has a summary and description in the OpenAPI output.
+- **Errors a model can act on.** Problem Details with a stable `code` and, for
+  validation, the failing field and a human-readable message, so the caller can
+  fix the value or ask the user for it.
+- **Preview before write.** A configuration operation can run as a dry run —
+  validate and describe the effect without saving — or its docstring says why
+  it cannot (an external side effect, for example).
+- **Actor in the audit.** Record who acted and in what capacity (`user`,
+  `assistant`, `integration`, `system`) and on whose behalf; the assistant never
+  gets broader rights than the person it talks to.
+- **Discoverable choices.** Allowed values and defaults (presets, plan limits,
+  templates) are readable from an endpoint, not hard-coded in a component.
+- **Idempotent and versioned.** Mutations take an idempotency key; where two
+  writers can collide, the resource carries a version and a stale write is a
+  conflict, not a silent overwrite.
+- **Reads that summarise.** Lists are paginated and filterable with stable ids,
+  so a caller can find "the cottage named Domek 2" without loading everything.
+
+When the command registry lands, the same increment that adds a configuration
+operation also adds its registry entry (schema, risk level, preview, eval).
+
 ## Events
 
 - a schema per event under the module that owns it, declared in the module

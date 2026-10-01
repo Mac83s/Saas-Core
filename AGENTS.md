@@ -42,7 +42,15 @@ wymaga nowego ADR, nie cichego odstępstwa w kodzie.
 - typy API generujemy z OpenAPI, nie duplikujemy ich ręcznie;
 - sekrety i dane osobowe nie trafiają do repozytorium, fixture'ów ani logów;
 - każda mutacja biznesowa uwzględnia audyt, idempotencję i transakcję/outbox,
-  jeśli emituje zdarzenie.
+  jeśli emituje zdarzenie;
+- **API ma być obsługiwalne przez asystenta AI** (decyzja właściciela
+  2026-10-01): asystent skonfiguruje konto firmy wyłącznie przez te same
+  serwisy co panel, więc nowa operacja nie może istnieć tylko w UI. Logika w
+  serwisie, typowane wejście i wyjście z opisami, błędy z polem i kodem, podgląd
+  bez zapisu dla operacji konfiguracyjnych, audyt z rodzajem aktora, dozwolone
+  warianty i domyślne wartości odczytywalne z API. Szczegóły i lista kontrolna:
+  skill `change-api-and-events`, sekcja „Operable by the AI assistant”; plan:
+  memex `saas-core-asystent-ai-zakladanie-i-konfiguracja-firmy`.
 
 ## Mapa ścieżek do skills
 
