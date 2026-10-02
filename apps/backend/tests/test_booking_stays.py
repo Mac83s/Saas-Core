@@ -8,6 +8,7 @@ from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 import pytest
+from django.core.cache import cache
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 
@@ -40,6 +41,13 @@ from test_organization_lifecycle import authenticated_member, csrf_value
 from test_team_people import bookable
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture(autouse=True)
+def clear_throttles() -> None:
+    # Logins are throttled per client address, and the API tests log in.
+    cache.clear()
+
 
 WARSAW = ZoneInfo("Europe/Warsaw")
 GUEST = {"display_name": "Gość", "email": "gosc@example.test"}

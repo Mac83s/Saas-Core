@@ -2047,7 +2047,9 @@ function RescheduleForm({
   // whole crew has to be free at the new one.
   const crew = appointment.crew.length
     ? appointment.crew.map((person) => person.staff_id)
-    : [appointment.staff_id];
+    : appointment.staff_id
+      ? [appointment.staff_id]
+      : [];
   const slots = crewSlots(search.slots, crew, crew.length, resourceId);
 
   async function save(event: FormEvent) {

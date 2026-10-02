@@ -8,6 +8,7 @@ from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 import pytest
+from django.core.cache import cache
 from rest_framework.exceptions import ValidationError
 
 from saas_core.modules.shared.booking.availability import available_days, validate_start
@@ -28,6 +29,12 @@ from test_organization_lifecycle import authenticated_member, csrf_value
 from test_team_people import bookable
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture(autouse=True)
+def clear_throttles() -> None:
+    # Logins are throttled per client address, and the API tests log in.
+    cache.clear()
 
 
 def key() -> str:

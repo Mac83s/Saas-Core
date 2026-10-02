@@ -7,6 +7,7 @@ from datetime import time
 from uuid import uuid4
 
 import pytest
+from django.core.cache import cache
 from rest_framework.exceptions import ParseError, ValidationError
 
 from saas_core.modules.core.organizations.models import OrganizationAuditEntry
@@ -32,6 +33,12 @@ from test_team_people import bookable, member_of
 from test_tenant_context import authenticated_client
 
 pytestmark = pytest.mark.django_db
+
+
+@pytest.fixture(autouse=True)
+def clear_throttles() -> None:
+    # Logins are throttled per client address, and the API tests log in.
+    cache.clear()
 
 
 def key() -> str:

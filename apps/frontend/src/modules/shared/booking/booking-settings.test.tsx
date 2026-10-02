@@ -82,6 +82,11 @@ const service = (over: Record<string, unknown>) => ({
   id: HERD,
   name: "Korekcja stada 60–150 krów",
   appointment_kind: "",
+  time_model: "slot",
+  range_unit: "",
+  range_start_local: null,
+  range_end_local: null,
+  group_ids: [],
   duration_minutes: 90,
   buffer_before_minutes: 0,
   buffer_after_minutes: 30,
@@ -284,6 +289,7 @@ test("edycja usługi zapisuje ile osób, kto, gdzie, czym i co wybiera klient", 
     HERD,
     {
       name: "Korekcja stada 60–150 krów",
+      time_model: "slot",
       duration_minutes: 90,
       buffer_before_minutes: 0,
       buffer_after_minutes: 30,
@@ -446,6 +452,39 @@ test("grupa jednostek i jednostka w grupie z pojemnością", async () => {
       expect.any(String),
     ),
   );
+});
+
+test("pobyt na noce: grupa jednostek, zameldowanie i wymeldowanie, bez osób", async () => {
+  renderSettings();
+  fireEvent.click(await screen.findByRole("button", { name: "Dodaj usługę" }));
+  const dialog = await screen.findByRole("dialog", { name: "Nowa usługa" });
+  fireEvent.change(within(dialog).getByLabelText("Nazwa"), {
+    target: { value: "Pobyt w domku" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Jak się rezerwuje"), {
+    target: { value: "range" },
+  });
+  expect(within(dialog).queryByLabelText("Czas trwania (min)")).toBeNull();
+  expect(within(dialog).getByLabelText("Zameldowanie / odbiór")).toHaveValue(
+    "16:00",
+  );
+  fireEvent.click(within(dialog).getByLabelText("Poskrom mobilny"));
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Zapisz usługę" }),
+  );
+  await waitFor(() => expect(api.createSetupService).toHaveBeenCalled());
+  const [body] = api.createSetupService.mock.calls[0];
+  expect(body).toMatchObject({
+    name: "Pobyt w domku",
+    time_model: "range",
+    range_unit: "night",
+    range_start_local: "16:00",
+    range_end_local: "11:00",
+    group_ids: [GROUP],
+    staff_count: 0,
+    staff_ids: [],
+  });
+  expect(body).not.toHaveProperty("duration_minutes");
 });
 
 test("dni zamknięte: dodanie dla całej firmy i kopia na kolejny rok", async () => {

@@ -213,7 +213,9 @@ export function BookingSettings({
       accessorKey: "duration_minutes",
       header: t("colDuration"),
       cell: ({ row: { original: service } }) =>
-        duration(service.duration_minutes),
+        service.duration_minutes === null
+          ? t(`rangeLength_${service.range_unit === "day" ? "day" : "night"}`)
+          : duration(service.duration_minutes),
     },
     {
       id: "count",
@@ -225,7 +227,10 @@ export function BookingSettings({
       header: t("colPerformers"),
       enableSorting: false,
       cell: ({ row: { original: service } }) =>
-        service.staff_ids.length ? (
+        service.time_model === "range" ? (
+          // A stay takes a unit, nobody (ADR-072 §2).
+          "—"
+        ) : service.staff_ids.length ? (
           service.staff_ids.length < service.staff_count ? (
             <span className="text-warning-foreground">
               {t("performersShort", {

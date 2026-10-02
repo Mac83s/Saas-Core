@@ -60,8 +60,15 @@ export type ServiceTemplate = {
 };
 
 type Choice = "none" | "team" | "person";
+type TimeModel = "slot" | "range";
+type RangeUnit = "night" | "day";
 type ServiceValues = {
   name: string;
+  timeModel: TimeModel;
+  rangeUnit: RangeUnit;
+  rangeStart: string;
+  rangeEnd: string;
+  groupIds: string[];
   duration: number;
   before: number;
   after: number;
@@ -74,6 +81,14 @@ type ServiceValues = {
 };
 
 const CHOICES: Choice[] = ["none", "team", "person"];
+const TIME_MODELS: TimeModel[] = ["slot", "range"];
+const RANGE_UNITS: RangeUnit[] = ["night", "day"];
+/** Check-in and check-out, pickup and return, until the company says (ADR-072 §1). */
+const RANGE_TIMES: Record<RangeUnit, [string, string]> = {
+  night: ["16:00", "11:00"],
+  day: ["09:00", "18:00"],
+};
+const clock = (value?: string | null) => (value ? value.slice(0, 5) : "");
 
 /** Checkboxes for a set of ids; the label names each one. */
 function Picks({
@@ -159,39 +174,70 @@ export function ServiceDialog({
         .int(t("numberRequired"))
         .min(0, t("minutesRange", { max }))
         .max(max, t("minutesRange", { max }));
+    const visit = (values: { timeModel: TimeModel }) =>
+      values.timeModel === "slot";
     return z
       .object({
         name: z.string().trim().min(1, t("nameRequired")).max(160),
-        duration: z
-          .number({ error: t("numberRequired") })
-          .int(t("numberRequired"))
-          .min(5, t("durationRange"))
-          .max(1440, t("durationRange")),
+        timeModel: z.enum(TIME_MODELS),
+        rangeUnit: z.enum(RANGE_UNITS),
+        rangeStart: z.string(),
+        rangeEnd: z.string(),
+        groupIds: z.array(z.string()),
+        // A stay's length comes from its seasons, not from the service.
+        duration: z.number().or(z.nan()),
         before: minutes(1440),
         after: minutes(1440),
         notice: minutes(129600),
-        staffCount: z
-          .number({ error: t("numberRequired") })
-          .int(t("numberRequired"))
-          .min(1, t("staffCountRange"))
-          .max(10, t("staffCountRange")),
+        staffCount: z.number().or(z.nan()),
         choice: z.enum(CHOICES),
         staffIds: z.array(z.string()),
         locationIds: z.array(z.string()),
         resourceIds: z.array(z.string()),
       })
       .refine(
-        (values) => values.choice !== "person" || values.staffCount === 1,
+        (values) =>
+          !visit(values) ||
+          (Number.isInteger(values.duration) &&
+            values.duration >= 5 &&
+            values.duration <= 1440),
+        { message: t("durationRange"), path: ["duration"] },
+      )
+      .refine(
+        (values) =>
+          !visit(values) ||
+          (Number.isInteger(values.staffCount) &&
+            values.staffCount >= 1 &&
+            values.staffCount <= 10),
+        { message: t("staffCountRange"), path: ["staffCount"] },
+      )
+      .refine(
+        (values) =>
+          !visit(values) ||
+          values.choice !== "person" ||
+          values.staffCount === 1,
         {
           message: t("personOnlyForOne"),
           path: ["choice"],
         },
+      )
+      .refine(
+        (values) =>
+          visit(values) ||
+          values.rangeUnit !== "day" ||
+          values.rangeEnd > values.rangeStart,
+        { message: t("returnAfterPickup"), path: ["rangeEnd"] },
       );
   }, [t]);
   const form = useForm<ServiceValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       name: service?.name ?? template?.name ?? "",
+      timeModel: (service?.time_model as TimeModel | undefined) ?? "slot",
+      rangeUnit: (service?.range_unit as RangeUnit | undefined) || "night",
+      rangeStart: clock(service?.range_start_local) || RANGE_TIMES.night[0],
+      rangeEnd: clock(service?.range_end_local) || RANGE_TIMES.night[1],
+      groupIds: service?.group_ids ?? [],
       duration: service?.duration_minutes ?? template?.durationMinutes ?? 30,
       before: service?.buffer_before_minutes ?? 0,
       after: service?.buffer_after_minutes ?? 0,
@@ -203,10 +249,22 @@ export function ServiceDialog({
       resourceIds: service?.resource_ids ?? [],
     },
   });
-  const [staffCount, staffIds, locationIds, resourceIds] = useWatch({
-    control: form.control,
-    name: ["staffCount", "staffIds", "locationIds", "resourceIds"],
-  });
+  const [staffCount, staffIds, locationIds, resourceIds, timeModel, groupIds] =
+    useWatch({
+      control: form.control,
+      name: [
+        "staffCount",
+        "staffIds",
+        "locationIds",
+        "resourceIds",
+        "timeModel",
+        "groupIds",
+      ],
+    });
+  const stay = timeModel === "range";
+  const groups = (setup.groups ?? []).filter(
+    (group) => group.active || service?.group_ids.includes(group.id),
+  );
   const takesMaterials = canUseInventory && service?.takes_materials === true;
   const warehouse = useWarehouse(takesMaterials);
   const [drafts, setDrafts] = useState<MaterialDraft[]>();
@@ -217,15 +275,31 @@ export function ServiceDialog({
 
   const submit = form.handleSubmit(async (values) => {
     setProblem(undefined);
+    const shape =
+      values.timeModel === "range"
+        ? {
+            time_model: "range" as const,
+            range_unit: values.rangeUnit,
+            range_start_local: values.rangeStart || null,
+            range_end_local: values.rangeEnd || null,
+            group_ids: values.groupIds,
+            staff_count: 0,
+            public_staff_choice: "none" as const,
+            staff_ids: [],
+          }
+        : {
+            time_model: "slot" as const,
+            duration_minutes: values.duration,
+            staff_count: values.staffCount,
+            public_staff_choice: values.choice,
+            staff_ids: values.staffIds,
+          };
     const body = {
       name: values.name.trim(),
-      duration_minutes: values.duration,
+      ...shape,
       buffer_before_minutes: values.before,
       buffer_after_minutes: values.after,
       minimum_notice_minutes: values.notice,
-      staff_count: values.staffCount,
-      public_staff_choice: values.choice,
-      staff_ids: values.staffIds,
       location_ids: values.locationIds,
       resource_ids: values.resourceIds,
       ...(!service && template?.appointmentKind
@@ -250,6 +324,7 @@ export function ServiceDialog({
       setProblem(
         problemText(error, t("failed"), t("forbidden"), {
           booking_version_conflict: t("versionConflict"),
+          time_model_locked: t("timeModelLocked"),
         }),
       );
     }
@@ -307,14 +382,111 @@ export function ServiceDialog({
               />
               <FieldError errors={[errors.name]} />
             </Field>
+            <Field>
+              <FieldLabel htmlFor="service-time-model">
+                {t("timeModel")}
+              </FieldLabel>
+              <NativeSelect
+                id="service-time-model"
+                {...form.register("timeModel")}
+              >
+                {TIME_MODELS.map((model) => (
+                  <option key={model} value={model}>
+                    {t(`timeModel_${model}`)}
+                  </option>
+                ))}
+              </NativeSelect>
+              <FieldDescription>{t("timeModelHint")}</FieldDescription>
+            </Field>
+            {stay ? (
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Field>
+                  <FieldLabel htmlFor="service-range-unit">
+                    {t("rangeUnit")}
+                  </FieldLabel>
+                  <NativeSelect
+                    id="service-range-unit"
+                    {...form.register("rangeUnit", {
+                      onChange: (event) => {
+                        const [start, end] =
+                          RANGE_TIMES[event.target.value as RangeUnit];
+                        form.setValue("rangeStart", start);
+                        form.setValue("rangeEnd", end);
+                      },
+                    })}
+                  >
+                    {RANGE_UNITS.map((unit) => (
+                      <option key={unit} value={unit}>
+                        {t(`rangeUnit_${unit}`)}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="service-range-start">
+                    {t("rangeStart")}
+                  </FieldLabel>
+                  <Input
+                    id="service-range-start"
+                    type="time"
+                    {...form.register("rangeStart")}
+                  />
+                </Field>
+                <Field data-invalid={Boolean(errors.rangeEnd)}>
+                  <FieldLabel htmlFor="service-range-end">
+                    {t("rangeEnd")}
+                  </FieldLabel>
+                  <Input
+                    aria-invalid={Boolean(errors.rangeEnd)}
+                    id="service-range-end"
+                    type="time"
+                    {...form.register("rangeEnd")}
+                  />
+                  <FieldError errors={[errors.rangeEnd]} />
+                </Field>
+              </div>
+            ) : null}
             <div className="grid gap-4 sm:grid-cols-2">
-              {minutesField("duration", t("duration"))}
+              {stay ? null : minutesField("duration", t("duration"))}
               {minutesField("notice", t("notice"), t("noticeHint"))}
               {minutesField("before", t("bufferBefore"))}
               {minutesField("after", t("bufferAfter"), t("bufferHint"))}
             </div>
           </FieldSet>
-          <FieldSet>
+          {stay ? (
+            <FieldSet>
+              <FieldLegend>{t("legendUnits")}</FieldLegend>
+              <FieldDescription>{t("unitsHint")}</FieldDescription>
+              {groups.length ? (
+                <FieldSet>
+                  <FieldLegend variant="label">{t("unitGroups")}</FieldLegend>
+                  <Picks
+                    idPrefix="service-groups"
+                    items={groups}
+                    onChange={(next) => form.setValue("groupIds", next)}
+                    value={groupIds}
+                  />
+                </FieldSet>
+              ) : null}
+              {things.length ? (
+                <FieldSet>
+                  <FieldLegend variant="label">{t("singleUnits")}</FieldLegend>
+                  <Picks
+                    idPrefix="service-units"
+                    items={things}
+                    onChange={(next) => form.setValue("resourceIds", next)}
+                    value={resourceIds}
+                  />
+                </FieldSet>
+              ) : null}
+              {!groupIds.length && !resourceIds.length ? (
+                <p className="text-sm text-warning-foreground">
+                  {t("noUnits")}
+                </p>
+              ) : null}
+            </FieldSet>
+          ) : null}
+          <FieldSet className={stay ? "hidden" : undefined}>
             <FieldLegend>{t("legendWork")}</FieldLegend>
             {people.length > 1 ? (
               <Field data-invalid={Boolean(errors.staffCount)}>
@@ -385,7 +557,7 @@ export function ServiceDialog({
               </FieldSet>
             ) : null}
           </FieldSet>
-          <FieldSet>
+          <FieldSet className={stay ? "hidden" : undefined}>
             <FieldLegend>{t("legendPublic")}</FieldLegend>
             <FieldDescription>{t("publicHint")}</FieldDescription>
             <Field data-invalid={Boolean(errors.choice)}>
