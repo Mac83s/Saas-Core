@@ -36,19 +36,18 @@ from saas_core.content_protocol.tokens import (
     validate_tokens,
 )
 
+# The unit kinds and data classes are the protocol's; re-exported for the
+# module's own callers.
+from saas_core.content_protocol.units import COPIED_KINDS as COPIED_KINDS
+from saas_core.content_protocol.units import DATA_PUBLIC as DATA_PUBLIC
+from saas_core.content_protocol.units import DATA_PUBLIC_PERSONAL as DATA_PUBLIC_PERSONAL
+from saas_core.content_protocol.units import UNIT_ADDRESS as UNIT_ADDRESS
+from saas_core.content_protocol.units import UNIT_INLINE as UNIT_INLINE
+from saas_core.content_protocol.units import UNIT_NAME as UNIT_NAME
+from saas_core.content_protocol.units import UNIT_TEXT as UNIT_TEXT
+
 from .block_contracts import InvalidSiteBlockData, site_block_contracts, validate_site_block
 from .models import canonical_json_hash
-
-UNIT_TEXT = "text"
-UNIT_INLINE = "inline"
-UNIT_NAME = "name"
-UNIT_ADDRESS = "address"
-# Copied into every language rather than translated, and never sent to a
-# model; a script that needs it (Cyrillic) gets a transliteration by code.
-COPIED_KINDS = frozenset({UNIT_NAME, UNIT_ADDRESS})
-
-DATA_PUBLIC = "public"
-DATA_PUBLIC_PERSONAL = "public_personal"
 
 UNIT_TOO_LONG = "too_long"
 UNIT_REQUIRED = "required"

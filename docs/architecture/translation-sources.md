@@ -122,7 +122,12 @@ Stan liczy `content_protocol.units.unit_states(units, targets)` (TL5):
 `content_protocol.units.sendable_units(units, targets, *, sendable, protected,
 include_unverified)` składa tę tabelę z klasami danych; tę samą funkcję wołają wycena,
 planowanie automatu i zestaw testów, więc „co kosztuje” i „co idzie do modelu” nie mogą
-się rozjechać.
+się rozjechać. Zwraca `Selection`: fragmenty do wysłania w kolejności źródła, klucze
+wysyłane jako propozycje (`overwrites_human`) i powód każdego pominięcia (`fresh`,
+`blocked`, `copied`, `not_sendable`, `protected`, `unverified`) — ten słownik wycena
+pokazuje osobie. `health` nie wychodzi nigdy, nawet gdy ktoś poda go w `sendable`. Znaki
+liczy `visible_characters(text)`: punkty kodowe po zwinięciu odstępów, bez żetonów,
+adresów www i e-mail, telefonów i znaczników braku.
 
 ```python
 # content_protocol/units.py — TL5
@@ -462,6 +467,7 @@ POLICY_OFF = TranslationPolicy(mode="off", reason="engine_absent", mass_publicat
 def decide_publication(*, policy: TranslationPolicy, requested: WriteTarget,
                        requested_reason: str | None, trigger: Trigger,
                        facts: PublicationFacts) -> PublicationDecision: ...
+# PublicationDecision(outcome: "draft" | "pending" | "live" | "refused", reason)
 ```
 
 Politykę rejestruje silnik (z ustawień firmy, nadpisań operatora, sufitu wdrożenia i
@@ -624,12 +630,22 @@ deterministyczną atrapą tłumacza i liczy stany funkcjami protokołu.
 daje klasę bazową `TranslationSourceContract`, protokół `SourceDriver` (moduł
 implementuje go na prawdziwych tabelach: `create`, `insert`, `move`, `edit`, `delete`,
 `publish`, `write_as_person`, `write_as_integration`, `copy_source`, `public_texts`),
-atrapy `FakeDraftSource` i `FakeLiveRecordSource` oraz menedżery
+atrapy `FakeDraftSource` i `FakeLiveRecordSource` z `FakeSourceDriver` oraz menedżery
 `registered_translation_source`, `translation_policy_override` i
 `captured_source_changes`, które przywracają globalne rejestry po teście. Kontrakty
 `.importlinter`: moduły nie importują `saas_core.testing`, a `shared.sites`,
 `shared.profiles`, `shared.booking` i warstwa `vertical` nie importują
 `shared.translation`.
+
+Test modułu to podklasa z `source_key` i fiksturą `driver`. Sterownik operuje na
+pozycjach bieżących fragmentów (`insert(object_id, index, text)`), a `create` przyjmuje
+teksty albo `UnitSpec(text, kind, data_class, max_length, required)`. Daje też dwa
+konteksty — `publisher` (osoba z prawem publikacji modułu) i `editor` (może tłumaczyć,
+nie publikuje) — oraz `acting(context)`, ten sam kontekst działający przez zlecenie
+(`acting_via="ai_translation"`). `capabilities` mówi, co źródło umie trzymać (`legal`,
+`placeholder`, `name`, `address`, `personal`, `health`); scenariusze bez danej zdolności
+są pomijane. Odmowę osoby test rozpoznaje po kodzie (`error_code(error) ==
+"person_required"`), więc moduł zgłasza ją własnym wyjątkiem.
 
 Scenariusze — punkt wyjścia: obiekt z fragmentami [A, B, C], opublikowany i
 przetłumaczony na `de`:

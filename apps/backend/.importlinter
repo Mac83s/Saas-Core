@@ -19,6 +19,18 @@ forbidden_modules =
     saas_core.modules
     saas_core.config
 
+[importlinter:contract:testing-stays-in-tests]
+name = Pomocniki testów (saas_core.testing) nie trafiają do kodu aplikacji
+type = forbidden
+source_modules =
+    saas_core.modules
+    saas_core.config
+    saas_core.content_protocol
+    saas_core.http
+    saas_core.observability
+forbidden_modules =
+    saas_core.testing
+
 [importlinter:contract:model-port-alone]
 name = Port modeli nie zależy od innych modułów shared (ADR-068 pkt 1)
 type = forbidden
