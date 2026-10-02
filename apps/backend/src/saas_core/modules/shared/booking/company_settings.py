@@ -32,6 +32,7 @@ from saas_core.modules.core.organizations.api import (
     setting,
     settings_snapshot,
 )
+from saas_core.modules.core.organizations.context import require_tenant_context
 from saas_core.modules.core.organizations.permissions import SETTINGS_MANAGE
 
 from .models import Appointment, AppointmentStatus
@@ -47,7 +48,8 @@ class BookingPaused(APIException):
 
 def _pending_reminders() -> Any:
     """Confirmed visits still ahead whose reminder has not gone out."""
-    return Appointment.objects.filter(
+    return Appointment.all_objects.filter(
+        organization_id=require_tenant_context().organization_id,
         status=AppointmentStatus.CONFIRMED,
         starts_at__gt=timezone.now(),
         reminder_sent_at__isnull=True,

@@ -271,9 +271,15 @@ def _field(spec: SettingSpec, **options: Any) -> serializers.Field[Any, Any, Any
     if spec.type == "bool":
         return serializers.BooleanField(**options)
     if spec.type == "int":
-        return serializers.IntegerField(min_value=spec.minimum, max_value=spec.maximum, **options)
+        if spec.minimum is not None:
+            options["min_value"] = spec.minimum
+        if spec.maximum is not None:
+            options["max_value"] = spec.maximum
+        return serializers.IntegerField(**options)
     if spec.type == "date":
         return serializers.DateField(**options)
     if spec.type == "enum":
         return serializers.ChoiceField(choices=[value for value, _ in spec.values], **options)
-    return serializers.CharField(max_length=spec.max_length, allow_blank=True, **options)
+    if spec.max_length is not None:
+        options["max_length"] = spec.max_length
+    return serializers.CharField(allow_blank=True, **options)
