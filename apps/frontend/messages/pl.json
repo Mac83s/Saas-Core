@@ -3058,6 +3058,12 @@
       "email": "E-mail",
       "phone": "Telefon",
       "area": "Obszar działania"
+    },
+    "notFound": {
+      "title": "Nie ma takiej strony",
+      "body": "Strona mogła zostać przeniesiona albo usunięta. Sprawdź adres albo przejdź dalej:",
+      "home": "Strona główna",
+      "catalog": "Katalog firm"
     }
   },
   "Onboarding": {
@@ -3600,7 +3606,12 @@
     "locationFailed": "Nie udało się ustalić lokalizacji. Wybierz miasto.",
     "locationPrivacy": "Lokalizacja służy tylko temu wyszukiwaniu i nie jest zapisywana.",
     "noExact": "Nie znaleźliśmy dokładnie „{query}”. Podobne:",
-    "mayAlso": "Może też"
+    "mayAlso": "Może też",
+    "gone": {
+      "title": "Tej firmy nie ma już w katalogu",
+      "body": "Wizytówka została wycofana albo usunięta. Inne firmy znajdziesz w katalogu.",
+      "back": "Wróć do katalogu"
+    }
   },
   "Profile": {
     "title": "Wizytówka firmy",

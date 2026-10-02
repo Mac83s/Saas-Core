@@ -133,7 +133,7 @@ export default async function HomePage({ params }: Props) {
         </div>
       </section>
 
-      <section id="features" className="scroll-mt-20 border-t bg-muted/30">
+      <section id="features" className="border-t bg-muted/30">
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-5 py-20">
           <div className="flex max-w-2xl flex-col gap-3">
             <h2 className="text-3xl font-semibold tracking-tight">

@@ -3027,7 +3027,7 @@
       "label": "Main navigation",
       "menu": "Menu",
       "features": "Features",
-      "catalog": "Business directory",
+      "catalog": "Company directory",
       "pricing": "Pricing",
       "contact": "Contact"
     },
@@ -3058,6 +3058,12 @@
       "email": "E-mail",
       "phone": "Phone",
       "area": "Service area"
+    },
+    "notFound": {
+      "title": "Page not found",
+      "body": "The page may have moved or been removed. Check the address or go on:",
+      "home": "Home page",
+      "catalog": "Company directory"
     }
   },
   "Onboarding": {
@@ -3600,7 +3606,12 @@
     "locationFailed": "Could not get your location. Choose a town.",
     "locationPrivacy": "Your location is used for this search only and is not stored.",
     "noExact": "Nothing matches “{query}” exactly. Similar:",
-    "mayAlso": "You might also consider"
+    "mayAlso": "You might also consider",
+    "gone": {
+      "title": "This company is no longer listed",
+      "body": "Its card was withdrawn or removed. You will find other companies in the directory.",
+      "back": "Back to the directory"
+    }
   },
   "Profile": {
     "title": "Business card",

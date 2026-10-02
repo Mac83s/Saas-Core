@@ -1,17 +1,29 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
+import { productHasCatalog, productName } from "../../../../marketing/content";
+import { marketingMetadata } from "../../../../marketing/seo";
 import { CatalogSearch } from "../../../../modules/shared/profiles";
 
-export async function generateMetadata() {
-  const t = await getTranslations("Catalog");
-  return { title: t("title"), description: t("intro") };
+type Props = { params: Promise<{ locale: string }> };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  // The catalogue is shared.profiles' public face; without it the address is
+  // not a page of this product (and the 404 must not carry its title).
+  if (!productHasCatalog) notFound();
+  const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "Catalog" });
+  return marketingMetadata({
+    locale,
+    path: "/katalog",
+    title: `${t("title")} — ${productName}`,
+    description: t("intro"),
+  });
 }
 
-export default async function CatalogPage({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}) {
+export default async function CatalogPage({ params }: Props) {
+  if (!productHasCatalog) notFound();
   const { locale } = await params;
   const t = await getTranslations("Catalog");
   return (

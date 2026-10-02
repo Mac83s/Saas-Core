@@ -4,10 +4,12 @@ import { Link } from "#i18n/navigation";
 
 import { productCopy, productHasCatalog, productName } from "../content";
 import { marketingLinks } from "../navigation";
+import { MarketingNavLink } from "./site-header";
 
 export async function SiteFooter() {
   const t = await getTranslations("Marketing");
-  const copy = productCopy(await getLocale());
+  const locale = await getLocale();
+  const copy = productCopy(locale);
   const links = marketingLinks(
     copy,
     {
@@ -32,13 +34,12 @@ export async function SiteFooter() {
         >
           <p className="font-medium">{t("footer.product")}</p>
           {links.map((link) => (
-            <Link
+            <MarketingNavLink
               key={link.href}
-              href={link.href}
+              link={link}
+              locale={locale}
               className="text-muted-foreground hover:text-foreground"
-            >
-              {link.label}
-            </Link>
+            />
           ))}
         </nav>
         <nav

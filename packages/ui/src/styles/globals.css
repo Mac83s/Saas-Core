@@ -370,6 +370,19 @@
     }
   }
 
+  /* The marketing site's sticky header (65px; 110px below lg with the Menu
+     row) covers the top of the page; focus and anchor scrolling stop below it
+     (WCAG 2.2, 2.4.11). Not "site": that word means customers' sites here. */
+  html:has([data-marketing-header]) {
+    scroll-padding-top: 5rem;
+  }
+
+  @media (width < 64rem) {
+    html:has([data-marketing-header]) {
+      scroll-padding-top: 7.5rem;
+    }
+  }
+
   /* The design draws every Lucide icon at stroke 2.75 — heavier and rounder
      than the library's 2. The attribute Lucide sets loses to any CSS rule. */
   .lucide {
