@@ -62,6 +62,15 @@ export function PublicationHistory({
             {publication.source_publication_id && (
               <Badge variant="secondary">{t("rollback")}</Badge>
             )}
+            {/* A publication made from the published state, not by
+                "Publish": a removed page, a language version, a job. */}
+            {publication.reason &&
+              publication.reason !== "publish" &&
+              publication.reason !== "rollback" && (
+                <Badge variant="outline">
+                  {t(`publicationReasons.${publication.reason}`)}
+                </Badge>
+              )}
           </p>
           <p className="truncate font-mono text-xs text-muted-foreground">
             {publication.snapshot_hash}

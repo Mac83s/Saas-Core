@@ -1210,6 +1210,14 @@
     "publicationSequence": "Publikacja #{sequence}",
     "current": "Bieżąca",
     "rollback": "Rollback",
+    "publicationReasons": {
+      "page_delete": "Usunięcie podstrony",
+      "locale_accept": "Akceptacja tłumaczenia",
+      "locale_publish": "Wersja językowa",
+      "locale_withdraw": "Zdjęcie wersji językowej",
+      "translation_job": "Tłumaczenie automatyczne",
+      "translation_revert": "Cofnięcie tłumaczenia"
+    },
     "restore": "Przywróć jako nową publikację",
     "domains": "Domeny i publikacja",
     "domainsDescription": "Sprawdź subdomenę platformy, instrukcję DNS, status weryfikacji i gotowość TLS.",

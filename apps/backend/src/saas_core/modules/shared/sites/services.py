@@ -79,6 +79,7 @@ from .models import (
     PageType,
     PageVersion,
     Publication,
+    PublicationReason,
     Site,
     SiteOutboxEvent,
     SitePurpose,
@@ -2197,6 +2198,7 @@ def publish_site(*, site_id: UUID, idempotency_key: str) -> SitePublication:
         snapshot=snapshot,
         snapshot_hash="",
         created_by=actor,
+        reason=PublicationReason.PUBLISH,
         idempotency_key=normalized_key,
     )
     try:
@@ -2246,6 +2248,7 @@ def publish_site(*, site_id: UUID, idempotency_key: str) -> SitePublication:
             "publication_id": str(publication.id),
             "sequence": publication.sequence,
             "snapshot_hash": publication.snapshot_hash,
+            "reason": publication.reason,
         },
     )
     _schedule_site_outbox_delivery(event)
@@ -2366,6 +2369,7 @@ def rollback_site(
         snapshot_hash="",
         created_by=actor,
         source_publication=source,
+        reason=PublicationReason.ROLLBACK,
         idempotency_key=normalized_key,
     )
     try:

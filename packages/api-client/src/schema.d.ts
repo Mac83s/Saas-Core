@@ -4480,6 +4480,8 @@ export interface components {
             /** Format: date-time */
             expires_at?: string | null;
         };
+        /** @enum {unknown} */
+        BlankEnum: "";
         BlueprintCatalog: {
             contract_version: number;
             /** Format: uuid */
@@ -6999,15 +7001,6 @@ export interface components {
             requested_staff_id: string | null;
             customer_notes: string;
         };
-        /**
-         * @description * `available` - available
-         *     * `invalid` - invalid
-         *     * `reserved` - reserved
-         *     * `taken` - taken
-         *     * `quarantined` - quarantined
-         * @enum {string}
-         */
-        ReasonEnum: "available" | "invalid" | "reserved" | "taken" | "quarantined";
         Registration: {
             /** Format: email */
             email: string;
@@ -7374,6 +7367,19 @@ export interface components {
             snapshot_hash: string;
             /** Format: uuid */
             source_publication_id: string | null;
+            /**
+             * @description Why the publication exists; empty for publications from before the field.
+             *
+             *     * `publish` - Publikacja
+             *     * `rollback` - Przywrócenie
+             *     * `page_delete` - Usunięcie podstrony
+             *     * `locale_accept` - Akceptacja tłumaczenia
+             *     * `locale_publish` - Publikacja wersji językowej
+             *     * `locale_withdraw` - Zdjęcie wersji językowej
+             *     * `translation_job` - Tłumaczenie automatyczne
+             *     * `translation_revert` - Cofnięcie tłumaczenia
+             */
+            reason: components["schemas"]["SitePublicationReasonEnum"] | components["schemas"]["BlankEnum"];
             created_by: components["schemas"]["PublicationAuthor"];
             /** Format: date-time */
             created_at: string;
@@ -7383,6 +7389,18 @@ export interface components {
             /** Format: uuid */
             next_cursor: string | null;
         };
+        /**
+         * @description * `publish` - Publikacja
+         *     * `rollback` - Przywrócenie
+         *     * `page_delete` - Usunięcie podstrony
+         *     * `locale_accept` - Akceptacja tłumaczenia
+         *     * `locale_publish` - Publikacja wersji językowej
+         *     * `locale_withdraw` - Zdjęcie wersji językowej
+         *     * `translation_job` - Tłumaczenie automatyczne
+         *     * `translation_revert` - Cofnięcie tłumaczenia
+         * @enum {string}
+         */
+        SitePublicationReasonEnum: "publish" | "rollback" | "page_delete" | "locale_accept" | "locale_publish" | "locale_withdraw" | "translation_job" | "translation_revert";
         SitePurpose: {
             purpose: components["schemas"]["PurposeEnum"];
         };
@@ -7705,9 +7723,18 @@ export interface components {
             normalized_label: string;
             hostname: string;
             available: boolean;
-            reason: components["schemas"]["ReasonEnum"];
+            reason: components["schemas"]["SubdomainAvailabilityReasonEnum"];
             suggestion: string;
         };
+        /**
+         * @description * `available` - available
+         *     * `invalid` - invalid
+         *     * `reserved` - reserved
+         *     * `taken` - taken
+         *     * `quarantined` - quarantined
+         * @enum {string}
+         */
+        SubdomainAvailabilityReasonEnum: "available" | "invalid" | "reserved" | "taken" | "quarantined";
         /**
          * @description * `organization` - Organizacja
          *     * `person` - Osoba

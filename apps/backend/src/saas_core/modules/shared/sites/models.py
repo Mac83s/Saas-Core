@@ -972,6 +972,19 @@ class PageLocaleVersion(TenantScopedModel):
         raise ValidationError("Wersja językowa treści strony jest niemutowalna.")
 
 
+class PublicationReason(models.TextChoices):
+    """Why a publication exists (ADR-070 pkt 11). Empty on rows from before."""
+
+    PUBLISH = "publish", "Publikacja"
+    ROLLBACK = "rollback", "Przywrócenie"
+    PAGE_DELETE = "page_delete", "Usunięcie podstrony"
+    LOCALE_ACCEPT = "locale_accept", "Akceptacja tłumaczenia"
+    LOCALE_PUBLISH = "locale_publish", "Publikacja wersji językowej"
+    LOCALE_WITHDRAW = "locale_withdraw", "Zdjęcie wersji językowej"
+    TRANSLATION_JOB = "translation_job", "Tłumaczenie automatyczne"
+    TRANSLATION_REVERT = "translation_revert", "Cofnięcie tłumaczenia"
+
+
 class Publication(TenantScopedModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
     site = models.ForeignKey(Site, on_delete=models.PROTECT, related_name="publications")
@@ -990,6 +1003,9 @@ class Publication(TenantScopedModel):
         related_name="rollbacks",
         null=True,
         blank=True,
+    )
+    reason = models.CharField(
+        max_length=32, choices=PublicationReason.choices, blank=True, default=""
     )
     idempotency_key = models.CharField(max_length=120)
     created_at = models.DateTimeField(auto_now_add=True)

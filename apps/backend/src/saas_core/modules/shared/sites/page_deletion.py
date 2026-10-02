@@ -22,26 +22,21 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlsplit
-from uuid import UUID, uuid7
+from uuid import UUID
 
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import APIException
 
 from saas_core.modules.core.identity.models import User
-from saas_core.modules.core.organizations.api import (
-    ResourceReferenceConflict,
-    ResourceReferenceRejected,
-    record_resource_references,
-)
 from saas_core.modules.core.organizations.audit import record_audit
 from saas_core.modules.shared.billing.api import (
     FeatureOperation,
     authorize_entitled,
 )
-from saas_core.observability import correlation_id
 
 from .block_decoration import stored_block_payload
+from .derived_publication import publish_derived
 from .localization import localized_path
 from .models import (
     NavigationItem,
@@ -50,24 +45,18 @@ from .models import (
     PageTranslation,
     PageType,
     Publication,
+    PublicationReason,
     Site,
-    SiteOutboxEvent,
     SiteRedirect,
 )
 from .permissions import SITE_CONTENT_EDIT, SITE_PUBLISH, SITES_ENABLED
 from .rich_content import block_links
 from .services import (
-    MEDIA_ASSET_RESOURCE_TYPE,
-    PUBLICATION_REFERENCE_OWNER,
-    SITE_PUBLISHED_EVENT,
     DraftVersionConflict,
     PageNotFound,
-    SiteMediaReferenceUnavailable,
-    SitesIdempotencyConflict,
     TranslationSlugConflict,
     _ensure_page_capacity,
     _idempotency_key,
-    _schedule_site_outbox_delivery,
     assert_person_required,
 )
 
@@ -224,78 +213,6 @@ def _with_redirects(snapshot: dict[str, Any], redirects: list[SiteRedirect]) -> 
     return {**snapshot, "redirects": sorted(entries, key=lambda entry: entry["from_path"])}
 
 
-def publish_derived(
-    *,
-    context: Any,
-    site: Site,
-    snapshot: dict[str, Any],
-    actor: User,
-    idempotency_key: str,
-    reason: str,
-) -> Publication:
-    """A publication of an already-published state changed in one place — not
-    of the drafts. Media references follow the pages it keeps."""
-    previous = (
-        Publication.all_objects.filter(organization_id=context.organization_id, site_id=site.id)
-        .order_by("-sequence")
-        .first()
-    )
-    publication = Publication.all_objects.create(
-        organization_id=context.organization_id,
-        site=site,
-        sequence=(previous.sequence + 1 if previous is not None else 1),
-        snapshot_schema_version=(
-            site.current_publication.snapshot_schema_version if site.current_publication else 1
-        ),
-        snapshot=snapshot,
-        snapshot_hash="",
-        created_by=actor,
-        idempotency_key=idempotency_key,
-    )
-    media_ids = sorted({
-        asset_id
-        for entry in snapshot.get("pages", [])
-        if isinstance(entry, dict)
-        for asset_id in entry.get("media_asset_ids", [])
-    })
-    try:
-        record_resource_references(
-            context=context,
-            resource_type=MEDIA_ASSET_RESOURCE_TYPE,
-            owner_type=PUBLICATION_REFERENCE_OWNER,
-            owner_id=publication.id,
-            resource_ids=tuple(UUID(asset_id) for asset_id in media_ids),
-        )
-    except ResourceReferenceRejected as error:
-        raise SiteMediaReferenceUnavailable from error
-    except ResourceReferenceConflict as error:
-        raise SitesIdempotencyConflict from error
-    Site.all_objects.filter(pk=site.id, organization_id=context.organization_id).update(
-        current_publication=publication, updated_at=timezone.now()
-    )
-    from .tls import invalidate_site_tls_decisions
-
-    transaction.on_commit(lambda: invalidate_site_tls_decisions(site_id=site.id))
-    active_correlation_id = correlation_id.get()
-    event = SiteOutboxEvent.all_objects.create(
-        organization_id=context.organization_id,
-        publication=publication,
-        event_type=SITE_PUBLISHED_EVENT,
-        version=1,
-        actor=actor,
-        correlation_id=UUID(active_correlation_id) if active_correlation_id else uuid7(),
-        causation_id=f"sites-{reason}:{publication.id}",
-        payload={
-            "site_id": str(site.id),
-            "publication_id": str(publication.id),
-            "sequence": publication.sequence,
-            "snapshot_hash": publication.snapshot_hash,
-        },
-    )
-    _schedule_site_outbox_delivery(event)
-    return publication
-
-
 def _lift_slug_lock(translation: PageTranslation, slug: str) -> None:
     """Moves a translation to another slug through the published-slug lock,
     which is a trigger: open it and close it again in one transaction, the way
@@ -432,7 +349,7 @@ def delete_page(
             ),
             actor=actor,
             idempotency_key=f"page-delete:{key}"[:120],
-            reason="page-delete",
+            reason=PublicationReason.PAGE_DELETE,
         )
     record_audit(
         organization=site.organization,

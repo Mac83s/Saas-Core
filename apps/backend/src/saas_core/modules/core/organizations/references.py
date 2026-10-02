@@ -25,6 +25,7 @@ class ResourceReferenceHandler(Protocol):
         owner_type: str,
         owner_id: UUID,
         resource_ids: tuple[UUID, ...],
+        carried_from: UUID | None = None,
     ) -> tuple[UUID, ...]: ...
 
     def list_ids(
@@ -70,13 +71,22 @@ def record_resource_references(
     owner_type: str,
     owner_id: UUID,
     resource_ids: tuple[UUID, ...],
+    carried_from: UUID | None = None,
 ) -> tuple[UUID, ...]:
+    """References from one owner to resources.
+
+    `carried_from` names an earlier owner of the same type whose references
+    carry over: a resource it already referenced passes without the handler's
+    admission check, because it is already in use and stays until no owner
+    references it. Only resources new to this owner are checked.
+    """
     _require_matching_context(context)
     return _handler(resource_type).record(
         context=context,
         owner_type=owner_type,
         owner_id=owner_id,
         resource_ids=_normalized_ids(resource_ids),
+        carried_from=carried_from,
     )
 
 

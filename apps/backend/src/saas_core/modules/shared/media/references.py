@@ -24,6 +24,7 @@ class MediaAssetReferenceHandler:
         owner_type: str,
         owner_id: UUID,
         resource_ids: tuple[UUID, ...],
+        carried_from: UUID | None = None,
     ) -> tuple[UUID, ...]:
         if owner_type not in MediaReferenceOwner.values:
             raise ResourceReferenceRejected
@@ -43,26 +44,43 @@ class MediaAssetReferenceHandler:
             return existing_ids
         if not resource_ids:
             return ()
-        ready_assets = list(
+        # An asset the earlier owner references is already in use: deleting it
+        # only tombstones it, and its file stays while any publication points
+        # at it, so carrying it over is safe and must not fail.
+        carried = (
+            set(
+                MediaReference.all_objects.filter(
+                    organization_id=context.organization_id,
+                    owner_type=owner_type,
+                    owner_id=carried_from,
+                    asset_id__in=resource_ids,
+                ).values_list("asset_id", flat=True)
+            )
+            if carried_from is not None
+            else set()
+        )
+        new_ids = tuple(asset_id for asset_id in resource_ids if asset_id not in carried)
+        ready_ids = tuple(
             MediaAsset.all_objects.select_for_update()
             .filter(
                 organization_id=context.organization_id,
-                id__in=resource_ids,
+                id__in=new_ids,
                 state=MediaAssetState.READY,
                 deleted_at__isnull=True,
             )
             .order_by("id")
+            .values_list("id", flat=True)
         )
-        if tuple(asset.id for asset in ready_assets) != resource_ids:
+        if set(ready_ids) != set(new_ids):
             raise ResourceReferenceRejected
         MediaReference.all_objects.bulk_create([
             MediaReference(
                 organization_id=context.organization_id,
-                asset=asset,
+                asset_id=asset_id,
                 owner_type=owner_type,
                 owner_id=owner_id,
             )
-            for asset in ready_assets
+            for asset_id in resource_ids
         ])
         return resource_ids
 

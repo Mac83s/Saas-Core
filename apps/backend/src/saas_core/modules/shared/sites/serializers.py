@@ -5,6 +5,8 @@ from typing import Any
 from django.conf import settings
 from rest_framework import serializers
 
+from .models import PublicationReason
+
 
 class CursorQuerySerializer(serializers.Serializer[dict[str, Any]]):
     cursor = serializers.UUIDField(required=False, allow_null=True)
@@ -884,6 +886,11 @@ class SitePublicationSerializer(serializers.Serializer[dict[str, Any]]):
     snapshot_schema_version = serializers.IntegerField()
     snapshot_hash = serializers.CharField()
     source_publication_id = serializers.UUIDField(allow_null=True)
+    reason = serializers.ChoiceField(
+        choices=PublicationReason.choices,
+        allow_blank=True,
+        help_text="Why the publication exists; empty for publications from before the field.",
+    )
     created_by = PublicationAuthorSerializer()
     created_at = serializers.DateTimeField()
 

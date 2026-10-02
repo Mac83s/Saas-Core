@@ -870,6 +870,7 @@ def _publication_summary(publication: Publication) -> dict[str, Any]:
         "snapshot_schema_version": publication.snapshot_schema_version,
         "snapshot_hash": publication.snapshot_hash,
         "source_publication_id": publication.source_publication_id,
+        "reason": publication.reason,
         "created_by": {
             "id": publication.created_by_id,
             "email": publication.created_by.email,

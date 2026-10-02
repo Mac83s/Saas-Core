@@ -389,3 +389,56 @@ def test_marking_a_home_page_makes_the_previous_one_an_ordinary_page() -> None:
     assert _delete(client, site["home"], key="old-home").status_code == 200
     refused = _delete(client, site["offer"], key="new-home")
     assert refused.data["code"] == "page_is_homepage"
+
+
+def test_a_photo_deleted_since_does_not_stop_taking_another_page_off() -> None:
+    """A derived publication carries the media references of the publication it
+    comes from (ADR-070 pkt 11): a photo tombstoned after it went live stays
+    referenced, and only references new to the snapshot are checked."""
+    from django.utils import timezone
+
+    from saas_core.modules.core.organizations.models import Membership
+    from saas_core.modules.shared.media.models import MediaAsset, MediaReference
+    from saas_core.modules.shared.sites.models import Publication, SiteOutboxEvent
+    from test_sites_api import create_media_asset
+
+    client, organization, site = _site("delete-tombstoned-photo")
+    user = Membership.objects.filter(organization=organization).first().user
+    photo = create_media_asset(organization, user)
+    drafted = save_draft(
+        client,
+        site["offer"]["id"],
+        expected_version=1,
+        idempotency_key="offer-photo",
+        heading="Oferta ze zdjęciem",
+        media_asset_ids=[str(photo.id)],
+    )
+    assert drafted.status_code in (200, 201), drafted.data
+    published = publish_site_request(client, site["site"]["id"], idempotency_key="with-photo")
+    assert published.status_code == 201, published.data
+    MediaAsset.all_objects.filter(pk=photo.pk).update(
+        deleted_at=timezone.now(), deleted_by=user, deletion_idempotency_key="photo-gone"
+    )
+
+    deleted = _delete(client, site["contact"], key="delete-contact")
+
+    assert deleted.status_code == 200, deleted.data
+    current = Site.all_objects.get(pk=site["site"]["id"]).current_publication
+    assert current.reason == "page_delete"
+    assert MediaReference.all_objects.filter(owner_id=current.id, asset_id=photo.id).exists()
+    event = SiteOutboxEvent.all_objects.filter(publication=current).get()
+    assert event.payload["reason"] == "page_delete"
+    reasons = list(
+        Publication.all_objects.filter(site_id=site["site"]["id"])
+        .order_by("sequence")
+        .values_list("reason", flat=True)
+    )
+    assert reasons == ["publish", "publish", "page_delete"]
+    listed = client.get(f"/api/v1/sites/{site['site']['id']}/publications/")
+    assert [item["reason"] for item in listed.data["items"]][:1] == ["page_delete"]
+
+    restored = rollback_site_request(
+        client, site["site"]["id"], published.data["id"], idempotency_key="back"
+    )
+    assert restored.status_code == 201, restored.data
+    assert restored.data["reason"] == "rollback"

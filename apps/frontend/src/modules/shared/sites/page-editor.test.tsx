@@ -665,6 +665,7 @@ test("historia pokazuje autora i przekazuje wybraną publikację do rollbacku", 
     snapshot_schema_version: 1,
     snapshot_hash: "b".repeat(64),
     source_publication_id: "019ff20d-a000-7000-8000-000000000026",
+    reason: "rollback" as const,
     created_by: {
       id: "019ff20d-a000-7000-8000-000000000027",
       email: "owner@example.test",

@@ -76,7 +76,9 @@ ALLOWED_API_SCOPES = frozenset({
 #: an event added to one but not the other reaches nobody while looking
 #: entirely wired up.
 EVENT_PAYLOAD_ALLOWLISTS: dict[str, set[str]] = {
-    "sites.site.published": {"site_id", "publication_id", "sequence", "snapshot_hash"},
+    # `reason` says why the publication exists (ADR-070 pkt 11): a person's
+    # publication, a removed page, a language version, a translation job.
+    "sites.site.published": {"site_id", "publication_id", "sequence", "snapshot_hash", "reason"},
     # A rollback carries the publication it restored, which is the whole
     # reason a subscriber cares: it says which state the site went back to.
     "sites.site.rolled_back": {

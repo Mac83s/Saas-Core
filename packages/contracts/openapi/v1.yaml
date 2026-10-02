@@ -13441,6 +13441,9 @@ components:
       required:
       - id
       - url
+    BlankEnum:
+      enum:
+      - ''
     BlueprintCatalog:
       type: object
       properties:
@@ -19726,20 +19729,6 @@ components:
       - starts_at
       - status
       - timezone
-    ReasonEnum:
-      enum:
-      - available
-      - invalid
-      - reserved
-      - taken
-      - quarantined
-      type: string
-      description: |-
-        * `available` - available
-        * `invalid` - invalid
-        * `reserved` - reserved
-        * `taken` - taken
-        * `quarantined` - quarantined
     Registration:
       type: object
       properties:
@@ -20676,6 +20665,21 @@ components:
           - string
           - 'null'
           format: uuid
+        reason:
+          description: |-
+            Why the publication exists; empty for publications from before the field.
+
+            * `publish` - Publikacja
+            * `rollback` - Przywrócenie
+            * `page_delete` - Usunięcie podstrony
+            * `locale_accept` - Akceptacja tłumaczenia
+            * `locale_publish` - Publikacja wersji językowej
+            * `locale_withdraw` - Zdjęcie wersji językowej
+            * `translation_job` - Tłumaczenie automatyczne
+            * `translation_revert` - Cofnięcie tłumaczenia
+          oneOf:
+          - $ref: '#/components/schemas/SitePublicationReasonEnum'
+          - $ref: '#/components/schemas/BlankEnum'
         created_by:
           $ref: '#/components/schemas/PublicationAuthor'
         created_at:
@@ -20685,6 +20689,7 @@ components:
       - created_at
       - created_by
       - id
+      - reason
       - sequence
       - site_id
       - snapshot_hash
@@ -20705,6 +20710,26 @@ components:
       required:
       - items
       - next_cursor
+    SitePublicationReasonEnum:
+      enum:
+      - publish
+      - rollback
+      - page_delete
+      - locale_accept
+      - locale_publish
+      - locale_withdraw
+      - translation_job
+      - translation_revert
+      type: string
+      description: |-
+        * `publish` - Publikacja
+        * `rollback` - Przywrócenie
+        * `page_delete` - Usunięcie podstrony
+        * `locale_accept` - Akceptacja tłumaczenia
+        * `locale_publish` - Publikacja wersji językowej
+        * `locale_withdraw` - Zdjęcie wersji językowej
+        * `translation_job` - Tłumaczenie automatyczne
+        * `translation_revert` - Cofnięcie tłumaczenia
     SitePurpose:
       type: object
       properties:
@@ -21500,7 +21525,7 @@ components:
         available:
           type: boolean
         reason:
-          $ref: '#/components/schemas/ReasonEnum'
+          $ref: '#/components/schemas/SubdomainAvailabilityReasonEnum'
         suggestion:
           type: string
       required:
@@ -21510,6 +21535,20 @@ components:
       - reason
       - requested_label
       - suggestion
+    SubdomainAvailabilityReasonEnum:
+      enum:
+      - available
+      - invalid
+      - reserved
+      - taken
+      - quarantined
+      type: string
+      description: |-
+        * `available` - available
+        * `invalid` - invalid
+        * `reserved` - reserved
+        * `taken` - taken
+        * `quarantined` - quarantined
     SubjectKindEnum:
       enum:
       - organization

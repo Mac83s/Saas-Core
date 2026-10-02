@@ -24,6 +24,7 @@ const live = {
   snapshot_schema_version: 1,
   snapshot_hash: "b".repeat(64),
   source_publication_id: "019ff20d-e000-7000-8000-000000000003",
+  reason: "rollback" as const,
   created_by: author,
   created_at: "2026-09-28T12:00:00Z",
 };
@@ -33,6 +34,8 @@ const older = {
   sequence: 1,
   snapshot_hash: "a".repeat(64),
   source_publication_id: null,
+  // A page taken off the site publishes from the published state.
+  reason: "page_delete" as const,
   created_at: "2026-09-27T12:00:00Z",
 };
 
@@ -73,6 +76,7 @@ test("lists publications as a table and restores an older one", async () => {
   expect((await axe.run(rendered.container)).violations).toHaveLength(0);
 
   const row = within(table).getByText("Publikacja #1").closest("tr")!;
+  expect(within(row).getByText("Usunięcie podstrony")).not.toBeNull();
   fireEvent.click(
     within(row).getByRole("button", { name: "Przywróć jako nową publikację" }),
   );
