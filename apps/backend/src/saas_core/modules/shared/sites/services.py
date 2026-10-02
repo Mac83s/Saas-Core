@@ -2956,6 +2956,10 @@ def set_page_type(*, page_id: UUID, page_type: str) -> Page:
     )
     if page is None:
         raise PageNotFound
+    if PERSON_ONLY_PAGE_TYPES & {page.page_type, page_type}:
+        # Otherwise acting for a person could untype a legal page and then
+        # write it past the legal-page gate (ADR-076 §6).
+        assert_person_required(context, "Strona prawna")
     if page.page_type != page_type:
         changed = [page]
         if page_type == PageType.HOMEPAGE:

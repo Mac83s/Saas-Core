@@ -10,6 +10,7 @@ from typing import Any
 from uuid import uuid7
 
 import pytest
+from django.core.cache import cache
 from rest_framework.test import APIClient
 
 from saas_core.modules.core.organizations.context import (
@@ -31,6 +32,7 @@ from saas_core.modules.shared.sites.services import (
     assert_person_required,
     publish_site,
     save_draft,
+    set_page_type,
 )
 from test_sites_api import (
     create_page,
@@ -43,6 +45,13 @@ from test_sites_api import save_draft as save_draft_request
 
 pytestmark = pytest.mark.django_db
 
+
+@pytest.fixture(autouse=True)
+def clear_login_throttle() -> None:
+    # Every test signs the owner in; five sign-ins a minute is the login limit.
+    cache.clear()
+
+
 TEXT = {"block_type": "core.rich_text", "schema_version": 1, "data": {"text": "Nowa treść."}}
 
 
@@ -50,9 +59,7 @@ def person_and_assistant(slug: str) -> tuple[APIClient, TenantContext, TenantCon
     """The owner signed in, and the same membership acting through the
     assistant in one of the owner's conversations."""
     client, organization, user = sites_client(slug=slug, role_key="owner")
-    membership = Membership.objects.select_related("role").get(
-        organization=organization, user=user
-    )
+    membership = Membership.objects.select_related("role").get(organization=organization, user=user)
     person = context_from_membership(membership)
     return (
         client,
@@ -151,6 +158,28 @@ def test_a_legal_page_is_written_by_the_person_and_an_ordinary_one_by_either() -
         assert draft(legal.data["id"], [TEXT], "al-person-legal").created
 
 
+def test_a_page_is_typed_legal_or_untyped_by_the_person_not_the_assistant() -> None:
+    client, person, assistant = person_and_assistant("acting-type")
+    site = create_site(client)
+    legal = create_page(client, site.data["id"], key="regulamin", idempotency_key="at-legal")
+    about = create_page(client, site.data["id"], key="o-nas", idempotency_key="at-about")
+    with activate_tenant_context(person):
+        set_page_type(page_id=legal.data["id"], page_type=PageType.LEGAL)
+
+    with activate_tenant_context(assistant):
+        with pytest.raises(PersonRequired):
+            set_page_type(page_id=legal.data["id"], page_type=PageType.LANDING)
+        with pytest.raises(PersonRequired):
+            set_page_type(page_id=about.data["id"], page_type=PageType.LEGAL)
+        assert set_page_type(page_id=about.data["id"], page_type=PageType.SERVICE).page_type == (
+            PageType.SERVICE
+        )
+    with activate_tenant_context(person):
+        assert set_page_type(page_id=legal.data["id"], page_type=PageType.LANDING).page_type == (
+            PageType.LANDING
+        )
+
+
 def test_prices_and_new_quotes_are_a_persons_words_not_the_assistants() -> None:
     client, person, assistant = person_and_assistant("acting-blocks")
     site = create_site(client)
@@ -188,9 +217,7 @@ def test_a_label_opened_for_one_channel_lets_only_that_channel_through(
         permissions=frozenset(),
     )
     assistant = acting_context(person, via="assistant", ref=f"conversation:{uuid7()}")
-    translation = acting_context(
-        person, via="ai_translation", ref=f"translation_job:{uuid7()}"
-    )
+    translation = acting_context(person, via="ai_translation", ref=f"translation_job:{uuid7()}")
     assert ACTING_PERSON_GATE_ALLOWED == {}
 
     monkeypatch.setitem(ACTING_PERSON_GATE_ALLOWED, "ai_translation", frozenset({"Cennik"}))
