@@ -1377,6 +1377,131 @@ paths:
               schema:
                 $ref: '#/components/schemas/Appointment'
           description: ''
+  /api/v1/booking/appointments/{appointment_id}/stay/:
+    post:
+      operationId: booking_stay_move
+      description: Keeps the unit when it is free then, otherwise takes another free
+        unit of the group the stay was booked in. Rules and closed days as for a booking.
+      summary: Move a stay to other dates
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      - in: path
+        name: appointment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StayMove'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StayMove'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StayMove'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/appointments/{appointment_id}/stay/preview/:
+    post:
+      operationId: booking_stay_move_preview
+      description: Answers as `booking_stay_move` would; nothing is saved.
+      summary: Check a move of a stay without making it
+      parameters:
+      - in: path
+        name: appointment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StayMove'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StayMove'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StayMove'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StayPlan'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
   /api/v1/booking/catalog/:
     get:
       operationId: api_v1_booking_catalog_retrieve
@@ -4903,6 +5028,260 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/stays/:
+    post:
+      operationId: booking_stay_create
+      description: Books a range offer from–to on a unit, or on the least busy free
+        unit of a group. A broken season rule is 400 with its code (`rule_min_length`,
+        `rule_start_weekday`, `closed_day`…), taken dates 409 `slot_unavailable`.
+        The same Idempotency-Key answers the first booking again.
+      summary: Book a stay or a rental
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StayInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StayInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StayInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/stays/ends/:
+    get:
+      operationId: booking_stay_ends_list
+      description: Departure days (nights) or last days (days) a stay from `start`
+        can have on a free unit, the season of the arrival day applied.
+      summary: List the days a stay beginning on a day can end on
+      parameters:
+      - in: query
+        name: group_id
+        schema:
+          type: string
+          format: uuid
+        description: Any unit of this group.
+      - in: query
+        name: resource_id
+        schema:
+          type: string
+          format: uuid
+        description: Only this unit.
+      - in: query
+        name: service_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: start
+        schema:
+          type: string
+          format: date
+        required: true
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DateList'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/stays/preview/:
+    post:
+      operationId: booking_stay_create_preview
+      description: Which unit a booking would take, its instants and length — or the
+        same 400 and 409 the booking would answer. Nothing is saved.
+      summary: Check a stay without booking it
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StayInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StayInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StayInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StayPlan'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+      x-dry-run: true
+  /api/v1/booking/stays/starts/:
+    get:
+      operationId: booking_stay_starts_list
+      description: Days in the window a unit is free for the shortest stay the season
+        allows from that day, closed days and the season's rules applied (ADR-072
+        §5). One query; the window spans at most BOOKING_PERIOD_HORIZON_DAYS.
+      summary: List the days a stay can begin on
+      parameters:
+      - in: query
+        name: from
+        schema:
+          type: string
+          format: date
+        required: true
+      - in: query
+        name: group_id
+        schema:
+          type: string
+          format: uuid
+        description: Any unit of this group.
+      - in: query
+        name: resource_id
+        schema:
+          type: string
+          format: uuid
+        description: Only this unit.
+      - in: query
+        name: service_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: query
+        name: to
+        schema:
+          type: string
+          format: date
+        required: true
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DateList'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+        '409':
           content:
             application/json:
               schema:
@@ -17189,15 +17568,28 @@ components:
           description: What the module that owns the visit's detail calls it (a herd
             visit's farm), shown before the customer's name; empty when none.
         staff_id:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uuid
+          description: The lead; null for a stay, which takes a unit, nobody.
         staff_name:
-          type: string
+          type:
+          - string
+          - 'null'
         staff_membership_id:
           type:
           - string
           - 'null'
           format: uuid
+        time_model:
+          allOf:
+          - $ref: '#/components/schemas/TimeModelEnum'
+          description: |-
+            `slot` — a visit; `range` — a stay or rental from–to.
+
+            * `slot` - slot
+            * `range` - range
         location_name:
           type: string
         place:
@@ -17309,6 +17701,7 @@ components:
       - staff_required
       - starts_at
       - status
+      - time_model
       - timezone
       - title
     AppointmentCreate:
@@ -20320,6 +20713,16 @@ components:
       description: |-
         * `notification_deliveries` - notification_deliveries
         * `webhook_deliveries` - webhook_deliveries
+    DateList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            type: string
+            format: date
+      required:
+      - items
     DomainAction:
       type: object
       properties:
@@ -24484,11 +24887,48 @@ components:
         name:
           type: string
           maxLength: 160
+        time_model:
+          allOf:
+          - $ref: '#/components/schemas/TimeModelEnum'
+          description: |-
+            `slot`: a visit of a set length at a start the calendar offers (people's hours). `range`: a stay or rental from–to the customer picks, taking a unit (a cottage, a kayak) by nights or days. Set when the service is created; a service with bookings never changes it.
+
+            * `slot` - slot
+            * `range` - range
+        range_unit:
+          allOf:
+          - $ref: '#/components/schemas/RangeUnitEnum'
+          description: |-
+            For a `range` service: nights (check-in to check-out, a stay) or days (pickup on the first day to return on the last one, a rental).
+
+            * `night` - night
+            * `day` - day
+        range_start_local:
+          type:
+          - string
+          - 'null'
+          format: time
+          description: HH:MM local time a `range` booking begins on its first day.
+        range_end_local:
+          type:
+          - string
+          - 'null'
+          format: time
+          description: HH:MM local time a `range` booking ends on its last day.
+        group_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: 'For a `range` service: the groups of units it is booked in.'
+          maxItems: 50
         duration_minutes:
-          type: integer
+          type:
+          - integer
+          - 'null'
           maximum: 1440
           minimum: 5
-          description: How long one visit of this service takes, in minutes.
+          description: How long one visit of a `slot` service takes, in minutes.
         buffer_before_minutes:
           type: integer
           maximum: 1440
@@ -24510,8 +24950,10 @@ components:
         staff_count:
           type: integer
           maximum: 10
-          minimum: 1
+          minimum: 0
           description: How many of the company's people one visit needs; each is blocked.
+            0 only for a `range` service whose booking takes a unit and nobody (ADR-072
+            §2).
         public_staff_choice:
           $ref: '#/components/schemas/PublicStaffChoiceEnum'
         active:
@@ -26171,15 +26613,28 @@ components:
           description: What the module that owns the visit's detail calls it (a herd
             visit's farm), shown before the customer's name; empty when none.
         staff_id:
-          type: string
+          type:
+          - string
+          - 'null'
           format: uuid
+          description: The lead; null for a stay, which takes a unit, nobody.
         staff_name:
-          type: string
+          type:
+          - string
+          - 'null'
         staff_membership_id:
           type:
           - string
           - 'null'
           format: uuid
+        time_model:
+          allOf:
+          - $ref: '#/components/schemas/TimeModelEnum'
+          description: |-
+            `slot` — a visit; `range` — a stay or rental from–to.
+
+            * `slot` - slot
+            * `range` - range
         location_name:
           type: string
         place:
@@ -26283,6 +26738,7 @@ components:
       - staff_required
       - starts_at
       - status
+      - time_model
       - timezone
       - title
     Quote:
@@ -26416,6 +26872,14 @@ components:
           description: Also propose over texts written before provenance existed.
       required:
       - targets
+    RangeUnitEnum:
+      enum:
+      - night
+      - day
+      type: string
+      description: |-
+        * `night` - night
+        * `day` - day
     Registration:
       type: object
       properties:
@@ -26984,11 +27448,48 @@ components:
         name:
           type: string
           maxLength: 160
+        time_model:
+          allOf:
+          - $ref: '#/components/schemas/TimeModelEnum'
+          description: |-
+            `slot`: a visit of a set length at a start the calendar offers (people's hours). `range`: a stay or rental from–to the customer picks, taking a unit (a cottage, a kayak) by nights or days. Set when the service is created; a service with bookings never changes it.
+
+            * `slot` - slot
+            * `range` - range
+        range_unit:
+          allOf:
+          - $ref: '#/components/schemas/RangeUnitEnum'
+          description: |-
+            For a `range` service: nights (check-in to check-out, a stay) or days (pickup on the first day to return on the last one, a rental).
+
+            * `night` - night
+            * `day` - day
+        range_start_local:
+          type:
+          - string
+          - 'null'
+          format: time
+          description: HH:MM local time a `range` booking begins on its first day.
+        range_end_local:
+          type:
+          - string
+          - 'null'
+          format: time
+          description: HH:MM local time a `range` booking ends on its last day.
+        group_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: 'For a `range` service: the groups of units it is booked in.'
+          maxItems: 50
         duration_minutes:
-          type: integer
+          type:
+          - integer
+          - 'null'
           maximum: 1440
           minimum: 5
-          description: How long one visit of this service takes, in minutes.
+          description: How long one visit of a `slot` service takes, in minutes.
         buffer_before_minutes:
           type: integer
           maximum: 1440
@@ -27010,8 +27511,10 @@ components:
         staff_count:
           type: integer
           maximum: 10
-          minimum: 1
+          minimum: 0
           description: How many of the company's people one visit needs; each is blocked.
+            0 only for a `range` service whose booking takes a unit and nobody (ADR-072
+            §2).
         public_staff_choice:
           $ref: '#/components/schemas/PublicStaffChoiceEnum'
         active:
@@ -27042,7 +27545,6 @@ components:
           items:
             $ref: '#/components/schemas/MaterialInput'
       required:
-      - duration_minutes
       - name
     ServiceSetup:
       type: object
@@ -27056,8 +27558,30 @@ components:
           type: string
         appointment_kind:
           type: string
+        time_model:
+          $ref: '#/components/schemas/TimeModelEnum'
+        range_unit:
+          type: string
+          description: '`night`, `day`; empty for a `slot` service.'
+        range_start_local:
+          type:
+          - string
+          - 'null'
+          format: time
+        range_end_local:
+          type:
+          - string
+          - 'null'
+          format: time
+        group_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
         duration_minutes:
-          type: integer
+          type:
+          - integer
+          - 'null'
         buffer_before_minutes:
           type: integer
         buffer_after_minutes:
@@ -27100,16 +27624,21 @@ components:
       - buffer_after_minutes
       - buffer_before_minutes
       - duration_minutes
+      - group_ids
       - id
       - location_ids
       - materials
       - minimum_notice_minutes
       - name
       - public_staff_choice
+      - range_end_local
+      - range_start_local
+      - range_unit
       - resource_ids
       - staff_count
       - staff_ids
       - takes_materials
+      - time_model
       - version
     ServiceSetupPreview:
       type: object
@@ -27122,8 +27651,30 @@ components:
           type: string
         appointment_kind:
           type: string
+        time_model:
+          $ref: '#/components/schemas/TimeModelEnum'
+        range_unit:
+          type: string
+          description: '`night`, `day`; empty for a `slot` service.'
+        range_start_local:
+          type:
+          - string
+          - 'null'
+          format: time
+        range_end_local:
+          type:
+          - string
+          - 'null'
+          format: time
+        group_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
         duration_minutes:
-          type: integer
+          type:
+          - integer
+          - 'null'
         buffer_before_minutes:
           type: integer
         buffer_after_minutes:
@@ -27173,16 +27724,21 @@ components:
       - buffer_before_minutes
       - changes
       - duration_minutes
+      - group_ids
       - id
       - location_ids
       - materials
       - minimum_notice_minutes
       - name
       - public_staff_choice
+      - range_end_local
+      - range_start_local
+      - range_unit
       - resource_ids
       - staff_count
       - staff_ids
       - takes_materials
+      - time_model
       - version
     ServiceUpdate:
       type: object
@@ -27191,11 +27747,48 @@ components:
         name:
           type: string
           maxLength: 160
+        time_model:
+          allOf:
+          - $ref: '#/components/schemas/TimeModelEnum'
+          description: |-
+            `slot`: a visit of a set length at a start the calendar offers (people's hours). `range`: a stay or rental from–to the customer picks, taking a unit (a cottage, a kayak) by nights or days. Set when the service is created; a service with bookings never changes it.
+
+            * `slot` - slot
+            * `range` - range
+        range_unit:
+          allOf:
+          - $ref: '#/components/schemas/RangeUnitEnum'
+          description: |-
+            For a `range` service: nights (check-in to check-out, a stay) or days (pickup on the first day to return on the last one, a rental).
+
+            * `night` - night
+            * `day` - day
+        range_start_local:
+          type:
+          - string
+          - 'null'
+          format: time
+          description: HH:MM local time a `range` booking begins on its first day.
+        range_end_local:
+          type:
+          - string
+          - 'null'
+          format: time
+          description: HH:MM local time a `range` booking ends on its last day.
+        group_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: 'For a `range` service: the groups of units it is booked in.'
+          maxItems: 50
         duration_minutes:
-          type: integer
+          type:
+          - integer
+          - 'null'
           maximum: 1440
           minimum: 5
-          description: How long one visit of this service takes, in minutes.
+          description: How long one visit of a `slot` service takes, in minutes.
         buffer_before_minutes:
           type: integer
           maximum: 1440
@@ -27217,8 +27810,10 @@ components:
         staff_count:
           type: integer
           maximum: 10
-          minimum: 1
+          minimum: 0
           description: How many of the company's people one visit needs; each is blocked.
+            0 only for a `range` service whose booking takes a unit and nobody (ADR-072
+            §2).
         public_staff_choice:
           $ref: '#/components/schemas/PublicStaffChoiceEnum'
         active:
@@ -28760,6 +29355,85 @@ components:
         * `sold` - Sprzedane
         * `culled` - Wybrakowane
         * `dead` - Padłe
+    StayInput:
+      type: object
+      description: 'A stay or rental from the panel: a range offer, a unit or a group,
+        dates.'
+      properties:
+        service_id:
+          type: string
+          format: uuid
+        resource_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: This very unit.
+        group_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: Any free unit of this group — the server picks the least busy
+            one. With neither, any unit the offer lists.
+        start_date:
+          type: string
+          format: date
+          description: Arrival day (nights) or first day (days).
+        end_date:
+          type: string
+          format: date
+          description: Departure day (nights) or last day, included (days).
+        customer:
+          $ref: '#/components/schemas/CustomerInput'
+        customer_notes:
+          type: string
+          maxLength: 500
+      required:
+      - customer
+      - end_date
+      - service_id
+      - start_date
+    StayMove:
+      type: object
+      properties:
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+      required:
+      - end_date
+      - start_date
+    StayPlan:
+      type: object
+      description: What a booking or a move of a stay would take; nothing is saved.
+      properties:
+        resource_id:
+          type: string
+          format: uuid
+          description: The unit the stay would take.
+        resource_name:
+          type: string
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        length:
+          type: integer
+          description: Nights or days.
+        range_unit:
+          type: string
+      required:
+      - ends_at
+      - length
+      - range_unit
+      - resource_id
+      - resource_name
+      - starts_at
     StepEnum:
       enum:
       - address
@@ -29343,6 +30017,14 @@ components:
       required:
       - html_body
       - subject
+    TimeModelEnum:
+      enum:
+      - slot
+      - range
+      type: string
+      description: |-
+        * `slot` - slot
+        * `range` - range
     TimeOff:
       type: object
       properties:

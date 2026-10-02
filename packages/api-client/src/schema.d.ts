@@ -565,6 +565,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/booking/appointments/{appointment_id}/stay/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a stay to other dates
+         * @description Keeps the unit when it is free then, otherwise takes another free unit of the group the stay was booked in. Rules and closed days as for a booking.
+         */
+        post: operations["booking_stay_move"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/appointments/{appointment_id}/stay/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a move of a stay without making it
+         * @description Answers as `booking_stay_move` would; nothing is saved.
+         */
+        post: operations["booking_stay_move_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/booking/catalog/": {
         parameters: {
             query?: never;
@@ -1792,6 +1832,86 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["api_v1_booking_staff_time_off_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/stays/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Book a stay or a rental
+         * @description Books a range offer from–to on a unit, or on the least busy free unit of a group. A broken season rule is 400 with its code (`rule_min_length`, `rule_start_weekday`, `closed_day`…), taken dates 409 `slot_unavailable`. The same Idempotency-Key answers the first booking again.
+         */
+        post: operations["booking_stay_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/stays/ends/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the days a stay beginning on a day can end on
+         * @description Departure days (nights) or last days (days) a stay from `start` can have on a free unit, the season of the arrival day applied.
+         */
+        get: operations["booking_stay_ends_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/stays/preview/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a stay without booking it
+         * @description Which unit a booking would take, its instants and length — or the same 400 and 409 the booking would answer. Nothing is saved.
+         */
+        post: operations["booking_stay_create_preview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/stays/starts/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the days a stay can begin on
+         * @description Days in the window a unit is free for the shortest stay the season allows from that day, closed days and the season's rules applied (ADR-072 §5). One query; the window spans at most BOOKING_PERIOD_HORIZON_DAYS.
+         */
+        get: operations["booking_stay_starts_list"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5675,11 +5795,21 @@ export interface components {
             customer_name: string;
             /** @description What the module that owns the visit's detail calls it (a herd visit's farm), shown before the customer's name; empty when none. */
             title: string;
-            /** Format: uuid */
-            staff_id: string;
-            staff_name: string;
+            /**
+             * Format: uuid
+             * @description The lead; null for a stay, which takes a unit, nobody.
+             */
+            staff_id: string | null;
+            staff_name: string | null;
             /** Format: uuid */
             staff_membership_id: string | null;
+            /**
+             * @description `slot` — a visit; `range` — a stay or rental from–to.
+             *
+             *     * `slot` - slot
+             *     * `range` - range
+             */
+            time_model: components["schemas"]["TimeModelEnum"];
             location_name: string;
             /** @description Where the visit takes place, as a town: the visit's own place_town, else what the module that owns the visit's detail knows (a field visit's farm). Null when neither says. */
             place: string | null;
@@ -6910,6 +7040,9 @@ export interface components {
          * @enum {string}
          */
         DataExportCreateKindEnum: "notification_deliveries" | "webhook_deliveries";
+        DateList: {
+            items: string[];
+        };
         DomainAction: {
             action: components["schemas"]["DomainActionActionEnum"];
         };
@@ -8609,15 +8742,41 @@ export interface components {
         /** @description A change to a service: only the fields sent change. */
         PatchedServiceUpdate: {
             name?: string;
-            /** @description How long one visit of this service takes, in minutes. */
-            duration_minutes?: number;
+            /**
+             * @description `slot`: a visit of a set length at a start the calendar offers (people's hours). `range`: a stay or rental from–to the customer picks, taking a unit (a cottage, a kayak) by nights or days. Set when the service is created; a service with bookings never changes it.
+             *
+             *     * `slot` - slot
+             *     * `range` - range
+             */
+            time_model?: components["schemas"]["TimeModelEnum"];
+            /**
+             * @description For a `range` service: nights (check-in to check-out, a stay) or days (pickup on the first day to return on the last one, a rental).
+             *
+             *     * `night` - night
+             *     * `day` - day
+             */
+            range_unit?: components["schemas"]["RangeUnitEnum"];
+            /**
+             * Format: time
+             * @description HH:MM local time a `range` booking begins on its first day.
+             */
+            range_start_local?: string | null;
+            /**
+             * Format: time
+             * @description HH:MM local time a `range` booking ends on its last day.
+             */
+            range_end_local?: string | null;
+            /** @description For a `range` service: the groups of units it is booked in. */
+            group_ids?: string[];
+            /** @description How long one visit of a `slot` service takes, in minutes. */
+            duration_minutes?: number | null;
             /** @description Minutes blocked in the calendar before each visit (travel, preparation); customers do not see them. */
             buffer_before_minutes?: number;
             /** @description Minutes blocked in the calendar after each visit (tidying up, travel); customers do not see them. */
             buffer_after_minutes?: number;
             /** @description How many minutes before its start a visit can still be booked; 0 allows booking up to the start. */
             minimum_notice_minutes?: number;
-            /** @description How many of the company's people one visit needs; each is blocked. */
+            /** @description How many of the company's people one visit needs; each is blocked. 0 only for a `range` service whose booking takes a unit and nobody (ADR-072 §2). */
             staff_count?: number;
             public_staff_choice?: components["schemas"]["PublicStaffChoiceEnum"];
             active?: boolean;
@@ -9269,11 +9428,21 @@ export interface components {
             customer_name: string;
             /** @description What the module that owns the visit's detail calls it (a herd visit's farm), shown before the customer's name; empty when none. */
             title: string;
-            /** Format: uuid */
-            staff_id: string;
-            staff_name: string;
+            /**
+             * Format: uuid
+             * @description The lead; null for a stay, which takes a unit, nobody.
+             */
+            staff_id: string | null;
+            staff_name: string | null;
             /** Format: uuid */
             staff_membership_id: string | null;
+            /**
+             * @description `slot` — a visit; `range` — a stay or rental from–to.
+             *
+             *     * `slot` - slot
+             *     * `range` - range
+             */
+            time_model: components["schemas"]["TimeModelEnum"];
             location_name: string;
             /** @description Where the visit takes place, as a town: the visit's own place_town, else what the module that owns the visit's detail knows (a field visit's farm). Null when neither says. */
             place: string | null;
@@ -9364,6 +9533,12 @@ export interface components {
              */
             include_unverified: boolean;
         };
+        /**
+         * @description * `night` - night
+         *     * `day` - day
+         * @enum {string}
+         */
+        RangeUnitEnum: "night" | "day";
         Registration: {
             /** Format: email */
             email: string;
@@ -9630,15 +9805,41 @@ export interface components {
         /** @description A new service. */
         ServiceInput: {
             name: string;
-            /** @description How long one visit of this service takes, in minutes. */
-            duration_minutes: number;
+            /**
+             * @description `slot`: a visit of a set length at a start the calendar offers (people's hours). `range`: a stay or rental from–to the customer picks, taking a unit (a cottage, a kayak) by nights or days. Set when the service is created; a service with bookings never changes it.
+             *
+             *     * `slot` - slot
+             *     * `range` - range
+             */
+            time_model?: components["schemas"]["TimeModelEnum"];
+            /**
+             * @description For a `range` service: nights (check-in to check-out, a stay) or days (pickup on the first day to return on the last one, a rental).
+             *
+             *     * `night` - night
+             *     * `day` - day
+             */
+            range_unit?: components["schemas"]["RangeUnitEnum"];
+            /**
+             * Format: time
+             * @description HH:MM local time a `range` booking begins on its first day.
+             */
+            range_start_local?: string | null;
+            /**
+             * Format: time
+             * @description HH:MM local time a `range` booking ends on its last day.
+             */
+            range_end_local?: string | null;
+            /** @description For a `range` service: the groups of units it is booked in. */
+            group_ids?: string[];
+            /** @description How long one visit of a `slot` service takes, in minutes. */
+            duration_minutes?: number | null;
             /** @description Minutes blocked in the calendar before each visit (travel, preparation); customers do not see them. */
             buffer_before_minutes?: number;
             /** @description Minutes blocked in the calendar after each visit (tidying up, travel); customers do not see them. */
             buffer_after_minutes?: number;
             /** @description How many minutes before its start a visit can still be booked; 0 allows booking up to the start. */
             minimum_notice_minutes?: number;
-            /** @description How many of the company's people one visit needs; each is blocked. */
+            /** @description How many of the company's people one visit needs; each is blocked. 0 only for a `range` service whose booking takes a unit and nobody (ADR-072 §2). */
             staff_count?: number;
             public_staff_choice?: components["schemas"]["PublicStaffChoiceEnum"];
             active?: boolean;
@@ -9654,7 +9855,15 @@ export interface components {
             id: string;
             name: string;
             appointment_kind: string;
-            duration_minutes: number;
+            time_model: components["schemas"]["TimeModelEnum"];
+            /** @description `night`, `day`; empty for a `slot` service. */
+            range_unit: string;
+            /** Format: time */
+            range_start_local: string | null;
+            /** Format: time */
+            range_end_local: string | null;
+            group_ids: string[];
+            duration_minutes: number | null;
             buffer_before_minutes: number;
             buffer_after_minutes: number;
             minimum_notice_minutes: number;
@@ -9675,7 +9884,15 @@ export interface components {
             id: string;
             name: string;
             appointment_kind: string;
-            duration_minutes: number;
+            time_model: components["schemas"]["TimeModelEnum"];
+            /** @description `night`, `day`; empty for a `slot` service. */
+            range_unit: string;
+            /** Format: time */
+            range_start_local: string | null;
+            /** Format: time */
+            range_end_local: string | null;
+            group_ids: string[];
+            duration_minutes: number | null;
             buffer_before_minutes: number;
             buffer_after_minutes: number;
             minimum_notice_minutes: number;
@@ -9697,15 +9914,41 @@ export interface components {
         /** @description A change to a service: only the fields sent change. */
         ServiceUpdate: {
             name?: string;
-            /** @description How long one visit of this service takes, in minutes. */
-            duration_minutes?: number;
+            /**
+             * @description `slot`: a visit of a set length at a start the calendar offers (people's hours). `range`: a stay or rental from–to the customer picks, taking a unit (a cottage, a kayak) by nights or days. Set when the service is created; a service with bookings never changes it.
+             *
+             *     * `slot` - slot
+             *     * `range` - range
+             */
+            time_model?: components["schemas"]["TimeModelEnum"];
+            /**
+             * @description For a `range` service: nights (check-in to check-out, a stay) or days (pickup on the first day to return on the last one, a rental).
+             *
+             *     * `night` - night
+             *     * `day` - day
+             */
+            range_unit?: components["schemas"]["RangeUnitEnum"];
+            /**
+             * Format: time
+             * @description HH:MM local time a `range` booking begins on its first day.
+             */
+            range_start_local?: string | null;
+            /**
+             * Format: time
+             * @description HH:MM local time a `range` booking ends on its last day.
+             */
+            range_end_local?: string | null;
+            /** @description For a `range` service: the groups of units it is booked in. */
+            group_ids?: string[];
+            /** @description How long one visit of a `slot` service takes, in minutes. */
+            duration_minutes?: number | null;
             /** @description Minutes blocked in the calendar before each visit (travel, preparation); customers do not see them. */
             buffer_before_minutes?: number;
             /** @description Minutes blocked in the calendar after each visit (tidying up, travel); customers do not see them. */
             buffer_after_minutes?: number;
             /** @description How many minutes before its start a visit can still be booked; 0 allows booking up to the start. */
             minimum_notice_minutes?: number;
-            /** @description How many of the company's people one visit needs; each is blocked. */
+            /** @description How many of the company's people one visit needs; each is blocked. 0 only for a `range` service whose booking takes a unit and nobody (ADR-072 §2). */
             staff_count?: number;
             public_staff_choice?: components["schemas"]["PublicStaffChoiceEnum"];
             active?: boolean;
@@ -10328,6 +10571,55 @@ export interface components {
          * @enum {string}
          */
         Status891Enum: "active" | "sold" | "culled" | "dead";
+        /** @description A stay or rental from the panel: a range offer, a unit or a group, dates. */
+        StayInput: {
+            /** Format: uuid */
+            service_id: string;
+            /**
+             * Format: uuid
+             * @description This very unit.
+             */
+            resource_id?: string | null;
+            /**
+             * Format: uuid
+             * @description Any free unit of this group — the server picks the least busy one. With neither, any unit the offer lists.
+             */
+            group_id?: string | null;
+            /**
+             * Format: date
+             * @description Arrival day (nights) or first day (days).
+             */
+            start_date: string;
+            /**
+             * Format: date
+             * @description Departure day (nights) or last day, included (days).
+             */
+            end_date: string;
+            customer: components["schemas"]["CustomerInput"];
+            customer_notes?: string;
+        };
+        StayMove: {
+            /** Format: date */
+            start_date: string;
+            /** Format: date */
+            end_date: string;
+        };
+        /** @description What a booking or a move of a stay would take; nothing is saved. */
+        StayPlan: {
+            /**
+             * Format: uuid
+             * @description The unit the stay would take.
+             */
+            resource_id: string;
+            resource_name: string;
+            /** Format: date-time */
+            starts_at: string;
+            /** Format: date-time */
+            ends_at: string;
+            /** @description Nights or days. */
+            length: number;
+            range_unit: string;
+        };
         /**
          * @description * `address` - address
          *     * `details` - details
@@ -10566,6 +10858,12 @@ export interface components {
             subject: string;
             html_body: string;
         };
+        /**
+         * @description * `slot` - slot
+         *     * `range` - range
+         * @enum {string}
+         */
+        TimeModelEnum: "slot" | "range";
         TimeOff: {
             /** Format: uuid */
             id: string;
@@ -12384,6 +12682,126 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Appointment"];
+                };
+            };
+        };
+    };
+    booking_stay_move: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                appointment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StayMove"];
+                "application/x-www-form-urlencoded": components["schemas"]["StayMove"];
+                "multipart/form-data": components["schemas"]["StayMove"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_stay_move_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                appointment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StayMove"];
+                "application/x-www-form-urlencoded": components["schemas"]["StayMove"];
+                "multipart/form-data": components["schemas"]["StayMove"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StayPlan"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
                 };
             };
         };
@@ -15725,6 +16143,239 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_stay_create: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StayInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["StayInput"];
+                "multipart/form-data": components["schemas"]["StayInput"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_stay_ends_list: {
+        parameters: {
+            query: {
+                /** @description Any unit of this group. */
+                group_id?: string;
+                /** @description Only this unit. */
+                resource_id?: string;
+                service_id: string;
+                start: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DateList"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_stay_create_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StayInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["StayInput"];
+                "multipart/form-data": components["schemas"]["StayInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StayPlan"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    booking_stay_starts_list: {
+        parameters: {
+            query: {
+                from: string;
+                /** @description Any unit of this group. */
+                group_id?: string;
+                /** @description Only this unit. */
+                resource_id?: string;
+                service_id: string;
+                to: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DateList"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
