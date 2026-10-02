@@ -220,6 +220,31 @@ test("vocabulary speaks pl and en and names what the preset books", async () => 
   }
 });
 
+test("presets speak only languages of the content-language registry", async () => {
+  const { presets } = await loadPresets();
+  const registry = await readJson("locales", "registry.json");
+  const known = new Set(registry.locales.map((locale) => locale.code));
+
+  // The schema checks only the shape ^[a-z]{2}$, which would let "cz" through;
+  // a content language is a registry entry (ADR-071 pkt 2, ADR-072 §10).
+  for (const item of presets) {
+    const { preset } = item;
+    const texts = [
+      preset.labels,
+      preset.vocabulary ?? {},
+      ...(preset.participants?.categories ?? []).map((entry) => entry.labels),
+      ...(preset.extras ?? []).map((extra) => extra.labels),
+      ...(preset.fields ?? []).flatMap((field) => [
+        field.labels,
+        ...(field.options ?? []).map((option) => option.labels),
+      ]),
+    ];
+    for (const text of texts)
+      for (const locale of Object.keys(text))
+        assert.ok(known.has(locale), `${where(item)}: language ${locale}`);
+  }
+});
+
 test("keys are unique where the offer will address them", async () => {
   const { presets } = await loadPresets();
 
@@ -263,6 +288,13 @@ test("payment and cancellation defaults are consistent", async () => {
     // Every notice falls under some threshold, the last one at day zero.
     assert.equal(refunds.at(-1).minDaysBefore, 0, where(item));
   }
+  // Owner decision 28a: in Nocleg the switch "Progi zwrotu obejmują też
+  // dopłatę" is off, so the thresholds cover the deposit and the balance
+  // comes back in full.
+  const lodging = offered(presets).find(
+    ({ preset }) => preset.id === "core.lodging",
+  );
+  assert.equal(lodging.preset.cancellation.appliesTo, "deposit");
 });
 
 test("a ready preset uses only what this core's booking engine runs", async () => {
@@ -317,7 +349,9 @@ test("suggested page templates and catalogue categories exist", async () => {
         categories.has(catalogCategory),
         `${where(item)}: catalogue category ${catalogCategory}`,
       );
-    // A "soon" preset carries only what the plan says (ADR-072 §10).
+    // A "soon" preset suggests a catalogue category only where the plan names
+    // one (ADR-072 §10); its other values beyond the plan's table are agent
+    // proposals its ready version replaces.
     if (item.preset.readiness === "soon" && catalogCategory !== undefined)
       assert.equal(
         catalogCategory,
@@ -387,8 +421,8 @@ test("the schema refuses what a preset may not say", async () => {
       preset.booked = { subject: "seat", staff: "none" };
     }),
   );
-  // Refund thresholds say what they apply to: the deposit or all payments
-  // (ADR-072 §8; answer 13a speaks of the deposit).
+  // Refund thresholds say what they apply to: the deposit or all payments —
+  // the offer's switch (ADR-072 §8, owner decision 28a: the deposit by default).
   assert.ok(refused(lodging, (preset) => delete preset.cancellation.appliesTo));
   assert.ok(
     refused(lodging, (preset) => {

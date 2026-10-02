@@ -1,6 +1,6 @@
 ---
 name: develop-booking
-description: Working on scheduling in SaaS Core — services, staff, resources, availability rules, time off, slot search, appointments, rescheduling and cancellation, the end customer, self-service links and public booking. Use when touching modules/shared/booking, availability or anything that computes or reserves time.
+description: Working on scheduling in SaaS Core — services, staff, resources, availability rules, time off, slot search, appointments, rescheduling and cancellation, the end customer, self-service links and public booking; units and unit groups, periods (range), booking and price rules, quotes, pending bookings and presets. Use when touching modules/shared/booking, availability or anything that computes or reserves time.
 ---
 
 # Booking: time, conflicts and the end customer
@@ -123,7 +123,10 @@ not in PostgreSQL.
 - **Prices, payment and cancellation policies and pending states follow
   ADR-072 §6–§9; money lives in the order (ADR-073).** Never add a price or
   deposit field to `Service` or `Appointment` beyond the frozen quote and
-  policy snapshot.
+  policy snapshot. Refund thresholds cover only the deposit unless the offer's
+  switch says otherwise (`appliesTo`, owner decision 28a) — a setting the API
+  reads and writes, not a column only the panel knows; an unpaid balance
+  never cancels a booking on its own (29a).
 - **A person is a `StaffMember`, with an account or without one** (ADR-058 §1,
   `booking/staff.py`). The account joins the entry in one place:
   `staff.link_on_join`, registered through `organizations.joining` because
@@ -135,7 +138,10 @@ not in PostgreSQL.
 Setup (services, locations, resources, staff, teams, schedules) is what the
 in-product assistant will configure first, and today it has neither idempotency
 keys nor resource versions. A new or changed setup endpoint adds both and meets
-`change-api-and-events` § "Operable by the AI assistant".
+`change-api-and-events` § "Operable by the AI assistant". New setup writes
+store the key in `BookingSetupMutation` (not `BookingMutation`, which points at
+a visit) and carry `expected_version` — 409 `booking_version_conflict`
+(ADR-072 §11).
 
 ## Done means
 

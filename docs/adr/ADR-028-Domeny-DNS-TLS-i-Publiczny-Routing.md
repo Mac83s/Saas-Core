@@ -79,13 +79,20 @@ od dostępności zewnętrznego panelu DNS.
   > Częściowo zastąpione przez
   > [ADR-074](ADR-074-Sklep-Www-Na-Zamowieniu-i-Magazynie.md) pkt 7
   > (2026-10-02): poza blokami z registry renderer pokazuje strony systemowe
-  > sklepu (produkt, koszyk, zakup, zamówienie), składane w warstwie aplikacji
-  > (`app/site-renderer/…`), i woła publiczne API sklepu
-  > (`/api/v1/public/shop/`), które wyznacza firmę z tego samego `Host`;
-  > `shared.sites` nie importuje sklepu.
+  > sklepu pod zarezerwowanym segmentem `/shop/…` (produkt, koszyk, zakup,
+  > zamówienie), składane w warstwie aplikacji (`app/site-renderer/…`), i woła
+  > publiczne API sklepu (`/api/v1/public/shop/`), które wyznacza firmę z tego
+  > samego `Host`; `shared.sites` nie importuje sklepu.
 - alias domeny otrzymuje stałe przekierowanie na canonical host z zachowaniem
   ścieżki i query. Canonical, `hreflang` i `x-default` są budowane z canonical
   hosta oraz ścieżek zapisanych w publikacji;
+  > Częściowo zastąpione przez
+  > [ADR-074](ADR-074-Sklep-Www-Na-Zamowieniu-i-Magazynie.md) pkt 7
+  > (2026-10-02): ścieżek stron produktów sklepu nie ma w publikacji; ich
+  > canonical (z canonical hosta), `hreflang` i `x-default` buduje projekcja SEO
+  > backendu (ADR-071 pkt 15) z funkcji dostępności języków i rejestru
+  > publicznych źródeł w `core.organizations`. Alias domeny przekierowuje je
+  > jak każdą ścieżkę.
 - preview pozostaje osobnym, uwierzytelnionym use case'em panelu i nigdy nie jest
   dostępny przez publiczną domenę.
 

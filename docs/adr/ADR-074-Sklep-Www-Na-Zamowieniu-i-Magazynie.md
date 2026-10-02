@@ -3,21 +3,29 @@
 **Status:** Accepted — decyzje właściciela (plan rezerwacji uniwersalnych,
 odpowiedzi 1–24 z 01–02.10.2026) i decyzje techniczne agenta (T1–T23 planu);
 pozostałe rozstrzygnięcia techniczne tego ADR-u (z powodem w tekście):
-sprawdzana rezerwacja i wydanie w `inventory.api`, koszyk na serwerze, tokeny
-szukane w tenancie hosta, zdjęcia na wersji produktu, cena w wariancie, API i
-strony systemowe sklepu na hoście firmy, dzień firmy w dokumentach magazynu.
+sprawdzana rezerwacja i wydanie w `inventory.api` (pkt 3), koszyk na serwerze i
+tokeny szukane w tenancie hosta (pkt 4, 11), zdjęcia na wersji produktu i cena
+w wariancie (pkt 2), token strony zamówienia i pobrań poza ścieżką i logami
+(pkt 5), API i strony systemowe sklepu na hoście firmy pod zarezerwowanym
+segmentem `shop`, jeden slug produktu dla wszystkich języków i rejestr
+publicznych źródeł w `core.organizations` (pkt 7), dzień firmy w dokumentach
+magazynu (Konsekwencje).
 **Data:** 2026-10-02
 **Zmienia:** ADR-027 — „publiczny renderer odczytuje wyłącznie bieżącą
 publikację” (pkt 7), usuwanie mediów „gdy żadna publikacja go nie
-referencjonuje” (pkt 2) i przyjmowane pliki w „Media i storage” (pkt 5);
-ADR-028 — „Renderer używa wyłącznie kontrolowanego registry
-`@saas-core/site-blocks`” i „jego jedynym źródłem danych pozostaje zatwierdzony
-snapshot” (pkt 7).
+referencjonuje” (pkt 2) i przyjmowane pliki w „Media i storage” (pkt 5).
+**Częściowo zastępuje:** ADR-028 — „Renderer używa wyłącznie kontrolowanego
+registry `@saas-core/site-blocks`”, „Canonical, `hreflang` i `x-default` są
+budowane z canonical hosta oraz ścieżek zapisanych w publikacji” i „jego
+jedynym źródłem danych pozostaje zatwierdzony snapshot” (pkt 7).
 **Doprecyzowuje:** ADR-055 §1 — cena i stawka VAT pozycji magazynu są ceną przy
 wizycie; w sklepie cenę niesie wariant, a stawkę produkt (pkt 2).
-**Rozszerza:** ADR-055 §8 i §11 (pkt 2, 3, 5); ADR-071 pkt 12 o segmenty sklepu
-(pkt 7). **Uzupełnia:** ADR-073 (źródło zamówień `Z`, dostawa, realizacja) i
-ADR-072 §10 (okno odbioru, pkt 6).
+**Rozszerza:** ADR-055 §8 i §11 (pkt 2, 3, 5); ADR-071 pkt 12 i pkt 14 oraz
+ADR-070 pkt 18 o segment sklepu (pkt 7).
+**Uzupełnia:** ADR-073 (źródło zamówień `Z`, dostawa, realizacja), ADR-072 §10
+(okno odbioru, pkt 6) i ADR-069 (źródła tłumaczeń sklepu, pkt 8).
+**Stosuje:** ADR-071 pkt 3, 8–10, 15–16 i 20 (pkt 5, 7, 8), ADR-076 pkt 2 i 5–7
+(pkt 10).
 **Nie zmienia:** ADR-040 — VAT abonamentów platformy, nie sprzedaży firm.
 
 ## Kontekst
@@ -60,7 +68,8 @@ odwracalną migrację, która odda customers tabelę, politykę i strażnika.
   właściciela to `ResourceReferenceConflict` (`media/references.py:40-43`).
   Publicznie widać zdjęcia bieżącej wersji aktywnego produktu (pkt 7), a obiekt
   usuniętego medium (`media/services.py:892-897`) czeka, poza publikacjami, na
-  bieżącą wersję niezarchiwizowanego produktu, o którą media pytają rejestr.
+  bieżącą wersję niezarchiwizowanego produktu, o którą media pytają rejestr
+  publicznych źródeł (pkt 7).
 - `ProductVariant`: wartości opcji, `price_minor`, `compare_at_price_minor`
   (cena przed obniżką), `weight_grams`, `version`. Wariant fizyczny wskazuje
   jedną pozycję magazynu (id bez klucza obcego, sprawdzane przez
@@ -99,9 +108,11 @@ Dziś `reserve` nigdy nie odmawia, a `consume` księguje z `allow_negative=True`
 - **Wejście publiczne** `/api/v1/public/shop/…` (jak `/api/v1/public/site/`, w
   trasach modułu) wyznacza firmę z hosta strony (ADR-041) nowym eksportem
   `sites.api`, sprawdza `Origin` i działa w kontekście `service` sklepu z
-  minimalnym zakresem, jak `public_booking_context`. Prefiks dochodzi do tras
-  adresowanych hostem w `http/hosts.py` (dziś spoza `ALLOWED_HOSTS` przechodzi
-  tylko `/api/v1/public/site/…`), z testem kolejności `SET LOCAL` (ADR-039 §3).
+  minimalnym zakresem, jak `public_booking_context`; zakres sklep rejestruje w
+  `register_service_scope` (`core.organizations`, ADR-073 §5), nie w liście
+  `_service_context` rdzenia. Prefiks dochodzi do tras adresowanych hostem w
+  `http/hosts.py` (dziś spoza `ALLOWED_HOSTS` przechodzi tylko
+  `/api/v1/public/site/…`), z testem kolejności `SET LOCAL` (ADR-039 §3).
   Bramka modułów nie ocenia żądań bez tenanta, więc serwis sam sprawdza moduł
   typu, `shop.enabled` i włączenie sklepu; limity per klient i host.
 - **Koszyk** (`Cart`, `CartLine`) jest na serwerze, bez cen i rezerwacji;
@@ -123,13 +134,15 @@ Dziś `reserve` nigdy nie odmawia, a `consume` księguje z `allow_negative=True`
 - **Źródło zamówień:** `commerce.api.register_order_source("shop.order", "Z",
   handler)` (ADR-073 §1); pozycje towaru i dostawy niosą to źródło. Handler
   działa w transakcji zmiany stanu, w punkcie zapisu: przy anulowaniu i
-  wygaśnięciu zwalnia towar, po opłaceniu zakłada realizację i linki pobrań. Gdy
-  zmiany przyjąć nie może (wpłata po wygaśnięciu, towaru brak), zwraca odmowę
-  zamiast wyjątku — wpłata zostaje zapisana, a commerce zleca zwrot i zgłoszenie
-  operatora (ADR-037 §6). Przejścia zlecone przez sklep go nie wołają.
+  wygaśnięciu zwalnia towar i miejsce w oknie odbioru (pkt 6), po opłaceniu
+  zakłada realizację i linki pobrań. Gdy zmiany przyjąć nie może (wpłata po
+  wygaśnięciu, towaru brak), zwraca odmowę zamiast wyjątku — wpłata zostaje
+  zapisana, a commerce zleca zwrot i zgłoszenie operatora (ADR-037 §6).
+  Przejścia zlecone przez sklep go nie wołają.
 - **Termin przelewu** (dni w `ShopSettings`) daje `Payment.due_at`; po nim
   zadanie terminów commerce wygasza płatność i anuluje zamówienie, a handler
-  sklepu w tej samej transakcji zwalnia towar (ADR-073 §5).
+  sklepu w tej samej transakcji zwalnia towar i miejsce w oknie odbioru
+  (ADR-073 §5).
 
 ### 5. Dostawa, realizacja, produkty cyfrowe i zwroty
 
@@ -143,7 +156,8 @@ Dziś `reserve` nigdy nie odmawia, a `consume` księguje z `allow_negative=True`
   śledzenie. Startuje po opłaceniu albo przy płatności przy odbiorze; jedno
   wydanie (WZ) na zamówienie, potem sklep zgłasza `fulfilled` (ADR-073 §3).
   E-maile „przyjęte”, „opłacone”, „wysłane”, „gotowe do odbioru” idą trwałą
-  kolejką z kluczem idempotencji, w języku klienta (ADR-071 pkt 20).
+  kolejką z kluczem idempotencji; to szablony `audience=customer` w języku
+  klienta, z łańcuchem żądany → en → pl przy kolejkowaniu (ADR-071 pkt 20).
 - **Strona zamówienia** gościa na hoście strony (stan, śledzenie, płatność,
   pobrania, odstąpienie) działa co najmniej przez termin odstąpienia, z
   `noindex` i `no-referrer`. Token (≥ 256 bitów) baza trzyma jako skrót i
@@ -177,7 +191,9 @@ Dziś `reserve` nigdy nie odmawia, a `consume` księguje z `allow_negative=True`
   samej transakcji przez `booking.api.create_appointment` z nowym, opcjonalnym
   argumentem zamówienia (addytywnie, HoofCare bez zmian), więc nie powstaje
   osobne zamówienie `R/`, a potwierdzenie okna idzie w e-mailu zamówienia.
-  Anulowanie zamówienia odwołuje rezerwację handlerem jej źródła (ADR-073 §1).
+  Anulowanie i wygaśnięcie zamówienia odwołuje rezerwację okna w handlerze
+  sklepu przez `booking.api.cancel_appointment`: rezerwacja nie ma w zamówieniu
+  `Z` własnej pozycji ani źródła, więc handler booking nie zostałby wywołany.
 
 ### 7. Strona: bloki, strony systemowe i dane na żywo
 
@@ -186,56 +202,109 @@ Dziś `reserve` nigdy nie odmawia, a `consume` księguje z `allow_negative=True`
   renderer czyta na żywo z publicznego API, więc publikacja ceny nie zamraża, a
   automatyzacja treści jej nie zmieni (jak `core.pricing`). To addytywne wersje
   kontraktu bloków rdzenia (ADR-049) z wyjątkami klasyfikatora tłumaczeń.
-- Strony systemowe (produkt ze slugiem, koszyk, zakup, zamówienie) mają własne
-  pierwsze segmenty, wspólne dla języków jak ścieżki blogów (ADR-071 pkt 14),
-  które ten ADR dopisuje do zarezerwowanych w ADR-071 pkt 12 (`slug_reserved`).
-  Starsze strony firm o tych slugach wypisuje `sites_reserved_slugs`, a firma z
-  taką stroną nie włączy sklepu przed zmianą slugu. Trasy składa warstwa
+- **Adresy.** Strony systemowe sklepu leżą pod jednym zarezerwowanym pierwszym
+  segmentem `shop`, wspólnym dla języków jak ścieżki blogów (dług adresowy
+  ADR-071 pkt 14 rozszerzony o sklep): `/shop/<slug-produktu>/`, `/shop/cart/`,
+  `/shop/checkout/` i `/shop/order/`, w innym języku z prefiksem `/xx/`.
+  `shop` dochodzi do listy ADR-071 pkt 12 (`slug_reserved`) jeszcze przed fazą
+  9, żeby nowe strony go nie zajmowały, a slug produktu nie może być `cart`,
+  `checkout` ani `order`. `Product.slug` jest jeden dla wszystkich języków (ten
+  sam dług), bo strona produktu nie ma publikacji, która zamroziłaby slug
+  wersji językowej (ADR-070 pkt 18). Segment istnieje pod każdym prefiksem
+  języka, więc omija go też slug wersji językowej podstrony: kod, który go
+  liczy (ADR-070 pkt 18), traktuje `shop` jak ścieżkę kolekcji
+  (`slug_conflicts_collection`), a `sites_reserved_slugs` wypisuje także
+  zamrożone slugi wersji językowych. Firma z taką stroną nie włączy sklepu,
+  dopóki operator w uzgodnieniu z nią strony nie przeniesie — zwykła edycja nie
+  zmienia opublikowanego slugu (ADR-027, ADR-070 pkt 18). Trasy składa warstwa
   aplikacji (`app/site-renderer/…`), a renderer `shared.sites` nie importuje
-  sklepu. Koszyk, zakup i zamówienie mają `noindex`, a produkty są w mapie
-  strony z danymi strukturalnymi w walucie firmy.
-- Dane sklepu nie wchodzą do migawki publikacji (zmiana ADR-027 i ADR-028); to
-  pierwsze dane na żywo w rendererze strony firmy, bo widget rezerwacji żyje na
-  hoście platformy (`app/[locale]/book/[publicSlug]`). Media publiczne biorą się
-  dziś tylko z migawek, więc `shared.sites` dostaje rejestr publicznych źródeł
-  (zdjęcia aktywnych produktów, wpisy mapy strony), w który wpina się sklep.
+  sklepu.
+- **Publiczność i SEO.** Strona produktu w języku źródłowym strony jest
+  publiczna, gdy produkt jest aktywny, a sklep włączony; inaczej 404. W innym
+  języku L — gdy dodatkowo L jest dostępny na stronie (funkcja dostępności
+  ADR-071 pkt 8) i produkt ma w L kompletny wiersz `ProductTranslation` (pola
+  zastępcze się nie liczą, jak ADR-071 pkt 22); inaczej adres odpowiada 308 do
+  strony produktu w języku źródłowym (ADR-071 pkt 9) i nie ma go w hreflang,
+  sitemapie ani przełączniku. Canonical, hreflang z jednym x-default (wersja w
+  języku źródłowym), `robots` i JSON-LD `Product`/`Offer` (cena w walucie
+  firmy, `seller` → węzeł `#organization`) buduje projekcja SEO backendu
+  (ADR-071 pkt 15–16) z rejestru publicznych źródeł; renderer je tylko drukuje.
+  Ukośnik kanoniczny i jeden 308 jak dla podstron (ADR-071 pkt 10). Koszyk,
+  zakup i zamówienie mają `noindex` i nie ma ich w sitemapie.
+- **Dane na żywo.** Dane sklepu nie wchodzą do migawki publikacji (zmiana
+  ADR-027 i ADR-028); to pierwsze dane na żywo w rendererze strony firmy, bo
+  widget rezerwacji żyje na hoście platformy (`app/[locale]/book/[publicSlug]`).
+  Media publiczne i wpisy mapy strony biorą się dziś tylko z migawek, więc
+  powstaje rejestr publicznych źródeł w `core.organizations` (wzór ADR-071 pkt
+  16 i `register_resource_reference_handler`): źródło podaje swoje publiczne
+  adresy z językami, fakty do JSON-LD i media, które wolno serwować i których
+  obiektów nie wolno usunąć. Czytają go `shared.sites` (projekcja SEO, sitemapa,
+  media publiczne) i `shared.media` (sprzątanie), a wpinają się sklep i
+  rezerwacje (zdjęcia jednostek, ADR-072 §3). Rejestr leży w rdzeniu, bo
+  `shared.media` nie zależy od stron, a booking — ani od stron, ani od sklepu.
 
 ### 8. Treść sklepu jako źródło tłumaczeń
 
 Nazwy, opisy i wartości opcji produktów oraz nazwy kategorii i metod dostawy
-mają w sklepie wiersz tłumaczenia na język (`ProductTranslation` i pokrewne,
-jak `PublicProfileTranslation`: język, wersja, flagi zastępstw), który silnik
-tylko wypełnia — plan rezerwacji, TL12, tak samo booking (ADR-072 §11). Źródła
-rejestrują się w rejestrze tłumaczeń rdzenia w `AppConfig.ready`, bez importu
-silnika (TL-T17; ADR-069, zarezerwowany, w przygotowaniu). Język to `^[a-z]{2}$`
-sprawdzany w serwisie (TL-T2), do czasu rejestru języków (ADR-071, faza TL1).
+mają w sklepie wiersz tłumaczenia na język (`ProductTranslation` i pokrewne;
+TL12 planu wielojęzyczności, tak samo booking — ADR-072 §11): język, wersja z
+blokadą przy zapisie, pochodzenie per pole
+(`content_protocol.provenance.Provenance` w tym samym wierszu,
+`docs/architecture/translation-sources.md` §4), klucz idempotencji ze skrótem
+i flagi zastępstw. Silnik go tylko wypełnia, przez adapter i serwisy sklepu
+(ADR-069 pkt 3). Język wiersza sprawdza jedna funkcja z ADR-071 pkt 3 (w bazie
+CHECK formatu `^[a-z]{2}$`, bez `choices`; spoza rejestru języków —
+`locale_not_in_registry`, spoza listy firmy — `locale_not_enabled`).
+
+Źródła `shop.product`, `shop.category` i `shop.delivery_method` to rekordy na
+żywo (podstawa `published`, zapis `live`, prawo publikacji = prawo edycji,
+`shop.manage`), rejestrowane `register_translation_source` z
+`saas_core/content_protocol` w `AppConfig.ready`, bez importu silnika (ADR-069
+pkt 2–3, TL-T17). Serwisy sklepu zgłaszają zmianę publicznego tekstu
+`notify_source_changed` (aktywacja i zmiana treści aktywnego — `changed`,
+archiwizacja — `withdrawn`). Commit fazy 9, który tworzy źródła, dopisuje je
+do tabel §5 i §8.1 protokołu i do zestawu testów kontraktu (§11), a
+`shared.shop` (i `shared.customers` z dokumentami, ADR-073 §9) — do kontraktu
+`.importlinter` zakazującego importu `shared.translation`.
 
 ### 9. Limity planu
 
 Cechę `shop.enabled` publikuje migracja modułu przez `publish_feature` (wzór
 `inventory` 0003) we wszystkich planach (7a); limit `shop.products.max`
 (`profile` 20, `starter` 200, `pro` 2000 — 12a) trafia do nowych wersji planów
-(T23, wzór billing 0025), tymczasowo wbrew „konfigurowalne w panelu” z 12a.
+(T23, wzór billing 0025) — tymczasowo wbrew zapisowi odpowiedzi 11–12
+(„prowizje i limity w panelu administratora”; słowa 11a: „konfigurowalna przez
+administratora platformy w panelu, nie w kodzie”), bo rejestru ustawień
+platformy jeszcze nie ma; 12a podaje liczby „do dostosowania później”.
 Subskrypcja na starszej wersji nie ma sklepu, dopóki nie przejdzie na nową
 (`billing/feature_migrations.py:23-25`); przeniesienie istniejących, także kont
 testowych, to krok w `memex ops`. Limit liczy produkty, nie warianty (odczyt
-12a, otwarty dla właściciela), i blokuje tylko dodanie albo przywrócenie
-(`decide_quota`, jak `pages.max`); więcej daje `EntitlementGrant` (T18).
+12a, otwarty dla właściciela), i blokuje tylko dodanie albo przywrócenie:
+`decide_quota` z operacją zapisu (parametr `operation` z ADR-071 pkt 7, który
+dodaje TL10 — jak strażnik języków), bo dziś funkcja sprawdza dostęp jak przy
+odczycie (`billing/decisions.py:139`) i subskrypcja tylko do odczytu dodałaby
+produkt. Więcej daje `EntitlementGrant` (T18).
 
 ### 10. Obsługa przez asystenta AI (reguła `AGENTS.md`)
 
 - Logika w serwisach dla panelu, strony i asystenta; serializery z `help_text`
-  i enumami; Problem Details z polem i kodem (`stock_shortage`,
-  `stock_lot_expired`, `cart_price_changed`, `shop_product_limit_reached`,
-  `shop_variant_item_taken`, `shop_version_conflict`); akcje `shop.*` w
-  `OrganizationAuditAction` z kanałem aktora, „w imieniu” z ADR-076.
+  i enumami; Problem Details z `errors` (`field`, `code`, `message`, ADR-076
+  pkt 5) i kodami `stock_shortage`, `stock_lot_expired`, `cart_price_changed`,
+  `shop_product_limit_reached`, `shop_variant_item_taken`,
+  `shop_version_conflict`; każda operacja spełnia podłogę kontraktu OpenAPI
+  (ADR-076 pkt 7). Akcje `shop.*` w `OrganizationAuditAction`; wpis niesie
+  kanał (principal) i „w imieniu” (`acting_via`, `acting_ref`,
+  `acting_trigger`, ADR-076 pkt 6).
 - Mutacje, także zakup, zapisują `Idempotency-Key` ze skrótem żądania w
   `ShopMutation` (kształt `BookingSetupMutation` z ADR-072, tabela z RLS), a
   zapis niesie `expected_version` — nieaktualna to 409. Konfiguracja (produkt,
   wariant, ceny ze skutkiem dla Omnibus, dostawa) ma podgląd bez zapisu.
-  Ryzyko (ADR-033): szkic produktu jest odwracalny, aktywacja, zmiana ceny i
-  włączenie sklepu wymagają osobnej zgody, a wydanie, zwrot pieniędzy i
-  anulowanie są nieodwracalne i mówią w docstringu, czemu nie mają podglądu.
+  Klasy ryzyka ADR-076 pkt 2: odczyty i podglądy — `read`; szkic i nieaktywny
+  produkt, wariant, kategoria i metoda dostawy — `draft`; zmiana działającej
+  konfiguracji bez ceny (opis, dostawa, ustawienia sklepu) — `apply`;
+  aktywacja, zmiana ceny i włączenie sklepu — `publish`; wydanie, zwrot
+  pieniędzy i anulowanie — `irreversible`, a wydanie i anulowanie podają w
+  deklaracji, czemu nie mają podglądu (ADR-076 pkt 1).
 - Produkt, wariant, kategoria i metoda dostawy założone przez asystenta niosą
   id jego przebiegu i są nieaktywne do uruchomienia (plan asystenta, AI-T6).
 - `GET /api/v1/shop/options/` podaje rodzaje, kody VAT, dostawy, walutę, tryb
@@ -273,11 +342,12 @@ dostawy przez `register_customer_anonymizer` (ADR-073 §2).
   koszyk wspólny z rezerwacjami (poza oknem odbioru), częściowe wysyłki, kilka
   magazynów sklepu, cenniki B2B, faktury poza integracją (T15).
 - Otwarte dla właściciela: czy limit 12a liczy produkty, czy warianty (do
-  odpowiedzi — produkty). Faza 9: widżet Paczkomatów (CSP, klucz, dane
-  osobowe), dane sprzedawcy na stronie zakupu i w e-mailach, pliki cyfrowe,
-  liczby limitów, pamięć podręczna stron produktów. Na listę prawną m.in.: czy
-  WZ ze sprzedaży jest dowodem księgowym (ADR-042 §7; zamówienie i księga nim
-  nie są, ADR-073 §9).
+  odpowiedzi — produkty); słowo segmentu sklepu w adresach (do odpowiedzi —
+  `shop`; zmiana po fazie 9 wymaga przekierowań). Faza 9: widżet Paczkomatów
+  (CSP, klucz, dane osobowe), dane sprzedawcy na stronie zakupu i w e-mailach,
+  pliki cyfrowe, liczby limitów, pamięć podręczna stron produktów. Na listę
+  prawną m.in.: czy WZ ze sprzedaży jest dowodem księgowym (ADR-042 §7;
+  zamówienie i księga nim nie są, ADR-073 §9).
 
 ## Odrzucone
 
@@ -296,3 +366,8 @@ dostawy przez `register_customer_anonymizer` (ADR-073 §2).
 - **Token w ścieżce adresu** (jak link samoobsługi `/[locale]/booking/[token]`)
   — ścieżkę zapisują logi Caddy i backendu.
 - **Globalna tabela routingu tokenów sklepu** — host już nazywa tenanta.
+- **Osobny pierwszy segment dla produktu, koszyka, zakupu i zamówienia** —
+  zabrałby każdej firmie cztery słowa z jej adresów zamiast jednego i dałby
+  cztery możliwe konflikty ze starszymi stronami zamiast jednego.
+- **Rejestr publicznych źródeł w `shared.sites`** — `shared.media` nie mógłby
+  go czytać przy sprzątaniu, a booking musiałby zależeć od stron.

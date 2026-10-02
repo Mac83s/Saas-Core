@@ -1,23 +1,30 @@
 # ADR-073 — Zamówienie, płatności klienta końcowego i tryby operatora
 
 **Status:** Accepted — decyzje właściciela (plan rezerwacji uniwersalnych,
-odpowiedzi 1–24 z 01–02.10.2026) i decyzje techniczne agenta (T1–T23 planu);
-pozostałe rozstrzygnięcia techniczne tego ADR-u (z powodem w tekście): kierunek
-zależności, rejestr źródeł i `commerce.enabled` (§1), termin płatności w
-commerce i przelew zamiast online (§5), skrzynka zdarzeń i lista kluczy (§6),
-podstawa progu zwrotu i kaucja z linku (§8), dokumenty w customers (§9).
+odpowiedzi 1–24 z 01–02.10.2026 oraz 28a i 29a z 02.10) i decyzje techniczne
+agenta (T1–T23 planu); pozostałe rozstrzygnięcia techniczne tego ADR-u (z
+powodem w tekście): kierunek zależności, rejestr źródeł i `commerce.enabled`
+(§1), strażnik `deployment-check` dla customers bez booking (§2), `draft` bez
+numeru dla `pending_request` (§3), termin płatności w commerce, przelew zamiast
+online, należność na miejscu bez `pending_payment` i rejestr
+`register_service_scope` (§5), skrzynka zdarzeń, lista kluczy oraz osobny
+endpoint i sekret webhooków kont połączonych — odstępstwo od planu (§6),
+kaucja z linku (§8; podstawa progu zwrotu to decyzja właściciela 28a),
+dokumenty w customers z tekstem tylko do dopisywania (§9), ścieżki gościa pod
+`commerce.public.pay` (§11).
 **Data:** 2026-10-02
 **Częściowo zastępuje:** ADR-037 §1 (zależność od booking), §2 (konta Express,
 prowizja w katalogu), §3 (`AppointmentPayment`, `tax_rate_bp`; „nigdy z
 formularza” tylko w trybie `platform`), §4 (cena, waluta i `tax_rate_bp` jako
-pola `Service`, jedno okno 15 min, wygaszanie w booking), §5 pkt 3 i 5, §6
-(trasa w trybie `own`, treść skrzynki), §7 („i zdarzeniem”, podstawa zwrotu),
-§8 („organizacja nie wybiera operatora”); ADR-036 §5 („zostaje w
-`shared.booking`”). Reszta ADR-037 wraca z odroczenia jako źródło przepływu i
-księgi. **Zmienia (z ADR-072):** ADR-030, zdanie „płatność i zaliczka są poza
-pierwszym zakresem W9”. **Doprecyzowuje:** ADR-036 §8 (dokumenty sprzedaży,
-§9). **Uzupełnia:** ADR-072, ADR-074, ADR-075. **Nie zmienia:** ADR-026,
-ADR-032, ADR-034, ADR-040, ADR-042.
+pola `Service`, jedno okno 15 min, wygaszanie w booking), §5 pkt 1 (warunek
+`charges_enabled`), 3 i 5, §6 (trasa w trybie `own`, treść skrzynki), §7
+(„i zdarzeniem”, podstawa zwrotu), §8 („organizacja nie wybiera operatora”,
+wartość `stripe`); ADR-036 §5 („zostaje w `shared.booking`”). Reszta ADR-037
+wraca z odroczenia jako źródło przepływu i księgi. **Zmienia (z ADR-072):**
+ADR-030, zdanie „płatność i zaliczka są poza pierwszym zakresem W9”.
+**Doprecyzowuje:** ADR-036 §8 (dokumenty sprzedaży, §9). **Uzupełnia:**
+ADR-072, ADR-074, ADR-075. **Nie zmienia:** ADR-026, ADR-032, ADR-034, ADR-040,
+ADR-042.
 
 ## Kontekst
 
@@ -53,10 +60,11 @@ zadatku z dopłatą, kaucji i własnego konta; `Customer` jest dziś w booking.
   operatora (anulowanie intencji, zwrot) idą po commicie z kluczem idempotencji.
   Do tego `place_order(...)` w transakcji źródła i `ORDER_MODEL` dla tabel
   szczegółów (wzór `APPOINTMENT_MODEL`).
-- Tabele mają wymuszone RLS i strażnika relacji; księga, wersje dokumentów,
-  zgody i nadpisania prowizji są tylko do dopisywania (furtka usunięcia tenanta,
-  ADR-042), trasy bez danych osobowych w `register_erasure_rows`. Booking nie ma
-  kluczy obcych do commerce, bo działa też bez niego.
+- Tabele mają wymuszone RLS i strażnika relacji; księga, wersje dokumentów i
+  ich teksty, zgody i nadpisania prowizji są tylko do dopisywania (furtka
+  usunięcia tenanta, ADR-042), trasy bez danych osobowych w
+  `register_erasure_rows`. Booking nie ma kluczy obcych do commerce, bo działa
+  też bez niego.
 
 ### 2. Klient w `shared.customers`, ta sama tabela (T10)
 
@@ -72,7 +80,9 @@ zadatku z dopłatą, kaucji i własnego konta; `Customer` jest dziś w booking.
   Anonimizacja woła w swojej transakcji `register_customer_anonymizer`: booking
   czyści uwagi, ulicę wizyty i pola własne (ADR-072 §8), commerce — migawkę
   kupującego, sklep — dane dostawy; endpoint zostaje w booking. `Customer.user`
-  (ADR-036 §5) powstaje tutaj, a `Customer.locale` żyje w customers (TL10).
+  (ADR-036 §5) powstaje tutaj. `Customer.locale` (dziś w booking, z wyborami
+  pl/en) przechodzi stanem razem z modelem; wybory zdejmuje TL10 (ADR-071 pkt
+  3) migracją tej aplikacji, która wtedy trzyma stan `Customer` (Konsekwencje).
 
 ### 3. Zamówienie: `Order` i `OrderLine` (T9)
 
@@ -87,10 +97,13 @@ zadatku z dopłatą, kaucji i własnego konta; `Customer` jest dziś w booking.
   firmy (`timezone.localdate()` przy UTC myli go w noc sylwestrową).
 - `OrderLine`: `kind` (`booking`, `product`, `extra`, `discount`, `voucher`,
   `delivery`, `fee`), `quantity`, `unit_gross_minor`, `unit_net_minor`,
-  `tax_rate` (§8), migawka nazwy, `source`, `source_reference`. Pozycje
-  przychodzą gotowe z `quote` (ADR-072 §7) albo z koszyka (ADR-074); commerce
-  cen nie liczy, a złożonych pozycji nie zmienia — korekta to nowa pozycja.
-  Bony, karnety i kody rabatowe (faza 10) też należą do commerce.
+  `tax_rate` (§8), migawka nazwy w języku klienta i w języku źródłowym
+  (ADR-072 §7), `source`, `source_reference`. Pozycje przychodzą gotowe z
+  `quote` (ADR-072 §7) albo z koszyka (ADR-074); commerce cen nie liczy, a
+  złożonych pozycji nie zmienia — korekta to nowa pozycja. Nazwa w języku
+  klienta trafia do jego e-maili i samoobsługi, źródłowa — do panelu i programu
+  do faktur; migawki nie da się poprawić później. Bony, karnety i kody rabatowe
+  (faza 10) też należą do commerce.
 - Statusy `draft`, `awaiting_payment`, `partially_paid`, `paid`, `fulfilled`,
   `completed`, `canceled`, `refunded` zmienia tylko commerce; to skrót dla list,
   o pieniądzach rozstrzyga księga, a `fulfilled` zgłasza źródło.
@@ -124,21 +137,49 @@ zadatku z dopłatą, kaucji i własnego konta; `Customer` jest dziś w booking.
   Online wymaga połączenia z `charges_enabled`; bez niego należność idzie
   przelewem, jeśli firma podała rachunek, a dopiero bez niego — na miejscu. To
   domyślne Noclegu z 13a („dopóki nie ma płatności online — zadatek przelewem w
-  3 dni”), uogólnione przez ten ADR: przelew zachowuje wpłatę z góry.
-- Oferta z wpłatą przed potwierdzeniem (`transfer`, `deposit`, `full`) tworzy
-  `pending_payment`, które trzyma termin jak potwierdzona (ADR-072 §9, zawężenie
-  ADR-058 §3 oparte na 13a); bez commerce ten stan nie powstaje.
+  3 dni”), uogólnione przez ten ADR: przelew zachowuje wpłatę z góry. Gdy
+  należność idzie na miejscu, rezerwacja powstaje jako `confirmed` (jak
+  `on_site`), bez `pending_payment` i bez `due_at` — wpłaty na miejscu gość
+  nie złoży przed rozpoczęciem rezerwacji, więc wstrzymanie skończyłoby się
+  tylko wygaśnięciem. Polityki `transfer` bez rachunku firmy serwis oferty nie
+  przyjmuje (`transfer_account_missing`) i z tego samego powodu nie usuwa
+  rachunku, z którego taka oferta korzysta.
+- Oferta z wpłatą przed potwierdzeniem (`transfer`, `deposit`, `full`), której
+  wpłatę da się złożyć z góry — online albo przelewem — tworzy
+  `pending_payment`, które trzyma termin jak potwierdzona (ADR-072 §9,
+  zawężenie ADR-058 §3 oparte na 13a); bez commerce ten stan nie powstaje.
 - **Termin należy do commerce**: rozstrzyga `Payment.due_at` (online domyślnie
   15 minut, rekomendacja ADR-037; przelew — dni z oferty, Nocleg 3). Zadanie
   terminów czyta trasę bez danych osobowych (`payment_id`, `organization_id`,
   `due_at`, niewygasający kontrakt `service` organizacji; wzorzec
-  `ReminderRoute`, ADR-058 §7) i w jednej transakcji wygasza płatność, anuluje
-  zamówienie, a handler źródła zwalnia rezerwację (z powodem w historii) albo
-  towar. `Appointment.hold_expires_at` to kopia `due_at` do wyświetlania, a
-  booking sam wygasza tylko `pending_request` (odpowiedź firmy), tą samą drogą.
+  `ReminderRoute`, ADR-058 §7) i dla wpłaty przed potwierdzeniem w jednej
+  transakcji wygasza płatność, anuluje zamówienie, a handler źródła zwalnia
+  rezerwację (z powodem w historii) albo towar. `Appointment.hold_expires_at`
+  to kopia `due_at` do wyświetlania, a booking sam wygasza tylko
+  `pending_request` (odpowiedź firmy), tą samą drogą.
+- **Zakresy kontraktów `service`** moduły wpinają w nowy rejestr
+  `core.organizations.register_service_scope` z `AppConfig.ready` (rola i
+  dozwolone uprawnienia; moduł może dopisać własne uprawnienie do zakresu
+  innego modułu), nie w listę `_service_context` — rdzeń nie zna nazw modułów
+  shared. Rejestr powstaje z fazą 4, bo ona pierwsza dodaje zakresy:
+  wygaszanie `pending_request` (booking), terminy płatności (commerce) i
+  `commerce.public.pay` w `public_booking` (§11); dzisiejsze wpisy listy
+  przenoszą do niego booking i sites. ADR-075 (iCal) i ADR-074 (termin
+  przelewu sklepu) korzystają z tego samego rejestru.
 - Płatność online potwierdzona po terminie wraca zwrotem (odmowa handlera, §1);
-  spóźniony przelew firma zwraca albo rezerwuje od nowa. Dopłata (`balance`) po
-  terminie niczego nie anuluje: przypomnienie i decyzja firmy (Konsekwencje).
+  spóźniony przelew firma zwraca albo rezerwuje od nowa.
+- **Dopłata po terminie** (decyzja właściciela 29a, 02.10): niezapłacona w
+  terminie `balance` niczego nie wygasza ani nie anuluje, a rezerwacja zostaje
+  `confirmed`. Gość dostaje przypomnienia, a firma alert; o odwołaniu
+  rezerwacji decyduje sama firma, a takie odwołanie rozlicza zadatek według
+  progów z migawki (§8). Zadanie terminów przy `balance` tylko zgłasza
+  zaległość; nic nie dzieje się automatycznie, bo firma wie, czy przelew jest
+  w drodze, a automat odwołałby rezerwację za jeden spóźniony przelew.
+- E-maile do gościa z tej sekcji (dane do przelewu z terminem, przypomnienie
+  dopłaty, zwrot) to szablony `audience=customer` w języku klienta
+  (`Customer.locale` przycięty do `public_locales`, ADR-071 pkt 21) z
+  łańcuchem żądany → en → pl rozstrzyganym przy kolejkowaniu (ADR-071 pkt 20);
+  alert dla firmy — `audience=staff`, oś aplikacji (ADR-071 pkt 1).
 
 ### 6. Port płatności: tryby `platform` i `own` (T11)
 
@@ -150,8 +191,9 @@ zadatku z dopłatą, kaucji i własnego konta; `Customer` jest dziś w booking.
   Konta według rekomendacji Stripe z fazy 7, nie Express. Konto platformy to
   samo co abonamenty, ale zdarzenia kont połączonych mają osobny endpoint i
   sekret, bo Stripe wysyła je osobno (sprawdzić w fazie 7) — odstępstwo od
-  zapisu planu o jednym zestawie webhooków. Jeden operator na deployment
-  (`COMMERCE_PROVIDER`: `stripe_connect` | `simulated` poza produkcją).
+  zapisu planu o jednym zestawie webhooków. Jeden operator trybu `platform` na
+  deployment (`COMMERCE_PROVIDER`: `stripe_connect`, odtąd zamiast `stripe` z
+  ADR-037 §8, bo wartość to nazwa adaptera; `simulated` poza produkcją).
 - **`own`** (faza 13): własne konto firmy, najpierw Przelewy24, bo Stripe nie
   daje P24 noclegom (MCC 7011, 7033, 6513) ani medycynie. Firma wpisuje
   `merchantId`, `posId`, klucz CRC i `secretId`; `charges_enabled` daje dopiero
@@ -194,15 +236,25 @@ zadatku z dopłatą, kaucji i własnego konta; `Customer` jest dziś w booking.
 ### 8. Zwroty, kaucja, waluta i podatek
 
 - **Zwrot.** Rezygnacja klienta liczy zwrot z progów w migawce, według pełnych
-  dni do początku w strefie firmy. Próg ma podstawę `appliesTo` (preset i
-  oferta, ADR-072 §8): `deposit` — procent zadatku, `paid` — wszystkich wpłat.
-  Nocleg ma `deposit`, bo 13a mówi o „zwrocie zadatku” (≥ 30 dni 100%, 14–29 dni
-  50%, < 14 dni 0%), a inne wpłaty wracają wtedy w całości: o dopłacie wpłaconej
-  14 dni przed przyjazdem 13a milczy, więc do odpowiedzi właściciela gość
-  rezygnujący później odzyskuje ją całą (też lista prawna: zadatek a zaliczka,
-  art. 394 KC). Odwołanie przez firmę zwraca co najmniej wszystkie wpłaty; czy
-  przy zadatku należy się więcej (art. 394 § 1 KC) — lista prawna. Online zwraca
-  adapter, ręczną wpłatę firma oddaje sama; zwrot spoza progów wymaga powodu.
+  dni do początku w strefie firmy; Nocleg: ≥ 30 dni 100%, 14–29 dni 50%, < 14
+  dni 0% (13a, „zwrot zadatku”). Czego progi dotyczą, rozstrzyga decyzja
+  właściciela 28a (02.10): domyślnie tylko zadatku, a dopłata i inne wpłaty
+  wracają w całości. Firma zmienia to jawnym przełącznikiem „Progi zwrotu
+  obejmują też dopłatę” w ustawieniach oferty w panelu (w presecie Nocleg
+  wyłączony). To ustawienie firmy czytane i zmieniane przez API oferty (panel i
+  asystent, ADR-072 §11), a nie samo pole w danych, bo firma ma świadomie
+  wybrać, czy gość traci część dopłaty. Migawka i kontrakt presetów zapisują je
+  jako `cancellation.appliesTo` (ADR-072 §8): `deposit` — przełącznik
+  wyłączony, `paid` — włączony, progi obejmują wszystkie wpłaty. Przy
+  `transfer` i `full` zadatku nie ma, więc progi obejmują całą wpłatę (`paid`).
+  Online zwraca adapter, ręczną wpłatę firma oddaje sama; zwrot spoza progów
+  wymaga powodu.
+- **Odwołanie przez firmę** zwraca co najmniej wszystkie wpłaty, poza
+  odwołaniem za niezapłaconą dopłatę (29a, §5), które rozlicza zadatek według
+  progów jak rezygnację gościa. Lista prawna sprawdza, czy wpłata nazwana
+  zadatkiem jest nim w rozumieniu art. 394 KC (a nie zaliczką) i czy przy
+  odwołaniu przez firmę należy się więcej (art. 394 § 1 KC); to sprawdzenie
+  zgodności regulaminów z prawem, nie otwarta decyzja biznesowa.
 - **Kaucja** (`security_deposit`) nie jest pozycją ani przychodem. Blokadę
   kartą zakłada klient z linku tuż przed przyjazdem, w oknie operatora (7 dni,
   do 30 dla noclegów i pojazdów z rozszerzoną autoryzacją); po pobycie firma
@@ -213,25 +265,46 @@ zadatku z dopłatą, kaucji i własnego konta; `Customer` jest dziś w booking.
   (`currency_in_use`), bo tych kwot nikt nie przeliczy. Płatność zawsze w
   walucie zamówienia.
 - **Podatek.** Pozycja niesie kod stawki z listy w kodzie (dziś `23`, `8`, `5`,
-  `0`, `zw` jak `VatRate` magazynu), bo `zw` to nie `0`; netto i brutto liczy
-  `quote` (ADR-072 §6–§7), stawkę wybiera firma. ADR-040 dotyczy abonamentów.
+  `0`, `zw` jak `VatRate` magazynu oraz `np` — „nie podlega”, opłata
+  miejscowa, ADR-072 §6), bo `zw` to nie `0`, a `np` to nie `zw`; netto i
+  brutto liczy `quote` (ADR-072 §6–§7), stawkę wybiera firma. ADR-040 dotyczy
+  abonamentów.
 
 ### 9. Dokumenty, zgody, faktury (T15, T16)
 
 - Dokumenty firmy dla klientów (regulaminy rezerwacji i sklepu, polityki
   prywatności i anulowania) żyją w `shared.customers`, najniższym module
-  wspólnym dla rezerwacji, zamówień i sklepu. Edytowalny szkic zatwierdza osoba
-  z firmy po ponownym uwierzytelnieniu (plan asystenta, A2), co zapisuje wersję
-  tylko do dopisywania, obowiązującą od daty; tylko taką przyjmują rezerwacja i
-  zamówienie. Wersja ma wiersz treści na język (wzór `PublicProfileTranslation`;
-  kod `^[a-z]{2}$` sprawdza serwis do czasu rejestru języków, TL1) i jest
-  źródłem tłumaczeń (TL-T17, ADR-069); automat tłumaczy dokument prawny zawsze
-  do akceptacji (TL-T25).
+  wspólnym dla rezerwacji, zamówień i sklepu. Edytowalny szkic (od asystenta —
+  z identyfikatorem przebiegu, §11) zatwierdza osoba z firmy przez
+  `assert_person_required` ze step-upem `legal_document` (ADR-076 pkt 2 i 6),
+  co zapisuje wersję tylko do dopisywania, obowiązującą od daty; tylko taką
+  przyjmują rezerwacja i zamówienie.
+- Wersja ma tekst na język jako wiersze tylko do dopisywania (język, tekst,
+  skrót tekstu, pochodzenie `content_protocol.provenance.Provenance`, kto i
+  kiedy zaakceptował): poprawka to nowy wiersz, więc tekst, na który klient się
+  zgodził, nigdy się nie zmienia (nie wzór `PublicProfileTranslation`,
+  Odrzucone). Każdy wiersz, także ręczne tłumaczenie, dopisuje osoba tą samą
+  bramką co wersję. Język wiersza sprawdza jedna funkcja ADR-071 pkt 3
+  (`locale_not_in_registry`, `locale_not_enabled`), a baza — CHECK formatu
+  `^[a-z]{2}$` bez `choices`.
+- Dokument to źródło tłumaczeń `customers.document` (TL-T17;
+  `register_translation_source` z `saas_core/content_protocol`, ADR-069 pkt 2,
+  protokół `docs/architecture/translation-sources.md`): wersjonowane, podstawa
+  `published`, zapis `pending` i `live`, dokument prawny. Automat tłumaczy go
+  zawsze do akceptacji (ADR-069 pkt 16.1, TL-T25): wynik `pending` czeka poza
+  wierszami wersji, a wiersz dopisuje dopiero akceptacja osoby (`review` przez
+  `assert_person_required` ze step-upem `legal_document`). Zatwierdzenie nowej
+  wersji zgłasza `changed` (`notify_source_changed`). Faza, która tworzy
+  dokumenty, w jednym commicie rejestruje źródło (gdy rejestr TL5 jest już w
+  main; inaczej robi to pierwsza faza po TL5), dopisuje je do tabel §5 i §8.1
+  protokołu, dokłada test kontraktu (§11 protokołu) i dopisuje
+  `shared.customers` do kontraktu `.importlinter` zakazującego importu
+  `shared.translation`.
 - Zgody to dziennik tylko do dopisywania (nie `PolicyAcknowledgement` z ADR-036
-  §8): wpis wskazuje klienta, wersję i język dokumentu (albo zgodę
-  marketingową, albo pole `consent`, ADR-072 §8) i źródło napisem (`source`,
-  `source_reference`). To on jest migawką wersji z T16, więc booking nie dostaje
-  nowego klucza obcego.
+  §8): wpis wskazuje klienta i wiersz tekstu wersji w języku, który klient
+  widział, ze skrótem tego tekstu (albo zgodę marketingową, albo pole
+  `consent`, ADR-072 §8) oraz źródło napisem (`source`, `source_reference`). To
+  on jest migawką wersji z T16, więc booking nie dostaje nowego klucza obcego.
 - Faktury wyłącznie przez port integracji (Fakturownia, inFakt, wFirma; faza
   12): wysyłamy dane zamówienia, trzymamy numer, PDF i stan; KSeF ma program.
   Zamówienie i księga to zapis transakcji, nie dokument księgowy: ADR-042 §7
@@ -256,9 +329,10 @@ czeka na liście prawnej i nie blokuje budowy (decyzja 21).
 - Ścieżki gościa (zamówienie z formularza, płatność i dopłata z linku
   samoobsługi, rezygnacja ze zwrotem) wołają `commerce.api` w publicznym
   kontekście źródła (`public_booking_context`, ADR-030; sklep — ADR-074 pkt 4)
-  z zakresem `commerce.public.pay`, dopisanym do jego uprawnień. Token wiąże
-  płatność z jednym zamówieniem, kwotę liczy serwer; link samoobsługi żyje do
-  końca rezerwacji (ADR-072), więc dożywa terminu dopłaty.
+  z zakresem `commerce.public.pay`, który commerce dopisuje do jego uprawnień
+  przez `register_service_scope` (§5). Token wiąże płatność z jednym
+  zamówieniem, kwotę liczy serwer; link samoobsługi żyje do końca rezerwacji
+  (ADR-072), więc dożywa terminu dopłaty.
 - Błędy z polem i kodem (`currency_in_use`, `amount_exceeds_due`,
   `refund_exceeds_paid`, `connection_not_ready`…), `Idempotency-Key` z hashem
   żądania, `version` na `Order`, `Payment` i połączeniu (nieaktualna: 409),
@@ -280,24 +354,35 @@ czeka na liście prawnej i nie blokuje budowy (decyzja 21).
   `Appointment` nie dostają pól ceny ani zadatku poza migawką wyceny i polityk;
   `develop-commerce-payments` powstaje z fazą 4.
 - Migracje odwracalne (stan `Customer`, customers 0001, commerce 0001, audyt,
-  wersje planów z `commerce.enabled`; numer booking uzgodnić z TL10, TL12 i
-  ADR-067), lista kluczy i sekret webhooka kont połączonych idą do `memex ops`.
-  Zdarzeń domenowych commerce nie emituje do pierwszego konsumenta (ADR-024).
+  wersje planów z `commerce.enabled`), lista kluczy i sekret webhooka kont
+  połączonych idą do `memex ops`. Numery migracji booking, organizations i
+  billing nadaje się po rebase na bieżący main tuż przed scaleniem. Main ma już
+  A1a (organizations 0052, billing 0026), a równolegle piszą tam TL10
+  (`public_locales`, `PublicLocalesChange`, limit języków, `Customer.locale`
+  bez wyborów pl/en — w aplikacji, która w chwili TL10 trzyma stan `Customer`;
+  migracja `public_locales` czyta języki klientów z modelu historycznego tej
+  aplikacji) i TL12 (wiersze tłumaczeń booking). Zdarzeń domenowych commerce
+  nie emituje do pierwszego konsumenta (ADR-024).
+- Przełącznik „Progi zwrotu obejmują też dopłatę” (28a) wchodzi do panelu i
+  API oferty z politykami anulowania (faza 3, ADR-072 §8), a działa od fazy 4,
+  gdy są wpłaty. Przypomnienia dopłaty i alert dla firmy (29a) powstają z
+  zadaniem terminów w fazie 4.
 - Subskrypcje na starszych wersjach planów dostaną `commerce.enabled` po zmianie
   planu albo nadpisaniem operatora (`EntitlementGrant`, T18), a do tego czasu
   działają jak bez cechy (§1). Panel oferuje dziś też GBP, a backend każdy kod
   ISO: faza 3 daje firmie z walutą spoza listy zmianę z podglądem przed
   pierwszym cennikiem, a listy panelu czytają `options` z API.
-- Otwarte pytania do właściciela (w nawiasie wartość do odpowiedzi): zwrot
-  dopłaty przy późnej rezygnacji (§8: cała); dopłata niezapłacona w terminie
-  (§5: przypomnienie i decyzja firmy, nic się samo nie anuluje); okno płatności
-  online (15 min); stała część prowizji w EUR i USD; prowizja od zatrzymanej
-  kaucji (brak); plany z `commerce.own_account.enabled`; połączenie płacące u
-  firmy z `platform` i `own` (jedno aktywne, wybiera firma); VAT spoza Polski.
+- Otwarte pytania do właściciela (w nawiasie wartość do odpowiedzi): okno
+  płatności online (15 min); stała część prowizji w EUR i USD; prowizja od
+  zatrzymanej kaucji (brak); plany z `commerce.own_account.enabled`; połączenie
+  płacące u firmy z `platform` i `own` (jedno aktywne, wybiera firma); VAT
+  spoza Polski.
 - Otwarte technicznie: konfiguracja kont Stripe (faza 7) i to, czy strona
   prawna witryny pokazuje bieżącą wersję dokumentu. Sprawy prawne i księgowe
-  (sprzedawca, PSD2, zadatek a zaliczka, kaucja i jej VAT, przechowywanie
-  zamówień, VAT prowizji, paragony, spółka konta Stripe) — na liście prawnej.
+  (sprzedawca, PSD2, zadatek a zaliczka i odwołanie przez firmę przy zadatku —
+  art. 394 KC, kaucja i jej VAT, przechowywanie zamówień, VAT prowizji,
+  paragony, spółka konta Stripe) — na liście prawnej jako sprawdzenia, nie
+  pytania biznesowe.
 
 ## Odrzucone
 
@@ -318,3 +403,10 @@ czeka na liście prawnej i nie blokuje budowy (decyzja 21).
   swojego”) nie obejmuje klientów firm.
 - **Blokada kaucji przy rezerwacji** — wygasa przed przyjazdem; **na zapisanej
   karcie bez klienta** — wymaga zgody na obciążenie pod jego nieobecność.
+- **Podstawa progu zwrotu jako ukryte pole oferty** — firma nie wiedziałaby, że
+  gość może stracić część dopłaty; właściciel wybrał jawny przełącznik (28a).
+  **Automatyczne odwołanie przy niezapłaconej dopłacie** — decyzja o zerwaniu
+  rezerwacji zostaje przy firmie (29a).
+- **Tekst dokumentu w nadpisywanym wierszu tłumaczenia** (wzór
+  `PublicProfileTranslation`) — poprawka zmieniłaby po cichu tekst, na który
+  klienci już się zgodzili, i zepsuła dowód z dziennika zgód.

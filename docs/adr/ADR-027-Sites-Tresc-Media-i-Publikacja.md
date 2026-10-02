@@ -95,9 +95,12 @@ publikację, nawet gdy draft jest już nowszy.
   dwuetapowe: najpierw tombstone i blokada nowych użyć, potem asynchroniczne
   usunięcie obiektu, gdy żadna publikacja go nie referencjonuje.
   > Częściowo zmienione przez
-  > [ADR-074](ADR-074-Sklep-Www-Na-Zamowieniu-i-Magazynie.md) pkt 2
-  > (2026-10-02): obiekt czeka też na bieżącą wersję niezarchiwizowanego
-  > produktu sklepu (`shop.product_version`).
+  > [ADR-074](ADR-074-Sklep-Www-Na-Zamowieniu-i-Magazynie.md) pkt 2 i
+  > [ADR-072](ADR-072-Rezerwacje-Uniwersalne-Modele-Czasu-Jednostki-Reguly-Wycena-Presety.md)
+  > §3 (2026-10-02): obiekt czeka też na bieżącą wersję niezarchiwizowanego
+  > produktu sklepu (`shop.product_version`) i bieżącą wersję zestawu zdjęć
+  > jednostki rezerwacji; media pytają o nie rejestr publicznych źródeł w
+  > `core.organizations` (ADR-074 pkt 7).
 - Staging i production używają zewnętrznego S3 zgodnie z ADR-025. Lokalny Docker
   Desktop używa wyłącznie testowego SeaweedFS `4.41` w trybie `weed mini`, z
   przypiętym obrazem, prywatną siecią, losowymi sekretami plikowymi i

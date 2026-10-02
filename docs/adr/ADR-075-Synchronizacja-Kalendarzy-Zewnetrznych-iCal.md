@@ -4,19 +4,24 @@
 odpowiedzi 1–24 z 01–02.10.2026) i decyzje techniczne agenta (T1–T23 planu);
 pozostałe rozstrzygnięcia techniczne tego ADR-u (z powodem w tekście): import
 tylko do jednostek w fazie 6, adres eksportu kanału bez jego blokad, blokady z
-importu tylko do odczytu, a w konflikcie zajmujące termin, wstrzymanie pustego
-pliku, kolejka `integrations`, połączenie na sprawdzony adres, token eksportu
-bez wygasania, liczby i okna.
+importu tylko do odczytu, a w konflikcie i pod inną blokadą zajmujące termin,
+wstrzymanie pustego pliku, kolejka `integrations`, połączenie na sprawdzony
+adres, token eksportu bez wygasania, liczby i okna.
 **Data:** 2026-10-02
 **Rozszerza:** ADR-030 — blokada (`TimeOff`) ze źródłem z kalendarza
 zewnętrznego; token eksportu i trasa zadań na wzór samoobsługi i przypomnień.
 **Uzupełnia:** ADR-072 §4 („Blokady jednostek rozstrzyga `EXCLUDE`”) o blokadę
-jednostki z importu (kanał, UID, konflikt, ponowna aktywacja) i §5 o blokadę w
-konflikcie, którą kalendarz też liczy (pkt 6); ADR-029 o pobranie cudzego
-kalendarza z połączeniem na sprawdzony adres (pkt 4).
+jednostki z importu (kanał, UID, konflikt, blokada pod inną blokadą, ponowna
+aktywacja) i §5 o blokadę bez aktywnej alokacji, którą kalendarz też liczy (pkt 1
+i 6); ADR-029 o pobranie cudzego kalendarza z połączeniem na sprawdzony adres
+(pkt 4).
 **Doprecyzowuje:** ADR-058, „Ustalenia fazy 3”, punkt „§3” („Nieobecność i
 »Usuń z firmy« zdejmują osobę z wizyt”): dotyczy nieobecności wpisanej przez
-człowieka; blokada z importu nikogo z wizyty nie zdejmuje.
+człowieka; blokada z importu nikogo z wizyty nie zdejmuje (pkt 1).
+**Stosuje:** ADR-071 pkt 1 i 20 (napis wydarzenia i e-maile do zespołu na osi
+aplikacji, pkt 5 i 6), ADR-073 §5 (rejestr zakresów zadań `service`, pkt 3),
+ADR-076 pkt 2 i 5–7 (klasy poleceń, błędy pól, „w imieniu”, podłoga OpenAPI;
+pkt 7).
 
 ## Kontekst
 
@@ -56,9 +61,13 @@ Blokada z importu to blokada jednostki z ADR-072 §4: `TimeOff` ze
 `source = ical` (ręczna: `manual`), kluczem obcym `import_channel` (zapis planu
 `ical:<kanał>`; usunięcie kanału zabiera jego blokady) i `external_uid` (UID,
 przy powtórzeniu z początkiem wystąpienia), unikalnym w kanale. Czas trzyma
-własnym wierszem `AppointmentResourceAllocation` pod istniejącym `EXCLUDE`, a
-gdy termin trzyma już nasza rezerwacja, zostaje bez aktywnej alokacji i otwiera
-konflikt (pkt 6). Z wydarzenia bierzemy tylko czas i UID — `SUMMARY`,
+własnym wierszem `AppointmentResourceAllocation` pod istniejącym `EXCLUDE`. Gdy
+termin trzyma już nasza rezerwacja, zostaje bez aktywnej alokacji i otwiera
+konflikt (pkt 6). Gdy trzyma go inna blokada jednostki (ręczna albo z importu,
+także z tego samego kanału), zostaje bez aktywnej alokacji i bez konfliktu
+(ADR-072 §4), bo termin był już zamknięty i nasza sprzedaż nie jest zagrożona.
+W obu przypadkach dalej zajmuje termin (pkt 6), a alokację dostaje, gdy
+nakładanie zniknie. Z wydarzenia bierzemy tylko czas i UID — `SUMMARY`,
 `DESCRIPTION`, `LOCATION`, `ATTENDEE` i `URL` (imię gościa, końcówka telefonu)
 ani plik nie trafiają do bazy ani do logów. Blokady z importu są tylko do
 odczytu (`time_off_imported`); zdejmuje je portal albo usunięcie kanału. Nowe
@@ -90,9 +99,10 @@ dzierżawa; wzór `ReminderRoute`, w `register_erasure_rows`). Kontrakt, jak prz
 przypomnieniu (ADR-058 §7), nie wygasa po `TENANT_TASK_CONTEXT_TTL_SECONDS`
 (45 dni; `expires=False`), bo kanał żyje latami; kontrakt, który się nie
 otwiera, nie odrzuca trasy jak tam, tylko odsuwa ją o 6 h, a zapis kanału
-podpisuje go od nowa. Zakres booking wpina w nowy rejestr `core.organizations`
-(`register_service_scope`), nie w listę `_service_context` — rdzeń nie ma znać
-nazw modułów shared.
+podpisuje go od nowa. Zakres `booking_calendar_sync` booking wpina w rejestr
+`register_service_scope` w `core.organizations`, który powstaje z fazą 4
+(ADR-073 §5), nie w listę `_service_context` — rdzeń nie zna nazw modułów
+shared.
 
 Dyspozytor (beat co 60 s z `beatSchedule` deskryptora) dzierżawi do 200 tras po
 terminie i wysyła przebiegi do kolejki `integrations` z konsumentem
@@ -114,7 +124,8 @@ minut. Bez `booking.enabled` nic nie pobieramy, a blokady zostają.
 Zdrowie: czasy ostatniej próby i sukcesu, wynik ostatniego przebiegu (enum w
 `options/`), liczniki błędów z rzędu, blokad i pominiętych oraz stan `ok`,
 `warning` (ostatni przebieg nieudany) albo `stale` (24 h bez sukcesu — raz na
-serię komunikat i e-mail do odbiorców z pkt 6).
+serię komunikat i e-mail `booking.calendar_stale` do odbiorców z pkt 6,
+`audience=staff` jak alarm).
 
 ### 4. Bezpieczne pobranie
 
@@ -145,21 +156,25 @@ wygasa, bo portal subskrybuje adres latami; firma go unieważnia albo zmienia
 (stary daje 404), a `end_person` (ADR-058) i usunięcie kanału unieważniają
 adres osoby i kanału.
 
-Treść: aktywne alokacje celu (każda rezerwacja, która trzyma termin, także
-oczekująca — ADR-072 §9) i jego blokady ręczne (u osoby nieobecności). Adres
-kanału dodaje blokady z importu pozostałych kanałów jednostki, także w
-konflikcie, nigdy własne: portal nie dostaje z powrotem tego, co wysłał, więc
-jego echo nie podtrzyma blokady po anulowaniu (decyzja agenta; plan mówi tylko
-o zajętości bez danych osobowych). Portal dostaje adres kanału od razu, także
-bez importu (import dojdzie bez zmiany adresu); adres bez kanału (np. do
-własnego kalendarza) nie niesie blokad z importu, więc pętli nie zrobi.
+Treść: aktywne alokacje rezerwacji celu (u jednostki wiersze z `appointment`,
+nie z `time_off`; każda rezerwacja, która trzyma termin, także oczekująca —
+ADR-072 §9) i jego blokady ręczne (`source = manual`; u osoby nieobecności).
+Adres kanału dodaje blokady z importu pozostałych kanałów jednostki, także te
+bez aktywnej alokacji (pkt 1), nigdy własne: portal nie dostaje z powrotem
+tego, co wysłał, więc jego echo nie podtrzyma blokady po anulowaniu (decyzja
+agenta; plan mówi tylko o zajętości bez danych osobowych). Portal dostaje adres
+kanału od razu, także bez importu (import dojdzie bez zmiany adresu); adres bez
+kanału (np. do własnego kalendarza) nie niesie blokad z importu, więc pętli nie
+zrobi.
 
-Wydarzenie: stały napis „Zajęte” (`Organization.default_locale`), czas i UID —
-bez klienta, usługi (w gabinecie bywa daną o zdrowiu) i powodu nieobecności;
-UID to skrót identyfikatora z domeną platformy (uuid7 zdradza chwilę
-utworzenia). Jednostka z nocami dostaje daty (`VALUE=DATE`, koniec = dzień
-wyjazdu): noc D jest zajęta, gdy zajętość nachodzi na czas od zameldowania D
-do wymeldowania D+1; reszta — czas UTC; okno jak w pkt 2.
+Wydarzenie: stały napis „Zajęte” w języku panelu firmy
+(`Organization.default_locale`, oś aplikacji ADR-071 pkt 1: napis czyta firma i
+jej ludzie w portalu i we własnych kalendarzach, nie gość — TL10 go nie
+przepina), czas i UID — bez klienta, usługi (w gabinecie bywa daną o zdrowiu)
+i powodu nieobecności; UID to skrót identyfikatora z domeną platformy (uuid7
+zdradza chwilę utworzenia). Jednostka z nocami dostaje daty (`VALUE=DATE`,
+koniec = dzień wyjazdu): noc D jest zajęta, gdy zajętość nachodzi na czas od
+zameldowania D do wymeldowania D+1; reszta — czas UTC; okno jak w pkt 2.
 `GET /api/v1/booking/calendar/{token}.ics` działa bez sesji, w kontekście
 usługi `booking_calendar_feed` dla jednego celu (bez `booking.enabled` — 404),
 z limitem zapytań na token, nie na IP (portale pobierają z kilku adresów), z
@@ -175,9 +190,10 @@ ani nie przesuwa rezerwacji — to cudzy fakt do sprawdzenia przez firmę.
 
 Wyścig importu z rezerwacją gościa rozstrzyga `EXCLUDE`: kto zapisuje drugi,
 przegrywa — gość dostaje 409 `slot_unavailable`, import zapisuje blokadę bez
-aktywnej alokacji i konflikt. Taka blokada dalej zajmuje jednostkę dla
-kalendarza, wyceny i zapisu każdej innej rezerwacji (sprawdzenie w Pythonie,
-jak dziś `TimeOff`), żeby jej część poza naszą rezerwacją się nie zwolniła.
+aktywnej alokacji i konflikt. Taka blokada, jak każda blokada z importu bez
+aktywnej alokacji (pkt 1), dalej zajmuje jednostkę dla kalendarza, wyceny i
+zapisu każdej innej rezerwacji (sprawdzenie w Pythonie, jak dziś `TimeOff`),
+żeby jej część poza naszą rezerwacją się nie zwolniła.
 Każdy przebieg, także po 304 i nieudanym pobraniu, sprawdza wszystkie blokady
 kanału: otwiera brakujące konflikty (także z rezerwacją zapisaną w wyścigu z
 tym sprawdzeniem), zamyka te, których nakładanie zniknęło, i zakłada alokację
@@ -187,10 +203,11 @@ blokady, z którą nic się już nie nakłada (ADR-072 §4).
 `detected_at`, `resolved_at`, `resolution` (`gone` albo `acknowledged`); jeden
 otwarty na parę, a przyjęty nie wraca, dopóki nakładanie trwa. Nowy konflikt
 to w tej samej transakcji `notify_in_app` (`booking.calendar_conflict`,
-`warning`) i e-mail `booking.calendar_conflict` (v1, PL/EN) z kluczem
-idempotencji konfliktu do aktywnych kont z `booking.appointment.manage` — to
-one przyjmują i przenoszą rezerwacje. Treść: firma, czas, kanał, odnośnik —
-nigdy klient ani usługa (ADR-030). Konflikt zamyka się sam (`gone`) albo przez
+`warning`) i e-mail `booking.calendar_conflict` (v1, PL/EN; `audience=staff`,
+oś aplikacji — ADR-071 pkt 1 i 20) z kluczem idempotencji konfliktu do
+aktywnych kont z `booking.appointment.manage` — to one przyjmują i przenoszą
+rezerwacje. Treść: firma, czas, kanał, odnośnik — nigdy klient ani usługa
+(ADR-030). Konflikt zamyka się sam (`gone`) albo przez
 `POST …/conflicts/{id}/acknowledge/` z wpisem w historii.
 
 ### 7. Uprawnienia, historia i obsługa przez asystenta AI
@@ -201,20 +218,31 @@ nigdy klient ani usługa (ADR-030). Konflikt zamyka się sam (`gone`) albo przez
 - Historia (`OrganizationAuditAction`, migracja organizations), nigdy adres:
   `booking.calendar_channel.created|changed|deleted|redirect_accepted|synced`,
   `booking.calendar_feed.issued|rotated|revoked`,
-  `booking.calendar_conflict.acknowledged`; rodzaj aktora i „w imieniu” z
-  ADR-076 (zarezerwowany), do tego czasu z `TenantContext.principal_kind`.
+  `booking.calendar_conflict.acknowledged`; `synced` to ręczne „Sprawdź teraz”
+  (przebieg co 15 minut zapisuje zdrowie kanału, nie historię). Rodzaj aktora
+  (`channel` = principal) i „w imieniu” (`acting_via`, `acting_ref`,
+  `acting_trigger`) `record_audit` kopiuje z kontekstu (ADR-076 pkt 6; kolumny
+  od A1a, organizations 0052).
 - API `/api/v1/booking/calendar-sync/` (`channels/`, `channels/preview/`,
   `…/sync/`, `…/accept-redirect/`, `feeds/`, `conflicts/`, `…/acknowledge/`,
   `options/`) z logiką w `booking/calendar_sync.py` (widok, zadanie, komenda)
-  spełnia zasadę AGENTS.md o asystencie AI: kody `ical_url_invalid`,
-  `calendar_channel_limit`, `time_off_imported`, a nieaktualna wersja —
-  `booking_version_conflict` (ADR-072 §11); `options/` podaje limity i zbiory.
+  spełnia zasadę AGENTS.md o asystencie AI: błędy w `errors` z polem i kodem
+  (ADR-076 pkt 5) — `ical_url_invalid`, `calendar_channel_limit`,
+  `time_off_imported`, a nieaktualna wersja — 409 `booking_version_conflict`
+  (ADR-072 §11); `options/` podaje limity i zbiory. Każda operacja spełnia
+  podłogę ADR-076 pkt 7: jawne `operationId`, `summary` i `description`, 400 z
+  `ProblemDetails` i wymagany `Idempotency-Key` przy każdej mutacji poza
+  `channels/preview/` (`x-dry-run: true`).
 - Podgląd kanału pobiera plik w zadaniu na kolejce `integrations`
   (`POST …/channels/preview/` → 202 i stan do odpytania; wynik bez zapisu,
   ważny 10 min, z limitem na firmę), bo żądanie HTTP nie czeka na portal: ile
   blokad doda, zmieni i usunie, z którymi rezerwacjami wejdzie w konflikt, co
-  pominie. Inne mutacje mają `?dry_run=true` (usunięcie kanału: ile terminów
-  zwolni i że portal straci nasz adres; nowy token: że portal musi dostać nowy).
+  pominie. Zadanie biegnie na kontrakcie usługi z pkt 3, bo kontraktu
+  członkostwa nie da się wydać w kontekście „w imieniu” (ADR-076 pkt 6), a
+  podgląd zlecony przez asystenta też musi ruszyć; uprawnienie sprawdza widok
+  przed zleceniem. Inne mutacje mają `?dry_run=true` (usunięcie kanału: ile
+  terminów zwolni i że portal straci nasz adres; nowy token: że portal musi
+  dostać nowy).
 - `Idempotency-Key` z hashem żądania zapisuje `BookingSetupMutation`
   (organizacja, akcja, principal, klucz, hash żądania, rodzaj i id wyniku;
   unikalny na organizacji, akcji, principalu i kluczu jak
@@ -224,8 +252,13 @@ nigdy klient ani usługa (ADR-030). Konflikt zamyka się sam (`gone`) albo przez
 - Kanał i jego adres założone przez asystenta niosą identyfikator przebiegu
   (pochodzenie jak każda encja konfiguracji, ADR-072 §11), a do uruchomienia
   firmy (plan asystenta, AI-T6) kanał nie pobiera, a adres daje 404.
-- Rejestr komend: zmiany z ryzykiem `apply`, a usunięcie kanału i nowy token z
-  wyraźnym potwierdzeniem, bo otwierają terminy albo zrywają import lub eksport.
+- Rejestr poleceń (ADR-076 pkt 2): odczyty, stan i podgląd kanału — `read`;
+  założenie i zmiana kanału i adresu, „Sprawdź teraz”, „Użyj adresu docelowego”
+  i przyjęcie konfliktu — `apply`; usunięcie kanału i nowy token —
+  `irreversible` (osobne kliknięcie), bo otwierają terminy albo zrywają import
+  lub eksport. Podgląd polecenia jest czysty, bez wywołań zewnętrznych (ADR-076
+  pkt 1), więc pliku portalu nie pobiera — skutki importu pokazuje wcześniejszy
+  odczyt `channels/preview/`.
 
 ## Konsekwencje
 
@@ -244,7 +277,8 @@ nigdy klient ani usługa (ADR-030). Konflikt zamyka się sam (`gone`) albo przez
   `SUMMARY` wyłącznie w pamięci, bez zapisu.
 - Dwie blokady z różnych kanałów na tych samych nocach to echo albo podwójna
   sprzedaż między portalami, nie do rozróżnienia bez pochodzenia wydarzeń:
-  alarm dotyczy tylko naszych rezerwacji, widok obłożenia pokazuje oba kanały.
+  druga zostaje bez aktywnej alokacji i bez konfliktu (pkt 1), alarm dotyczy
+  tylko naszych rezerwacji, a widok obłożenia pokazuje oba kanały.
 - iCal łączy jednostkę z jednym ogłoszeniem; „typ pokoju × 3” to zadanie
   channel managera (faza 14). Katalog (faza 16) liczy wolne noce tą samą
   funkcją kalendarza, więc blokady z importu działają i tam.
@@ -268,7 +302,8 @@ nigdy klient ani usługa (ADR-030). Konflikt zamyka się sam (`gone`) albo przez
   6 h, 24 h, 5 i 10 min) to ustawienia wdrożenia sprawdzane przy starcie (klasa
   C planu ustawień), nie decyzje właściciela. Pułapki fazy 6 dla skilla
   `develop-booking`: import nikogo nie zdejmuje z wizyty, blokady z importu są
-  tylko do odczytu, a w konflikcie dalej zajmują termin; eksport poza logami.
+  tylko do odczytu, a bez aktywnej alokacji (konflikt, inna blokada) dalej
+  zajmują termin; eksport poza logami.
 - Poza zakresem: import na osobie (pkt 1, później); Google Calendar i Outlook
   osób dwustronnie (OAuth), channel manager — faza 14; API portali, GDS, CalDAV.
 

@@ -130,11 +130,12 @@ wyzwalaczem cross-tenant.
 > §5 i ADR-072 §6–§9 (2026-10-02): cenę, walutę i podatek liczy `quote` z reguł
 > cenowych oferty, nie pola `price_minor`, `currency` i `tax_rate_bp`; polityka
 > płatności (z nową wartością `transfer`), zadatek i progi anulowania (z
-> podstawą `deposit` albo `paid`) zostają danymi oferty (`Service`). Termin
-> `pending_payment` należy do płatności (`Payment.due_at`: online domyślnie 15
-> minut, przelew — dni z oferty) i wygasza go commerce, nie booking;
-> `Appointment.hold_expires_at` jest jego kopią do wyświetlania. Migawka w
-> rezerwacji i `pending_payment` na tych samych alokacjach obowiązują.
+> podstawą `deposit` albo `paid` — przełącznik firmy, decyzja właściciela 28a)
+> zostają danymi oferty (`Service`). Termin `pending_payment` należy do
+> płatności (`Payment.due_at`: online domyślnie 15 minut, przelew — dni z
+> oferty) i wygasza go commerce, nie booking; `Appointment.hold_expires_at` jest
+> jego kopią do wyświetlania. Migawka w rezerwacji i `pending_payment` na tych
+> samych alokacjach obowiązują.
 
 - `Service` otrzymuje `price_minor`, `currency`, `tax_rate_bp`,
   `payment_policy` (`none | on_site | deposit | full`), `deposit_minor` albo
@@ -158,9 +159,10 @@ wyzwalaczem cross-tenant.
 > `booking.appointment.confirmed` w outboxie (gdy rezerwacji nie da się już
 > przyjąć, wpłata zostaje zapisana, a commerce zleca zwrot i zgłoszenie
 > operatorskie); w pkt 5 płatność z góry bez połączenia idzie najpierw przelewem
-> z terminem, gdy firma podała rachunek, a dopiero bez niego — na miejscu.
-> Pkt 1, 2 i 4 obowiązują dla płatności zamówienia (`Payment` zamiast
-> `AppointmentPayment`).
+> z terminem, gdy firma podała rachunek, a dopiero bez niego — na miejscu (wtedy
+> rezerwacja jest od razu `confirmed`). Pkt 1 (bez warunku `charges_enabled`:
+> wpłatę z góry daje też przelew z terminem, ADR-073 §5), 2 i 4 obowiązują dla
+> płatności zamówienia (`Payment` zamiast `AppointmentPayment`).
 
 1. klient wybiera slot; jeżeli polityka usługi to `deposit` albo `full` i
    organizacja ma `charges_enabled`, `create_appointment` tworzy wizytę
@@ -206,9 +208,12 @@ wyzwalaczem cross-tenant.
 > Częściowo zastąpione przez
 > [ADR-073](ADR-073-Zamowienie-Platnosci-Klienta-Koncowego-i-Tryby-Operatora.md)
 > §8 i Konsekwencje (2026-10-02): zwrot nie emituje zdarzenia, dopóki nie ma
-> ono konsumenta; próg zwrotu ma podstawę (`deposit` — zadatek, `paid` —
-> wszystkie wpłaty), a odwołanie przez firmę zwraca co najmniej wszystkie
-> wpłaty. Reszta punktu obowiązuje.
+> ono konsumenta; progi zwrotu dotyczą domyślnie tylko zadatku, a dopłata
+> wraca w całości, chyba że firma włączy przełącznik „Progi zwrotu obejmują też
+> dopłatę” (decyzja właściciela 28a; `deposit` albo `paid`). Odwołanie przez
+> firmę zwraca co najmniej wszystkie wpłaty, poza odwołaniem za niezapłaconą
+> dopłatę, które rozlicza zadatek według progów (29a). Reszta punktu
+> obowiązuje.
 
 - anulowanie przez klienta oblicza kwotę zwrotu z polityki zapisanej w
   snapshotcie wizyty; zwrot jest komendą z kluczem idempotencji, wpisem `refund`
@@ -229,8 +234,8 @@ wyzwalaczem cross-tenant.
 > §6 (2026-10-02): zdanie „organizacja nie wybiera operatora” przestaje
 > obowiązywać — firma wybiera tryb `platform` (operator platformy) albo `own`
 > (własne konto, np. Przelewy24). Jeden operator trybu `platform` na deployment
-> (`COMMERCE_PROVIDER`: `stripe_connect` | `simulated`), simulator poza
-> produkcją i Mollie jako kandydat na drugiego operatora obowiązują.
+> (`COMMERCE_PROVIDER`, odtąd `stripe_connect` zamiast `stripe`), simulator
+> poza produkcją i Mollie jako kandydat na drugiego operatora obowiązują.
 
 - wybór providera jest jawny przez `COMMERCE_PROVIDER` (`simulated | stripe`),
   analogicznie do `BILLING_PROVIDER` z ADR-034; local i staging używają
@@ -295,6 +300,7 @@ wyzwalaczem cross-tenant.
 - przechowywanie dokumentów KYB w SaaS Core — zbędne dane wrażliwe;
 - wielu providerów do wyboru przez organizację w pierwszym wydaniu — wielokrotny
   koszt rekonsyliacji i runbooków bez potrzeby biznesowej;
+  > Wraca w ADR-073 §6 (2026-10-02): firma wybiera tryb `platform` albo `own`.
 - płatność bez blokady slotu — klient płaci za termin, który w międzyczasie
   zajął ktoś inny.
 

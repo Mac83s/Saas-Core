@@ -1,6 +1,6 @@
 ---
 name: develop-booking
-description: Working on scheduling in SaaS Core — services, staff, resources, availability rules, time off, slot search, appointments, rescheduling and cancellation, the end customer, self-service links and public booking. Use when touching modules/shared/booking, availability or anything that computes or reserves time.
+description: Working on scheduling in SaaS Core — services, staff, resources, availability rules, time off, slot search, appointments, rescheduling and cancellation, the end customer, self-service links and public booking; units and unit groups, periods (range), booking and price rules, quotes, pending bookings and presets. Use when touching modules/shared/booking, availability or anything that computes or reserves time.
 ---
 
 # develop-booking

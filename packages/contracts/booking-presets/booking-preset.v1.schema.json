@@ -163,7 +163,7 @@
       "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$"
     },
     "localizedText": {
-      "description": "Tekst w pl i en; kolejne języki treści (kod ISO 639-1) opcjonalnie.",
+      "description": "Tekst w pl i en; kolejne języki treści opcjonalnie, tylko kody z rejestru packages/contracts/locales/registry.json (ADR-071 pkt 2; sprawdza test kontraktu, bo wzorzec przepuściłby np. cz).",
       "type": "object",
       "required": ["pl", "en"],
       "properties": {
@@ -394,7 +394,7 @@
       ]
     },
     "cancellation": {
-      "description": "Progi zwrotu „co najmniej N dni przed początkiem → % zwrotu”, od najdłuższego wyprzedzenia, zapisywane w migawce rezerwacji (ADR-072 §8). appliesTo: deposit — progi dotyczą zadatku, a pozostałe wpłaty (dopłata) wracają w całości do odpowiedzi właściciela; paid — progi dotyczą wszystkich wpłat.",
+      "description": "Progi zwrotu „co najmniej N dni przed początkiem → % zwrotu”, od najdłuższego wyprzedzenia, zapisywane w migawce rezerwacji (ADR-072 §8). appliesTo to przełącznik oferty „Progi zwrotu obejmują też dopłatę”, który firma czyta i zmienia przez API (decyzja właściciela 28a): deposit — wyłączony, progi dotyczą tylko zadatku, a dopłata wraca w całości (domyślnie, w Noclegu); paid — włączony, progi dotyczą wszystkich wpłat. Bez zadatku (transfer, full) progi obejmują całą wpłatę: paid.",
       "type": "object",
       "additionalProperties": false,
       "required": ["appliesTo", "refunds"],

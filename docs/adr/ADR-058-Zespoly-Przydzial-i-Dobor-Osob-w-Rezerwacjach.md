@@ -68,10 +68,11 @@ wizyta ma znacznik wakatu”.
 ### 3. Rezerwacja bez wyboru osoby potwierdza się od razu
 
 > Zawężone przez [ADR-072](ADR-072-Rezerwacje-Uniwersalne-Modele-Czasu-Jednostki-Reguly-Wycena-Presety.md)
-> §9 (2026-10-02) na podstawie odpowiedzi właściciela 13a („zadatek 30% przelewem
-> w 3 dni, inaczej rezerwacja wygasa”): oferta „na prośbę” albo z wpłatą przed
-> potwierdzeniem (przelew, zadatek, całość) tworzy rezerwację `pending_request`
-> albo `pending_payment`, która trzyma termin jak potwierdzona, bez wyprzedzania.
+> §9 (2026-10-02): oferta z wpłatą przed potwierdzeniem (przelew, zadatek,
+> całość; odpowiedź właściciela 13a: „dopóki nie ma płatności online — zadatek
+> przelewem w 3 dni, inaczej rezerwacja wygasa”) tworzy `pending_payment`, a
+> oferta „na prośbę” (oś „Potwierdzenie” planu i decyzja techniczna T8) —
+> `pending_request`; obie trzymają termin jak potwierdzona, bez wyprzedzania.
 > Ofert z potwierdzeniem od razu i bez wpłaty przed potwierdzeniem ten punkt
 > dotyczy bez zmian.
 
@@ -195,7 +196,8 @@ prowadzącego, gdy ma pozycję, inaczej z magazynu głównego (odpowiedź 8), wi
   właściciela (odpowiedź 1), a technicznie wymagało trzech stanów i
   wyprzedzania blokad;
   > Wraca w ADR-072 §9 (2026-10-02) dla ofert „na prośbę” albo z wpłatą przed
-  > potwierdzeniem (odpowiedź 13a), z pełną alokacją i bez wyprzedzania blokad.
+  > potwierdzeniem (13a dla wpłaty; dla „na prośbę” oś planu i T8), z pełną
+  > alokacją i bez wyprzedzania blokad.
 - wybór osoby w przeglądarce — nieautorytatywny i zawsze ten sam;
 - większy limit wyników — przesuwa problem, nie usuwa ucięcia dnia.
 
@@ -250,7 +252,7 @@ planie memex i w decyzji `zespo-faza-3-uwagi-klienta-zawsze-zmiana-osoby-z`.
   osób, dołączenie do innej wizyty) i czasem. Nieobecność i „Usuń z firmy”
   zdejmują osobę z wizyt — reszta składu zachowuje swój czas.
   > Doprecyzowane przez [ADR-075](ADR-075-Synchronizacja-Kalendarzy-Zewnetrznych-iCal.md)
-  > (2026-10-02): dotyczy nieobecności wpisanej przez człowieka; blokada z
+  > pkt 1 (2026-10-02): dotyczy nieobecności wpisanej przez człowieka; blokada z
   > importu kalendarza zewnętrznego nikogo z wizyty nie zdejmuje.
 - Produkt dokłada osoby przez `booking.api`: `join_visit_crew` (dołączenie do
   trwającej wizyty blokuje czas od chwili dołączenia do końca wizyty, a
