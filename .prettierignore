@@ -20,6 +20,8 @@ pnpm-lock.yaml
 packages/contracts/openapi/*.yaml
 # Written only by `pnpm api:quality --write-baseline`, one operation per line.
 packages/contracts/openapi/quality-baseline*.json
+# Written only by `pnpm commands:manifest`.
+packages/contracts/commands/manifest*.json
 packages/api-client/src/schema.d.ts
 apps/frontend/src/generated/deployment.ts
 deployments/*/module-artifact.json

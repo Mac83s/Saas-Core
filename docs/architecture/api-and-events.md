@@ -60,12 +60,15 @@ Komendy wdrożone w W1:
 ```text
 pnpm api:schema        # zapisuje kanoniczny v1.yaml
 pnpm api:client        # generuje packages/api-client/src/schema.d.ts
-pnpm api:check         # dryf (generuje do pliku tymczasowego) i podłoga jakości
+pnpm api:check         # dryf, podłoga jakości i manifest poleceń
 pnpm api:quality       # sama podłoga; --write-baseline zmniejsza linię bazową
+pnpm commands:manifest # zapisuje packages/contracts/commands/manifest.json
 ```
 
-CI uruchamia `api:check`: dryf schematu i podłogę jakości nowych i zmienionych
-operacji (ADR-076 §7, `packages/contracts/openapi/README.md`). Ręczne
+CI uruchamia `api:check`: dryf schematu, podłogę jakości nowych i zmienionych
+operacji (ADR-076 §7, `packages/contracts/openapi/README.md`) i zgodność
+manifestu poleceń asystenta z rejestrem w kodzie (ADR-076 §4; polecenia
+wertykału produktu w `manifest.product.json`, zapowiedziane w `planned.json`). Ręczne
 typy odpowiedzi API w frontendzie są zabronione. Hooki use case'ów mogą być
 pisane ręcznie, ale opierają się wyłącznie na wygenerowanych typach.
 

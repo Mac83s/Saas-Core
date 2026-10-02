@@ -136,6 +136,12 @@ operation also adds its registry entry (schema, risk level, preview, eval).
   (`locale_not_enabled`). The panel's own language stays `LocaleEnum` pl/en.
   Changing a field from one to the other changes the operation's fingerprint,
   so it then has to meet the OpenAPI floor (`pnpm api:check`).
+- **A command for the assistant is registered, not generated.** Declare a
+  `CommandSpec` over the panel's service and `register_command` it in the
+  module's `AppConfig.ready()` (`core.organizations.api`, ADR-076 §1, §4); the
+  declaration is checked at start. Then `pnpm commands:manifest` — `api:check`
+  fails while the manifest and the registry disagree. A name announced in
+  `packages/contracts/commands/planned.json` leaves that file in the same commit.
 
 ## Done means
 

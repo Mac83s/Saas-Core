@@ -48,8 +48,10 @@
     "runtime:status": "docker compose ps",
     "api:schema": "uv run --project apps/backend python apps/backend/manage.py spectacular --file packages/contracts/openapi/v1.yaml --validate --settings=saas_core.config.settings.typecheck",
     "api:client": "openapi-typescript packages/contracts/openapi/v1.yaml -o packages/api-client/src/schema.d.ts",
-    "api:check": "node packages/contracts/scripts/api-drift-check.mjs && pnpm api:quality",
+    "api:check": "node packages/contracts/scripts/api-drift-check.mjs && pnpm api:quality && pnpm commands:check",
     "api:quality": "uv run --project apps/backend python apps/backend/tests/test_openapi_quality.py",
+    "commands:manifest": "uv run --project apps/backend python apps/backend/manage.py command_manifest --settings=saas_core.config.settings.typecheck",
+    "commands:check": "uv run --project apps/backend python apps/backend/manage.py command_manifest --check --settings=saas_core.config.settings.typecheck",
     "quality": "pnpm check && pnpm backend:check && pnpm api:check"
   },
   "devDependencies": {
