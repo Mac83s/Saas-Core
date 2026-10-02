@@ -13,6 +13,7 @@ import { GettingStarted } from "#components/panel/getting-started";
 import { PanelPage, PanelSection } from "#components/panel/panel-page";
 import { getServerCurrentOrganization, getServerUser } from "#lib/server-auth";
 import { allows, panelAccess } from "#lib/panel-navigation";
+import { DayAgenda } from "../../../modules/shared/booking";
 import ProductDashboard from "../../../product/dashboard";
 
 export default async function PanelHomePage() {
@@ -81,14 +82,21 @@ export default async function PanelHomePage() {
           "",
       })}
     >
-      {/* The next step to take, ahead of the things one can always do. */}
+      {/* The day first (UX-022); what is left to set up after it, and a list
+          already done folds itself to one line. */}
+      {organization &&
+      modules.has("shared.booking") &&
+      can("booking.appointment.read") ? (
+        <DayAgenda access={access} timeZone={organization.timezone} />
+      ) : null}
       {organization ? <GettingStarted access={access} /> : null}
 
       <PanelSection
         description={t("quickActionsDescription")}
         title={t("quickActions")}
       >
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {/* Two by two on a phone: four shortcuts fit one screen. */}
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
           {actions.map((action) => (
             <ActionCard key={action.href} {...action} />
           ))}

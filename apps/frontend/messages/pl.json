@@ -380,17 +380,26 @@
   "Dashboard": {
     "eyebrow": "Centrum zarządzania",
     "greeting": "Dzień dobry, {name}",
-    "description": "Zadbaj o obecność firmy w internecie, rezerwacje i kontakt z klientami. Zaczniemy od najważniejszego następnego kroku.",
+    "description": "Twój dzień, a pod nim to, co zostało do ustawienia.",
     "quickActions": "Co chcesz zrobić?",
     "quickActionsDescription": "Najczęstsze zadania są zawsze pod ręką.",
-    "websiteTitle": "Zbuduj witrynę",
+    "websiteTitle": "Strona internetowa",
     "websiteDescription": "Utwórz podstrony, ustaw adres i opublikuj zmiany.",
-    "calendarTitle": "Sprawdź kalendarz",
+    "calendarTitle": "Kalendarz",
     "calendarDescription": "Zobacz rezerwacje, usługi i dostępne terminy.",
-    "teamTitle": "Zaproś zespół",
+    "teamTitle": "Zespół",
     "teamDescription": "Zarządzaj firmą, rolami i dostępem współpracowników.",
-    "billingTitle": "Wybierz plan",
-    "billingDescription": "Porównaj możliwości i zarządzaj bezpieczną płatnością."
+    "billingTitle": "Plan i płatności",
+    "billingDescription": "Porównaj możliwości i zarządzaj bezpieczną płatnością.",
+    "dayTeam": "Dzień firmy",
+    "dayMine": "Twój dzień",
+    "dayToday": "Dziś · {date}",
+    "dayTomorrow": "Jutro · {date}",
+    "dayNone": "Nie ma wizyt.",
+    "dayQueue": "Do przydzielenia ({count})",
+    "dayFailed": "Nie udało się wczytać wizyt. Odśwież stronę.",
+    "dayLoading": "Wczytywanie wizyt…",
+    "dayMore": "{count, plural, one {Jeszcze # wizyta w kalendarzu} few {Jeszcze # wizyty w kalendarzu} other {Jeszcze # wizyt w kalendarzu}}"
   },
   "GettingStarted": {
     "title": "Na start",
@@ -420,7 +429,9 @@
     "websiteAction": "Utwórz stronę",
     "profileTitle": "Uzupełnij wizytówkę",
     "profileBody": "Nazwa, miasto i kategoria wystarczą, żeby klienci znaleźli Cię w katalogu firm.",
-    "profileAction": "Otwórz wizytówkę"
+    "profileAction": "Otwórz wizytówkę",
+    "doneLine": "Na start: gotowe {total} z {total}",
+    "show": "Pokaż"
   },
   "TeamPage": {
     "eyebrow": "Zespół",

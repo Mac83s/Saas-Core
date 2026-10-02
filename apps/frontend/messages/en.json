@@ -380,17 +380,26 @@
   "Dashboard": {
     "eyebrow": "Management hub",
     "greeting": "Welcome, {name}",
-    "description": "Manage your online presence, bookings, and customer communication. We’ll start with the most useful next step.",
+    "description": "Your day, and below it what is left to set up.",
     "quickActions": "What would you like to do?",
     "quickActionsDescription": "Your most common tasks are always close at hand.",
-    "websiteTitle": "Build your website",
+    "websiteTitle": "Website",
     "websiteDescription": "Create pages, choose an address, and publish changes.",
-    "calendarTitle": "Check your calendar",
+    "calendarTitle": "Calendar",
     "calendarDescription": "Review bookings, services, and available times.",
-    "teamTitle": "Invite your team",
+    "teamTitle": "Team",
     "teamDescription": "Manage your business, roles, and teammate access.",
-    "billingTitle": "Choose a plan",
-    "billingDescription": "Compare features and manage secure payments."
+    "billingTitle": "Plan and payments",
+    "billingDescription": "Compare features and manage secure payments.",
+    "dayTeam": "The company's day",
+    "dayMine": "Your day",
+    "dayToday": "Today · {date}",
+    "dayTomorrow": "Tomorrow · {date}",
+    "dayNone": "No visits.",
+    "dayQueue": "To assign ({count})",
+    "dayFailed": "Could not load the visits. Refresh the page.",
+    "dayLoading": "Loading visits…",
+    "dayMore": "{count, plural, one {# more visit in the calendar} other {# more visits in the calendar}}"
   },
   "GettingStarted": {
     "title": "Getting started",
@@ -420,7 +429,9 @@
     "websiteAction": "Create the site",
     "profileTitle": "Fill in your business card",
     "profileBody": "A name, a city and a category are enough for customers to find you in the directory.",
-    "profileAction": "Open the business card"
+    "profileAction": "Open the business card",
+    "doneLine": "Getting started: {total} of {total} done",
+    "show": "Show"
   },
   "TeamPage": {
     "eyebrow": "Team",

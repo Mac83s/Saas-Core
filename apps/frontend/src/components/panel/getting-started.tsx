@@ -139,6 +139,9 @@ function readHidden(): boolean {
 export function GettingStarted({ access }: { access: PanelAccess }) {
   const t = useTranslations("GettingStarted");
   const [hidden, setHidden] = useState(false);
+  // A list already done folds to one line on every device (UX-022): it is
+  // derived from data, so nothing has to remember it.
+  const [expanded, setExpanded] = useState(false);
   const [done, setDone] = useState<Partial<Record<StepKey, boolean>>>();
   const [failed, setFailed] = useState(false);
 
@@ -208,6 +211,25 @@ export function GettingStarted({ access }: { access: PanelAccess }) {
   const total = steps.length;
   const completed = steps.filter((step) => done[step.key]).length;
   const next = steps.find((step) => !done[step.key]);
+
+  if (!next && !expanded)
+    return (
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border px-4 py-2.5 text-sm">
+        <CheckIcon
+          aria-hidden="true"
+          className="size-4 text-success-foreground"
+        />
+        <span className="min-w-0 flex-1">{t("doneLine", { total })}</span>
+        <Button
+          aria-expanded={false}
+          onClick={() => setExpanded(true)}
+          size="sm"
+          variant="ghost"
+        >
+          {t("show")}
+        </Button>
+      </div>
+    );
 
   return (
     <Card>
@@ -284,7 +306,7 @@ function StepRow({
     <li
       className={cn(
         "flex flex-col gap-3 rounded-xl border p-3 sm:flex-row sm:items-center",
-        done && "border-success-foreground/20 bg-success",
+        done && "bg-muted/40 text-muted-foreground",
       )}
     >
       <span

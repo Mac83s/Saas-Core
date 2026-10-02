@@ -208,3 +208,23 @@ test("ukrycie listy zapamiętuje się lokalnie i przeżywa brak storage", async 
   await waitFor(() => expect(screen.queryByText("Na start")).toBeNull());
   failing.mockRestore();
 });
+
+test("a list already done folds to one line on any device and opens on demand", async () => {
+  api.getCustomerBillingOverview.mockResolvedValue({ subscription: {} });
+  api.listBookingAppointments.mockResolvedValue([{ id: "visit" }]);
+  api.listMemberships.mockResolvedValue([{ id: "me" }, { id: "you" }]);
+  renderList(
+    access({
+      modules: ["core.organizations", "shared.billing", "shared.booking"],
+    }),
+    englishMessages,
+    "en",
+  );
+  // Derived from data, so a new browser folds it too (UX-022).
+  expect(
+    await screen.findByText("Getting started: 3 of 3 done"),
+  ).toBeInTheDocument();
+  expect(screen.queryAllByRole("listitem")).toHaveLength(0);
+  fireEvent.click(screen.getByRole("button", { name: "Show" }));
+  expect(screen.getAllByRole("listitem")).toHaveLength(3);
+});
