@@ -237,6 +237,9 @@ export type BookingAppointment = components["schemas"]["Appointment"];
 export type BookingPublicAppointment =
   components["schemas"]["PublicAppointment"];
 export type BookingMaterialInput = components["schemas"]["MaterialInput"];
+export type BookingVisitPlace = components["schemas"]["VisitPlaceInput"];
+export type BookingPlaceSuggestion =
+  components["schemas"]["VisitPlaceSuggestion"];
 export type BookingMaterialLine = components["schemas"]["MaterialLine"];
 export type BookingAppointmentList = components["schemas"]["AppointmentList"];
 export type BookingAppointmentInput =
@@ -2370,6 +2373,41 @@ export async function setBookingAppointmentMaterials(
   );
   if (error || !data) throwProblem(error, response);
   return data;
+}
+
+/** „Miejsce wizyty” (ADR-066): its town and, optionally, the address. */
+export async function setBookingAppointmentPlace(
+  appointmentId: string,
+  place: BookingVisitPlace,
+): Promise<BookingAppointment> {
+  const csrfToken = await getCsrfToken();
+  const { data, error, response } = await client.PUT(
+    "/api/v1/booking/appointments/{appointment_id}/place/",
+    {
+      params: { path: { appointment_id: appointmentId } },
+      body: place,
+      credentials: "same-origin",
+      headers: { "X-CSRFToken": csrfToken },
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data;
+}
+
+/** The company's places a module keeps (a farm, say), for the visit form. */
+export async function listBookingPlaces(
+  search = "",
+): Promise<BookingPlaceSuggestion[]> {
+  const { data, error, response } = await client.GET(
+    "/api/v1/booking/places/",
+    {
+      params: { query: search ? { q: search } : {} },
+      credentials: "same-origin",
+      cache: "no-store",
+    },
+  );
+  if (error || !data) throwProblem(error, response);
+  return data.items;
 }
 
 /** Products every visit of this service takes from the warehouse. */

@@ -409,6 +409,11 @@ class Appointment(TenantScopedModel):
     #: data: shown in the panel with the visit, never in an e-mail, a log or the
     #: history of changes; anonymization clears it.
     customer_notes = models.CharField(max_length=500, blank=True)
+    #: „Miejsce wizyty” (owner's decision 14a, 02.10): where the visit takes
+    #: place when that is not the company's location — a town, and optionally
+    #: a street and number. Empty: a module may still say (places.py).
+    place_town = models.CharField(max_length=120, blank=True)
+    place_address = models.CharField(max_length=240, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     all_objects = models.Manager()

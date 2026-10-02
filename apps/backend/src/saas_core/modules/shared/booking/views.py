@@ -26,7 +26,7 @@ from .availability import _zone, available_days, available_slots, available_time
 from .dispatch import assign_crew, candidates, overview, queue
 from .facts import staff_facts, staff_history, team_performance
 from .models import Location, PublicBookingRoute, Resource, SelfServiceRoute, Service
-from .places import appointment_places
+from .places import appointment_places, has_place_search, search_places
 from .public import public_choices, public_people, shown_to_customer
 from .security import public_booking_context, token_digest
 from .serializers import (
@@ -78,6 +78,8 @@ from .serializers import (
     TeamUpdateSerializer,
     TimeOffCreatedSerializer,
     TimeOffInputSerializer,
+    VisitPlaceInputSerializer,
+    VisitPlaceSuggestionListSerializer,
 )
 from .services import (
     BOOKING_ENABLED,
@@ -92,6 +94,7 @@ from .services import (
     list_catalog,
     reschedule_appointment,
     set_appointment_materials,
+    set_appointment_place,
     set_service_materials,
     update_staff,
 )
@@ -206,7 +209,10 @@ def _appointment_payload(
         "staff_name": value.staff.display_name,
         "staff_membership_id": value.staff.membership_id,
         "location_name": value.location.name,
-        "place": places.get(value.id),
+        # The visit's own place first, then the module that knows it (ADR-066).
+        "place": value.place_town or places.get(value.id),
+        "place_town": value.place_town,
+        "place_address": value.place_address,
         "resource_name": value.resource.name if value.resource else None,
         "materials": value.materials,
         "takes_materials": stock.takes_materials(value.service.appointment_kind),
@@ -368,6 +374,7 @@ def _catalog_payload(value: dict[str, list[Any]], *, public: bool = False) -> di
         "resources": [
             {"id": x.id, "name": x.name, "kind": x.kind} for x in value["resources"] if x.active
         ],
+        **({} if public else {"place_search": has_place_search()}),
     }
 
 
@@ -690,6 +697,72 @@ class AppointmentMaterialsView(APIView):
             appointment_id=appointment_id, materials=_materials(s.validated_data["materials"])
         )
         return Response(_appointment_payload(value))
+
+
+@method_decorator(csrf_protect, name="dispatch")
+class AppointmentPlaceView(APIView):
+    """„Miejsce wizyty” of a booked visit (ADR-066)."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        summary="Set where a visit takes place",
+        description=(
+            "Sets the visit's town and, optionally, street and number. Both empty "
+            "clear it, and the calendar falls back to what a module knows. The same "
+            "place again changes nothing. A called-off visit cannot be changed "
+            "(appointment_not_changeable)."
+        ),
+        request=VisitPlaceInputSerializer,
+        responses={200: AppointmentSerializer, 400: ProblemDetailsSerializer},
+    )
+    def put(self, request: Request, appointment_id: UUID) -> Response:
+        s = VisitPlaceInputSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        value = set_appointment_place(
+            appointment_id=appointment_id,
+            town=s.validated_data["town"],
+            address=s.validated_data.get("address", ""),
+        )
+        return Response(_appointment_payload(value))
+
+
+class BookingPlacesView(APIView):
+    """The company's places a module keeps (a farm, say), for the visit form."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=["booking"],
+        summary="Places a visit can take place at",
+        description=(
+            "Places the company keeps in its modules, matched by name or town; "
+            "choosing one fills a visit's place_town and place_address. Empty "
+            "when no module offers places (catalog.place_search is false)."
+        ),
+        parameters=[
+            OpenApiParameter(
+                "q", str, OpenApiParameter.QUERY, description="Part of a name or a town."
+            ),
+            OpenApiParameter(
+                "limit",
+                int,
+                OpenApiParameter.QUERY,
+                description="At most this many (1–500, default 200).",
+            ),
+        ],
+        responses={200: VisitPlaceSuggestionListSerializer, 400: ProblemDetailsSerializer},
+    )
+    def get(self, request: Request) -> Response:
+        try:
+            limit = int(request.query_params.get("limit", 200))
+        except ValueError as error:
+            raise ParseError("Nieprawidłowy limit miejsc.") from error
+        items = search_places(request.query_params.get("q", ""), limit)
+        return Response({
+            "items": [{"name": x.name, "town": x.town, "address": x.address} for x in items]
+        })
 
 
 @method_decorator(csrf_protect, name="dispatch")

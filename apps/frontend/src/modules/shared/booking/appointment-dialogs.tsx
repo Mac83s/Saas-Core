@@ -31,15 +31,26 @@ import {
   completeBookingAppointment,
   createBookingAppointment,
   getBookingSlots,
+  listBookingPlaces,
   rescheduleBookingAppointment,
   setBookingAppointmentMaterials,
+  setBookingAppointmentPlace,
   type BookingAppointment,
   type BookingCatalog,
+  type BookingPlaceSuggestion,
   type BookingSlotList,
   type StaffTeam,
 } from "@saas-core/api-client";
 import { Badge } from "@saas-core/ui/components/badge";
 import { Button } from "@saas-core/ui/components/button";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@saas-core/ui/components/combobox";
 import {
   Dialog,
   DialogClose,
@@ -159,6 +170,93 @@ export function VisitPlace({
       <span className="truncate">{place}</span>
     </span>
   );
+}
+
+/** The company's places a module keeps (its farms, say), once per form. */
+function useSavedPlaces(enabled: boolean) {
+  const [places, setPlaces] = useState<BookingPlaceSuggestion[]>([]);
+  useEffect(() => {
+    if (!enabled) return;
+    let current = true;
+    // The places help; the form works without them.
+    listBookingPlaces()
+      .then((items) => {
+        if (current) setPlaces(items);
+      })
+      .catch(() => undefined);
+    return () => {
+      current = false;
+    };
+  }, [enabled]);
+  return places;
+}
+
+/** More saved places than this get a search instead of a list. */
+const FILTERABLE_PLACES = 12;
+
+/** Picks one of the company's places; choosing fills the town and address. */
+function SavedPlacePicker({
+  id,
+  onPick,
+  places,
+}: {
+  id: string;
+  onPick: (place: BookingPlaceSuggestion) => void;
+  places: BookingPlaceSuggestion[];
+}) {
+  const t = useTranslations("Calendar");
+  const label = (place: BookingPlaceSuggestion) =>
+    [place.name, place.town].filter(Boolean).join(" · ");
+  if (places.length > FILTERABLE_PLACES)
+    return (
+      <Combobox
+        items={places}
+        itemToStringLabel={label}
+        onValueChange={(place: BookingPlaceSuggestion | null) => {
+          if (place) onPick(place);
+        }}
+        value={null}
+      >
+        <ComboboxInput id={id} placeholder={t("placeSavedSearch")} />
+        <ComboboxContent>
+          <ComboboxEmpty>{t("placeSavedNone")}</ComboboxEmpty>
+          <ComboboxList>
+            {places.map((place, index) => (
+              <ComboboxItem key={index} value={place}>
+                {label(place)}
+              </ComboboxItem>
+            ))}
+          </ComboboxList>
+        </ComboboxContent>
+      </Combobox>
+    );
+  return (
+    <NativeSelect
+      id={id}
+      onChange={(event) => {
+        const place = places[Number(event.target.value)];
+        if (event.target.value && place) onPick(place);
+      }}
+      value=""
+    >
+      <option value="">{t("placeSavedChoose")}</option>
+      {places.map((place, index) => (
+        <option key={index} value={index}>
+          {label(place)}
+        </option>
+      ))}
+    </NativeSelect>
+  );
+}
+
+/** „Miejsce wizyty” as one line: the town, then the street. */
+function placeLine(appointment: BookingAppointment) {
+  return [
+    appointment.place_town || appointment.place,
+    appointment.place_address,
+  ]
+    .filter(Boolean)
+    .join(", ");
 }
 
 function problemText(error: unknown, t: Translate, fallback: string) {
@@ -411,6 +509,8 @@ type NewValues = {
   email: string;
   phone: string;
   notes: string;
+  place_town: string;
+  place_address: string;
 };
 
 export function NewAppointmentDialog({
@@ -515,6 +615,8 @@ function NewAppointmentForm({
           email: z.union([z.literal(""), z.email(t("invalidEmail"))]),
           phone: z.string().trim().max(40),
           notes: z.string().trim().max(500, t("notesTooLong")),
+          place_town: z.string().trim().max(120, t("placeTooLong")),
+          place_address: z.string().trim().max(240, t("placeTooLong")),
         })
         .refine((values) => values.email || values.phone, {
           message: t("contactRequired"),
@@ -535,8 +637,11 @@ function NewAppointmentForm({
       email: "",
       phone: "",
       notes: "",
+      place_town: "",
+      place_address: "",
     },
   });
+  const savedPlaces = useSavedPlaces(Boolean(catalog.place_search));
   const [serviceId, locationId, date, time] = useWatch({
     control: form.control,
     name: ["service_id", "location_id", "date", "time"],
@@ -606,6 +711,8 @@ function NewAppointmentForm({
     }
     setProblem(undefined);
     const notes = values.notes.trim();
+    const town = values.place_town.trim();
+    const address = values.place_address.trim();
     try {
       onCreated(
         await createBookingAppointment(
@@ -623,6 +730,9 @@ function NewAppointmentForm({
               locale: locale === "en" ? "en" : "pl",
             },
             ...(notes ? { customer_notes: notes } : {}),
+            ...(town || address
+              ? { place_town: town, place_address: address }
+              : {}),
             ...(edited && takesMaterials
               ? { materials: materialsInput(edited) }
               : {}),
@@ -898,6 +1008,52 @@ function NewAppointmentForm({
           <FieldError errors={[errors.notes]} />
         </Field>
       </FieldSet>
+      <FieldSet>
+        <FieldLegend>{t("placeLegend")}</FieldLegend>
+        <FieldDescription>{t("placeHint")}</FieldDescription>
+        {savedPlaces.length ? (
+          <Field>
+            <FieldLabel htmlFor="appointment-saved-place">
+              {t("placeSaved")}
+            </FieldLabel>
+            <SavedPlacePicker
+              id="appointment-saved-place"
+              onPick={(place) => {
+                form.setValue("place_town", place.town);
+                form.setValue("place_address", place.address);
+              }}
+              places={savedPlaces}
+            />
+            <FieldDescription>{t("placeSavedHint")}</FieldDescription>
+          </Field>
+        ) : null}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field data-invalid={Boolean(errors.place_town)}>
+            <FieldLabel htmlFor="appointment-town">{t("town")}</FieldLabel>
+            <Input
+              aria-invalid={Boolean(errors.place_town)}
+              autoComplete="off"
+              id="appointment-town"
+              maxLength={120}
+              {...form.register("place_town")}
+            />
+            <FieldError errors={[errors.place_town]} />
+          </Field>
+          <Field data-invalid={Boolean(errors.place_address)}>
+            <FieldLabel htmlFor="appointment-address">
+              {t("placeAddress")}
+            </FieldLabel>
+            <Input
+              aria-invalid={Boolean(errors.place_address)}
+              autoComplete="off"
+              id="appointment-address"
+              maxLength={240}
+              {...form.register("place_address")}
+            />
+            <FieldError errors={[errors.place_address]} />
+          </Field>
+        </div>
+      </FieldSet>
       {takesMaterials ? (
         <FieldSet>
           <FieldLegend>{materials("title")}</FieldLegend>
@@ -1071,7 +1227,6 @@ function AppointmentDetails({
       crewNames(appointment, t) || t("crewNobody"),
     ],
     [t("customerChoice"), requested],
-    [t("town"), appointment.place],
     [t("location"), appointment.location_name],
     [t("resource"), appointment.resource_name],
   ].filter((row): row is [string, string] => Boolean(row[1]));
@@ -1110,6 +1265,15 @@ function AppointmentDetails({
           </>
         ) : null}
       </dl>
+      <VisitPlaceSection
+        appointment={appointment}
+        catalog={catalog}
+        editable={canManage && appointment.status !== "canceled"}
+        onChanged={(updated) => {
+          setNotice(t("placeSavedNotice"));
+          onChanged(updated);
+        }}
+      />
       {crewChangeable ? (
         <div>
           <Button
@@ -1184,6 +1348,153 @@ function AppointmentDetails({
         </DialogFooter>
       ) : null}
     </>
+  );
+}
+
+/** „Miejsce wizyty” (ADR-066), changed in place like the products. */
+function VisitPlaceSection({
+  appointment,
+  catalog,
+  editable,
+  onChanged,
+}: {
+  appointment: BookingAppointment;
+  catalog?: BookingCatalog;
+  editable: boolean;
+  onChanged: (appointment: BookingAppointment) => void;
+}) {
+  const t = useTranslations("Calendar");
+  const common = useTranslations("Common");
+  const [draft, setDraft] = useState<{ town: string; address: string }>();
+  const places = useSavedPlaces(
+    draft !== undefined && Boolean(catalog?.place_search),
+  );
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState("");
+  const heading = `place-${appointment.id}`;
+  const line = placeLine(appointment);
+  if (!editable && !line) return null;
+
+  async function save(next: { town: string; address: string }) {
+    setBusy(true);
+    setProblem("");
+    try {
+      onChanged(
+        await setBookingAppointmentPlace(appointment.id, {
+          town: next.town.trim(),
+          address: next.address.trim(),
+        }),
+      );
+      setDraft(undefined);
+    } catch (error) {
+      setProblem(problemText(error, t, "placeError"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section aria-labelledby={heading} className="space-y-2">
+      <h3 className="text-sm font-medium" id={heading}>
+        {t("placeLegend")}
+      </h3>
+      {draft === undefined ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <p className={cn("text-sm", !line && "text-muted-foreground")}>
+            {line ? (
+              <VisitPlace className="text-sm" place={line} />
+            ) : (
+              t("placeNone")
+            )}
+          </p>
+          {editable ? (
+            <Button
+              onClick={() =>
+                setDraft({
+                  town: appointment.place_town ?? "",
+                  address: appointment.place_address ?? "",
+                })
+              }
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              {t("placeChange")}
+            </Button>
+          ) : null}
+        </div>
+      ) : (
+        <form
+          className="space-y-3"
+          noValidate
+          onSubmit={(event) => {
+            event.preventDefault();
+            void save(draft);
+          }}
+        >
+          {places.length ? (
+            <Field>
+              <FieldLabel htmlFor={`${heading}-saved`}>
+                {t("placeSaved")}
+              </FieldLabel>
+              <SavedPlacePicker
+                id={`${heading}-saved`}
+                onPick={(place) =>
+                  setDraft({ town: place.town, address: place.address })
+                }
+                places={places}
+              />
+            </Field>
+          ) : null}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor={`${heading}-town`}>{t("town")}</FieldLabel>
+              <Input
+                autoComplete="off"
+                id={`${heading}-town`}
+                maxLength={120}
+                onChange={(event) =>
+                  setDraft({ ...draft, town: event.target.value })
+                }
+                value={draft.town}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor={`${heading}-address`}>
+                {t("placeAddress")}
+              </FieldLabel>
+              <Input
+                autoComplete="off"
+                id={`${heading}-address`}
+                maxLength={240}
+                onChange={(event) =>
+                  setDraft({ ...draft, address: event.target.value })
+                }
+                value={draft.address}
+              />
+            </Field>
+          </div>
+          {problem ? (
+            <p className="text-sm text-destructive" role="alert">
+              {problem}
+            </p>
+          ) : null}
+          <div className="flex flex-wrap gap-2">
+            <Button disabled={busy} size="sm" type="submit">
+              {common("save")}
+            </Button>
+            <Button
+              onClick={() => setDraft(undefined)}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              {common("cancel")}
+            </Button>
+          </div>
+        </form>
+      )}
+    </section>
   );
 }
 

@@ -349,6 +349,8 @@ def create_appointment(
     walk_in_minutes: int | None = None,
     materials: list[dict[str, Any]] | None = None,
     customer_notes: str = "",
+    place_town: str = "",
+    place_address: str = "",
 ) -> CreatedAppointment:
     """Books a free slot, or — with `walk_in_minutes` — records work already under way.
 
@@ -369,7 +371,11 @@ def create_appointment(
     many of the least loaded free people as the service needs (ADR-058 §2–§4)
     — the browser never decides who gets the visit. Fewer named people than the
     service needs make a vacancy the office staffs from „Do przydzielenia”.
+
+    `place_town` and `place_address`: „Miejsce wizyty” (ADR-066), where the
+    visit takes place when that is not the company's location.
     """
+    place_town, place_address = place_town.strip(), place_address.strip()
     context = require_tenant_context()
     named = list(
         dict.fromkeys(
@@ -392,6 +398,7 @@ def create_appointment(
         **({"team_id": str(team_id)} if team_id else {}),
         **({"requested": True} if requested_staff_id else {}),
         **({"notes": customer_notes} if customer_notes else {}),
+        **({"place": [place_town, place_address]} if place_town or place_address else {}),
     })
     with connection.cursor() as cursor:
         # One key at a time: a retry sent while the first request still runs
@@ -566,6 +573,8 @@ def create_appointment(
                 requested_team=team,
                 requested_staff_id=requested_staff_id,
                 customer_notes=customer_notes.strip()[:500],
+                place_town=place_town[:120],
+                place_address=place_address[:240],
             )
             taken: list[UUID] = []
             for person_id in candidates:
@@ -1094,6 +1103,45 @@ def set_appointment_materials(
 
 
 @transaction.atomic
+def set_appointment_place(*, appointment_id: UUID, town: str, address: str = "") -> Appointment:
+    """„Miejsce wizyty” of a booked visit (ADR-066): its town and, optionally,
+    a street and number; both empty give the place back to the module that
+    knows it. Setting the same place again changes nothing, so a retry is safe.
+    A called-off visit keeps the place it had."""
+    context = authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED)
+    appointment = (
+        Appointment.all_objects.select_for_update(of=("self",))
+        .filter(organization_id=context.organization_id, pk=appointment_id)
+        .first()
+    )
+    if appointment is None:
+        raise NotFound("Rezerwacja nie istnieje.")
+    if appointment.status == AppointmentStatus.CANCELED:
+        raise AppointmentNotChangeable
+    town, address = town.strip()[:120], address.strip()[:240]
+    if (appointment.place_town, appointment.place_address) == (town, address):
+        return appointment
+    before = appointment.place_town
+    address_changed = appointment.place_address != address
+    appointment.place_town, appointment.place_address = town, address
+    appointment.save(update_fields=["place_town", "place_address", "updated_at"])
+    record_audit(
+        organization=Organization.objects.get(pk=context.organization_id),
+        action="booking.appointment.place_changed",
+        actor=User.objects.filter(pk=context.actor_id).first(),
+        target_type="appointment",
+        target_id=appointment.id,
+        # The street may be a customer's home: the history says it changed,
+        # never what it is.
+        metadata={
+            "changes": {"place_town": {"from": before, "to": town}},
+            **({"address_changed": True} if address_changed else {}),
+        },
+    )
+    return appointment
+
+
+@transaction.atomic
 def complete_appointment(
     *,
     appointment_id: UUID,
@@ -1206,6 +1254,11 @@ def anonymize_customer(customer_id: UUID) -> Customer:
     # in a clinic it can be about their health.
     Appointment.all_objects.filter(customer=customer).exclude(customer_notes="").update(
         customer_notes=""
+    )
+    # So does the street of a visit at the customer's (ADR-066); the town stays,
+    # it names nobody.
+    Appointment.all_objects.filter(customer=customer).exclude(place_address="").update(
+        place_address=""
     )
     record_audit(
         organization=Organization.objects.get(pk=context.organization_id),

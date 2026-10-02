@@ -36,7 +36,7 @@ from .observers import (
     AppointmentChange,
     register_appointment_observer,
 )
-from .places import register_appointment_place
+from .places import PlaceSuggestion, register_appointment_place, register_place_search
 from .services import (
     BOOKING_ENABLED,
     BOOKING_MANAGE,
@@ -76,6 +76,7 @@ __all__ = [
     "Event",
     "Metric",
     "Period",
+    "PlaceSuggestion",
     "SlotUnavailable",
     "StaffFacts",
     "StaffSubject",
@@ -91,6 +92,7 @@ __all__ = [
     "on_crew",
     "register_appointment_observer",
     "register_appointment_place",
+    "register_place_search",
     "register_staff_facts",
     "reschedule_appointment",
     "staff_for_membership",

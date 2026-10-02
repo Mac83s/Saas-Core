@@ -93,6 +93,42 @@ class AppointmentCreateSerializer(serializers.Serializer[dict[str, Any]]):
     materials = MaterialInputSerializer(many=True, required=False)
     #: „Uwagi”: what the customer wants the company to know (never in an e-mail).
     customer_notes = serializers.CharField(required=False, allow_blank=True, max_length=500)
+    place_town = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=120,
+        help_text="„Miejsce wizyty”: the town, when the visit is not at the company's location.",
+    )
+    place_address = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=240,
+        help_text="Street and number in that town; optional.",
+    )
+
+
+class VisitPlaceInputSerializer(serializers.Serializer[dict[str, Any]]):
+    """„Miejsce wizyty” of a booked visit; both empty clear it (ADR-066)."""
+
+    town = serializers.CharField(allow_blank=True, max_length=120, help_text="The town.")
+    address = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        max_length=240,
+        help_text="Street and number; optional.",
+    )
+
+
+class VisitPlaceSuggestionSerializer(serializers.Serializer[dict[str, Any]]):
+    """A place the company keeps (a farm, say); choosing it fills the visit's place."""
+
+    name = serializers.CharField(help_text="What the office knows the place by.")
+    town = serializers.CharField()
+    address = serializers.CharField()
+
+
+class VisitPlaceSuggestionListSerializer(serializers.Serializer[dict[str, Any]]):
+    items = VisitPlaceSuggestionSerializer(many=True)
 
 
 class PublicAppointmentCreateSerializer(serializers.Serializer[dict[str, Any]]):
@@ -143,10 +179,16 @@ class AppointmentSerializer(serializers.Serializer[dict[str, Any]]):
     place = serializers.CharField(
         allow_null=True,
         help_text=(
-            "Where the visit takes place, usually its town, as the module that "
-            "owns the visit's detail knows it (a field visit's farm or address). "
-            "Null when no module says."
+            "Where the visit takes place, as a town: the visit's own place_town, "
+            "else what the module that owns the visit's detail knows (a field "
+            "visit's farm). Null when neither says."
         ),
+    )
+    place_town = serializers.CharField(
+        required=False, help_text="The visit's own „Miejsce wizyty”: its town, or empty."
+    )
+    place_address = serializers.CharField(
+        required=False, help_text="Street and number of the visit's own place, or empty."
     )
     resource_name = serializers.CharField(allow_null=True)
     #: Tylko w panelu firmy; klient w self-service tego nie dostaje.
@@ -470,6 +512,8 @@ class CatalogSerializer(serializers.Serializer[dict[str, Any]]):
     staff = StaffSerializer(many=True)
     services = ServiceSerializer(many=True)
     resources = ResourceSerializer(many=True)
+    #: A module offers the company's places (GET /booking/places/) in the visit form.
+    place_search = serializers.BooleanField(required=False)
 
 
 class PublicCatalogSerializer(serializers.Serializer[dict[str, Any]]):

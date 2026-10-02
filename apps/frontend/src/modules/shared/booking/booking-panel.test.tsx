@@ -37,10 +37,12 @@ const api = vi.hoisted(() => ({
   getPublicBookingTimes: vi.fn(),
   getSelfServiceBooking: vi.fn(),
   listBookingAppointments: vi.fn(),
+  listBookingPlaces: vi.fn(),
   listPeople: vi.fn(),
   listTeams: vi.fn(),
   rescheduleBookingAppointment: vi.fn(),
   rescheduleSelfServiceBooking: vi.fn(),
+  setBookingAppointmentPlace: vi.fn(),
 }));
 
 vi.mock("@saas-core/api-client", async (original) => ({
@@ -514,6 +516,92 @@ test("a visit's products can change until it is completed, which takes them off 
   expect(
     within(details).queryByRole("button", { name: "Change products" }),
   ).toBeNull();
+});
+
+test("„Miejsce wizyty”: a saved place fills the town and the address, and a visit's place changes in its details", async () => {
+  api.getBookingCatalog.mockResolvedValue({ ...catalog, place_search: true });
+  api.listBookingPlaces.mockResolvedValue([
+    { name: "Gospodarstwo Kowalski", town: "Testowo", address: "Polna 3" },
+  ]);
+  api.getBookingSlots.mockResolvedValue({
+    items: [
+      {
+        starts_at: "2026-08-20T07:00:00Z",
+        ends_at: "2026-08-20T07:30:00Z",
+        staff_id: ALEX,
+        resource_id: ROOM,
+      },
+    ],
+  });
+  api.createBookingAppointment.mockResolvedValue({
+    ...appointment,
+    place: "Testowo",
+    place_town: "Testowo",
+    place_address: "Polna 3",
+  });
+  renderCalendar();
+  fireEvent.click(
+    await screen.findByRole("button", { name: "New appointment" }),
+  );
+  const dialog = await screen.findByRole("dialog", { name: "New appointment" });
+  fireEvent.change(within(dialog).getByLabelText("Service"), {
+    target: { value: catalog.services[0].id },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Date"), {
+    target: { value: "2026-08-20" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Time"), {
+    target: { value: "09:00" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Full name"), {
+    target: { value: "Jan Kowalski" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Phone"), {
+    target: { value: "+48 600 100 200" },
+  });
+  const saved = await within(dialog).findByLabelText("Saved place");
+  fireEvent.change(saved, { target: { value: "0" } });
+  expect(within(dialog).getByLabelText("Town")).toHaveValue("Testowo");
+  expect(
+    within(dialog).getByLabelText("Address (street and number)"),
+  ).toHaveValue("Polna 3");
+  expect((await axe.run(dialog)).violations).toHaveLength(0);
+  await waitFor(() =>
+    expect(within(dialog).getByText("This time is free.")).not.toBeNull(),
+  );
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Save appointment" }),
+  );
+  await waitFor(() => expect(api.createBookingAppointment).toHaveBeenCalled());
+  expect(api.createBookingAppointment.mock.calls[0][0]).toMatchObject({
+    place_town: "Testowo",
+    place_address: "Polna 3",
+  });
+
+  // The visit's details: the place, and „Zmień miejsce” for whoever books.
+  api.setBookingAppointmentPlace.mockResolvedValue({
+    ...appointment,
+    place: "Zambrów",
+    place_town: "Zambrów",
+    place_address: "",
+  });
+  fireEvent.click(await screen.findByRole("button", { name: /Jan Kowalski/ }));
+  const details = await screen.findByRole("dialog", { name: /Jan Kowalski/ });
+  expect(within(details).getByText("Not given")).not.toBeNull();
+  fireEvent.click(
+    within(details).getByRole("button", { name: "Change place" }),
+  );
+  fireEvent.change(within(details).getByLabelText("Town"), {
+    target: { value: "Zambrów" },
+  });
+  fireEvent.click(within(details).getByRole("button", { name: "Save" }));
+  await waitFor(() =>
+    expect(api.setBookingAppointmentPlace).toHaveBeenCalledWith(
+      appointment.id,
+      { town: "Zambrów", address: "" },
+    ),
+  );
+  expect(await within(details).findByText("Visit place saved.")).not.toBeNull();
 });
 
 test("a new appointment takes a free time and says when one is taken", async () => {

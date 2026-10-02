@@ -1178,6 +1178,49 @@ paths:
               schema:
                 $ref: '#/components/schemas/Appointment'
           description: ''
+  /api/v1/booking/appointments/{appointment_id}/place/:
+    put:
+      operationId: api_v1_booking_appointments_place_update
+      description: Sets the visit's town and, optionally, street and number. Both
+        empty clear it, and the calendar falls back to what a module knows. The same
+        place again changes nothing. A called-off visit cannot be changed (appointment_not_changeable).
+      summary: Set where a visit takes place
+      parameters:
+      - in: path
+        name: appointment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - booking
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VisitPlaceInput'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/VisitPlaceInput'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/VisitPlaceInput'
+        required: true
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Appointment'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
   /api/v1/booking/appointments/{appointment_id}/reschedule/:
     post:
       operationId: api_v1_booking_appointments_reschedule_create
@@ -1373,6 +1416,41 @@ paths:
                 $ref: '#/components/schemas/ProblemDetails'
           description: ''
         '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+          description: ''
+  /api/v1/booking/places/:
+    get:
+      operationId: api_v1_booking_places_retrieve
+      description: Places the company keeps in its modules, matched by name or town;
+        choosing one fills a visit's place_town and place_address. Empty when no module
+        offers places (catalog.place_search is false).
+      summary: Places a visit can take place at
+      parameters:
+      - in: query
+        name: limit
+        schema:
+          type: integer
+        description: At most this many (1–500, default 200).
+      - in: query
+        name: q
+        schema:
+          type: string
+        description: Part of a name or a town.
+      tags:
+      - booking
+      security:
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VisitPlaceSuggestionList'
+          description: ''
+        '400':
           content:
             application/json:
               schema:
@@ -12079,9 +12157,15 @@ components:
           type:
           - string
           - 'null'
-          description: Where the visit takes place, usually its town, as the module
-            that owns the visit's detail knows it (a field visit's farm or address).
-            Null when no module says.
+          description: 'Where the visit takes place, as a town: the visit''s own place_town,
+            else what the module that owns the visit''s detail knows (a field visit''s
+            farm). Null when neither says.'
+        place_town:
+          type: string
+          description: 'The visit''s own „Miejsce wizyty”: its town, or empty.'
+        place_address:
+          type: string
+          description: Street and number of the visit's own place, or empty.
         resource_name:
           type:
           - string
@@ -12192,6 +12276,15 @@ components:
         customer_notes:
           type: string
           maxLength: 500
+        place_town:
+          type: string
+          description: '„Miejsce wizyty”: the town, when the visit is not at the company''s
+            location.'
+          maxLength: 120
+        place_address:
+          type: string
+          description: Street and number in that town; optional.
+          maxLength: 240
       required:
       - customer
       - location_id
@@ -12823,6 +12916,8 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Resource'
+        place_search:
+          type: boolean
       required:
       - locations
       - resources
@@ -18481,9 +18576,15 @@ components:
           type:
           - string
           - 'null'
-          description: Where the visit takes place, usually its town, as the module
-            that owns the visit's detail knows it (a field visit's farm or address).
-            Null when no module says.
+          description: 'Where the visit takes place, as a town: the visit''s own place_town,
+            else what the module that owns the visit''s detail knows (a field visit''s
+            farm). Null when neither says.'
+        place_town:
+          type: string
+          description: 'The visit''s own „Miejsce wizyty”: its town, or empty.'
+        place_address:
+          type: string
+          description: Street and number of the visit's own place, or empty.
         resource_name:
           type:
           - string
@@ -20721,6 +20822,45 @@ components:
       - verified
       type: string
       description: '* `verified` - verified'
+    VisitPlaceInput:
+      type: object
+      description: „Miejsce wizyty” of a booked visit; both empty clear it (ADR-066).
+      properties:
+        town:
+          type: string
+          description: The town.
+          maxLength: 120
+        address:
+          type: string
+          description: Street and number; optional.
+          maxLength: 240
+      required:
+      - town
+    VisitPlaceSuggestion:
+      type: object
+      description: A place the company keeps (a farm, say); choosing it fills the
+        visit's place.
+      properties:
+        name:
+          type: string
+          description: What the office knows the place by.
+        town:
+          type: string
+        address:
+          type: string
+      required:
+      - address
+      - name
+      - town
+    VisitPlaceSuggestionList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/VisitPlaceSuggestion'
+      required:
+      - items
     Webhook:
       type: object
       properties:

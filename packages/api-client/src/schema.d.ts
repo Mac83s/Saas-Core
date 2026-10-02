@@ -489,6 +489,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/booking/appointments/{appointment_id}/place/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set where a visit takes place
+         * @description Sets the visit's town and, optionally, street and number. Both empty clear it, and the calendar falls back to what a module knows. The same place again changes nothing. A called-off visit cannot be changed (appointment_not_changeable).
+         */
+        put: operations["api_v1_booking_appointments_place_update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/booking/appointments/{appointment_id}/reschedule/": {
         parameters: {
             query?: never;
@@ -579,6 +599,26 @@ export interface paths {
         };
         /** @description Everybody's numbers side by side: the owner's and administrator's view. */
         get: operations["api_v1_booking_performance_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/booking/places/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Places a visit can take place at
+         * @description Places the company keeps in its modules, matched by name or town; choosing one fills a visit's place_town and place_address. Empty when no module offers places (catalog.place_search is false).
+         */
+        get: operations["api_v1_booking_places_retrieve"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4075,8 +4115,12 @@ export interface components {
             /** Format: uuid */
             staff_membership_id: string | null;
             location_name: string;
-            /** @description Where the visit takes place, usually its town, as the module that owns the visit's detail knows it (a field visit's farm or address). Null when no module says. */
+            /** @description Where the visit takes place, as a town: the visit's own place_town, else what the module that owns the visit's detail knows (a field visit's farm). Null when neither says. */
             place: string | null;
+            /** @description The visit's own „Miejsce wizyty”: its town, or empty. */
+            place_town?: string;
+            /** @description Street and number of the visit's own place, or empty. */
+            place_address?: string;
             resource_name: string | null;
             materials?: components["schemas"]["MaterialLine"][];
             takes_materials?: boolean;
@@ -4111,6 +4155,10 @@ export interface components {
             customer: components["schemas"]["CustomerInput"];
             materials?: components["schemas"]["MaterialInput"][];
             customer_notes?: string;
+            /** @description „Miejsce wizyty”: the town, when the visit is not at the company's location. */
+            place_town?: string;
+            /** @description Street and number in that town; optional. */
+            place_address?: string;
         };
         AppointmentList: {
             items: components["schemas"]["Appointment"][];
@@ -4335,6 +4383,7 @@ export interface components {
             staff: components["schemas"]["Staff"][];
             services: components["schemas"]["Service"][];
             resources: components["schemas"]["Resource"][];
+            place_search?: boolean;
         };
         CatalogCategory: {
             key: string;
@@ -6605,8 +6654,12 @@ export interface components {
             /** Format: uuid */
             staff_membership_id: string | null;
             location_name: string;
-            /** @description Where the visit takes place, usually its town, as the module that owns the visit's detail knows it (a field visit's farm or address). Null when no module says. */
+            /** @description Where the visit takes place, as a town: the visit's own place_town, else what the module that owns the visit's detail knows (a field visit's farm). Null when neither says. */
             place: string | null;
+            /** @description The visit's own „Miejsce wizyty”: its town, or empty. */
+            place_town?: string;
+            /** @description Street and number of the visit's own place, or empty. */
+            place_address?: string;
             resource_name: string | null;
             materials?: components["schemas"]["MaterialLine"][];
             takes_materials?: boolean;
@@ -7500,6 +7553,23 @@ export interface components {
          * @enum {string}
          */
         VerificationResultStatusEnum: "verified";
+        /** @description „Miejsce wizyty” of a booked visit; both empty clear it (ADR-066). */
+        VisitPlaceInput: {
+            /** @description The town. */
+            town: string;
+            /** @description Street and number; optional. */
+            address?: string;
+        };
+        /** @description A place the company keeps (a farm, say); choosing it fills the visit's place. */
+        VisitPlaceSuggestion: {
+            /** @description What the office knows the place by. */
+            name: string;
+            town: string;
+            address: string;
+        };
+        VisitPlaceSuggestionList: {
+            items: components["schemas"]["VisitPlaceSuggestion"][];
+        };
         Webhook: {
             /** Format: uuid */
             id: string;
@@ -8877,6 +8947,41 @@ export interface operations {
             };
         };
     };
+    api_v1_booking_appointments_place_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                appointment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisitPlaceInput"];
+                "application/x-www-form-urlencoded": components["schemas"]["VisitPlaceInput"];
+                "multipart/form-data": components["schemas"]["VisitPlaceInput"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Appointment"];
+                };
+            };
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     api_v1_booking_appointments_reschedule_create: {
         parameters: {
             query?: never;
@@ -9060,6 +9165,38 @@ export interface operations {
                 };
             };
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    api_v1_booking_places_retrieve: {
+        parameters: {
+            query?: {
+                /** @description At most this many (1–500, default 200). */
+                limit?: number;
+                /** @description Part of a name or a town. */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VisitPlaceSuggestionList"];
+                };
+            };
+            400: {
                 headers: {
                     [name: string]: unknown;
                 };

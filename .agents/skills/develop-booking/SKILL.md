@@ -42,11 +42,14 @@ concurrency are both harder than they look.
   the people. A product uses `booking.api` (`join_visit_crew`,
   `leave_visit_crew`, `crew_people`, `crew_member_filter`); writing an
   allocation directly leaves a lead nobody blocked and a queue that lies.
-- **Where a visit takes place is the product's to say.** The company's
-  `Location` is where it is booked; a field visit happens elsewhere. A product
-  registers `booking.api.register_appointment_place(name, provider)` — ids in,
-  town per id out, one call per list — and the panel shows it as `place` on
-  every calendar view. No provider: `place` is null and nothing is shown.
+- **Where a visit takes place (ADR-066).** The company's `Location` is where it
+  is booked; a field visit happens elsewhere. The visit's own `place_town` and
+  `place_address` say it first (set in the form or `PUT …/place/`); where they
+  are empty, a product's `booking.api.register_appointment_place(name,
+  provider)` may — ids in, town per id out, one call per list. The panel shows
+  the result as `place`. A product's `register_place_search` offers the
+  company's places in the form (HoofCare: farms). The street can be a
+  customer's home: never in the audit, cleared on anonymization.
 
 ## Conflicts
 

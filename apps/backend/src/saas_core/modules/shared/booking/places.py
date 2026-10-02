@@ -1,26 +1,57 @@
-"""Where a visit takes place, said by the module that knows it.
+"""Where a visit takes place (ADR-066).
 
 A visit is booked at one of the company's locations, but a field visit happens
-somewhere else — at a farm, at a customer's house — and only the module that
-hangs its detail on the appointment knows where. Core knows no product by name,
-so a module registers a provider from its own `AppConfig.ready` through
-`booking.api.register_appointment_place`; without one the calendar has no place
-to show and says nothing.
+somewhere else — at a farm, at a customer's house. The visit's own „Miejsce
+wizyty” (`Appointment.place_town`, `place_address`) says it first; where it is
+empty, the module that hangs its detail on the appointment may still know.
+
+Core knows no product by name, so a module registers from its own
+`AppConfig.ready` through `booking.api`:
+
+- `register_appointment_place`: the town of visits it knows (a herd visit's
+  farm), shown where the visit's own place is empty;
+- `register_place_search`: places the company keeps (its farms), offered in the
+  visit form, so choosing one fills the town and the address.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
 from uuid import UUID
+
+from saas_core.modules.shared.billing.api import FeatureOperation
+from saas_core.modules.shared.billing.authorization import authorize_entitled
+
+from .services import BOOKING_ENABLED, BOOKING_MANAGE
 
 #: Appointment ids → the town (or the nearest name of the place) for those it knows.
 PlaceProvider = Callable[[Sequence[UUID]], Mapping[UUID, str]]
 
+
+@dataclass(frozen=True, slots=True)
+class PlaceSuggestion:
+    """A place the company keeps, as the visit form offers it."""
+
+    #: What the office knows it by, e.g. a farm's name.
+    name: str
+    town: str
+    address: str = ""
+
+
+#: A search text ("" for all) → the company's places that match, at most `limit`.
+PlaceSearch = Callable[[str, int], Sequence[PlaceSuggestion]]
+
 _providers: dict[str, PlaceProvider] = {}
+_searches: dict[str, PlaceSearch] = {}
 
 
 def register_appointment_place(name: str, provider: PlaceProvider) -> None:
     _providers[name] = provider
+
+
+def register_place_search(name: str, search: PlaceSearch) -> None:
+    _searches[name] = search
 
 
 def appointment_places(ids: Sequence[UUID]) -> dict[UUID, str]:
@@ -34,3 +65,21 @@ def appointment_places(ids: Sequence[UUID]) -> dict[UUID, str]:
             if value:
                 places.setdefault(key, value)
     return places
+
+
+def has_place_search() -> bool:
+    return bool(_searches)
+
+
+def search_places(query: str = "", limit: int = 200) -> list[PlaceSuggestion]:
+    """Every registered search, in turn, until `limit`. A search checks its
+    own module's read permission and answers nothing without it; the list is
+    for whoever books visits."""
+    authorize_entitled(BOOKING_MANAGE, BOOKING_ENABLED, operation=FeatureOperation.READ)
+    limit = max(1, min(limit, 500))
+    found: list[PlaceSuggestion] = []
+    for search in _searches.values():
+        found.extend(search(query.strip(), limit - len(found)))
+        if len(found) >= limit:
+            break
+    return found[:limit]
