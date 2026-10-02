@@ -51,6 +51,13 @@ wymaga nowego ADR, nie cichego odstępstwa w kodzie.
   warianty i domyślne wartości odczytywalne z API. Szczegóły i lista kontrolna:
   skill `change-api-and-events`, sekcja „Operable by the AI assistant”; plan:
   memex `saas-core-asystent-ai-zakladanie-i-konfiguracja-firmy`.
+- **Co firma mogłaby chcieć inaczej, jest ustawieniem** (decyzja właściciela
+  2026-10-02, ADR-078). Nowy próg, czas, limit, okno, przełącznik, odbiorca albo
+  tekst do klienta nie trafia na sztywno do kodu, `.env` ani komponentu. Do czasu
+  rejestru ustawień (faza R1 planu memex `saas-core-ustawienia-firmy`) taka reguła
+  żyje w jednej nazwanej stałej modułu (wartość, granice, warianty, etykiety
+  pl/en), wystawionej przez API; R1 przenosi ją do deklaracji bez zmiany wejścia
+  API i poleceń. `.env` zostaje dla sekretów, infrastruktury i limitów ochronnych.
 
 ## Mapa ścieżek do skills
 
