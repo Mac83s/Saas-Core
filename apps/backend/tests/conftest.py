@@ -17,11 +17,27 @@ from django.conf import settings
 # A module's tests that import its models at the top cannot even be collected
 # where the profile does not compose the module (a product repository runs
 # the core suite under its own profile); `skipif` comes too late for them.
-collect_ignore_glob = (
-    []
-    if "shared.image-generation" in settings.ACTIVE_MODULES
-    else ["test_image_generation_*.py", "test_template_photos_command.py"]
-)
+collect_ignore_glob = [
+    *(
+        []
+        if "shared.image-generation" in settings.ACTIVE_MODULES
+        else ["test_image_generation_*.py", "test_template_photos_command.py"]
+    ),
+    # HoofCare and MedPlano compose neither the model port nor translation.
+    *([] if "shared.model-port" in settings.ACTIVE_MODULES else ["test_model_port.py"]),
+    *(
+        []
+        if "shared.translation" in settings.ACTIVE_MODULES
+        else [
+            "test_translation_commands.py",
+            "test_translation_engine.py",
+            "test_translation_jobs.py",
+            "test_translation_notify.py",
+            "test_translation_review.py",
+            "test_translation_settings.py",
+        ]
+    ),
+]
 
 
 @pytest.fixture(autouse=True)
