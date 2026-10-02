@@ -168,9 +168,12 @@ C i nie da się ich przekroczyć żadną warstwą.
 
 `fallback` — wartość firmy zostaje zapisana, działa domyślna, pole jest tylko do
 odczytu z powodem; `keep` — wartość działa dalej; `keep_shrink_always` dla
-`public_locales` — limit tylko przy dodawaniu, usuwanie i kolejność zawsze, obszar
-platformy zwolniony (ADR-071 pkt 7). Przekroczenie limitu przycina wartość
-skuteczną bez zmiany zapisu. Migawki rezerwacji się nie zmieniają. Schemat (pkt 11)
+`public_locales` — limit tylko przy dodawaniu, a usuwania i kolejności plan nigdy
+nie blokuje (reguły ADR-071 pkt 4–6 zostają: lista nigdy pusta, języka źródłowego
+strony nie da się usunąć, usunięcie jest decyzją osoby), obszar platformy zwolniony,
+a obniżony limit nie wyłącza włączonego języka (ADR-071 pkt 7). Przy `fallback` i
+`keep` przekroczenie limitu przycina wartość skuteczną bez zmiany zapisu. Migawki
+rezerwacji się nie zmieniają. Schemat (pkt 11)
 podaje stan cechy, więc panel zna blokadę przed kliknięciem.
 
 ### 6. Dziedziczenie: na żywo albo kopia przy utworzeniu
@@ -204,8 +207,9 @@ Wersja jest per wiersz wartości. Grupa ma jeden **token wersji**: skrót
 grupy (brak wiersza = 0) — kształt `Preview.observed_versions`. Niezależne grupy
 się nie blokują; jedna `Organization.version` przestaje chronić ustawienia, które
 nie są kolumnami firmy. Grupa w encji ma za token wersję encji (`expected_version`
-oferty z ADR-072 §11). Języki firmy mają własną wersję i `PublicLocalesChange` z
-TL10 (ADR-071 pkt 5).
+oferty z ADR-072 §11). Języki firmy mają własną wersję
+`Organization.public_locales_version`, a pokwitowanie i historię domenową w
+`PublicLocalesChange` z TL10 (ADR-071 pkt 5).
 
 Idempotencję zapisu grupy `store` trzyma pokwitowanie w `core.organizations`
 (organizacja, principal, grupa, klucz, skrót żądania, wynik; unikalne jak
@@ -244,10 +248,12 @@ polem = klucz.
 Zasięg firmy zapisuje `change_settings(group, changes, reset, expected_version)` w
 rdzeniu. Encje zapisuje serwis modułu, który woła walidację, podgląd i historię z
 rejestru: oferta przez §11 (pkt 17), sklep przez `ShopMutation`, tłumaczenia przez
-API `TranslationSettings` (TL6), języki przez serwis TL10. Historia: akcja
-`organization.settings_changed` z grupą w `target_type` i różnicą kluczy w metadanych
-(`field_changes`; klucze `personal` tylko „zmieniono”), filtr historii po grupie i
-kluczu.
+API `TranslationSettings` (TL6), języki przez serwis TL10. Historia: grupy firmy
+(`store`, `column`, także języki z TL10) zapisują akcję
+`organization.settings_changed` z kluczem grupy w `target_type` i różnicą kluczy w
+metadanych (`field_changes`; klucze `personal` tylko „zmieniono”); grupy w encjach
+zostają przy akcjach domenowych modułu i dopisują klucz grupy w metadanych. Historia
+filtruje po grupie i kluczu.
 
 ### 10. Klasa danych (UF-T8)
 
