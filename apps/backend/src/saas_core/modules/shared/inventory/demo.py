@@ -21,7 +21,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from .models import InventoryItem, StockDocument
+from .models import InventoryCategory, InventoryItem, StockDocument
 from .services import (
     LineInput,
     create_document,
@@ -107,6 +107,17 @@ def _seed_organization(run: DemoRun, key: str, data: dict[str, Any], request: De
             organization_id=organization.id, name__iexact=wanted["name"]
         ).first()
         if item is None:
+            # A category key of the organization's type (ensure_catalog). A
+            # product's type need not have the core's keys ("material" is not a
+            # hoof trimmer's): the item then goes without a category.
+            category = wanted.get("category", "")
+            if (
+                category
+                and not InventoryCategory.all_objects.filter(
+                    organization_id=organization.id, key=category
+                ).exists()
+            ):
+                category = ""
             item = create_item(
                 request=request,
                 data={
@@ -114,8 +125,7 @@ def _seed_organization(run: DemoRun, key: str, data: dict[str, Any], request: De
                     "sku": wanted.get("sku", ""),
                     "unit": wanted.get("unit", "piece"),
                     "tracks_lots": bool(wanted.get("tracks_lots")),
-                    # A category key of the organization's type (ensure_catalog).
-                    "category": wanted.get("category", ""),
+                    "category": category,
                     "minimum_quantity": Decimal(str(wanted.get("minimum", 0))),
                 },
             )

@@ -7,6 +7,7 @@ from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
+from django.conf import settings
 from django.core.management import CommandError, call_command
 from django.utils import timezone
 
@@ -93,6 +94,19 @@ def test_the_seed_builds_a_business_demo_and_a_second_run_adds_nothing() -> None
     assert counts() == first
 
 
+def test_an_item_whose_category_the_profile_lacks_goes_without_one(monkeypatch) -> None:
+    # A product's organization type has its own categories (HoofCare: blocks,
+    # dressings): the Business demo's "material" must not stop the seed there.
+    from saas_core.modules.shared.inventory import demo as warehouse  # noqa: PLC0415
+
+    data = {**warehouse.BUSINESS, "items": [dict(item) for item in warehouse.BUSINESS["items"]]}
+    data["items"][3]["category"] = "nie-ma-takiej"
+    monkeypatch.setattr(warehouse, "BUSINESS", data)
+    run_demo(password=PASSWORD, log=lambda line: None, now=tomorrow_morning())
+    gloves = InventoryItem.all_objects.get(sku="DEMO-GLV")
+    assert gloves.category is None
+
+
 def test_the_command_refuses_without_the_flag_and_on_production(monkeypatch, settings) -> None:
     monkeypatch.delenv("DEMO_SEED_ENABLED", raising=False)
     monkeypatch.setenv("DEMO_SEED_PASSWORD", PASSWORD)
@@ -125,6 +139,10 @@ def test_the_password_comes_from_stdin_and_is_never_short(monkeypatch) -> None:
     assert User.objects.get(email="kierownik@saas.test").check_password(PASSWORD)
 
 
+@pytest.mark.skipif(
+    "shared.farms" not in settings.ACTIVE_MODULES,
+    reason="rejestr gospodarstw istnieje tylko w profilu, który go składa",
+)
 def test_a_product_scenario_links_a_farm_to_the_company(monkeypatch) -> None:
     from saas_core.modules.core.organizations import demo
     from saas_core.modules.shared.farms.models import Farm, FarmShare
